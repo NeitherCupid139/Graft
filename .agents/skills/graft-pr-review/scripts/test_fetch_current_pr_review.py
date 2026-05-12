@@ -1,0 +1,104 @@
+#!/usr/bin/env python3
+"""Regression tests for the Graft PR review fetch helper."""
+
+from __future__ import annotations
+
+import importlib.util
+import os
+from pathlib import Path
+import unittest
+from unittest import mock
+
+
+SCRIPT_PATH = Path(__file__).with_name("fetch_current_pr_review.py")
+MODULE_SPEC = importlib.util.spec_from_file_location("fetch_current_pr_review", SCRIPT_PATH)
+if MODULE_SPEC is None or MODULE_SPEC.loader is None:
+    raise RuntimeError(f"Unable to load module from {SCRIPT_PATH}.")
+
+MODULE = importlib.util.module_from_spec(MODULE_SPEC)
+MODULE_SPEC.loader.exec_module(MODULE)
+
+
+class ParseFailedTestDetailsTests(unittest.TestCase):
+    """Cover failed-test table parsing edge cases for CTRF comments."""
+
+    def test_parse_failed_test_details_ignores_trailing_columns(self) -> None:
+        """Extra columns should not prevent extracting the name and failure message."""
+        block = """
+### ❌ **Some tests failed!**
+<table>
+  <tbody>
+    <tr>
+      <td>❌ RegisterMigration_During_Cache_Rebuild_Should_Not_Leave_Stale_Type_Cache</td>
+      <td><pre>Expected: False\nBut was: True</pre></td>
+      <td>failed</td>
+      <td>35.3s</td>
+    </tr>
+  </tbody>
+</table>
+"""
+
+        details = MODULE.parse_failed_test_details(block)
+
+        self.assertEqual(
+            details,
+            [
+                {
+                    "name": "RegisterMigration_During_Cache_Rebuild_Should_Not_Leave_Stale_Type_Cache",
+                    "failure_message": "Expected: False\nBut was: True",
+                }
+            ],
+        )
+
+
+class ParseLatestReviewBodyTests(unittest.TestCase):
+    """Cover folded CodeRabbit review-body parsing for grouped findings."""
+
+    def test_parse_latest_review_body_extracts_outside_diff_and_nitpick_groups(self) -> None:
+        """Grouped sections in the latest review body should stay machine-readable."""
+        review_body = """
+**Actionable comments posted: 2**
+<details><summary>Outside diff range comments (1)</summary><blockquote>
+<details><summary>server/main.go (1)</summary><blockquote>
+`L10-L12`: **Clarify startup flow**
+This path hides boot ordering.
+</blockquote></details>
+</blockquote></details>
+<details><summary>Nitpick comments (1)</summary><blockquote>
+<details><summary>AGENTS.md (1)</summary><blockquote>
+`L1-L2`: **Tighten wording**
+This sentence is redundant.
+</blockquote></details>
+</blockquote></details>
+"""
+
+        parsed = MODULE.parse_latest_review_body(review_body)
+
+        self.assertEqual(parsed["actionable_count"], 2)
+        self.assertEqual(parsed["outside_diff_count"], 1)
+        self.assertEqual(parsed["nitpick_count"], 1)
+        self.assertEqual(parsed["outside_diff_comments"][0]["path"], "server/main.go")
+        self.assertEqual(parsed["nitpick_comments"][0]["path"], "AGENTS.md")
+
+
+class ResolveGitInvocationTests(unittest.TestCase):
+    """Cover explicit repository binding for unusual shell contexts."""
+
+    def test_resolve_git_invocation_prefers_explicit_git_dir_and_work_tree(self) -> None:
+        """Configured repository bindings should win over implicit git context."""
+        with mock.patch.dict(
+            os.environ,
+            {
+                MODULE.GIT_DIR_ENVIRONMENT_KEY: "/tmp/graft.git",
+                MODULE.WORK_TREE_ENVIRONMENT_KEY: "/tmp/graft-worktree",
+            },
+            clear=False,
+        ), mock.patch.object(MODULE.shutil, "which", side_effect=lambda name: "/usr/bin/git" if name == "git" else None):
+            self.assertEqual(
+                MODULE.resolve_git_invocation(),
+                ["/usr/bin/git", "--git-dir=/tmp/graft.git", "--work-tree=/tmp/graft-worktree"],
+            )
+
+
+if __name__ == "__main__":
+    unittest.main()

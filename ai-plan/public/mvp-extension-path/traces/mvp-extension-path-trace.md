@@ -40,6 +40,19 @@
 - Remaining validation gap: Atlas apply was not executed against a live PostgreSQL database in this environment because
   the `atlas` CLI is not installed and no disposable database target was provisioned.
 
+## 2026-05-13 PR review skill absorption
+
+- Added a repository-local `graft-pr-review` skill under `.agents/skills/` so Graft can inspect the current branch PR
+  through the GitHub API instead of depending on a GFramework-specific workflow.
+- Absorbed the proven PR parsing logic from the external `gframework-pr-review` helper, but rewired the repository
+  constants, environment-variable prefix, and skill metadata for `GeWuYou/Graft`.
+- Simplified repository resolution so the helper uses normal `git` context by default and only falls back to explicit
+  `GRAFT_GIT_DIR` and `GRAFT_WORK_TREE` bindings when needed.
+- Registered the new skill in `AGENTS.md` so repository-maintained skill truth and the actual `.agents/skills/`
+  contents stay aligned.
+- Validated the helper locally with its Python regression tests and against the real public PR `GeWuYou/Graft#1`,
+  including text output, JSON output, and `jq` narrowing of high-signal fields.
+
 ## 2026-05-12 `.ai/environment`
 
 - Introduced `.ai/environment/tools.raw.yaml` and `.ai/environment/tools.ai.yaml` as repository-wide environment truth.

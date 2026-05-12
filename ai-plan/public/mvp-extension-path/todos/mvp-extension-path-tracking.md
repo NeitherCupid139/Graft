@@ -52,6 +52,9 @@
   factory boundary in `plugin.Context`.
 - `server` no longer exposes `*gorm.DB` or a runtime migration registry through the plugin lifecycle surface.
 - The initial Ent schema, generated client, and Atlas-versioned SQL baseline now live under `server/internal/ent/`.
+- Repository automation now includes a `graft-pr-review` skill that can resolve the current branch PR through the
+  GitHub API and extract AI review findings, failed checks, MegaLinter warnings, and failed test signals into a local
+  verification input.
 
 ## Active Risks
 
@@ -88,8 +91,13 @@
 - `cd server && go test ./...`
 - `cd server && go run ./cmd/graft --help`
 - `cd server && go run ./cmd/graft migrate --help`
+- `python3 .agents/skills/graft-pr-review/scripts/test_fetch_current_pr_review.py`
+- `env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY python3 .agents/skills/graft-pr-review/scripts/fetch_current_pr_review.py --pr 1 --section pr --section open-threads --section warnings`
+- `env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY python3 .agents/skills/graft-pr-review/scripts/fetch_current_pr_review.py --pr 1 --format json --json-output /tmp/graft-pr1-review.json`
+- `jq '.pull_request, .review_agents, .latest_commit_review.open_threads, .parse_warnings' /tmp/graft-pr1-review.json`
 
 ## Immediate Next Step
 
 - Run the first real Atlas migration against a disposable PostgreSQL instance, then add targeted tests around the
-  repository boundary and the new CLI error paths.
+  repository boundary and the new CLI error paths. The new PR-review skill is available to triage review findings on
+  that follow-up work.

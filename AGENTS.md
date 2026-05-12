@@ -87,6 +87,9 @@ Prefer the repository skills below when their trigger matches the task:
   * use for short startup prompts, resume prompts, or when the first step should be to read `AGENTS.md` and `ai-plan/`
 * `graft-multi-agent-batch`
   * use when the user explicitly wants subagent delegation or when the work cleanly splits into disjoint parallel slices
+* `graft-pr-review`
+  * use when the task depends on the GitHub PR for the current branch, especially to extract AI review findings,
+    failed checks, MegaLinter warnings, or failed test signals before local verification
 * `graft-plugin-scaffold`
   * use when adding a new `server` plugin or shaping a plugin before implementation
 * `graft-web-module-scaffold`
