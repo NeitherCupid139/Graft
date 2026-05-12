@@ -7,7 +7,10 @@ import (
 	"sort"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
+	"gorm.io/gorm"
 
+	"graft/server/internal/config"
 	"graft/server/internal/container"
 	"graft/server/internal/cronx"
 	"graft/server/internal/menu"
@@ -33,6 +36,9 @@ type Plugin interface {
 
 // Context exposes the explicit runtime handles that plugins may use.
 type Context struct {
+	Config             *config.Config
+	DB                 *gorm.DB
+	Redis              *redis.Client
 	Router             gin.IRouter
 	Services           *container.Container
 	MenuRegistry       *menu.Registry

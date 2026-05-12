@@ -65,3 +65,37 @@ require (
 	// protobuf 提供 Gin binding 处理 Protocol Buffers 请求体的能力。
 	google.golang.org/protobuf v1.36.11 // indirect
 )
+
+require (
+	// godotenv 只在本地开发时加载未提交的 .env 文件，真实环境变量保持优先。
+	github.com/joho/godotenv v1.5.1
+	// go-redis 是 server 核心 Redis client，用于缓存、会话和后续调度基础能力。
+	github.com/redis/go-redis/v9 v9.19.0
+	// Viper 负责读取 GRAFT_* 环境变量并提供默认值解析。
+	github.com/spf13/viper v1.21.0
+	// GORM PostgreSQL driver 是 server 第一阶段唯一正式数据库驱动。
+	gorm.io/driver/postgres v1.6.0
+	// GORM 是 server 的 ORM 与数据库访问基础。
+	gorm.io/gorm v1.31.1
+)
+
+require (
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/fsnotify/fsnotify v1.9.0 // indirect
+	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
+	github.com/jackc/pgpassfile v1.0.0 // indirect
+	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
+	github.com/jackc/pgx/v5 v5.6.0 // indirect
+	github.com/jackc/puddle/v2 v2.2.2 // indirect
+	github.com/jinzhu/inflection v1.0.0 // indirect
+	github.com/jinzhu/now v1.1.5 // indirect
+	github.com/sagikazarmark/locafero v0.11.0 // indirect
+	github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8 // indirect
+	github.com/spf13/afero v1.15.0 // indirect
+	github.com/spf13/cast v1.10.0 // indirect
+	github.com/spf13/pflag v1.0.10 // indirect
+	github.com/subosito/gotenv v1.6.0 // indirect
+	go.uber.org/atomic v1.11.0 // indirect
+	go.yaml.in/yaml/v3 v3.0.4 // indirect
+	golang.org/x/sync v0.20.0 // indirect
+)

@@ -39,6 +39,7 @@
 - The repository now contains the first substantive MVP shell implementation across both `server` and `web`.
 - `server` has a minimal runtime shell with explicit plugin registration, lifecycle ordering, registries, and a sample
   `user` plugin.
+- `server` now uses an env-first configuration path with PostgreSQL and Redis as required core infrastructure.
 - `web` has a minimal Vue 3 + TDesign admin shell with `AuthLayout`, `BasicLayout`, static routing, mock auth, and a
   navigation store reserved for backend-driven menu metadata.
 

@@ -39,6 +39,15 @@
 - Fixed the environment regeneration workflow so both scripts resolve the repository root through Git and can regenerate
   `.ai/environment/` again after the shell bootstrap work.
 
+## 2026-05-12 server env configuration
+
+- Changed the planned server configuration path from YAML files to env-first loading with a committed
+  `server/.env.example` template.
+- Added PostgreSQL and Redis as required core infrastructure defaults for the server runtime, matching the platform
+  stack while keeping business logic in plugins.
+- Kept SQLite and PostgreSQL-compatible SQLite layers out of the runtime matrix; lightweight database alternatives
+  remain a future testing convenience question rather than a production dependency choice.
+
 ## Next Step
 
 - Start joining backend menu and permission metadata to the frontend navigation path and add targeted tests around the
