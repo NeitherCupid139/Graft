@@ -175,3 +175,14 @@
 
 - Run the first end-to-end Atlas migration against a disposable PostgreSQL database and replace the temporary
   header-based authorization gate with the real auth + RBAC plugin chain.
+
+## 2026-05-13 local startup ergonomics
+
+- Confirmed a real local startup failure mode: IDEs that run `cmd/graft` without subcommands only print root help,
+  which looks like a silent startup failure even though the process exits normally.
+- Added a regression test that locks in repository-root loading of `server/.env`, so the supported local config path is
+  covered directly by tests.
+- Clarified the root CLI help and repository README so local startup now points contributors to the explicit
+  `graft migrate up` then `graft serve` flow.
+- Added a minimal `scripts/dev-server.sh` helper that runs migration first and then starts the server, while failing
+  early when `atlas` is missing.

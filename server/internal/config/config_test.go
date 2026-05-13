@@ -45,6 +45,47 @@ func TestLoadReadsDotenv(t *testing.T) {
 	}
 }
 
+func TestLoadReadsServerDotenvFromRepoRoot(t *testing.T) {
+	restoreEnv := clearGraftEnv(t)
+	t.Cleanup(restoreEnv)
+
+	root := t.TempDir()
+	chdir(t, root)
+
+	if err := os.MkdirAll("server", 0o755); err != nil {
+		t.Fatalf("create server directory: %v", err)
+	}
+
+	env := strings.Join([]string{
+		"GRAFT_APP_NAME=server-dotenv-graft",
+		"GRAFT_APP_ENV=local",
+		"GRAFT_HTTP_ADDR=:38080",
+		"GRAFT_DATABASE_DRIVER=postgres",
+		"GRAFT_DATABASE_URL=postgres://graft:graft@db:5432/graft?sslmode=disable",
+		"GRAFT_REDIS_ADDR=redis:6379",
+		"GRAFT_REDIS_DB=3",
+		"GRAFT_LOG_LEVEL=warn",
+	}, "\n")
+	if err := os.WriteFile(filepath.Join("server", ".env"), []byte(env), 0o600); err != nil {
+		t.Fatalf("write server/.env: %v", err)
+	}
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	if cfg.App.Name != "server-dotenv-graft" {
+		t.Fatalf("expected app name from server/.env, got %q", cfg.App.Name)
+	}
+	if cfg.HTTP.Addr != ":38080" {
+		t.Fatalf("expected HTTP address from server/.env, got %q", cfg.HTTP.Addr)
+	}
+	if cfg.Redis.DB != 3 {
+		t.Fatalf("expected Redis DB from server/.env, got %d", cfg.Redis.DB)
+	}
+}
+
 func TestLoadKeepsRealEnvironmentBeforeDotenv(t *testing.T) {
 	restoreEnv := clearGraftEnv(t)
 	t.Cleanup(restoreEnv)

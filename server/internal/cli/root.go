@@ -15,6 +15,8 @@ func NewRootCommand() *cobra.Command {
 	root := &cobra.Command{
 		Use:          "graft",
 		Short:        "Graft server runtime and maintenance commands",
+		Long:         "Graft uses explicit subcommands for database migration and server startup. Running `graft` without a subcommand only prints help.",
+		Example:      "  graft migrate up\n  graft serve",
 		SilenceUsage: true,
 		Args:         cobra.NoArgs,
 		// Keep runtime startup explicit under `graft serve` so the root command

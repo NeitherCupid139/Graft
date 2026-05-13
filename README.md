@@ -28,3 +28,28 @@ Graft 是一个基于 Go 和 Vue 3 的组合式后台平台，目标是通过插
 
 * `tools.raw.yaml` 记录当前机器与仓库相关的原始环境事实
 * `tools.ai.yaml` 记录给 AI 和贡献者消费的精简环境摘要
+
+## 本地启动 `server`
+
+当前 `server` 使用 `.env` 作为运行时主配置源，默认会读取仓库根目录 `.env` 或 `server/.env`。建议从 `server/.env.example` 复制出本地 `server/.env`，再按实际环境填写 PostgreSQL 和 Redis 连接。
+
+启动流程是显式两步，不会在普通启动时隐式执行迁移：
+
+```bash
+cd server
+go run ./cmd/graft migrate up
+go run ./cmd/graft serve
+```
+
+也可以直接使用仓库脚本：
+
+```bash
+./scripts/dev-server.sh
+```
+
+注意：
+
+* 根命令 `graft` 只显示帮助，不会启动服务。
+* `graft migrate up` 依赖本机已安装 `atlas` CLI。
+* `graft serve` 启动前会连接 PostgreSQL 和 Redis；若地址不可达，启动会直接失败。
+* 在 GoLand 或其他 IDE 中启动时，需要给程序参数显式传入 `serve` 或 `migrate up`。

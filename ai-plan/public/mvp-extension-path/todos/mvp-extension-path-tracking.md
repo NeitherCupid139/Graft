@@ -133,3 +133,5 @@
 
 - Finish the first comment-governance implementation wave by validating the directly touched `server` packages and then
   continue the MVP path with the Atlas migration and real auth + RBAC plugin chain work.
+- Keep local startup ergonomics aligned with the explicit CLI contract so contributors do not confuse `graft` help
+  output with a real `serve` invocation or skip the required migration step.
