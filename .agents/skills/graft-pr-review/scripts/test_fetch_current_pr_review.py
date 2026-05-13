@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
+import argparse
 import importlib.util
+import json
 import os
 from pathlib import Path
 import unittest
@@ -163,6 +165,19 @@ class ResolveGitInvocationTests(unittest.TestCase):
         ):
             self.assertEqual(MODULE.resolve_git_command(), "/tmp/custom/git.exe")
 
+    def test_resolve_git_command_prefers_native_git_before_windows_fallback(self) -> None:
+        """A usable native git should win over the repository's Windows fallback path."""
+        with mock.patch.dict(os.environ, {MODULE.GIT_ENVIRONMENT_KEY: ""}, clear=False), mock.patch.object(
+            MODULE.os.path,
+            "exists",
+            side_effect=lambda path: path in ("/usr/bin/git", MODULE.DEFAULT_WINDOWS_GIT),
+        ), mock.patch.object(
+            MODULE.shutil,
+            "which",
+            side_effect=lambda name: "/usr/bin/git" if name == "git" else None,
+        ):
+            self.assertEqual(MODULE.resolve_git_command(), "/usr/bin/git")
+
     def test_resolve_git_invocation_prefers_explicit_git_dir_and_work_tree(self) -> None:
         """Configured repository bindings should win over implicit git context."""
         with mock.patch.dict(
@@ -240,6 +255,28 @@ class GithubRequestHeaderTests(unittest.TestCase):
             )
 
 
+class ReviewThreadStatusTests(unittest.TestCase):
+    """Cover conservative status classification for latest review threads."""
+
+    def test_classify_review_thread_status_marks_visible_addressed_text_as_addressed(self) -> None:
+        """Visible addressed-in-commit text should close CodeRabbit threads too."""
+        latest_comment = {
+            "user": MODULE.CODERABBIT_LOGIN,
+            "body": "✅ Addressed in commit 4d6e4c5",
+        }
+
+        self.assertEqual(MODULE.classify_review_thread_status(latest_comment), "addressed")
+
+    def test_classify_review_thread_status_uses_unknown_for_non_coderabbit_without_resolution_signal(self) -> None:
+        """Non-CodeRabbit threads should not be mislabeled as definitely open."""
+        latest_comment = {
+            "user": MODULE.GREPTILE_LOGIN,
+            "body": "Please simplify this helper.",
+        }
+
+        self.assertEqual(MODULE.classify_review_thread_status(latest_comment), "unknown")
+
+
 class SelectLatestCoderabbitGroupedReviewTests(unittest.TestCase):
     """Prefer the latest CodeRabbit review that preserves grouped comment sections."""
 
@@ -261,6 +298,37 @@ class SelectLatestCoderabbitGroupedReviewTests(unittest.TestCase):
         selected = MODULE.select_latest_coderabbit_grouped_review([grouped_review, prompt_only_review])
 
         self.assertEqual(selected, grouped_review)
+
+
+class MainOutputTests(unittest.TestCase):
+    """Cover CLI output semantics for JSON and file-output combinations."""
+
+    def test_main_prints_json_to_stdout_even_when_json_output_is_requested(self) -> None:
+        """JSON mode should keep stdout machine-readable while still writing the file."""
+        args = argparse.Namespace(
+            branch="feat/mvp-extension-path",
+            pr=1,
+            format="json",
+            json_output="/tmp/pr-review.json",
+            section=None,
+            path=None,
+            max_description_length=400,
+        )
+        result = {"pull_request": {"number": 1}, "parse_warnings": []}
+
+        with mock.patch.object(MODULE, "parse_args", return_value=args), mock.patch.object(
+            MODULE,
+            "build_result",
+            return_value=result,
+        ), mock.patch.object(
+            MODULE,
+            "write_json_output",
+            return_value="/tmp/pr-review.json",
+        ) as write_json_output, mock.patch.object(MODULE, "print") as print_mock:
+            MODULE.main()
+
+        write_json_output.assert_called_once_with(result, "/tmp/pr-review.json")
+        print_mock.assert_called_once_with(json.dumps(result, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":

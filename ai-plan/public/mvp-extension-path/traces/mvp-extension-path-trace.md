@@ -92,6 +92,22 @@
   files.
 - Direct validation for this hardening batch includes `cd server && GOCACHE=/tmp/go-build-cache go test ./internal/container ./internal/httpx ./internal/cli`, `cd web && bun run typecheck`, and the helper's Python regression tests.
 
+## 2026-05-13 PR review correctness follow-up
+
+- Serialized `server/internal/httpx` lifecycle ownership with a mutex-guarded running-server slot so concurrent
+  `Run` / `Shutdown` transitions no longer race on `s.server`.
+- Added `server/internal/httpx/server_test.go` to lock the lifecycle contract down with direct coverage for
+  concurrent start rejection and one-time detach semantics.
+- Restored `graft-pr-review` default shell compatibility by preferring native `git` over the repository's Windows
+  fallback unless an explicit override is configured.
+- Tightened review-thread classification so visible `✅ Addressed in commit ...` markers close CodeRabbit threads and
+  non-CodeRabbit threads without a reliable resolution signal stay conservative instead of being mislabeled as open.
+- Fixed `--format json --json-output` so the helper still writes machine-readable JSON to stdout while also persisting
+  the same payload to disk.
+- Direct validation for this batch includes `cd server && go test -race ./internal/httpx`, the helper's Python
+  regression tests, `fetch_current_pr_review.py --section pr` on the checked-out branch, and
+  `fetch_current_pr_review.py --pr 1 --format json --json-output /tmp/graft-pr1-review.json`.
+
 ## 2026-05-12 `.ai/environment`
 
 - Introduced `.ai/environment/tools.raw.yaml` and `.ai/environment/tools.ai.yaml` as repository-wide environment truth.

@@ -61,6 +61,10 @@
   startup failures and normal process exit.
 - `graft migrate up` now resolves the default Atlas migration directory from either the repository root or the server
   module root so the CLI does not depend on one fragile working directory.
+- `server/internal/httpx` now serializes `Run` / `Shutdown` lifecycle ownership through one guarded server pointer so
+  concurrent start-stop transitions cannot race on partially applied runtime state.
+- `graft-pr-review` now prefers native `git` before the Windows fallback in WSL-like shells, keeps JSON stdout stable
+  when `--json-output` is requested, and treats visible `Addressed in commit` markers as resolved review threads.
 
 ## Active Risks
 
@@ -106,6 +110,11 @@
 - `cd server && go test ./...`
 - `cd server && GOCACHE=/tmp/go-build-cache go test ./internal/container ./internal/httpx ./internal/cli`
 - `cd web && bun run typecheck`
+- `cd server && go test -race ./internal/httpx`
+- `python3 .agents/skills/graft-pr-review/scripts/test_fetch_current_pr_review.py`
+- `env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY python3 .agents/skills/graft-pr-review/scripts/fetch_current_pr_review.py --section pr`
+- `env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY python3 .agents/skills/graft-pr-review/scripts/fetch_current_pr_review.py --pr 1 --format json --json-output /tmp/graft-pr1-review.json`
+- `jq '{open_thread_count: (.latest_commit_review.open_threads | length), open_threads: [.latest_commit_review.open_threads[] | {path, status}]}' /tmp/graft-pr1-review.json`
 
 ## Immediate Next Step
 

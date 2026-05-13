@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -13,6 +14,7 @@ import (
 // Server wraps the Gin engine used by the runtime shell.
 type Server struct {
 	engine *gin.Engine
+	mu     sync.Mutex
 	server *http.Server
 }
 
@@ -30,18 +32,17 @@ func (s *Server) Engine() *gin.Engine {
 
 // Run starts the HTTP server and keeps it bound to the provided lifecycle context.
 func (s *Server) Run(ctx context.Context, addr string) error {
-	if s.server != nil {
-		return errors.New("http server already running")
-	}
-
-	s.server = &http.Server{
+	srv := &http.Server{
 		Addr:    addr,
 		Handler: s.engine,
+	}
+	if err := s.bindRunningServer(srv); err != nil {
+		return err
 	}
 
 	errCh := make(chan error, 1)
 	go func() {
-		err := s.server.ListenAndServe()
+		err := srv.ListenAndServe()
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}
@@ -50,7 +51,7 @@ func (s *Server) Run(ctx context.Context, addr string) error {
 
 	select {
 	case err, ok := <-errCh:
-		s.server = nil
+		s.clearRunningServer(srv)
 		if !ok {
 			return nil
 		}
@@ -67,15 +68,46 @@ func (s *Server) Run(ctx context.Context, addr string) error {
 
 // Shutdown stops the underlying HTTP server gracefully when it is running.
 func (s *Server) Shutdown(ctx context.Context) error {
-	if s.server == nil {
+	server := s.detachRunningServer()
+	if server == nil {
 		return nil
 	}
 
-	server := s.server
-	s.server = nil
 	if err := server.Shutdown(ctx); err != nil {
 		return fmt.Errorf("shutdown http server: %w", err)
 	}
 
 	return nil
+}
+
+func (s *Server) bindRunningServer(server *http.Server) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Serialize lifecycle transitions so Run and Shutdown share one explicit
+	// running server pointer instead of racing on partially applied state.
+	if s.server != nil {
+		return errors.New("http server already running")
+	}
+
+	s.server = server
+	return nil
+}
+
+func (s *Server) detachRunningServer() *http.Server {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	server := s.server
+	s.server = nil
+	return server
+}
+
+func (s *Server) clearRunningServer(server *http.Server) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.server == server {
+		s.server = nil
+	}
 }
