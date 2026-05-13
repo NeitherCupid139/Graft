@@ -107,7 +107,7 @@ func TestRequirePermissionRejectsMissingPermission(t *testing.T) {
 	if payload.MessageKey != "auth.missing_permission" {
 		t.Fatalf("expected missing permission message key, got %#v", payload)
 	}
-	if payload.Message != "缺少所需权限" || payload.Error != payload.Message {
+	if payload.Message != "Missing required permission" || payload.Error != payload.Message {
 		t.Fatalf("expected localized missing permission message, got %#v", payload)
 	}
 	if payload.Locale != "en-US" {

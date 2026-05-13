@@ -20,6 +20,13 @@ var defaultCatalogs = map[string]map[string]string{
 		"common.invalid_argument": "请求参数不合法",
 		"user.not_found":          "用户不存在",
 	},
+	"en-US": {
+		"auth.missing_actor":      "Missing request actor",
+		"auth.missing_permission": "Missing required permission",
+		"common.internal_error":   "Internal server error",
+		"common.invalid_argument": "Invalid request parameters",
+		"user.not_found":          "User not found",
+	},
 }
 
 // Service 提供平台级 locale 解析与消息查找能力。

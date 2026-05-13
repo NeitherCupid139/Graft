@@ -15,9 +15,8 @@ describe('NotFoundPage', () => {
     window.localStorage.clear();
   });
 
-  it('navigates to the dashboard and login entrypoints', async () => {
-    const pinia = createTestingPinia();
-    const router = createRouter({
+  function createTestRouter() {
+    return createRouter({
       history: createMemoryHistory(),
       routes: [
         {
@@ -41,6 +40,11 @@ describe('NotFoundPage', () => {
         },
       ],
     });
+  }
+
+  async function mountPage() {
+    const pinia = createTestingPinia();
+    const router = createTestRouter();
 
     await router.push('/missing');
     await router.isReady();
@@ -52,12 +56,20 @@ describe('NotFoundPage', () => {
       },
     });
 
+    return { router, wrapper };
+  }
+
+  it('navigates to the dashboard entrypoint', async () => {
+    const { router, wrapper } = await mountPage();
+
     await wrapper.findAll('button')[0].trigger('click');
     await flushPromises();
     expect(router.currentRoute.value.fullPath).toBe('/dashboard');
+  });
 
-    await router.push('/missing');
-    await router.isReady();
+  it('navigates to the login entrypoint', async () => {
+    const { router, wrapper } = await mountPage();
+
     await wrapper.findAll('button')[1].trigger('click');
     await flushPromises();
     expect(router.currentRoute.value.fullPath).toBe('/login');

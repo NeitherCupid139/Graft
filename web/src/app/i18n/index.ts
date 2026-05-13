@@ -79,7 +79,7 @@ export function setupI18n(app: VueApp<Element>, pinia: Pinia) {
     t: (key: string, options?: TranslateOptions) =>
       translateMessage(
         localeStore.locale,
-        localeStore.fallbackLocale,
+        localeStore.fallbackLocale || DEFAULT_FALLBACK_LOCALE,
         key,
         options,
       ),

@@ -261,6 +261,22 @@
 - Direct validation for this documentation slice is `git diff --check` plus focused `rg` inspection across
   `AGENTS.md`, `ai-plan/design/前端架构设计.md`, and the active-topic tracking documents.
 
+## 2026-05-14 PR review follow-up fixes
+
+- Verified the current branch PR (`#5`) against local code instead of trusting CodeRabbit comments directly, then fixed
+  only the findings that still reproduced on `feat/mvp-extension-path`.
+- Hardened `server/internal/cli/migrate.go` so explicit migration execution now falls back to `context.Background()`
+  when a Cobra command was constructed outside the normal `Execute` chain, and added a regression test for that path.
+- Completed the first server-side `en-US` error catalog slice so localized error responses and plugin tests no longer
+  echo an English locale while still returning Chinese-only fallback text.
+- Fixed web-side test drift by making the TDesign `t-menu` stub emit `change`, splitting the 404 navigation test into
+  two independent mounts, and protecting locale-store `localStorage` access from read/write exceptions.
+- Added the missing field-level and contract comments requested by repository governance where the PR review surfaced
+  lifecycle-sensitive context or route-title assumptions.
+- Validation target for this slice is focused cross-boundary coverage: touched `server` packages compile and test at
+  package scope, while touched `web` files pass direct type-aware test/build commands without widening into unrelated
+  module suites.
+
 ## Next Step
 
 - Implement the documented `web` governance baseline in the actual frontend toolchain, then exercise `graft dev`

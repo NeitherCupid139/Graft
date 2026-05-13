@@ -59,7 +59,11 @@ type Plugin interface {
 // 之外当作隐式全局变量使用。
 type Context struct {
 	Config             *config.Config
+	// Logger 提供插件生命周期内统一的结构化日志句柄，插件应复用它记录
+	// 运行状态与诊断信息，而不是各自构造分散的日志实例。
 	Logger             *zap.Logger
+	// I18n 提供平台级 locale 解析与消息查找能力，插件应通过它输出稳定的
+	// 本地化错误响应，而不是维护各自独立的文案回退规则。
 	I18n               *i18n.Service
 	Redis              *redis.Client
 	Router             gin.IRouter

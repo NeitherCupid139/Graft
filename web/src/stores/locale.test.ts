@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_LOCALE } from '@/app/i18n/messages';
 import { createTestingPinia } from '@/test/helpers';
@@ -7,6 +7,7 @@ import { useLocaleStore } from './locale';
 
 describe('locale store', () => {
   beforeEach(() => {
+    vi.restoreAllMocks();
     window.localStorage.clear();
     createTestingPinia();
   });
@@ -31,5 +32,26 @@ describe('locale store', () => {
         locale: DEFAULT_LOCALE,
       }),
     );
+  });
+
+  it('falls back to the default locale when localStorage read throws', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('storage blocked');
+    });
+
+    const store = useLocaleStore();
+
+    expect(store.locale).toBe(DEFAULT_LOCALE);
+  });
+
+  it('keeps in-memory locale updates when localStorage write throws', () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('storage blocked');
+    });
+
+    const store = useLocaleStore();
+
+    expect(() => store.setLocale('zh-CN')).not.toThrow();
+    expect(store.locale).toBe(DEFAULT_LOCALE);
   });
 });

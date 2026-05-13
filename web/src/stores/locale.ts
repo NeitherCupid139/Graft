@@ -20,12 +20,29 @@ function isLocalePayload(value: unknown): value is LocalePayload {
   return typeof (value as Record<string, unknown>).locale === 'string';
 }
 
+function clearPersistedLocale() {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.localStorage.removeItem(LOCALE_STORAGE_KEY);
+  } catch {
+    // 受限环境下清理失败时直接忽略，让调用方继续使用默认语言。
+  }
+}
+
 function loadLocale(): string {
   if (typeof window === 'undefined') {
     return DEFAULT_LOCALE;
   }
 
-  const raw = window.localStorage.getItem(LOCALE_STORAGE_KEY);
+  let raw: string | null = null;
+  try {
+    raw = window.localStorage.getItem(LOCALE_STORAGE_KEY);
+  } catch {
+    return DEFAULT_LOCALE;
+  }
 
   if (!raw) {
     return DEFAULT_LOCALE;
@@ -35,13 +52,13 @@ function loadLocale(): string {
     const parsed = JSON.parse(raw) as unknown;
 
     if (!isLocalePayload(parsed)) {
-      window.localStorage.removeItem(LOCALE_STORAGE_KEY);
+      clearPersistedLocale();
       return DEFAULT_LOCALE;
     }
 
     return normalizeLocale(parsed.locale);
   } catch {
-    window.localStorage.removeItem(LOCALE_STORAGE_KEY);
+    clearPersistedLocale();
     return DEFAULT_LOCALE;
   }
 }
@@ -51,12 +68,16 @@ function persistLocale(locale: string) {
     return;
   }
 
-  window.localStorage.setItem(
-    LOCALE_STORAGE_KEY,
-    JSON.stringify({
-      locale,
-    }),
-  );
+  try {
+    window.localStorage.setItem(
+      LOCALE_STORAGE_KEY,
+      JSON.stringify({
+        locale,
+      }),
+    );
+  } catch {
+    // 持久化失败不应阻断当前会话内的语言切换。
+  }
 }
 
 /**

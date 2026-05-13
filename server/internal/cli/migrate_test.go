@@ -1,11 +1,16 @@
 package cli
 
 import (
+	"context"
 	"errors"
+	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
 // TestResolveMigrationDirFindsServerRelativePathFromRepoRoot 验证仓库根目录下
@@ -80,5 +85,55 @@ func TestFindAtlasCLIReportsDevGuidance(t *testing.T) {
 	}
 	if !strings.Contains(message, "graft serve") {
 		t.Fatalf("expected serve fallback guidance, got %q", message)
+	}
+}
+
+// TestRunMigrateUpFallsBackToBackgroundContext 验证未通过 Execute 链路设置
+// Cobra 上下文时，迁移命令仍会使用后台上下文而不是触发 nil-context 风险。
+func TestRunMigrateUpFallsBackToBackgroundContext(t *testing.T) {
+	originalGetwd := migrateGetwd
+	originalLookPath := migrateLookPath
+	originalCommandContext := migrateCommandContext
+	originalStdin := migrateStdin
+	defer func() {
+		migrateGetwd = originalGetwd
+		migrateLookPath = originalLookPath
+		migrateCommandContext = originalCommandContext
+		migrateStdin = originalStdin
+	}()
+
+	root := t.TempDir()
+	migrationDir := filepath.Join(root, "server", defaultMigrationDir)
+	if err := os.MkdirAll(migrationDir, 0o755); err != nil {
+		t.Fatalf("mkdir migration dir: %v", err)
+	}
+
+	t.Setenv("GRAFT_DATABASE_URL", "postgres://user:pass@localhost:5432/graft?sslmode=disable")
+	t.Setenv("GRAFT_REDIS_ADDR", "127.0.0.1:6379")
+
+	migrateGetwd = func() (string, error) {
+		return root, nil
+	}
+	migrateLookPath = func(file string) (string, error) {
+		return "/usr/bin/atlas", nil
+	}
+
+	capturedCtx := context.Context(nil)
+	migrateCommandContext = func(ctx context.Context, name string, arg ...string) *exec.Cmd {
+		capturedCtx = ctx
+		return exec.Command("true")
+	}
+	migrateStdin = strings.NewReader("")
+
+	cmd := &cobra.Command{}
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+
+	if err := runMigrateUp(cmd, migrateUpOptions{migrationDir: defaultMigrationDir}); err != nil {
+		t.Fatalf("run migrate up: %v", err)
+	}
+
+	if capturedCtx == nil {
+		t.Fatal("expected migrate command to receive fallback context")
 	}
 }

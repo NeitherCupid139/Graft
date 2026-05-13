@@ -166,7 +166,7 @@ func TestUserRouteReturnsNotFoundContract(t *testing.T) {
 	if payload.MessageKey != "user.not_found" || payload.Locale != "en-US" {
 		t.Fatalf("expected localized not found contract, got %#v", payload)
 	}
-	if payload.Message != "用户不存在" || payload.Error != payload.Message {
+	if payload.Message != "User not found" || payload.Error != payload.Message {
 		t.Fatalf("expected not found payload, got %#v", payload)
 	}
 }

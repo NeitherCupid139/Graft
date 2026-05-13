@@ -173,6 +173,13 @@
 - `cd web && bun run typecheck`
 - `cd web && bun run build`
 - Documentation-only validation for the frontend-governance baseline update: `git diff --check`, `rg -n "format:check|Stylelint|Vitest|lint-staged|commitlint|ai-libs|\\\\n|\\\\t" AGENTS.md ai-plan/design/前端架构设计.md ai-plan/public/mvp-extension-path/todos/mvp-extension-path-tracking.md ai-plan/public/mvp-extension-path/traces/mvp-extension-path-trace.md -S`, and manual `sed -n` review of the touched sections.
+- PR-review follow-up validation target for this update: verify only the still-valid `server` + `web` findings from
+  PR `#5`, then run the smallest cross-boundary checks that cover the touched packages, i18n contracts, and frontend
+  test helpers without widening into live Atlas or database execution.
+- `cd server && go test ./internal/cli ./internal/httpx ./internal/i18n ./internal/plugin ./plugins/user`
+- `cd web && bun run test:run -- NotFoundPage locale`
+- `cd web && bun run typecheck`
+- `cd web && bun run build`
 
 ## Immediate Next Step
 

@@ -152,13 +152,23 @@ export function createTDesignStubs() {
         },
       },
       emits: ['change'],
-      setup(_, { attrs, slots }) {
+      setup(_, { attrs, emit, slots }) {
         return () =>
           h(
             'div',
             {
               ...attrs,
               'data-stub': 't-menu',
+              onClick: (event: Event) => {
+                const target = event.target as HTMLElement | null;
+                const trigger = target?.closest(
+                  '[data-menu-value]',
+                ) as HTMLElement | null;
+                const value = trigger?.getAttribute('data-menu-value');
+                if (value) {
+                  emit('change', value);
+                }
+              },
             },
             slots.default ? slots.default() : [],
           );

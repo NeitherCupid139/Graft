@@ -82,12 +82,16 @@ const iconMap = {
   chart: ChartBarIcon,
 };
 
+// 后端菜单契约决定前端可见性：permissionCode 不满足时直接隐藏，避免前端
+// 额外引入一套并行的权限判断规则。
 const visibleItems = computed(() =>
   navigationStore.items.filter((item) =>
     authStore.hasPermission(item.permissionCode),
   ),
 );
 
+// 面包屑标题优先读取 titleKey，再回退到静态 title，保证动态菜单与静态
+// 路由在同一套本地化约定下渲染。
 const breadcrumbs = computed(() =>
   route.matched
     .filter(
@@ -119,6 +123,7 @@ function resolveNavigationTitle(titleKey: string, fallback: string) {
   });
 }
 
+// 路由标题回退顺序必须和菜单标题保持一致：titleKey -> title -> app.name。
 function resolveRouteTitle(titleKey: unknown, fallback: unknown) {
   if (typeof titleKey === 'string') {
     return t(titleKey, {

@@ -62,13 +62,13 @@ func TestResolveRequestLocaleFallsBackToAcceptLanguage(t *testing.T) {
 	}
 }
 
-// TestMessageFallsBackToConfiguredLocalesAndKey 验证文案查找会先按语言回退，
-// 最终仍找不到时返回稳定 message key。
+// TestMessageFallsBackToConfiguredLocalesAndKey 验证文案查找会优先命中解析后
+// 的语言目录，缺失时再返回稳定 message key。
 func TestMessageFallsBackToConfiguredLocalesAndKey(t *testing.T) {
 	service := newTestService()
 
-	if message := service.Message("en-US", "auth.missing_actor"); message != "缺少请求身份信息" {
-		t.Fatalf("expected fallback catalog message, got %q", message)
+	if message := service.Message("en-US", "auth.missing_actor"); message != "Missing request actor" {
+		t.Fatalf("expected en-US catalog message, got %q", message)
 	}
 	if message := service.Message("en-US", "missing.key"); message != "missing.key" {
 		t.Fatalf("expected missing key fallback, got %q", message)

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -85,8 +86,13 @@ func runMigrateUp(cmd *cobra.Command, opts migrateUpOptions) error {
 		return err
 	}
 
+	commandContext := cmd.Context()
+	if commandContext == nil {
+		commandContext = context.Background()
+	}
+
 	command := migrateCommandContext(
-		cmd.Context(),
+		commandContext,
 		atlasPath,
 		"migrate",
 		"apply",

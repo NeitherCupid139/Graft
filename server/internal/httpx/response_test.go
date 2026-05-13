@@ -13,7 +13,7 @@ import (
 )
 
 // TestWriteLocalizedErrorUsesResolvedLocaleAndFallbackMessage 验证统一错误响应
-// 会保留解析后的 locale，同时在缺少目标语言词条时回退到默认文案。
+// 会保留解析后的 locale，并优先返回对应语言的稳定文案。
 func TestWriteLocalizedErrorUsesResolvedLocaleAndFallbackMessage(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -50,8 +50,8 @@ func TestWriteLocalizedErrorUsesResolvedLocaleAndFallbackMessage(t *testing.T) {
 	if payload.Locale != "en-US" {
 		t.Fatalf("expected requested locale to be echoed, got %#v", payload)
 	}
-	if payload.Message != "请求参数不合法" || payload.Error != payload.Message {
-		t.Fatalf("expected fallback localized message, got %#v", payload)
+	if payload.Message != "Invalid request parameters" || payload.Error != payload.Message {
+		t.Fatalf("expected en-US localized message, got %#v", payload)
 	}
 	if payload.Details["field"] != "id" {
 		t.Fatalf("expected details field id, got %#v", payload)
