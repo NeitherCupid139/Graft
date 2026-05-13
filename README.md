@@ -33,7 +33,16 @@ Graft 是一个基于 Go 和 Vue 3 的组合式后台平台，目标是通过插
 
 当前 `server` 使用 `.env` 作为运行时主配置源，默认会读取仓库根目录 `.env` 或 `server/.env`。建议从 `server/.env.example` 复制出本地 `server/.env`，再按实际环境填写 PostgreSQL 和 Redis 连接。
 
-启动流程是显式两步，不会在普通启动时隐式执行迁移：
+推荐的本地开发入口已经统一为一个 Go CLI 命令：
+
+```bash
+cd server
+go run ./cmd/graft dev
+```
+
+`graft dev` 会先执行显式迁移，再在迁移成功后启动服务；它是开发期编排命令，不会改变 `graft serve` 的纯运行时语义。
+
+如果你需要把迁移和启动拆开，仍然可以继续使用显式两步命令：
 
 ```bash
 cd server
@@ -41,15 +50,11 @@ go run ./cmd/graft migrate up
 go run ./cmd/graft serve
 ```
 
-也可以直接使用仓库脚本：
-
-```bash
-bash scripts/dev-server.sh
-```
-
 注意：
 
 * 根命令 `graft` 只显示帮助，不会启动服务。
-* `graft migrate up` 依赖本机已安装 `atlas` CLI。
+* `graft dev` 与 `graft migrate up` 都依赖本机已安装 `atlas` CLI。
 * `graft serve` 启动前会连接 PostgreSQL 和 Redis；若地址不可达，启动会直接失败。
-* 在 GoLand 或其他 IDE 中启动时，需要给程序参数显式传入 `serve` 或 `migrate up`。
+* 若本地库结构已经同步，也可以只运行 `graft serve`；否则请先执行迁移。
+* `scripts/dev-server.sh` 现在只是兼容壳，内部会转发到 `go run ./cmd/graft dev`。
+* 在 GoLand 或其他 IDE 中，推荐统一使用工作目录 `server`、程序入口 `./cmd/graft`、程序参数 `dev`。

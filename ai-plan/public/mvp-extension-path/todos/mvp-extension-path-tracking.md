@@ -72,6 +72,8 @@
   navigation guidance, comment priority ordering, and exemption boundaries for generated or artifact code.
 - The first implementation wave for the comment governance topic targets `server/internal/container`,
   `server/internal/plugin`, `server/internal/httpx`, `server/internal/app`, and `server/plugins/user`.
+- Local startup ergonomics now use `graft dev` as the primary development entrypoint, so IDEs and Windows shells no
+  longer depend on `bash scripts/dev-server.sh` to compose migration plus server startup.
 
 ## Active Risks
 
@@ -128,10 +130,12 @@
 - Documentation and focused `server` validation for the comment-governance update: owned `ai-plan/` files,
   `AGENTS.md`, first-wave module `README.md` files, and the directly touched `server` packages stay consistent with
   the new Chinese comment rules and compile under package-level tests.
+- `cd server && go test ./internal/cli`
+- `cd server && go build ./cmd/graft`
 
 ## Immediate Next Step
 
 - Finish the first comment-governance implementation wave by validating the directly touched `server` packages and then
   continue the MVP path with the Atlas migration and real auth + RBAC plugin chain work.
-- Keep local startup ergonomics aligned with the explicit CLI contract so contributors do not confuse `graft` help
-  output with a real `serve` invocation or skip the required migration step.
+- Exercise `graft dev` against a disposable PostgreSQL instance with a real Atlas installation, then continue the MVP
+  path with the real auth + RBAC plugin chain work.

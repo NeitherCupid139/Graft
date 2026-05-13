@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,6 +14,16 @@ import (
 )
 
 const defaultMigrationDir = "internal/ent/migrate/migrations"
+
+var migrateLookPath = exec.LookPath
+var migrateCommandContext = exec.CommandContext
+var migrateGetwd = os.Getwd
+var migrateStdin io.Reader = os.Stdin
+
+type migrateUpOptions struct {
+	migrationDir string
+	workingDir   string
+}
 
 func newMigrateCommand() *cobra.Command {
 	var migrationDir string
@@ -27,47 +38,66 @@ func newMigrateCommand() *cobra.Command {
 		Use:   "up",
 		Short: "Apply pending Atlas versioned migrations",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := config.Load()
-			if err != nil {
-				return fmt.Errorf("load config: %w", err)
-			}
-
-			workingDir, err := os.Getwd()
-			if err != nil {
-				return fmt.Errorf("resolve working directory: %w", err)
-			}
-
-			absDir, err := resolveMigrationDir(workingDir, migrationDir)
-			if err != nil {
-				return fmt.Errorf("resolve migration dir: %w", err)
-			}
-
-			atlasPath, err := exec.LookPath("atlas")
-			if err != nil {
-				return fmt.Errorf("find atlas CLI: %w", err)
-			}
-
-			command := exec.CommandContext(
-				cmd.Context(),
-				atlasPath,
-				"migrate",
-				"apply",
-				"--dir", "file://"+filepath.ToSlash(absDir),
-				"--url", cfg.Database.URL,
-			)
-			command.Stdout = cmd.OutOrStdout()
-			command.Stderr = cmd.ErrOrStderr()
-			command.Stdin = os.Stdin
-
-			if err := command.Run(); err != nil {
-				return fmt.Errorf("apply atlas migrations: %w", err)
-			}
-
-			return nil
+			return runMigrateUp(cmd, migrateUpOptions{migrationDir: migrationDir})
 		},
 	})
 
 	return command
+}
+
+func runMigrateUp(cmd *cobra.Command, opts migrateUpOptions) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	workingDir := opts.workingDir
+	if strings.TrimSpace(workingDir) == "" {
+		workingDir, err = migrateGetwd()
+		if err != nil {
+			return fmt.Errorf("resolve working directory: %w", err)
+		}
+	}
+
+	absDir, err := resolveMigrationDir(workingDir, opts.migrationDir)
+	if err != nil {
+		return fmt.Errorf("resolve migration dir: %w", err)
+	}
+
+	atlasPath, err := findAtlasCLI()
+	if err != nil {
+		return err
+	}
+
+	command := migrateCommandContext(
+		cmd.Context(),
+		atlasPath,
+		"migrate",
+		"apply",
+		"--dir", "file://"+filepath.ToSlash(absDir),
+		"--url", cfg.Database.URL,
+	)
+	command.Stdout = cmd.OutOrStdout()
+	command.Stderr = cmd.ErrOrStderr()
+	command.Stdin = migrateStdin
+
+	if err := command.Run(); err != nil {
+		return fmt.Errorf("apply atlas migrations: %w", err)
+	}
+
+	return nil
+}
+
+func findAtlasCLI() (string, error) {
+	atlasPath, err := migrateLookPath("atlas")
+	if err == nil {
+		return atlasPath, nil
+	}
+
+	return "", fmt.Errorf(
+		"atlas CLI is required for `graft migrate up` and `graft dev`; install Atlas first, or run `graft serve` only after the database schema is already up to date: %w",
+		err,
+	)
 }
 
 func resolveMigrationDir(baseDir string, migrationDir string) (string, error) {

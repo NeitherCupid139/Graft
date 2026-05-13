@@ -186,3 +186,15 @@
   `graft migrate up` then `graft serve` flow.
 - Added a minimal `scripts/dev-server.sh` helper that runs migration first and then starts the server, while failing
   early when `atlas` is missing.
+
+## 2026-05-13 local startup CLI unification
+
+- Replaced the Bash-owned startup flow with a first-class `graft dev` command that runs explicit migrations before
+  server startup.
+- Kept `graft serve` as the pure runtime entrypoint and `graft migrate up` as the standalone migration entrypoint, so
+  schema changes remain explicit instead of being hidden inside normal boot.
+- Updated the Atlas lookup failure path to explain that `graft dev` and `graft migrate up` require Atlas, while
+  `graft serve` is only safe when the schema is already current.
+- Reduced `scripts/dev-server.sh` to a compatibility wrapper that forwards to `go run ./cmd/graft dev`, so Windows and
+  IDE users no longer depend on Bash logic for the actual startup sequence.
+- Updated the repository README and active-topic tracking so local development now centers on one IDE-friendly command.
