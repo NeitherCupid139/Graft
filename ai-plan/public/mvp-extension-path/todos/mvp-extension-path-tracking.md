@@ -88,6 +88,12 @@
   default and fallback locale.
 - `web` shell now reserves an application-level i18n path for locale state, message lookup, and request header
   propagation, while still keeping the initial visible language surface in Chinese.
+- Repository truth for the `web` governance baseline now requires one explicit frontend quality chain built from
+  `TypeScript strict`, `format:check`, `ESLint`, `Stylelint`, `Vitest`, `Husky + lint-staged`, and `commitlint`.
+- `web/ai-libs/tdesign-vue-next-starter` is now documented as a local reference source for governance and TDesign
+  usage patterns only; it must not be copied wholesale into the production `web` shell.
+- Repository git-message rules now explicitly forbid committing literal escaped control text such as `\n` or `\t`
+  inside commit titles or bodies; automation must expand them into real multi-line text before `git commit`.
 
 ## Active Risks
 
@@ -103,6 +109,8 @@
   auth + RBAC plugin chain before the authorization contract can be considered production-ready.
 - The first platform i18n wave intentionally keeps only the extension hooks; most menus, routes, and pages are still
   backed by Chinese-first source strings and will need gradual migration to message keys.
+- The frontend governance baseline is currently documented but not yet fully implemented in the `web` toolchain, so
+  follow-up work must keep scripts, hooks, and validation order aligned with the new repository truth.
 
 ## Latest Validation
 
@@ -164,8 +172,10 @@
 - `cd server && go build ./cmd/graft`
 - `cd web && bun run typecheck`
 - `cd web && bun run build`
+- Documentation-only validation for the frontend-governance baseline update: `git diff --check`, `rg -n "format:check|Stylelint|Vitest|lint-staged|commitlint|ai-libs|\\\\n|\\\\t" AGENTS.md ai-plan/design/前端架构设计.md ai-plan/public/mvp-extension-path/todos/mvp-extension-path-tracking.md ai-plan/public/mvp-extension-path/traces/mvp-extension-path-trace.md -S`, and manual `sed -n` review of the touched sections.
 
 ## Immediate Next Step
 
-- Exercise `graft dev` against a disposable PostgreSQL instance with a real Atlas installation, then extend the real
-  auth + RBAC plugin chain so session locale can replace the current request-header placeholder path.
+- Implement the documented `web` governance baseline in the actual frontend toolchain, then exercise `graft dev`
+  against a disposable PostgreSQL instance with a real Atlas installation while the real auth + RBAC plugin chain
+  replaces the current request-header placeholder path.

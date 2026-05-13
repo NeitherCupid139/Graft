@@ -246,7 +246,23 @@
   validation, and final integration on the main agent.
 - Direct validation for this sweep is `cd server && go test ./internal/app ./internal/cli ./internal/config ./internal/container ./internal/cronx ./internal/database ./internal/httpx ./internal/menu ./internal/permission ./internal/plugin ./internal/pluginapi ./internal/redisx ./internal/store ./plugins/user && go build ./cmd/graft`.
 
+## 2026-05-13 frontend governance and commit message tightening
+
+- Updated `AGENTS.md` so repository truth now treats the `web` governance baseline as one explicit quality chain built
+  from `TypeScript strict`, `format:check`, `ESLint`, `Stylelint`, `Vitest`, `Husky + lint-staged`, and `commitlint`.
+- Tightened frontend AI rules so `web/ai-libs/tdesign-vue-next-starter` is documented as a local reference source
+  only, while starter-specific mock, tabs-router, and frontend-only permission patterns remain out of the production
+  `web` shell unless repository design truth changes first.
+- Added a dedicated governance section to `ai-plan/design/前端架构设计.md` that fixes the intended `check` order,
+  keeps `pre-commit` lightweight through staged-file hooks, and records the narrow boundary where `any` is still
+  tolerated during early TypeScript hardening.
+- Tightened Git workflow rules so commit titles and bodies must use actual line breaks; literal escaped control text
+  such as `\n` or `\t` must be expanded before `git commit`, especially when automation prepares the message.
+- Direct validation for this documentation slice is `git diff --check` plus focused `rg` inspection across
+  `AGENTS.md`, `ai-plan/design/前端架构设计.md`, and the active-topic tracking documents.
+
 ## Next Step
 
-- Exercise `graft dev` against a disposable PostgreSQL database with a real Atlas installation, then replace the
-  temporary header-based authorization gate with the real auth + RBAC plugin chain.
+- Implement the documented `web` governance baseline in the actual frontend toolchain, then exercise `graft dev`
+  against a disposable PostgreSQL database with a real Atlas installation while replacing the temporary header-based
+  authorization gate with the real auth + RBAC plugin chain.
