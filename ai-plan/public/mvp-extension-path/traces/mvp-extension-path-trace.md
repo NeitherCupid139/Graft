@@ -53,6 +53,13 @@
 - Validated the helper locally with its Python regression tests and against the real public PR `GeWuYou/Graft#1`,
   including text output, JSON output, and `jq` narrowing of high-signal fields.
 
+## 2026-05-13 CI and docs consistency fixes
+
+- Removed invalid job-level `hashFiles()` gating from the pull request validation workflow so both smoke jobs rely on
+  the workflow trigger configuration instead of unsupported runtime conditions.
+- Updated repository-facing stack documentation from GORM to Ent where repository truth had already moved.
+- Standardized the remaining trace wording from `end to end` to `end-to-end`.
+
 ## 2026-05-12 `.ai/environment`
 
 - Introduced `.ai/environment/tools.raw.yaml` and `.ai/environment/tools.ai.yaml` as repository-wide environment truth.
@@ -77,7 +84,7 @@
   `C:\Users\gewuyou\.bun\bin\bun.exe`, which matches the user's WSL-based development setup.
 - Fixed invalid UnoCSS package versions and a `vue-router` module augmentation bug so the frontend shell could pass
   typecheck and production build.
-- Validated the current shell end to end with host Bun for `web` and Go toolchain validation for `server`.
+- Validated the current shell end-to-end with host Bun for `web` and Go toolchain validation for `server`.
 - Fixed the environment regeneration workflow so both scripts resolve the repository root through Git and can regenerate
   `.ai/environment/` again after the shell bootstrap work.
 

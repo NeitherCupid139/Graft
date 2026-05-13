@@ -27,7 +27,6 @@ jobs:
   web-smoke:
     name: Web Smoke
     runs-on: ubuntu-latest
-    if: ${{ hashFiles('web/package.json') != '' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -44,7 +43,6 @@ jobs:
   server-smoke:
     name: Server Smoke
     runs-on: ubuntu-latest
-    if: ${{ hashFiles('server/go.mod') != '' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

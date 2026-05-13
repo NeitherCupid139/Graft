@@ -105,7 +105,7 @@ If a repository skill and this document diverge, follow `AGENTS.md` first and up
 
 * Go
 * Gin
-* GORM
+* Ent
 * PostgreSQL
 * Viper
 * Zap
@@ -572,7 +572,7 @@ Review for:
 * boundary violations between core and plugins
 * hidden coupling between plugins
 * unnecessary framework complexity
-* divergence from Go + Gin + GORM + Casbin server rules
+* divergence from Go + Gin + Ent + Casbin server rules
 * divergence from Vue 3 + TDesign web rules
 * missing tests around plugin lifecycle, dependency ordering, authorization, and dynamic menu/route behavior
 * undocumented public interfaces or lifecycle-sensitive code

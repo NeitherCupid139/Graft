@@ -4,7 +4,7 @@ Graft 是一个基于 Go 和 Vue 3 的组合式后台平台，目标是通过插
 
 当前仓库优先完善设计与实施文档，核心决策已经收敛为：
 
-* 后端：`Go + Gin + GORM + PostgreSQL`
+* 后端：`Go + Gin + Ent + PostgreSQL`
 * 前端：`Vue 3 + TypeScript + Vite`
 * UI：`TDesign Vue Next`
 * 架构：插件化平台
