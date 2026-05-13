@@ -3,6 +3,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -76,8 +77,7 @@ func NewRuntime(plugins ...plugin.Plugin) (*Runtime, error) {
 	}
 
 	if err := runtime.registerCoreServices(); err != nil {
-		_ = redisClient.Close()
-		_ = database.Close(databaseResources)
+		_ = runtime.closeCoreResources()
 		return nil, err
 	}
 
@@ -85,6 +85,7 @@ func NewRuntime(plugins ...plugin.Plugin) (*Runtime, error) {
 
 	for _, current := range plugins {
 		if err := runtime.pluginManager.RegisterPlugin(current); err != nil {
+			_ = runtime.closeCoreResources()
 			return nil, err
 		}
 	}
@@ -93,8 +94,8 @@ func NewRuntime(plugins ...plugin.Plugin) (*Runtime, error) {
 }
 
 // Run executes Register and Boot before starting the HTTP server.
-func (r *Runtime) Run() error {
-	ctx := &plugin.Context{
+func (r *Runtime) Run(runCtx context.Context) error {
+	pluginCtx := &plugin.Context{
 		Config:             r.config,
 		Redis:              r.redis,
 		Router:             r.server.Engine().Group("/api"),
@@ -110,19 +111,33 @@ func (r *Runtime) Run() error {
 		return err
 	}
 
+	booted := make([]plugin.Plugin, 0, len(ordered))
 	for _, p := range ordered {
-		if err := p.Register(ctx); err != nil {
-			return err
+		if err := p.Register(pluginCtx); err != nil {
+			return r.cleanupAfterFailure(pluginCtx, booted, fmt.Errorf("register plugin %s: %w", p.Name(), err))
 		}
 	}
 
 	for _, p := range ordered {
-		if err := p.Boot(ctx); err != nil {
-			return err
+		if err := p.Boot(pluginCtx); err != nil {
+			return r.cleanupAfterFailure(pluginCtx, booted, fmt.Errorf("boot plugin %s: %w", p.Name(), err))
 		}
+		booted = append(booted, p)
 	}
 
-	return r.server.Run(r.config.HTTP.Addr)
+	if err := r.server.Run(runCtx, r.config.HTTP.Addr); err != nil {
+		return r.cleanupAfterFailure(pluginCtx, booted, err)
+	}
+
+	if err := shutdownPlugins(pluginCtx, booted); err != nil {
+		return r.cleanupAfterFailure(pluginCtx, nil, err)
+	}
+
+	if err := r.closeCoreResources(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (r *Runtime) registerCoreRoutes(engine *gin.Engine) {
@@ -152,4 +167,45 @@ func (r *Runtime) registerCoreServices() error {
 	return r.services.RegisterSingleton((*redis.Client)(nil), func(resolver container.Resolver) (any, error) {
 		return r.redis, nil
 	})
+}
+
+func shutdownPlugins(ctx *plugin.Context, ordered []plugin.Plugin) error {
+	var shutdownErr error
+	for i := len(ordered) - 1; i >= 0; i-- {
+		if err := ordered[i].Shutdown(ctx); err != nil {
+			shutdownErr = errors.Join(shutdownErr, fmt.Errorf("shutdown plugin %s: %w", ordered[i].Name(), err))
+		}
+	}
+
+	return shutdownErr
+}
+
+func (r *Runtime) closeCoreResources() error {
+	var closeErr error
+	if r.redis != nil {
+		if err := r.redis.Close(); err != nil {
+			closeErr = errors.Join(closeErr, fmt.Errorf("close redis: %w", err))
+		}
+		r.redis = nil
+	}
+
+	if r.database != nil {
+		if err := database.Close(r.database); err != nil {
+			closeErr = errors.Join(closeErr, err)
+		}
+		r.database = nil
+	}
+
+	return closeErr
+}
+
+func (r *Runtime) cleanupAfterFailure(ctx *plugin.Context, booted []plugin.Plugin, cause error) error {
+	var err error = cause
+	if shutdownErr := shutdownPlugins(ctx, booted); shutdownErr != nil {
+		err = errors.Join(err, shutdownErr)
+	}
+	if closeErr := r.closeCoreResources(); closeErr != nil {
+		err = errors.Join(err, closeErr)
+	}
+	return err
 }

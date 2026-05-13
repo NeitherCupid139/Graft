@@ -60,6 +60,22 @@
 - Updated repository-facing stack documentation from GORM to Ent where repository truth had already moved.
 - Standardized the remaining trace wording from `end to end` to `end-to-end`.
 
+## 2026-05-13 PR review follow-up fixes
+
+- Fixed the sample `user` plugin route so backend access now requires an explicit MVP permission guard instead of
+  relying on frontend route metadata alone.
+- Added request-header-based session parsing in `server/internal/httpx` as a temporary server-side authorization gate
+  until the real auth + RBAC plugins land.
+- Updated the runtime shell so startup failures, normal shutdown, and plugin stop order all release plugin and core
+  resources explicitly.
+- Hardened `graft migrate up` so the default Atlas migration directory resolves from either the repository root or the
+  `server` module root.
+- Added focused tests for the new permission guard, reverse plugin shutdown ordering, and migration directory
+  resolution.
+- Direct validation completed with `cd server && go test ./...`.
+- Remaining gap: the Atlas apply path still has not been exercised against a live PostgreSQL target, and the current
+  permission gate is a deliberate MVP placeholder rather than the final RBAC implementation.
+
 ## 2026-05-12 `.ai/environment`
 
 - Introduced `.ai/environment/tools.raw.yaml` and `.ai/environment/tools.ai.yaml` as repository-wide environment truth.
@@ -106,5 +122,5 @@
 
 ## Next Step
 
-- Run the first end-to-end Atlas migration against a disposable PostgreSQL database and add focused tests for the new
-  repository/store boundary and CLI migration failure paths.
+- Run the first end-to-end Atlas migration against a disposable PostgreSQL database and replace the temporary
+  header-based authorization gate with the real auth + RBAC plugin chain.

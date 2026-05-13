@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"graft/server/internal/container"
+	"graft/server/internal/httpx"
 	"graft/server/internal/menu"
 	"graft/server/internal/permission"
 	"graft/server/internal/plugin"
@@ -66,6 +67,7 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 	}
 
 	group := ctx.Router.Group("/users")
+	group.Use(httpx.RequirePermission("user.read"))
 	group.GET("/:id", func(ginCtx *gin.Context) {
 		rawID, err := parseUserID(ginCtx.Param("id"))
 		if err != nil {

@@ -55,6 +55,12 @@
 - Repository automation now includes a `graft-pr-review` skill that can resolve the current branch PR through the
   GitHub API and extract AI review findings, failed checks, MegaLinter warnings, and failed test signals into a local
   verification input.
+- `server` now enforces an explicit MVP-only backend permission guard for protected plugin routes instead of relying on
+  frontend route metadata alone.
+- `server` runtime shutdown now honors reverse plugin `Shutdown` ordering and closes Redis / database resources on both
+  startup failures and normal process exit.
+- `graft migrate up` now resolves the default Atlas migration directory from either the repository root or the server
+  module root so the CLI does not depend on one fragile working directory.
 
 ## Active Risks
 
@@ -64,6 +70,8 @@
   handle access without leaking Ent-specific details across plugin boundaries.
 - Atlas CLI execution has not yet been validated against a real local PostgreSQL instance in this environment because
   the `atlas` binary is not installed and no target database was exercised during this change.
+- The current backend permission gate is an explicit MVP placeholder based on request headers; it still needs the real
+  auth + RBAC plugin chain before the authorization contract can be considered production-ready.
 
 ## Latest Validation
 
@@ -95,9 +103,9 @@
 - `env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY python3 .agents/skills/graft-pr-review/scripts/fetch_current_pr_review.py --pr 1 --section pr --section open-threads --section warnings`
 - `env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY python3 .agents/skills/graft-pr-review/scripts/fetch_current_pr_review.py --pr 1 --format json --json-output /tmp/graft-pr1-review.json`
 - `jq '.pull_request, .review_agents, .latest_commit_review.open_threads, .parse_warnings' /tmp/graft-pr1-review.json`
+- `cd server && go test ./...`
 
 ## Immediate Next Step
 
-- Run the first real Atlas migration against a disposable PostgreSQL instance, then add targeted tests around the
-  repository boundary and the new CLI error paths. The new PR-review skill is available to triage review findings on
-  that follow-up work.
+- Run the first real Atlas migration against a disposable PostgreSQL instance, then replace the temporary header-based
+  backend permission gate with the real auth + RBAC plugin chain.

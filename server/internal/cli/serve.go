@@ -1,7 +1,10 @@
 package cli
 
 import (
+	"context"
 	"fmt"
+	"os/signal"
+	"syscall"
 
 	"github.com/spf13/cobra"
 
@@ -23,7 +26,14 @@ func runServe(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("create runtime: %w", err)
 	}
 
-	if err := runtime.Run(); err != nil {
+	runCtx, stop := signal.NotifyContext(cmd.Context(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	if runCtx == nil {
+		runCtx = context.Background()
+	}
+
+	if err := runtime.Run(runCtx); err != nil {
 		return fmt.Errorf("run runtime: %w", err)
 	}
 

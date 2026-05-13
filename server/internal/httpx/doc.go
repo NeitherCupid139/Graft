@@ -1,6 +1,3 @@
-// Package httpx contains the explicit HTTP registration surface for plugins.
-//
-// The scaffold records route declarations and lifecycle intent now so the
-// future Gin adapter can be introduced without changing plugin-facing
-// registration contracts.
+// Package httpx owns the explicit Gin server surface, including route
+// registration, MVP authorization guards, and server shutdown semantics.
 package httpx

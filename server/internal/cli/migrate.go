@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -31,13 +32,14 @@ func newMigrateCommand() *cobra.Command {
 				return fmt.Errorf("load config: %w", err)
 			}
 
-			absDir, err := filepath.Abs(migrationDir)
+			workingDir, err := os.Getwd()
 			if err != nil {
-				return fmt.Errorf("resolve migration dir: %w", err)
+				return fmt.Errorf("resolve working directory: %w", err)
 			}
 
-			if _, err := os.Stat(absDir); err != nil {
-				return fmt.Errorf("stat migration dir %s: %w", absDir, err)
+			absDir, err := resolveMigrationDir(workingDir, migrationDir)
+			if err != nil {
+				return fmt.Errorf("resolve migration dir: %w", err)
 			}
 
 			atlasPath, err := exec.LookPath("atlas")
@@ -66,4 +68,43 @@ func newMigrateCommand() *cobra.Command {
 	})
 
 	return command
+}
+
+func resolveMigrationDir(baseDir string, migrationDir string) (string, error) {
+	if strings.TrimSpace(migrationDir) == "" {
+		return "", fmt.Errorf("migration dir is required")
+	}
+
+	searchDirs := []string{migrationDir}
+	if migrationDir == defaultMigrationDir {
+		searchDirs = append(searchDirs, filepath.Join("server", migrationDir))
+	}
+
+	current := baseDir
+	for {
+		for _, relativeDir := range searchDirs {
+			candidate := filepath.Join(current, relativeDir)
+			info, err := os.Stat(candidate)
+			if err == nil {
+				if !info.IsDir() {
+					return "", fmt.Errorf("migration dir %s is not a directory", candidate)
+				}
+
+				absDir, err := filepath.Abs(candidate)
+				if err != nil {
+					return "", fmt.Errorf("resolve migration dir %s: %w", candidate, err)
+				}
+
+				return absDir, nil
+			}
+		}
+
+		parent := filepath.Dir(current)
+		if parent == current {
+			break
+		}
+		current = parent
+	}
+
+	return "", fmt.Errorf("cannot find migration dir %q from %s", migrationDir, baseDir)
 }
