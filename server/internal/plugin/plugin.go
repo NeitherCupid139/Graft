@@ -18,18 +18,33 @@ import (
 )
 
 // Plugin 定义所有后端插件都必须实现的稳定生命周期契约。
+//
+// 调用方可以依赖 Register -> Boot -> Shutdown 的整体顺序；当 Register
+// 或 Boot 失败时，运行时会中止后续阶段，并按已成功启动的范围执行清理。
 type Plugin interface {
 	// Name 返回插件的稳定标识，用于依赖声明和运行时元数据。
 	Name() string
 	// Version 返回当前插件版本。
+	//
+	// 版本值主要用于运行时观测和诊断，不参与依赖排序。
 	Version() string
 	// DependsOn 返回当前插件依赖的插件名称列表。
+	//
+	// 依赖项必须引用已经注册的插件 Name；缺失依赖会导致排序失败。
 	DependsOn() []string
 	// Register 负责声明路由、权限、菜单、任务和公开服务。
+	//
+	// Register 不应启动长期后台行为；失败会阻止后续插件继续注册或启动。
 	Register(ctx *Context) error
 	// Boot 在所有插件完成注册后启动运行时行为。
+	//
+	// Boot 可以依赖所有已注册插件暴露的稳定能力；失败时调用方会关闭
+	// 之前已经成功启动的插件。
 	Boot(ctx *Context) error
 	// Shutdown 在停止阶段释放插件资源，调用顺序与启动顺序相反。
+	//
+	// Shutdown 应尽最大努力释放资源并返回错误，而不是假设失败后可以跳过
+	// 其余清理动作。
 	Shutdown(ctx *Context) error
 }
 
@@ -37,6 +52,9 @@ type Plugin interface {
 //
 // 这里聚合的是插件生命周期真正需要的核心能力，目的是让插件通过稳定
 // 边界接入平台，而不是直接触碰 core 内部实现细节。
+//
+// Context 只承载运行时注入的公共能力，不应被插件长期持有并在生命周期
+// 之外当作隐式全局变量使用。
 type Context struct {
 	Config             *config.Config
 	Redis              *redis.Client
@@ -49,6 +67,9 @@ type Context struct {
 }
 
 // Manager 负责维护插件集合并按依赖关系排序。
+//
+// Manager 不拥有插件的业务状态；它只维护生命周期顺序与注册约束，是
+// Runtime 和插件实现之间的调度边界。
 type Manager struct {
 	plugins []Plugin
 }
@@ -59,6 +80,8 @@ func NewManager() *Manager {
 }
 
 // RegisterPlugin 在运行时启动前向管理器注册一个插件。
+//
+// 当插件为 nil 或名称重复时返回错误，避免排序阶段出现不可恢复的歧义。
 func (m *Manager) RegisterPlugin(p Plugin) error {
 	if p == nil {
 		return errors.New("plugin is required")
@@ -78,6 +101,9 @@ func (m *Manager) RegisterPlugin(p Plugin) error {
 //
 // 这里使用显式拓扑排序而不是隐式注册顺序，避免插件接入规模增加后因为
 // 注册位置变化而打破稳定的启动语义。
+//
+// 排序失败时会返回缺失依赖或依赖环错误，调用方不应在错误场景下继续
+// 执行插件生命周期。
 func (m *Manager) Ordered() ([]Plugin, error) {
 	total := len(m.plugins)
 	if total == 0 {
@@ -111,6 +137,8 @@ func (m *Manager) Ordered() ([]Plugin, error) {
 			queue = append(queue, name)
 		}
 	}
+	// 对同一层无依赖节点做字典序排序，保证在 map 遍历顺序不稳定时，
+	// 依然得到可预测的插件启动顺序。
 	sort.Strings(queue)
 
 	ordered := make([]Plugin, 0, total)

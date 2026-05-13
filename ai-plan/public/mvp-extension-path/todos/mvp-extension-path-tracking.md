@@ -75,6 +75,9 @@
 - The comment-governance wave now also covers `server/internal/config`, `server/internal/database`,
   `server/internal/menu`, `server/internal/permission`, `server/internal/cronx`, `server/internal/store`,
   `server/internal/pluginapi`, `server/internal/redisx`, and the current `web` shell's route/store boundary comments.
+- The hand-written `server` Go comment-governance sweep now also covers the remaining CLI, runtime shell, registry,
+  repository, resource-bootstrap, and sample plugin packages, and `AGENTS.md` now states when complex functions should
+  use `参数：` / `返回值：` sections instead of forcing that template onto every function.
 - Local startup ergonomics now use `graft dev` as the primary development entrypoint, so IDEs and Windows shells no
   longer depend on `bash scripts/dev-server.sh` to compose migration plus server startup.
 - The temporary `scripts/dev-server.sh` compatibility wrapper has been removed, so repository startup guidance now
@@ -141,10 +144,12 @@
   Chinese-first comments aligned with implementation and still pass direct compile-oriented validation.
 - `cd server && go test ./internal/config ./internal/database ./internal/cronx ./internal/menu ./internal/permission ./internal/pluginapi ./internal/redisx ./internal/store ./internal/store/entstore ./internal/app ./internal/cli ./internal/container ./internal/httpx`
 - `cd web && bun run typecheck`
+- Final hand-written `server` comment-governance validation for this update: `AGENTS.md`, the repository comment
+  design document, active-topic recovery docs, and the directly touched `server` packages stay aligned on the
+  mixed conservative Go comment style.
+- `cd server && go test ./internal/app ./internal/cli ./internal/config ./internal/container ./internal/cronx ./internal/database ./internal/httpx ./internal/menu ./internal/permission ./internal/plugin ./internal/pluginapi ./internal/redisx ./internal/store ./plugins/user && go build ./cmd/graft`
 
 ## Immediate Next Step
 
-- Continue the remaining incremental comment-governance sweep on hand-written modules that still lack high-priority
-  Chinese comments, then return to the Atlas migration and real auth + RBAC plugin chain work.
 - Exercise `graft dev` against a disposable PostgreSQL instance with a real Atlas installation, then continue the MVP
   path with the real auth + RBAC plugin chain work.

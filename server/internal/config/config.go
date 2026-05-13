@@ -20,7 +20,9 @@ const (
 	defaultLogLevel       = "info"
 )
 
-// Config 包含服务启动时加载的完整运行时配置。
+// Config 包含服务启动前一次性解析并校验的运行时配置快照。
+//
+// core 会把该快照作为只读依赖注入给运行时与插件，避免后续流程再隐式读取环境变量。
 type Config struct {
 	App      AppConfig
 	HTTP     HTTPConfig
@@ -58,7 +60,11 @@ type LogConfig struct {
 	Level string
 }
 
-// Load 先读取可选的 .env 默认值，再解析最终生效的环境配置。
+// Load 按“真实环境变量优先、.env 兜底”的顺序加载配置并返回校验后的快照。
+//
+// 失败语义：
+//   - 当显式指定的 `GRAFT_ENV_FILE` 无法读取时直接返回错误，避免启动时误用过期默认值。
+//   - 当最终配置不满足运行时最小要求时返回 Validate 的校验错误。
 func Load() (*Config, error) {
 	if err := loadDotenv(); err != nil {
 		return nil, err
@@ -100,7 +106,10 @@ func Load() (*Config, error) {
 	return cfg, nil
 }
 
-// Validate 校验运行时配置是否足以让服务以确定方式启动。
+// Validate 校验配置是否足以让服务以确定方式启动。
+//
+// 该方法只验证 core 当前明确依赖的约束，不负责探测数据库或 Redis 的连通性；
+// 这些外部资源的真实可用性由对应资源构造阶段继续确认。
 func (c *Config) Validate() error {
 	if c == nil {
 		return errors.New("config is required")

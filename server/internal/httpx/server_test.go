@@ -25,6 +25,9 @@ func TestRunRejectsConcurrentStart(t *testing.T) {
 }
 
 // TestDetachRunningServerClearsPointer 验证生命周期清理只会移除一次运行指针。
+//
+// 这个断言覆盖 Shutdown 内部依赖的“摘除后不再可见”语义，确保重复清理
+// 不会拿到旧指针并尝试再次关闭同一个服务实例。
 func TestDetachRunningServerClearsPointer(t *testing.T) {
 	server := NewServer()
 	running := &http.Server{}

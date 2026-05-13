@@ -218,3 +218,20 @@
 - Removed `scripts/dev-server.sh` after the Go CLI entrypoint became the only supported local startup path.
 - Updated the README so Windows PowerShell and CMD users can start the backend directly with `go run ./cmd/graft dev`
   or a prebuilt `graft.exe dev` binary.
+
+## 2026-05-13 comment governance sweep completion
+
+- Extended the hand-written `server` Go comment-governance sweep through the remaining CLI, runtime shell, registry,
+  repository, resource-bootstrap, and sample plugin packages.
+- Kept the final rule set conservative: exported Go symbols require Chinese Go doc comments, while complex
+  orchestration or lifecycle functions use `参数：` / `返回值：` sections only when the signature alone is not enough.
+- Updated `AGENTS.md` and `ai-plan/design/代码注释与模块文档规范.md` so repository truth now explains when to use the
+  `server/internal/cli/dev.go` style and when to prefer shorter responsibility-and-boundary comments.
+- Used a bounded multi-agent wave to split comment work across disjoint `server` package sets while keeping docs,
+  validation, and final integration on the main agent.
+- Direct validation for this sweep is `cd server && go test ./internal/app ./internal/cli ./internal/config ./internal/container ./internal/cronx ./internal/database ./internal/httpx ./internal/menu ./internal/permission ./internal/plugin ./internal/pluginapi ./internal/redisx ./internal/store ./plugins/user && go build ./cmd/graft`.
+
+## Next Step
+
+- Exercise `graft dev` against a disposable PostgreSQL database with a real Atlas installation, then replace the
+  temporary header-based authorization gate with the real auth + RBAC plugin chain.

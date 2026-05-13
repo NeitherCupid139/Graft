@@ -20,6 +20,8 @@ import (
 )
 
 // Plugin 是用于验证扩展路径的示例用户能力插件。
+//
+// 该插件展示业务能力如何在 Register 阶段声明边界，在 Boot/Shutdown 阶段保持显式生命周期。
 type Plugin struct{}
 
 // NewPlugin 创建示例用户插件。
@@ -43,6 +45,13 @@ func (p *Plugin) DependsOn() []string {
 }
 
 // Register 声明用户插件需要的权限、菜单、路由和公开服务。
+//
+// 约束：
+//   - 只注册跨插件可见的稳定接口，不暴露具体仓储或 ORM 实现。
+//   - 只做声明式装配，不启动后台 goroutine 或持久占用额外资源。
+//
+// 失败语义：
+//   - 任一注册步骤失败都会中止插件装配，并由上层运行时负责整体回滚。
 func (p *Plugin) Register(ctx *plugin.Context) error {
 	ctx.PermissionRegistry.Register(permission.Item{
 		Code:        "user.read",
@@ -101,11 +110,15 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 }
 
 // Boot 在注册完成后启动用户插件的运行时行为。
+//
+// 当前用户插件没有额外后台资源需要启动，因此保持空实现，便于后续能力扩展时继续沿用显式生命周期钩子。
 func (p *Plugin) Boot(ctx *plugin.Context) error {
 	return nil
 }
 
 // Shutdown 在应用停止时释放用户插件资源。
+//
+// 当前实现没有自主管理的外部资源，因此关闭阶段保持幂等空操作。
 func (p *Plugin) Shutdown(ctx *plugin.Context) error {
 	return nil
 }
@@ -114,6 +127,7 @@ type userService struct {
 	users store.UserRepository
 }
 
+// GetUserByID 通过稳定仓储契约读取用户，并收敛为跨插件 DTO。
 func (s userService) GetUserByID(ctx context.Context, id uint64) (pluginapi.UserSummary, error) {
 	record, err := s.users.GetByID(ctx, id)
 	if err != nil {
@@ -127,6 +141,7 @@ func (s userService) GetUserByID(ctx context.Context, id uint64) (pluginapi.User
 	}, nil
 }
 
+// parseUserID 将路由参数转换为插件内部统一使用的正整数 ID。
 func parseUserID(input string) (uint64, error) {
 	id, err := strconv.ParseUint(input, 10, 64)
 	if err != nil {

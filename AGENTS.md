@@ -515,6 +515,11 @@ For Go code:
   comments
 * all hand-written Go comments must use Chinese, while preserving stable technical terms in English when needed
 * comments must explain intent, contract, usage constraints, or design reasons instead of restating syntax
+* for functions and methods, prefer a two-layer style: explain responsibility first, then add boundary, ordering, or
+  failure semantics; only add `参数：` / `返回值：` sections when the function's inputs, outputs, lifecycle ordering,
+  or side effects are not obvious from the signature
+* use `server/internal/cli/dev.go` as a function-comment example for complex orchestration entrypoints, but do not
+  mechanically force every function into the same parameter-list template
 * plugin lifecycle types and methods must document registration order, boot semantics, shutdown expectations, and
   failure behavior when relevant
 * cross-plugin interfaces must document stability expectations and what callers may depend on
@@ -526,6 +531,8 @@ For Go code:
   layers still follow the documentation rules
 * field comments are required only for key fields such as lifecycle-sensitive, shared, nullable, or constraint-heavy
   fields; do not mechanically document every field
+* top-level test functions should state the scenario or contract they lock down; helper functions only need comments
+  when their intent is not obvious from the test shape
 
 ### 17.2 Web Documentation
 

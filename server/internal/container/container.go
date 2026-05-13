@@ -9,17 +9,30 @@ import (
 )
 
 // Provider 定义单例服务的构造函数。
+//
+// Provider 在第一次成功解析前最多执行一次；返回错误时不会写入缓存，
+// 后续 Resolve 会继续尝试重新构建。
 type Provider func(resolver Resolver) (any, error)
 
 // Registry 定义显式单例注册能力。
+//
+// Registry 只负责登记稳定的服务 key 与构造函数映射，不负责隐式扫描或
+// 自动装配调用链。
 type Registry interface {
 	// RegisterSingleton 使用给定 key 注册单例构造函数。
+	//
+	// 当 key 已被注册或 provider 为空时返回错误。
 	RegisterSingleton(key any, provider Provider) error
 }
 
 // Resolver 定义显式单例解析能力。
+//
+// Resolver 调用方只能依赖“同一 key 返回同一共享实例”的稳定语义，不应
+// 假设底层采用反射注入或其它隐藏构造机制。
 type Resolver interface {
 	// Resolve 根据给定 key 返回单例实例。
+	//
+	// 当服务未注册或构造失败时返回错误；构造错误不会污染缓存。
 	Resolve(key any) (any, error)
 }
 
@@ -45,6 +58,9 @@ type inflightCall struct {
 }
 
 // New 创建一个空的单例容器。
+//
+// 返回的 Container 可以被 core 和插件共享，并在并发解析同一服务时复用
+// 同一次构造过程。
 func New() *Container {
 	return &Container{
 		providers: make(map[string]Provider),
@@ -54,6 +70,9 @@ func New() *Container {
 }
 
 // RegisterSingleton 为一个服务 key 注册唯一的单例构造函数。
+//
+// key 会被转换为稳定的类型名；重复注册同一 key 会立即失败，避免运行时
+// 因覆盖 provider 而出现不可见的装配分歧。
 func (c *Container) RegisterSingleton(key any, provider Provider) error {
 	if provider == nil {
 		return errors.New("provider is required")
@@ -76,6 +95,9 @@ func (c *Container) RegisterSingleton(key any, provider Provider) error {
 //
 // 如果实例尚未创建，Resolve 会触发一次构建并缓存结果；如果同一实例
 // 正在被其它 goroutine 构建，当前调用会等待并复用那次构建结果。
+//
+// 构建失败时不会缓存半成品实例；调用方需要显式处理错误，而不是假设
+// 容器会降级返回零值。
 func (c *Container) Resolve(key any) (any, error) {
 	name := keyName(key)
 
@@ -126,6 +148,8 @@ func (c *Container) Resolve(key any) (any, error) {
 
 func keyName(key any) string {
 	if key == nil {
+		// 这里保留显式占位名，避免 nil key 在错误消息里退化成空字符串，
+		// 影响调用方定位注册或解析问题。
 		return "<nil>"
 	}
 

@@ -174,6 +174,7 @@ func chdir(t *testing.T, dir string) {
 	})
 }
 
+// clearGraftEnv 隔离当前进程中的 GRAFT_* 环境变量，避免测试彼此污染。
 func clearGraftEnv(t *testing.T) func() {
 	t.Helper()
 

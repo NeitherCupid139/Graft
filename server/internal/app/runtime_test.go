@@ -52,6 +52,9 @@ func TestShutdownPluginsUsesReverseOrder(t *testing.T) {
 
 // TestShutdownPluginsAggregatesErrors 验证多个插件关闭失败时会聚合错误，
 // 避免后续失败被前一个失败覆盖。
+//
+// 这里直接构造返回固定错误的测试插件，目的是只锁定关闭聚合语义，
+// 不把断言耦合到 Register 或 Boot 的其它生命周期分支。
 func TestShutdownPluginsAggregatesErrors(t *testing.T) {
 	plugins := []plugin.Plugin{
 		shutdownRecorderPlugin{name: "user", shutdownLog: &[]string{}, err: errors.New("user failed")},
