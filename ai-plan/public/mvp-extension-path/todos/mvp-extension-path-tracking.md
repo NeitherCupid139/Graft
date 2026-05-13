@@ -16,6 +16,7 @@
 - `ai-plan/design/项目设计.md`
 - `ai-plan/design/插件与依赖注入设计.md`
 - `ai-plan/design/前端架构设计.md`
+- `ai-plan/design/代码注释与模块文档规范.md`
 - `ai-plan/roadmap/MVP实施计划.md`
 - `ai-plan/design/AI任务追踪与恢复设计.md`
 
@@ -67,6 +68,10 @@
   when `--json-output` is requested, and treats visible `Addressed in commit` markers as resolved review threads.
 - `graft-pr-review` now suppresses the missing-actionable warning when the latest CodeRabbit review was parsed through
   non-nitpick grouped sections such as `major`, `minor`, `duplicate`, or `outside-diff`.
+- Repository-wide comment governance now has an explicit Chinese-first documentation rule set, module `README.md`
+  navigation guidance, comment priority ordering, and exemption boundaries for generated or artifact code.
+- The first implementation wave for the comment governance topic targets `server/internal/container`,
+  `server/internal/plugin`, `server/internal/httpx`, `server/internal/app`, and `server/plugins/user`.
 
 ## Active Risks
 
@@ -74,6 +79,8 @@
   second source of truth.
 - The main implementation risk is replacing existing runtime assumptions around startup-time migrations and direct DB
   handle access without leaking Ent-specific details across plugin boundaries.
+- Comment governance must avoid turning module READMEs into duplicated design truth; detailed design still belongs in
+  `ai-plan/design/`.
 - Atlas CLI execution has not yet been validated against a real local PostgreSQL instance in this environment because
   the `atlas` binary is not installed and no target database was exercised during this change.
 - The current backend permission gate is an explicit MVP placeholder based on request headers; it still needs the real
@@ -118,8 +125,11 @@
 - `env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY python3 .agents/skills/graft-pr-review/scripts/fetch_current_pr_review.py --pr 1 --format json --json-output /tmp/graft-pr1-review.json`
 - `jq '{open_thread_count: (.latest_commit_review.open_threads | length), open_threads: [.latest_commit_review.open_threads[] | {path, status}]}' /tmp/graft-pr1-review.json`
 - `python3 .agents/skills/graft-pr-review/scripts/test_fetch_current_pr_review.py`
+- Documentation and focused `server` validation for the comment-governance update: owned `ai-plan/` files,
+  `AGENTS.md`, first-wave module `README.md` files, and the directly touched `server` packages stay consistent with
+  the new Chinese comment rules and compile under package-level tests.
 
 ## Immediate Next Step
 
-- Run the first real Atlas migration against a disposable PostgreSQL instance, then replace the temporary header-based
-  backend permission gate with the real auth + RBAC plugin chain.
+- Finish the first comment-governance implementation wave by validating the directly touched `server` packages and then
+  continue the MVP path with the Atlas migration and real auth + RBAC plugin chain work.

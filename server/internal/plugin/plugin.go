@@ -1,4 +1,4 @@
-// Package plugin defines runtime plugin contracts and lifecycle management.
+// Package plugin 定义运行时插件契约与生命周期管理能力。
 package plugin
 
 import (
@@ -17,23 +17,26 @@ import (
 	"graft/server/internal/store"
 )
 
-// Plugin declares the stable lifecycle contract for all backend plugins.
+// Plugin 定义所有后端插件都必须实现的稳定生命周期契约。
 type Plugin interface {
-	// Name returns the stable plugin identifier used in dependencies and metadata.
+	// Name 返回插件的稳定标识，用于依赖声明和运行时元数据。
 	Name() string
-	// Version returns the current plugin version string.
+	// Version 返回当前插件版本。
 	Version() string
-	// DependsOn returns required plugin names that must register first.
+	// DependsOn 返回当前插件依赖的插件名称列表。
 	DependsOn() []string
-	// Register declares routes, permissions, menus, jobs, and services.
+	// Register 负责声明路由、权限、菜单、任务和公开服务。
 	Register(ctx *Context) error
-	// Boot starts runtime behavior after all registrations complete.
+	// Boot 在所有插件完成注册后启动运行时行为。
 	Boot(ctx *Context) error
-	// Shutdown releases runtime resources in reverse startup order.
+	// Shutdown 在停止阶段释放插件资源，调用顺序与启动顺序相反。
 	Shutdown(ctx *Context) error
 }
 
-// Context exposes the explicit runtime handles that plugins may use.
+// Context 向插件暴露允许使用的显式运行时句柄。
+//
+// 这里聚合的是插件生命周期真正需要的核心能力，目的是让插件通过稳定
+// 边界接入平台，而不是直接触碰 core 内部实现细节。
 type Context struct {
 	Config             *config.Config
 	Redis              *redis.Client
@@ -45,17 +48,17 @@ type Context struct {
 	CronRegistry       *cronx.Registry
 }
 
-// Manager orders plugins and drives lifecycle execution.
+// Manager 负责维护插件集合并按依赖关系排序。
 type Manager struct {
 	plugins []Plugin
 }
 
-// NewManager creates an empty plugin manager.
+// NewManager 创建一个空的插件管理器。
 func NewManager() *Manager {
 	return &Manager{plugins: make([]Plugin, 0)}
 }
 
-// RegisterPlugin adds one plugin to the manager before runtime startup.
+// RegisterPlugin 在运行时启动前向管理器注册一个插件。
 func (m *Manager) RegisterPlugin(p Plugin) error {
 	if p == nil {
 		return errors.New("plugin is required")
@@ -71,7 +74,10 @@ func (m *Manager) RegisterPlugin(p Plugin) error {
 	return nil
 }
 
-// Ordered returns plugins sorted by declared dependencies.
+// Ordered 按声明的依赖关系返回插件启动顺序。
+//
+// 这里使用显式拓扑排序而不是隐式注册顺序，避免插件接入规模增加后因为
+// 注册位置变化而打破稳定的启动语义。
 func (m *Manager) Ordered() ([]Plugin, error) {
 	total := len(m.plugins)
 	if total == 0 {

@@ -1,4 +1,4 @@
-// Package app assembles the explicit runtime shell for Graft.
+// Package app 组装 Graft 的显式运行时外壳。
 package app
 
 import (
@@ -23,7 +23,10 @@ import (
 	"graft/server/internal/store/entstore"
 )
 
-// Runtime owns core assembly and plugin lifecycle execution for the MVP shell.
+// Runtime 持有 MVP 运行时的核心资源与插件生命周期执行入口。
+//
+// Runtime 把配置、数据库、Redis、HTTP 服务、注册中心和插件管理器集中
+// 到一个显式对象中，方便在失败路径和正常关闭路径统一回收资源。
 type Runtime struct {
 	config             *config.Config
 	database           *database.Resources
@@ -37,7 +40,7 @@ type Runtime struct {
 	pluginManager      *plugin.Manager
 }
 
-// NewRuntime constructs the explicit MVP runtime shell with the provided plugins.
+// NewRuntime 使用给定插件构造显式的 MVP 运行时外壳。
 func NewRuntime(plugins ...plugin.Plugin) (*Runtime, error) {
 	cfg, err := config.Load()
 	if err != nil {
@@ -93,7 +96,10 @@ func NewRuntime(plugins ...plugin.Plugin) (*Runtime, error) {
 	return runtime, nil
 }
 
-// Run executes Register and Boot before starting the HTTP server.
+// Run 先执行插件注册与启动，再启动 HTTP 服务。
+//
+// 如果任一阶段失败，Run 会按已启动的实际范围反向释放插件与核心资源，
+// 避免把半初始化状态泄漏到调用方。
 func (r *Runtime) Run(runCtx context.Context) error {
 	pluginCtx := &plugin.Context{
 		Config:             r.config,
@@ -172,6 +178,8 @@ func (r *Runtime) registerCoreServices() error {
 func shutdownPlugins(ctx *plugin.Context, ordered []plugin.Plugin) error {
 	var shutdownErr error
 	for i := len(ordered) - 1; i >= 0; i-- {
+		// 关闭顺序必须与启动顺序相反，避免后启动的依赖还未释放时，上游
+		// 插件先被销毁，导致清理逻辑访问失效资源。
 		if err := ordered[i].Shutdown(ctx); err != nil {
 			shutdownErr = errors.Join(shutdownErr, fmt.Errorf("shutdown plugin %s: %w", ordered[i].Name(), err))
 		}

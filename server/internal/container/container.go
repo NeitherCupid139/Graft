@@ -1,4 +1,4 @@
-// Package container provides the explicit singleton registry used by core and plugins.
+// Package container 提供核心与插件共用的显式单例注册能力。
 package container
 
 import (
@@ -8,27 +8,34 @@ import (
 	"sync"
 )
 
-// Provider builds a singleton service using the current resolver.
+// Provider 定义单例服务的构造函数。
 type Provider func(resolver Resolver) (any, error)
 
-// Registry exposes explicit singleton registration.
+// Registry 定义显式单例注册能力。
 type Registry interface {
-	// RegisterSingleton registers a singleton provider under the given key.
+	// RegisterSingleton 使用给定 key 注册单例构造函数。
 	RegisterSingleton(key any, provider Provider) error
 }
 
-// Resolver exposes explicit singleton resolution.
+// Resolver 定义显式单例解析能力。
 type Resolver interface {
-	// Resolve returns a singleton for the provided key.
+	// Resolve 根据给定 key 返回单例实例。
 	Resolve(key any) (any, error)
 }
 
-// Container stores singleton providers and instances for the runtime shell.
+// Container 是运行时使用的显式单例容器。
+//
+// Container 负责保存单例构造函数、缓存已构建实例，并在并发解析时
+// 复用同一次构建过程，避免重复创建共享资源。Container 支持并发访问。
 type Container struct {
-	mu        sync.RWMutex
+	// mu 串行化 provider、实例缓存和构建中状态的读写。
+	mu sync.RWMutex
+	// providers 保存服务 key 到单例构造函数的映射。
 	providers map[string]Provider
+	// instances 缓存已经成功构建的共享单例。
 	instances map[string]any
-	inflight  map[string]*inflightCall
+	// inflight 记录正在构建的单例，确保并发调用共享同一次构建结果。
+	inflight map[string]*inflightCall
 }
 
 type inflightCall struct {
@@ -37,7 +44,7 @@ type inflightCall struct {
 	err  error
 }
 
-// New creates an empty service container.
+// New 创建一个空的单例容器。
 func New() *Container {
 	return &Container{
 		providers: make(map[string]Provider),
@@ -46,7 +53,7 @@ func New() *Container {
 	}
 }
 
-// RegisterSingleton stores one provider for one service key.
+// RegisterSingleton 为一个服务 key 注册唯一的单例构造函数。
 func (c *Container) RegisterSingleton(key any, provider Provider) error {
 	if provider == nil {
 		return errors.New("provider is required")
@@ -65,7 +72,10 @@ func (c *Container) RegisterSingleton(key any, provider Provider) error {
 	return nil
 }
 
-// Resolve builds the singleton once and caches the result.
+// Resolve 解析指定 key 对应的单例实例。
+//
+// 如果实例尚未创建，Resolve 会触发一次构建并缓存结果；如果同一实例
+// 正在被其它 goroutine 构建，当前调用会等待并复用那次构建结果。
 func (c *Container) Resolve(key any) (any, error) {
 	name := keyName(key)
 
@@ -75,6 +85,8 @@ func (c *Container) Resolve(key any) (any, error) {
 		return instance, nil
 	}
 
+	// 第一个进入的调用负责实际构建，后续并发调用等待 inflight 结果，
+	// 这样可以避免高成本 provider 被重复执行。
 	if call, ok := c.inflight[name]; ok {
 		c.mu.Unlock()
 		<-call.done

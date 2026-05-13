@@ -12,16 +12,16 @@ const (
 	permissionsHeader = "X-Graft-Permissions"
 )
 
-// Session captures the explicit request identity carried by the MVP shell.
+// Session 表示 MVP 阶段请求携带的显式身份信息。
 //
-// Until the auth and RBAC plugins land, protected routes use these headers as a
-// visible server-side guard instead of silently trusting frontend route meta.
+// 在真实 auth 与 RBAC 插件落地之前，受保护路由通过这些请求头进行可见
+// 的后端权限校验，而不是隐式信任前端路由元数据。
 type Session struct {
 	Actor       string
 	Permissions map[string]struct{}
 }
 
-// HasPermission reports whether the current session owns the required code.
+// HasPermission 判断当前会话是否拥有所需权限码。
 func (s Session) HasPermission(code string) bool {
 	if strings.TrimSpace(code) == "" {
 		return true
@@ -31,7 +31,7 @@ func (s Session) HasPermission(code string) bool {
 	return ok
 }
 
-// SessionFromRequest parses the explicit MVP session headers from the request.
+// SessionFromRequest 从请求中解析 MVP 阶段的显式会话头。
 func SessionFromRequest(request *http.Request) Session {
 	session := Session{
 		Actor:       strings.TrimSpace(request.Header.Get(actorHeader)),
@@ -49,7 +49,7 @@ func SessionFromRequest(request *http.Request) Session {
 	return session
 }
 
-// RequirePermission enforces the explicit MVP authorization contract.
+// RequirePermission 执行当前 MVP 阶段的显式权限校验。
 func RequirePermission(code string) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		session := SessionFromRequest(ctx.Request)

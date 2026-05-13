@@ -1,4 +1,4 @@
-// Package user provides the first sample business plugin wired into the MVP shell.
+// Package user 提供接入 MVP 运行时的首个示例业务插件。
 package user
 
 import (
@@ -19,30 +19,30 @@ import (
 	"graft/server/internal/store"
 )
 
-// Plugin is the sample user capability plugin used to prove the extension path.
+// Plugin 是用于验证扩展路径的示例用户能力插件。
 type Plugin struct{}
 
-// NewPlugin creates the sample user plugin.
+// NewPlugin 创建示例用户插件。
 func NewPlugin() *Plugin {
 	return &Plugin{}
 }
 
-// Name returns the stable plugin identifier.
+// Name 返回插件的稳定标识。
 func (p *Plugin) Name() string {
 	return "user"
 }
 
-// Version returns the current sample plugin version.
+// Version 返回当前示例插件版本。
 func (p *Plugin) Version() string {
 	return "0.1.0"
 }
 
-// DependsOn declares plugin dependencies for startup ordering.
+// DependsOn 返回当前插件的依赖列表。
 func (p *Plugin) DependsOn() []string {
 	return nil
 }
 
-// Register declares user menus, permissions, routes, and public services.
+// Register 声明用户插件需要的权限、菜单、路由和公开服务。
 func (p *Plugin) Register(ctx *plugin.Context) error {
 	ctx.PermissionRegistry.Register(permission.Item{
 		Code:        "user.read",
@@ -81,6 +81,8 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 			return
 		}
 
+		// 这里解析跨插件公共接口而不是直接依赖具体实现，保证后续用户插件
+		// 内部存储实现变更时，不会破坏其它插件的依赖边界。
 		svc := svcAny.(pluginapi.UserService)
 		summary, err := svc.GetUserByID(ginCtx.Request.Context(), rawID)
 		if err != nil {
@@ -98,12 +100,12 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 	return nil
 }
 
-// Boot starts user runtime behavior after registration completes.
+// Boot 在注册完成后启动用户插件的运行时行为。
 func (p *Plugin) Boot(ctx *plugin.Context) error {
 	return nil
 }
 
-// Shutdown releases user runtime resources during application stop.
+// Shutdown 在应用停止时释放用户插件资源。
 func (p *Plugin) Shutdown(ctx *plugin.Context) error {
 	return nil
 }

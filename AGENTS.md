@@ -33,6 +33,8 @@ Authoritative documents:
 * [ai-plan/design/项目设计.md](ai-plan/design/项目设计.md)
 * [ai-plan/design/插件与依赖注入设计.md](ai-plan/design/插件与依赖注入设计.md)
 * [ai-plan/design/前端架构设计.md](ai-plan/design/前端架构设计.md)
+* [ai-plan/design/代码注释与模块文档规范.md](ai-plan/design/代码注释与模块文档规范.md) when the task changes
+  code comments, package docs, module README rules, or AI documentation behavior
 * [ai-plan/design/TDesign-MCP-辅助开发规范.md](ai-plan/design/TDesign-MCP-辅助开发规范.md) when the task changes
   TDesign Vue Next pages, components, styles, or frontend AI-assisted development workflow
 * [ai-plan/roadmap/MVP实施计划.md](ai-plan/roadmap/MVP实施计划.md)
@@ -509,16 +511,27 @@ All generated or modified code must include clear and meaningful comments where 
 
 For Go code:
 
-* all exported packages, types, interfaces, functions, methods, and constants must have Go-style doc comments
-* comments must explain intent, contract, and usage constraints instead of restating syntax
+* all hand-written exported packages, types, interfaces, functions, methods, and constants must have Go-style doc
+  comments
+* all hand-written Go comments must use Chinese, while preserving stable technical terms in English when needed
+* comments must explain intent, contract, usage constraints, or design reasons instead of restating syntax
 * plugin lifecycle types and methods must document registration order, boot semantics, shutdown expectations, and
   failure behavior when relevant
 * cross-plugin interfaces must document stability expectations and what callers may depend on
+* package comments should live in `doc.go` when practical and explain responsibility plus boundary intent
+* do not generate mechanical comments such as `Name 是名称` or `ID 是 ID`
+* when code and old comments conflict, verify the implementation context first and then update the comment in the same
+  change
+* generated code, third-party code, migration artifacts, and build outputs are exempt, but their hand-written wrapper
+  layers still follow the documentation rules
+* field comments are required only for key fields such as lifecycle-sensitive, shared, nullable, or constraint-heavy
+  fields; do not mechanically document every field
 
 ### 17.2 Web Documentation
 
 For TypeScript and Vue code:
 
+* comments must use Chinese when they are needed
 * add comments for non-trivial routing assembly, permission gating, dynamic menu composition, and complex page-state
   synchronization
 * document why a store exists when the same state could have been page-local
@@ -531,11 +544,14 @@ Add inline comments for:
 * non-trivial logic
 * concurrency behavior
 * lifecycle sequencing
+* business rules that are not obvious from the code shape
 * compatibility constraints
 * registration order assumptions
 * workarounds and edge cases
 
-Do not add trivial comments that only restate the code.
+Prefer standalone line comments ahead of the logic block for complex behavior instead of trailing end-of-line comments.
+
+Do not add trivial or mechanical comments that only restate the code.
 
 ### 17.4 Architecture-Level Documentation
 
@@ -546,6 +562,28 @@ Core framework components and plugin-extension primitives must explain:
 * interaction with other components
 * why the abstraction exists
 * when to use it instead of simpler alternatives
+
+### 17.5 Module README Rules
+
+Module-level `README.md` files are navigation documents, not detailed design documents.
+
+Rules:
+
+* add `README.md` to module-level directories with independent responsibilities such as `server/internal/<module>`,
+  `server/plugins/<name>`, and `web/src/modules/<name>`
+* use `README.md` consistently; do not mix with `ReadMe.md`
+* explain module purpose, boundary, main entrypoints, upstream/downstream relationships, and extension guidance
+* keep detailed architecture decisions in `ai-plan/design/` instead of duplicating them inside module READMEs
+
+### 17.6 Comment Priority
+
+When time or scope is limited, prioritize comments in this order:
+
+* public API comments
+* architecture-boundary comments
+* concurrency and lifecycle comments
+* business-rule comments
+* ordinary implementation comments
 
 Missing required documentation is a standards violation. Code that does not meet these documentation rules is
 incomplete.

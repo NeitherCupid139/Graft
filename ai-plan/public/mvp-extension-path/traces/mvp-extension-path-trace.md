@@ -115,6 +115,18 @@
 - Added a focused `build_result()` regression test that covers a CodeRabbit latest-review body with only `major`
   grouped comments.
 
+## 2026-05-13 comment governance baseline
+
+- Added `ai-plan/design/代码注释与模块文档规范.md` as repository truth for Chinese comments, module navigation
+  READMEs, comment priority ordering, and exemption boundaries.
+- Updated `AGENTS.md` so repository execution rules now require Chinese documentation for hand-written Go comments,
+  reject mechanical comments, and keep module `README.md` scoped to navigation rather than detailed design.
+- Started the first implementation wave on `server/internal/container`, `server/internal/plugin`,
+  `server/internal/httpx`, `server/internal/app`, and `server/plugins/user` so the new rules have concrete examples in
+  the codebase instead of remaining documentation-only.
+- Validation target for this wave is direct package-level `go test` coverage on the touched `server` packages plus
+  consistency across the owned `ai-plan/` and `AGENTS.md` documents.
+
 ## 2026-05-12 `.ai/environment`
 
 - Introduced `.ai/environment/tools.raw.yaml` and `.ai/environment/tools.ai.yaml` as repository-wide environment truth.
