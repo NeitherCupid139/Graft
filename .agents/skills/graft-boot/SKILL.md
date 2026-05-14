@@ -20,7 +20,8 @@ Treat `AGENTS.md` as the source of truth. This skill is a startup workflow, not 
    - `ai-plan/design/前端架构设计.md`
    - `ai-plan/roadmap/MVP实施计划.md`
 4. Read `ai-plan/public/README.md` and any active topic tracking or trace files mapped to the current branch or
-   worktree.
+   worktree. If the mapped topic defines subtopics, read the parent topic first and then continue into the relevant
+   subtopic for the current `server`, `web`, or cross-boundary task.
 5. Inspect the current repository state before assuming toolchains or entrypoints exist.
 6. Classify the task into one of:
    - `server/core`

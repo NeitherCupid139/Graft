@@ -65,6 +65,8 @@ Before choosing runtimes, package managers, or CLI tools:
 * first read `.ai/environment/tools.ai.yaml` if it exists
 * use `.ai/environment/tools.raw.yaml` only when the AI-facing inventory is missing or insufficient
 * prefer repository-relevant installed tools over assumptions about what is available on the system
+* if `.ai/environment/` marks a cross-environment exception such as host Windows Bun for `web`, follow that exception
+  instead of defaulting to the current WSL shell toolchain
 * if a change affects repository toolchain expectations or environment guidance, refresh the `.ai/environment/`
   inventory in the same change instead of leaving generated environment truth stale
 
@@ -217,6 +219,10 @@ Rules:
   `Husky + lint-staged`, and `commitlint` as one consistent quality gate instead of optional local preferences
 * once the repository `web` toolchain exposes a unified check script, default frontend acceptance should use that
   entrypoint and keep the validation order explicit as `format:check -> typecheck -> lint -> stylelint -> test:run -> build`
+* when the repository is used from WSL, all `web` install, validation, build, preview, and dev commands must run
+  through the configured host Windows Bun instead of the WSL Bun binary
+* do not refresh or regenerate `web/node_modules` from WSL Bun when host Windows Bun is the active frontend package
+  manager, because mixed Bun environments can leave Windows IDE and `npm run dev` flows unusable
 * `web/ai-libs/` is a local reference area for starter configuration and TDesign usage patterns, not a runtime
   dependency or a source of truth to be copied wholesale into `web`
 * when reusing ideas from `web/ai-libs/`, keep only the governance or component patterns that fit Graft, and do not
@@ -315,6 +321,8 @@ For `web` changes:
 
 * run the repository's actual frontend validation command once it exists
 * once the frontend governance baseline is wired, prefer `bun run check` as the default full validation entrypoint
+* when the repository runs from WSL, interpret frontend `bun` validation commands as host Windows Bun commands unless
+  the environment inventory explicitly says otherwise
 * the standard `web` quality chain should include `format:check`, type checking, lint, stylelint, unit tests, and
   production build in that order
 * prefer type checking plus production build when both are available
@@ -496,6 +504,10 @@ For complex, multi-step, or multi-agent work:
   * recovery-safe tracking documents for one active topic
 * `ai-plan/public/<topic>/traces/`
   * execution traces for one active topic
+* `ai-plan/public/<topic>/subtopics/<name>/todos/`
+  * recovery-safe tracking documents for one bounded subtopic inside an active topic
+* `ai-plan/public/<topic>/subtopics/<name>/traces/`
+  * execution traces for one bounded subtopic inside an active topic
 * `ai-plan/public/<topic>/design/`
   * topic-specific design documents that do not belong in repository-wide design truth
 * `ai-plan/public/<topic>/roadmap/`
@@ -509,7 +521,11 @@ Use these workflow rules:
 
 * `ai-plan/public/README.md` must list only active topics
 * when a branch or worktree has an active-topic mapping, read its tracking and trace files before substantive work
+* when an active topic defines subtopics, read the parent topic first and then continue into the relevant subtopic based
+  on the current `server`, `web`, or cross-boundary task boundary
 * when working from a tracked topic, update the corresponding tracking document in the same change
+* when work is clearly scoped to one subtopic, update that subtopic tracking document in the same change and keep the
+  parent topic focused on cross-boundary milestones, shared risks, and shared next steps
 * for complex work, maintain a matching trace that records the current date, key decisions, validation milestones, and
   the immediate next step
 * keep active tracking and trace files concise enough to serve as recovery entrypoints
