@@ -96,7 +96,39 @@
 - Trimmed the now-unused copy-config locale strings, store getters, and helper types/functions so the feature surface
   matches the visible UI again.
 
+## 2026-05-14 theme workbench dock centering fix
+
+- Adjusted the floating dock shell so its fixed-position container still centers around the viewport while button pills
+  expand and collapse.
+- Reworked the active dock-button alignment to keep the icon + label content centered inside each expanded pill instead
+  of using a left-aligned layout that made the controls look visually off-center.
+- Kept the change local to `ThemeWorkbenchDock.vue`, preserving the existing store actions, group switching semantics,
+  and drawer interaction path.
+
+## 2026-05-14 frontend quality-source tightening
+
+- Clarified repository truth so frontend completion follows the documented host Windows Bun CLI chain, while JetBrains
+  Inspection, TS suggestion diagnostics, and local spell-check output remain IDE-local guidance unless mirrored by a
+  repository rule.
+- Tightened `web/eslint.config.js` with `eqeqeq` and a `no-console` policy that blocks `console.log`-style debug
+  output while still allowing `console.warn` and `console.error` for operational diagnostics.
+- Removed the existing debug-only log calls and one leftover commented-out debug line from the current starter/demo
+  `web` pages so the stricter lint rule applies immediately without local exemptions.
+
+## 2026-05-14 frontend logger design documentation
+
+- Updated repository design truth for a planned frontend logger infrastructure before code implementation begins.
+- Locked the core model to `LoggerCore + LogEvent + Transport`, with `consola` as the default transport and
+  `NoopTransport` as the silent path.
+- Fixed the usage boundary so business code only depends on `createLogger`, `child()`, and `withContext()` instead of
+  transport-specific APIs.
+- Recorded governance requirements for stable `moduleName`, serializable `meta/context`, sensitive-data restrictions,
+  explicit separation between logger output and UI messages, no silent swallowing after `logger.error` in `catch`,
+  temporary debug lifecycle cleanup, and AI debug-noise control.
+
 ## Next Step
 
 - Continue the workbench slice by improving grouped token-editor ergonomics and layout-preview fidelity without
   reintroducing a second host component or another parallel visibility flag.
+- When the logger slice is scheduled for implementation, land it as a focused frontend infrastructure change first and
+  keep business modules on the `createLogger` boundary rather than binding them directly to `consola` or UI feedback.

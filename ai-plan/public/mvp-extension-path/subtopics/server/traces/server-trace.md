@@ -29,7 +29,35 @@
   subtopic.
 - Left cross-boundary direction, shared risks, and shared validation summaries in the parent topic.
 
+## 2026-05-14 auth and RBAC persistence baseline
+
+- Extended the `users` schema with password-hash fields while keeping the existing `store.User` DTO boundary stable.
+- Added Ent schema plus Atlas migration assets for `refresh_sessions`, `roles`, `permissions`, `user_roles`, and
+  `role_permissions`.
+- Expanded the store factory with dedicated `Auth` and `RBAC` repository entrypoints so future plugins can consume
+  stable DTOs without touching Ent client internals.
+- Validated the repository-boundary fallout with `go test ./internal/app ./plugins/user ./internal/store ./internal/store/entstore`
+  and kept `go build ./cmd/graft` green.
+
+## 2026-05-14 auth utility baseline
+
+- Added auth configuration defaults and validation for token TTLs, signing secret/key, and refresh-cookie settings.
+- Reserved the stable auth DTO and service interfaces in `pluginapi` for future request-auth and RBAC wiring.
+- Added the first `server/plugins/user` auth utility layer for bcrypt password hashing and HS256 access-token
+  issue/parse helpers, while intentionally keeping login, refresh, and request middleware out of scope for this slice.
+- Validated the utility layer with `go test ./plugins/user ./internal/config ./internal/pluginapi ./internal/store ./internal/store/entstore ./internal/app`
+  and kept `go build ./cmd/graft` green.
+
+## 2026-05-15 PR #7 review follow-up
+
+- Removed hard-coded auth signing defaults so `server` now requires explicit JWT signing material from environment or dotenv inputs.
+- Hardened the Ent-backed store boundary with `ErrInvalidID`, a nil-client fail-fast guard, and repository-level mapping that keeps invalid identifiers distinct from true not-found cases.
+- Tightened schema safety by marking `users.password_hash` as sensitive and enforcing namespaced permission codes at the Ent schema layer.
+- Normalized the active `web` tracking snapshot to repository-portable Bun commands so `ai-plan/**` no longer records machine-specific absolute paths.
+- Aligned the `migrate` CLI fallback regression test with the new explicit auth-signing requirement, so `go test ./...` no longer fails on missing JWT signing configuration before reaching the context-fallback assertion.
+
 ## Next Step
 
-- Execute live Atlas validation against a disposable PostgreSQL target, then continue into the real auth + RBAC
-  backend path.
+- Execute live Atlas validation against a disposable PostgreSQL target, then replace the request-header authorization
+  placeholder with the real request-auth, login, refresh, and RBAC plugin chain on top of the new persistence
+  baseline.

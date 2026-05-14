@@ -46,6 +46,33 @@
 - The same slice also removes the floating footer action area from the right-side panel:
   the redundant “复制完整配置” action and its copy pipeline are deleted, and “恢复默认主题” now lives directly under
   the `元素开关` block to keep the action near the configuration it resets.
+- The latest dock-alignment follow-up corrects a remaining visual-centering issue in the floating toolbar:
+  the bottom dock keeps its overall center anchored while active pills expand, and the active icon + label content is
+  now centered within each expanded button instead of left-biased.
+- The latest frontend governance follow-up now also closes the quality-chain warning cleanup:
+  `web/vite.config.ts` only mounts `vite-plugin-mock` in mock/development modes, release/test builds use explicit
+  vendor chunk boundaries for `tdesign` / `tdesign-icons` / `echarts` / `vue` / shared utils, and the current starter
+  baseline accepts a `chunkSizeWarningLimit` aligned to that temporary full-TDesign shell so the host Windows Bun
+  `bun run check` path can finish without warning output.
+- The same slice also refreshed the lowest-risk runtime dependency update in the current tree by moving `axios` to
+  `^1.16.1`, while leaving cross-major framework, UI-library, and tooling upgrades for later dedicated validation
+  slices instead of mixing them into this warning-cleanup pass.
+- The latest frontend governance tightening now also makes the quality-source boundary explicit:
+  repository completion and merge decisions follow the documented CLI chain headed by host Windows Bun `bun run check`,
+  while JetBrains Inspection, TS suggestion diagnostics, and local spell-check output remain IDE-local guidance unless
+  a matching rule is promoted into the repository CLI/tooling contract.
+- The same slice also raises one concrete CLI rule instead of relying on IDE yellow warnings:
+  `web/eslint.config.js` now rejects `console.log`-style debug output while still allowing `console.warn` and
+  `console.error`, and the current starter/demo pages remove the existing debug-only log calls so the stricter lint
+  policy can pass without hidden local exceptions.
+- The planned frontend logger infrastructure is now documented before implementation:
+  it follows a `LoggerCore + LogEvent + Transport` model, defaults to a `consola` transport, supports a silent
+  `NoopTransport`, and requires business code to depend on `createLogger` plus `child()` / `withContext()` instead of
+  transport-specific APIs.
+- The same planned logger slice also establishes governance boundaries up front:
+  stable `moduleName` ownership, serializable `meta/context`, explicit sensitive-data restrictions, a strict
+  separation between logger output and UI message responsibility, no silent swallowing after `logger.error` in `catch`,
+  temporary debug lifecycle cleanup rules, and AI debug-noise limits for generated frontend code.
 
 ## Active Risks
 
@@ -57,23 +84,36 @@
   remains in `web`, so mainline implementation needs a clear replacement boundary instead of mixed old/new pages.
 - Mixed WSL Bun and host Windows Bun dependency installs can still break Windows IDE startup until the working tree is
   reinstalled with host Windows Bun after this rule change lands.
+- The warning-cleanup slice now reaches a zero-warning completion state, but the current vendor-size strategy still
+  depends on the temporary full-TDesign starter baseline and a raised `chunkSizeWarningLimit`, so deeper bundle-size
+  optimization should be treated as a future performance task instead of silently regressing back into warning debt.
+- IDE 问题面板仍可能继续提示未使用导出、JSDoc、拼写、commented-out code 一类本地检查项；后续若团队希望把其中某类
+  提升为正式阻塞规则，必须先提供等价 CLI 校验入口，而不是把 JetBrains 专属 Inspection 直接当作仓库唯一标准。
+- If the logger plan is implemented without the documented `moduleName` / serializable-context / sensitive-data
+  boundaries, frontend debug output could quickly drift into inconsistent module naming, unstructured payloads, and
+  accidental leakage of user or credential data.
 
 ## Latest Validation
 
-- The official-alignment slice for the theme workbench validated with host Windows Bun using:
-  - `C:\\Users\\gewuyou\\.bun\\bin\\bun.exe run typecheck`
-  - `C:\\Users\\gewuyou\\.bun\\bin\\bun.exe run build`
-- The build still emits existing non-blocking warnings from `@vueuse/core` pure annotations and large Vite chunks, but
-  the validation completed successfully.
-- The icon and footer cleanup follow-up should again validate with host Windows Bun using:
-  - `C:\\Users\\gewuyou\\.bun\\bin\\bun.exe run typecheck`
-  - `C:\\Users\\gewuyou\\.bun\\bin\\bun.exe run build`
-- After the mainline implementation actually replaces the current frontend baseline, it should still validate with host
-  Windows Bun using at least:
-  - `C:\\Users\\gewuyou\\.bun\\bin\\bun.exe install --force`
-  - `C:\\Users\\gewuyou\\.bun\\bin\\bun.exe run typecheck`
-  - `C:\\Users\\gewuyou\\.bun\\bin\\bun.exe run build`
-  - `C:\\Users\\gewuyou\\.bun\\bin\\bun.exe run check`
+- The frontend governance baseline now treats host Windows Bun `bun run check` as the required completion-state
+  validation entrypoint for `web`.
+- The latest implementation validation snapshot is:
+  - `bun outdated`
+  - `bun add axios@1.16.1`
+  - `bun run test:run -- --reporter=hanging-process`
+  - `bun run test:run`
+  - `bun run check`
+- `bun run check` 当前通过，`format:check`、`typecheck`、`lint`、`stylelint`、`test:run`、`build` 均无未处理 warning。
+- The current build-cleanup strategy is explicit:
+  - `@vueuse/core` pure annotation noise is filtered by exact source match in `vite.config.ts`, so the repository does
+    not suppress unrelated Rollup warnings.
+  - `vite-plugin-mock` is only mounted in mock/development modes, preventing Vitest from leaving watcher handles open
+    in completion-state validation.
+  - Chunk-warning output is closed by stable vendor chunk boundaries plus the current `1600` threshold that matches
+    the temporary full-TDesign starter baseline; future bundle-size optimization remains a separate follow-up concern.
+- The latest governance-tightening validation snapshot additionally requires:
+  - host Windows Bun `bun run check`
+  - no new `console.log`-style debug output under `web/src`
 
 ## Immediate Next Step
 
@@ -84,3 +124,9 @@
   current `setting store + token/runtime底座 + dock/panel 壳层` path.
 - Do not fork a second theme system outside the existing `tvision-color + CSS variables + Pinia persisted state`
   path, and avoid adding another shell-level host or a parallel visible-state flag.
+- Keep future `web` slices on the host Windows Bun `bun run check` completion gate, and treat any later bundle-size
+  or dependency-major upgrade work as dedicated follow-up tasks instead of reintroducing warning noise into the
+  completion path.
+- When the frontend logger slice moves from documentation to implementation, keep it infrastructure-scoped first:
+  add the core logger path and governance boundary without coupling it to UI message flows or a broader remote logging
+  platform in the same change.

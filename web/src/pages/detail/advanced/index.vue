@@ -136,6 +136,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { getPurchaseList } from '@/api/detail';
 import type { PurchaseInfo } from '@/api/model/detailModel';
 import { t } from '@/locales';
+import { createLogger } from '@/utils/logger';
 
 import Product from './components/Product.vue';
 import { getBaseInfoData, getProductList } from './constants';
@@ -146,6 +147,7 @@ defineOptions({
 
 const BASE_INFO_DATA = computed(() => getBaseInfoData());
 const PRODUCT_LIST = computed(() => getProductList());
+const detailAdvancedLogger = createLogger('detail').child('advanced');
 
 const columns = [
   {
@@ -226,7 +228,15 @@ const fetchData = async () => {
       total: list.length,
     };
   } catch (e) {
-    console.log(e);
+    data.value = [];
+    pagination.value = {
+      ...pagination.value,
+      total: 0,
+    };
+    detailAdvancedLogger.error(e instanceof Error ? e : 'Failed to load purchase list', {
+      action: 'fetchData',
+    });
+    return;
   }
 };
 
@@ -242,12 +252,8 @@ onMounted(() => {
 });
 
 const visible = ref(false);
-const sortChange = (val: unknown) => {
-  console.log(val);
-};
-const rehandleChange = (changeParams: unknown, triggerAndData: unknown) => {
-  console.log('统一Change', changeParams, triggerAndData);
-};
+const sortChange = (_val: unknown) => undefined;
+const rehandleChange = (_changeParams: unknown, _triggerAndData: unknown) => undefined;
 const listClick = () => {
   visible.value = true;
 };

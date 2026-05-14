@@ -8,4 +8,10 @@ type Factory interface {
 	//
 	// 返回值应当是可长期复用的仓储句柄；调用方不拥有其底层数据库资源的关闭职责。
 	Users() UserRepository
+
+	// Auth 返回认证能力可依赖的最小仓储边界。
+	Auth() AuthRepository
+
+	// RBAC 返回角色与权限解析可依赖的最小仓储边界。
+	RBAC() RBACRepository
 }

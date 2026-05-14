@@ -46,7 +46,19 @@ export default tseslint.config(
       'unused-imports': unusedImports,
     },
     rules: {
-      'no-console': 'off',
+      eqeqeq: ['error', 'always'],
+      'no-console': 'error',
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'consola',
+              message: '业务代码只能通过 createLogger 使用日志，不要直接依赖 consola。',
+            },
+          ],
+        },
+      ],
       'no-debugger': 'error',
       'simple-import-sort/imports': 'error',
       'simple-import-sort/exports': 'error',
@@ -110,6 +122,12 @@ export default tseslint.config(
       'vue/one-component-per-file': 'off',
       'vue/order-in-components': 'off',
       'vue/require-prop-types': 'off',
+    },
+  },
+  {
+    files: ['src/utils/logger/transports/**/*.ts'],
+    rules: {
+      'no-restricted-imports': 'off',
     },
   },
   eslintConfigPrettier,

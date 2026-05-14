@@ -135,6 +135,7 @@ import { prefix } from '@/config/global';
 import { CONTRACT_PAYMENT_TYPES, CONTRACT_STATUS, CONTRACT_TYPES } from '@/constants';
 import { t } from '@/locales';
 import { useSettingStore } from '@/store';
+import { createLogger } from '@/utils/logger';
 
 interface FormData {
   name: string;
@@ -145,6 +146,7 @@ interface FormData {
 
 const store = useSettingStore();
 const router = useRouter();
+const tableLogger = createLogger('table').child('common');
 
 const CONTRACT_STATUS_OPTIONS = [
   { value: CONTRACT_STATUS.FAIL, label: t('components.commonTable.contractStatusEnum.fail') },
@@ -233,7 +235,15 @@ const fetchData = async () => {
       total: list.length,
     };
   } catch (e) {
-    console.log(e);
+    data.value = [];
+    pagination.value = {
+      ...pagination.value,
+      total: 0,
+    };
+    tableLogger.error(e instanceof Error ? e : 'Failed to load table data', {
+      action: 'fetchData',
+    });
+    return;
   } finally {
     dataLoading.value = false;
   }
@@ -273,23 +283,16 @@ const handleClickDelete = (slot: { row: { rowIndex: number } }) => {
   deleteIdx.value = slot.row.rowIndex;
   confirmVisible.value = true;
 };
-const onReset = (val: unknown) => {
-  console.log(val);
-};
+const onReset = (_val: unknown) => undefined;
 
 const handleClickDetail = () => {
   router.push('/detail/base');
 };
-const onSubmit = (val: unknown) => {
-  console.log(val);
-  console.log(formData.value);
+const onSubmit = (_val: unknown) => {
+  void formData.value;
 };
-const rehandlePageChange = (pageInfo: PageInfo, newDataSource: TableRowData[]) => {
-  console.log('分页变化', pageInfo, newDataSource);
-};
-const rehandleChange = (changeParams: unknown, triggerAndData: unknown) => {
-  console.log('统一Change', changeParams, triggerAndData);
-};
+const rehandlePageChange = (_pageInfo: PageInfo, _newDataSource: TableRowData[]) => undefined;
+const rehandleChange = (_changeParams: unknown, _triggerAndData: unknown) => undefined;
 
 const headerAffixedTop = computed(
   () =>
