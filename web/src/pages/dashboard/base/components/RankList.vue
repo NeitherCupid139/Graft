@@ -149,9 +149,7 @@ const BUY_COLUMNS = computed<TdBaseTableProps['columns']>(() => [
   },
 ]);
 
-const rehandleClickOp = (val: MouseEvent) => {
-  console.log(val);
-};
+const rehandleClickOp = (_val: MouseEvent) => undefined;
 const getRankClass = (index: number) => {
   return ['dashboard-rank', { 'dashboard-rank__top': index < 3 }];
 };

@@ -1,5 +1,6 @@
 import cloneDeep from 'lodash/cloneDeep';
 
+import { createLogger } from '@/utils/logger';
 import {
   BLANK_LAYOUT,
   EXCEPTION_COMPONENT,
@@ -14,6 +15,8 @@ type DynamicRouteItem = Omit<MenuRoute, 'children' | 'component'> & {
   component?: string | (() => Promise<unknown>);
   children?: DynamicRouteItem[];
 };
+
+const routeLogger = createLogger('route');
 
 // 动态从包内引入单个Icon,如果没有网络环境可以使用这种方式 但是会导致产物存在多个chunk
 // const iconsPath = import.meta.glob('../../../node_modules/tdesign-icons-vue-next/esm/components/*.js');
@@ -81,7 +84,9 @@ function dynamicImport(dynamicViewsModules: Record<string, () => Promise<Record<
       'Please do not create `.vue` and `.TSX` files with the same file name in the same hierarchical directory under the views folder. This will cause dynamic introduction failure',
     );
   } else {
-    console.warn(`Can't find ${component} in pages folder`);
+    routeLogger.warn(`Can't find ${component} in pages folder`, {
+      component,
+    });
   }
   return EXCEPTION_COMPONENT;
 }

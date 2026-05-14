@@ -69,6 +69,7 @@ import { getCardList } from '@/api/list';
 import type { CardProductType } from '@/components/product-card/index.vue';
 import ProductCard from '@/components/product-card/index.vue';
 import { t } from '@/locales';
+import { createLogger } from '@/utils/logger';
 
 import type { FormData } from './components/DialogForm.vue';
 import DialogForm from './components/DialogForm.vue';
@@ -88,6 +89,7 @@ const INITIAL_DATA: FormData = {
 
 const pagination = ref({ current: 1, pageSize: 12, total: 0 });
 const deleteProduct = ref<CardProductType | undefined>(undefined);
+const listCardLogger = createLogger('list').child('card');
 
 const productList = ref<CardProductType[]>([]);
 const dataLoading = ref(true);
@@ -101,7 +103,15 @@ const fetchData = async () => {
       total: list.length,
     };
   } catch (e) {
-    console.log(e);
+    productList.value = [];
+    pagination.value = {
+      ...pagination.value,
+      total: 0,
+    };
+    listCardLogger.error(e instanceof Error ? e : 'Failed to load card list', {
+      action: 'fetchData',
+    });
+    return;
   } finally {
     dataLoading.value = false;
   }

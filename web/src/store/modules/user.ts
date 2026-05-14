@@ -21,26 +21,8 @@ export const useUserStore = defineStore('user', {
   },
   actions: {
     async login(userInfo: Record<string, unknown>) {
-      const mockLogin = async (userInfo: Record<string, unknown>) => {
+      const mockLogin = async (_userInfo: Record<string, unknown>) => {
         // 登录请求流程
-        console.log(`用户信息:`, userInfo);
-        // const { account, password } = userInfo;
-        // if (account !== 'td') {
-        //   return {
-        //     code: 401,
-        //     message: t('pages.login.validation.accountNotFound'),
-        //   };
-        // }
-        // if (['main_', 'dev_'].indexOf(password) === -1) {
-        //   return {
-        //     code: 401,
-        //     message: t('pages.login.validation.passwordError'),
-        //   };
-        // }
-        // const token = {
-        //   main_: 'main_token',
-        //   dev_: 'dev_token',
-        // }[password];
         return {
           code: 200,
           message: t('pages.login.loginSuccess'),

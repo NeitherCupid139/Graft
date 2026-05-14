@@ -85,6 +85,7 @@ import type { ProjectInfo } from '@/api/model/detailModel';
 import { t } from '@/locales';
 import { useSettingStore } from '@/store';
 import { changeChartsTheme } from '@/utils/color';
+import { createLogger } from '@/utils/logger';
 
 import { getBaseInfoData } from './constants';
 import { get2ColBarChartDataSet, getSmoothLineDataSet } from './index';
@@ -138,6 +139,7 @@ echarts.use([
 ]);
 
 const store = useSettingStore();
+const detailDeployLogger = createLogger('detail').child('deploy');
 
 const chartColors = computed(() => store.chartColors);
 const data = ref<ProjectInfo[]>([]);
@@ -156,7 +158,15 @@ const fetchData = async () => {
       total: list.length,
     };
   } catch (e) {
-    console.log(e);
+    data.value = [];
+    pagination.value = {
+      ...pagination.value,
+      total: 0,
+    };
+    detailDeployLogger.error(e instanceof Error ? e : 'Failed to load project list', {
+      action: 'fetchData',
+    });
+    return;
   }
 };
 const visible = ref(false);
@@ -224,12 +234,8 @@ watch(
   },
 );
 
-const sortChange = (val: unknown) => {
-  console.log(val);
-};
-const rehandleChange = (changeParams: unknown, triggerAndData: unknown) => {
-  console.log('统一Change', changeParams, triggerAndData);
-};
+const sortChange = (_val: unknown) => undefined;
+const rehandleChange = (_changeParams: unknown, _triggerAndData: unknown) => undefined;
 const listClick = () => {
   visible.value = true;
 };

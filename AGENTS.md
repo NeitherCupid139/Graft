@@ -229,6 +229,9 @@ Rules:
 * frontend completion defaults to zero warning across `typecheck`, `lint`, `stylelint`, `test:run`, and `build`;
   do not treat build-time Vite/Rollup warnings, chunk warnings, or known third-party package warnings as acceptable
   completed-state noise
+* JetBrains Inspection, TS language-service suggestions, and local spell-check output are local assistance by default,
+  not repository completion blockers, unless the same rule is enforced through the documented CLI quality chain or a
+  repository document explicitly promotes that IDE rule into project truth
 * the only allowed warning exception is a controlled exception recorded in the active tracking document with the
   warning source, user-visible or engineering impact, why the current slice cannot safely eliminate it, and the next
   planned cleanup action
@@ -338,6 +341,8 @@ For `web` changes:
 * a completed `web` validation run is expected to finish without unresolved warnings in `typecheck`, `lint`,
   `stylelint`, `test:run`, or `build`; build-time Vite/Rollup and dependency warnings remain in scope until cleared or
   explicitly accepted through the controlled exception path
+* do not claim a `web` task failed repository completion only because of IDE-only inspections, TS suggestion-level
+  diagnostics, or local spell-check findings that are not mirrored by the repository CLI chain
 * prefer type checking plus production build when both are available
 * at minimum, use the smallest validation that proves changed routes, modules, pages, and TypeScript contracts compile
 

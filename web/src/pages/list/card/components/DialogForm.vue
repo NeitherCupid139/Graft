@@ -82,12 +82,11 @@ const formVisible = ref(false);
 const formData = ref({ ...INITIAL_DATA });
 const textareaValue = ref('');
 
-const onSubmit = ({ validateResult, firstError }: SubmitContext) => {
+const onSubmit = ({ firstError }: SubmitContext) => {
   if (!firstError) {
     MessagePlugin.success(t('components.submitSuccess'));
     formVisible.value = false;
   } else {
-    console.log('Errors: ', validateResult);
     MessagePlugin.warning(firstError);
   }
 };

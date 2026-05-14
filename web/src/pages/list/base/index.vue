@@ -98,12 +98,14 @@ import { prefix } from '@/config/global';
 import { CONTRACT_PAYMENT_TYPES, CONTRACT_STATUS, CONTRACT_TYPES } from '@/constants';
 import { t } from '@/locales';
 import { useSettingStore } from '@/store';
+import { createLogger } from '@/utils/logger';
 
 defineOptions({
   name: 'ListBase',
 });
 
 const store = useSettingStore();
+const listBaseLogger = createLogger('list').child('base');
 
 const COLUMNS = computed<PrimaryTableCol<TableRowData>[]>(() => [
   { colKey: 'row-select', type: 'multiple', width: 64, fixed: 'left' },
@@ -168,7 +170,15 @@ const fetchData = async () => {
       total: list.length,
     };
   } catch (e) {
-    console.log(e);
+    data.value = [];
+    pagination.value = {
+      ...pagination.value,
+      total: 0,
+    };
+    listBaseLogger.error(e instanceof Error ? e : 'Failed to load list data', {
+      action: 'fetchData',
+    });
+    return;
   } finally {
     dataLoading.value = false;
   }
@@ -219,12 +229,8 @@ const rowKey = 'index';
 const rehandleSelectChange = (val: (string | number)[]) => {
   selectedRowKeys.value = val;
 };
-const rehandlePageChange = (curr: unknown, pageInfo: unknown) => {
-  console.log('分页变化', curr, pageInfo);
-};
-const rehandleChange = (changeParams: unknown, triggerAndData: unknown) => {
-  console.log('统一Change', changeParams, triggerAndData);
-};
+const rehandlePageChange = (_curr: unknown, _pageInfo: unknown) => undefined;
+const rehandleChange = (_changeParams: unknown, _triggerAndData: unknown) => undefined;
 const handleClickDetail = () => {
   router.push('/detail/base');
 };
