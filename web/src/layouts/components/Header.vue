@@ -115,9 +115,7 @@ const settingStore = useSettingStore();
 const user = useUserStore();
 
 const toggleSettingPanel = () => {
-  settingStore.updateConfig({
-    showSettingPanel: true,
-  });
+  settingStore.openThemeWorkbench('overview');
 };
 
 const active = computed(() => getActive());

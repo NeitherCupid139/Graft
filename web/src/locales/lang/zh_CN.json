@@ -102,6 +102,43 @@
         "title": "复制配置项",
         "success": "复制成功",
         "fail": "复制失败"
+      },
+      "workbench": {
+        "title": "自定义主题",
+        "subtitle": "Custom Theme",
+        "dock": {
+          "title": "自定义主题"
+        },
+        "groups": {
+          "overview": "概览",
+          "brand": "色彩",
+          "semantic": "语义",
+          "neutral": "中性",
+          "font": "字体",
+          "radius": "圆角",
+          "shadow": "阴影",
+          "size": "尺寸"
+        },
+        "layout": {
+          "side": "侧边布局",
+          "top": "顶部布局",
+          "mix": "混合布局"
+        },
+        "presets": {
+          "title": "官方推荐"
+        },
+        "token": {
+          "targetMode": "目标模式",
+          "light": "亮色",
+          "dark": "暗色",
+          "description": "当前分组编辑结果会实时注入 CSS 变量，用于本地预览主题效果。",
+          "empty": "当前分组暂无可编辑变量"
+        },
+        "actions": {
+          "copy": "复制完整配置",
+          "reset": "恢复默认主题",
+          "clearGroup": "清空当前分组"
+        }
       }
     }
   },

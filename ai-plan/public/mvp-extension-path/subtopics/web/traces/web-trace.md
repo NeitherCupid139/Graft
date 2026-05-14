@@ -55,3 +55,12 @@
 
 - Replace the current `web` baseline with a starter full-project baseline first, then stage Graft contract
   reattachment and later optimization work on top of that recovered runtime path.
+
+## 2026-05-14 theme workbench foundation
+
+- Expanded the `setting` store so the frontend can track theme workbench group state, preset selection, custom token
+  overrides, and copyable theme configuration without changing the existing layout shell yet.
+- Extended the existing `tvision-color` + CSS variable injection path from brand-only output to multi-group token
+  output, while keeping the runtime rooted in the same `theme-color` / `theme-mode` attribute mechanism.
+- Added pure logic helpers for theme token composition, workbench snapshot export, and future UI integration so the
+  later floating toolbar and right-side panel can stay thin.

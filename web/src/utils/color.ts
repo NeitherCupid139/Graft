@@ -3,7 +3,10 @@ import trim from 'lodash/trim';
 import { Color } from 'tvision-color';
 
 import type { TColorToken } from '@/config/color';
+import type { ThemeTokenMap } from '@/types/theme';
 import type { ModeType } from '@/utils/types';
+
+const THEME_STYLE_TAG_PREFIX = 'graft-theme-style';
 
 /**
  * 依据主题类型获取颜色
@@ -84,27 +87,62 @@ export function generateColorMap(theme: string, colorPalette: Array<string>, mod
 }
 
 /**
- * 将生成的样式嵌入头部
+ * 依据品牌色生成当前模式下的品牌 token。
  */
-export function insertThemeStylesheet(theme: string, colorMap: TColorToken, mode: ModeType) {
-  const isDarkMode = mode === 'dark';
-  const root = !isDarkMode ? `:root[theme-color='${theme}']` : `:root[theme-color='${theme}'][theme-mode='dark']`;
+export function generateBrandColorMap(theme: string, mode: ModeType): TColorToken {
+  const [{ colors: newPalette, primary: brandColorIndex }] = Color.getColorGradations({
+    colors: [theme],
+    step: 10,
+    remainInput: false,
+  });
+
+  return generateColorMap(theme, newPalette, mode, brandColorIndex);
+}
+
+export function composeThemeTokenMap(...maps: Array<ThemeTokenMap | undefined>): ThemeTokenMap {
+  return maps.reduce<ThemeTokenMap>((merged, current) => {
+    if (!current) {
+      return merged;
+    }
+
+    return {
+      ...merged,
+      ...current,
+    };
+  }, {});
+}
+
+function getThemeStyleTagId(mode: ModeType) {
+  return `${THEME_STYLE_TAG_PREFIX}-${mode}`;
+}
+
+function ensureThemeStyleTag(mode: ModeType): HTMLStyleElement {
+  const styleTagId = getThemeStyleTagId(mode);
+  const existingStyleTag = document.getElementById(styleTagId);
+
+  if (existingStyleTag instanceof HTMLStyleElement) {
+    return existingStyleTag;
+  }
 
   const styleSheet = document.createElement('style');
+  styleSheet.id = styleTagId;
   styleSheet.type = 'text/css';
-  styleSheet.textContent = `${root}{
-    --td-brand-color: ${colorMap['--td-brand-color']};
-    --td-brand-color-1: ${colorMap['--td-brand-color-1']};
-    --td-brand-color-2: ${colorMap['--td-brand-color-2']};
-    --td-brand-color-3: ${colorMap['--td-brand-color-3']};
-    --td-brand-color-4: ${colorMap['--td-brand-color-4']};
-    --td-brand-color-5: ${colorMap['--td-brand-color-5']};
-    --td-brand-color-6: ${colorMap['--td-brand-color-6']};
-    --td-brand-color-7: ${colorMap['--td-brand-color-7']};
-    --td-brand-color-8: ${colorMap['--td-brand-color-8']};
-    --td-brand-color-9: ${colorMap['--td-brand-color-9']};
-    --td-brand-color-10: ${colorMap['--td-brand-color-10']};
-  }`;
-
   document.head.appendChild(styleSheet);
+  return styleSheet;
+}
+
+/**
+ * 将生成的样式嵌入头部
+ */
+export function insertThemeStylesheet(theme: string, colorMap: ThemeTokenMap, mode: ModeType) {
+  const isDarkMode = mode === 'dark';
+  const root = !isDarkMode ? `:root[theme-color='${theme}']` : `:root[theme-color='${theme}'][theme-mode='dark']`;
+  const styleSheet = ensureThemeStyleTag(mode);
+  const declarations = Object.entries(colorMap)
+    .map(([key, value]) => `    ${key}: ${value};`)
+    .join('\n');
+
+  styleSheet.textContent = `${root}{
+${declarations}
+  }`;
 }

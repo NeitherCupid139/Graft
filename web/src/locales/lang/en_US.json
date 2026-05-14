@@ -102,6 +102,43 @@
         "title": "Copy",
         "success": "copied",
         "fail": "fail to copy"
+      },
+      "workbench": {
+        "title": "Custom Theme",
+        "subtitle": "Custom Theme",
+        "dock": {
+          "title": "Custom Theme"
+        },
+        "groups": {
+          "overview": "Overview",
+          "brand": "Brand",
+          "semantic": "Semantic",
+          "neutral": "Neutral",
+          "font": "Font",
+          "radius": "Radius",
+          "shadow": "Shadow",
+          "size": "Size"
+        },
+        "layout": {
+          "side": "Side Layout",
+          "top": "Top Layout",
+          "mix": "Mix Layout"
+        },
+        "presets": {
+          "title": "Recommended"
+        },
+        "token": {
+          "targetMode": "Target Mode",
+          "light": "Light",
+          "dark": "Dark",
+          "description": "Token updates are injected into CSS variables in real time for local theme preview.",
+          "empty": "No editable tokens in this group"
+        },
+        "actions": {
+          "copy": "Copy Full Config",
+          "reset": "Reset Theme",
+          "clearGroup": "Clear Group"
+        }
       }
     }
   },

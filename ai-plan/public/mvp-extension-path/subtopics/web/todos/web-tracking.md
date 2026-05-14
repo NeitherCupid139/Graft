@@ -55,3 +55,8 @@
 - Let the mainline frontend work replace the current broken incremental shell with a starter full-project baseline
   first, then reattach the real backend auth/menu/permission contracts in a controlled second step without
   reintroducing frontend-only policy.
+- For the theme workbench follow-up, keep the implementation split explicit:
+  - the current slice only expands `setting store + token/runtime底座 + 配置复制`
+  - the floating toolbar, right-side workbench shell, and grouped editors should consume these interfaces later
+  - do not fork a second theme system outside the existing `tvision-color + CSS variables + Pinia persisted state`
+    path

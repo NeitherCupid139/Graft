@@ -23,9 +23,7 @@ import { useSettingStore } from '@/store';
 const settingStore = useSettingStore();
 
 const toggleSettingPanel = () => {
-  settingStore.updateConfig({
-    showSettingPanel: true,
-  });
+  settingStore.openThemeWorkbench('overview');
 };
 
 const navToGitHub = () => {
