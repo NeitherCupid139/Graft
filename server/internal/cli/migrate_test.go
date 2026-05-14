@@ -110,6 +110,7 @@ func TestRunMigrateUpFallsBackToBackgroundContext(t *testing.T) {
 
 	t.Setenv("GRAFT_DATABASE_URL", "postgres://user:pass@localhost:5432/graft?sslmode=disable")
 	t.Setenv("GRAFT_REDIS_ADDR", "127.0.0.1:6379")
+	t.Setenv("GRAFT_AUTH_JWT_SECRET", "test-signing-secret")
 
 	migrateGetwd = func() (string, error) {
 		return root, nil

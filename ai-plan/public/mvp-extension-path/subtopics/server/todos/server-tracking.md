@@ -62,6 +62,8 @@
   - `cd server && go generate ./internal/ent`
   - `cd server && go test ./internal/config ./internal/store ./internal/store/entstore ./plugins/user ./internal/app`
   - `cd server && go build ./cmd/graft`
+- The latest migration CLI regression follow-up validation included:
+  - `cd server && env GOCACHE=/tmp/graft-go-cache go test ./...`
 
 ## Immediate Next Step
 

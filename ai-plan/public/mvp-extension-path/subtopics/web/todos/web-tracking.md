@@ -99,7 +99,7 @@
   validation entrypoint for `web`.
 - The latest implementation validation snapshot is:
   - `bun outdated`
-  - `bun add axios@latest`
+  - `bun add axios@1.16.1`
   - `bun run test:run -- --reporter=hanging-process`
   - `bun run test:run`
   - `bun run check`
