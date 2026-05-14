@@ -4,7 +4,7 @@
     class="theme-workbench-panel"
     destroy-on-close
     placement="right"
-    size="460px"
+    :size="drawerSize"
     :close-btn="false"
     :footer="false"
     :header="false"
@@ -50,8 +50,13 @@
                   :class="{ 'mode-card--active': settingStore.mode === item.type }"
                   @click="settingStore.updateConfig({ mode: item.type })"
                 >
-                  <component :is="item.icon" class="mode-card__icon" />
-                  <span>{{ item.text }}</span>
+                  <span class="mode-card__preview">
+                    <component :is="item.icon" class="mode-card__icon" />
+                    <span v-if="settingStore.mode === item.type" class="mode-card__check">
+                      <t-icon name="check" />
+                    </span>
+                  </span>
+                  <span class="mode-card__label">{{ item.text }}</span>
                 </button>
               </div>
             </div>
@@ -120,7 +125,6 @@
                 >
                   <thumbnail :src="layoutOption.thumbnail" />
                   <span class="layout-card__title">{{ layoutOption.label }}</span>
-                  <span class="layout-card__desc">{{ layoutOption.description }}</span>
                   <span v-if="layoutOption.disabled" class="layout-card__badge">
                     {{ t('layout.setting.workbench.layout.pending') }}
                   </span>
@@ -216,6 +220,7 @@ const groups = computed(() => settingStore.themeWorkbenchGroups);
 const presetDefinitions = computed(() => settingStore.themePresetDefinitions);
 const selectedPresetId = computed(() => settingStore.selectedThemePresetId);
 const brandOptions = DEFAULT_COLOR_OPTIONS;
+const drawerSize = 'min(520px, calc(100vw - 16px))';
 
 const modeOptions = [
   { type: 'light' as const, text: t('layout.setting.theme.options.light'), icon: SettingLightIcon },
@@ -295,15 +300,22 @@ const copyThemeConfig = async () => {
 </script>
 <style lang="less" scoped>
 .theme-workbench-panel {
+  :deep(.t-drawer) {
+    background: transparent;
+    max-width: calc(100vw - 16px);
+  }
+
+  :deep(.t-drawer__content) {
+    background: var(--td-bg-color-page);
+  }
+
   :deep(.t-drawer__body) {
     padding: 0;
   }
 }
 
 .theme-workbench-panel__shell {
-  background:
-    linear-gradient(180deg, rgb(84 39 243 / 96%) 0, rgb(84 39 243 / 86%) 64px, var(--td-bg-color-page) 64px),
-    var(--td-bg-color-page);
+  background: var(--td-bg-color-page);
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -311,62 +323,76 @@ const copyThemeConfig = async () => {
 
 .theme-workbench-panel__header {
   align-items: flex-start;
+  background: linear-gradient(90deg, #6c42f6 0%, #5a33ec 100%);
+  border-bottom: 1px solid rgb(255 255 255 / 14%);
   color: #fff;
   display: flex;
   justify-content: space-between;
-  padding: 18px 20px 14px;
+  padding: 16px 18px 14px;
+}
+
+.theme-workbench-panel__header :deep(.t-button) {
+  color: #fff;
 }
 
 .panel-title {
-  font-size: 28px;
+  font-size: 20px;
   font-weight: 700;
   line-height: 1.1;
 }
 
 .panel-subtitle {
-  font-size: 18px;
-  margin-top: 4px;
-  opacity: 0.88;
+  font-size: 13px;
+  margin-top: 3px;
+  opacity: 0.72;
 }
 
 .theme-workbench-panel__body {
+  align-items: start;
   display: grid;
   flex: 1;
-  gap: 18px;
-  grid-template-columns: 74px minmax(0, 1fr);
+  gap: 14px;
+  grid-template-columns: 64px minmax(0, 1fr);
   min-height: 0;
-  padding: 12px 14px 0;
+  padding: 16px 14px 0;
 }
 
 .theme-workbench-panel__nav {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   height: fit-content;
+  min-width: 0;
 }
 
 .nav-item {
   appearance: none;
   background: var(--td-bg-color-container);
   border: 1px solid var(--td-component-stroke);
-  border-radius: 22px;
+  border-radius: 16px;
   color: var(--td-text-color-secondary);
   cursor: pointer;
   display: grid;
-  gap: 6px;
-  padding: 10px 6px;
+  gap: 5px;
+  padding: 10px 4px;
   place-items: center center;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
 }
 
 .nav-item--active {
   border-color: var(--td-brand-color);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--td-brand-color) 18%, transparent);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--td-brand-color) 12%, transparent);
   color: var(--td-brand-color);
+  transform: translateY(-1px);
 }
 
 .nav-item__icon {
   align-items: center;
   display: inline-flex;
-  font-size: 22px;
+  font-size: 20px;
   justify-content: center;
 }
 
@@ -381,17 +407,18 @@ const copyThemeConfig = async () => {
   flex-direction: column;
   gap: 16px;
   min-height: 0;
+  min-width: 0;
   overflow: auto;
-  padding-right: 4px;
+  padding-right: 2px;
 }
 
 .section {
   background: var(--td-bg-color-container);
   border: 1px solid var(--td-component-stroke);
-  border-radius: 24px;
+  border-radius: 20px;
   display: grid;
   gap: 14px;
-  padding: 18px;
+  padding: 16px;
 }
 
 .section--compact {
@@ -400,7 +427,7 @@ const copyThemeConfig = async () => {
 
 .section-title {
   color: var(--td-text-color-primary);
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
 }
 
@@ -428,12 +455,15 @@ const copyThemeConfig = async () => {
 }
 
 .mode-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
 }
 
-.preset-grid,
+.preset-grid {
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+}
+
 .layout-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
 }
 
 .mode-card,
@@ -442,19 +472,25 @@ const copyThemeConfig = async () => {
   appearance: none;
   background: var(--td-bg-color-page);
   border: 1px solid var(--td-component-stroke);
-  border-radius: 18px;
+  border-radius: 16px;
   cursor: pointer;
   display: grid;
   gap: 8px;
+  min-width: 0;
   padding: 12px;
   text-align: left;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
 }
 
 .mode-card--active,
 .preset-card--active,
 .layout-card--active {
   border-color: var(--td-brand-color);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--td-brand-color) 22%, transparent);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--td-brand-color) 12%, transparent);
+  transform: translateY(-1px);
 }
 
 .layout-card--disabled {
@@ -462,15 +498,63 @@ const copyThemeConfig = async () => {
   opacity: 0.68;
 }
 
+.mode-card {
+  align-content: start;
+  justify-items: center;
+  padding-bottom: 10px;
+  text-align: center;
+}
+
+.mode-card__preview {
+  display: grid;
+  inline-size: min(100%, 88px);
+  place-items: center;
+  position: relative;
+  width: 100%;
+}
+
 .mode-card__icon {
-  height: 48px;
-  width: 88px;
+  aspect-ratio: 11 / 6;
+  display: block;
+  height: auto;
+  max-width: 88px;
+  width: 100%;
+}
+
+.mode-card__preview :deep(svg) {
+  aspect-ratio: 11 / 6;
+  border-radius: 12px;
+  display: block;
+  height: auto;
+  max-width: 88px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.mode-card__check {
+  align-items: center;
+  background: rgb(0 0 0 / 58%);
+  border-radius: 999px;
+  bottom: 4px;
+  color: #fff;
+  display: inline-flex;
+  height: 22px;
+  justify-content: center;
+  position: absolute;
+  right: 6px;
+  width: 22px;
+}
+
+.mode-card__label {
+  color: var(--td-text-color-primary);
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .preset-card__swatch {
   border-radius: 12px;
   display: inline-flex;
-  height: 40px;
+  height: 34px;
   width: 100%;
 }
 
@@ -485,15 +569,25 @@ const copyThemeConfig = async () => {
   line-height: 1.4;
 }
 
-.layout-card__title {
-  color: var(--td-text-color-primary);
-  font-weight: 600;
+.layout-card {
+  align-content: start;
+  justify-items: center;
+  min-width: 0;
+  padding: 10px 8px 12px;
+  text-align: center;
 }
 
-.layout-card__desc {
-  color: var(--td-text-color-secondary);
+.layout-card :deep(.thumbnail-layout) {
+  aspect-ratio: 11 / 6;
+  display: block;
+  height: auto;
+  width: min(88px, 100%);
+}
+
+.layout-card__title {
+  color: var(--td-text-color-primary);
   font-size: 12px;
-  line-height: 1.5;
+  font-weight: 600;
 }
 
 .layout-card__badge {
@@ -511,41 +605,53 @@ const copyThemeConfig = async () => {
 .brand-palette__item {
   appearance: none;
   border: 2px solid transparent;
-  border-radius: 16px;
+  border-radius: 14px;
   cursor: pointer;
-  height: 44px;
+  height: 40px;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
 }
 
 .brand-palette__item--active {
   border-color: var(--td-text-color-primary);
+  box-shadow: 0 8px 18px rgb(15 23 42 / 12%);
+  transform: translateY(-1px);
 }
 
 .brand-input {
   align-items: center;
   display: grid;
   gap: 10px;
-  grid-template-columns: 42px 1fr;
+  grid-template-columns: 40px 1fr;
 }
 
 .brand-input input[type='color'] {
   appearance: none;
   background: transparent;
   border: 0;
+  border-radius: 10px;
   cursor: pointer;
-  height: 36px;
+  height: 40px;
   padding: 0;
-  width: 36px;
+  width: 40px;
 }
 
 .switch-list {
   display: grid;
-  gap: 12px;
+  gap: 8px;
 }
 
 .switch-item {
   align-items: center;
+  background: var(--td-bg-color-page);
+  border: 1px solid var(--td-component-stroke);
+  border-radius: 12px;
   display: flex;
   justify-content: space-between;
+  min-height: 52px;
+  padding: 10px 14px;
 }
 
 .layout-warning {
@@ -559,9 +665,80 @@ const copyThemeConfig = async () => {
 }
 
 .theme-workbench-panel__footer {
+  background: var(--td-bg-color-page);
+  border-top: 1px solid var(--td-component-stroke);
   display: grid;
   gap: 10px;
   grid-template-columns: 1fr 1fr;
-  padding: 16px 18px 18px 106px;
+  padding: 14px 16px 16px 96px;
+}
+
+@media (width <= 860px) {
+  .theme-workbench-panel__body {
+    gap: 12px;
+    grid-template-columns: 1fr;
+    padding-inline: 12px;
+  }
+
+  .theme-workbench-panel__nav {
+    grid-template-columns: repeat(auto-fit, minmax(68px, 1fr));
+    padding-bottom: 4px;
+  }
+
+  .nav-item {
+    min-height: 64px;
+    min-width: 0;
+  }
+
+  .section {
+    padding: 14px;
+  }
+
+  .brand-palette {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .theme-workbench-panel__footer {
+    grid-template-columns: 1fr;
+    padding: 14px 16px 16px;
+  }
+}
+
+@media (width <= 560px) {
+  .theme-workbench-panel {
+    :deep(.t-drawer) {
+      max-width: 100vw;
+    }
+  }
+
+  .theme-workbench-panel__header {
+    padding: 14px 14px 12px;
+  }
+
+  .panel-title {
+    font-size: 18px;
+  }
+
+  .theme-workbench-panel__body {
+    padding: 12px 12px 0;
+  }
+
+  .theme-workbench-panel__nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mode-grid,
+  .preset-grid,
+  .layout-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .brand-palette {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .brand-input {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

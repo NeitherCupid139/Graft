@@ -92,9 +92,9 @@
       "element": {
         "title": "Element Switch",
         "showHeader": "Show Header",
-        "showBreadcrumb": "Show Breadcrumb",
+        "showBreadcrumb": "Show Breadcrumbs",
         "showFooter": "Show Footer",
-        "useTagTabs": "Use Tag Tabs",
+        "useTagTabs": "Use Multi-Tag Tabs",
         "menuAutoCollapsed": "Menu Auto Collapsed"
       },
       "tips": "Please copy and manually modify the configuration file: /src/config/style.ts",

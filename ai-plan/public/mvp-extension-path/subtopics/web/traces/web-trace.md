@@ -75,7 +75,18 @@
   single global workbench host, so runtime initialization and dock visibility no longer depend on separate login/admin
   host instances.
 
+## 2026-05-14 theme workbench regression fixes
+
+- Reworked the right-side workbench shell so the drawer width, card grids, and mode-preview sizing now degrade
+  responsively instead of forcing three fixed cards into the narrow overview column.
+- Restored the dock interaction rhythm expected by the official reference: inactive quick actions stay icon-only,
+  while the active action expands into a pill button and reveals its label without clipping the surrounding controls.
+- Tightened the dock entry details so the global trigger also defaults to an icon-only state before activation, and the
+  quick-action icons now match the right-side group-navigation icons instead of using a separate icon vocabulary.
+- Kept both fixes inside the existing `ThemeWorkbenchPanel.vue` and `ThemeWorkbenchDock.vue` shell files so the
+  runtime still depends on the same `setting` store state and theme token pipeline.
+
 ## Next Step
 
-- Continue the workbench slice by improving panel behavior, layout preview fidelity, and token-editor ergonomics
-  without reintroducing a second host component or another parallel visibility flag.
+- Continue the workbench slice by improving grouped token-editor ergonomics and layout-preview fidelity without
+  reintroducing a second host component or another parallel visibility flag.
