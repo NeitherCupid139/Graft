@@ -6,7 +6,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"graft/server/internal/ent/permission"
+	"graft/server/internal/ent/refreshsession"
+	"graft/server/internal/ent/role"
+	"graft/server/internal/ent/rolepermission"
 	"graft/server/internal/ent/user"
+	"graft/server/internal/ent/userrole"
 	"reflect"
 	"sync"
 
@@ -73,7 +78,12 @@ var (
 func checkColumn(t, c string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
-			user.Table: user.ValidColumn,
+			permission.Table:     permission.ValidColumn,
+			refreshsession.Table: refreshsession.ValidColumn,
+			role.Table:           role.ValidColumn,
+			rolepermission.Table: rolepermission.ValidColumn,
+			user.Table:           user.ValidColumn,
+			userrole.Table:       userrole.ValidColumn,
 		})
 	})
 	return columnCheck(t, c)

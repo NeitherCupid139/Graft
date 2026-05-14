@@ -93,6 +93,14 @@ func (runtimeTestStoreFactory) Users() store.UserRepository {
 	return nil
 }
 
+func (runtimeTestStoreFactory) Auth() store.AuthRepository {
+	return nil
+}
+
+func (runtimeTestStoreFactory) RBAC() store.RBACRepository {
+	return nil
+}
+
 // TestRegisterCoreServicesExposesRuntimeSingletons 验证 core 装配会把配置、
 // store factory 与 Redis 客户端注册到运行时容器中。
 func TestRegisterCoreServicesExposesRuntimeSingletons(t *testing.T) {
@@ -166,7 +174,7 @@ func TestRegisterCoreServicesExposesRuntimeSingletons(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve store factory: %v", err)
 	}
-	if resolvedStores.(store.Factory) != stores {
+	if resolvedStores != store.Factory(stores) {
 		t.Fatal("expected resolved store factory to reuse runtime instance")
 	}
 

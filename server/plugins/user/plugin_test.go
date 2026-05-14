@@ -31,6 +31,14 @@ func (f pluginTestStoreFactory) Users() store.UserRepository {
 	return f.users
 }
 
+func (pluginTestStoreFactory) Auth() store.AuthRepository {
+	return nil
+}
+
+func (pluginTestStoreFactory) RBAC() store.RBACRepository {
+	return nil
+}
+
 type pluginTestUserRepository struct {
 	getByID func(ctx context.Context, id uint64) (store.User, error)
 }
