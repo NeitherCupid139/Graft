@@ -172,6 +172,17 @@
   authentication-only `httpx.RequirePermission(..., "")` routes and by narrowing `authService.Login` to pure
   authentication so it no longer issues an access token that cannot pass later session validation.
 
+## 2026-05-15 PR #8 revoke-others idempotency follow-up
+
+- Verified the latest PR review against local HEAD and confirmed the `Login()` orphan-session comment was already stale,
+  while the `revoke-others` concurrent-expiry/revocation comment still applied to the current implementation.
+- Hardened `server/plugins/user` so `RevokeOtherCurrentUserSessions` now treats an already-missing target session as an
+  idempotent success inside the per-session loop, preventing one raced revoke from aborting the remaining cleanup.
+- Added direct `server/plugins/user` route coverage that simulates a listed session being concurrently revoked just
+  before the first targeted revoke, and locked the behavior to `204 No Content` plus continued cleanup of remaining
+  sessions.
+- Revalidated the focused follow-up with `cd server && go test ./plugins/user` and `cd server && go build ./cmd/graft`.
+
 ## Next Step
 
 - Run `graft validate smoke` against the next disposable PostgreSQL + Redis target, then continue admin-driven session

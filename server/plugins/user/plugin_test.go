@@ -56,6 +56,24 @@ type pluginTestAuthRepository struct {
 	refreshSessions             map[string]store.RefreshSession
 }
 
+// revokeByUserRaceAuthRepository 在测试中模拟“列出后、定向吊销前”目标 session
+// 已被并发撤销的窗口，验证 revoke-others 的幂等语义。
+type revokeByUserRaceAuthRepository struct {
+	*pluginTestAuthRepository
+	beforeFirstRevoke func(input store.RevokeRefreshSessionByUserIDInput)
+	once              sync.Once
+}
+
+func (r *revokeByUserRaceAuthRepository) RevokeRefreshSessionByUserID(ctx context.Context, input store.RevokeRefreshSessionByUserIDInput) error {
+	if r.beforeFirstRevoke != nil {
+		r.once.Do(func() {
+			r.beforeFirstRevoke(input)
+		})
+	}
+
+	return r.pluginTestAuthRepository.RevokeRefreshSessionByUserID(ctx, input)
+}
+
 func (r pluginTestAuthRepository) GetUserCredentialByUsername(ctx context.Context, username string) (store.UserCredential, error) {
 	if r.getUserCredentialByUsername == nil {
 		return store.UserCredential{}, store.ErrUserNotFound
@@ -1317,6 +1335,80 @@ func TestRevokeOtherSessionsRouteRevokesNonCurrentSessions(t *testing.T) {
 	}
 
 	otherUserSession, err := authRepo.GetRefreshSessionByTokenID(context.Background(), otherUserSessionID)
+	if err != nil {
+		t.Fatalf("load other user session: %v", err)
+	}
+	if otherUserSession.RevokedAt != nil {
+		t.Fatalf("expected other user session to remain active, got %#v", otherUserSession)
+	}
+}
+
+// TestRevokeOtherSessionsRouteIgnoresAlreadyRevokedRaces 验证 revoke-others 在列出
+// 后、定向吊销前遇到已被并发撤销的 session 时，仍继续清退剩余会话并返回成功。
+func TestRevokeOtherSessionsRouteIgnoresAlreadyRevokedRaces(t *testing.T) {
+	baseRepo := &pluginTestAuthRepository{}
+	currentSessionID := seedRefreshSession(t, baseRepo, 7, time.Now().UTC().Add(2*time.Hour))
+	time.Sleep(time.Microsecond)
+	staleSessionID := seedRefreshSession(t, baseRepo, 7, time.Now().UTC().Add(3*time.Hour))
+	time.Sleep(time.Microsecond)
+	raceSessionID := seedRefreshSession(t, baseRepo, 7, time.Now().UTC().Add(4*time.Hour))
+	otherUserSessionID := seedRefreshSession(t, baseRepo, 8, time.Now().UTC().Add(time.Hour))
+
+	authRepo := &revokeByUserRaceAuthRepository{
+		pluginTestAuthRepository: baseRepo,
+		beforeFirstRevoke: func(input store.RevokeRefreshSessionByUserIDInput) {
+			if input.TokenID != raceSessionID {
+				t.Fatalf("expected first revoke target %q, got %q", raceSessionID, input.TokenID)
+			}
+			if err := baseRepo.RevokeRefreshSession(context.Background(), store.RevokeRefreshSessionInput{
+				TokenID:   raceSessionID,
+				RevokedAt: input.RevokedAt,
+			}); err != nil {
+				t.Fatalf("simulate concurrent revoke: %v", err)
+			}
+		},
+	}
+
+	_, engine := newPluginTestContext(t, pluginTestUserRepository{
+		getByID: func(_ context.Context, id uint64) (store.User, error) {
+			switch id {
+			case 7:
+				return store.User{ID: 7, Username: "alice", Display: "Alice", CreatedAt: time.Now(), UpdatedAt: time.Now()}, nil
+			case 8:
+				return store.User{ID: 8, Username: "bob", Display: "Bob", CreatedAt: time.Now(), UpdatedAt: time.Now()}, nil
+			default:
+				return store.User{}, store.ErrUserNotFound
+			}
+		},
+	}, authRepo)
+
+	recorder := httptest.NewRecorder()
+	request := newAuthorizedRequestForSessionWithMethod(t, http.MethodPost, "/api/auth/sessions/revoke-others", 7, currentSessionID)
+	engine.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("expected status %d, got %d", http.StatusNoContent, recorder.Code)
+	}
+
+	currentSession, err := baseRepo.GetRefreshSessionByTokenID(context.Background(), currentSessionID)
+	if err != nil {
+		t.Fatalf("load current session: %v", err)
+	}
+	if currentSession.RevokedAt != nil {
+		t.Fatalf("expected current session to remain active, got %#v", currentSession)
+	}
+
+	for _, tokenID := range []string{raceSessionID, staleSessionID} {
+		session, err := baseRepo.GetRefreshSessionByTokenID(context.Background(), tokenID)
+		if err != nil {
+			t.Fatalf("load revoked session %q: %v", tokenID, err)
+		}
+		if session.RevokedAt == nil {
+			t.Fatalf("expected session %q to be revoked, got %#v", tokenID, session)
+		}
+	}
+
+	otherUserSession, err := baseRepo.GetRefreshSessionByTokenID(context.Background(), otherUserSessionID)
 	if err != nil {
 		t.Fatalf("load other user session: %v", err)
 	}

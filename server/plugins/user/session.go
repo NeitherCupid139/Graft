@@ -339,6 +339,11 @@ func (s authService) RevokeOtherCurrentUserSessions(ctx context.Context) error {
 			continue
 		}
 		if err := s.RevokeUserSession(ctx, requestAuth.Claims.UserID, session.SessionID); err != nil {
+			// 其它端会话在枚举后到定向吊销前可能已自然过期或被并发清退；这里把
+			// “已不存在可吊销会话”视为幂等成功，避免中断剩余 session 的清退。
+			if errors.Is(err, errSessionNotFound) {
+				continue
+			}
 			return err
 		}
 	}
