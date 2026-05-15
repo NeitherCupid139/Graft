@@ -1,15 +1,14 @@
-# MVP Extension Path Tracking
+# 后端主导的 MVP 闭环收敛计划跟踪
 
 ## Topic
 
 - Topic: `mvp-extension-path`
 - Branch: `feat/mvp-extension-path`
-- Scope: cross-boundary MVP extension-path coordination across `server` and `web`
+- Scope: 以 `server` 主导完成 MVP 闭环，并推动 `web` 收敛到真实后端契约
 
 ## Goal
 
-- Keep one stable parent recovery entrypoint for MVP work while letting `server` and `web` maintain their own bounded
-  recovery files.
+- 保持 `mvp-extension-path` 作为默认恢复入口，把当前阶段聚焦到后端闭环收敛和前端真实契约对接，而不是继续扩大会话治理或页面广度。
 
 ## Repository Truth
 
@@ -20,77 +19,54 @@
 - `ai-plan/design/AI任务追踪与恢复设计.md`
 - `ai-plan/roadmap/MVP实施计划.md`
 
+## Topic Roadmap
+
+- `ai-plan/public/mvp-extension-path/roadmap/backend-mvp-closure-plan.md`
+
 ## Subtopics
 
 - `server`
   - Tracking: `ai-plan/public/mvp-extension-path/subtopics/server/todos/server-tracking.md`
   - Trace: `ai-plan/public/mvp-extension-path/subtopics/server/traces/server-trace.md`
-  - Use for: backend runtime, plugin lifecycle, registries, Ent/Atlas, CLI, auth/RBAC backend path, and other
-    `server`-only work.
+  - Use for: backend runtime、plugin lifecycle、registries、Ent/Atlas、event bus、audit、scheduler、auth/RBAC 与跨插件契约稳定化。
 - `web`
   - Tracking: `ai-plan/public/mvp-extension-path/subtopics/web/todos/web-tracking.md`
   - Trace: `ai-plan/public/mvp-extension-path/subtopics/web/traces/web-trace.md`
-  - Use for: admin shell, route/menu/page/api/permission frontend path, i18n UI surface, and frontend
-    governance/toolchain work.
+  - Use for: starter 壳层收敛、真实后端 `auth + menu + permission + locale` 契约挂接，以及 mock/demo 清理。
 
 ## Parent-Scope Rules
 
-- Keep cross-boundary direction, shared milestones, shared risks, and shared validation summaries here.
-- Move pure `server` execution details into the `server` subtopic.
-- Move pure `web` execution details into the `web` subtopic.
-- When one change touches both sides or changes a shared contract, update this parent topic and the affected subtopic.
+- 父主题只保留跨边界方向、共享风险、共享验证摘要和子主题入口指引。
+- 纯 `server` 推进写入 `server` 子主题；纯 `web` 推进写入 `web` 子主题。
+- 任何会改变共享契约、校验口径或阶段主线的变更，都要同时更新父主题与相关子主题。
 
 ## Current Recovery Point
 
-- The repository AI workflow now uses `ai-plan/` as the recovery system, with `mvp-extension-path` as the default MVP
-  parent topic.
-- `mvp-extension-path` has been refactored into a parent topic plus bounded `server` and `web` subtopics so future
-  iteration no longer accumulates all recovery detail in one file.
-- The repository already contains the first substantive MVP shell across both `server` and `web`.
-- Shared architecture truth is stable on plugin-oriented backend boundaries, Vue 3 + TDesign frontend boundaries, Ent
-  as the backend ORM baseline, and Atlas versioned migrations executed through explicit CLI flow.
-- Shared extension-path truth now reserves cross-boundary i18n hooks, backend-driven menu/permission evolution, and a
-  frontend governance baseline whose completion-state rules now require host Windows Bun `bun run check` plus zero
-  unresolved warnings, and the latest implementation slice has now aligned the actual `web` toolchain to that bar.
-- The previous pre-subtopic tracking snapshot has been archived at
-  `ai-plan/public/mvp-extension-path/archive/todos/mvp-extension-path-tracking-pre-subtopics-2026-05-14.md`.
+- 当前阶段正式收敛到“后端主导的 MVP 闭环收敛计划”：先补齐 `server` 的 event bus、audit、scheduler 和稳定插件契约，再让 `web` 挂接这些真实契约。
+- `server` 已有 runtime、plugin lifecycle、Ent/Atlas、auth/RBAC 与基础 smoke-validation 路径，但 MVP 还没有在事件流、审计链路、调度能力和跨插件稳定接口上闭环。
+- `web` 当前阶段只做 starter 壳层收敛与真实后端契约接线，不再以新页面扩张、主题工作台深化或新的前端治理宽度作为近期主线。
+- 较早的拆分前历史保留在 `archive/`，具体实现轨迹保留在各自 `trace` 文件。
 
 ## Shared Milestones
 
-- Established `mvp-extension-path` as the long-lived MVP recovery topic on branch `feat/mvp-extension-path`.
-- Landed the first end-to-end MVP shell path across `server` runtime scaffolding and the `web` admin shell.
-- Moved repository truth from `plan/` to `ai-plan/` and added `.ai/environment/` as generated environment truth.
-- Reserved shared i18n extension points and a stable localized error-response contract across backend and frontend.
-- Tightened repository-wide comment governance, frontend governance truth, and PR-review workflow support.
+- `mvp-extension-path` 已稳定为父主题 + `server` / `web` 子主题的恢复结构。
+- 后端已具备最小可运行的 plugin-oriented runtime、迁移链路、认证与 RBAC 基线。
+- 前端已具备可继续收敛的 starter 壳层和 host Windows Bun `bun run check` 零 warning 完成门槛。
+- 当前主题阶段已改为“后端先闭环，前端跟随真实契约收敛”。
 
 ## Shared Risks
 
-- The backend auth + RBAC plugin chain now exists, but broader session revocation, admin-driven session controls, and
-  richer auth/audit governance are still pending without breaking the future `menu + route + page + api + permission`
-  path.
-- The disposable PostgreSQL + Atlas live validation path is now proven locally, but it still depends on manual
-  disposable Docker resources instead of a repository-local scripted validation entrypoint.
-- The frontend warning-cleanup slice now closes green, but the current `web` bundle-size strategy still reflects the
-  temporary full-TDesign starter baseline, so deeper performance-oriented chunk optimization remains future work.
-- Future work must keep parent-topic summaries, subtopic recovery files, and repository-wide design truth aligned to
-  avoid creating parallel sources of truth.
+- 如果 event bus、audit、scheduler 继续缺位，MVP 会停留在“可运行壳层”而不是“可扩展闭环”。
+- 如果 `web` 回到页面扩张或长期保留 mock/demo 依赖，前后端契约会再次漂移。
+- `auth`、`menu`、`permission`、`locale` 等共享契约若在后端收敛期内继续无边界扩张，会放大 `web` 接线返工成本。
+- disposable PostgreSQL / Redis 校验仍依赖手工准备环境，后续恢复时必须显式说明当前可用的校验入口。
 
 ## Shared Validation Summary
 
-- Historical detailed validation commands before the subtopic split are preserved in the archived tracking snapshot.
-- The latest cross-boundary implementation slice before this split validated focused `server` packages plus direct
-  `web` test, typecheck, and build commands for the PR `#5` follow-up fixes.
-- The latest backend live-validation slice now additionally proved the disposable PostgreSQL + Atlas path through
-  `graft migrate up`, Atlas status verification, focused backend `go test`, and a disposable PostgreSQL + Redis
-  `graft serve` healthz probe; detailed commands live in the `server` subtopic tracking file.
-- The latest `web` governance implementation slice additionally validated host Windows Bun `bun run check`, a focused
-  `bun run test:run -- --reporter=hanging-process` diagnosis, and the low-risk `axios@latest` refresh.
-- This documentation-only governance update should be validated through consistency checks across `AGENTS.md`,
-  `ai-plan/design/前端架构设计.md`, `ai-plan/public/mvp-extension-path/todos/mvp-extension-path-tracking.md`, and
-  `ai-plan/public/mvp-extension-path/subtopics/web/todos/web-tracking.md`.
+- 本次仅同步 topic 级文档方向，没有新增代码或运行时校验。
+- 当前跨边界恢复基线沿用 `server` 子主题中最近一次 focused backend validation，以及 `web` 子主题中最近一次 host Windows Bun `bun run check` 完成态校验。
+- 本次文档同步通过 `sed`、`rg` 和 `git diff -- ai-plan/public/mvp-extension-path` 进行一致性检查。
 
 ## Immediate Next Step
 
-- Keep future `web` work on the documented host Windows Bun `bun run check` zero-warning gate, then extend the
-  backend auth/session path with broader session revocation and admin-driven session controls while keeping parent and
-  subtopic recovery files in sync.
+- 按 `server` 主导顺序推进下一阶段：先稳定 event bus 边界，再补最小 audit 路径，再补 scheduler/plugin runtime 闭环，最后冻结当前 `web` 需要消费的 `auth + menu + permission + locale` 契约面。
