@@ -169,6 +169,15 @@
   `as unknown as RouteRecordRaw[]` escape, updated locale-header propagation to replace every underscore in persisted
   locale tags, and normalized the active trace/tracking docs to remove duplicate headings and machine-specific paths.
 
+## 2026-05-15 local git root cleanup
+
+- Removed the extra JetBrains VCS mapping that treated `web/ai-libs/tdesign-vue-next-starter` as a second Git root
+  inside the current workspace.
+- Reconfirmed that `web/ai-libs/` stays ignored by the main repository and is only a local reference area for starter
+  patterns, not an independently managed repository in this project workspace.
+- Kept the cleanup scoped to local IDE metadata plus active-topic recovery notes so future recovery does not mistake the
+  reference starter tree for repository history owned by `Graft`.
+
 ## 2026-05-15 Follow-up Next Step
 
 - Continue reconnecting the starter shell to the real backend `auth + current user + menu + permission + locale`
