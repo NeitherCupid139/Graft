@@ -280,6 +280,15 @@
 - Updated `server/plugins/scheduler` to forward `LifecycleContext` into the scheduler runtime stop path and added direct
   runtime/plugin tests that lock the new shutdown-context propagation contract.
 
+## 2026-05-15 minimal users list contract
+
+- Extended the stable `store.UserRepository` boundary with one minimal `List()` read path, explicitly limited to the
+  current MVP need of replacing the fake `/users` frontend page with a real backend-driven list.
+- Added `GET /api/users` inside `server/plugins/user`, reusing the existing `user.read` permission boundary and
+  returning a narrow DTO of `id / username / display / created_at / updated_at` rather than widening into CRUD.
+- Added focused `server/plugins/user` route coverage for successful list reads and localized internal-error behavior,
+  then revalidated with `cd server && go test ./plugins/user ./internal/store/entstore` and `cd server && go build ./cmd/graft`.
+
 ## Next Step
 
 - Keep the new bootstrap contract stable enough for `web` starter-shell hookup, then move the next batch to

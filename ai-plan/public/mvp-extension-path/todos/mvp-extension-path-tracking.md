@@ -45,6 +45,7 @@
 - 当前阶段正式收敛到“后端主导的 MVP 闭环收敛计划”：先补齐 `server` 的 event bus、audit、scheduler 和稳定插件契约，再让 `web` 挂接这些真实契约。
 - `server` 当前已形成最小 runtime 闭环，并新增受保护的 `/api/auth/bootstrap` 真实契约，统一返回当前用户、权限码、按权限过滤的菜单和 locale 快照。
 - `web` 当前已把登录主路径收敛到真实 `login/refresh/bootstrap` 契约，并开始用 bootstrap 菜单快照驱动最小动态路由，而不是继续依赖 starter mock 登录与静态 demo 菜单。
+- 当前 cross-boundary 切片已把 `/users` 从“真实菜单路径 + demo 页面内容”的假闭环，收敛为真实 `GET /api/users` 契约加最小只读列表页；`/user/index` 静态个人中心残留入口已移除。
 - 较早的拆分前历史保留在 `archive/`，具体实现轨迹保留在各自 `trace` 文件。
 
 ## Shared Milestones
@@ -66,9 +67,14 @@
   - `cd server && go test ./plugins/user`
   - `cd server && go build ./cmd/graft`
   - `cd web && bun run check`
+- 本次 `/users` 真实列表切片直接校验：
+  - `cd server && go test ./plugins/user ./internal/store/entstore`
+  - `cd server && go build ./cmd/graft`
+  - `cd web && bun run typecheck`
+  - `cd web && bun run check`
 - 本次 topic 级同步通过 `sed`、`rg`、`git diff -- ai-plan/public/mvp-extension-path` 与对应直接校验结果完成一致性检查。
 
 ## Immediate Next Step
 
 - 保持当前 `/api/auth/bootstrap` 契约稳定，只在必要范围内收敛 DTO 和菜单/权限语义。
-- 在该 bootstrap 契约上继续扩展 `web` 真实页面接线，优先补齐当前用户、用户管理和权限可见性链路，而不是回到 starter demo 页面扩张。
+- 在该 bootstrap 契约上继续扩展 `web` 真实页面接线，优先补齐用户详情、会话治理和权限可见性链路，而不是回到 starter demo 页面扩张。

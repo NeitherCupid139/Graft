@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -25,6 +26,18 @@ import (
 //
 // 该插件展示业务能力如何在 Register 阶段声明边界，在 Boot/Shutdown 阶段保持显式生命周期。
 type Plugin struct{}
+
+type userListResponse struct {
+	Items []userListItem `json:"items"`
+}
+
+type userListItem struct {
+	ID        uint64 `json:"id"`
+	Username  string `json:"username"`
+	Display   string `json:"display"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
+}
 
 // NewPlugin 创建示例用户插件。
 func NewPlugin() *Plugin {
@@ -317,6 +330,32 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 	})
 
 	group := ctx.Router.Group("/users")
+	// 用户列表路由当前只暴露最小只读快照，供 `web` 用真实后端契约替换 demo
+	// 页面；分页、筛选与写操作后续应在真实需求确认后再显式补齐。
+	group.GET("", httpx.RequirePermission(ctx.I18n, ctx.Services, "user.read"), func(ginCtx *gin.Context) {
+		users, err := ctx.Stores.Users().List(ginCtx.Request.Context())
+		if err != nil {
+			ctx.Logger.Error("list users failed",
+				zap.String("plugin", p.Name()),
+				zap.Error(err),
+			)
+			httpx.WriteLocalizedError(ginCtx, ctx.I18n, http.StatusInternalServerError, "common.internal_error", nil)
+			return
+		}
+
+		items := make([]userListItem, 0, len(users))
+		for _, user := range users {
+			items = append(items, userListItem{
+				ID:        user.ID,
+				Username:  user.Username,
+				Display:   user.Display,
+				CreatedAt: user.CreatedAt.UTC().Format(time.RFC3339),
+				UpdatedAt: user.UpdatedAt.UTC().Format(time.RFC3339),
+			})
+		}
+
+		ginCtx.JSON(http.StatusOK, userListResponse{Items: items})
+	})
 	group.GET("/:id", httpx.RequirePermission(ctx.I18n, ctx.Services, "user.read"), func(ginCtx *gin.Context) {
 		rawID, err := parseUserID(ginCtx.Param("id"))
 		if err != nil {

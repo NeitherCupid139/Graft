@@ -18,6 +18,7 @@
 - `signals` 已收敛为文档级候选方案：`Pinia` 继续作为唯一正式共享状态层，当前不进入 `setting/theme` 局部试点，只保留未来最小 POC 的准入与退出规则。
 - 前端命令真值保持不变：WSL 场景下继续使用 host Windows Bun，完成态仍以 `bun run check` 零 warning 为门槛。
 - PR #9 当前一轮 AI review 已确认并落地的 `web` 跟进包括：登出失败时仍强制跳转登录页、动态路由装配去除双重断言、locale header 全量下划线替换，以及 route guard / bootstrap / token 持久化的中文契约注释补强。
+- `/users` 当前已不再复用 starter 个人中心 demo 页，而是直接消费真实 `GET /api/users` 最小只读契约；对应的 `/user/index` 静态入口与 header 残留跳转也已移除，避免双轨导航。
 - 详细前端实现历史保留在 `subtopics/web/traces/web-trace.md`。
 
 ## Active Risks
@@ -34,6 +35,9 @@
 - 该完成态基线要求 `format:check`、`typecheck`、`lint`、`stylelint`、`test:run`、`build` 全部通过且无未处理 warning。
 - 本次 PR #9 review follow-up 预期直接校验：
   - `cd web && bun run check`
+- 本次 `/users` 真实列表页切片直接校验：
+  - `cd web && bun run typecheck`
+  - `cd web && bun run check`
 - 本次 Git 边界修复直接校验：
   - `git rev-parse --show-toplevel`
   - `git status --short --branch`
@@ -45,7 +49,7 @@
 
 - 继续把 starter 壳层挂接到真实后端 `auth + current user + menu + permission + locale` 契约。
 - 快速隔离或移除当前阶段不再需要的 mock/demo 入口，避免形成前端自洽假闭环。
-- 在真实契约稳定之前，不以新增页面、theme runtime 深化或额外视觉扩张作为当前子主题完成条件。
+- 在真实契约稳定之前，不以新增页面、theme runtime 深化或额外视觉扩张作为当前子主题完成条件；优先沿现有用户列表落点继续接用户详情与会话治理页面。
 
 ## 2026-05-15 真实 auth/bootstrap 接线恢复点
 
@@ -54,3 +58,4 @@
 - 当本地没有 access token 时，前端也会先静默尝试 `POST /api/auth/refresh -> GET /api/auth/bootstrap`，仅在刷新失败后才回退到登录页。
 - `permission` store 当前只消费 bootstrap 返回的真实 `menus` 快照，并按当前已存在的页面实现生成最小动态路由；本轮只接入 `/users`。
 - 当前最小动态菜单策略是“菜单展示只保留首页和后端返回且前端已经具备页面实现的菜单项”，避免再次回退到 starter demo 菜单树。
+- `/users` 页面当前已替换为最小真实用户列表页，不再依赖本地 profile、图表或团队成员 demo 数据。

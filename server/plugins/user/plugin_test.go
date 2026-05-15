@@ -233,6 +233,7 @@ func (r *pluginTestAuthRepository) RotateRefreshSession(_ context.Context, input
 // pluginTestUserRepository 为插件路由测试收敛最小用户读取能力。
 type pluginTestUserRepository struct {
 	getByID func(ctx context.Context, id uint64) (store.User, error)
+	list    func(ctx context.Context) ([]store.User, error)
 }
 
 func (r pluginTestUserRepository) GetByID(ctx context.Context, id uint64) (store.User, error) {
@@ -241,6 +242,14 @@ func (r pluginTestUserRepository) GetByID(ctx context.Context, id uint64) (store
 	}
 
 	return r.getByID(ctx, id)
+}
+
+func (r pluginTestUserRepository) List(ctx context.Context) ([]store.User, error) {
+	if r.list == nil {
+		return []store.User{}, nil
+	}
+
+	return r.list(ctx)
 }
 
 // pluginTestRBACRepository 为插件路由测试模拟最小权限读取结果。
@@ -513,6 +522,100 @@ func TestUserRouteReturnsSummary(t *testing.T) {
 	}
 	if payload.ID != 7 || payload.Username != "alice" || payload.Display != "Alice" {
 		t.Fatalf("expected stable user summary payload, got %#v", payload)
+	}
+}
+
+// TestUserListRouteReturnsStableItems 验证用户列表路由会返回真实后端最小列表
+// DTO，供 web `/users` 页面摆脱 demo 数据源。
+func TestUserListRouteReturnsStableItems(t *testing.T) {
+	authRepo := &pluginTestAuthRepository{}
+	createdAt := time.Date(2026, time.May, 15, 8, 0, 0, 0, time.UTC)
+	updatedAt := createdAt.Add(2 * time.Hour)
+	_, engine := newPluginTestContext(t, pluginTestUserRepository{
+		getByID: func(context.Context, uint64) (store.User, error) {
+			return store.User{
+				ID:        7,
+				Username:  "alice",
+				Display:   "Alice",
+				CreatedAt: createdAt,
+				UpdatedAt: updatedAt,
+			}, nil
+		},
+		list: func(context.Context) ([]store.User, error) {
+			return []store.User{
+				{
+					ID:        7,
+					Username:  "alice",
+					Display:   "Alice",
+					CreatedAt: createdAt,
+					UpdatedAt: updatedAt,
+				},
+				{
+					ID:        8,
+					Username:  "bob",
+					Display:   "Bob",
+					CreatedAt: createdAt.Add(time.Hour),
+					UpdatedAt: updatedAt.Add(time.Hour),
+				},
+			}, nil
+		},
+	}, authRepo)
+
+	recorder := httptest.NewRecorder()
+	engine.ServeHTTP(recorder, newAuthorizedRequestForUser(t, "/api/users", authRepo, 7))
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+
+	var payload userListResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(payload.Items) != 2 {
+		t.Fatalf("expected two list items, got %#v", payload.Items)
+	}
+	if payload.Items[0].ID != 7 || payload.Items[0].Username != "alice" || payload.Items[0].Display != "Alice" {
+		t.Fatalf("expected first stable user list item, got %#v", payload.Items[0])
+	}
+	if payload.Items[0].CreatedAt != createdAt.Format(time.RFC3339) || payload.Items[0].UpdatedAt != updatedAt.Format(time.RFC3339) {
+		t.Fatalf("expected RFC3339 timestamps, got %#v", payload.Items[0])
+	}
+}
+
+// TestUserListRouteReturnsInternalErrorContract 验证用户列表仓储失败时仍返回统一本地化错误契约。
+func TestUserListRouteReturnsInternalErrorContract(t *testing.T) {
+	authRepo := &pluginTestAuthRepository{}
+	_, engine := newPluginTestContext(t, pluginTestUserRepository{
+		getByID: func(context.Context, uint64) (store.User, error) {
+			return store.User{
+				ID:        7,
+				Username:  "alice",
+				Display:   "Alice",
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			}, nil
+		},
+		list: func(context.Context) ([]store.User, error) {
+			return nil, errors.New("boom")
+		},
+	}, authRepo)
+
+	recorder := httptest.NewRecorder()
+	request := newAuthorizedRequestForUser(t, "/api/users", authRepo, 7)
+	request.Header.Set(i18n.LocaleHeader, "en-US")
+	engine.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, recorder.Code)
+	}
+
+	var payload httpx.ErrorResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if payload.MessageKey != "common.internal_error" || payload.Locale != "en-US" {
+		t.Fatalf("expected localized internal error payload, got %#v", payload)
 	}
 }
 

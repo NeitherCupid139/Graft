@@ -178,6 +178,16 @@
 - Kept the cleanup scoped to local IDE metadata plus active-topic recovery notes so future recovery does not mistake the
   reference starter tree for repository history owned by `Graft`.
 
+## 2026-05-15 real `/users` page hookup
+
+- Replaced the old starter/profile-style `/users` page content with a minimal real TDesign table that consumes
+  `GET /api/users` and shows the current backend-driven user list snapshot.
+- Removed the page-local demo constants and chart dataset that previously made `/users` look connected while still
+  rendering static starter data.
+- Removed the leftover static `/user/index` route module and repointed the header dropdown entry to `/users`, so the
+  shell no longer exposes two competing user-page entry paths.
+- Revalidated the focused slice with `cd web && bun run typecheck` before the full completion-state check.
+
 ## 2026-05-15 Follow-up Next Step
 
 - Continue reconnecting the starter shell to the real backend `auth + current user + menu + permission + locale`

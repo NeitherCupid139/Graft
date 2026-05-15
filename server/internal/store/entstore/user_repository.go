@@ -41,3 +41,26 @@ func (r *userRepository) GetByID(ctx context.Context, id uint64) (store.User, er
 		UpdatedAt: record.UpdatedAt,
 	}, nil
 }
+
+// List 按稳定顺序返回当前全部用户记录，供最小只读用户列表契约复用。
+func (r *userRepository) List(ctx context.Context) ([]store.User, error) {
+	records, err := r.client.User.Query().
+		Order(ent.Asc(entuser.FieldID)).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list users: %w", err)
+	}
+
+	users := make([]store.User, 0, len(records))
+	for _, record := range records {
+		users = append(users, store.User{
+			ID:        uint64(record.ID),
+			Username:  record.Username,
+			Display:   record.Display,
+			CreatedAt: record.CreatedAt,
+			UpdatedAt: record.UpdatedAt,
+		})
+	}
+
+	return users, nil
+}
