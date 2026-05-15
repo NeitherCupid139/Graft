@@ -96,6 +96,10 @@ func (runtimeTestStoreFactory) Users() store.UserRepository {
 	return nil
 }
 
+func (runtimeTestStoreFactory) Audit() store.AuditRepository {
+	return nil
+}
+
 func (runtimeTestStoreFactory) Auth() store.AuthRepository {
 	return nil
 }

@@ -209,7 +209,21 @@
   and panic recovery, plus `server/internal/app/runtime_test.go` coverage that locks the singleton registration and
   plugin-context injection path.
 
+## 2026-05-15 audit slice
+
+- Added `server/internal/audit` plus the `store.AuditRepository` boundary so request-level and active audit paths can
+  converge on one minimal write-only persistence contract.
+- Extended Ent with the `audit_logs` schema and migration assets, then kept the plugin-facing repository surface
+  limited to stable DTO-based writes instead of exposing query DSL or ORM internals.
+- Added `server/plugins/audit` to mount request audit middleware on the shared router and subscribe to
+  `pluginapi.AuditRecordEventName` through the shared `eventbus.Bus`.
+- Reused `server/internal/httpx` to retain the stable `message_key` in Gin context, so failed requests can record the
+  same localized error contract inside audit logs without inventing a second error channel.
+- Revalidated the slice with
+  `cd server && go test ./internal/app ./internal/audit ./plugins/audit ./internal/store/entstore ./internal/httpx ./plugins/user`
+  and `cd server && go build ./cmd/graft`.
+
 ## Next Step
 
-- Build the first minimal `audit` slice on top of the current `eventbus.Bus`, then continue with the scheduler
-  runtime/plugin closure before widening session-governance behavior again.
+- Continue with the scheduler runtime/plugin closure, then freeze the backend contract surface that `web` needs for
+  `auth + menu + permission + locale` integration before widening session-governance behavior again.

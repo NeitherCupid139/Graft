@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"graft/server/internal/app"
+	"graft/server/plugins/audit"
 	"graft/server/plugins/rbac"
 	"graft/server/plugins/user"
 )
@@ -31,6 +32,7 @@ func newServeCommand() *cobra.Command {
 // `app.Runtime` 能沿同一条显式生命周期路径完成关闭。
 func runServe(cmd *cobra.Command, args []string) error {
 	runtime, err := app.NewRuntime(
+		audit.NewPlugin(),
 		user.NewPlugin(),
 		rbac.NewPlugin(),
 	)

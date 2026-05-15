@@ -33,9 +33,14 @@ import (
 
 // pluginTestStoreFactory 为插件路由测试提供最小仓储装配。
 type pluginTestStoreFactory struct {
+	audit       store.AuditRepository
 	auth        store.AuthRepository
 	users       store.UserRepository
 	permissions map[uint64][]store.Permission
+}
+
+func (f pluginTestStoreFactory) Audit() store.AuditRepository {
+	return f.audit
 }
 
 func (f pluginTestStoreFactory) Auth() store.AuthRepository {
