@@ -126,8 +126,8 @@ func TestRequirePermissionRejectsMissingBearerToken(t *testing.T) {
 	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if payload.MessageKey != "auth.missing_actor" {
-		t.Fatalf("expected missing actor message key, got %#v", payload)
+	if payload.MessageKey != "auth.token_missing" || payload.Code != "AUTH_TOKEN_MISSING" {
+		t.Fatalf("expected missing token contract, got %#v", payload)
 	}
 }
 
@@ -176,8 +176,8 @@ func TestRequirePermissionRejectsPermissionDenied(t *testing.T) {
 	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if payload.MessageKey != "auth.missing_permission" {
-		t.Fatalf("expected missing permission message key, got %#v", payload)
+	if payload.MessageKey != "auth.forbidden" || payload.Code != "AUTH_FORBIDDEN" {
+		t.Fatalf("expected forbidden message key, got %#v", payload)
 	}
 	if payload.Locale != "en-US" {
 		t.Fatalf("expected requested locale to be echoed, got %#v", payload)
@@ -342,6 +342,60 @@ func TestRequirePermissionMapsInvalidTokenToUnauthorized(t *testing.T) {
 
 	if recorder.Code != http.StatusUnauthorized {
 		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, recorder.Code)
+	}
+
+	var payload ErrorResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if payload.MessageKey != "auth.token_invalid" || payload.Code != "AUTH_TOKEN_INVALID" {
+		t.Fatalf("expected invalid token contract, got %#v", payload)
+	}
+}
+
+// TestRequirePermissionMapsExpiredTokenToUnauthorized 验证过期 token 会收敛为稳定的过期响应，
+// 以便前端仅对该分支触发 refresh。
+func TestRequirePermissionMapsExpiredTokenToUnauthorized(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	localizer := newTestLocalizer()
+	resolver := newAuthzTestResolver(t,
+		testAuthService{
+			parseAccessToken: func(context.Context, string) (*pluginapi.AccessTokenClaims, error) {
+				return nil, pluginapi.ErrExpiredAccessToken
+			},
+			currentUser: func(context.Context) (*pluginapi.CurrentUser, error) {
+				t.Fatal("current user should not be called when token parse fails")
+				return nil, nil
+			},
+		},
+		testAuthorizer{
+			authorize: func(context.Context, pluginapi.RequestAuthContext, string) error {
+				t.Fatal("authorize should not be called when token parse fails")
+				return nil
+			},
+		},
+	)
+
+	recorder := httptest.NewRecorder()
+	ctx, engine := gin.CreateTestContext(recorder)
+	engine.Use(RequirePermission(localizer, resolver, "user.read"))
+	engine.GET("/api/users/:id", func(inner *gin.Context) {
+		inner.Status(http.StatusOK)
+	})
+
+	ctx.Request = newBearerRequest("/api/users/1", "expired-token")
+	engine.HandleContext(ctx)
+
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, recorder.Code)
+	}
+
+	var payload ErrorResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if payload.MessageKey != "auth.token_expired" || payload.Code != "AUTH_TOKEN_EXPIRED" {
+		t.Fatalf("expected expired token contract, got %#v", payload)
 	}
 }
 

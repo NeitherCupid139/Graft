@@ -1,5 +1,7 @@
 import type { AxiosRequestConfig } from 'axios';
 
+import type { ApiCode, ApiErrorEnvelope } from '@/api/model/authModel';
+
 /**
  * Axios请求配置
  */
@@ -88,11 +90,18 @@ export interface RequestOptions {
   };
 }
 
-export interface Result<T = any> {
-  code: number;
-  data: T;
+export interface ApiRequestError extends Error {
+  status: number;
+  code: ApiCode;
+  traceId: string;
+  messageKey?: string;
+  locale?: string;
+  responseData?: ApiErrorEnvelope | unknown;
+  isApiRequestError: true;
 }
 
 export interface AxiosRequestConfigRetry extends AxiosRequestConfig {
   retryCount?: number;
+  _authRefreshAttempted?: boolean;
+  _skipAuthRefresh?: boolean;
 }

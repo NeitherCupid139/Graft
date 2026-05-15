@@ -86,9 +86,11 @@ import { MessagePlugin } from 'tdesign-vue-next';
 import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
+import { API_CODE } from '@/api/model/authModel';
 import { useCounter } from '@/hooks';
 import { t } from '@/locales';
 import { useUserStore } from '@/store';
+import { isApiRequestError } from '@/utils/request';
 
 const userStore = useUserStore();
 
@@ -143,6 +145,11 @@ const onSubmit = async (ctx: SubmitContext) => {
       const redirectUrl = redirect ? decodeURIComponent(redirect) : '/';
       router.push(redirectUrl);
     } catch (e) {
+      if (isApiRequestError(e) && e.status === 400 && e.code === API_CODE.AUTH_INVALID_CREDENTIALS) {
+        MessagePlugin.error(e.message);
+        return;
+      }
+
       MessagePlugin.error(e instanceof Error ? e.message : String(e));
     }
   }

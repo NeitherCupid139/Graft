@@ -15,6 +15,10 @@ const LocaleHeader = "X-Graft-Locale"
 var defaultCatalogs = map[string]map[string]string{
 	"zh-CN": {
 		"auth.invalid_credentials":     "用户名或密码错误",
+		"auth.token_missing":           "缺少访问令牌",
+		"auth.token_expired":           "访问令牌已过期",
+		"auth.token_invalid":           "访问令牌无效",
+		"auth.forbidden":               "权限不足",
 		"auth.invalid_refresh_session": "刷新会话无效或已失效",
 		"auth.missing_actor":           "缺少请求身份信息",
 		"auth.missing_permission":      "缺少所需权限",
@@ -25,6 +29,10 @@ var defaultCatalogs = map[string]map[string]string{
 	},
 	"en-US": {
 		"auth.invalid_credentials":     "Invalid username or password",
+		"auth.token_missing":           "Missing access token",
+		"auth.token_expired":           "Access token expired",
+		"auth.token_invalid":           "Invalid access token",
+		"auth.forbidden":               "Forbidden",
 		"auth.invalid_refresh_session": "Invalid or expired refresh session",
 		"auth.missing_actor":           "Missing request actor",
 		"auth.missing_permission":      "Missing required permission",

@@ -1,5 +1,40 @@
 import type { LocalizedTitle } from '@/locales';
 
+export const API_CODE = {
+  OK: 'OK',
+  AUTH_INVALID_CREDENTIALS: 'AUTH_INVALID_CREDENTIALS',
+  AUTH_TOKEN_MISSING: 'AUTH_TOKEN_MISSING',
+  AUTH_TOKEN_EXPIRED: 'AUTH_TOKEN_EXPIRED',
+  AUTH_TOKEN_INVALID: 'AUTH_TOKEN_INVALID',
+  AUTH_FORBIDDEN: 'AUTH_FORBIDDEN',
+  COMMON_INVALID_ARGUMENT: 'COMMON_INVALID_ARGUMENT',
+  COMMON_INTERNAL_ERROR: 'COMMON_INTERNAL_ERROR',
+} as const;
+
+export type ApiCode = (typeof API_CODE)[keyof typeof API_CODE] | (string & {});
+
+export interface ApiSuccessEnvelope<T> {
+  success: true;
+  code: ApiCode;
+  message: string;
+  traceId: string;
+  data: T;
+  messageKey?: string;
+  locale?: string;
+}
+
+export interface ApiErrorEnvelope {
+  success: false;
+  code: ApiCode;
+  message: string;
+  traceId: string;
+  data?: null;
+  messageKey?: string;
+  locale?: string;
+}
+
+export type ApiEnvelope<T> = ApiSuccessEnvelope<T> | ApiErrorEnvelope;
+
 export interface LoginUser {
   id: number;
   username: string;

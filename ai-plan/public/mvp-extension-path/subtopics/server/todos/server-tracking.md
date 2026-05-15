@@ -22,6 +22,12 @@
 - 最小 `scheduler` 闭环已接入运行时：`cron registry` 声明现在通过独立 `scheduler` 封装装配到 `robfig/cron/v3`，启动与停止语义仍收敛在插件生命周期边界内。
 - `user` 插件已新增受保护的 `GET /api/auth/bootstrap` 最小契约：当前登录用户、当前权限码列表、按权限过滤后的菜单列表，以及 locale 配置快照现在可以通过一条真实后端接口返回，供 `web` 后续壳层接线直接消费。
 - `user` 插件现已补齐最小 `GET /api/users` 只读列表契约，继续保持在现有 plugin/store 边界内，不提前扩展分页、筛选和写操作，只为 `web` 当前 `/users` 真实接线提供稳定落点。
+- 当前 `auth / RBAC` 最小响应收敛切片已经进入实施准备：只允许修改 `server/internal/httpx` 与 `server/plugins/user` 现有链路，目标是稳定 HTTP status 语义、稳定业务 `code`、稳定 auth/bootstrap envelope，并让 `web` 后续只基于 `HTTP status + code` 处理认证分支。
+- 本轮响应收敛明确冻结以下后端契约：成功响应固定保留 `success / code / message / traceId / data`，错误响应固定保留 `success / code / message / traceId`，`messageKey / locale` 仅作为可选扩展口，禁止继续保留 `error + message` 双字段重复设计。
+- 本轮认证失败语义明确收口为：`AUTH_INVALID_CREDENTIALS -> 400`、`AUTH_TOKEN_MISSING -> 401`、`AUTH_TOKEN_EXPIRED -> 401`、`AUTH_TOKEN_INVALID -> 401`、`AUTH_FORBIDDEN -> 403`；其中 `CurrentUser` 在 token 可解析但服务端 session 已失效时必须归入 `AUTH_TOKEN_INVALID`，不能再退化成笼统“未登录”。
+- 本轮最小链路补充 `request-id` 约束：后端只做最小 UUID request-id，中间件优先读取 `X-Request-Id` 与 `X-Trace-Id`，缺失时生成并写回 `X-Request-Id`，所有 auth/RBAC envelope 的 `traceId` 都必须取该值，不扩展到 OpenTelemetry 或其它 tracing 基础设施。
+- 本轮前后端边界约束同步固定 refresh 行为：只有 `AUTH_TOKEN_EXPIRED` 允许触发一次 refresh；`AUTH_TOKEN_INVALID`、`AUTH_TOKEN_MISSING`、`AUTH_FORBIDDEN` 都禁止 refresh；refresh 失败后必须走单一出口，统一清理本地登录态与缓存并跳转登录页，不能继续 retry 或形成递归。
+- 当前 auth / RBAC 响应收敛切片已经完成第一轮直接落地：`server/internal/httpx` 现已稳定输出 `AUTH_TOKEN_EXPIRED`、统一 success/error envelope 与最小 request-id 透传，并补齐对应 direct tests；`server/plugins/user` 的关键写接口成功路径也已补上 envelope 回归断言，避免后续回退成裸 `200`。
 - PR #9 当前一轮 AI review 已确认并落地的 `server` 跟进包括：统一审计 `Action` trim 一致性、主动审计事件同时兼容值/指针 payload、bootstrap locale fallback 去重，以及 `pluginapi.AuditEvent`、scheduler 生命周期文档补强。
 - PR #9 当前剩余的 greptile `server` 评论已核对到本地 HEAD：`scheduler` 插件尾部未使用的 `logJobFailure` 确认为死代码，`audit` 请求级自动审计已改为把 `ResourceType` 从稳定路由中拆解为资源域，避免继续与 `RequestPath` 重复。
 - PR #9 最新 CodeRabbit nitpick 已在本地核对并收敛：`plugin.Context` 现已显式承载 `LifecycleContext`，runtime 会在 `Shutdown` 阶段注入独立有界关闭上下文，`scheduler` 不再绕过宿主生命周期直接使用 `context.Background()`。
@@ -33,6 +39,7 @@
 ## Active Risks
 
 - 当前最大的剩余风险已经从 runtime 闭环转向共享契约漂移；若后端在 `auth + menu + permission + locale` 返回面上继续频繁变动，`web` 接线会反复返工。
+- 如果 auth/RBAC 收敛期间继续混用 “401 + 各类认证失败” 与非稳定 envelope，`web` 将无法只凭 `HTTP status + code` 做出稳定登录态分支，refresh 死循环风险也会重新出现。
 - 如果在下一阶段继续无边界扩张 session-governance 细节，会挤占当前最关键的后端闭环资源。
 - 若 `pluginapi`、store DTO 或权限/菜单契约在收敛期内继续频繁漂移，`web` 对真实契约的接线成本会快速上升。
 - disposable PostgreSQL / Redis 仍需手工准备；恢复执行时必须确认当前可用的 smoke 环境。
@@ -73,6 +80,16 @@
 - 本次 PR #9 scheduler shutdown context follow-up 预期直接校验：
   - `cd server && go test ./internal/app ./plugins/scheduler`
   - `cd server && go build ./cmd/graft`
+- 本次 auth / RBAC 最小响应收敛切片预期直接校验：
+  - `cd server && go test ./internal/httpx ./plugins/user`
+  - `cd server && go build ./cmd/graft`
+  - `cd web && bun run check`
+- 本次 auth / RBAC 最小响应收敛切片实际直接校验：
+  - `cd server && go test ./internal/httpx ./plugins/user`
+  - `cd server && go build ./cmd/graft`
+  - `cd web && bun run test:run -- src/utils/request.test.ts src/store/modules/user.test.ts src/utils/route/bootstrap.test.ts`
+  - `cd web && bun run typecheck`
+  - `cd web && bun run check`
 - 本次本地启动 auth 配置引导修复直接校验：
   - `cd server && go test ./...`
   - `cd server && go build ./cmd/graft`
@@ -91,5 +108,6 @@
 ## Immediate Next Step
 
 - 停止继续扩大会话治理宽度，按以下顺序推进 backend MVP closure：
-  1. 在不破坏当前 `/api/auth/bootstrap` 返回面的前提下，只做必要 DTO 收敛，避免 `web` 接线面再次漂移。
-  2. 与 `web` 同步推进真实用户详情、会话治理、动态菜单与权限守卫接线。
+  1. 保持当前 `AUTH_*` code、success/error envelope 与 request-id 契约冻结，不再无边界扩张 auth 响应面。
+  2. 在该稳定契约上继续推动 `web` 的真实页面接线，优先补齐用户详情与会话治理页面，而不是继续新增 auth 变体。
+  3. 若后续继续细化 auth/RBAC，优先补 DTO/页面消费层，不要回退到中文 `message` 分支或重新引入 refresh 多出口。

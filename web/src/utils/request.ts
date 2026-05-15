@@ -1,11 +1,18 @@
-import type { AxiosRequestConfig } from 'axios';
+import type { AxiosError, AxiosResponse } from 'axios';
 import axios from 'axios';
 
+import {
+  API_CODE,
+  type ApiCode,
+  type ApiEnvelope,
+  type ApiErrorEnvelope,
+  type LoginResponse,
+} from '@/api/model/authModel';
 import { localeConfigKey } from '@/locales';
-import type { RequestOptions } from '@/types/axios';
-import { getAccessToken } from '@/utils/auth-state';
+import type { ApiRequestError, AxiosRequestConfigRetry, RequestOptions } from '@/types/axios';
+import { clearAccessToken, getAccessToken, setAccessToken } from '@/utils/auth-state';
 
-type RequestConfig = AxiosRequestConfig & {
+type RequestConfig = AxiosRequestConfigRetry & {
   requestOptions?: RequestOptions;
 };
 
@@ -15,6 +22,14 @@ interface RequestInstance {
   put<T>(config: RequestConfig): Promise<T>;
   delete<T>(config: RequestConfig): Promise<T>;
 }
+
+type AuthSessionBridge = {
+  applyLoginResponse(payload: LoginResponse): void | Promise<void>;
+  handleAuthFailure(): void | Promise<void>;
+};
+
+const AUTH_REFRESH_URL = '/api/auth/refresh';
+let authSessionBridge: AuthSessionBridge | null = null;
 
 function resolveBaseURL() {
   if (import.meta.env.VITE_IS_REQUEST_PROXY === 'true') {
@@ -51,12 +66,170 @@ client.interceptors.request.use((config) => {
   return config;
 });
 
+client.interceptors.response.use(
+  async (response) => unwrapResponse(response),
+  async (error: AxiosError<ApiErrorEnvelope>) => {
+    const requestError = normalizeAxiosError(error);
+    const config = error.config as AxiosRequestConfigRetry | undefined;
+
+    if (shouldRefresh(requestError, config)) {
+      return tryRefreshAndReplay(config!);
+    }
+
+    if (shouldExitToLogin(requestError)) {
+      await clearClientSession();
+    }
+
+    throw requestError;
+  },
+);
+
 async function requestWithMethod<T>(method: 'get' | 'post' | 'put' | 'delete', config: RequestConfig): Promise<T> {
   const response = await client.request<T>({
     method,
     ...config,
   });
-  return response.data;
+  return response as T;
+}
+
+function unwrapResponse<T>(response: AxiosResponse<T | ApiEnvelope<T>>): T {
+  const payload = response.data;
+
+  if (!isApiEnvelope(payload)) {
+    return payload as T;
+  }
+
+  if (!payload.success) {
+    throw buildApiRequestError(response.status, payload);
+  }
+
+  return payload.data;
+}
+
+function isApiEnvelope<T>(payload: unknown): payload is ApiEnvelope<T> {
+  if (!payload || typeof payload !== 'object') {
+    return false;
+  }
+
+  const candidate = payload as Partial<ApiEnvelope<T>>;
+  return (
+    typeof candidate.success === 'boolean' &&
+    typeof candidate.code === 'string' &&
+    typeof candidate.message === 'string'
+  );
+}
+
+function normalizeAxiosError(error: AxiosError<ApiErrorEnvelope>): ApiRequestError {
+  const status = error.response?.status ?? 0;
+  const payload = error.response?.data;
+
+  if (payload && isApiEnvelope(payload) && !payload.success) {
+    return buildApiRequestError(status, payload);
+  }
+
+  const fallbackMessage = error.message || 'Request failed';
+  return buildApiRequestError(status, {
+    success: false,
+    code: API_CODE.COMMON_INTERNAL_ERROR,
+    message: fallbackMessage,
+    traceId: '',
+  });
+}
+
+function buildApiRequestError(status: number, payload: ApiErrorEnvelope): ApiRequestError {
+  const error = new Error(payload.message) as ApiRequestError;
+  error.name = 'ApiRequestError';
+  error.status = status;
+  error.code = payload.code;
+  error.traceId = payload.traceId;
+  error.messageKey = payload.messageKey;
+  error.locale = payload.locale;
+  error.responseData = payload;
+  error.isApiRequestError = true;
+  return error;
+}
+
+function shouldRefresh(error: ApiRequestError, config?: AxiosRequestConfigRetry) {
+  if (!config) {
+    return false;
+  }
+
+  if (config._skipAuthRefresh || config._authRefreshAttempted) {
+    return false;
+  }
+
+  if (config.url === AUTH_REFRESH_URL) {
+    return false;
+  }
+
+  return error.status === 401 && error.code === API_CODE.AUTH_TOKEN_EXPIRED;
+}
+
+function shouldExitToLogin(error: ApiRequestError) {
+  return (
+    error.status === 401 && (error.code === API_CODE.AUTH_TOKEN_INVALID || error.code === API_CODE.AUTH_TOKEN_MISSING)
+  );
+}
+
+async function tryRefreshAndReplay<T>(config: AxiosRequestConfigRetry) {
+  try {
+    const payload = await requestWithMethod<LoginResponse>('post', {
+      url: AUTH_REFRESH_URL,
+      _skipAuthRefresh: true,
+    } as RequestConfig);
+    await syncAuthStateAfterRefresh(payload);
+  } catch (refreshError) {
+    await clearClientSession();
+    throw refreshError;
+  }
+
+  return client.request<T>({
+    ...config,
+    _authRefreshAttempted: true,
+  } as AxiosRequestConfigRetry);
+}
+
+async function syncAuthStateAfterRefresh(payload: LoginResponse) {
+  if (authSessionBridge) {
+    await authSessionBridge.applyLoginResponse(payload);
+    return;
+  }
+
+  setAccessToken(payload.access_token);
+
+  try {
+    const raw = localStorage.getItem('user');
+    if (raw) {
+      const persisted = JSON.parse(raw) as Record<string, unknown>;
+      localStorage.setItem('user', JSON.stringify({ ...persisted, token: payload.access_token }));
+    }
+  } catch {
+    // 受限环境下允许只更新内存 token。
+  }
+}
+
+async function clearClientSession() {
+  let clearedByStore = false;
+
+  if (authSessionBridge) {
+    await authSessionBridge.handleAuthFailure();
+    clearedByStore = true;
+  }
+
+  if (!clearedByStore) {
+    clearAccessToken();
+
+    try {
+      localStorage.removeItem('user');
+    } catch {
+      // 受限环境下允许只清空内存 token。
+    }
+  }
+
+  if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+    const redirect = encodeURIComponent(`${window.location.pathname}${window.location.search}${window.location.hash}`);
+    window.location.replace(`/login?redirect=${redirect}`);
+  }
 }
 
 // 仅提供 starter 页面所需的最小请求适配，避免引入完整请求基础设施。
@@ -74,3 +247,17 @@ export const request: RequestInstance = {
     return requestWithMethod<T>('delete', config);
   },
 };
+
+// registerAuthSessionBridge 让请求层显式复用 user store 的会话同步与清理入口，
+// 避免动态 import store 带来的构建告警与双源登录态漂移。
+export function registerAuthSessionBridge(bridge: AuthSessionBridge | null) {
+  authSessionBridge = bridge;
+}
+
+export function isApiRequestError(error: unknown): error is ApiRequestError {
+  return Boolean(error && typeof error === 'object' && (error as Partial<ApiRequestError>).isApiRequestError);
+}
+
+export function shouldAttemptRefreshByError(status: number, code: ApiCode) {
+  return status === 401 && code === API_CODE.AUTH_TOKEN_EXPIRED;
+}

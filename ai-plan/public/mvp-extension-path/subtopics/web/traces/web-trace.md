@@ -206,6 +206,18 @@
 - Updated the repository README and active web recovery notes so contributors now have one explicit path for local web
   startup and do not need to infer whether machine-specific proxy targets belong in version control.
 
+## 2026-05-15 auth response convergence
+
+- Completed the first frontend-side auth response convergence pass so the shared request layer now consumes the stable
+  `AUTH_*` code contract instead of falling back to localized message text.
+- Added direct Vitest coverage for `request.ts` and `user` store auth recovery behavior, including
+  `AUTH_TOKEN_EXPIRED -> refresh + replay`, `AUTH_TOKEN_INVALID / AUTH_TOKEN_MISSING -> single cleanup exit + login redirect`,
+  and the rule that refresh must not recurse on its own failure path.
+- Replaced the earlier request-layer dynamic import of `store/index.ts` with an explicit auth session bridge registered
+  by the `user` store, removing the Vite dynamic-import warning and keeping request/store auth synchronization explicit.
+- Revalidated the slice with focused Vitest + typecheck, then one full host Windows Bun `bun run check` pass with zero
+  unresolved warnings.
+
 ## 2026-05-15 Follow-up Next Step
 
 - Continue reconnecting the starter shell to the real backend `auth + current user + menu + permission + locale`

@@ -38,6 +38,19 @@
 - Revalidated the cross-boundary slice with focused backend validation and one full host Windows Bun `bun run check`
   pass on `web`.
 
+## 2026-05-15 auth response convergence
+
+- Completed the first cross-boundary convergence pass for auth / RBAC response semantics, freezing the current
+  `AUTH_*` code mapping, the shared success/error envelope, and the request-id/trace-id propagation path in `server`.
+- Completed the paired frontend convergence pass so `web` request recovery now refreshes only on
+  `AUTH_TOKEN_EXPIRED`, exits through one cleanup path on `AUTH_TOKEN_INVALID / AUTH_TOKEN_MISSING`, and no longer
+  relies on localized message text for auth control flow.
+- Replaced the earlier request-layer dynamic store import with an explicit auth session bridge registered by the
+  `user` store, removing the warning that previously prevented `bun run check` from satisfying the repository's
+  zero-warning completion rule.
+- Revalidated the full cross-boundary slice with focused backend validation, focused frontend Vitest + typecheck, and
+  one full host Windows Bun `bun run check` pass.
+
 ## Next Step
 
 - Continue MVP work through the relevant subtopic, keeping `/api/auth/bootstrap` stable while expanding real

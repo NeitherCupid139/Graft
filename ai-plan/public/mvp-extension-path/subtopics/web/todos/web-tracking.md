@@ -21,6 +21,7 @@
 - `/users` 当前已不再复用 starter 个人中心 demo 页，而是直接消费真实 `GET /api/users` 最小只读契约；对应的 `/user/index` 静态入口与 header 残留跳转也已移除，避免双轨导航。
 - 开发环境下的请求策略已收敛为“前端统一请求相对 `/api` 路径，由 Vite proxy 转发到 `VITE_API_TARGET`”；只有显式关闭代理时，Axios 才会直连后端绝对地址。
 - 前端环境文件治理当前已与 `server` 对齐：提交 `web/.env.example` 作为共享模板，忽略真实 `web/.env.*` 本地开发配置，不再把机器专属开发地址直接提交进仓库。
+- 当前 auth 响应收敛切片已经完成第一轮前端落地：请求层只对 `AUTH_TOKEN_EXPIRED` 触发一次 refresh，`AUTH_TOKEN_INVALID` / `AUTH_TOKEN_MISSING` 统一走单一清理出口并跳转登录；请求层与 `user` store 之间的登录态同步已收敛为显式 session bridge，避免动态导入 store 带来的构建 warning 与双源状态漂移。
 - 详细前端实现历史保留在 `subtopics/web/traces/web-trace.md`。
 
 ## Active Risks
@@ -52,12 +53,16 @@
 - 本次前端环境文件治理修复预期直接校验：
   - `git check-ignore -v web/.env.development web/.env.local`
   - `git ls-files web/.env.example web/.env.development`
+- 本次 auth 响应收敛切片实际直接校验：
+  - `cd web && bun run test:run -- src/utils/request.test.ts src/store/modules/user.test.ts src/utils/route/bootstrap.test.ts`
+  - `cd web && bun run typecheck`
+  - `cd web && bun run check`
 
 ## Immediate Next Step
 
 - 继续把 starter 壳层挂接到真实后端 `auth + current user + menu + permission + locale` 契约。
 - 快速隔离或移除当前阶段不再需要的 mock/demo 入口，避免形成前端自洽假闭环。
-- 在真实契约稳定之前，不以新增页面、theme runtime 深化或额外视觉扩张作为当前子主题完成条件；优先沿现有用户列表落点继续接用户详情与会话治理页面。
+- 在当前 auth 契约与刷新单出口已经稳定后，优先沿现有用户列表落点继续接用户详情与会话治理页面，而不是再回到请求层分支治理或视觉扩张。
 
 ## 2026-05-15 真实 auth/bootstrap 接线恢复点
 

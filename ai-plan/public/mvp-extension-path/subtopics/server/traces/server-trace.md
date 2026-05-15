@@ -303,7 +303,40 @@
 - Added focused `server/plugins/user` route coverage for successful list reads and localized internal-error behavior,
   then revalidated with `cd server && go test ./plugins/user ./internal/store/entstore` and `cd server && go build ./cmd/graft`.
 
+## 2026-05-15 auth / RBAC response convergence prep
+
+- Reserved the next bounded `server` slice for auth / RBAC minimal response convergence only, keeping the write scope
+  limited to existing `server/internal/httpx`, `server/plugins/user`, and the paired `web` request/auth consumption
+  paths.
+- Recorded the required auth failure mapping for that slice: `AUTH_INVALID_CREDENTIALS -> 400`,
+  `AUTH_TOKEN_MISSING -> 401`, `AUTH_TOKEN_EXPIRED -> 401`, `AUTH_TOKEN_INVALID -> 401`, and
+  `AUTH_FORBIDDEN -> 403`.
+- Recorded the envelope stability rule for that slice: success responses must keep
+  `success / code / message / traceId / data`, error responses must keep `success / code / message / traceId`, and
+  `messageKey / locale` remain optional extension fields rather than control-flow inputs.
+- Recorded the minimal request-id contract for that slice: read `X-Request-Id` first, then `X-Trace-Id`; otherwise
+  generate a UUID, persist it in `gin.Context`, mirror it to the `X-Request-Id` response header, and source every
+  auth/RBAC envelope `traceId` from that value.
+- Recorded the frontend-facing refresh boundary that the implementation must preserve: only
+  `AUTH_TOKEN_EXPIRED` may trigger one refresh attempt, while `AUTH_TOKEN_INVALID`, `AUTH_TOKEN_MISSING`, and
+  `AUTH_FORBIDDEN` must never recurse into refresh.
+
+## 2026-05-15 auth / RBAC response convergence
+
+- Completed the first bounded auth / RBAC response convergence pass in `server/internal/httpx` and
+  `server/plugins/user`, freezing the current auth failure status/code mapping and the shared
+  `success / code / message / traceId / data` envelope.
+- Added direct `server/internal/httpx` regression coverage for `AUTH_TOKEN_EXPIRED` plus request-id reuse on success
+  responses, and expanded `server/plugins/user` tests so the main write-side success paths now verify the shared
+  success envelope instead of only status codes and side effects.
+- Revalidated the backend side of the slice with `cd server && go test ./internal/httpx ./plugins/user` and
+  `cd server && go build ./cmd/graft`.
+  `401 + AUTH_TOKEN_EXPIRED` may trigger one refresh attempt; `AUTH_TOKEN_INVALID`, `AUTH_TOKEN_MISSING`, and
+  `AUTH_FORBIDDEN` must not refresh; any refresh failure must collapse to one exit that clears local auth/session
+  state and redirects to login without retry recursion.
+
 ## Next Step
 
-- Keep the new bootstrap contract stable enough for `web` starter-shell hookup, then move the next batch to
-  synchronized `server` + `web` work instead of widening backend-only session-governance behavior.
+- Implement the bounded auth / RBAC response convergence slice while keeping the current bootstrap contract stable, and
+  validate it with `cd server && go test ./internal/httpx ./plugins/user`, `cd server && go build ./cmd/graft`, and
+  `cd web && bun run check`.
