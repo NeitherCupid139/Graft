@@ -5,6 +5,7 @@ import (
 	"errors"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -27,11 +28,24 @@ func TestRunValidateSmokeRunsMigrateBeforeServe(t *testing.T) {
 		smokeHealthChecker = originalHealthChecker
 	}()
 
-	var steps []string
+	var (
+		steps   []string
+		stepsMu sync.Mutex
+	)
+	appendStep := func(step string) {
+		stepsMu.Lock()
+		defer stepsMu.Unlock()
+		steps = append(steps, step)
+	}
+	stepsSnapshot := func() []string {
+		stepsMu.Lock()
+		defer stepsMu.Unlock()
+		return append([]string(nil), steps...)
+	}
 	serveStarted := make(chan struct{})
 
 	smokeMigrateRunner = func(cmd *cobra.Command, migrationDir string) error {
-		steps = append(steps, "migrate:"+migrationDir)
+		appendStep("migrate:" + migrationDir)
 		return nil
 	}
 	smokeLoadConfig = func() (*config.Config, error) {
@@ -40,15 +54,15 @@ func TestRunValidateSmokeRunsMigrateBeforeServe(t *testing.T) {
 		}, nil
 	}
 	smokeServeRunner = func(cmd *cobra.Command, args []string) error {
-		steps = append(steps, "serve-start")
+		appendStep("serve-start")
 		close(serveStarted)
 		<-cmd.Context().Done()
-		steps = append(steps, "serve-stop")
+		appendStep("serve-stop")
 		return nil
 	}
 	smokeHealthChecker = func(ctx context.Context, probeURL string) error {
 		<-serveStarted
-		steps = append(steps, "health:"+probeURL)
+		appendStep("health:" + probeURL)
 		return nil
 	}
 
@@ -67,8 +81,8 @@ func TestRunValidateSmokeRunsMigrateBeforeServe(t *testing.T) {
 		"health:http://127.0.0.1:18080/healthz",
 		"serve-stop",
 	}
-	if !reflect.DeepEqual(steps, expected) {
-		t.Fatalf("expected %v, got %v", expected, steps)
+	if actual := stepsSnapshot(); !reflect.DeepEqual(actual, expected) {
+		t.Fatalf("expected %v, got %v", expected, actual)
 	}
 }
 

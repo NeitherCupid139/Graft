@@ -30,6 +30,7 @@ import (
 	"graft/server/plugins/rbac"
 )
 
+// pluginTestStoreFactory 为插件路由测试提供最小仓储装配。
 type pluginTestStoreFactory struct {
 	auth        store.AuthRepository
 	users       store.UserRepository
@@ -48,6 +49,7 @@ func (f pluginTestStoreFactory) RBAC() store.RBACRepository {
 	return pluginTestRBACRepository{permissions: f.permissions}
 }
 
+// pluginTestAuthRepository 以内存状态模拟认证仓储的最小行为。
 type pluginTestAuthRepository struct {
 	getUserCredentialByUsername func(ctx context.Context, username string) (store.UserCredential, error)
 	mu                          sync.Mutex
@@ -204,6 +206,7 @@ func (r *pluginTestAuthRepository) RotateRefreshSession(_ context.Context, input
 	return next, nil
 }
 
+// pluginTestUserRepository 为插件路由测试收敛最小用户读取能力。
 type pluginTestUserRepository struct {
 	getByID func(ctx context.Context, id uint64) (store.User, error)
 }
@@ -216,6 +219,7 @@ func (r pluginTestUserRepository) GetByID(ctx context.Context, id uint64) (store
 	return r.getByID(ctx, id)
 }
 
+// pluginTestRBACRepository 为插件路由测试模拟最小权限读取结果。
 type pluginTestRBACRepository struct {
 	permissions map[uint64][]store.Permission
 }
@@ -827,6 +831,81 @@ func TestRefreshRouteRotatesSessionAndReturnsNewAccessToken(t *testing.T) {
 	newCookies := refreshRecorder.Result().Cookies()
 	if len(newCookies) == 0 || newCookies[0].Value == cookies[0].Value {
 		t.Fatalf("expected rotated refresh cookie, got old=%#v new=%#v", cookies, newCookies)
+	}
+}
+
+// TestRefreshRouteRejectsReusedRefreshCookie 验证 refresh 成功轮换后，旧 cookie
+// 不能再次消费原 refresh session。
+func TestRefreshRouteRejectsReusedRefreshCookie(t *testing.T) {
+	passwordHash, err := newPasswordHasher().Hash("secret")
+	if err != nil {
+		t.Fatalf("hash password: %v", err)
+	}
+
+	authRepo := &pluginTestAuthRepository{
+		getUserCredentialByUsername: func(_ context.Context, username string) (store.UserCredential, error) {
+			if username != "alice" {
+				return store.UserCredential{}, store.ErrUserNotFound
+			}
+			return store.UserCredential{
+				UserID:       7,
+				Username:     "alice",
+				PasswordHash: &passwordHash,
+			}, nil
+		},
+	}
+	_, engine := newPluginTestContext(t, pluginTestUserRepository{
+		getByID: func(_ context.Context, id uint64) (store.User, error) {
+			if id != 7 {
+				return store.User{}, store.ErrUserNotFound
+			}
+			return store.User{
+				ID:        7,
+				Username:  "alice",
+				Display:   "Alice",
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			}, nil
+		},
+	}, authRepo)
+
+	loginRecorder := httptest.NewRecorder()
+	loginRequest := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(`{"username":"alice","password":"secret"}`))
+	loginRequest.Header.Set("Content-Type", "application/json")
+	engine.ServeHTTP(loginRecorder, loginRequest)
+	if loginRecorder.Code != http.StatusOK {
+		t.Fatalf("expected login status %d, got %d", http.StatusOK, loginRecorder.Code)
+	}
+
+	cookies := loginRecorder.Result().Cookies()
+	if len(cookies) == 0 {
+		t.Fatal("expected refresh cookie from login")
+	}
+
+	firstRefreshRecorder := httptest.NewRecorder()
+	firstRefreshRequest := httptest.NewRequest(http.MethodPost, "/api/auth/refresh", nil)
+	firstRefreshRequest.AddCookie(cookies[0])
+	firstRefreshRequest.Header.Set(i18n.LocaleHeader, "en-US")
+	engine.ServeHTTP(firstRefreshRecorder, firstRefreshRequest)
+	if firstRefreshRecorder.Code != http.StatusOK {
+		t.Fatalf("expected first refresh status %d, got %d", http.StatusOK, firstRefreshRecorder.Code)
+	}
+
+	reuseRecorder := httptest.NewRecorder()
+	reuseRequest := httptest.NewRequest(http.MethodPost, "/api/auth/refresh", nil)
+	reuseRequest.AddCookie(cookies[0])
+	reuseRequest.Header.Set(i18n.LocaleHeader, "en-US")
+	engine.ServeHTTP(reuseRecorder, reuseRequest)
+	if reuseRecorder.Code != http.StatusUnauthorized {
+		t.Fatalf("expected reused refresh status %d, got %d", http.StatusUnauthorized, reuseRecorder.Code)
+	}
+
+	var payload httpx.ErrorResponse
+	if err := json.NewDecoder(reuseRecorder.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode reused refresh response: %v", err)
+	}
+	if payload.MessageKey != "auth.invalid_refresh_session" || payload.Locale != "en-US" {
+		t.Fatalf("expected invalid refresh payload for reused cookie, got %#v", payload)
 	}
 }
 

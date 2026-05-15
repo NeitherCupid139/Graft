@@ -191,8 +191,9 @@ func (r *authRepository) RotateRefreshSession(ctx context.Context, input store.R
 	if err != nil {
 		return store.RefreshSession{}, fmt.Errorf("begin refresh session rotation transaction: %w", err)
 	}
+	committed := false
 	defer func() {
-		if err != nil {
+		if !committed {
 			_ = tx.Rollback()
 		}
 	}()
@@ -206,21 +207,24 @@ func (r *authRepository) RotateRefreshSession(ctx context.Context, input store.R
 		}
 		return store.RefreshSession{}, fmt.Errorf("query current refresh session for rotation: %w", err)
 	}
-	if current.RevokedAt != nil {
-		return store.RefreshSession{}, store.ErrRefreshSessionNotFound
-	}
-	if !current.ExpiresAt.After(input.Now) {
+	if current.RevokedAt != nil || !current.ExpiresAt.After(input.Now) {
 		return store.RefreshSession{}, store.ErrRefreshSessionNotFound
 	}
 
-	if _, err = tx.RefreshSession.UpdateOneID(current.ID).
+	affected, err := tx.RefreshSession.Update().
+		Where(
+			entrefreshsession.IDEQ(current.ID),
+			entrefreshsession.RevokedAtIsNil(),
+			entrefreshsession.ExpiresAtGT(input.Now),
+		).
 		SetRevokedAt(input.RevokedAt).
 		SetReplacedByTokenID(input.NewTokenID).
-		Save(ctx); err != nil {
-		if ent.IsNotFound(err) {
-			return store.RefreshSession{}, store.ErrRefreshSessionNotFound
-		}
+		Save(ctx)
+	if err != nil {
 		return store.RefreshSession{}, fmt.Errorf("revoke current refresh session during rotation: %w", err)
+	}
+	if affected == 0 {
+		return store.RefreshSession{}, store.ErrRefreshSessionNotFound
 	}
 
 	next, err := tx.RefreshSession.Create().
@@ -238,10 +242,12 @@ func (r *authRepository) RotateRefreshSession(ctx context.Context, input store.R
 		}
 		return store.RefreshSession{}, fmt.Errorf("commit refresh session rotation transaction: %w", commitErr)
 	}
+	committed = true
 
 	return toStoreRefreshSession(next), nil
 }
 
+// toStoreRefreshSession 把 Ent refresh session 记录收敛为稳定仓储 DTO。
 func toStoreRefreshSession(record *ent.RefreshSession) store.RefreshSession {
 	return store.RefreshSession{
 		ID:                uint64(record.ID),

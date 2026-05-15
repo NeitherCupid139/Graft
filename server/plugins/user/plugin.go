@@ -507,17 +507,22 @@ func (p *Plugin) Shutdown(ctx *plugin.Context) error {
 	return nil
 }
 
+// userService 把用户插件内部仓储读取收敛为跨插件稳定用户摘要服务。
 type userService struct {
 	users store.UserRepository
 }
 
+// authService 是 `pluginapi.AuthService` 在用户插件内的最小实现。
+//
+// 它把 access token 解析、refresh session 状态校验、当前用户读取和会话治理
+// 保持在同一插件边界内，避免把生命周期敏感的鉴权协作拆散到 core 或其他插件。
 type authService struct {
-	auth          store.AuthRepository
-	users         store.UserRepository
-	passwords     passwordHasher
-	tokens        *accessTokenManager
-	refreshTokens *refreshTokenManager
-	cookies       authCookieManager
+	auth          store.AuthRepository // auth 负责 refresh session 持久化与轮换状态读取。
+	users         store.UserRepository // users 提供当前主体与登录路径所需的稳定用户读取能力。
+	passwords     passwordHasher       // passwords 统一封装口令散列与校验策略。
+	tokens        *accessTokenManager  // tokens 负责 access token 的签发与解析。
+	refreshTokens *refreshTokenManager // refreshTokens 负责 refresh token 的签发与解析。
+	cookies       authCookieManager    // cookies 收敛 refresh cookie 的读写与清理约束。
 }
 
 const maxSessionListLimit = 100
@@ -628,6 +633,7 @@ func parseSessionListOptions(rawLimit string) (sessionListOptions, error) {
 	return sessionListOptions{Limit: limit}, nil
 }
 
+// mapAuthError 把插件内部鉴权/会话错误收敛为稳定 HTTP 状态与消息键。
 func mapAuthError(err error) (int, string) {
 	switch {
 	case errors.Is(err, pluginapi.ErrUnauthenticated):

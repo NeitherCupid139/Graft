@@ -154,6 +154,21 @@
 - Added focused plugin-route tests for successful revoke-others behavior and missing-actor rejection, then revalidated
   with `cd server && go test ./plugins/user` and `cd server && go build ./cmd/graft`.
 
+## 2026-05-15 PR #8 review follow-up
+
+- Expanded `server/.gitignore` build-output rules so the backend workspace no longer relies on the single-path `graft`
+  ignore entry.
+- Fixed `server/internal/cli/validate_test.go` to record smoke-validation steps under a mutex, removing the data-race
+  window flagged by review on concurrent `append`.
+- Hardened `server/internal/store/entstore/auth_repository.go` so refresh-session rotation only succeeds when the old
+  session is still active at the conditional update point, and so successful commits no longer fall through the
+  rollback defer path.
+- Added direct regression coverage for reused refresh cookies in `server/plugins/user/plugin_test.go`, propagated RBAC
+  repository failures in `server/plugins/rbac/plugin_test.go`, and supplemented doc comments around the auth service
+  implementation to help clear the docstring coverage gate.
+- Revalidated the review follow-up with `cd server && go test ./internal/cli ./internal/store/entstore ./plugins/user ./plugins/rbac`
+  and `cd server && go build ./cmd/graft`.
+
 ## Next Step
 
 - Run `graft validate smoke` against the next disposable PostgreSQL + Redis target, then continue admin-driven session

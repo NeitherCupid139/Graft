@@ -66,3 +66,20 @@ func TestAuthorizerRejectsMissingPermission(t *testing.T) {
 		t.Fatalf("expected ErrPermissionDenied, got %v", err)
 	}
 }
+
+// TestAuthorizerPropagatesRepositoryFailure 验证权限仓储失败会直接向调用方传播。
+func TestAuthorizerPropagatesRepositoryFailure(t *testing.T) {
+	repositoryErr := errors.New("repository failed")
+	service := authorizer{
+		rbac: testRBACRepository{
+			err: repositoryErr,
+		},
+	}
+
+	err := service.Authorize(context.Background(), pluginapi.RequestAuthContext{
+		User: &pluginapi.CurrentUser{ID: 7},
+	}, "user.read")
+	if !errors.Is(err, repositoryErr) {
+		t.Fatalf("expected repository error, got %v", err)
+	}
+}
