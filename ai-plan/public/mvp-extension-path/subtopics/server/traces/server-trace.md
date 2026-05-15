@@ -344,8 +344,22 @@
 - Fixed the MVP security boundary so this slice extends `login/bootstrap` and user-plugin auth flows, but does not add
   a new global backend interception middleware for every business API.
 
+## 2026-05-15 Go 1.26.x and Zap 1.28.0 baseline update
+
+- Raised `server/go.mod` from `go 1.25.0` to `go 1.26.0` and aligned the repository design truth to state the
+  backend baseline as `Go 1.26.x`.
+- Kept the toolchain slice minimal: `go test ./...` and `go build ./cmd/...` both passed on local `go1.26.1`, so the
+  upgrade did not require Ent regeneration, Atlas migration changes, or runtime refactors.
+- Upgraded only the approved direct dependency `go.uber.org/zap` from `v1.27.0` to `v1.28.0`, then ran `go mod tidy`
+  and `go mod verify`.
+- Confirmed the `go mod tidy` fallout stayed narrow: the main change beyond the approved upgrades was that
+  `github.com/robfig/cron/v3`, `github.com/google/uuid`, and `golang.org/x/crypto` were promoted from `indirect` to
+  direct because hand-written `server` code imports them.
+- Re-ran `graft validate backend` with pinned `golangci-lint v2.12.2` available on `PATH` and confirmed the command
+  now reaches the real lint stage; the remaining failure is the existing repository lint backlog rather than a new
+  Go 1.26 or Zap compatibility regression.
+
 ## Next Step
 
-- Implement the bounded auth / RBAC response convergence slice while keeping the current bootstrap contract stable, and
-  validate it with `cd server && go test ./internal/httpx ./plugins/user`, `cd server && go build ./cmd/graft`, and
-  `cd web && bun run check`.
+- Separate the existing backend lint backlog from this finished Go/Zap baseline update, decide the next bounded lint
+  cleanup slice, and keep future backend completion claims tied to `graft validate backend`.

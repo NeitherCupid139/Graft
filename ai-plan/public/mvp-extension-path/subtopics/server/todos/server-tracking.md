@@ -36,7 +36,9 @@
 - `pluginapi`、registries、store factory 与当前 auth/menu/permission/i18n 返回面，已经成为 `web` 真实契约收敛前必须谨慎冻结的后端边界。
 - 当前本地启动修复已补齐 `server/.env.example` 的显式 auth 密钥示例、README 最小启动步骤与 GoLand working directory 提示，并用隔离环境测试锁定“缺少 `GRAFT_AUTH_JWT_SECRET` 与 `GRAFT_AUTH_SIGNING_KEY` 时严格失败”的配置行为；未引入任何 dev-only 默认密钥或 auth 语义变更。
 - `server` 当前已补充两个独立开发辅助程序：`cmd/graft-jwt-secret` 与 `cmd/graft-signing-key`，用于生成可直接写入 `.env` 的随机 auth 密钥文本；该能力只辅助配置准备，不参与运行时加载或 token 语义。
+- `server` 当前已把模块工具链基线提升到 `Go 1.26.x`，并将 `go.uber.org/zap` 收敛到 `v1.28.0`；`go test ./...` 与 `go build ./cmd/...` 在本地 `go1.26.1` 下通过，未触发 Ent/Atlas regeneration。
 - 当前 backend governance 文档真值已经冻结：`server` 完成态必须统一走 `graft validate backend`，固定质量顺序为 `golangci-lint run -> go test (smallest direct scope) -> go build ./cmd/graft -> graft validate smoke when needed`，并固定 pin `golangci-lint v2.12.2`。
+- 当前 `graft validate backend` 已能在本地通过固定版 `golangci-lint v2.12.2` 进入真实 lint 阶段，但完成态仍被现存仓库级 lint backlog 阻断；这些问题不属于本次 Go/Zap 最小升级引入的回归。
 - backend lint issue 默认按阻断项处理；如果当前切片无法立即清理，只能登记到本文件的 `Backend Lint Controlled Exceptions`，并记录来源、影响、保留原因和下一步清理动作。
 - 详细实现历史保留在 `subtopics/server/traces/server-trace.md`。
 
@@ -111,6 +113,10 @@
 - 本次本地 auth 密钥生成工具切片直接校验：
   - `cd server && go test ./internal/keygen ./...`
   - `cd server && go build ./cmd/graft ./cmd/graft-jwt-secret ./cmd/graft-signing-key`
+- 本次 Go 1.26.x / Zap 1.28.0 最小升级切片直接校验：
+  - `cd server && go test ./...`
+  - `cd server && go build ./cmd/...`
+  - `cd server && PATH=/tmp/codex-bin:$PATH go run ./cmd/graft validate backend`
 - 当前后端恢复基线沿用最近一次 focused backend validation：
   - `cd server && go test ./internal/cli ./internal/app ./internal/store ./internal/store/entstore ./plugins/user ./plugins/rbac`
   - `cd server && go build ./cmd/graft`
@@ -128,7 +134,7 @@
 
 ## Immediate Next Step
 
-- 先在当前 backend governance 切片落地 `graft validate backend`、`golangci-lint v2.12.2` 配置与 PR 阻断，并保持它们与本文档记录的完成态质量链完全同口径。
+- 先单独治理当前 `graft validate backend` 暴露的既有 lint backlog，并决定是按规则逐项修复，还是在 active tracking 中登记受控例外；不要把这批历史问题与本次 Go/Zap 最小升级继续混做一刀。
 - 停止继续扩大会话治理宽度，按以下顺序推进 backend MVP closure：
   1. 保持当前 `AUTH_*` code、success/error envelope 与 request-id 契约冻结，不再无边界扩张 auth 响应面。
   2. 在 `user` 插件内实现默认管理员、首次改密持久化状态、`login/bootstrap` 扩展、`change-password` 与最小管理员绑定，但不扩展到 OAuth / SSO / MFA / 密码历史 / 配置化策略 / 全局后端拦截。
