@@ -22,6 +22,9 @@ var (
 	errRefreshSessionFailed = errors.New("refresh session is unavailable")
 	errAccessSessionFailed  = errors.New("access session is unavailable")
 	errSessionNotFound      = errors.New("session not found")
+	errPasswordPolicyViolation = errors.New("password policy violation")
+	errPasswordReuseForbidden  = errors.New("password reuse forbidden")
+	errCurrentPasswordInvalid  = errors.New("current password is invalid")
 )
 
 type refreshTokenSubject struct {
@@ -31,11 +34,12 @@ type refreshTokenSubject struct {
 }
 
 type refreshResult struct {
-	AccessToken   string
-	AccessExpiry  time.Time
-	RefreshToken  string
-	RefreshExpiry time.Time
-	User          loginUserResponse
+	AccessToken        string
+	AccessExpiry       time.Time
+	RefreshToken       string
+	RefreshExpiry      time.Time
+	MustChangePassword bool
+	User               loginUserResponse
 }
 
 type sessionSummary struct {
@@ -166,10 +170,11 @@ func (s authService) LoginWithRefresh(ctx context.Context, username string, pass
 	}
 
 	return refreshResult{
-		AccessToken:   accessToken,
-		AccessExpiry:  accessClaims.ExpiresAt,
-		RefreshToken:  refreshToken,
-		RefreshExpiry: refreshExpiry,
+		AccessToken:        accessToken,
+		AccessExpiry:       accessClaims.ExpiresAt,
+		RefreshToken:       refreshToken,
+		RefreshExpiry:      refreshExpiry,
+		MustChangePassword: login.MustChangePassword,
 		User: loginUserResponse{
 			ID:          login.User.ID,
 			Username:    login.User.Username,
@@ -214,6 +219,13 @@ func (s authService) RefreshWithRotation(ctx context.Context, refreshToken strin
 		}
 		return refreshResult{}, err
 	}
+	credential, err := s.auth.GetUserCredentialByUsername(ctx, record.Username)
+	if err != nil {
+		if errors.Is(err, store.ErrUserNotFound) {
+			return refreshResult{}, errInvalidRefreshToken
+		}
+		return refreshResult{}, err
+	}
 
 	now := s.refreshTokens.now().UTC()
 	newTokenID := uuid.NewString()
@@ -250,10 +262,11 @@ func (s authService) RefreshWithRotation(ctx context.Context, refreshToken strin
 	}
 
 	return refreshResult{
-		AccessToken:   accessToken,
-		AccessExpiry:  accessClaims.ExpiresAt,
-		RefreshToken:  nextRefreshToken,
-		RefreshExpiry: nextRefreshExpiry,
+		AccessToken:        accessToken,
+		AccessExpiry:       accessClaims.ExpiresAt,
+		RefreshToken:       nextRefreshToken,
+		RefreshExpiry:      nextRefreshExpiry,
+		MustChangePassword: credential.MustChangePassword,
 		User: loginUserResponse{
 			ID:          record.ID,
 			Username:    record.Username,

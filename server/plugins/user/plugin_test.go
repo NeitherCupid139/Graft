@@ -117,6 +117,26 @@ func (*pluginTestAuthRepository) SetPasswordHash(context.Context, store.SetPassw
 	return nil
 }
 
+func (r *pluginTestAuthRepository) EnsureUserCredential(ctx context.Context, input store.EnsureUserCredentialInput) (store.UserCredential, error) {
+	if r.getUserCredentialByUsername != nil {
+		credential, err := r.getUserCredentialByUsername(ctx, input.Username)
+		if err == nil {
+			return credential, nil
+		}
+		if !errors.Is(err, store.ErrUserNotFound) {
+			return store.UserCredential{}, err
+		}
+	}
+
+	hash := input.PasswordHash
+	return store.UserCredential{
+		UserID:             1,
+		Username:           input.Username,
+		PasswordHash:       &hash,
+		MustChangePassword: input.MustChangePassword,
+	}, nil
+}
+
 func (r *pluginTestAuthRepository) CreateRefreshSession(_ context.Context, input store.CreateRefreshSessionInput) (store.RefreshSession, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -169,6 +189,23 @@ func (r *pluginTestAuthRepository) RevokeRefreshSessionsByUserID(_ context.Conte
 
 	for tokenID, session := range r.refreshSessions {
 		if session.UserID != input.UserID || session.RevokedAt != nil {
+			continue
+		}
+
+		session.RevokedAt = &input.RevokedAt
+		session.UpdatedAt = input.RevokedAt
+		r.refreshSessions[tokenID] = session
+	}
+
+	return nil
+}
+
+func (r *pluginTestAuthRepository) RevokeOtherRefreshSessionsByUserID(_ context.Context, input store.RevokeOtherRefreshSessionsInput) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for tokenID, session := range r.refreshSessions {
+		if session.UserID != input.UserID || session.RevokedAt != nil || tokenID == input.CurrentTokenID {
 			continue
 		}
 
@@ -282,6 +319,22 @@ type pluginTestRBACRepository struct {
 	permissions map[uint64][]store.Permission
 }
 
+func (r pluginTestRBACRepository) EnsureRole(ctx context.Context, input store.EnsureRoleInput) (store.Role, error) {
+	return store.Role{ID: 1, Name: input.Name, Display: input.Display}, nil
+}
+
+func (r pluginTestRBACRepository) EnsurePermission(ctx context.Context, input store.EnsurePermissionInput) (store.Permission, error) {
+	return store.Permission{ID: 1, Code: input.Code, Display: input.Display}, nil
+}
+
+func (r pluginTestRBACRepository) AssignPermissionsToRole(ctx context.Context, input store.AssignPermissionsToRoleInput) error {
+	return nil
+}
+
+func (r pluginTestRBACRepository) AssignRoleToUser(ctx context.Context, input store.AssignRoleToUserInput) error {
+	return nil
+}
+
 func (r pluginTestRBACRepository) ListRolesByUserID(ctx context.Context, userID uint64) ([]store.Role, error) {
 	return nil, nil
 }
@@ -302,6 +355,26 @@ func newPluginTestContext(t *testing.T, userRepo store.UserRepository, authRepo 
 
 func newPluginTestContextWithPermissions(t *testing.T, userRepo store.UserRepository, authRepo store.AuthRepository, permissions map[uint64][]store.Permission) (*plugin.Context, *gin.Engine) {
 	t.Helper()
+
+	if authRepo == nil {
+		authRepo = &pluginTestAuthRepository{}
+	}
+	if repo, ok := authRepo.(*pluginTestAuthRepository); ok && repo.getUserCredentialByUsername == nil {
+		repo.getUserCredentialByUsername = func(ctx context.Context, username string) (store.UserCredential, error) {
+			userID := uint64(7)
+			switch username {
+			case "admin", "graft":
+				userID = 9
+			case "bob":
+				userID = 8
+			}
+			return store.UserCredential{
+				UserID:             userID,
+				Username:           username,
+				MustChangePassword: false,
+			}, nil
+		}
+	}
 
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
@@ -768,6 +841,7 @@ func TestBootstrapLocaleSnapshotDeduplicatesFallbackLocales(t *testing.T) {
 			FallbackLocale:   "zh-CN",
 			SupportedLocales: []string{"zh-CN"},
 		}),
+		nil,
 		nil,
 		nil,
 	)

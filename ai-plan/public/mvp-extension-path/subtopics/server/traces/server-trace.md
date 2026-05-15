@@ -335,6 +335,15 @@
   `AUTH_FORBIDDEN` must not refresh; any refresh failure must collapse to one exit that clears local auth/session
   state and redirects to login without retry recursion.
 
+## 2026-05-15 default-admin and forced-password-change server docs sync
+
+- Recorded the bounded `server/plugins/user` implementation contract for the next auth-governance slice without
+  widening runtime scope.
+- Fixed repository truth so `graft-admin` is reserved for default-admin initialization only, `change-password` must
+  never accept it, and `must_change_password` is a backend-persisted field rather than a frontend inference.
+- Fixed the MVP security boundary so this slice extends `login/bootstrap` and user-plugin auth flows, but does not add
+  a new global backend interception middleware for every business API.
+
 ## Next Step
 
 - Implement the bounded auth / RBAC response convergence slice while keeping the current bootstrap contract stable, and

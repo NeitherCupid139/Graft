@@ -25,6 +25,8 @@ func (User) Fields() []ent.Field {
 			Sensitive().
 			Optional().
 			Nillable(),
+		field.Bool("must_change_password").
+			Default(false),
 		field.Time("password_changed_at").
 			Optional().
 			Nillable(),

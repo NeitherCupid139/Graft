@@ -162,6 +162,12 @@ func codeFromMessageKey(key string) string {
 		return "AUTH_TOKEN_INVALID"
 	case "auth.forbidden":
 		return "AUTH_FORBIDDEN"
+	case "auth.password_policy_violation":
+		return "AUTH_PASSWORD_POLICY_VIOLATION"
+	case "auth.password_reuse_forbidden":
+		return "AUTH_PASSWORD_REUSE_FORBIDDEN"
+	case "auth.current_password_invalid":
+		return "AUTH_CURRENT_PASSWORD_INVALID"
 	default:
 		replacer := strings.NewReplacer(".", "_", "-", "_")
 		return strings.ToUpper(replacer.Replace(strings.TrimSpace(key)))

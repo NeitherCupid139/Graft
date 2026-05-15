@@ -28,10 +28,11 @@ func (r *authRepository) GetUserCredentialByUsername(ctx context.Context, userna
 	}
 
 	return store.UserCredential{
-		UserID:            uint64(record.ID),
-		Username:          record.Username,
-		PasswordHash:      record.PasswordHash,
-		PasswordChangedAt: record.PasswordChangedAt,
+		UserID:             uint64(record.ID),
+		Username:           record.Username,
+		PasswordHash:       record.PasswordHash,
+		MustChangePassword: record.MustChangePassword,
+		PasswordChangedAt:  record.PasswordChangedAt,
 	}, nil
 }
 
@@ -45,10 +46,16 @@ func (r *authRepository) SetPasswordHash(ctx context.Context, input store.SetPas
 		return err
 	}
 
-	if err := r.client.User.UpdateOneID(id).
+	updater := r.client.User.UpdateOneID(id).
 		SetPasswordHash(input.PasswordHash).
-		SetPasswordChangedAt(input.ChangedAt).
-		Exec(ctx); err != nil {
+		SetMustChangePassword(input.MustChangePassword)
+	if input.ChangedAt != nil {
+		updater = updater.SetPasswordChangedAt(*input.ChangedAt)
+	} else {
+		updater = updater.ClearPasswordChangedAt()
+	}
+
+	if err := updater.Exec(ctx); err != nil {
 		if ent.IsNotFound(err) {
 			return store.ErrUserNotFound
 		}
@@ -56,6 +63,43 @@ func (r *authRepository) SetPasswordHash(ctx context.Context, input store.SetPas
 	}
 
 	return nil
+}
+
+// EnsureUserCredential 幂等确保目标用户名的最小认证记录存在。
+func (r *authRepository) EnsureUserCredential(ctx context.Context, input store.EnsureUserCredentialInput) (store.UserCredential, error) {
+	record, err := r.client.User.Query().
+		Where(entuser.UsernameEQ(input.Username)).
+		Only(ctx)
+	if err == nil {
+		return store.UserCredential{
+			UserID:             uint64(record.ID),
+			Username:           record.Username,
+			PasswordHash:       record.PasswordHash,
+			MustChangePassword: record.MustChangePassword,
+			PasswordChangedAt:  record.PasswordChangedAt,
+		}, nil
+	}
+	if !ent.IsNotFound(err) {
+		return store.UserCredential{}, fmt.Errorf("query ensured user credential by username: %w", err)
+	}
+
+	record, err = r.client.User.Create().
+		SetUsername(input.Username).
+		SetDisplay(input.Display).
+		SetPasswordHash(input.PasswordHash).
+		SetMustChangePassword(input.MustChangePassword).
+		Save(ctx)
+	if err != nil {
+		return store.UserCredential{}, fmt.Errorf("create ensured user credential: %w", err)
+	}
+
+	return store.UserCredential{
+		UserID:             uint64(record.ID),
+		Username:           record.Username,
+		PasswordHash:       record.PasswordHash,
+		MustChangePassword: record.MustChangePassword,
+		PasswordChangedAt:  record.PasswordChangedAt,
+	}, nil
 }
 
 // CreateRefreshSession 持久化一条新的刷新会话记录。
@@ -127,6 +171,27 @@ func (r *authRepository) RevokeRefreshSessionsByUserID(ctx context.Context, inpu
 		SetRevokedAt(input.RevokedAt).
 		Save(ctx); err != nil {
 		return fmt.Errorf("revoke refresh sessions by user id: %w", err)
+	}
+
+	return nil
+}
+
+// RevokeOtherRefreshSessionsByUserID 吊销某个用户除当前 token 外的其它有效 refresh session。
+func (r *authRepository) RevokeOtherRefreshSessionsByUserID(ctx context.Context, input store.RevokeOtherRefreshSessionsInput) error {
+	userID, err := toEntID(input.UserID)
+	if err != nil {
+		return err
+	}
+
+	if _, err := r.client.RefreshSession.Update().
+		Where(
+			entrefreshsession.UserIDEQ(userID),
+			entrefreshsession.RevokedAtIsNil(),
+			entrefreshsession.TokenIDNEQ(input.CurrentTokenID),
+		).
+		SetRevokedAt(input.RevokedAt).
+		Save(ctx); err != nil {
+		return fmt.Errorf("revoke other refresh sessions by user id: %w", err)
 	}
 
 	return nil

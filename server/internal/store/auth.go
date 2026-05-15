@@ -16,14 +16,31 @@ type UserCredential struct {
 	UserID            uint64
 	Username          string
 	PasswordHash      *string
+	MustChangePassword bool
 	PasswordChangedAt *time.Time
 }
 
 // SetPasswordHashInput 描述一次密码散列更新所需的最小输入。
 type SetPasswordHashInput struct {
-	UserID       uint64
-	PasswordHash string
-	ChangedAt    time.Time
+	UserID             uint64
+	PasswordHash       string
+	MustChangePassword bool
+	ChangedAt          *time.Time
+}
+
+// EnsureUserCredentialInput 描述一次“确保默认管理员存在”所需的最小输入。
+type EnsureUserCredentialInput struct {
+	Username           string
+	Display            string
+	PasswordHash       string
+	MustChangePassword bool
+}
+
+// RevokeOtherRefreshSessionsInput 描述一次“保留当前会话并吊销其它 refresh sessions”所需的最小输入。
+type RevokeOtherRefreshSessionsInput struct {
+	UserID          uint64
+	CurrentTokenID  string
+	RevokedAt       time.Time
 }
 
 // RefreshSession 表示 refresh token 生命周期对应的稳定持久化 DTO。
@@ -97,6 +114,12 @@ type AuthRepository interface {
 	// 当用户不存在时统一返回 ErrUserNotFound。
 	SetPasswordHash(ctx context.Context, input SetPasswordHashInput) error
 
+	// EnsureUserCredential 幂等确保指定用户名的最小认证记录存在。
+	//
+	// 当目标用户不存在时创建用户并写入初始化密码与首次改密标记；已存在时保持
+	// 原有密码、角色与状态不变，并返回现有记录。
+	EnsureUserCredential(ctx context.Context, input EnsureUserCredentialInput) (UserCredential, error)
+
 	// CreateRefreshSession 持久化一条新的刷新会话记录。
 	CreateRefreshSession(ctx context.Context, input CreateRefreshSessionInput) (RefreshSession, error)
 
@@ -114,6 +137,11 @@ type AuthRepository interface {
 	//
 	// 该操作应保持幂等，允许同一用户在没有可吊销会话时直接成功返回。
 	RevokeRefreshSessionsByUserID(ctx context.Context, input RevokeRefreshSessionsByUserIDInput) error
+
+	// RevokeOtherRefreshSessionsByUserID 吊销某个用户除当前 token 外的其它有效 refresh session。
+	//
+	// 该操作应保持幂等，允许当前 token 不存在其它并发会话时直接成功返回。
+	RevokeOtherRefreshSessionsByUserID(ctx context.Context, input RevokeOtherRefreshSessionsInput) error
 
 	// RevokeRefreshSessionByUserID 按用户定向吊销一条当前有效的刷新会话。
 	//

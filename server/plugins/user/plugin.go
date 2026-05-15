@@ -107,7 +107,10 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 	if err != nil {
 		return err
 	}
-	bootstrapSvc := newBootstrapReader(ctx.Config.I18n, ctx.I18n, ctx.MenuRegistry, ctx.Stores.RBAC())
+	bootstrapSvc := newBootstrapReader(ctx.Config.I18n, ctx.I18n, ctx.MenuRegistry, ctx.Stores.Auth(), ctx.Stores.RBAC())
+	if err := authSvc.ensureDefaultAdmin(ctx.LifecycleContext, ctx.Stores.RBAC(), ctx.PermissionRegistry.Items()); err != nil {
+		return err
+	}
 
 	if err := ctx.Services.RegisterSingleton((*pluginapi.AuthService)(nil), func(resolver container.Resolver) (any, error) {
 		return authSvc, nil
@@ -156,9 +159,10 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 
 		authSvc.cookies.writeRefreshCookie(ginCtx, result.RefreshToken, result.RefreshExpiry)
 		httpx.WriteSuccess(ginCtx, http.StatusOK, loginResponse{
-			AccessToken: result.AccessToken,
-			ExpiresAt:   result.AccessExpiry,
-			User:        result.User,
+			AccessToken:        result.AccessToken,
+			ExpiresAt:          result.AccessExpiry,
+			MustChangePassword: result.MustChangePassword,
+			User:               result.User,
 		})
 	})
 	authGroup.POST("/refresh", func(ginCtx *gin.Context) {
@@ -184,9 +188,10 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 
 		authSvc.cookies.writeRefreshCookie(ginCtx, result.RefreshToken, result.RefreshExpiry)
 		httpx.WriteSuccess(ginCtx, http.StatusOK, loginResponse{
-			AccessToken: result.AccessToken,
-			ExpiresAt:   result.AccessExpiry,
-			User:        result.User,
+			AccessToken:        result.AccessToken,
+			ExpiresAt:          result.AccessExpiry,
+			MustChangePassword: result.MustChangePassword,
+			User:               result.User,
 		})
 	})
 	authGroup.POST("/logout", func(ginCtx *gin.Context) {
@@ -295,6 +300,42 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 		}
 
 		httpx.WriteSuccess(ginCtx, http.StatusOK, payload)
+	})
+	authGroup.POST("/change-password", httpx.RequirePermission(ctx.I18n, ctx.Services, ""), func(ginCtx *gin.Context) {
+		var request changePasswordRequest
+		if err := ginCtx.ShouldBindJSON(&request); err != nil {
+			httpx.WriteLocalizedError(ginCtx, ctx.I18n, http.StatusBadRequest, "common.invalid_argument", map[string]any{
+				"field": "body",
+			})
+			return
+		}
+		if strings.TrimSpace(request.CurrentPassword) == "" {
+			httpx.WriteLocalizedError(ginCtx, ctx.I18n, http.StatusBadRequest, "common.invalid_argument", map[string]any{
+				"field": "current_password",
+			})
+			return
+		}
+		if strings.TrimSpace(request.NewPassword) == "" {
+			httpx.WriteLocalizedError(ginCtx, ctx.I18n, http.StatusBadRequest, "common.invalid_argument", map[string]any{
+				"field": "new_password",
+			})
+			return
+		}
+
+		if err := authSvc.ChangeCurrentUserPassword(ginCtx.Request.Context(), request.CurrentPassword, request.NewPassword); err != nil {
+			status, messageKey := mapAuthError(err)
+			if status == http.StatusInternalServerError {
+				ctx.Logger.Error("change current user password failed",
+					zap.String("plugin", p.Name()),
+					zap.Error(err),
+				)
+			}
+
+			httpx.WriteLocalizedError(ginCtx, ctx.I18n, status, messageKey, nil)
+			return
+		}
+
+		httpx.WriteSuccess[any](ginCtx, http.StatusOK, nil)
 	})
 	// 当前用户可对自己的一条有效 session 做定向吊销，保持会话治理仍然落在
 	// user 插件边界内，而不是把单条操作拆进 core 中间件或公共 auth 服务。
@@ -581,6 +622,7 @@ type authService struct {
 	auth          store.AuthRepository // auth 负责 refresh session 持久化与轮换状态读取。
 	users         store.UserRepository // users 提供当前主体与登录路径所需的稳定用户读取能力。
 	passwords     passwordHasher       // passwords 统一封装口令散列与校验策略。
+	policy        passwordPolicy       // policy 固定收敛当前 MVP 的默认管理员与改密规则。
 	tokens        *accessTokenManager  // tokens 负责 access token 的签发与解析。
 	refreshTokens *refreshTokenManager // refreshTokens 负责 refresh token 的签发与解析。
 	cookies       authCookieManager    // cookies 收敛 refresh cookie 的读写与清理约束。
@@ -709,6 +751,12 @@ func mapAuthError(err error) (int, string) {
 		return http.StatusUnauthorized, "auth.token_invalid"
 	case errors.Is(err, errSessionNotFound):
 		return http.StatusNotFound, "auth.session_not_found"
+	case errors.Is(err, errPasswordPolicyViolation):
+		return http.StatusBadRequest, "auth.password_policy_violation"
+	case errors.Is(err, errPasswordReuseForbidden):
+		return http.StatusBadRequest, "auth.password_reuse_forbidden"
+	case errors.Is(err, errCurrentPasswordInvalid):
+		return http.StatusBadRequest, "auth.current_password_invalid"
 	case errors.Is(err, errRefreshSessionFailed):
 		return http.StatusUnauthorized, "auth.token_invalid"
 	default:

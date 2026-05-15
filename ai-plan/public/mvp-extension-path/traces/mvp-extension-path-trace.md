@@ -51,6 +51,14 @@
 - Revalidated the full cross-boundary slice with focused backend validation, focused frontend Vitest + typecheck, and
   one full host Windows Bun `bun run check` pass.
 
+## 2026-05-15 default-admin and forced-password-change docs sync
+
+- Recorded the next bounded cross-boundary auth-governance slice in repository truth before code implementation.
+- Fixed the MVP boundary so `graft-admin` is documented as an initialization-only exception password, while forced
+  password change remains backend-persisted truth surfaced through `login/bootstrap`.
+- Fixed the current stage responsibility split so `web` owns the post-login restricted-state blocking path and future
+  stronger server-side middleware remains an explicit hardening step rather than accidental scope creep.
+
 ## Next Step
 
 - Continue MVP work through the relevant subtopic, keeping `/api/auth/bootstrap` stable while expanding real

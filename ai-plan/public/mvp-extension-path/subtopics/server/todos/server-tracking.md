@@ -23,6 +23,8 @@
 - `user` 插件已新增受保护的 `GET /api/auth/bootstrap` 最小契约：当前登录用户、当前权限码列表、按权限过滤后的菜单列表，以及 locale 配置快照现在可以通过一条真实后端接口返回，供 `web` 后续壳层接线直接消费。
 - `user` 插件现已补齐最小 `GET /api/users` 只读列表契约，继续保持在现有 plugin/store 边界内，不提前扩展分页、筛选和写操作，只为 `web` 当前 `/users` 真实接线提供稳定落点。
 - 当前 `auth / RBAC` 最小响应收敛切片已经进入实施准备：只允许修改 `server/internal/httpx` 与 `server/plugins/user` 现有链路，目标是稳定 HTTP status 语义、稳定业务 `code`、稳定 auth/bootstrap envelope，并让 `web` 后续只基于 `HTTP status + code` 处理认证分支。
+- 当前下一步认证治理切片边界已冻结：默认管理员账号固定为 `graft`；`graft-admin` 是仅允许在初始化路径写入的例外密码；首次改密状态必须由后端持久化并通过 `login/bootstrap` 返回；当前 MVP 不在本切片内给全部业务接口追加全局“已改密”中间件，而是把登录后受限态阻断交给 `web`，后续如需更强安全再评估服务端全局 hardening。
+- 默认管理员不能成为只能登录的空账号；若当前不存在可复用的 `admin` 角色/权限 seed，本切片内必须补最小管理员角色/权限绑定。
 - 本轮响应收敛明确冻结以下后端契约：成功响应固定保留 `success / code / message / traceId / data`，错误响应固定保留 `success / code / message / traceId`，`messageKey / locale` 仅作为可选扩展口，禁止继续保留 `error + message` 双字段重复设计。
 - 本轮认证失败语义明确收口为：`AUTH_INVALID_CREDENTIALS -> 400`、`AUTH_TOKEN_MISSING -> 401`、`AUTH_TOKEN_EXPIRED -> 401`、`AUTH_TOKEN_INVALID -> 401`、`AUTH_FORBIDDEN -> 403`；其中 `CurrentUser` 在 token 可解析但服务端 session 已失效时必须归入 `AUTH_TOKEN_INVALID`，不能再退化成笼统“未登录”。
 - 本轮最小链路补充 `request-id` 约束：后端只做最小 UUID request-id，中间件优先读取 `X-Request-Id` 与 `X-Trace-Id`，缺失时生成并写回 `X-Request-Id`，所有 auth/RBAC envelope 的 `traceId` 都必须取该值，不扩展到 OpenTelemetry 或其它 tracing 基础设施。
@@ -41,6 +43,7 @@
 - 当前最大的剩余风险已经从 runtime 闭环转向共享契约漂移；若后端在 `auth + menu + permission + locale` 返回面上继续频繁变动，`web` 接线会反复返工。
 - 如果 auth/RBAC 收敛期间继续混用 “401 + 各类认证失败” 与非稳定 envelope，`web` 将无法只凭 `HTTP status + code` 做出稳定登录态分支，refresh 死循环风险也会重新出现。
 - 如果在下一阶段继续无边界扩张 session-governance 细节，会挤占当前最关键的后端闭环资源。
+- 如果把首次改密阻断直接扩展成全局后端接口治理，会偏离当前 MVP 范围并放大本轮 auth/RBAC 收敛面的回归风险。
 - 若 `pluginapi`、store DTO 或权限/菜单契约在收敛期内继续频繁漂移，`web` 对真实契约的接线成本会快速上升。
 - disposable PostgreSQL / Redis 仍需手工准备；恢复执行时必须确认当前可用的 smoke 环境。
 
@@ -104,10 +107,13 @@
   - `atlas migrate status`
   - `graft serve` + `/healthz`
 - `graft validate smoke` 已经作为下一次最小闭环验证入口存在；本次文档同步没有新增运行时校验。
+- 本次默认管理员/首次改密 server 跟踪同步一致性检查：
+  - `rg -n "graft-admin|must_change_password|change-password|全局.*拦截|受限态" ai-plan/design/项目设计.md server/plugins/user/README.md ai-plan/public/mvp-extension-path/subtopics/server`
+  - `git diff -- server/plugins/user/README.md ai-plan/public/mvp-extension-path/subtopics/server ai-plan/design/项目设计.md`
 
 ## Immediate Next Step
 
 - 停止继续扩大会话治理宽度，按以下顺序推进 backend MVP closure：
   1. 保持当前 `AUTH_*` code、success/error envelope 与 request-id 契约冻结，不再无边界扩张 auth 响应面。
-  2. 在该稳定契约上继续推动 `web` 的真实页面接线，优先补齐用户详情与会话治理页面，而不是继续新增 auth 变体。
-  3. 若后续继续细化 auth/RBAC，优先补 DTO/页面消费层，不要回退到中文 `message` 分支或重新引入 refresh 多出口。
+  2. 在 `user` 插件内实现默认管理员、首次改密持久化状态、`login/bootstrap` 扩展、`change-password` 与最小管理员绑定，但不扩展到 OAuth / SSO / MFA / 密码历史 / 配置化策略 / 全局后端拦截。
+  3. 在该稳定契约上继续推动 `web` 的真实页面接线与登录后受限态阻断，不要回退到中文 `message` 分支或重新引入 refresh 多出口。
