@@ -19,12 +19,13 @@
 - 同一轮 review 补查确认 `httpx.RequirePermission(..., \"\")` 不应隐式依赖 RBAC 插件，基础 `Login()` 不应签发未绑定服务端 session 的孤儿 access token，以及 `revoke-others` 需要对并发已失效 session 保持幂等；这三处已进入当前跟进范围并已在本地修正。
 - `server/internal/eventbus` 最小进程内事件总线切片已落地：`Runtime` 持有并通过 `plugin.Context` 与 `container` 注入统一 `eventbus.Bus`，当前仅暴露 `Subscribe / Publish`、顺序派发、panic recover 与错误日志记录。
 - 最小 `audit` 闭环已接到当前 `eventbus.Bus`：`audit` 插件同时挂载请求级自动审计中间件与主动审计事件订阅，Ent/store 边界只新增稳定写入能力，未提前暴露检索 DSL。
+- 最小 `scheduler` 闭环已接入运行时：`cron registry` 声明现在通过独立 `scheduler` 封装装配到 `robfig/cron/v3`，启动与停止语义仍收敛在插件生命周期边界内。
 - `pluginapi`、registries、store factory 与当前 auth/menu/permission/i18n 返回面，已经成为 `web` 真实契约收敛前必须谨慎冻结的后端边界。
 - 详细实现历史保留在 `subtopics/server/traces/server-trace.md`。
 
 ## Active Risks
 
-- scheduler 仍未形成最小闭环，说明“后端主导的 MVP 闭环收敛”还没有真正完成。
+- 当前最大的剩余风险已经从 runtime 闭环转向共享契约漂移；若后端在 `auth + menu + permission + locale` 返回面上继续频繁变动，`web` 接线会反复返工。
 - 如果在下一阶段继续无边界扩张 session-governance 细节，会挤占当前最关键的后端闭环资源。
 - 若 `pluginapi`、store DTO 或权限/菜单契约在收敛期内继续频繁漂移，`web` 对真实契约的接线成本会快速上升。
 - disposable PostgreSQL / Redis 仍需手工准备；恢复执行时必须确认当前可用的 smoke 环境。
@@ -40,6 +41,9 @@
   - `cd server && go build ./cmd/graft`
 - 本次 audit 切片直接校验：
   - `cd server && go test ./internal/app ./internal/audit ./plugins/audit ./internal/store/entstore ./internal/httpx ./plugins/user`
+  - `cd server && go build ./cmd/graft`
+- 本次 scheduler 切片直接校验：
+  - `cd server && go test ./internal/scheduler ./plugins/scheduler ./internal/cli`
   - `cd server && go build ./cmd/graft`
 - 本次 PR #8 review follow-up 补丁直接校验：
   - `cd server && go test ./plugins/user`
@@ -59,5 +63,5 @@
 ## Immediate Next Step
 
 - 停止继续扩大会话治理宽度，按以下顺序推进 backend MVP closure：
-  1. 补齐 scheduler plugin、cron 注册与启动/关闭链路。
-  2. 冻结当前 `web` 需要消费的 `auth + menu + permission + locale` 契约面，并只在必要范围内收敛 DTO。
+  1. 冻结当前 `web` 需要消费的 `auth + menu + permission + locale` 契约面，并只在必要范围内收敛 DTO。
+  2. 与 `web` 同步推进真实登录态、当前用户、动态菜单与权限守卫接线。

@@ -223,7 +223,18 @@
   `cd server && go test ./internal/app ./internal/audit ./plugins/audit ./internal/store/entstore ./internal/httpx ./plugins/user`
   and `cd server && go build ./cmd/graft`.
 
+## 2026-05-15 scheduler slice
+
+- Added `server/internal/scheduler` as the repository-local runtime wrapper around `robfig/cron/v3`, keeping the
+  public surface limited to explicit `RegisterJob / RemoveJob / Start / Stop` semantics.
+- Extended `server/internal/cronx` so plugin-registered jobs now carry an explicit `Run` entrypoint and declaration
+  validation, preserving the rule that `Register` only declares jobs while the runtime wrapper owns scheduling.
+- Added `server/plugins/scheduler` and wired `graft serve` to boot it alongside the current core plugins, so runtime
+  startup now consumes the `cron registry` snapshot and shuts the scheduler down through plugin lifecycle order.
+- Revalidated the slice with `cd server && go test ./internal/scheduler ./plugins/scheduler ./internal/cli` and
+  `cd server && go build ./cmd/graft`.
+
 ## Next Step
 
-- Continue with the scheduler runtime/plugin closure, then freeze the backend contract surface that `web` needs for
-  `auth + menu + permission + locale` integration before widening session-governance behavior again.
+- Freeze the backend contract surface that `web` needs for `auth + menu + permission + locale` integration, then move
+  the next batch to synchronized `server` + `web` work instead of widening backend-only session-governance behavior.

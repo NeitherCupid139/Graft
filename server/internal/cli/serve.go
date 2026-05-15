@@ -11,6 +11,7 @@ import (
 	"graft/server/internal/app"
 	"graft/server/plugins/audit"
 	"graft/server/plugins/rbac"
+	"graft/server/plugins/scheduler"
 	"graft/server/plugins/user"
 )
 
@@ -35,6 +36,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 		audit.NewPlugin(),
 		user.NewPlugin(),
 		rbac.NewPlugin(),
+		scheduler.NewPlugin(),
 	)
 	if err != nil {
 		return fmt.Errorf("create runtime: %w", err)
