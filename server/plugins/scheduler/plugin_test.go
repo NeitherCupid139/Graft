@@ -25,6 +25,21 @@ func (pluginTestStoreFactory) Users() store.UserRepository  { return nil }
 func (pluginTestStoreFactory) Auth() store.AuthRepository   { return nil }
 func (pluginTestStoreFactory) RBAC() store.RBACRepository   { return nil }
 
+type stopContextRecorderRuntime struct {
+	stopCtx context.Context
+}
+
+func (r *stopContextRecorderRuntime) RegisterJob(job cronx.Job) error { return nil }
+
+func (r *stopContextRecorderRuntime) RemoveJob(name string) error { return nil }
+
+func (r *stopContextRecorderRuntime) Start() error { return nil }
+
+func (r *stopContextRecorderRuntime) Stop(ctx context.Context) error {
+	r.stopCtx = ctx
+	return nil
+}
+
 func newPluginTestContext() *plugin.Context {
 	return &plugin.Context{
 		Logger:             zap.NewNop(),
@@ -82,5 +97,23 @@ func TestBootRunsRegisteredJobs(t *testing.T) {
 	case <-triggered:
 	case <-time.After(1500 * time.Millisecond):
 		t.Fatal("expected scheduled job to run after boot")
+	}
+}
+
+// TestShutdownUsesLifecycleContext 验证 scheduler 插件会把生命周期关闭上下文
+// 传递给底层 runtime，而不是回退到脱离宿主约束的全新 Background。
+func TestShutdownUsesLifecycleContext(t *testing.T) {
+	lifecycleCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	runtimeRecorder := &stopContextRecorderRuntime{}
+	pluginInstance := NewPlugin()
+	pluginInstance.runtime = runtimeRecorder
+
+	if err := pluginInstance.Shutdown(&plugin.Context{LifecycleContext: lifecycleCtx}); err != nil {
+		t.Fatalf("shutdown plugin: %v", err)
+	}
+	if runtimeRecorder.stopCtx != lifecycleCtx {
+		t.Fatal("expected scheduler shutdown to forward lifecycle context")
 	}
 }

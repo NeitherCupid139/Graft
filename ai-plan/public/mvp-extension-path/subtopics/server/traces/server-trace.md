@@ -271,6 +271,15 @@
 - Added focused `server/plugins/audit` regression coverage that locks the new `ResourceType` extraction contract for an
   authenticated `/api/users/:id` request.
 
+## 2026-05-15 PR #9 scheduler shutdown context follow-up
+
+- Re-ran the repository PR-review workflow against local HEAD and confirmed the only remaining applicable AI finding was
+  the `scheduler` plugin shutdown path bypassing host lifecycle context.
+- Extended `plugin.Context` with explicit `LifecycleContext` semantics, keeping Register/Boot on the runtime `runCtx`
+  while switching Shutdown to a fresh bounded cleanup context so plugins do not inherit an already-canceled parent.
+- Updated `server/plugins/scheduler` to forward `LifecycleContext` into the scheduler runtime stop path and added direct
+  runtime/plugin tests that lock the new shutdown-context propagation contract.
+
 ## Next Step
 
 - Keep the new bootstrap contract stable enough for `web` starter-shell hookup, then move the next batch to

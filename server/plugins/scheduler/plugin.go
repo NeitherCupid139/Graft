@@ -67,5 +67,8 @@ func (p *Plugin) Shutdown(ctx *plugin.Context) error {
 	}
 
 	stopCtx := context.Background()
+	if ctx != nil && ctx.LifecycleContext != nil {
+		stopCtx = ctx.LifecycleContext
+	}
 	return p.runtime.Stop(stopCtx)
 }

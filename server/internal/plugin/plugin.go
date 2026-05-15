@@ -2,6 +2,7 @@
 package plugin
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sort"
@@ -59,7 +60,12 @@ type Plugin interface {
 // Context 只承载运行时注入的公共能力，不应被插件长期持有并在生命周期
 // 之外当作隐式全局变量使用。
 type Context struct {
-	Config *config.Config
+	// LifecycleContext 提供当前插件生命周期阶段可依赖的上下文。
+	//
+	// Register / Boot 阶段复用 Runtime 的 runCtx；Shutdown 阶段会切换为
+	// 独立的有界关闭上下文，避免 runCtx 已取消后插件失去必要的优雅收敛窗口。
+	LifecycleContext context.Context
+	Config           *config.Config
 	// Logger 提供插件生命周期内统一的结构化日志句柄，插件应复用它记录
 	// 运行状态与诊断信息，而不是各自构造分散的日志实例。
 	Logger *zap.Logger
