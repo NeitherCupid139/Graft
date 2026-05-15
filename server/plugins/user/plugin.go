@@ -220,7 +220,15 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 	// 当前用户会话列表只暴露最小有效 session 摘要，避免把历史轮换或底层存储
 	// 细节泄漏到插件外部，同时为后续更细粒度治理保留清晰入口。
 	authGroup.GET("/sessions", httpx.RequirePermission(ctx.I18n, ctx.Services, ""), func(ginCtx *gin.Context) {
-		sessions, err := authSvc.ListCurrentUserSessions(ginCtx.Request.Context())
+		listOptions, err := parseSessionListOptions(ginCtx.Query("limit"))
+		if err != nil {
+			httpx.WriteLocalizedError(ginCtx, ctx.I18n, http.StatusBadRequest, "common.invalid_argument", map[string]any{
+				"field": "limit",
+			})
+			return
+		}
+
+		sessions, err := authSvc.ListCurrentUserSessions(ginCtx.Request.Context(), listOptions)
 		if err != nil {
 			status, messageKey := mapAuthError(err)
 			if status == http.StatusInternalServerError {
@@ -343,7 +351,15 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 			return
 		}
 
-		sessions, err := authSvc.ListUserSessions(ginCtx.Request.Context(), summary.ID)
+		listOptions, err := parseSessionListOptions(ginCtx.Query("limit"))
+		if err != nil {
+			httpx.WriteLocalizedError(ginCtx, ctx.I18n, http.StatusBadRequest, "common.invalid_argument", map[string]any{
+				"field": "limit",
+			})
+			return
+		}
+
+		sessions, err := authSvc.ListUserSessions(ginCtx.Request.Context(), summary.ID, listOptions)
 		if err != nil {
 			status, messageKey := mapAuthError(err)
 			if status == http.StatusInternalServerError {
@@ -486,6 +502,8 @@ type authService struct {
 	cookies       authCookieManager
 }
 
+const maxSessionListLimit = 100
+
 // GetUserByID 通过稳定仓储契约读取用户，并收敛为跨插件 DTO。
 func (s userService) GetUserByID(ctx context.Context, id uint64) (pluginapi.UserSummary, error) {
 	record, err := s.users.GetByID(ctx, id)
@@ -569,6 +587,27 @@ func parseUserID(input string) (uint64, error) {
 		return 0, errors.New("id must be greater than zero")
 	}
 	return id, nil
+}
+
+// parseSessionListOptions 将列表查询参数收敛为插件内最小会话列表约束。
+//
+// 当前只允许显式 limit，并把约束留在插件层，避免为了轻量分页提前扩展仓储
+// 或跨插件契约。
+func parseSessionListOptions(rawLimit string) (sessionListOptions, error) {
+	rawLimit = strings.TrimSpace(rawLimit)
+	if rawLimit == "" {
+		return sessionListOptions{}, nil
+	}
+
+	limit, err := strconv.Atoi(rawLimit)
+	if err != nil {
+		return sessionListOptions{}, fmt.Errorf("parse session limit %q: %w", rawLimit, err)
+	}
+	if limit <= 0 || limit > maxSessionListLimit {
+		return sessionListOptions{}, fmt.Errorf("session limit %d is out of range", limit)
+	}
+
+	return sessionListOptions{Limit: limit}, nil
 }
 
 func mapAuthError(err error) (int, string) {

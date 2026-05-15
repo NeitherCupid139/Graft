@@ -36,6 +36,9 @@
   including password-hash fields, refresh sessions, roles, permissions, and stable repository/store DTO boundaries.
 - The current auth/session and RBAC migration baseline has now been live-validated against a disposable PostgreSQL
   target through `graft migrate up`, Atlas status checks, and a minimal `graft serve` healthz probe.
+- `server/internal/cli` now also exposes `graft validate smoke` as the repository-local minimal backend validation
+  entrypoint for already-prepared disposable PostgreSQL/Redis targets, explicitly composing `migrate up` plus a
+  one-shot runtime health probe without adding Docker provisioning magic to core or CLI startup.
 - `server/plugins/user` now contains the first auth utility layer for bcrypt password hashing and HS256 access-token
   issue/parse helpers, and also exposes the minimal `pluginapi.AuthService` needed to parse bearer access tokens and
   resolve the current user from stable request claims.
@@ -63,16 +66,21 @@
   `POST /api/auth/sessions/:sessionID/revoke` and admin `POST /api/users/:id/sessions/:sessionID/revoke`, keeping
   targeted session governance on top of a stable `userID + sessionID` repository boundary plus the existing explicit
   `user.session.revoke` permission semantics.
+- `server/plugins/user` now also supports an explicit `limit` query on current-user `GET /api/auth/sessions` and
+  admin `GET /api/users/:id/sessions`, applying a plugin-local bounded slice over the existing active-session
+  repository result so the session-governance path gains a narrower list workflow without widening `core`,
+  `pluginapi`, or store contracts.
 - `server/plugins/rbac` now exists as the minimal authorization plugin that exposes `pluginapi.Authorizer` on top of
   the stable RBAC repository boundary.
 
 ## Active Risks
 
-- The disposable PostgreSQL + Atlas live validation path is now proven locally, but it still depends on manual
-  disposable Docker resources instead of a repository-local one-command validation entrypoint.
+- The disposable PostgreSQL + Atlas live validation path now has a repository-local one-command validation entrypoint,
+  but disposable PostgreSQL/Redis provisioning itself is still manual by design instead of hidden behind CLI or core
+  automation.
 - The current request-auth chain now covers the current user's full refresh-session revoke loop, but it still lacks
   richer session/audit governance beyond the minimal login/refresh/logout/self-list/self-revoke/admin-list/admin-revoke,
-  targeted session revoke, plus
+  targeted session revoke, explicit list limit, plus
   protected-request hardening loop.
 - The temporary placement of minimal `AuthService` inside `server/plugins/user` keeps the critical path moving, but
   future work should reevaluate whether a dedicated auth plugin boundary is needed once login and refresh APIs land.
@@ -125,6 +133,9 @@
 - The latest targeted-session revoke slice validation included:
   - `cd server && go test ./plugins/user ./internal/store/entstore ./internal/i18n`
   - `cd server && go build ./cmd/graft`
+- The latest session-list limit slice validation included:
+  - `cd server && go test ./plugins/user`
+  - `cd server && go build ./cmd/graft`
 - The latest disposable PostgreSQL + Atlas live validation included:
   - `cd server && go build -o <temp-binary> ./cmd/graft`
   - `cd server && GRAFT_DATABASE_URL=postgres://graft:graft@127.0.0.1:<pg-port>/graft?sslmode=disable GRAFT_REDIS_ADDR=127.0.0.1:6379 GRAFT_AUTH_JWT_SECRET=<secret> <temp-binary> migrate up`
@@ -133,8 +144,13 @@
   - Queried the disposable PostgreSQL target to confirm the six auth/session/RBAC tables, the `users.password_hash` and `users.password_changed_at` columns, and the expected foreign-key constraints on `refresh_sessions`, `user_roles`, and `role_permissions`
   - `cd server && go test ./internal/cli ./internal/app ./internal/store ./internal/store/entstore ./plugins/user ./plugins/rbac`
   - `cd server && GRAFT_DATABASE_URL=postgres://graft:graft@127.0.0.1:<pg-port>/graft?sslmode=disable GRAFT_REDIS_ADDR=127.0.0.1:<redis-port> GRAFT_AUTH_JWT_SECRET=<secret> GRAFT_HTTP_ADDR=127.0.0.1:<http-port> <temp-binary> serve`, followed by `curl http://127.0.0.1:<http-port>/healthz`
+- The latest CLI smoke-entrypoint validation included:
+  - `cd server && go test ./internal/cli`
+  - `cd server && go build ./cmd/graft`
 
 ## Immediate Next Step
 
-- Extend the session-management path with audit-linked governance or narrower operator workflows while keeping the new
-  active-session visibility, targeted revoke, and bulk revoke semantics inside the existing plugin boundary.
+- Run `graft validate smoke` against the next disposable PostgreSQL + Redis target to replace the remaining manual
+  migrate-plus-healthz invocation steps, then extend the session-management path with audit-linked governance, richer
+  filters, or narrower operator workflows while keeping the new active-session visibility, explicit list limit,
+  targeted revoke, and bulk revoke semantics inside the existing plugin boundary.

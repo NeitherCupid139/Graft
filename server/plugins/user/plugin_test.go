@@ -1,11 +1,11 @@
 package user
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"cmp"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -1193,6 +1193,84 @@ func TestListCurrentUserSessionsRouteReturnsActiveSessions(t *testing.T) {
 	}
 }
 
+// TestListCurrentUserSessionsRouteAppliesLimit 验证当前用户会话列表会在插件边界内
+// 应用显式 limit，而不要求仓储提前暴露分页协议。
+func TestListCurrentUserSessionsRouteAppliesLimit(t *testing.T) {
+	authRepo := &pluginTestAuthRepository{}
+	_, engine := newPluginTestContext(t, pluginTestUserRepository{
+		getByID: func(_ context.Context, id uint64) (store.User, error) {
+			if id != 7 {
+				return store.User{}, store.ErrUserNotFound
+			}
+			return store.User{ID: 7, Username: "alice", Display: "Alice", CreatedAt: time.Now(), UpdatedAt: time.Now()}, nil
+		},
+	}, authRepo)
+
+	currentSessionID := seedRefreshSession(t, authRepo, 7, time.Now().UTC().Add(time.Hour))
+	time.Sleep(time.Microsecond)
+	middleSessionID := seedRefreshSession(t, authRepo, 7, time.Now().UTC().Add(2*time.Hour))
+	time.Sleep(time.Microsecond)
+	newestSessionID := seedRefreshSession(t, authRepo, 7, time.Now().UTC().Add(3*time.Hour))
+
+	recorder := httptest.NewRecorder()
+	request := newAuthorizedRequestForSessionWithMethod(t, http.MethodGet, "/api/auth/sessions?limit=2", 7, currentSessionID)
+	engine.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+
+	var payload []sessionSummary
+	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(payload) != 2 {
+		t.Fatalf("expected two sessions after limit, got %#v", payload)
+	}
+	if payload[0].SessionID != newestSessionID || payload[1].SessionID != middleSessionID {
+		t.Fatalf("expected newest sessions after limit, got %#v", payload)
+	}
+	for _, item := range payload {
+		if item.SessionID == currentSessionID {
+			t.Fatalf("expected oldest current session to be trimmed by limit, got %#v", payload)
+		}
+	}
+}
+
+// TestListCurrentUserSessionsRouteRejectsInvalidLimit 验证当前用户会话列表会拒绝非法
+// limit，保持稳定的 invalid_argument 契约。
+func TestListCurrentUserSessionsRouteRejectsInvalidLimit(t *testing.T) {
+	authRepo := &pluginTestAuthRepository{}
+	_, engine := newPluginTestContext(t, pluginTestUserRepository{
+		getByID: func(_ context.Context, id uint64) (store.User, error) {
+			if id != 7 {
+				return store.User{}, store.ErrUserNotFound
+			}
+			return store.User{ID: 7, Username: "alice", Display: "Alice", CreatedAt: time.Now(), UpdatedAt: time.Now()}, nil
+		},
+	}, authRepo)
+
+	recorder := httptest.NewRecorder()
+	request := newAuthorizedRequestForSessionWithMethod(t, http.MethodGet, "/api/auth/sessions?limit=0", 7, seedRefreshSession(t, authRepo, 7, time.Now().UTC().Add(time.Hour)))
+	request.Header.Set(i18n.LocaleHeader, "en-US")
+	engine.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, recorder.Code)
+	}
+
+	var payload httpx.ErrorResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if payload.MessageKey != "common.invalid_argument" || payload.Locale != "en-US" {
+		t.Fatalf("expected invalid argument payload, got %#v", payload)
+	}
+	if payload.Details["field"] != "limit" {
+		t.Fatalf("expected denied field detail, got %#v", payload)
+	}
+}
+
 // TestListCurrentUserSessionsRouteRequiresAuthenticatedActor 验证当前用户会话列表继续
 // 复用统一 request-auth 守卫，而不是在插件内发散新的未登录契约。
 func TestListCurrentUserSessionsRouteRequiresAuthenticatedActor(t *testing.T) {
@@ -1276,6 +1354,97 @@ func TestAdminListUserSessionsRouteReturnsActiveSessions(t *testing.T) {
 		if item.SessionID == targetExpiredSession || item.SessionID == adminSession || item.SessionID == otherUserSession {
 			t.Fatalf("expected filtered sessions to be absent, got %#v", payload)
 		}
+	}
+}
+
+// TestAdminListUserSessionsRouteAppliesLimit 验证管理员读取入口同样支持最小显式
+// limit，避免首次会话治理就扩散分页契约到仓储层。
+func TestAdminListUserSessionsRouteAppliesLimit(t *testing.T) {
+	authRepo := &pluginTestAuthRepository{}
+	_, engine := newPluginTestContextWithPermissions(t, pluginTestUserRepository{
+		getByID: func(_ context.Context, id uint64) (store.User, error) {
+			switch id {
+			case 7:
+				return store.User{ID: 7, Username: "alice", Display: "Alice", CreatedAt: time.Now(), UpdatedAt: time.Now()}, nil
+			case 9:
+				return store.User{ID: 9, Username: "admin", Display: "Admin", CreatedAt: time.Now(), UpdatedAt: time.Now()}, nil
+			default:
+				return store.User{}, store.ErrUserNotFound
+			}
+		},
+	}, authRepo, map[uint64][]store.Permission{
+		9: {{Code: "user.session.read"}},
+	})
+
+	oldestSessionID := seedRefreshSession(t, authRepo, 7, time.Now().UTC().Add(time.Hour))
+	time.Sleep(time.Microsecond)
+	middleSessionID := seedRefreshSession(t, authRepo, 7, time.Now().UTC().Add(2*time.Hour))
+	time.Sleep(time.Microsecond)
+	newestSessionID := seedRefreshSession(t, authRepo, 7, time.Now().UTC().Add(3*time.Hour))
+	adminSessionID := seedRefreshSession(t, authRepo, 9, time.Now().UTC().Add(time.Hour))
+
+	recorder := httptest.NewRecorder()
+	request := newAuthorizedRequestForSessionWithMethod(t, http.MethodGet, "/api/users/7/sessions?limit=2", 9, adminSessionID)
+	engine.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+
+	var payload []sessionSummary
+	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(payload) != 2 {
+		t.Fatalf("expected two sessions after limit, got %#v", payload)
+	}
+	if payload[0].SessionID != newestSessionID || payload[1].SessionID != middleSessionID {
+		t.Fatalf("expected newest target-user sessions after limit, got %#v", payload)
+	}
+	for _, item := range payload {
+		if item.SessionID == oldestSessionID || item.SessionID == adminSessionID {
+			t.Fatalf("expected oldest target or admin session to be absent, got %#v", payload)
+		}
+	}
+}
+
+// TestAdminListUserSessionsRouteRejectsInvalidLimit 验证管理员会话读取入口会拒绝非法
+// limit，并保持统一的参数错误契约。
+func TestAdminListUserSessionsRouteRejectsInvalidLimit(t *testing.T) {
+	authRepo := &pluginTestAuthRepository{}
+	_, engine := newPluginTestContextWithPermissions(t, pluginTestUserRepository{
+		getByID: func(_ context.Context, id uint64) (store.User, error) {
+			switch id {
+			case 7:
+				return store.User{ID: 7, Username: "alice", Display: "Alice", CreatedAt: time.Now(), UpdatedAt: time.Now()}, nil
+			case 9:
+				return store.User{ID: 9, Username: "admin", Display: "Admin", CreatedAt: time.Now(), UpdatedAt: time.Now()}, nil
+			default:
+				return store.User{}, store.ErrUserNotFound
+			}
+		},
+	}, authRepo, map[uint64][]store.Permission{
+		9: {{Code: "user.session.read"}},
+	})
+
+	recorder := httptest.NewRecorder()
+	request := newAuthorizedRequestForSessionWithMethod(t, http.MethodGet, "/api/users/7/sessions?limit=101", 9, seedRefreshSession(t, authRepo, 9, time.Now().UTC().Add(time.Hour)))
+	request.Header.Set(i18n.LocaleHeader, "en-US")
+	engine.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, recorder.Code)
+	}
+
+	var payload httpx.ErrorResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if payload.MessageKey != "common.invalid_argument" || payload.Locale != "en-US" {
+		t.Fatalf("expected invalid argument payload, got %#v", payload)
+	}
+	if payload.Details["field"] != "limit" {
+		t.Fatalf("expected denied field detail, got %#v", payload)
 	}
 }
 

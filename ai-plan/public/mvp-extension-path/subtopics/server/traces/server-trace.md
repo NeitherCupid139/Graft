@@ -119,6 +119,13 @@
 - Reused the existing `user.session.revoke` permission for admin-targeted revoke, kept the self-service path on the existing authenticated request context, and introduced the stable localized `auth.session_not_found` contract for missing or already inactive sessions.
 - Added direct plugin tests for self/admin targeted revoke, current-session cookie clearing, not-found behavior, and untouched-session protection, plus `entstore` invalid-ID coverage and the matching i18n catalog assertion before rerunning focused backend validation.
 
+## 2026-05-15 session-list limit slice
+
+- Added an explicit plugin-local `limit` query constraint to current-user `GET /api/auth/sessions` and admin `GET /api/users/:id/sessions`, keeping the first bounded-list behavior inside `server/plugins/user` instead of widening the repository boundary into pagination semantics.
+- Limited the new behavior to one narrow query parameter with a fixed upper bound so the session-governance path can cap response size while still reusing the existing newest-first active-session repository ordering.
+- Reused the current localized `common.invalid_argument` contract for invalid `limit` inputs and kept the repository contract unchanged because the slice only trims already-ordered session summaries after repository resolution.
+- Added direct plugin tests for current-user/admin limit application plus invalid-limit rejection before rerunning focused backend validation.
+
 ## 2026-05-15 disposable PostgreSQL + Atlas live validation
 
 - Reused the current auth/session and RBAC migration assets against a disposable local PostgreSQL container by building the current `graft` CLI, then running `graft migrate up` with explicit database, Redis, and auth-signing environment inputs.
@@ -128,7 +135,15 @@
 - Revalidated the affected backend surface with focused `go test ./internal/cli ./internal/app ./internal/store ./internal/store/entstore ./plugins/user ./plugins/rbac`.
 - Added one minimal runtime smoke check by starting `graft serve` against the disposable PostgreSQL target plus a disposable Redis target and receiving `200 OK` from `/healthz`.
 
+## 2026-05-15 CLI smoke validation entrypoint
+
+- Added `graft validate smoke` under `server/internal/cli` as the repository-local minimal backend validation entrypoint.
+- Kept the orchestration explicit by reusing the existing `migrate up` and `serve` command boundaries instead of adding Docker provisioning or startup-time migration magic.
+- Defined the smoke success condition as one successful `/healthz` probe followed by an intentional runtime shutdown, so the command verifies both minimal startup and graceful stop semantics.
+- Added focused `server/internal/cli` tests for migrate-before-serve ordering, migration short-circuit behavior, serve-failure propagation, health-check failure propagation, wildcard listen-address probe normalization, and root-command registration.
+- Revalidated the slice with `cd server && go test ./internal/cli` and `cd server && go build ./cmd/graft`.
+
 ## Next Step
 
-- Add admin-driven session controls or richer audit-linked session governance on top of the new login, refresh,
-  logout, current-user revoke-all, and request-auth hardening chain.
+- Run `graft validate smoke` against the next disposable PostgreSQL + Redis target, then continue admin-driven session
+  controls or richer audit-linked session governance on top of the existing auth/session path.
