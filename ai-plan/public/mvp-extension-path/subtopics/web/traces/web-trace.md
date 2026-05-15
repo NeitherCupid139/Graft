@@ -136,9 +136,21 @@
 - Validated the slice with one passing sample commit message, one failing missing-scope sample through `commitlint`,
   and one failing escaped-control-text sample through the new script.
 
+## 2026-05-15 signals evaluation documentation
+
+- Updated `ai-plan/design/前端架构设计.md` to lock `Pinia` as the only formal shared state layer and to constrain
+  any future `signals` exploration to a document-first, `setting/theme`-only boundary.
+- Added `ai-plan/public/mvp-extension-path/subtopics/web/design/signals-theme-runtime-evaluation.md` to capture the
+  evidence review, the current no-go conclusion, the forbidden domains, and the future admission/exit criteria for a
+  smallest-possible `alien-signals` POC.
+- Explicitly concluded that the current `theme runtime` does not yet show enough evidence that
+  `computed / watch / store action` maintenance has failed, so no POC should begin now.
+
 ## Next Step
 
-- Continue the workbench slice by improving grouped token-editor ergonomics and layout-preview fidelity without
-  reintroducing a second host component or another parallel visibility flag.
+- Continue reconnecting the starter shell to the real backend `auth + current user + menu + permission + locale`
+  contracts instead of expanding the standalone theme/runtime surface.
+- Keep `signals` at the document-only candidate stage unless a future review can prove that `theme runtime`
+  maintenance has materially failed under the current `Pinia + computed + composable` approach.
 - When the logger slice is scheduled for implementation, land it as a focused frontend infrastructure change first and
   keep business modules on the `createLogger` boundary rather than binding them directly to `consola` or UI feedback.
