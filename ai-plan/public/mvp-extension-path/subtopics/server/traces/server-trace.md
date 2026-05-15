@@ -183,6 +183,22 @@
   sessions.
 - Revalidated the focused follow-up with `cd server && go test ./plugins/user` and `cd server && go build ./cmd/graft`.
 
+## 2026-05-15 PR #8 AI review hardening follow-up
+
+- Re-checked the latest CodeRabbit open threads against local HEAD and kept only the still-applicable behavior,
+  privacy, and test-stability findings in scope.
+- Tightened `server/internal/httpx` fail-closed coverage so the missing-auth-dependency test now proves the protected
+  handler is not reached after middleware failure.
+- Reduced login enumeration and log-retention risk in `server/plugins/user` by adding a placeholder bcrypt compare for
+  missing credentials and by removing username fields from login-failure error logs.
+- Stabilized `server/plugins/user` tests by switching mutex-bearing repository helpers to pointer receivers, replacing
+  timestamp-based seeded session IDs with UUIDs, and documenting the permission-registry ordering contract relied on by
+  the registration test.
+- Verified one reported Gin route-conflict comment against `go test ./plugins/user -run TestRegisterPublishesContracts`
+  and confirmed it does not reproduce on the current route set, so no route-shape change was applied in this slice.
+- Revalidated the accepted follow-up with `cd server && go test ./internal/httpx ./plugins/user`, `cd server && go vet ./plugins/user`,
+  and `cd server && go build ./cmd/graft`.
+
 ## Next Step
 
 - Run `graft validate smoke` against the next disposable PostgreSQL + Redis target, then continue admin-driven session

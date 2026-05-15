@@ -131,7 +131,6 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 			if status == http.StatusInternalServerError {
 				ctx.Logger.Error("login failed",
 					zap.String("plugin", p.Name()),
-					zap.String("username", request.Username),
 					zap.Error(err),
 				)
 			}

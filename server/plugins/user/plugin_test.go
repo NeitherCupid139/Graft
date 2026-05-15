@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 
 	"graft/server/internal/config"
@@ -74,7 +75,7 @@ func (r *revokeByUserRaceAuthRepository) RevokeRefreshSessionByUserID(ctx contex
 	return r.pluginTestAuthRepository.RevokeRefreshSessionByUserID(ctx, input)
 }
 
-func (r pluginTestAuthRepository) GetUserCredentialByUsername(ctx context.Context, username string) (store.UserCredential, error) {
+func (r *pluginTestAuthRepository) GetUserCredentialByUsername(ctx context.Context, username string) (store.UserCredential, error) {
 	if r.getUserCredentialByUsername == nil {
 		return store.UserCredential{}, store.ErrUserNotFound
 	}
@@ -82,7 +83,7 @@ func (r pluginTestAuthRepository) GetUserCredentialByUsername(ctx context.Contex
 	return r.getUserCredentialByUsername(ctx, username)
 }
 
-func (pluginTestAuthRepository) SetPasswordHash(context.Context, store.SetPasswordHashInput) error {
+func (*pluginTestAuthRepository) SetPasswordHash(context.Context, store.SetPasswordHashInput) error {
 	return nil
 }
 
@@ -340,7 +341,7 @@ func seedRefreshSession(t *testing.T, authRepo store.AuthRepository, userID uint
 		t.Fatal("auth repository is required to seed refresh session")
 	}
 
-	tokenID := fmt.Sprintf("session-%d", time.Now().UTC().UnixNano())
+	tokenID := fmt.Sprintf("session-%s", uuid.NewString())
 	if _, err := authRepo.CreateRefreshSession(context.Background(), store.CreateRefreshSessionInput{
 		UserID:    userID,
 		TokenID:   tokenID,
@@ -370,6 +371,7 @@ func TestRegisterPublishesContracts(t *testing.T) {
 	if items := ctx.PermissionRegistry.Items(); len(items) != 3 {
 		t.Fatalf("expected three user permissions, got %#v", items)
 	}
+	// 权限断言依赖 Registry.Items() 保持注册顺序，避免插件对外声明面静默漂移。
 	if items := ctx.PermissionRegistry.Items(); items[0].Code != "user.read" || items[1].Code != "user.session.revoke" || items[2].Code != "user.session.read" {
 		t.Fatalf("expected user.read, user.session.revoke and user.session.read permissions, got %#v", items)
 	}

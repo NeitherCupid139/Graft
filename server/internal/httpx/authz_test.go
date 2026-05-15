@@ -352,8 +352,10 @@ func TestRequirePermissionFailsClosedWhenAuthDependenciesMissing(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 	ctx, engine := gin.CreateTestContext(recorder)
+	handled := false
 	engine.Use(RequirePermission(localizer, container.New(), "user.read"))
 	engine.GET("/api/users/:id", func(inner *gin.Context) {
+		handled = true
 		inner.Status(http.StatusOK)
 	})
 
@@ -362,6 +364,9 @@ func TestRequirePermissionFailsClosedWhenAuthDependenciesMissing(t *testing.T) {
 
 	if recorder.Code != http.StatusInternalServerError {
 		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, recorder.Code)
+	}
+	if handled {
+		t.Fatal("expected request to fail closed before reaching handler")
 	}
 }
 

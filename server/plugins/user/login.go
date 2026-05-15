@@ -14,6 +14,8 @@ import (
 
 var errInvalidLoginCredentials = errors.New("invalid login credentials")
 
+const invalidLoginPlaceholderHash = "$2a$10$7EqJtq98hPqEX7fNZaFWoO.H8F6dPtkn6rJm5b1Pb9l.eD0P4Qh7K"
+
 type loginRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
@@ -82,12 +84,16 @@ func (s authService) authenticateUser(ctx context.Context, username string, pass
 	credential, err := s.auth.GetUserCredentialByUsername(ctx, strings.TrimSpace(username))
 	if err != nil {
 		if errors.Is(err, store.ErrUserNotFound) {
+			// 用户不存在时仍执行一次固定成本的 bcrypt 校验，尽量收敛用户名枚举的时序差异。
+			_ = s.passwords.Compare(invalidLoginPlaceholderHash, password)
 			return pluginapi.CurrentUser{}, errInvalidLoginCredentials
 		}
 		return pluginapi.CurrentUser{}, fmt.Errorf("get user credential by username: %w", err)
 	}
 
 	if credential.PasswordHash == nil || *credential.PasswordHash == "" {
+		// 空散列同样走一次占位校验，避免与真实用户分支出现明显时延差异。
+		_ = s.passwords.Compare(invalidLoginPlaceholderHash, password)
 		return pluginapi.CurrentUser{}, errInvalidLoginCredentials
 	}
 
