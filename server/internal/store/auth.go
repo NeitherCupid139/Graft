@@ -38,6 +38,12 @@ type RefreshSession struct {
 	UpdatedAt         time.Time
 }
 
+// ListActiveRefreshSessionsByUserIDInput 描述一次按用户读取当前有效刷新会话列表所需的最小输入。
+type ListActiveRefreshSessionsByUserIDInput struct {
+	UserID uint64
+	Now    time.Time
+}
+
 // CreateRefreshSessionInput 描述一次刷新会话创建所需的最小输入。
 type CreateRefreshSessionInput struct {
 	UserID    uint64
@@ -50,6 +56,31 @@ type RevokeRefreshSessionInput struct {
 	TokenID           string
 	RevokedAt         time.Time
 	ReplacedByTokenID *string
+}
+
+// RevokeRefreshSessionsByUserIDInput 描述一次按用户吊销全部刷新会话所需的最小输入。
+type RevokeRefreshSessionsByUserIDInput struct {
+	UserID    uint64
+	RevokedAt time.Time
+}
+
+// RevokeRefreshSessionByUserIDInput 描述一次按用户定向吊销单个刷新会话所需的最小输入。
+type RevokeRefreshSessionByUserIDInput struct {
+	UserID    uint64
+	TokenID   string
+	RevokedAt time.Time
+}
+
+// RotateRefreshSessionInput 描述一次 refresh session 轮换所需的最小输入。
+//
+// 该输入把“吊销旧会话并创建新会话”收敛为一个显式仓储操作，避免插件层在并发
+// refresh 时通过多次独立调用暴露双消费窗口。
+type RotateRefreshSessionInput struct {
+	CurrentTokenID string
+	NewTokenID     string
+	Now            time.Time
+	RevokedAt      time.Time
+	NewExpiresAt   time.Time
 }
 
 // AuthRepository 暴露未来认证插件所需的最小持久化操作集合。
@@ -78,4 +109,28 @@ type AuthRepository interface {
 	//
 	// 未命中时统一返回 ErrRefreshSessionNotFound。
 	RevokeRefreshSession(ctx context.Context, input RevokeRefreshSessionInput) error
+
+	// RevokeRefreshSessionsByUserID 吊销某个用户名下全部尚未吊销的刷新会话。
+	//
+	// 该操作应保持幂等，允许同一用户在没有可吊销会话时直接成功返回。
+	RevokeRefreshSessionsByUserID(ctx context.Context, input RevokeRefreshSessionsByUserIDInput) error
+
+	// RevokeRefreshSessionByUserID 按用户定向吊销一条当前有效的刷新会话。
+	//
+	// 该操作只允许命中指定用户、未吊销且未过期的会话；未命中时统一返回
+	// ErrRefreshSessionNotFound。
+	RevokeRefreshSessionByUserID(ctx context.Context, input RevokeRefreshSessionByUserIDInput) error
+
+	// ListActiveRefreshSessionsByUserID 按用户读取当前有效的 refresh session 列表。
+	//
+	// 返回值只包含稳定 session DTO，不暴露底层 ORM 结构；实现应过滤已吊销或
+	// 已过期记录，并保持显式且稳定的排序，便于插件层构造一致的会话治理视图。
+	ListActiveRefreshSessionsByUserID(ctx context.Context, input ListActiveRefreshSessionsByUserIDInput) ([]RefreshSession, error)
+
+	// RotateRefreshSession 以事务方式完成一次 refresh session 轮换。
+	//
+	// 实现必须保证：只有当前 token 仍未吊销时才允许轮换，并在同一持久化操作中
+	// 写入旧会话吊销状态与新会话记录；未命中或已不可用时统一返回
+	// ErrRefreshSessionNotFound。
+	RotateRefreshSession(ctx context.Context, input RotateRefreshSessionInput) (RefreshSession, error)
 }

@@ -1,132 +1,37 @@
-# MVP Extension Path Web Tracking
+# 后端主导的 MVP 闭环收敛计划 Web 跟踪
 
 ## Subtopic
 
 - Parent Topic: `mvp-extension-path`
 - Subtopic: `web`
-- Scope: `web` admin shell, route/menu/page/api/permission frontend path, i18n UI surface, tests, and frontend
-  governance/toolchain follow-up
+- Scope: starter 壳层、真实后端 `menu + route + page + api + permission` 契约挂接、i18n UI surface 与 frontend validation governance
 
 ## Goal
 
-- Keep frontend recovery material separate from backend iteration while preserving the parent `mvp-extension-path`
-  topic as the default MVP entrypoint.
+- 在后端主导的 MVP 收敛阶段，把 `web` 约束在 starter 壳层收敛与真实契约接线范围内，不再把新增页面或新的前端壳层广度作为近期目标。
 
 ## Current Recovery Point
 
-- The user has decided to abandon the current incremental frontend migration path because the current `web` pages now
-  contain widespread bugs and are effectively unusable.
-- The active frontend direction is now to let `web` directly adopt the full project shape of
-  `web/ai-libs/tdesign-vue-next-starter` as a temporary runtime baseline, instead of continuing the current
-  shell-only migration strategy.
-- This temporary baseline reset is documented as a controllability decision: replacing the broken half-migrated state
-  is safer than continuing to patch scattered page defects on top of an unstable shell.
-- The baseline reset does not change Graft's target contract. After the starter full-project baseline is running
-  again, the next phase must still reattach backend-driven `menu + route + page + api + permission` semantics,
-  locale propagation, and shared auth/permission boundaries.
-- Frontend command execution truth remains explicit: in WSL-based development, all `web` install, validation, build,
-  preview, and dev commands must use the configured host Windows Bun, and WSL Bun must not refresh `web/node_modules`.
-- Theme workbench host/state cleanup now treats `showThemeWorkbench` as the single intended visible-state source in the
-  `setting` store, while `showSettingPanel` remains only as a compatibility mirror for legacy reads.
-- `web/src/layouts/setting.vue` is now mounted once from `web/src/App.vue` as the global workbench host. Dock display
-  follows the current route so login pages no longer need their own host instance.
-- The latest frontend slice continues aligning the theme workbench with the official TDesign Starter presentation,
-  tightening visual hierarchy, spacing density, and interaction rhythm across the dock, right-side panel, and
-  configuration editing area while still keeping one `tvision-color + CSS variables + Pinia persisted state` theme
-  path instead of forking a second theme system.
-- The theme workbench follow-up now also closes two visual-regression gaps from that alignment pass:
-  the right-side panel uses responsive drawer/card sizing so the mode cards no longer collapse into one cramped row,
-  and the bottom dock restores the active-pill expansion pattern so selected quick actions can reveal their labels.
-- The dock entry contract is now tighter as well:
-  the global “自定义主题” trigger stays icon-only by default and expands only after activation,
-  while the bottom quick-action icons reuse the same icon language as the right-side group navigation.
-- The latest fix slice corrects icon regressions in the theme workbench by switching the dock and group navigation to
-  icon names that exist in the current `tdesign-icons-vue-next` package, so the overview, semantic, and font entries
-  no longer render blank placeholders.
-- The same slice also removes the floating footer action area from the right-side panel:
-  the redundant “复制完整配置” action and its copy pipeline are deleted, and “恢复默认主题” now lives directly under
-  the `元素开关` block to keep the action near the configuration it resets.
-- The latest dock-alignment follow-up corrects a remaining visual-centering issue in the floating toolbar:
-  the bottom dock keeps its overall center anchored while active pills expand, and the active icon + label content is
-  now centered within each expanded button instead of left-biased.
-- The latest frontend governance follow-up now also closes the quality-chain warning cleanup:
-  `web/vite.config.ts` only mounts `vite-plugin-mock` in mock/development modes, release/test builds use explicit
-  vendor chunk boundaries for `tdesign` / `tdesign-icons` / `echarts` / `vue` / shared utils, and the current starter
-  baseline accepts a `chunkSizeWarningLimit` aligned to that temporary full-TDesign shell so the host Windows Bun
-  `bun run check` path can finish without warning output.
-- The same slice also refreshed the lowest-risk runtime dependency update in the current tree by moving `axios` to
-  `^1.16.1`, while leaving cross-major framework, UI-library, and tooling upgrades for later dedicated validation
-  slices instead of mixing them into this warning-cleanup pass.
-- The latest frontend governance tightening now also makes the quality-source boundary explicit:
-  repository completion and merge decisions follow the documented CLI chain headed by host Windows Bun `bun run check`,
-  while JetBrains Inspection, TS suggestion diagnostics, and local spell-check output remain IDE-local guidance unless
-  a matching rule is promoted into the repository CLI/tooling contract.
-- The same slice also raises one concrete CLI rule instead of relying on IDE yellow warnings:
-  `web/eslint.config.js` now rejects `console.log`-style debug output while still allowing `console.warn` and
-  `console.error`, and the current starter/demo pages remove the existing debug-only log calls so the stricter lint
-  policy can pass without hidden local exceptions.
-- The planned frontend logger infrastructure is now documented before implementation:
-  it follows a `LoggerCore + LogEvent + Transport` model, defaults to a `consola` transport, supports a silent
-  `NoopTransport`, and requires business code to depend on `createLogger` plus `child()` / `withContext()` instead of
-  transport-specific APIs.
-- The same planned logger slice also establishes governance boundaries up front:
-  stable `moduleName` ownership, serializable `meta/context`, explicit sensitive-data restrictions, a strict
-  separation between logger output and UI message responsibility, no silent swallowing after `logger.error` in `catch`,
-  temporary debug lifecycle cleanup rules, and AI debug-noise limits for generated frontend code.
+- `web` 现阶段只保留一个可继续收敛的 starter 壳层基线，用于接入真实后端 `auth`、动态菜单、权限门禁和 locale 契约。
+- 当前主线不是页面扩张，也不是继续深化独立前端工作台能力；任何 shell 级调整都应服务于真实契约挂接和 mock/demo 清理。
+- 前端命令真值保持不变：WSL 场景下继续使用 host Windows Bun，完成态仍以 `bun run check` 零 warning 为门槛。
+- 详细前端实现历史保留在 `subtopics/web/traces/web-trace.md`。
 
 ## Active Risks
 
-- Future frontend work must continue to align with backend-driven menus, permissions, and shared i18n contracts instead
-  of drifting into a long-lived frontend-only policy after the starter baseline is copied in.
-- The temporary baseline will likely bring starter demo routes, mock data flows, and frontend-only assumptions back
-  into the tree, so the reattachment plan must remove or fence them quickly.
-- The current shell-level bug density means the repository has less confidence in any partial migration artifact that
-  remains in `web`, so mainline implementation needs a clear replacement boundary instead of mixed old/new pages.
-- Mixed WSL Bun and host Windows Bun dependency installs can still break Windows IDE startup until the working tree is
-  reinstalled with host Windows Bun after this rule change lands.
-- The warning-cleanup slice now reaches a zero-warning completion state, but the current vendor-size strategy still
-  depends on the temporary full-TDesign starter baseline and a raised `chunkSizeWarningLimit`, so deeper bundle-size
-  optimization should be treated as a future performance task instead of silently regressing back into warning debt.
-- IDE 问题面板仍可能继续提示未使用导出、JSDoc、拼写、commented-out code 一类本地检查项；后续若团队希望把其中某类
-  提升为正式阻塞规则，必须先提供等价 CLI 校验入口，而不是把 JetBrains 专属 Inspection 直接当作仓库唯一标准。
-- If the logger plan is implemented without the documented `moduleName` / serializable-context / sensitive-data
-  boundaries, frontend debug output could quickly drift into inconsistent module naming, unstructured payloads, and
-  accidental leakage of user or credential data.
+- 如果 `web` 回到页面扩张、长期保留 starter demo/mock 流程，前端会再次偏离“后端主导的 MVP 闭环收敛”主线。
+- 如果后端共享契约在收敛期内继续频繁漂移，starter 壳层的真实接线会产生反复返工。
+- 混用 WSL Bun 与 host Windows Bun 仍可能破坏当前工作树的前端依赖与 IDE 运行稳定性。
 
 ## Latest Validation
 
-- The frontend governance baseline now treats host Windows Bun `bun run check` as the required completion-state
-  validation entrypoint for `web`.
-- The latest implementation validation snapshot is:
-  - `bun outdated`
-  - `bun add axios@1.16.1`
-  - `bun run test:run -- --reporter=hanging-process`
-  - `bun run test:run`
+- 当前前端恢复基线沿用最近一次 host Windows Bun 完成态校验：
   - `bun run check`
-- `bun run check` 当前通过，`format:check`、`typecheck`、`lint`、`stylelint`、`test:run`、`build` 均无未处理 warning。
-- The current build-cleanup strategy is explicit:
-  - `@vueuse/core` pure annotation noise is filtered by exact source match in `vite.config.ts`, so the repository does
-    not suppress unrelated Rollup warnings.
-  - `vite-plugin-mock` is only mounted in mock/development modes, preventing Vitest from leaving watcher handles open
-    in completion-state validation.
-  - Chunk-warning output is closed by stable vendor chunk boundaries plus the current `1600` threshold that matches
-    the temporary full-TDesign starter baseline; future bundle-size optimization remains a separate follow-up concern.
-- The latest governance-tightening validation snapshot additionally requires:
-  - host Windows Bun `bun run check`
-  - no new `console.log`-style debug output under `web/src`
+- 该完成态基线要求 `format:check`、`typecheck`、`lint`、`stylelint`、`test:run`、`build` 全部通过且无未处理 warning。
+- 本次文档同步没有新增前端运行时校验。
 
 ## Immediate Next Step
 
-- Let the mainline frontend work replace the current broken incremental shell with a starter full-project baseline
-  first, then reattach the real backend auth/menu/permission contracts in a controlled second step without
-  reintroducing frontend-only policy.
-- For the theme workbench follow-up, continue improving grouped token editors and layout-preview fidelity on top of the
-  current `setting store + token/runtime底座 + dock/panel 壳层` path.
-- Do not fork a second theme system outside the existing `tvision-color + CSS variables + Pinia persisted state`
-  path, and avoid adding another shell-level host or a parallel visible-state flag.
-- Keep future `web` slices on the host Windows Bun `bun run check` completion gate, and treat any later bundle-size
-  or dependency-major upgrade work as dedicated follow-up tasks instead of reintroducing warning noise into the
-  completion path.
-- When the frontend logger slice moves from documentation to implementation, keep it infrastructure-scoped first:
-  add the core logger path and governance boundary without coupling it to UI message flows or a broader remote logging
-  platform in the same change.
+- 继续把 starter 壳层挂接到真实后端 `auth + current user + menu + permission + locale` 契约。
+- 快速隔离或移除当前阶段不再需要的 mock/demo 入口，避免形成前端自洽假闭环。
+- 在真实契约稳定之前，不以新增页面或额外视觉扩张作为当前子主题完成条件。
