@@ -6,7 +6,7 @@ export {};
 interface ImportMetaEnv {
   readonly VITE_BASE_URL: string;
   readonly VITE_IS_REQUEST_PROXY: 'true' | 'false';
-  readonly VITE_API_URL: string;
+  readonly VITE_API_TARGET: string;
   readonly VITE_API_URL_PREFIX: string;
   readonly VITE_LOG_LEVEL?: string;
 }

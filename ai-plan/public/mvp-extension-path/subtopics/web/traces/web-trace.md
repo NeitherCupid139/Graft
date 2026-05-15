@@ -188,6 +188,16 @@
   shell no longer exposes two competing user-page entry paths.
 - Revalidated the focused slice with `cd web && bun run typecheck` before the full completion-state check.
 
+## 2026-05-15 login console error cleanup
+
+- Split the frontend API host semantics into two explicit roles: browser requests stay on relative `/api/...` paths in
+  proxy mode, while `VITE_API_TARGET` now serves only as the Vite development proxy target or the direct backend host
+  when proxy mode is disabled.
+- Removed the login-page `vue-i18n` compilation noise by replacing the copyright string's literal `@` token with a
+  plain text variant, so the shell no longer trips linked-message parsing on first render.
+- Kept the change scoped to the shared request/env layer and locale resources, preserving the current
+  `auth + refresh + bootstrap` contract and route-guard flow.
+
 ## 2026-05-15 Follow-up Next Step
 
 - Continue reconnecting the starter shell to the real backend `auth + current user + menu + permission + locale`

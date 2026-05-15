@@ -16,8 +16,17 @@ interface RequestInstance {
   delete<T>(config: RequestConfig): Promise<T>;
 }
 
+function resolveBaseURL() {
+  if (import.meta.env.VITE_IS_REQUEST_PROXY === 'true') {
+    return '';
+  }
+
+  const apiTarget = import.meta.env.VITE_API_TARGET || '';
+  return apiTarget.replace(/\/+$/, '');
+}
+
 const client = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '',
+  baseURL: resolveBaseURL(),
   withCredentials: true,
 });
 

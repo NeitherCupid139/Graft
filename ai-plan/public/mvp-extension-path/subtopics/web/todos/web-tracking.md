@@ -19,6 +19,7 @@
 - 前端命令真值保持不变：WSL 场景下继续使用 host Windows Bun，完成态仍以 `bun run check` 零 warning 为门槛。
 - PR #9 当前一轮 AI review 已确认并落地的 `web` 跟进包括：登出失败时仍强制跳转登录页、动态路由装配去除双重断言、locale header 全量下划线替换，以及 route guard / bootstrap / token 持久化的中文契约注释补强。
 - `/users` 当前已不再复用 starter 个人中心 demo 页，而是直接消费真实 `GET /api/users` 最小只读契约；对应的 `/user/index` 静态入口与 header 残留跳转也已移除，避免双轨导航。
+- 开发环境下的请求策略已收敛为“前端统一请求相对 `/api` 路径，由 Vite proxy 转发到 `VITE_API_TARGET`”；只有显式关闭代理时，Axios 才会直连后端绝对地址。
 - 详细前端实现历史保留在 `subtopics/web/traces/web-trace.md`。
 
 ## Active Risks
@@ -44,6 +45,9 @@
   - `git tag --list`
   - `git worktree list --porcelain`
 - 本次文档同步通过 `rg`、`sed` 与 `git diff -- ai-plan/design/前端架构设计.md ai-plan/public/mvp-extension-path/subtopics/web` 进行一致性检查。
+- 本次登录页控制台报错修复预期直接校验：
+  - `cd web && bun run typecheck`
+  - `cd web && bun run build`
 
 ## Immediate Next Step
 
@@ -59,3 +63,4 @@
 - `permission` store 当前只消费 bootstrap 返回的真实 `menus` 快照，并按当前已存在的页面实现生成最小动态路由；本轮只接入 `/users`。
 - 当前最小动态菜单策略是“菜单展示只保留首页和后端返回且前端已经具备页面实现的菜单项”，避免再次回退到 starter demo 菜单树。
 - `/users` 页面当前已替换为最小真实用户列表页，不再依赖本地 profile、图表或团队成员 demo 数据。
+- 登录页当前不再把 `http://127.0.0.1:3000` 暴露为代理模式下的浏览器请求主机；控制台里看到的 API URL 应保持为相对 `/api/...`，由 Vite 开发代理负责转发。
