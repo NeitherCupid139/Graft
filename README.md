@@ -85,6 +85,7 @@ go run ./cmd/graft serve
 
 * 根命令 `graft` 只显示帮助，不会启动服务。
 * `graft dev` 与 `graft migrate up` 都依赖本机已安装 `atlas` CLI。
+* 当你新增、重命名或调整 `server/internal/ent/migrate/migrations/` 下的 migration 文件后，必须先在 `server` 目录执行 `atlas migrate hash --dir file://internal/ent/migrate/migrations`，否则 `graft dev` / `graft migrate up` 会因为 `atlas.sum` 校验不匹配而失败。
 * `graft serve` 启动前会连接 PostgreSQL 和 Redis；若地址不可达，启动会直接失败。
 * 若本地库结构已经同步，也可以只运行 `graft serve`；否则请先执行迁移。
 * 在 GoLand 或其他 IDE 中，推荐统一使用 working directory=`server`、程序入口 `./cmd/graft`、程序参数 `dev`。
