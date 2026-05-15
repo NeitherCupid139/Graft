@@ -1,10 +1,12 @@
 import { defineStore } from 'pinia';
 
 import { getBootstrap, login as loginApi, logout as logoutApi, refresh as refreshApi } from '@/api/auth';
-import type { BootstrapResponse, LoginResponse } from '@/api/model/authModel';
+import { API_CODE, type BootstrapResponse, type LoginResponse } from '@/api/model/authModel';
 import { i18n, localeConfigKey, supportedLocales } from '@/locales';
 import { usePermissionStore } from '@/store';
+import type { ApiRequestError } from '@/types/axios';
 import { clearAccessToken, setAccessToken } from '@/utils/auth-state';
+import { isApiRequestError, registerAuthSessionBridge } from '@/utils/request';
 import type { UserInfo } from '@/utils/types';
 
 const InitUserInfo: UserInfo = {
@@ -63,7 +65,7 @@ export const useUserStore = defineStore('user', {
     },
     async bootstrap(force = false) {
       if (!this.token) {
-        throw new Error('Missing access token');
+        throw createAuthStateError(401, API_CODE.AUTH_TOKEN_MISSING, 'Missing access token');
       }
       // bootstrap 是前端恢复真实用户、权限、菜单和 locale 快照的唯一入口；
       // 非 force 模式下优先复用已加载快照，避免每次导航都重复请求。
@@ -86,8 +88,13 @@ export const useUserStore = defineStore('user', {
     async ensureBootstrap() {
       try {
         return await this.bootstrap();
-      } catch {
-        // 当 access token 过期但 refresh cookie 仍有效时，先刷新 token 再强制
+      } catch (error) {
+        // 如果会话已在请求层失败路径中被清空，这里不要再发第二次 refresh。
+        if (!isRefreshableAuthError(error) || !this.token) {
+          throw error;
+        }
+
+        // 当 access token 过期且 refresh cookie 仍有效时，先刷新 token 再强制
         // 重新拉取 bootstrap，保持路由守卫只消费最新后端契约快照。
         await this.refreshToken();
         return this.bootstrap(true);
@@ -100,13 +107,18 @@ export const useUserStore = defineStore('user', {
       this.bootstrapSnapshot = null;
       this.userInfo = { ...InitUserInfo };
     },
+    handleAuthFailure() {
+      this.clearSessionState();
+      const permissionStore = usePermissionStore();
+      void permissionStore.restoreRoutes();
+    },
     async logout() {
       try {
         if (this.token) {
           await logoutApi();
         }
       } finally {
-        this.clearSessionState();
+        this.handleAuthFailure();
       }
     },
   },
@@ -135,3 +147,26 @@ function syncLocale(payload: BootstrapResponse) {
     // 受限环境下 locale 同步允许降级为内存态。
   }
 }
+
+function isRefreshableAuthError(error: unknown) {
+  return isApiRequestError(error) && error.status === 401 && error.code === API_CODE.AUTH_TOKEN_EXPIRED;
+}
+
+function createAuthStateError(status: number, code: string, message: string): ApiRequestError {
+  const error = new Error(message) as ApiRequestError;
+  error.name = 'ApiRequestError';
+  error.status = status;
+  error.code = code;
+  error.traceId = '';
+  error.isApiRequestError = true;
+  return error;
+}
+
+registerAuthSessionBridge({
+  applyLoginResponse(payload) {
+    useUserStore().applyLoginResponse(payload);
+  },
+  handleAuthFailure() {
+    useUserStore().handleAuthFailure();
+  },
+});

@@ -47,6 +47,9 @@ func TestWriteLocalizedErrorUsesResolvedLocaleAndFallbackMessage(t *testing.T) {
 	if payload.MessageKey != "common.invalid_argument" {
 		t.Fatalf("expected message key, got %#v", payload)
 	}
+	if payload.Code != "COMMON_INVALID_ARGUMENT" || payload.Success {
+		t.Fatalf("expected stable error envelope code/success, got %#v", payload)
+	}
 	if payload.Locale != "en-US" {
 		t.Fatalf("expected requested locale to be echoed, got %#v", payload)
 	}
@@ -55,5 +58,45 @@ func TestWriteLocalizedErrorUsesResolvedLocaleAndFallbackMessage(t *testing.T) {
 	}
 	if payload.Details["field"] != "id" {
 		t.Fatalf("expected details field id, got %#v", payload)
+	}
+	if payload.TraceID == "" || recorder.Header().Get(RequestIDHeader) != payload.TraceID {
+		t.Fatalf("expected trace id to be generated and echoed, got %#v", payload)
+	}
+}
+
+// TestWriteSuccessReusesIncomingRequestID 验证成功响应会复用上游透传的 request-id，
+// 避免 auth/bootstrap 等链路在前后端排障时丢失统一 trace。
+func TestWriteSuccessReusesIncomingRequestID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	recorder := httptest.NewRecorder()
+	ctx, engine := gin.CreateTestContext(recorder)
+	engine.GET("/healthz", func(inner *gin.Context) {
+		WriteSuccess(inner, http.StatusOK, map[string]any{
+			"ok": true,
+		})
+	})
+
+	request := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	request.Header.Set(RequestIDHeader, "req-from-upstream")
+	ctx.Request = request
+	engine.HandleContext(ctx)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+
+	var payload SuccessResponse[map[string]any]
+	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if !payload.Success || payload.Code != "OK" || payload.Message != "OK" {
+		t.Fatalf("expected stable success envelope, got %#v", payload)
+	}
+	if payload.TraceID != "req-from-upstream" || recorder.Header().Get(RequestIDHeader) != payload.TraceID {
+		t.Fatalf("expected request id to be reused, got %#v", payload)
+	}
+	if ok, exists := payload.Data["ok"]; !exists || ok != true {
+		t.Fatalf("expected success payload data, got %#v", payload.Data)
 	}
 }

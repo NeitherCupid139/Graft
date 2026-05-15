@@ -15,7 +15,7 @@ export function createViteConfig(mode: string): UserConfig {
   const env = loadEnv(mode, CWD, '');
   const base = env.VITE_BASE_URL || '/';
   const apiPrefix = env.VITE_API_URL_PREFIX || '/api';
-  const apiTarget = env.VITE_API_URL || 'http://127.0.0.1:3000';
+  const apiTarget = env.VITE_API_TARGET || 'http://127.0.0.1:3000';
   const proxyEnabled = env.VITE_IS_REQUEST_PROXY === 'true';
   const mockEnabled = mode === 'mock' || mode === 'development';
 

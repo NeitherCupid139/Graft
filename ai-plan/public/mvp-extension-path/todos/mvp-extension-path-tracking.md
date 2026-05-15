@@ -45,6 +45,8 @@
 - 当前阶段正式收敛到“后端主导的 MVP 闭环收敛计划”：先补齐 `server` 的 event bus、audit、scheduler 和稳定插件契约，再让 `web` 挂接这些真实契约。
 - `server` 当前已形成最小 runtime 闭环，并新增受保护的 `/api/auth/bootstrap` 真实契约，统一返回当前用户、权限码、按权限过滤的菜单和 locale 快照。
 - `web` 当前已把登录主路径收敛到真实 `login/refresh/bootstrap` 契约，并开始用 bootstrap 菜单快照驱动最小动态路由，而不是继续依赖 starter mock 登录与静态 demo 菜单。
+- 当前 cross-boundary 切片已把 `/users` 从“真实菜单路径 + demo 页面内容”的假闭环，收敛为真实 `GET /api/users` 契约加最小只读列表页；`/user/index` 静态个人中心残留入口已移除。
+- 当前 auth / RBAC 最小响应收敛切片也已完成第一轮跨边界对齐：`server` 已冻结 `AUTH_*` 失败 code、统一 envelope 与 request-id 透传，`web` 已冻结“仅 `AUTH_TOKEN_EXPIRED` refresh，`INVALID/MISSING` 单一退出”的请求层行为，并通过显式 session bridge 消除了构建 warning。
 - 较早的拆分前历史保留在 `archive/`，具体实现轨迹保留在各自 `trace` 文件。
 
 ## Shared Milestones
@@ -53,6 +55,7 @@
 - 后端已具备最小可运行的 plugin-oriented runtime、迁移链路、认证与 RBAC 基线。
 - 前端已具备可继续收敛的 starter 壳层，并已重新挂回真实认证与最小动态菜单入口，host Windows Bun `bun run check` 当前再次通过零 warning 完成门槛。
 - 当前主题阶段已从“后端先闭环”推进到“后端稳定 bootstrap 契约，前端按该契约同步收敛”。
+- 当前主题阶段还额外完成了 auth 响应面与 refresh 单出口的第一轮跨边界收口，后续可以把主线重心放回真实页面接线而不是继续补请求层控制流分支。
 
 ## Shared Risks
 
@@ -66,9 +69,20 @@
   - `cd server && go test ./plugins/user`
   - `cd server && go build ./cmd/graft`
   - `cd web && bun run check`
+- 本次 `/users` 真实列表切片直接校验：
+  - `cd server && go test ./plugins/user ./internal/store/entstore`
+  - `cd server && go build ./cmd/graft`
+  - `cd web && bun run typecheck`
+  - `cd web && bun run check`
 - 本次 topic 级同步通过 `sed`、`rg`、`git diff -- ai-plan/public/mvp-extension-path` 与对应直接校验结果完成一致性检查。
+- 本次 auth / RBAC 响应收敛切片直接校验：
+  - `cd server && go test ./internal/httpx ./plugins/user`
+  - `cd server && go build ./cmd/graft`
+  - `cd web && bun run test:run -- src/utils/request.test.ts src/store/modules/user.test.ts src/utils/route/bootstrap.test.ts`
+  - `cd web && bun run typecheck`
+  - `cd web && bun run check`
 
 ## Immediate Next Step
 
 - 保持当前 `/api/auth/bootstrap` 契约稳定，只在必要范围内收敛 DTO 和菜单/权限语义。
-- 在该 bootstrap 契约上继续扩展 `web` 真实页面接线，优先补齐当前用户、用户管理和权限可见性链路，而不是回到 starter demo 页面扩张。
+- 在该 bootstrap 与 auth 响应契约上继续扩展 `web` 真实页面接线，优先补齐用户详情、会话治理和权限可见性链路，而不是回到 starter demo 页面扩张或继续返工请求层分支。

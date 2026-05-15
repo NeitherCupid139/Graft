@@ -209,6 +209,20 @@
   and panic recovery, plus `server/internal/app/runtime_test.go` coverage that locks the singleton registration and
   plugin-context injection path.
 
+## 2026-05-15 local auth config onboarding fix
+
+- Kept `server/internal/config.Config.Validate()` strict on explicit auth signing material and did not add any dev/local fallback secret, random generation, or token-semantics change.
+- Updated `server/.env.example` with a local-only JWT signing example and a production-replacement warning so local startup guidance now matches the current config contract.
+- Tightened the root README startup section to document `working directory=server`, repository-root fallback loading of `server/.env`, the minimal `server/.env.example -> server/.env -> go run ./cmd/graft dev` flow, and the exact missing-secret error string.
+- Expanded `server/internal/config/config_test.go` with isolated auth-signing-material cases that prove missing-both fails and single-source `JWTSecret` / `SigningKey` inputs still pass without depending on a real developer environment file.
+
+## 2026-05-15 local auth key generator tools
+
+- Added `server/internal/keygen` as a tiny development-only helper package that uses `crypto/rand` plus URL-safe base64 output to generate `.env`-ready auth key lines.
+- Added two standalone helper programs, `server/cmd/graft-jwt-secret` and `server/cmd/graft-signing-key`, so local developers can generate either required auth environment line without touching runtime auth behavior.
+- Kept the change outside the main `graft` Cobra tree to avoid coupling config-prep helpers to runtime command semantics.
+- Added direct `server/internal/keygen` tests and updated the root README to document the new helper commands in the local server startup flow.
+
 ## 2026-05-15 audit slice
 
 - Added `server/internal/audit` plus the `store.AuditRepository` boundary so request-level and active audit paths can
@@ -280,7 +294,49 @@
 - Updated `server/plugins/scheduler` to forward `LifecycleContext` into the scheduler runtime stop path and added direct
   runtime/plugin tests that lock the new shutdown-context propagation contract.
 
+## 2026-05-15 minimal users list contract
+
+- Extended the stable `store.UserRepository` boundary with one minimal `List()` read path, explicitly limited to the
+  current MVP need of replacing the fake `/users` frontend page with a real backend-driven list.
+- Added `GET /api/users` inside `server/plugins/user`, reusing the existing `user.read` permission boundary and
+  returning a narrow DTO of `id / username / display / created_at / updated_at` rather than widening into CRUD.
+- Added focused `server/plugins/user` route coverage for successful list reads and localized internal-error behavior,
+  then revalidated with `cd server && go test ./plugins/user ./internal/store/entstore` and `cd server && go build ./cmd/graft`.
+
+## 2026-05-15 auth / RBAC response convergence prep
+
+- Reserved the next bounded `server` slice for auth / RBAC minimal response convergence only, keeping the write scope
+  limited to existing `server/internal/httpx`, `server/plugins/user`, and the paired `web` request/auth consumption
+  paths.
+- Recorded the required auth failure mapping for that slice: `AUTH_INVALID_CREDENTIALS -> 400`,
+  `AUTH_TOKEN_MISSING -> 401`, `AUTH_TOKEN_EXPIRED -> 401`, `AUTH_TOKEN_INVALID -> 401`, and
+  `AUTH_FORBIDDEN -> 403`.
+- Recorded the envelope stability rule for that slice: success responses must keep
+  `success / code / message / traceId / data`, error responses must keep `success / code / message / traceId`, and
+  `messageKey / locale` remain optional extension fields rather than control-flow inputs.
+- Recorded the minimal request-id contract for that slice: read `X-Request-Id` first, then `X-Trace-Id`; otherwise
+  generate a UUID, persist it in `gin.Context`, mirror it to the `X-Request-Id` response header, and source every
+  auth/RBAC envelope `traceId` from that value.
+- Recorded the frontend-facing refresh boundary that the implementation must preserve: only
+  `AUTH_TOKEN_EXPIRED` may trigger one refresh attempt, while `AUTH_TOKEN_INVALID`, `AUTH_TOKEN_MISSING`, and
+  `AUTH_FORBIDDEN` must never recurse into refresh.
+
+## 2026-05-15 auth / RBAC response convergence
+
+- Completed the first bounded auth / RBAC response convergence pass in `server/internal/httpx` and
+  `server/plugins/user`, freezing the current auth failure status/code mapping and the shared
+  `success / code / message / traceId / data` envelope.
+- Added direct `server/internal/httpx` regression coverage for `AUTH_TOKEN_EXPIRED` plus request-id reuse on success
+  responses, and expanded `server/plugins/user` tests so the main write-side success paths now verify the shared
+  success envelope instead of only status codes and side effects.
+- Revalidated the backend side of the slice with `cd server && go test ./internal/httpx ./plugins/user` and
+  `cd server && go build ./cmd/graft`.
+  `401 + AUTH_TOKEN_EXPIRED` may trigger one refresh attempt; `AUTH_TOKEN_INVALID`, `AUTH_TOKEN_MISSING`, and
+  `AUTH_FORBIDDEN` must not refresh; any refresh failure must collapse to one exit that clears local auth/session
+  state and redirects to login without retry recursion.
+
 ## Next Step
 
-- Keep the new bootstrap contract stable enough for `web` starter-shell hookup, then move the next batch to
-  synchronized `server` + `web` work instead of widening backend-only session-governance behavior.
+- Implement the bounded auth / RBAC response convergence slice while keeping the current bootstrap contract stable, and
+  validate it with `cd server && go test ./internal/httpx ./plugins/user`, `cd server && go build ./cmd/graft`, and
+  `cd web && bun run check`.

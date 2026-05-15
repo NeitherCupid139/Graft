@@ -54,6 +54,7 @@ SUPPORTED_AI_REVIEWERS = (
         "supports_review_body_parsing": False,
     },
 )
+SUPPORTED_AI_REVIEWER_LOGINS = frozenset(agent["login"] for agent in SUPPORTED_AI_REVIEWERS)
 DISPLAY_SECTION_CHOICES = (
     "pr",
     "failed-checks",
@@ -814,12 +815,10 @@ def classify_review_thread_status(latest_comment: dict[str, Any]) -> str:
     """Classify whether a review thread is still open or already addressed."""
     body = latest_comment.get("body") or ""
     author = latest_comment.get("user") or ""
-    if author == CODERABBIT_LOGIN:
-        if REVIEW_COMMENT_ADDRESSED_MARKER in body or contains_visible_addressed_commit_text(body):
-            return "addressed"
-        return "open"
-    if contains_visible_addressed_commit_text(body):
+    if REVIEW_COMMENT_ADDRESSED_MARKER in body or contains_visible_addressed_commit_text(body):
         return "addressed"
+    if author in SUPPORTED_AI_REVIEWER_LOGINS:
+        return "open"
     return "unknown"
 
 

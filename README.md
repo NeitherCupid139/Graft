@@ -31,7 +31,24 @@ Graft 是一个基于 Go 和 Vue 3 的组合式后台平台，目标是通过插
 
 ## 本地启动 `server`
 
-当前 `server` 使用 `.env` 作为运行时主配置源，默认会读取仓库根目录 `.env` 或 `server/.env`。建议从 `server/.env.example` 复制出本地 `server/.env`，再按实际环境填写 PostgreSQL 和 Redis 连接。
+当前 `server` 使用 `.env` 作为运行时主配置源。推荐把 GoLand 或其他 IDE 的 working directory 设为 `server`；如果从仓库根启动，程序会回退读取 `server/.env`。
+
+最小启动步骤：
+
+1. 复制 `server/.env.example` 为 `server/.env`
+2. 修改 `server/.env` 中的 auth 密钥
+3. 进入 `server` 目录后执行 `go run ./cmd/graft dev`
+
+如果缺少 auth 密钥，启动会直接报错：`GRAFT_AUTH_JWT_SECRET or GRAFT_AUTH_SIGNING_KEY is required`。
+
+如果你需要生成新的本地 auth 密钥，可以在 `server` 目录下运行：
+
+```bash
+go run ./cmd/graft-jwt-secret
+go run ./cmd/graft-signing-key
+```
+
+两个程序都会输出一行可直接粘贴到 `server/.env` 的配置文本。
 
 推荐的本地开发入口已经统一为一个 Go CLI 命令：
 
@@ -70,4 +87,25 @@ go run ./cmd/graft serve
 * `graft dev` 与 `graft migrate up` 都依赖本机已安装 `atlas` CLI。
 * `graft serve` 启动前会连接 PostgreSQL 和 Redis；若地址不可达，启动会直接失败。
 * 若本地库结构已经同步，也可以只运行 `graft serve`；否则请先执行迁移。
-* 在 GoLand 或其他 IDE 中，推荐统一使用工作目录 `server`、程序入口 `./cmd/graft`、程序参数 `dev`。
+* 在 GoLand 或其他 IDE 中，推荐统一使用 working directory=`server`、程序入口 `./cmd/graft`、程序参数 `dev`。
+
+## 本地启动 `web`
+
+前端开发环境配置不再直接提交真实 `web/.env.development`，而是提交模板文件 `web/.env.example`，本地实际配置保持忽略状态。
+
+最小启动步骤：
+
+1. 复制 `web/.env.example` 为 `web/.env.development`
+2. 按本地后端地址调整 `VITE_API_TARGET`
+3. 进入 `web` 目录后使用 host Windows Bun 执行 `bun run dev`
+
+当前默认开发链路为：
+
+* 浏览器访问 `http://localhost:3002/api/...`
+* Vite dev proxy 再把请求转发到 `VITE_API_TARGET`
+
+说明：
+
+* `web/.env.development`、`web/.env.local` 与其它 `web/.env.*` 本地文件都应保持未跟踪状态。
+* `web/.env.example` 只作为共享模板，不应放入个人密钥或机器专属地址。
+* 在 WSL 场景下，按仓库环境约定继续使用 host Windows Bun 运行 `web` 命令。

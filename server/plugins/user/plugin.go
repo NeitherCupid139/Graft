@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -25,6 +26,18 @@ import (
 //
 // 该插件展示业务能力如何在 Register 阶段声明边界，在 Boot/Shutdown 阶段保持显式生命周期。
 type Plugin struct{}
+
+type userListResponse struct {
+	Items []userListItem `json:"items"`
+}
+
+type userListItem struct {
+	ID        uint64 `json:"id"`
+	Username  string `json:"username"`
+	Display   string `json:"display"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
+}
 
 // NewPlugin 创建示例用户插件。
 func NewPlugin() *Plugin {
@@ -104,6 +117,7 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 
 	// 登录与 refresh 入口保持在插件内，避免把 session/cookie 细节泄漏到 core。
 	authGroup := ctx.Router.Group("/auth")
+	authGroup.Use(httpx.RequestIDMiddleware())
 	authGroup.POST("/login", func(ginCtx *gin.Context) {
 		var request loginRequest
 		if err := ginCtx.ShouldBindJSON(&request); err != nil {
@@ -141,7 +155,7 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 		}
 
 		authSvc.cookies.writeRefreshCookie(ginCtx, result.RefreshToken, result.RefreshExpiry)
-		ginCtx.JSON(http.StatusOK, loginResponse{
+		httpx.WriteSuccess(ginCtx, http.StatusOK, loginResponse{
 			AccessToken: result.AccessToken,
 			ExpiresAt:   result.AccessExpiry,
 			User:        result.User,
@@ -150,7 +164,7 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 	authGroup.POST("/refresh", func(ginCtx *gin.Context) {
 		refreshToken, err := authSvc.cookies.readRefreshCookie(ginCtx)
 		if err != nil {
-			httpx.WriteLocalizedError(ginCtx, ctx.I18n, http.StatusUnauthorized, "auth.invalid_refresh_session", nil)
+			httpx.WriteLocalizedError(ginCtx, ctx.I18n, http.StatusUnauthorized, "auth.token_missing", nil)
 			return
 		}
 
@@ -169,7 +183,7 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 		}
 
 		authSvc.cookies.writeRefreshCookie(ginCtx, result.RefreshToken, result.RefreshExpiry)
-		ginCtx.JSON(http.StatusOK, loginResponse{
+		httpx.WriteSuccess(ginCtx, http.StatusOK, loginResponse{
 			AccessToken: result.AccessToken,
 			ExpiresAt:   result.AccessExpiry,
 			User:        result.User,
@@ -178,7 +192,7 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 	authGroup.POST("/logout", func(ginCtx *gin.Context) {
 		refreshToken, err := authSvc.cookies.readRefreshCookie(ginCtx)
 		if err != nil {
-			httpx.WriteLocalizedError(ginCtx, ctx.I18n, http.StatusUnauthorized, "auth.invalid_refresh_session", nil)
+			httpx.WriteLocalizedError(ginCtx, ctx.I18n, http.StatusUnauthorized, "auth.token_missing", nil)
 			return
 		}
 
@@ -196,7 +210,7 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 		}
 
 		authSvc.cookies.clearRefreshCookie(ginCtx)
-		ginCtx.Status(http.StatusNoContent)
+		httpx.WriteSuccess[any](ginCtx, http.StatusOK, nil)
 	})
 	// 当前用户自助撤销入口复用同一套 request-auth 上下文，只吊销当前主体名下
 	// 的全部 refresh sessions，不把更宽的管理员治理语义下沉到 core。
@@ -215,7 +229,7 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 		}
 
 		authSvc.cookies.clearRefreshCookie(ginCtx)
-		ginCtx.Status(http.StatusNoContent)
+		httpx.WriteSuccess[any](ginCtx, http.StatusOK, nil)
 	})
 	// 当前用户可批量吊销除当前请求外的其它有效 session，适合保留当前登录态的
 	// 多端清退场景；该治理动作继续留在 user 插件内，不扩散新的 core 契约。
@@ -233,7 +247,7 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 			return
 		}
 
-		ginCtx.Status(http.StatusNoContent)
+		httpx.WriteSuccess[any](ginCtx, http.StatusOK, nil)
 	})
 	// 当前用户会话列表只暴露最小有效 session 摘要，避免把历史轮换或底层存储
 	// 细节泄漏到插件外部，同时为后续更细粒度治理保留清晰入口。
@@ -260,7 +274,7 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 			return
 		}
 
-		ginCtx.JSON(http.StatusOK, sessions)
+		httpx.WriteSuccess(ginCtx, http.StatusOK, sessions)
 	})
 	// bootstrap 返回 web 启动阶段需要的最小真实契约快照，保持当前用户、
 	// 权限、菜单过滤与 locale 配置收敛在 user 插件边界内。
@@ -268,7 +282,7 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 		payload, err := bootstrapSvc.Read(ginCtx.Request.Context(), ginCtx.Request)
 		if err != nil {
 			if errors.Is(err, pluginapi.ErrUnauthenticated) {
-				httpx.WriteLocalizedError(ginCtx, ctx.I18n, http.StatusUnauthorized, "auth.missing_actor", nil)
+				httpx.WriteLocalizedError(ginCtx, ctx.I18n, http.StatusUnauthorized, "auth.token_missing", nil)
 				return
 			}
 
@@ -280,7 +294,7 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 			return
 		}
 
-		ginCtx.JSON(http.StatusOK, payload)
+		httpx.WriteSuccess(ginCtx, http.StatusOK, payload)
 	})
 	// 当前用户可对自己的一条有效 session 做定向吊销，保持会话治理仍然落在
 	// user 插件边界内，而不是把单条操作拆进 core 中间件或公共 auth 服务。
@@ -313,10 +327,37 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 			authSvc.cookies.clearRefreshCookie(ginCtx)
 		}
 
-		ginCtx.Status(http.StatusNoContent)
+		httpx.WriteSuccess[any](ginCtx, http.StatusOK, nil)
 	})
 
 	group := ctx.Router.Group("/users")
+	group.Use(httpx.RequestIDMiddleware())
+	// 用户列表路由当前只暴露最小只读快照，供 `web` 用真实后端契约替换 demo
+	// 页面；分页、筛选与写操作后续应在真实需求确认后再显式补齐。
+	group.GET("", httpx.RequirePermission(ctx.I18n, ctx.Services, "user.read"), func(ginCtx *gin.Context) {
+		users, err := ctx.Stores.Users().List(ginCtx.Request.Context())
+		if err != nil {
+			ctx.Logger.Error("list users failed",
+				zap.String("plugin", p.Name()),
+				zap.Error(err),
+			)
+			httpx.WriteLocalizedError(ginCtx, ctx.I18n, http.StatusInternalServerError, "common.internal_error", nil)
+			return
+		}
+
+		items := make([]userListItem, 0, len(users))
+		for _, user := range users {
+			items = append(items, userListItem{
+				ID:        user.ID,
+				Username:  user.Username,
+				Display:   user.Display,
+				CreatedAt: user.CreatedAt.UTC().Format(time.RFC3339),
+				UpdatedAt: user.UpdatedAt.UTC().Format(time.RFC3339),
+			})
+		}
+
+		httpx.WriteSuccess(ginCtx, http.StatusOK, userListResponse{Items: items})
+	})
 	group.GET("/:id", httpx.RequirePermission(ctx.I18n, ctx.Services, "user.read"), func(ginCtx *gin.Context) {
 		rawID, err := parseUserID(ginCtx.Param("id"))
 		if err != nil {
@@ -357,7 +398,7 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 			return
 		}
 
-		ginCtx.JSON(http.StatusOK, summary)
+		httpx.WriteSuccess(ginCtx, http.StatusOK, summary)
 	})
 	// 管理员查看指定用户当前有效 session 时仍留在 user 插件边界内，使用显式
 	// session 读取权限，避免把更敏感的登录态治理语义隐式并入普通 user.read。
@@ -412,7 +453,7 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 			return
 		}
 
-		ginCtx.JSON(http.StatusOK, sessions)
+		httpx.WriteSuccess(ginCtx, http.StatusOK, sessions)
 	})
 	// 管理员按用户与 session 双重显式标识做定向吊销，避免单独暴露 sessionID
 	// 时跨用户误操作，同时保持权限与业务边界都停留在 user 插件内部。
@@ -474,7 +515,7 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 			authSvc.cookies.clearRefreshCookie(ginCtx)
 		}
 
-		ginCtx.Status(http.StatusNoContent)
+		httpx.WriteSuccess[any](ginCtx, http.StatusOK, nil)
 	})
 	// 管理员按用户 ID 批量吊销 refresh sessions 仍保持在 user 插件边界内，
 	// 通过专用权限码和显式路由声明治理入口，不把该语义扩散到 core。
@@ -507,7 +548,7 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 			authSvc.cookies.clearRefreshCookie(ginCtx)
 		}
 
-		ginCtx.Status(http.StatusNoContent)
+		httpx.WriteSuccess[any](ginCtx, http.StatusOK, nil)
 	})
 
 	return nil
@@ -657,13 +698,19 @@ func parseSessionListOptions(rawLimit string) (sessionListOptions, error) {
 func mapAuthError(err error) (int, string) {
 	switch {
 	case errors.Is(err, pluginapi.ErrUnauthenticated):
-		return http.StatusUnauthorized, "auth.missing_actor"
+		return http.StatusUnauthorized, "auth.token_missing"
 	case errors.Is(err, errInvalidLoginCredentials):
-		return http.StatusUnauthorized, "auth.invalid_credentials"
+		return http.StatusBadRequest, "auth.invalid_credentials"
+	case errors.Is(err, errRefreshTokenRequired):
+		return http.StatusUnauthorized, "auth.token_missing"
+	case errors.Is(err, errExpiredRefreshToken):
+		return http.StatusUnauthorized, "auth.token_expired"
+	case errors.Is(err, errInvalidRefreshToken):
+		return http.StatusUnauthorized, "auth.token_invalid"
 	case errors.Is(err, errSessionNotFound):
 		return http.StatusNotFound, "auth.session_not_found"
 	case errors.Is(err, errRefreshSessionFailed):
-		return http.StatusUnauthorized, "auth.invalid_refresh_session"
+		return http.StatusUnauthorized, "auth.token_invalid"
 	default:
 		return http.StatusInternalServerError, "common.internal_error"
 	}

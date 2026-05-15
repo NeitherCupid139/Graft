@@ -29,4 +29,10 @@ type User struct {
 type UserRepository interface {
 	// GetByID 按 ID 返回单个用户记录，未命中时返回 ErrUserNotFound。
 	GetByID(ctx context.Context, id uint64) (User, error)
+
+	// List 返回当前稳定排序下的用户列表快照。
+	//
+	// 当前 MVP 只要求最小只读列表能力，供真实 `/api/users` 页面接线使用；
+	// 如需筛选、分页或更宽字段面，应在确认插件真实需求后再显式扩展。
+	List(ctx context.Context) ([]User, error)
 }

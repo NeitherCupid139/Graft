@@ -31,6 +31,31 @@ import (
 	"graft/server/plugins/rbac"
 )
 
+type successEnvelope[T any] struct {
+	Success bool   `json:"success"`
+	Code    string `json:"code"`
+	Message string `json:"message"`
+	TraceID string `json:"traceId"`
+	Data    T      `json:"data"`
+}
+
+func decodeSuccessData[T any](t *testing.T, recorder *httptest.ResponseRecorder) T {
+	t.Helper()
+
+	var payload successEnvelope[T]
+	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode success envelope: %v", err)
+	}
+	if !payload.Success || payload.Code != "OK" || payload.TraceID == "" {
+		t.Fatalf("expected stable success envelope, got %#v", payload)
+	}
+	if recorder.Header().Get(httpx.RequestIDHeader) != payload.TraceID {
+		t.Fatalf("expected response header trace id to match payload, got header=%q payload=%#v", recorder.Header().Get(httpx.RequestIDHeader), payload)
+	}
+
+	return payload.Data
+}
+
 // pluginTestStoreFactory 为插件路由测试提供最小仓储装配。
 type pluginTestStoreFactory struct {
 	audit       store.AuditRepository
@@ -233,6 +258,7 @@ func (r *pluginTestAuthRepository) RotateRefreshSession(_ context.Context, input
 // pluginTestUserRepository 为插件路由测试收敛最小用户读取能力。
 type pluginTestUserRepository struct {
 	getByID func(ctx context.Context, id uint64) (store.User, error)
+	list    func(ctx context.Context) ([]store.User, error)
 }
 
 func (r pluginTestUserRepository) GetByID(ctx context.Context, id uint64) (store.User, error) {
@@ -241,6 +267,14 @@ func (r pluginTestUserRepository) GetByID(ctx context.Context, id uint64) (store
 	}
 
 	return r.getByID(ctx, id)
+}
+
+func (r pluginTestUserRepository) List(ctx context.Context) ([]store.User, error) {
+	if r.list == nil {
+		return []store.User{}, nil
+	}
+
+	return r.list(ctx)
 }
 
 // pluginTestRBACRepository 为插件路由测试模拟最小权限读取结果。
@@ -507,12 +541,100 @@ func TestUserRouteReturnsSummary(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
 	}
 
-	var payload pluginapi.UserSummary
+	payload := decodeSuccessData[pluginapi.UserSummary](t, recorder)
+	if payload.ID != 7 || payload.Username != "alice" || payload.Display != "Alice" {
+		t.Fatalf("expected stable user summary payload, got %#v", payload)
+	}
+}
+
+// TestUserListRouteReturnsStableItems 验证用户列表路由会返回真实后端最小列表
+// DTO，供 web `/users` 页面摆脱 demo 数据源。
+func TestUserListRouteReturnsStableItems(t *testing.T) {
+	authRepo := &pluginTestAuthRepository{}
+	createdAt := time.Date(2026, time.May, 15, 8, 0, 0, 0, time.UTC)
+	updatedAt := createdAt.Add(2 * time.Hour)
+	_, engine := newPluginTestContext(t, pluginTestUserRepository{
+		getByID: func(context.Context, uint64) (store.User, error) {
+			return store.User{
+				ID:        7,
+				Username:  "alice",
+				Display:   "Alice",
+				CreatedAt: createdAt,
+				UpdatedAt: updatedAt,
+			}, nil
+		},
+		list: func(context.Context) ([]store.User, error) {
+			return []store.User{
+				{
+					ID:        7,
+					Username:  "alice",
+					Display:   "Alice",
+					CreatedAt: createdAt,
+					UpdatedAt: updatedAt,
+				},
+				{
+					ID:        8,
+					Username:  "bob",
+					Display:   "Bob",
+					CreatedAt: createdAt.Add(time.Hour),
+					UpdatedAt: updatedAt.Add(time.Hour),
+				},
+			}, nil
+		},
+	}, authRepo)
+
+	recorder := httptest.NewRecorder()
+	engine.ServeHTTP(recorder, newAuthorizedRequestForUser(t, "/api/users", authRepo, 7))
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+
+	payload := decodeSuccessData[userListResponse](t, recorder)
+	if len(payload.Items) != 2 {
+		t.Fatalf("expected two list items, got %#v", payload.Items)
+	}
+	if payload.Items[0].ID != 7 || payload.Items[0].Username != "alice" || payload.Items[0].Display != "Alice" {
+		t.Fatalf("expected first stable user list item, got %#v", payload.Items[0])
+	}
+	if payload.Items[0].CreatedAt != createdAt.Format(time.RFC3339) || payload.Items[0].UpdatedAt != updatedAt.Format(time.RFC3339) {
+		t.Fatalf("expected RFC3339 timestamps, got %#v", payload.Items[0])
+	}
+}
+
+// TestUserListRouteReturnsInternalErrorContract 验证用户列表仓储失败时仍返回统一本地化错误契约。
+func TestUserListRouteReturnsInternalErrorContract(t *testing.T) {
+	authRepo := &pluginTestAuthRepository{}
+	_, engine := newPluginTestContext(t, pluginTestUserRepository{
+		getByID: func(context.Context, uint64) (store.User, error) {
+			return store.User{
+				ID:        7,
+				Username:  "alice",
+				Display:   "Alice",
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			}, nil
+		},
+		list: func(context.Context) ([]store.User, error) {
+			return nil, errors.New("boom")
+		},
+	}, authRepo)
+
+	recorder := httptest.NewRecorder()
+	request := newAuthorizedRequestForUser(t, "/api/users", authRepo, 7)
+	request.Header.Set(i18n.LocaleHeader, "en-US")
+	engine.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, recorder.Code)
+	}
+
+	var payload httpx.ErrorResponse
 	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if payload.ID != 7 || payload.Username != "alice" || payload.Display != "Alice" {
-		t.Fatalf("expected stable user summary payload, got %#v", payload)
+	if payload.MessageKey != "common.internal_error" || payload.Locale != "en-US" {
+		t.Fatalf("expected localized internal error payload, got %#v", payload)
 	}
 }
 
@@ -533,7 +655,7 @@ func TestUserRouteRequiresPermissionMiddleware(t *testing.T) {
 	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if payload.MessageKey != "auth.missing_actor" {
+	if payload.MessageKey != "auth.token_missing" || payload.Code != "AUTH_TOKEN_MISSING" {
 		t.Fatalf("expected permission middleware payload, got %#v", payload)
 	}
 }
@@ -555,7 +677,7 @@ func TestBootstrapRouteRequiresAuthenticatedActor(t *testing.T) {
 	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if payload.MessageKey != "auth.missing_actor" {
+	if payload.MessageKey != "auth.token_missing" || payload.Code != "AUTH_TOKEN_MISSING" {
 		t.Fatalf("expected missing actor payload, got %#v", payload)
 	}
 }
@@ -608,10 +730,7 @@ func TestBootstrapRouteReturnsFilteredContract(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
 	}
 
-	var payload bootstrapResponse
-	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
+	payload := decodeSuccessData[bootstrapResponse](t, recorder)
 	if payload.User.ID != 7 || payload.User.Username != "alice" || payload.User.DisplayName != "Alice" {
 		t.Fatalf("expected current user summary, got %#v", payload.User)
 	}
@@ -819,8 +938,8 @@ func TestUserRouteRejectsInactiveSession(t *testing.T) {
 			if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
 				t.Fatalf("decode response: %v", err)
 			}
-			if payload.MessageKey != "auth.missing_actor" || payload.Locale != "en-US" {
-				t.Fatalf("expected missing actor payload, got %#v", payload)
+			if payload.MessageKey != "auth.token_invalid" || payload.Code != "AUTH_TOKEN_INVALID" || payload.Locale != "en-US" {
+				t.Fatalf("expected invalid token payload, got %#v", payload)
 			}
 		})
 	}
@@ -873,10 +992,7 @@ func TestLoginRouteReturnsTokenAndCurrentUserSummary(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
 	}
 
-	var payload loginResponse
-	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
+	payload := decodeSuccessData[loginResponse](t, recorder)
 	if payload.AccessToken == "" {
 		t.Fatal("expected access token in login response")
 	}
@@ -971,10 +1087,7 @@ func TestRefreshRouteRotatesSessionAndReturnsNewAccessToken(t *testing.T) {
 		t.Fatalf("expected refresh status %d, got %d", http.StatusOK, refreshRecorder.Code)
 	}
 
-	var payload loginResponse
-	if err := json.NewDecoder(refreshRecorder.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode refresh response: %v", err)
-	}
+	payload := decodeSuccessData[loginResponse](t, refreshRecorder)
 	if payload.AccessToken == "" || payload.ExpiresAt.IsZero() {
 		t.Fatalf("expected rotated access token payload, got %#v", payload)
 	}
@@ -1054,7 +1167,7 @@ func TestRefreshRouteRejectsReusedRefreshCookie(t *testing.T) {
 	if err := json.NewDecoder(reuseRecorder.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode reused refresh response: %v", err)
 	}
-	if payload.MessageKey != "auth.invalid_refresh_session" || payload.Locale != "en-US" {
+	if payload.MessageKey != "auth.token_invalid" || payload.Code != "AUTH_TOKEN_INVALID" || payload.Locale != "en-US" {
 		t.Fatalf("expected invalid refresh payload for reused cookie, got %#v", payload)
 	}
 }
@@ -1077,8 +1190,8 @@ func TestRefreshRouteRejectsMissingCookie(t *testing.T) {
 	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if payload.MessageKey != "auth.invalid_refresh_session" || payload.Locale != "en-US" {
-		t.Fatalf("expected invalid refresh payload, got %#v", payload)
+	if payload.MessageKey != "auth.token_missing" || payload.Code != "AUTH_TOKEN_MISSING" || payload.Locale != "en-US" {
+		t.Fatalf("expected missing refresh token payload, got %#v", payload)
 	}
 }
 
@@ -1198,8 +1311,11 @@ func TestLogoutRouteRevokesCurrentRefreshSession(t *testing.T) {
 	logoutRequest.AddCookie(cookies[0])
 	engine.ServeHTTP(logoutRecorder, logoutRequest)
 
-	if logoutRecorder.Code != http.StatusNoContent {
-		t.Fatalf("expected logout status %d, got %d", http.StatusNoContent, logoutRecorder.Code)
+	if logoutRecorder.Code != http.StatusOK {
+		t.Fatalf("expected logout status %d, got %d", http.StatusOK, logoutRecorder.Code)
+	}
+	if payload := decodeSuccessData[any](t, logoutRecorder); payload != nil {
+		t.Fatalf("expected logout success payload to be nil, got %#v", payload)
 	}
 
 	session, err := authRepo.GetRefreshSessionByTokenID(context.Background(), claims.TokenID)
@@ -1237,8 +1353,8 @@ func TestLogoutRouteRejectsMissingCookie(t *testing.T) {
 	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if payload.MessageKey != "auth.invalid_refresh_session" || payload.Locale != "en-US" {
-		t.Fatalf("expected invalid refresh payload, got %#v", payload)
+	if payload.MessageKey != "auth.token_missing" || payload.Code != "AUTH_TOKEN_MISSING" || payload.Locale != "en-US" {
+		t.Fatalf("expected missing refresh payload, got %#v", payload)
 	}
 }
 
@@ -1295,10 +1411,7 @@ func TestRevokeAllSessionsRouteRevokesCurrentUserSessions(t *testing.T) {
 		t.Fatalf("expected login status %d, got %d", http.StatusOK, loginRecorder.Code)
 	}
 
-	var loginPayload loginResponse
-	if err := json.NewDecoder(loginRecorder.Body).Decode(&loginPayload); err != nil {
-		t.Fatalf("decode login response: %v", err)
-	}
+	loginPayload := decodeSuccessData[loginResponse](t, loginRecorder)
 
 	loginCookies := loginRecorder.Result().Cookies()
 	if len(loginCookies) == 0 {
@@ -1326,8 +1439,11 @@ func TestRevokeAllSessionsRouteRevokesCurrentUserSessions(t *testing.T) {
 	revokeRequest.AddCookie(loginCookies[0])
 	engine.ServeHTTP(revokeRecorder, revokeRequest)
 
-	if revokeRecorder.Code != http.StatusNoContent {
-		t.Fatalf("expected revoke-all status %d, got %d", http.StatusNoContent, revokeRecorder.Code)
+	if revokeRecorder.Code != http.StatusOK {
+		t.Fatalf("expected revoke-all status %d, got %d", http.StatusOK, revokeRecorder.Code)
+	}
+	if payload := decodeSuccessData[any](t, revokeRecorder); payload != nil {
+		t.Fatalf("expected revoke-all success payload to be nil, got %#v", payload)
 	}
 
 	for _, tokenID := range []string{currentClaims.TokenID, secondarySessionID} {
@@ -1370,8 +1486,8 @@ func TestRevokeAllSessionsRouteRevokesCurrentUserSessions(t *testing.T) {
 	if err := json.NewDecoder(protectedRecorder.Body).Decode(&protectedPayload); err != nil {
 		t.Fatalf("decode protected request response: %v", err)
 	}
-	if protectedPayload.MessageKey != "auth.missing_actor" || protectedPayload.Locale != "en-US" {
-		t.Fatalf("expected missing actor payload after revoke-all, got %#v", protectedPayload)
+	if protectedPayload.MessageKey != "auth.token_invalid" || protectedPayload.Code != "AUTH_TOKEN_INVALID" || protectedPayload.Locale != "en-US" {
+		t.Fatalf("expected invalid token payload after revoke-all, got %#v", protectedPayload)
 	}
 
 	refreshRecorder := httptest.NewRecorder()
@@ -1388,7 +1504,7 @@ func TestRevokeAllSessionsRouteRevokesCurrentUserSessions(t *testing.T) {
 	if err := json.NewDecoder(refreshRecorder.Body).Decode(&refreshPayload); err != nil {
 		t.Fatalf("decode refresh response after revoke-all: %v", err)
 	}
-	if refreshPayload.MessageKey != "auth.invalid_refresh_session" || refreshPayload.Locale != "en-US" {
+	if refreshPayload.MessageKey != "auth.token_invalid" || refreshPayload.Code != "AUTH_TOKEN_INVALID" || refreshPayload.Locale != "en-US" {
 		t.Fatalf("expected invalid refresh payload after revoke-all, got %#v", refreshPayload)
 	}
 }
@@ -1411,7 +1527,7 @@ func TestRevokeAllSessionsRouteRequiresAuthenticatedActor(t *testing.T) {
 	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if payload.MessageKey != "auth.missing_actor" || payload.Locale != "en-US" {
+	if payload.MessageKey != "auth.token_missing" || payload.Code != "AUTH_TOKEN_MISSING" || payload.Locale != "en-US" {
 		t.Fatalf("expected missing actor payload, got %#v", payload)
 	}
 }
@@ -1444,8 +1560,11 @@ func TestRevokeOtherSessionsRouteRevokesNonCurrentSessions(t *testing.T) {
 	request := newAuthorizedRequestForSessionWithMethod(t, http.MethodPost, "/api/auth/sessions/revoke-others", 7, currentSessionID)
 	engine.ServeHTTP(recorder, request)
 
-	if recorder.Code != http.StatusNoContent {
-		t.Fatalf("expected status %d, got %d", http.StatusNoContent, recorder.Code)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if payload := decodeSuccessData[any](t, recorder); payload != nil {
+		t.Fatalf("expected revoke-others success payload to be nil, got %#v", payload)
 	}
 
 	currentSession, err := authRepo.GetRefreshSessionByTokenID(context.Background(), currentSessionID)
@@ -1518,8 +1637,11 @@ func TestRevokeOtherSessionsRouteIgnoresAlreadyRevokedRaces(t *testing.T) {
 	request := newAuthorizedRequestForSessionWithMethod(t, http.MethodPost, "/api/auth/sessions/revoke-others", 7, currentSessionID)
 	engine.ServeHTTP(recorder, request)
 
-	if recorder.Code != http.StatusNoContent {
-		t.Fatalf("expected status %d, got %d", http.StatusNoContent, recorder.Code)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if payload := decodeSuccessData[any](t, recorder); payload != nil {
+		t.Fatalf("expected revoke-others success payload to be nil, got %#v", payload)
 	}
 
 	currentSession, err := baseRepo.GetRefreshSessionByTokenID(context.Background(), currentSessionID)
@@ -1567,7 +1689,7 @@ func TestRevokeOtherSessionsRouteRequiresAuthenticatedActor(t *testing.T) {
 	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if payload.MessageKey != "auth.missing_actor" || payload.Locale != "en-US" {
+	if payload.MessageKey != "auth.token_missing" || payload.Code != "AUTH_TOKEN_MISSING" || payload.Locale != "en-US" {
 		t.Fatalf("expected missing actor payload, got %#v", payload)
 	}
 }
@@ -1591,8 +1713,11 @@ func TestRevokeOtherSessionsRouteAllowsOnlyCurrentSession(t *testing.T) {
 	request := newAuthorizedRequestForSessionWithMethod(t, http.MethodPost, "/api/auth/sessions/revoke-others", 7, currentSessionID)
 	engine.ServeHTTP(recorder, request)
 
-	if recorder.Code != http.StatusNoContent {
-		t.Fatalf("expected status %d, got %d", http.StatusNoContent, recorder.Code)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if payload := decodeSuccessData[any](t, recorder); payload != nil {
+		t.Fatalf("expected revoke-others success payload to be nil, got %#v", payload)
 	}
 
 	currentSession, err := authRepo.GetRefreshSessionByTokenID(context.Background(), currentSessionID)
@@ -1645,10 +1770,7 @@ func TestListCurrentUserSessionsRouteReturnsActiveSessions(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
 	}
 
-	var payload []sessionSummary
-	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
+	payload := decodeSuccessData[[]sessionSummary](t, recorder)
 	if len(payload) != 2 {
 		t.Fatalf("expected two active sessions, got %#v", payload)
 	}
@@ -1692,10 +1814,7 @@ func TestListCurrentUserSessionsRouteAppliesLimit(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
 	}
 
-	var payload []sessionSummary
-	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
+	payload := decodeSuccessData[[]sessionSummary](t, recorder)
 	if len(payload) != 2 {
 		t.Fatalf("expected two sessions after limit, got %#v", payload)
 	}
@@ -1761,7 +1880,7 @@ func TestListCurrentUserSessionsRouteRequiresAuthenticatedActor(t *testing.T) {
 	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if payload.MessageKey != "auth.missing_actor" || payload.Locale != "en-US" {
+	if payload.MessageKey != "auth.token_missing" || payload.Code != "AUTH_TOKEN_MISSING" || payload.Locale != "en-US" {
 		t.Fatalf("expected missing actor payload, got %#v", payload)
 	}
 }
@@ -1809,10 +1928,7 @@ func TestAdminListUserSessionsRouteReturnsActiveSessions(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
 	}
 
-	var payload []sessionSummary
-	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
+	payload := decodeSuccessData[[]sessionSummary](t, recorder)
 	if len(payload) != 2 {
 		t.Fatalf("expected two active target-user sessions, got %#v", payload)
 	}
@@ -1863,10 +1979,7 @@ func TestAdminListUserSessionsRouteAppliesLimit(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
 	}
 
-	var payload []sessionSummary
-	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
+	payload := decodeSuccessData[[]sessionSummary](t, recorder)
 	if len(payload) != 2 {
 		t.Fatalf("expected two sessions after limit, got %#v", payload)
 	}
@@ -1950,7 +2063,7 @@ func TestAdminListUserSessionsRouteRequiresDedicatedPermission(t *testing.T) {
 	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if payload.MessageKey != "auth.missing_permission" || payload.Locale != "en-US" {
+	if payload.MessageKey != "auth.forbidden" || payload.Code != "AUTH_FORBIDDEN" || payload.Locale != "en-US" {
 		t.Fatalf("expected missing permission payload, got %#v", payload)
 	}
 	if payload.Details["permission"] != "user.session.read" {
@@ -2015,8 +2128,11 @@ func TestRevokeCurrentUserSessionRouteRevokesOnlyTargetSession(t *testing.T) {
 	request := newAuthorizedRequestForSessionWithMethod(t, http.MethodPost, "/api/auth/sessions/"+targetSessionID+"/revoke", 7, currentSessionID)
 	engine.ServeHTTP(recorder, request)
 
-	if recorder.Code != http.StatusNoContent {
-		t.Fatalf("expected status %d, got %d", http.StatusNoContent, recorder.Code)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if payload := decodeSuccessData[any](t, recorder); payload != nil {
+		t.Fatalf("expected current-session revoke payload to be nil, got %#v", payload)
 	}
 
 	targetSession, err := authRepo.GetRefreshSessionByTokenID(context.Background(), targetSessionID)
@@ -2073,10 +2189,7 @@ func TestRevokeCurrentUserSessionRouteClearsCookieWhenRevokingCurrentSession(t *
 		t.Fatalf("expected login status %d, got %d", http.StatusOK, loginRecorder.Code)
 	}
 
-	var loginPayload loginResponse
-	if err := json.NewDecoder(loginRecorder.Body).Decode(&loginPayload); err != nil {
-		t.Fatalf("decode login response: %v", err)
-	}
+	loginPayload := decodeSuccessData[loginResponse](t, loginRecorder)
 
 	loginCookies := loginRecorder.Result().Cookies()
 	if len(loginCookies) == 0 {
@@ -2101,8 +2214,11 @@ func TestRevokeCurrentUserSessionRouteClearsCookieWhenRevokingCurrentSession(t *
 	revokeRequest.AddCookie(loginCookies[0])
 	engine.ServeHTTP(revokeRecorder, revokeRequest)
 
-	if revokeRecorder.Code != http.StatusNoContent {
-		t.Fatalf("expected status %d, got %d", http.StatusNoContent, revokeRecorder.Code)
+	if revokeRecorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, revokeRecorder.Code)
+	}
+	if payload := decodeSuccessData[any](t, revokeRecorder); payload != nil {
+		t.Fatalf("expected current-session revoke payload to be nil, got %#v", payload)
 	}
 
 	currentSession, err := authRepo.GetRefreshSessionByTokenID(context.Background(), currentClaims.TokenID)
@@ -2183,8 +2299,11 @@ func TestAdminRevokeUserSessionRouteRevokesOnlyTargetSession(t *testing.T) {
 	request := newAuthorizedRequestForSessionWithMethod(t, http.MethodPost, "/api/users/7/sessions/"+targetSessionID+"/revoke", 9, adminSessionID)
 	engine.ServeHTTP(recorder, request)
 
-	if recorder.Code != http.StatusNoContent {
-		t.Fatalf("expected status %d, got %d", http.StatusNoContent, recorder.Code)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if payload := decodeSuccessData[any](t, recorder); payload != nil {
+		t.Fatalf("expected admin revoke payload to be nil, got %#v", payload)
 	}
 
 	targetSession, err := authRepo.GetRefreshSessionByTokenID(context.Background(), targetSessionID)
@@ -2245,10 +2364,7 @@ func TestAdminRevokeUserSessionRouteClearsCurrentCookieWhenRevokingSelfCurrentSe
 		t.Fatalf("expected login status %d, got %d", http.StatusOK, loginRecorder.Code)
 	}
 
-	var loginPayload loginResponse
-	if err := json.NewDecoder(loginRecorder.Body).Decode(&loginPayload); err != nil {
-		t.Fatalf("decode login response: %v", err)
-	}
+	loginPayload := decodeSuccessData[loginResponse](t, loginRecorder)
 
 	loginCookies := loginRecorder.Result().Cookies()
 	if len(loginCookies) == 0 {
@@ -2273,8 +2389,11 @@ func TestAdminRevokeUserSessionRouteClearsCurrentCookieWhenRevokingSelfCurrentSe
 	revokeRequest.AddCookie(loginCookies[0])
 	engine.ServeHTTP(revokeRecorder, revokeRequest)
 
-	if revokeRecorder.Code != http.StatusNoContent {
-		t.Fatalf("expected status %d, got %d", http.StatusNoContent, revokeRecorder.Code)
+	if revokeRecorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, revokeRecorder.Code)
+	}
+	if payload := decodeSuccessData[any](t, revokeRecorder); payload != nil {
+		t.Fatalf("expected admin revoke payload to be nil, got %#v", payload)
 	}
 
 	responseCookies := revokeRecorder.Result().Cookies()
@@ -2370,8 +2489,11 @@ func TestAdminRevokeUserSessionsRouteRevokesTargetUserSessions(t *testing.T) {
 	request.Header.Set(i18n.LocaleHeader, "en-US")
 	engine.ServeHTTP(recorder, request)
 
-	if recorder.Code != http.StatusNoContent {
-		t.Fatalf("expected status %d, got %d", http.StatusNoContent, recorder.Code)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if payload := decodeSuccessData[any](t, recorder); payload != nil {
+		t.Fatalf("expected admin revoke-all payload to be nil, got %#v", payload)
 	}
 
 	for _, tokenID := range []string{targetSessionA, targetSessionB} {
@@ -2438,10 +2560,7 @@ func TestAdminRevokeUserSessionsRouteClearsCurrentCookieWhenRevokingSelf(t *test
 		t.Fatalf("expected login status %d, got %d", http.StatusOK, loginRecorder.Code)
 	}
 
-	var loginPayload loginResponse
-	if err := json.NewDecoder(loginRecorder.Body).Decode(&loginPayload); err != nil {
-		t.Fatalf("decode login response: %v", err)
-	}
+	loginPayload := decodeSuccessData[loginResponse](t, loginRecorder)
 
 	loginCookies := loginRecorder.Result().Cookies()
 	if len(loginCookies) == 0 {
@@ -2454,8 +2573,11 @@ func TestAdminRevokeUserSessionsRouteClearsCurrentCookieWhenRevokingSelf(t *test
 	revokeRequest.AddCookie(loginCookies[0])
 	engine.ServeHTTP(revokeRecorder, revokeRequest)
 
-	if revokeRecorder.Code != http.StatusNoContent {
-		t.Fatalf("expected status %d, got %d", http.StatusNoContent, revokeRecorder.Code)
+	if revokeRecorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, revokeRecorder.Code)
+	}
+	if payload := decodeSuccessData[any](t, revokeRecorder); payload != nil {
+		t.Fatalf("expected admin self revoke-all payload to be nil, got %#v", payload)
 	}
 
 	responseCookies := revokeRecorder.Result().Cookies()
@@ -2493,7 +2615,7 @@ func TestAdminRevokeUserSessionsRouteRequiresDedicatedPermission(t *testing.T) {
 	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if payload.MessageKey != "auth.missing_permission" || payload.Locale != "en-US" {
+	if payload.MessageKey != "auth.forbidden" || payload.Code != "AUTH_FORBIDDEN" || payload.Locale != "en-US" {
 		t.Fatalf("expected missing permission payload, got %#v", payload)
 	}
 	if payload.Details["permission"] != "user.session.revoke" {
@@ -2579,15 +2701,15 @@ func TestLoginRouteRejectsInvalidCredentials(t *testing.T) {
 	request.Header.Set(i18n.LocaleHeader, "en-US")
 	engine.ServeHTTP(recorder, request)
 
-	if recorder.Code != http.StatusUnauthorized {
-		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, recorder.Code)
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, recorder.Code)
 	}
 
 	var payload httpx.ErrorResponse
 	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if payload.MessageKey != "auth.invalid_credentials" || payload.Locale != "en-US" {
+	if payload.MessageKey != "auth.invalid_credentials" || payload.Code != "AUTH_INVALID_CREDENTIALS" || payload.Locale != "en-US" {
 		t.Fatalf("expected invalid credentials payload, got %#v", payload)
 	}
 }

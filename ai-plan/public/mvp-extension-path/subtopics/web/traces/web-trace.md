@@ -178,6 +178,46 @@
 - Kept the cleanup scoped to local IDE metadata plus active-topic recovery notes so future recovery does not mistake the
   reference starter tree for repository history owned by `Graft`.
 
+## 2026-05-15 real `/users` page hookup
+
+- Replaced the old starter/profile-style `/users` page content with a minimal real TDesign table that consumes
+  `GET /api/users` and shows the current backend-driven user list snapshot.
+- Removed the page-local demo constants and chart dataset that previously made `/users` look connected while still
+  rendering static starter data.
+- Removed the leftover static `/user/index` route module and repointed the header dropdown entry to `/users`, so the
+  shell no longer exposes two competing user-page entry paths.
+- Revalidated the focused slice with `cd web && bun run typecheck` before the full completion-state check.
+
+## 2026-05-15 login console error cleanup
+
+- Split the frontend API host semantics into two explicit roles: browser requests stay on relative `/api/...` paths in
+  proxy mode, while `VITE_API_TARGET` now serves only as the Vite development proxy target or the direct backend host
+  when proxy mode is disabled.
+- Removed the login-page `vue-i18n` compilation noise by replacing the copyright string's literal `@` token with a
+  plain text variant, so the shell no longer trips linked-message parsing on first render.
+- Kept the change scoped to the shared request/env layer and locale resources, preserving the current
+  `auth + refresh + bootstrap` contract and route-guard flow.
+
+## 2026-05-15 frontend env template alignment
+
+- Stopped tracking the real `web/.env.development` file and aligned the frontend env workflow with the repository's
+  existing server-side convention: keep `web/.env.example` in Git as the shared template, while local
+  `web/.env.*` runtime files remain ignored.
+- Updated the repository README and active web recovery notes so contributors now have one explicit path for local web
+  startup and do not need to infer whether machine-specific proxy targets belong in version control.
+
+## 2026-05-15 auth response convergence
+
+- Completed the first frontend-side auth response convergence pass so the shared request layer now consumes the stable
+  `AUTH_*` code contract instead of falling back to localized message text.
+- Added direct Vitest coverage for `request.ts` and `user` store auth recovery behavior, including
+  `AUTH_TOKEN_EXPIRED -> refresh + replay`, `AUTH_TOKEN_INVALID / AUTH_TOKEN_MISSING -> single cleanup exit + login redirect`,
+  and the rule that refresh must not recurse on its own failure path.
+- Replaced the earlier request-layer dynamic import of `store/index.ts` with an explicit auth session bridge registered
+  by the `user` store, removing the Vite dynamic-import warning and keeping request/store auth synchronization explicit.
+- Revalidated the slice with focused Vitest + typecheck, then one full host Windows Bun `bun run check` pass with zero
+  unresolved warnings.
+
 ## 2026-05-15 Follow-up Next Step
 
 - Continue reconnecting the starter shell to the real backend `auth + current user + menu + permission + locale`
@@ -187,3 +227,15 @@
   maintenance has materially failed under the current `Pinia + computed + composable` approach.
 - When the logger slice is scheduled for implementation, land it as a focused frontend infrastructure change first and
   keep business modules on the `createLogger` boundary rather than binding them directly to `consola` or UI feedback.
+
+## 2026-05-15 PR #10 review follow-up
+
+- Applied the remaining CodeRabbit follow-up fixes for the current PR: refreshed the visible copyright year,
+  kept the user-page style deep selector on the Stylelint-supported `:deep` syntax, and added an explicit request
+  sequence assertion so `AUTH_TOKEN_INVALID / AUTH_TOKEN_MISSING` cannot silently regain a refresh path.
+- Applied the missed `greptile-apps[bot]` follow-up fixes for the same PR: moved the `/users` page copy onto i18n
+  keys, replaced literal backtick display with semantic `<code>` markup, prevented duplicate client-session cleanup
+  when refresh fails on invalid or missing auth state, and blocked `ensureBootstrap` from issuing a second refresh
+  after the session has already been cleared.
+- Revalidated the updated slice with the required host Windows Bun full frontend chain and kept the change scoped to
+  the existing `web` recovery path.

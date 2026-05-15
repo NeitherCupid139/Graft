@@ -196,8 +196,12 @@ func (s authService) RefreshWithRotation(ctx context.Context, refreshToken strin
 	claims, err := s.refreshTokens.Parse(refreshToken)
 	if err != nil {
 		switch {
-		case errors.Is(err, errExpiredRefreshToken), errors.Is(err, errInvalidRefreshToken), errors.Is(err, errRefreshTokenRequired):
-			return refreshResult{}, errRefreshSessionFailed
+		case errors.Is(err, errRefreshTokenRequired):
+			return refreshResult{}, errRefreshTokenRequired
+		case errors.Is(err, errExpiredRefreshToken):
+			return refreshResult{}, errExpiredRefreshToken
+		case errors.Is(err, errInvalidRefreshToken):
+			return refreshResult{}, errInvalidRefreshToken
 		default:
 			return refreshResult{}, err
 		}
@@ -206,7 +210,7 @@ func (s authService) RefreshWithRotation(ctx context.Context, refreshToken strin
 	record, err := s.users.GetByID(ctx, claims.UserID)
 	if err != nil {
 		if errors.Is(err, store.ErrUserNotFound) {
-			return refreshResult{}, errRefreshSessionFailed
+			return refreshResult{}, errInvalidRefreshToken
 		}
 		return refreshResult{}, err
 	}
@@ -222,7 +226,7 @@ func (s authService) RefreshWithRotation(ctx context.Context, refreshToken strin
 	})
 	if err != nil {
 		if errors.Is(err, store.ErrRefreshSessionNotFound) {
-			return refreshResult{}, errRefreshSessionFailed
+			return refreshResult{}, errInvalidRefreshToken
 		}
 		return refreshResult{}, err
 	}
@@ -273,8 +277,12 @@ func (s authService) LogoutCurrentSession(ctx context.Context, refreshToken stri
 	claims, err := s.refreshTokens.Parse(refreshToken)
 	if err != nil {
 		switch {
-		case errors.Is(err, errExpiredRefreshToken), errors.Is(err, errInvalidRefreshToken), errors.Is(err, errRefreshTokenRequired):
-			return errRefreshSessionFailed
+		case errors.Is(err, errRefreshTokenRequired):
+			return errRefreshTokenRequired
+		case errors.Is(err, errExpiredRefreshToken):
+			return errExpiredRefreshToken
+		case errors.Is(err, errInvalidRefreshToken):
+			return errInvalidRefreshToken
 		default:
 			return err
 		}
@@ -283,14 +291,14 @@ func (s authService) LogoutCurrentSession(ctx context.Context, refreshToken stri
 	session, err := s.auth.GetRefreshSessionByTokenID(ctx, claims.TokenID)
 	if err != nil {
 		if errors.Is(err, store.ErrRefreshSessionNotFound) {
-			return errRefreshSessionFailed
+			return errInvalidRefreshToken
 		}
 		return err
 	}
 
 	now := s.refreshTokens.now().UTC()
 	if session.RevokedAt != nil || !session.ExpiresAt.After(now) {
-		return errRefreshSessionFailed
+		return errInvalidRefreshToken
 	}
 
 	if err := s.auth.RevokeRefreshSession(ctx, store.RevokeRefreshSessionInput{
@@ -298,7 +306,7 @@ func (s authService) LogoutCurrentSession(ctx context.Context, refreshToken stri
 		RevokedAt: now,
 	}); err != nil {
 		if errors.Is(err, store.ErrRefreshSessionNotFound) {
-			return errRefreshSessionFailed
+			return errInvalidRefreshToken
 		}
 		return err
 	}
