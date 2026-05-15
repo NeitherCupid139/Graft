@@ -15,6 +15,7 @@ import (
 	"graft/server/internal/container"
 	"graft/server/internal/cronx"
 	"graft/server/internal/database"
+	"graft/server/internal/eventbus"
 	"graft/server/internal/httpx"
 	"graft/server/internal/i18n"
 	"graft/server/internal/logger"
@@ -40,6 +41,7 @@ type Runtime struct {
 	database           *database.Resources
 	redis              *redis.Client
 	server             *httpx.Server
+	eventBus           eventbus.Bus
 	services           *container.Container
 	stores             store.Factory
 	menuRegistry       *menu.Registry
@@ -81,6 +83,7 @@ func NewRuntime(plugins ...plugin.Plugin) (*Runtime, error) {
 	}
 
 	server := httpx.NewServer()
+	eventBus := eventbus.New(runtimeLogger)
 	services := container.New()
 	stores := entstore.NewFactory(databaseResources.Client)
 	localizer := i18n.New(cfg.I18n)
@@ -96,6 +99,7 @@ func NewRuntime(plugins ...plugin.Plugin) (*Runtime, error) {
 		database:           databaseResources,
 		redis:              redisClient,
 		server:             server,
+		eventBus:           eventBus,
 		services:           services,
 		stores:             stores,
 		menuRegistry:       menuRegistry,
@@ -136,6 +140,7 @@ func (r *Runtime) Run(runCtx context.Context) error {
 		Config:             r.config,
 		Logger:             r.logger,
 		I18n:               r.i18n,
+		EventBus:           r.eventBus,
 		Redis:              r.redis,
 		Router:             r.server.Engine().Group("/api"),
 		Services:           r.services,
@@ -211,6 +216,12 @@ func (r *Runtime) registerCoreServices() error {
 
 	if err := r.services.RegisterSingleton((*i18n.Service)(nil), func(resolver container.Resolver) (any, error) {
 		return r.i18n, nil
+	}); err != nil {
+		return err
+	}
+
+	if err := r.services.RegisterSingleton((*eventbus.Bus)(nil), func(resolver container.Resolver) (any, error) {
+		return r.eventBus, nil
 	}); err != nil {
 		return err
 	}

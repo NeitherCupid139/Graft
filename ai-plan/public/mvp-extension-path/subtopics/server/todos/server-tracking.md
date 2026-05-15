@@ -17,6 +17,7 @@
 - PR #8 新一轮 AI review 跟进已补强 `RequirePermission` fail-closed 回归断言、登录用户名枚举时序收敛、登录失败日志最小化，以及 user plugin 测试仓储 receiver / session seed 稳定性问题。
 - PR #8 当前一轮 review follow-up 已修正 refresh session 轮换的提交/条件更新语义，并补齐 smoke validate 并发测试与 auth/RBAC 回归覆盖，当前恢复点无需再为已消费 refresh cookie 的重复使用行为继续返工。
 - 同一轮 review 补查确认 `httpx.RequirePermission(..., \"\")` 不应隐式依赖 RBAC 插件，基础 `Login()` 不应签发未绑定服务端 session 的孤儿 access token，以及 `revoke-others` 需要对并发已失效 session 保持幂等；这三处已进入当前跟进范围并已在本地修正。
+- `server/internal/eventbus` 最小进程内事件总线切片已落地：`Runtime` 持有并通过 `plugin.Context` 与 `container` 注入统一 `eventbus.Bus`，当前仅暴露 `Subscribe / Publish`、顺序派发、panic recover 与错误日志记录。
 - `pluginapi`、registries、store factory 与当前 auth/menu/permission/i18n 返回面，已经成为 `web` 真实契约收敛前必须谨慎冻结的后端边界。
 - 详细实现历史保留在 `subtopics/server/traces/server-trace.md`。
 
@@ -32,6 +33,9 @@
 - 本次 PR #8 AI review 跟进直接校验：
   - `cd server && go test ./internal/httpx ./plugins/user`
   - `cd server && go vet ./plugins/user`
+  - `cd server && go build ./cmd/graft`
+- 本次 event bus 切片预期直接校验：
+  - `cd server && go test ./internal/eventbus ./internal/app`
   - `cd server && go build ./cmd/graft`
 - 本次 PR #8 review follow-up 补丁直接校验：
   - `cd server && go test ./plugins/user`
@@ -51,7 +55,6 @@
 ## Immediate Next Step
 
 - 停止继续扩大会话治理宽度，按以下顺序推进 backend MVP closure：
-  1. 稳定 event bus 边界与最小事件发布/订阅能力。
-  2. 基于事件链路补齐最小 audit plugin 闭环。
-  3. 补齐 scheduler plugin、cron 注册与启动/关闭链路。
-  4. 冻结当前 `web` 需要消费的 `auth + menu + permission + locale` 契约面，并只在必要范围内收敛 DTO。
+  1. 基于当前最小 `eventbus.Bus` 接线补齐 audit plugin 闭环。
+  2. 补齐 scheduler plugin、cron 注册与启动/关闭链路。
+  3. 冻结当前 `web` 需要消费的 `auth + menu + permission + locale` 契约面，并只在必要范围内收敛 DTO。

@@ -199,8 +199,17 @@
 - Revalidated the accepted follow-up with `cd server && go test ./internal/httpx ./plugins/user`, `cd server && go vet ./plugins/user`,
   and `cd server && go build ./cmd/graft`.
 
+## 2026-05-15 event bus slice
+
+- Added `server/internal/eventbus` as the MVP-stage in-process event bus boundary, keeping the public surface limited
+  to `Subscribe / Publish`, ordered synchronous dispatch, panic recover, and error logging.
+- Wired the bus as a core runtime resource in `server/internal/app/runtime.go`, so the same `eventbus.Bus` instance is
+  held by `Runtime`, registered into the singleton container, and exposed on `plugin.Context`.
+- Added direct `server/internal/eventbus` tests for invalid subscription input, ordered delivery, error aggregation,
+  and panic recovery, plus `server/internal/app/runtime_test.go` coverage that locks the singleton registration and
+  plugin-context injection path.
+
 ## Next Step
 
-- Run `graft validate smoke` against the next disposable PostgreSQL + Redis target, then continue admin-driven session
-  validation and continue admin-preserve-current controls or richer audit-linked session governance on top of the
-  existing auth/session path.
+- Build the first minimal `audit` slice on top of the current `eventbus.Bus`, then continue with the scheduler
+  runtime/plugin closure before widening session-governance behavior again.
