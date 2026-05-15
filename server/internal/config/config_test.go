@@ -264,14 +264,66 @@ func TestLoadReadsI18nLocales(t *testing.T) {
 	}
 }
 
-// TestLoadRejectsMissingAuthSigningMaterial 验证 Load 在未显式提供签名材料时会直接失败。
-func TestLoadRejectsMissingAuthSigningMaterial(t *testing.T) {
-	restoreEnv := clearGraftEnv(t)
-	t.Cleanup(restoreEnv)
-	chdir(t, t.TempDir())
+// TestLoadAuthSigningMaterial 验证 Load 会严格校验 auth 签名材料的最小要求。
+func TestLoadAuthSigningMaterial(t *testing.T) {
+	testCases := []struct {
+		name           string
+		jwtSecret      string
+		signingKey     string
+		wantErr        string
+		wantJWTSecret  string
+		wantSigningKey string
+	}{
+		{
+			name:    "rejects when both jwt secret and signing key are missing",
+			wantErr: "GRAFT_AUTH_JWT_SECRET or GRAFT_AUTH_SIGNING_KEY is required",
+		},
+		{
+			name:          "accepts when only jwt secret exists",
+			jwtSecret:     "jwt-secret-only-for-config-load-cover",
+			wantJWTSecret: "jwt-secret-only-for-config-load-cover",
+		},
+		{
+			name:           "accepts when only signing key exists",
+			signingKey:     "signing-key-only-for-config-load-cover",
+			wantSigningKey: "signing-key-only-for-config-load-cover",
+		},
+	}
 
-	if _, err := Load(); err == nil {
-		t.Fatal("expected missing auth signing material error")
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			restoreEnv := clearGraftEnv(t)
+			t.Cleanup(restoreEnv)
+			chdir(t, t.TempDir())
+
+			if testCase.jwtSecret != "" {
+				t.Setenv("GRAFT_AUTH_JWT_SECRET", testCase.jwtSecret)
+			}
+			if testCase.signingKey != "" {
+				t.Setenv("GRAFT_AUTH_SIGNING_KEY", testCase.signingKey)
+			}
+
+			cfg, err := Load()
+			if testCase.wantErr != "" {
+				if err == nil {
+					t.Fatal("expected missing auth signing material error")
+				}
+				if !strings.Contains(err.Error(), testCase.wantErr) {
+					t.Fatalf("expected error containing %q, got %q", testCase.wantErr, err.Error())
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("load config: %v", err)
+			}
+			if cfg.Auth.JWTSecret != testCase.wantJWTSecret {
+				t.Fatalf("expected jwt secret %q, got %q", testCase.wantJWTSecret, cfg.Auth.JWTSecret)
+			}
+			if cfg.Auth.SigningKey != testCase.wantSigningKey {
+				t.Fatalf("expected signing key %q, got %q", testCase.wantSigningKey, cfg.Auth.SigningKey)
+			}
+		})
 	}
 }
 

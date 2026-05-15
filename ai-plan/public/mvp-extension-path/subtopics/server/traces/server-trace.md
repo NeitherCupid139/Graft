@@ -209,6 +209,13 @@
   and panic recovery, plus `server/internal/app/runtime_test.go` coverage that locks the singleton registration and
   plugin-context injection path.
 
+## 2026-05-15 local auth config onboarding fix
+
+- Kept `server/internal/config.Config.Validate()` strict on explicit auth signing material and did not add any dev/local fallback secret, random generation, or token-semantics change.
+- Updated `server/.env.example` with a local-only JWT signing example and a production-replacement warning so local startup guidance now matches the current config contract.
+- Tightened the root README startup section to document `working directory=server`, repository-root fallback loading of `server/.env`, the minimal `server/.env.example -> server/.env -> go run ./cmd/graft dev` flow, and the exact missing-secret error string.
+- Expanded `server/internal/config/config_test.go` with isolated auth-signing-material cases that prove missing-both fails and single-source `JWTSecret` / `SigningKey` inputs still pass without depending on a real developer environment file.
+
 ## 2026-05-15 audit slice
 
 - Added `server/internal/audit` plus the `store.AuditRepository` boundary so request-level and active audit paths can
