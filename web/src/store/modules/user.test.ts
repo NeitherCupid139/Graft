@@ -123,4 +123,23 @@ describe('useUserStore.ensureBootstrap', () => {
     expect(authApiMocks.getBootstrap).toHaveBeenCalledTimes(1);
     expect(authApiMocks.refresh).not.toHaveBeenCalled();
   });
+
+  it('does not retry refresh when bootstrap already cleared the session token', async () => {
+    const { useUserStore } = await loadUserStore();
+    const store = useUserStore();
+
+    store.token = 'stale-token';
+    authApiMocks.getBootstrap.mockImplementationOnce(async () => {
+      store.clearSessionState();
+      throw createApiRequestError(401, API_CODE.AUTH_TOKEN_EXPIRED);
+    });
+
+    await expect(store.ensureBootstrap()).rejects.toMatchObject({
+      code: API_CODE.AUTH_TOKEN_EXPIRED,
+      status: 401,
+    });
+
+    expect(authApiMocks.getBootstrap).toHaveBeenCalledTimes(1);
+    expect(authApiMocks.refresh).not.toHaveBeenCalled();
+  });
 });

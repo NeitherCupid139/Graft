@@ -788,6 +788,26 @@
       "contentList": "内容列表",
       "teamMember": "团队成员",
       "serviceProduction": "服务产品"
+    },
+    "userList": {
+      "listTitle": "用户列表",
+      "countLabel": "当前返回用户数",
+      "hint": "当前页面直接消费 GET /api/users，不再保留 starter demo 个人中心数据。",
+      "apiTitle": "接口说明",
+      "endpointLabel": "接口路径：",
+      "endpointValue": "/api/users",
+      "fieldsLabel": "字段：",
+      "fieldsValue": "id / username / display / created_at / updated_at",
+      "refresh": "刷新列表",
+      "dataTitle": "用户数据",
+      "empty": "暂无用户数据",
+      "columns": {
+        "id": "ID",
+        "username": "用户名",
+        "display": "显示名",
+        "createdAt": "创建时间",
+        "updatedAt": "更新时间"
+      }
     }
   }
 }

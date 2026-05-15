@@ -2,29 +2,35 @@
   <div class="user-page">
     <t-row :gutter="[24, 24]">
       <t-col :span="12">
-        <t-card class="summary-card" :bordered="false" title="用户列表">
+        <t-card class="summary-card" :bordered="false" :title="t('pages.userList.listTitle')">
           <div class="summary-metric">
-            <span class="summary-metric__label">当前返回用户数</span>
+            <span class="summary-metric__label">{{ t('pages.userList.countLabel') }}</span>
             <span class="summary-metric__value">{{ users.length }}</span>
           </div>
-          <div class="summary-hint">当前页面直接消费 `GET /api/users`，不再保留 starter demo 个人中心数据。</div>
+          <div class="summary-hint">{{ t('pages.userList.hint') }}</div>
         </t-card>
       </t-col>
       <t-col :span="12">
-        <t-card class="summary-card" :bordered="false" title="接口说明">
+        <t-card class="summary-card" :bordered="false" :title="t('pages.userList.apiTitle')">
           <div class="summary-meta">
-            <span>接口路径：`/api/users`</span>
-            <span>字段：`id / username / display / created_at / updated_at`</span>
+            <span
+              >{{ t('pages.userList.endpointLabel') }}<code>{{ t('pages.userList.endpointValue') }}</code></span
+            >
+            <span
+              >{{ t('pages.userList.fieldsLabel') }}<code>{{ t('pages.userList.fieldsValue') }}</code></span
+            >
           </div>
-          <t-button theme="primary" variant="outline" :loading="loading" @click="fetchUsers">刷新列表</t-button>
+          <t-button theme="primary" variant="outline" :loading="loading" @click="fetchUsers">
+            {{ t('pages.userList.refresh') }}
+          </t-button>
         </t-card>
       </t-col>
     </t-row>
 
-    <t-card class="table-card" :bordered="false" title="用户数据">
+    <t-card class="table-card" :bordered="false" :title="t('pages.userList.dataTitle')">
       <t-table row-key="id" :data="users" :columns="columns" :loading="loading" size="medium">
         <template #empty>
-          <t-empty description="暂无用户数据" />
+          <t-empty :description="t('pages.userList.empty')" />
         </template>
       </t-table>
     </t-card>
@@ -33,6 +39,7 @@
 <script setup lang="ts">
 import { MessagePlugin, type TdBaseTableProps } from 'tdesign-vue-next';
 import { computed, onMounted, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 
 import type { UserListItem } from '@/api/model/userModel';
 import { getUsers } from '@/api/user';
@@ -41,36 +48,41 @@ defineOptions({
   name: 'UsersIndex',
 });
 
+const { t, locale } = useI18n();
 const users = ref<UserListItem[]>([]);
 const loading = ref(false);
 
-const columns = computed<TdBaseTableProps['columns']>(() => [
-  {
-    title: 'ID',
-    colKey: 'id',
-    width: 100,
-  },
-  {
-    title: '用户名',
-    colKey: 'username',
-    minWidth: 180,
-  },
-  {
-    title: '显示名',
-    colKey: 'display',
-    minWidth: 180,
-  },
-  {
-    title: '创建时间',
-    colKey: 'created_at',
-    minWidth: 220,
-  },
-  {
-    title: '更新时间',
-    colKey: 'updated_at',
-    minWidth: 220,
-  },
-]);
+const columns = computed<TdBaseTableProps['columns']>(() => {
+  void locale.value;
+
+  return [
+    {
+      title: t('pages.userList.columns.id'),
+      colKey: 'id',
+      width: 100,
+    },
+    {
+      title: t('pages.userList.columns.username'),
+      colKey: 'username',
+      minWidth: 180,
+    },
+    {
+      title: t('pages.userList.columns.display'),
+      colKey: 'display',
+      minWidth: 180,
+    },
+    {
+      title: t('pages.userList.columns.createdAt'),
+      colKey: 'created_at',
+      minWidth: 220,
+    },
+    {
+      title: t('pages.userList.columns.updatedAt'),
+      colKey: 'updated_at',
+      minWidth: 220,
+    },
+  ];
+});
 
 async function fetchUsers() {
   loading.value = true;

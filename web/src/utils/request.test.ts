@@ -281,4 +281,45 @@ describe('request auth handling', () => {
     expect(mockUserStore.handleAuthFailure).toHaveBeenCalledTimes(1);
     expect(locationReplace).toHaveBeenCalledWith('/login?redirect=%2Fusers');
   });
+
+  it.each([API_CODE.AUTH_TOKEN_INVALID, API_CODE.AUTH_TOKEN_MISSING])(
+    'clears the client session only once when refresh fails with %s',
+    async (code) => {
+      const { registerAuthSessionBridge, request } = await loadRequestModule();
+      const { setAccessToken } = await import('@/utils/auth-state');
+      registerAuthSessionBridge(mockUserStore);
+      Object.assign(window.location, {
+        pathname: '/users',
+        search: '',
+        hash: '',
+      });
+
+      const callUrls: string[] = [];
+      requestHandler.mockImplementation(async (config) => {
+        callUrls.push(String(config.url));
+
+        if (config.url === '/api/users') {
+          throw createApiError(API_CODE.AUTH_TOKEN_EXPIRED, 401, 'expired', 'trace-expired');
+        }
+        if (config.url === '/api/auth/refresh') {
+          throw createApiError(code, 401, code, 'trace-refresh');
+        }
+
+        throw new Error(`unexpected request ${String(config.url)}`);
+      });
+
+      setAccessToken('stale-token');
+      localStorage.setItem('user', JSON.stringify({ token: 'stale-token' }));
+      window.history.pushState({}, '', '/users');
+
+      await expect(request.get({ url: '/api/users' })).rejects.toMatchObject({
+        code,
+        status: 401,
+      });
+
+      expect(callUrls).toEqual(['/api/users', '/api/auth/refresh']);
+      expect(mockUserStore.handleAuthFailure).toHaveBeenCalledTimes(1);
+      expect(locationReplace).toHaveBeenCalledWith('/login?redirect=%2Fusers');
+    },
+  );
 });

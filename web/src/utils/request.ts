@@ -179,7 +179,10 @@ async function tryRefreshAndReplay<T>(config: AxiosRequestConfigRetry) {
     } as RequestConfig);
     await syncAuthStateAfterRefresh(payload);
   } catch (refreshError) {
-    await clearClientSession();
+    // refresh 已经进入会话清理路径时，不再重复执行 store 侧副作用。
+    if (!isApiRequestError(refreshError) || !shouldExitToLogin(refreshError)) {
+      await clearClientSession();
+    }
     throw refreshError;
   }
 

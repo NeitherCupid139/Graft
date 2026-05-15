@@ -89,7 +89,8 @@ export const useUserStore = defineStore('user', {
       try {
         return await this.bootstrap();
       } catch (error) {
-        if (!isRefreshableAuthError(error)) {
+        // 如果会话已在请求层失败路径中被清空，这里不要再发第二次 refresh。
+        if (!isRefreshableAuthError(error) || !this.token) {
           throw error;
         }
 

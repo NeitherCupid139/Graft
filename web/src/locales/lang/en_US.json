@@ -786,6 +786,26 @@
       "contentList": "Content List",
       "teamMember": "Team Member",
       "serviceProduction": "Service Product"
+    },
+    "userList": {
+      "listTitle": "User List",
+      "countLabel": "Current user count",
+      "hint": "This page consumes GET /api/users directly and no longer keeps starter demo profile data.",
+      "apiTitle": "API Details",
+      "endpointLabel": "Endpoint: ",
+      "endpointValue": "/api/users",
+      "fieldsLabel": "Fields: ",
+      "fieldsValue": "id / username / display / created_at / updated_at",
+      "refresh": "Refresh List",
+      "dataTitle": "User Data",
+      "empty": "No user data yet",
+      "columns": {
+        "id": "ID",
+        "username": "Username",
+        "display": "Display Name",
+        "createdAt": "Created At",
+        "updatedAt": "Updated At"
+      }
     }
   }
 }

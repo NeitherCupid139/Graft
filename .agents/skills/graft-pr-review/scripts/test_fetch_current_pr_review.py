@@ -267,10 +267,19 @@ class ReviewThreadStatusTests(unittest.TestCase):
 
         self.assertEqual(MODULE.classify_review_thread_status(latest_comment), "addressed")
 
-    def test_classify_review_thread_status_uses_unknown_for_non_coderabbit_without_resolution_signal(self) -> None:
-        """Non-CodeRabbit threads should not be mislabeled as definitely open."""
+    def test_classify_review_thread_status_marks_supported_ai_reviewer_comments_as_open(self) -> None:
+        """Supported AI reviewer comments should stay visible until an addressed signal appears."""
         latest_comment = {
             "user": MODULE.GREPTILE_LOGIN,
+            "body": "Please simplify this helper.",
+        }
+
+        self.assertEqual(MODULE.classify_review_thread_status(latest_comment), "open")
+
+    def test_classify_review_thread_status_keeps_unknown_for_untracked_human_comments(self) -> None:
+        """Untracked reviewer comments still default to unknown without a resolution signal."""
+        latest_comment = {
+            "user": "reviewer@example",
             "body": "Please simplify this helper.",
         }
 

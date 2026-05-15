@@ -233,5 +233,9 @@
 - Applied the remaining CodeRabbit follow-up fixes for the current PR: refreshed the visible copyright year,
   kept the user-page style deep selector on the Stylelint-supported `:deep` syntax, and added an explicit request
   sequence assertion so `AUTH_TOKEN_INVALID / AUTH_TOKEN_MISSING` cannot silently regain a refresh path.
+- Applied the missed `greptile-apps[bot]` follow-up fixes for the same PR: moved the `/users` page copy onto i18n
+  keys, replaced literal backtick display with semantic `<code>` markup, prevented duplicate client-session cleanup
+  when refresh fails on invalid or missing auth state, and blocked `ensureBootstrap` from issuing a second refresh
+  after the session has already been cleared.
 - Revalidated the updated slice with the required host Windows Bun full frontend chain and kept the change scoped to
   the existing `web` recovery path.
