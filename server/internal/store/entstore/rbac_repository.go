@@ -18,70 +18,46 @@ type rbacRepository struct {
 
 // EnsureRole 幂等确保目标角色存在。
 func (r *rbacRepository) EnsureRole(ctx context.Context, input store.EnsureRoleInput) (store.Role, error) {
-	record, err := r.client.Role.Query().
-		Where(entrole.NameEQ(input.Name)).
-		Only(ctx)
-	if err == nil {
-		return toStoreRole(record), nil
-	}
-	if !ent.IsNotFound(err) {
-		return store.Role{}, fmt.Errorf("query ensured role by name: %w", err)
-	}
-
-	record, err = r.client.Role.Create().
-		SetName(input.Name).
-		SetDisplay(input.Display).
-		SetNillableDescription(input.Description).
-		Save(ctx)
-	if err != nil {
-		if ent.IsConstraintError(err) {
-			record, lookupErr := r.client.Role.Query().
+	return ensureUniqueEntity(
+		func() (*ent.Role, error) {
+			return r.client.Role.Query().
 				Where(entrole.NameEQ(input.Name)).
 				Only(ctx)
-			if lookupErr != nil {
-				return store.Role{}, fmt.Errorf("re-query ensured role after conflict: %w", lookupErr)
-			}
-			return toStoreRole(record), nil
-		}
-
-		return store.Role{}, fmt.Errorf("create ensured role: %w", err)
-	}
-
-	return toStoreRole(record), nil
+		},
+		func() (*ent.Role, error) {
+			return r.client.Role.Create().
+				SetName(input.Name).
+				SetDisplay(input.Display).
+				SetNillableDescription(input.Description).
+				Save(ctx)
+		},
+		toStoreRole,
+		"query ensured role by name",
+		"create ensured role",
+		"re-query ensured role after conflict",
+	)
 }
 
 // EnsurePermission 幂等确保目标权限存在。
 func (r *rbacRepository) EnsurePermission(ctx context.Context, input store.EnsurePermissionInput) (store.Permission, error) {
-	record, err := r.client.Permission.Query().
-		Where(entpermission.CodeEQ(input.Code)).
-		Only(ctx)
-	if err == nil {
-		return toStorePermission(record), nil
-	}
-	if !ent.IsNotFound(err) {
-		return store.Permission{}, fmt.Errorf("query ensured permission by code: %w", err)
-	}
-
-	record, err = r.client.Permission.Create().
-		SetCode(input.Code).
-		SetDisplay(input.Display).
-		SetNillableDescription(input.Description).
-		Save(ctx)
-	if err != nil {
-		if ent.IsConstraintError(err) {
-			record, lookupErr := r.client.Permission.Query().
+	return ensureUniqueEntity(
+		func() (*ent.Permission, error) {
+			return r.client.Permission.Query().
 				Where(entpermission.CodeEQ(input.Code)).
 				Only(ctx)
-			if lookupErr != nil {
-				return store.Permission{}, fmt.Errorf("re-query ensured permission after conflict: %w", lookupErr)
-			}
-			return toStorePermission(record), nil
-		}
-
-		return store.Permission{}, fmt.Errorf("create ensured permission: %w", err)
-	}
-
-	return toStorePermission(record), nil
+		},
+		func() (*ent.Permission, error) {
+			return r.client.Permission.Create().
+				SetCode(input.Code).
+				SetDisplay(input.Display).
+				SetNillableDescription(input.Description).
+				Save(ctx)
+		},
+		toStorePermission,
+		"query ensured permission by code",
+		"create ensured permission",
+		"re-query ensured permission after conflict",
+	)
 }
 
 // AssignPermissionsToRole 幂等把一组权限绑定到角色。
@@ -227,7 +203,7 @@ func (r *rbacRepository) ListPermissionsByUserID(ctx context.Context, userID uin
 
 func toStoreRole(record *ent.Role) store.Role {
 	return store.Role{
-		ID:          uint64(record.ID),
+		ID:          toStoreID(record.ID),
 		Name:        record.Name,
 		Display:     record.Display,
 		Description: record.Description,
@@ -238,11 +214,46 @@ func toStoreRole(record *ent.Role) store.Role {
 
 func toStorePermission(record *ent.Permission) store.Permission {
 	return store.Permission{
-		ID:          uint64(record.ID),
+		ID:          toStoreID(record.ID),
 		Code:        record.Code,
 		Display:     record.Display,
 		Description: record.Description,
 		CreatedAt:   record.CreatedAt,
 		UpdatedAt:   record.UpdatedAt,
 	}
+}
+
+func ensureUniqueEntity[Entity any, Result any](
+	lookup func() (*Entity, error),
+	create func() (*Entity, error),
+	toResult func(*Entity) Result,
+	queryErrMsg string,
+	createErrMsg string,
+	conflictErrMsg string,
+) (Result, error) {
+	record, err := lookup()
+	if err == nil {
+		return toResult(record), nil
+	}
+	if !ent.IsNotFound(err) {
+		var zero Result
+		return zero, fmt.Errorf("%s: %w", queryErrMsg, err)
+	}
+
+	record, err = create()
+	if err != nil {
+		if ent.IsConstraintError(err) {
+			record, lookupErr := lookup()
+			if lookupErr != nil {
+				var zero Result
+				return zero, fmt.Errorf("%s: %w", conflictErrMsg, lookupErr)
+			}
+			return toResult(record), nil
+		}
+
+		var zero Result
+		return zero, fmt.Errorf("%s: %w", createErrMsg, err)
+	}
+
+	return toResult(record), nil
 }

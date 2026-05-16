@@ -49,6 +49,8 @@ type bootstrapReader struct {
 	localeConfig config.I18nConfig
 }
 
+const localeFallbackCapacity = 2
+
 func newBootstrapReader(
 	localeConfig config.I18nConfig,
 	localizer *i18n.Service,
@@ -176,7 +178,7 @@ func (r bootstrapReader) localeSnapshot(request *http.Request) bootstrapLocaleSn
 
 	supportedLocales := append([]string(nil), r.localeConfig.SupportedLocales...)
 	if len(supportedLocales) == 0 {
-		seen := make(map[string]struct{}, 2)
+		seen := make(map[string]struct{}, localeFallbackCapacity)
 		for _, locale := range []string{defaultLocale, fallbackLocale} {
 			locale = strings.TrimSpace(locale)
 			if locale == "" {

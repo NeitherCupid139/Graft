@@ -24,7 +24,7 @@ func NewRootCommand() *cobra.Command {
 		Args:         cobra.NoArgs,
 		// 保持 `serve` 作为纯运行时入口，这样 `dev` 可以复用显式迁移步骤，
 		// 同时根命令仍然只是所有 server 操作的可发现入口。
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return cmd.Help()
 		},
 	}

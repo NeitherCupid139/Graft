@@ -28,6 +28,8 @@ const (
 	defaultBackendTestLintConfig = ".golangci.test.yml"
 	defaultGolangCILintVersion   = "v2.12.2"
 	defaultBackendCacheRoot      = "graft-backend-validate"
+	defaultBackendDirPerm        = 0o755
+	defaultHealthProbeReadLimit  = 256
 )
 
 // smokeValidateOptions 封装最小运行时 smoke 验证的显式输入。
@@ -102,7 +104,7 @@ func newValidateBackendCommand() *cobra.Command {
 			"  graft validate backend --smoke",
 		SilenceUsage: true,
 		Args:         cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runValidateBackend(cmd, opts)
 		},
 	}
@@ -131,7 +133,7 @@ func newValidateSmokeCommand() *cobra.Command {
 		Example:      "  graft validate smoke\n  graft validate smoke --timeout 15s",
 		SilenceUsage: true,
 		Args:         cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runValidateSmoke(cmd, opts)
 		},
 	}
@@ -154,41 +156,49 @@ func runValidateBackend(cmd *cobra.Command, opts backendValidateOptions) error {
 	if stage == "" {
 		stage = defaultBackendStage
 	}
+	if err := validateBackendStageOptions(stage, opts.smoke); err != nil {
+		return err
+	}
 
 	switch stage {
 	case "lint":
-		if opts.smoke {
-			return errors.New("`--smoke` requires `--stage full` so lint, test, and build stay in a fixed order")
-		}
-		if err := backendLintRunner(cmd, opts.lintConfig, opts.testLintConfig); err != nil {
-			return err
-		}
-		return nil
+		return backendLintRunner(cmd, opts.lintConfig, opts.testLintConfig)
 	case "buildtest":
-		if opts.smoke {
-			return errors.New("`--smoke` requires `--stage full` so lint, test, and build stay in a fixed order")
-		}
 		return runBackendBuildTest(cmd, opts.testTargets)
 	case "full":
-		if err := backendLintRunner(cmd, opts.lintConfig, opts.testLintConfig); err != nil {
-			return err
-		}
-		if err := runBackendBuildTest(cmd, opts.testTargets); err != nil {
-			return err
-		}
-		if opts.smoke {
-			if err := backendSmokeRunner(cmd, smokeValidateOptions{
-				migrationDir: defaultMigrationDir,
-				healthPath:   defaultSmokeHealthPath,
-				timeout:      defaultSmokeTimeout,
-			}); err != nil {
-				return fmt.Errorf("run backend smoke validation: %w", err)
-			}
-		}
-		return nil
+		return runFullBackendValidation(cmd, opts)
 	default:
 		return fmt.Errorf("unsupported backend validation stage %q: expected lint, buildtest, or full", stage)
 	}
+}
+
+func validateBackendStageOptions(stage string, smoke bool) error {
+	if !smoke || stage == "full" {
+		return nil
+	}
+
+	return errors.New("`--smoke` requires `--stage full` so lint, test, and build stay in a fixed order")
+}
+
+func runFullBackendValidation(cmd *cobra.Command, opts backendValidateOptions) error {
+	if err := backendLintRunner(cmd, opts.lintConfig, opts.testLintConfig); err != nil {
+		return err
+	}
+	if err := runBackendBuildTest(cmd, opts.testTargets); err != nil {
+		return err
+	}
+	if !opts.smoke {
+		return nil
+	}
+	if err := backendSmokeRunner(cmd, smokeValidateOptions{
+		migrationDir: defaultMigrationDir,
+		healthPath:   defaultSmokeHealthPath,
+		timeout:      defaultSmokeTimeout,
+	}); err != nil {
+		return fmt.Errorf("run backend smoke validation: %w", err)
+	}
+
+	return nil
 }
 
 // runBackendBuildTest 执行 `go test -> go build ./cmd/graft` 的后端编译验证链。
@@ -353,7 +363,7 @@ func buildBackendCommandEnv() ([]string, error) {
 	golangciCacheDir := filepath.Join(cacheRoot, "golangci-lint")
 
 	for _, dir := range []string{cacheRoot, goCacheDir, xdgCacheDir, golangciCacheDir} {
-		if err := backendMkdirAll(dir, 0o755); err != nil {
+		if err := backendMkdirAll(dir, defaultBackendDirPerm); err != nil {
 			return nil, fmt.Errorf("mkdir %s: %w", dir, err)
 		}
 	}
@@ -414,25 +424,8 @@ func runValidateSmoke(cmd *cobra.Command, opts smokeValidateOptions) error {
 		healthErrCh <- smokeHealthChecker(probeCtx, probeURL)
 	}()
 
-	select {
-	case serveErr := <-serveErrCh:
-		cancelProbe()
-		if serveErr == nil {
-			return errors.New("smoke runtime exited before health probe completed")
-		}
-		return fmt.Errorf("run smoke server: %w", serveErr)
-	case err := <-healthErrCh:
-		if err != nil {
-			cancelRun()
-			serveErr := <-serveErrCh
-			if serveErr != nil {
-				return errors.Join(
-					fmt.Errorf("wait for smoke health check: %w", err),
-					fmt.Errorf("run smoke server: %w", serveErr),
-				)
-			}
-			return fmt.Errorf("wait for smoke health check: %w", err)
-		}
+	if err := waitForSmokeStartup(cancelProbe, cancelRun, serveErrCh, healthErrCh); err != nil {
+		return err
 	}
 
 	cancelRun()
@@ -441,6 +434,35 @@ func runValidateSmoke(cmd *cobra.Command, opts smokeValidateOptions) error {
 	}
 
 	return nil
+}
+
+func waitForSmokeStartup(
+	cancelProbe context.CancelFunc,
+	cancelRun context.CancelFunc,
+	serveErrCh <-chan error,
+	healthErrCh <-chan error,
+) error {
+	select {
+	case serveErr := <-serveErrCh:
+		cancelProbe()
+		if serveErr == nil {
+			return errors.New("smoke runtime exited before health probe completed")
+		}
+		return fmt.Errorf("run smoke server: %w", serveErr)
+	case err := <-healthErrCh:
+		if err == nil {
+			return nil
+		}
+		cancelRun()
+		serveErr := <-serveErrCh
+		if serveErr == nil {
+			return fmt.Errorf("wait for smoke health check: %w", err)
+		}
+		return errors.Join(
+			fmt.Errorf("wait for smoke health check: %w", err),
+			fmt.Errorf("run smoke server: %w", serveErr),
+		)
+	}
 }
 
 // buildSmokeProbeURL 把监听地址转换为本地健康检查 URL。
@@ -483,11 +505,11 @@ func waitForSmokeHealth(ctx context.Context, probeURL string) error {
 
 	var lastErr error
 	for {
-		if err := probeSmokeHealthOnce(ctx, client, probeURL); err == nil {
+		err := probeSmokeHealthOnce(ctx, client, probeURL)
+		if err == nil {
 			return nil
-		} else {
-			lastErr = err
 		}
+		lastErr = err
 
 		select {
 		case <-ctx.Done():
@@ -510,10 +532,12 @@ func probeSmokeHealthOnce(ctx context.Context, client *http.Client, probeURL str
 	if err != nil {
 		return err
 	}
-	defer response.Body.Close()
+	defer func() {
+		_ = response.Body.Close()
+	}()
 
 	if response.StatusCode != http.StatusOK {
-		body, readErr := io.ReadAll(io.LimitReader(response.Body, 256))
+		body, readErr := io.ReadAll(io.LimitReader(response.Body, defaultHealthProbeReadLimit))
 		if readErr != nil {
 			return fmt.Errorf("health probe returned %s and read body failed: %w", response.Status, readErr)
 		}

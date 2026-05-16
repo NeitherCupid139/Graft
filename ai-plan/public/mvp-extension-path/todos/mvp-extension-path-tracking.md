@@ -51,6 +51,7 @@
 - 当前仓库真值还新增冻结了一条 shared backend governance baseline：`server` 完成态必须收敛到 `graft validate backend`，
   固定使用 `golangci-lint v2.12.2`，并把 backend lint issue 默认视为阻断项；如需暂留，只能登记到 active
   tracking 文档中的 controlled exception。
+- 当前 `server-lint` CI 路径已修正为“只安装 pinned `golangci-lint`，再由 `graft validate backend --stage lint` 执行统一入口”；生产代码 lint backlog 已清零，但测试代码 lint backlog 仍阻断后端完成态。
 - 较早的拆分前历史保留在 `archive/`，具体实现轨迹保留在各自 `trace` 文件。
 
 ## Shared Milestones
@@ -94,9 +95,14 @@
 - 本次 backend lint 治理文档切片一致性检查：
   - `rg -n "golangci-lint|graft validate backend|controlled exception|revive|stylecheck" AGENTS.md README.md ai-plan/design/项目设计.md ai-plan/design/代码注释与模块文档规范.md ai-plan/public/mvp-extension-path/todos/mvp-extension-path-tracking.md ai-plan/public/mvp-extension-path/subtopics/server/todos/server-tracking.md`
   - `git diff -- AGENTS.md README.md ai-plan/design/项目设计.md ai-plan/design/代码注释与模块文档规范.md ai-plan/public/mvp-extension-path/todos/mvp-extension-path-tracking.md ai-plan/public/mvp-extension-path/subtopics/server/todos/server-tracking.md`
+- 本次 workflow/lint 直接校验：
+  - `cd server && go test ./internal/httpx ./internal/store/entstore ./plugins/user`
+  - `cd server && golangci-lint run --config .golangci.yml ./cmd/graft ./cmd/graft-jwt-secret ./cmd/graft-signing-key ./internal/app ./internal/cli ./internal/config ./internal/database ./internal/httpx ./internal/i18n ./internal/plugin ./internal/redisx ./internal/store/entstore ./plugins/audit ./plugins/rbac ./plugins/scheduler ./plugins/user`
+  - `cd server && go run ./cmd/graft validate backend --stage lint`
+  - 结果：生产配置通过；测试配置仍被既有 test-lint backlog 阻断。
 
 ## Immediate Next Step
 
-- 先在当前 backend governance 切片落地 `graft validate backend`、固定版本的 `golangci-lint` 配置与最小 PR 阻断，再继续扩展其它 `server` 功能面；不要让文档真值长期停留在“已规定、未执行”的状态。
+- 在当前 backend governance 真值已经落到 CI 安装/执行分离后，下一步单独治理 `server/.golangci.test.yml` 暴露的历史测试 lint backlog；不要让生产代码已清零但测试 lint 长期阻断完成态。
 - 保持当前 `/api/auth/bootstrap` 契约稳定，只在必要范围内收敛 DTO 和菜单/权限语义。
 - 在该 bootstrap 与 auth 响应契约上继续实施默认管理员与首次登录强制改密闭环：先由 `server` 增加持久化状态、初始化例外密码和最小管理员绑定，再由 `web` 落登录后受限态与强制改密弹窗，而不是扩大安全范围或回到猜测式控制流。

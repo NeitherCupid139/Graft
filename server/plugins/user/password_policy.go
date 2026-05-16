@@ -5,10 +5,11 @@ import (
 )
 
 const (
-	defaultAdminUsername = "graft"
-	defaultAdminDisplay  = "Graft Admin"
-	defaultAdminPassword = "graft-admin"
-	defaultAdminRoleName = "admin"
+	defaultAdminUsername  = "graft"
+	defaultAdminDisplay   = "Graft Admin"
+	defaultAdminPassword  = "graft-admin"
+	defaultAdminRoleName  = "admin"
+	minimumPasswordLength = 12
 )
 
 type passwordPolicy struct{}
@@ -25,7 +26,7 @@ func (passwordPolicy) ValidateNewPassword(currentPassword string, newPassword st
 	if newPassword == defaultAdminPassword {
 		return errPasswordReuseForbidden
 	}
-	if len(newPassword) < 12 {
+	if len(newPassword) < minimumPasswordLength {
 		return errPasswordPolicyViolation
 	}
 

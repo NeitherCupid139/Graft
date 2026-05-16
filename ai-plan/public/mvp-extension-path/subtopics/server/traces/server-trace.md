@@ -377,7 +377,17 @@
   completion-state `graft validate backend --test-target ./plugins/user --test-target ./internal/store/entstore`
   attempt still stops at the existing repository-wide lint backlog rather than a new regression from this slice.
 
+## 2026-05-16 backend lint entrypoint and CI root-dir fix
+
+- Fixed `.github/workflows/pull-request-validation.yml` so the `server-lint` job now uses `golangci/golangci-lint-action@v9`
+  only to install the pinned binary in `server/`, with actual execution still delegated to
+  `go run ./cmd/graft validate backend --stage lint`.
+- Reproduced the original failure mode locally from the repository root (`pattern ./...: directory prefix . does not contain main module or its selected dependencies`) and confirmed the root cause was action execution context rather than Go source diagnostics.
+- Cleared the current production-code lint backlog across the touched `server` packages, including CLI/runtime comment hygiene, request-auth helpers, user/session route complexity, store conversion safety, Ent schema duplication, and plugin registration decomposition.
+- Revalidated the touched server surface with `cd server && go test ./internal/httpx ./internal/store/entstore ./plugins/user` plus a focused production-code `golangci-lint run --config .golangci.yml ...` pass that returned `0 issues`.
+- Re-ran `go run ./cmd/graft validate backend --stage lint` and confirmed the production lint config now passes cleanly, while the test lint config still exposes a separate historical backlog (117 issues) that is now recorded as a controlled exception in `server-tracking.md`.
+
 ## Next Step
 
-- Separate the existing backend lint backlog from this finished Go/Zap baseline update, decide the next bounded lint
-  cleanup slice, and keep future backend completion claims tied to `graft validate backend`.
+- Take the recorded `server/.golangci.test.yml` backlog as a standalone cleanup slice and rerun `graft validate backend`
+  only after that test-lint queue is materially reduced or cleared.

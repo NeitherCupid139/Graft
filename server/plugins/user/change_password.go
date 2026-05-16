@@ -20,24 +20,16 @@ func (s authService) ChangeCurrentUserPassword(ctx context.Context, currentPassw
 		return errors.New("auth repository is unavailable")
 	}
 
-	requestAuth, ok := pluginapi.RequestAuthContextFromContext(ctx)
-	if !ok || requestAuth.User == nil || requestAuth.Claims == nil {
-		return pluginapi.ErrUnauthenticated
-	}
-
-	credential, err := s.auth.GetUserCredentialByUsername(ctx, requestAuth.User.Username)
+	requestAuth, err := currentRequestAuth(ctx)
 	if err != nil {
-		if errors.Is(err, store.ErrUserNotFound) {
-			return pluginapi.ErrUnauthenticated
-		}
-		return fmt.Errorf("get current user credential: %w", err)
+		return err
 	}
-	if credential.PasswordHash == nil || *credential.PasswordHash == "" {
-		return errCurrentPasswordInvalid
+	credential, err := s.currentUserCredential(ctx, requestAuth.User.Username)
+	if err != nil {
+		return err
 	}
-
-	if err := s.passwords.Compare(*credential.PasswordHash, currentPassword); err != nil {
-		return errCurrentPasswordInvalid
+	if err := s.validateCurrentPassword(credential, currentPassword); err != nil {
+		return err
 	}
 	if err := s.policy.ValidateNewPassword(currentPassword, newPassword); err != nil {
 		return err
@@ -62,6 +54,38 @@ func (s authService) ChangeCurrentUserPassword(ctx context.Context, currentPassw
 		RevokedAt:      changedAt,
 	}); err != nil {
 		return fmt.Errorf("revoke other refresh sessions after password change: %w", err)
+	}
+
+	return nil
+}
+
+func currentRequestAuth(ctx context.Context) (pluginapi.RequestAuthContext, error) {
+	requestAuth, ok := pluginapi.RequestAuthContextFromContext(ctx)
+	if !ok || requestAuth.User == nil || requestAuth.Claims == nil {
+		return pluginapi.RequestAuthContext{}, pluginapi.ErrUnauthenticated
+	}
+
+	return requestAuth, nil
+}
+
+func (s authService) currentUserCredential(ctx context.Context, username string) (store.UserCredential, error) {
+	credential, err := s.auth.GetUserCredentialByUsername(ctx, username)
+	if err != nil {
+		if errors.Is(err, store.ErrUserNotFound) {
+			return store.UserCredential{}, pluginapi.ErrUnauthenticated
+		}
+		return store.UserCredential{}, fmt.Errorf("get current user credential: %w", err)
+	}
+
+	return credential, nil
+}
+
+func (s authService) validateCurrentPassword(credential store.UserCredential, currentPassword string) error {
+	if credential.PasswordHash == nil || *credential.PasswordHash == "" {
+		return errCurrentPasswordInvalid
+	}
+	if err := s.passwords.Compare(*credential.PasswordHash, currentPassword); err != nil {
+		return errCurrentPasswordInvalid
 	}
 
 	return nil
