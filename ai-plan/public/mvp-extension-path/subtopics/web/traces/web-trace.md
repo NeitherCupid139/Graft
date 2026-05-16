@@ -136,6 +136,12 @@
 - Validated the slice with one passing sample commit message, one failing missing-scope sample through `commitlint`,
   and one failing escaped-control-text sample through the new script.
 
+## 2026-05-16 restricted-session forced-password-change hookup
+
+- Added a dedicated restricted-session route and route-guard behavior so `must_change_password=true` now blocks business navigation without clearing tokens or forcing logout.
+- Kept request semantics unchanged for real auth failures, while explicitly ensuring `AUTH_PASSWORD_CHANGE_REQUIRED` is not treated as a token-invalid path and replayed requests still stop after one refresh attempt.
+- Wired the forced-password-change dialog to complete the backend-owned sequence `change-password -> bootstrap(true) -> rebuild routes -> restore navigation`, and hid the restricted route from tabs so the temporary entry does not pollute normal shell navigation.
+
 ## 2026-05-15 signals evaluation documentation
 
 - Updated `ai-plan/design/前端架构设计.md` to lock `Pinia` as the only formal shared state layer and to constrain

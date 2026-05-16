@@ -85,6 +85,10 @@ export interface ChangePasswordPayload {
   new_password: string;
 }
 
+export interface CompleteRequiredPasswordChangePayload {
+  new_password: string;
+}
+
 export interface AppBootstrapRouteMeta {
   title: LocalizedTitle;
   icon?: string;

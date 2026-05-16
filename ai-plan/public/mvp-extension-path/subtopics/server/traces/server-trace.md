@@ -84,6 +84,12 @@
 - Reused the existing refresh-token parser plus `GetRefreshSessionByTokenID` and `RevokeRefreshSession` store methods for the minimal current-session revoke loop, so this slice did not widen the store boundary.
 - Added direct `server/plugins/user` tests for successful current-session logout and missing-cookie failure, while keeping logout failures on the existing localized `auth.invalid_refresh_session` contract.
 
+## 2026-05-16 restricted default-admin password-change relaxation
+
+- Narrowed the backend forced-password-change relaxation to one explicit case: the restricted default admin can omit `current_password` only while the persisted credential still matches the initialization-only password.
+- Moved the empty-current-password decision fully into `server/plugins/user` service logic so the route no longer guesses based on request shape alone, while non-default actors still receive the stable invalid-argument contract.
+- Kept the atomic password-change write semantics unchanged: clear `must_change_password`, preserve the current session token, and revoke other refresh sessions.
+
 ## 2026-05-15 request-auth session hardening slice
 
 - Tightened `server/plugins/user` so `pluginapi.AuthService.ParseAccessToken` now validates the access-token-linked session state in addition to JWT syntax and signature.

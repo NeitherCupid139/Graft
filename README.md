@@ -59,6 +59,28 @@ go run ./cmd/graft dev
 
 `graft dev` 会先执行显式迁移，再在迁移成功后启动服务；它是开发期编排命令，不会改变 `graft serve` 的纯运行时语义。
 
+如果你需要反复验证默认管理员首次登录强制改密流程，可以使用 dev-only 重置入口：
+
+```bash
+cd server
+go run ./cmd/graft dev reset-admin
+```
+
+该命令只允许在 `GRAFT_APP_ENV=local` 或 `test` 下使用，并会执行三件事：
+
+1. 确保默认管理员 `graft` 存在
+2. 把密码重置为 `graft-admin`
+3. 把 `must_change_password` 重新置为 `true`
+
+典型调试流程：
+
+```bash
+cd server
+go run ./cmd/graft dev reset-admin
+```
+
+然后在浏览器里清空 `localStorage` / `sessionStorage`，重新用 `graft / graft-admin` 登录，即可再次验证受限态和强制改密弹窗。
+
 Windows PowerShell / CMD 可以直接使用同一条命令：
 
 ```powershell

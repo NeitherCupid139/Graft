@@ -22,6 +22,7 @@ export const useUserStore = defineStore('user', {
     bootstrapLoaded: false,
     bootstrapSnapshot: null as BootstrapResponse | null,
     mustChangePassword: false,
+    pendingRestrictedRedirect: '',
     userInfo: { ...InitUserInfo },
   }),
   getters: {
@@ -109,7 +110,16 @@ export const useUserStore = defineStore('user', {
       this.bootstrapLoaded = false;
       this.bootstrapSnapshot = null;
       this.mustChangePassword = false;
+      this.pendingRestrictedRedirect = '';
       this.userInfo = { ...InitUserInfo };
+    },
+    setPendingRestrictedRedirect(path: string) {
+      this.pendingRestrictedRedirect = path;
+    },
+    consumePendingRestrictedRedirect(fallbackPath: string) {
+      const path = this.pendingRestrictedRedirect || fallbackPath;
+      this.pendingRestrictedRedirect = '';
+      return path;
     },
     handleAuthFailure() {
       this.clearSessionState();

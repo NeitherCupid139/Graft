@@ -53,9 +53,14 @@ const appendNewRoute = () => {
   const {
     path,
     query,
-    meta: { title },
+    meta: { hidden, title },
     name,
   } = route;
+
+  if (hidden) {
+    return;
+  }
+
   const titleObj = typeof title === 'string' ? { zh_CN: title, en_US: title } : title;
   tabsRouterStore.appendTabRouterList({
     path,

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -971,6 +972,13 @@ func assertInvalidArgumentFieldResponse(t *testing.T, recorder *httptest.Respons
 	assertErrorFieldDetail(t, payload, field)
 }
 
+func assertForbiddenResponse(t *testing.T, recorder *httptest.ResponseRecorder, locale string) {
+	t.Helper()
+
+	assertStatus(t, recorder, http.StatusForbidden)
+	assertErrorPayload(t, decodeErrorResponse(t, recorder), "auth.forbidden", "AUTH_FORBIDDEN", locale)
+}
+
 func assertNoCookieMutation(t *testing.T, cookies []*http.Cookie) {
 	t.Helper()
 
@@ -1727,6 +1735,44 @@ func TestRefreshRouteRotatesSessionAndReturnsNewAccessToken(t *testing.T) {
 	assertRotatedCookie(t, refreshCookie, refreshRecorder.Result().Cookies())
 }
 
+// TestRefreshRouteRejectsRestrictedSession 验证 must_change_password=true 的受限会话
+// 不能继续通过 refresh 获取新 token。
+func TestRefreshRouteRejectsRestrictedSession(t *testing.T) {
+	passwordHash, err := newPasswordHasher().Hash("secret")
+	if err != nil {
+		t.Fatalf("hash password: %v", err)
+	}
+
+	authRepo := &pluginTestAuthRepository{
+		getUserCredentialByUsername: func(_ context.Context, candidate string) (store.UserCredential, error) {
+			if candidate != defaultAdminUsername {
+				return store.UserCredential{}, store.ErrUserNotFound
+			}
+			return store.UserCredential{
+				UserID:             9,
+				Username:           defaultAdminUsername,
+				PasswordHash:       &passwordHash,
+				MustChangePassword: true,
+			}, nil
+		},
+	}
+	_, engine := newPluginTestContext(t, fixedUserRepository(testUser(9, defaultAdminUsername, defaultAdminDisplay)), authRepo)
+
+	_, cookies := loginUser(t, engine, defaultAdminUsername, "secret", "")
+	refreshCookie := firstCookie(t, cookies)
+	refreshSubject := parseRefreshCookieClaims(t, refreshCookie)
+
+	refreshRecorder := httptest.NewRecorder()
+	refreshRequest := httptest.NewRequest(http.MethodPost, "/api/auth/refresh", nil)
+	refreshRequest.AddCookie(refreshCookie)
+	refreshRequest.Header.Set(i18n.LocaleHeader, "en-US")
+	engine.ServeHTTP(refreshRecorder, refreshRequest)
+
+	assertForbiddenResponse(t, refreshRecorder, "en-US")
+	assertNoCookieMutation(t, refreshRecorder.Result().Cookies())
+	assertSessionActive(t, authRepo, refreshSubject.TokenID)
+}
+
 // TestRefreshRouteRejectsReusedRefreshCookie 验证 refresh 成功轮换后，旧 cookie
 // 不能再次消费原 refresh session。
 func TestRefreshRouteRejectsReusedRefreshCookie(t *testing.T) {
@@ -1957,6 +2003,24 @@ func TestRevokeOtherSessionsRouteRevokesNonCurrentSessions(t *testing.T) {
 // 后、定向吊销前遇到已被并发撤销的 session 时，仍继续清退剩余会话并返回成功。
 func TestRevokeOtherSessionsRouteIgnoresAlreadyRevokedRaces(t *testing.T) {
 	baseRepo := &pluginTestAuthRepository{}
+	baseRepo.getUserCredentialByUsername = func(_ context.Context, username string) (store.UserCredential, error) {
+		switch username {
+		case "alice":
+			return store.UserCredential{
+				UserID:             7,
+				Username:           "alice",
+				MustChangePassword: false,
+			}, nil
+		case "bob":
+			return store.UserCredential{
+				UserID:             8,
+				Username:           "bob",
+				MustChangePassword: false,
+			}, nil
+		default:
+			return store.UserCredential{}, store.ErrUserNotFound
+		}
+	}
 	currentSessionID := seedRefreshSession(t, baseRepo, 7, time.Now().UTC().Add(2*time.Hour))
 	time.Sleep(time.Microsecond)
 	staleSessionID := seedRefreshSession(t, baseRepo, 7, time.Now().UTC().Add(3*time.Hour))
@@ -2697,4 +2761,212 @@ func TestLoginRouteRejectsMissingCredentials(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestCompleteRequiredPasswordChangeRouteAllowsRestrictedSession 验证
+// 首次强制改密接口只要求受限会话提供 new_password。
+func TestCompleteRequiredPasswordChangeRouteAllowsRestrictedSession(t *testing.T) {
+	currentHash, err := newPasswordHasher().Hash(defaultAdminPassword)
+	if err != nil {
+		t.Fatalf("hash default admin password: %v", err)
+	}
+
+	var called bool
+	var received store.ChangePasswordAndRevokeOtherRefreshSessionsInput
+	authRepo := &passwordChangeAtomicAuthRepository{
+		pluginTestAuthRepository: &pluginTestAuthRepository{
+			getUserCredentialByUsername: func(_ context.Context, candidate string) (store.UserCredential, error) {
+				if candidate != defaultAdminUsername {
+					return store.UserCredential{}, store.ErrUserNotFound
+				}
+				return store.UserCredential{
+					UserID:             9,
+					Username:           defaultAdminUsername,
+					PasswordHash:       &currentHash,
+					MustChangePassword: true,
+				}, nil
+			},
+		},
+		changePasswordAndRevokeOtherRefreshSessions: func(_ context.Context, input store.ChangePasswordAndRevokeOtherRefreshSessionsInput) error {
+			called = true
+			received = input
+			return nil
+		},
+	}
+	_, engine := newPluginTestContext(t, fixedUserRepository(testUser(9, defaultAdminUsername, defaultAdminDisplay)), authRepo)
+
+	currentSessionID := seedRefreshSession(t, authRepo, 9, time.Now().UTC().Add(time.Hour))
+	recorder := httptest.NewRecorder()
+	request := newAuthorizedRequestForSessionWithMethod(t, http.MethodPost, "/api/auth/complete-required-password-change", 9, currentSessionID)
+	request.Body = io.NopCloser(strings.NewReader(`{"new_password":"next-password-123"}`))
+	request.ContentLength = int64(len(`{"new_password":"next-password-123"}`))
+	request.Header.Set("Content-Type", "application/json")
+	engine.ServeHTTP(recorder, request)
+
+	assertStatus(t, recorder, http.StatusOK)
+	assertNilSuccessPayload(t, recorder)
+	if !called {
+		t.Fatal("expected password change repository operation to be called")
+	}
+	if received.CurrentTokenID != currentSessionID {
+		t.Fatalf("expected current session id %q, got %q", currentSessionID, received.CurrentTokenID)
+	}
+	if received.MustChangePassword {
+		t.Fatal("expected must-change flag to be cleared")
+	}
+}
+
+// TestChangePasswordRouteRejectsMissingCurrentPassword 验证
+// 普通改密接口缺少原密码时返回稳定的参数错误契约。
+func TestChangePasswordRouteRejectsMissingCurrentPassword(t *testing.T) {
+	currentHash, err := newPasswordHasher().Hash("current-password")
+	if err != nil {
+		t.Fatalf("hash current password: %v", err)
+	}
+
+	authRepo := &passwordChangeAtomicAuthRepository{
+		pluginTestAuthRepository: &pluginTestAuthRepository{
+			getUserCredentialByUsername: func(_ context.Context, candidate string) (store.UserCredential, error) {
+				if candidate != "alice" {
+					return store.UserCredential{}, store.ErrUserNotFound
+				}
+				return store.UserCredential{
+					UserID:             7,
+					Username:           "alice",
+					PasswordHash:       &currentHash,
+					MustChangePassword: false,
+				}, nil
+			},
+		},
+		changePasswordAndRevokeOtherRefreshSessions: func(context.Context, store.ChangePasswordAndRevokeOtherRefreshSessionsInput) error {
+			t.Fatal("expected password change repository operation not to be called")
+			return nil
+		},
+	}
+	_, engine := newPluginTestContext(t, fixedUserRepository(testUser(7, "alice", "Alice")), authRepo)
+
+	currentSessionID := seedRefreshSession(t, authRepo, 7, time.Now().UTC().Add(time.Hour))
+	recorder := httptest.NewRecorder()
+	request := newAuthorizedRequestForSessionWithMethod(t, http.MethodPost, "/api/auth/change-password", 7, currentSessionID)
+	request.Body = io.NopCloser(strings.NewReader(`{"current_password":"","new_password":"next-password-123"}`))
+	request.ContentLength = int64(len(`{"current_password":"","new_password":"next-password-123"}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set(i18n.LocaleHeader, "en-US")
+	engine.ServeHTTP(recorder, request)
+
+	assertInvalidArgumentFieldResponse(t, recorder, "en-US", "current_password")
+}
+
+// TestCompleteRequiredPasswordChangeRouteRejectsNonRestrictedSession 验证
+// 非 must_change_password 会话不能调用首次强制改密接口。
+func TestCompleteRequiredPasswordChangeRouteRejectsNonRestrictedSession(t *testing.T) {
+	currentHash, err := newPasswordHasher().Hash("current-password")
+	if err != nil {
+		t.Fatalf("hash current password: %v", err)
+	}
+
+	authRepo := &passwordChangeAtomicAuthRepository{
+		pluginTestAuthRepository: &pluginTestAuthRepository{
+			getUserCredentialByUsername: func(_ context.Context, candidate string) (store.UserCredential, error) {
+				if candidate != "alice" {
+					return store.UserCredential{}, store.ErrUserNotFound
+				}
+				return store.UserCredential{
+					UserID:       7,
+					Username:     "alice",
+					PasswordHash: &currentHash,
+				}, nil
+			},
+		},
+		changePasswordAndRevokeOtherRefreshSessions: func(context.Context, store.ChangePasswordAndRevokeOtherRefreshSessionsInput) error {
+			t.Fatal("expected password change repository operation not to be called")
+			return nil
+		},
+	}
+	_, engine := newPluginTestContext(t, fixedUserRepository(testUser(7, "alice", "Alice")), authRepo)
+
+	currentSessionID := seedRefreshSession(t, authRepo, 7, time.Now().UTC().Add(time.Hour))
+	recorder := httptest.NewRecorder()
+	request := newAuthorizedRequestForSessionWithMethod(t, http.MethodPost, "/api/auth/complete-required-password-change", 7, currentSessionID)
+	request.Body = io.NopCloser(strings.NewReader(`{"new_password":"next-password-123"}`))
+	request.ContentLength = int64(len(`{"new_password":"next-password-123"}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set(i18n.LocaleHeader, "en-US")
+	engine.ServeHTTP(recorder, request)
+
+	assertForbiddenResponse(t, recorder, "en-US")
+}
+
+// TestRestrictedSessionCannotAccessBusinessRoutes 验证
+// must_change_password=true 的受限会话访问普通业务接口时返回 403。
+func TestRestrictedSessionCannotAccessBusinessRoutes(t *testing.T) {
+	currentHash, err := newPasswordHasher().Hash(defaultAdminPassword)
+	if err != nil {
+		t.Fatalf("hash default admin password: %v", err)
+	}
+
+	authRepo := &pluginTestAuthRepository{
+		getUserCredentialByUsername: func(_ context.Context, candidate string) (store.UserCredential, error) {
+			if candidate != defaultAdminUsername {
+				return store.UserCredential{}, store.ErrUserNotFound
+			}
+			return store.UserCredential{
+				UserID:             9,
+				Username:           defaultAdminUsername,
+				PasswordHash:       &currentHash,
+				MustChangePassword: true,
+			}, nil
+		},
+	}
+	_, engine := newPluginTestContextWithPermissions(
+		t,
+		fixedUserRepository(testUser(9, defaultAdminUsername, defaultAdminDisplay)),
+		authRepo,
+		map[uint64][]store.Permission{
+			9: {{Code: "user.read"}},
+		},
+	)
+
+	currentSessionID := seedRefreshSession(t, authRepo, 9, time.Now().UTC().Add(time.Hour))
+	recorder := httptest.NewRecorder()
+	request := newAuthorizedRequestForSessionWithMethod(t, http.MethodGet, "/api/users", 9, currentSessionID)
+	request.Header.Set(i18n.LocaleHeader, "en-US")
+	engine.ServeHTTP(recorder, request)
+
+	assertForbiddenResponse(t, recorder, "en-US")
+}
+
+// TestRestrictedSessionCannotUseNormalChangePasswordRoute 验证
+// 受限会话不能再复用普通 change-password 接口。
+func TestRestrictedSessionCannotUseNormalChangePasswordRoute(t *testing.T) {
+	currentHash, err := newPasswordHasher().Hash(defaultAdminPassword)
+	if err != nil {
+		t.Fatalf("hash default admin password: %v", err)
+	}
+
+	authRepo := &pluginTestAuthRepository{
+		getUserCredentialByUsername: func(_ context.Context, candidate string) (store.UserCredential, error) {
+			if candidate != defaultAdminUsername {
+				return store.UserCredential{}, store.ErrUserNotFound
+			}
+			return store.UserCredential{
+				UserID:             9,
+				Username:           defaultAdminUsername,
+				PasswordHash:       &currentHash,
+				MustChangePassword: true,
+			}, nil
+		},
+	}
+	_, engine := newPluginTestContext(t, fixedUserRepository(testUser(9, defaultAdminUsername, defaultAdminDisplay)), authRepo)
+
+	currentSessionID := seedRefreshSession(t, authRepo, 9, time.Now().UTC().Add(time.Hour))
+	recorder := httptest.NewRecorder()
+	request := newAuthorizedRequestForSessionWithMethod(t, http.MethodPost, "/api/auth/change-password", 9, currentSessionID)
+	request.Body = io.NopCloser(strings.NewReader(`{"current_password":"graft-admin","new_password":"next-password-123"}`))
+	request.ContentLength = int64(len(`{"current_password":"graft-admin","new_password":"next-password-123"}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set(i18n.LocaleHeader, "en-US")
+	engine.ServeHTTP(recorder, request)
+
+	assertForbiddenResponse(t, recorder, "en-US")
 }

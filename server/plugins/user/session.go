@@ -16,15 +16,17 @@ import (
 )
 
 var (
-	errRefreshTokenRequired    = errors.New("refresh token is required")
-	errInvalidRefreshToken     = errors.New("invalid refresh token")
-	errExpiredRefreshToken     = errors.New("expired refresh token")
-	errRefreshSessionFailed    = errors.New("refresh session is unavailable")
-	errAccessSessionFailed     = errors.New("access session is unavailable")
-	errSessionNotFound         = errors.New("session not found")
-	errPasswordPolicyViolation = errors.New("password policy violation")
-	errPasswordReuseForbidden  = errors.New("password reuse forbidden")
-	errCurrentPasswordInvalid  = errors.New("current password is invalid")
+	errRefreshTokenRequired       = errors.New("refresh token is required")
+	errInvalidRefreshToken        = errors.New("invalid refresh token")
+	errExpiredRefreshToken        = errors.New("expired refresh token")
+	errRefreshSessionFailed       = errors.New("refresh session is unavailable")
+	errAccessSessionFailed        = errors.New("access session is unavailable")
+	errSessionNotFound            = errors.New("session not found")
+	errPasswordPolicyViolation    = errors.New("password policy violation")
+	errPasswordReuseForbidden     = errors.New("password reuse forbidden")
+	errCurrentPasswordRequired    = errors.New("current password is required")
+	errCurrentPasswordInvalid     = errors.New("current password is invalid")
+	errRequiredPasswordChangeOnly = errors.New("required password change only")
 )
 
 type refreshTokenSubject struct {
@@ -195,6 +197,9 @@ func (s authService) RefreshWithRotation(ctx context.Context, refreshToken strin
 	record, credential, err := s.loadRefreshActor(ctx, claims.UserID)
 	if err != nil {
 		return refreshResult{}, err
+	}
+	if credential.MustChangePassword {
+		return refreshResult{}, errRequiredPasswordChangeOnly
 	}
 	now := s.refreshTokens.now().UTC()
 	newTokenID := uuid.NewString()

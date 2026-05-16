@@ -72,6 +72,12 @@
 - Synchronized the parent topic tracking entry so future governance drift can be observed through the active topic
   instead of reintroducing ad-hoc startup notes elsewhere.
 
+## 2026-05-16 restricted-session forced-password-change slice
+
+- Completed the next bounded cross-boundary forced-password-change slice on top of the existing `login / refresh / bootstrap` contract.
+- Fixed the current-state semantics so `must_change_password=true` now means “authenticated but restricted” rather than “logged out”, and the `web` guard keeps tokens while blocking business routes through a dedicated restricted-session entry.
+- Fixed the default-admin first-login path so `server` only allows empty `current_password` when the backend can prove the actor is still the restricted default admin using the initialization-only password, while the frontend re-enters normal navigation only after a fresh `bootstrap`.
+
 ## Next Step
 
 - Continue MVP work through the relevant subtopic, keeping `/api/auth/bootstrap` stable while expanding real

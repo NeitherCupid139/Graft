@@ -251,6 +251,8 @@ func mapAuthError(err error) (int, string) {
 		{match: errExpiredRefreshToken, status: http.StatusUnauthorized, key: "auth.token_expired"},
 		{match: errInvalidRefreshToken, status: http.StatusUnauthorized, key: "auth.token_invalid"},
 		{match: errSessionNotFound, status: http.StatusNotFound, key: "auth.session_not_found"},
+		{match: errRequiredPasswordChangeOnly, status: http.StatusForbidden, key: "auth.forbidden"},
+		{match: errCurrentPasswordRequired, status: http.StatusBadRequest, key: "common.invalid_argument"},
 		{match: errPasswordPolicyViolation, status: http.StatusBadRequest, key: "auth.password_policy_violation"},
 		{match: errPasswordReuseForbidden, status: http.StatusBadRequest, key: "auth.password_reuse_forbidden"},
 		{match: errCurrentPasswordInvalid, status: http.StatusBadRequest, key: "auth.current_password_invalid"},
@@ -262,4 +264,12 @@ func mapAuthError(err error) (int, string) {
 	}
 
 	return http.StatusInternalServerError, "common.internal_error"
+}
+
+func authErrorDetails(err error) map[string]any {
+	if errors.Is(err, errCurrentPasswordRequired) {
+		return map[string]any{"field": "current_password"}
+	}
+
+	return nil
 }

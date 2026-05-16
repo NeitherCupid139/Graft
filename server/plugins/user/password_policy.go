@@ -19,10 +19,7 @@ func newPasswordPolicy() passwordPolicy {
 }
 
 // ValidateNewPassword 校验一次新密码是否满足当前 MVP 固定策略。
-func (passwordPolicy) ValidateNewPassword(currentPassword string, newPassword string) error {
-	if newPassword == currentPassword {
-		return errPasswordReuseForbidden
-	}
+func (passwordPolicy) ValidateNewPassword(newPassword string) error {
 	if newPassword == defaultAdminPassword {
 		return errPasswordReuseForbidden
 	}

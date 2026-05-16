@@ -193,4 +193,14 @@ describe('useUserStore password change state', () => {
     expect(store.bootstrapLoaded).toBe(false);
     expect(store.bootstrapSnapshot).toBeNull();
   });
+
+  it('stores and consumes the pending restricted redirect once', async () => {
+    const { useUserStore } = await loadUserStore();
+    const store = useUserStore();
+
+    store.setPendingRestrictedRedirect('/users?tab=active');
+
+    expect(store.consumePendingRestrictedRedirect('/dashboard')).toBe('/users?tab=active');
+    expect(store.consumePendingRestrictedRedirect('/dashboard')).toBe('/dashboard');
+  });
 });

@@ -32,6 +32,7 @@
 - 本轮最小链路补充 `request-id` 约束：后端只做最小 UUID request-id，中间件优先读取 `X-Request-Id` 与 `X-Trace-Id`，缺失时生成并写回 `X-Request-Id`，所有 auth/RBAC envelope 的 `traceId` 都必须取该值，不扩展到 OpenTelemetry 或其它 tracing 基础设施。
 - 本轮前后端边界约束同步固定 refresh 行为：只有 `AUTH_TOKEN_EXPIRED` 允许触发一次 refresh；`AUTH_TOKEN_INVALID`、`AUTH_TOKEN_MISSING`、`AUTH_FORBIDDEN` 都禁止 refresh；refresh 失败后必须走单一出口，统一清理本地登录态与缓存并跳转登录页，不能继续 retry 或形成递归。
 - 当前 auth / RBAC 响应收敛切片已经完成第一轮直接落地：`server/internal/httpx` 现已稳定输出 `AUTH_TOKEN_EXPIRED`、统一 success/error envelope 与最小 request-id 透传，并补齐对应 direct tests；`server/plugins/user` 的关键写接口成功路径也已补上 envelope 回归断言，避免后续回退成裸 `200`。
+- 当前默认管理员首次改密补丁也已落地到 `server/plugins/user`：`change-password` 路由不再在 HTTP 层硬编码要求 `current_password` 非空，而是由 service 基于“默认管理员 + `must_change_password=true` + 当前散列仍匹配 `graft-admin`”判定是否允许空原密码；其它用户仍保持 `400 common.invalid_argument` + `field=current_password` 契约。
 - PR #9 当前一轮 AI review 已确认并落地的 `server` 跟进包括：统一审计 `Action` trim 一致性、主动审计事件同时兼容值/指针 payload、bootstrap locale fallback 去重，以及 `pluginapi.AuditEvent`、scheduler 生命周期文档补强。
 - PR #9 当前剩余的 greptile `server` 评论已核对到本地 HEAD：`scheduler` 插件尾部未使用的 `logJobFailure` 确认为死代码，`audit` 请求级自动审计已改为把 `ResourceType` 从稳定路由中拆解为资源域，避免继续与 `RequestPath` 重复。
 - PR #9 最新 CodeRabbit nitpick 已在本地核对并收敛：`plugin.Context` 现已显式承载 `LifecycleContext`，runtime 会在 `Shutdown` 阶段注入独立有界关闭上下文，`scheduler` 不再绕过宿主生命周期直接使用 `context.Background()`。
@@ -87,6 +88,10 @@
   - `cd server && go build ./cmd/graft`
   - `cd server && go run ./cmd/graft validate backend --test-target ./plugins/user --test-target ./internal/store/entstore`
   - `cd web && /mnt/c/Users/gewuyou/.bun/bin/bun.exe run typecheck`
+- 本次默认管理员首次改密后端切片直接校验：
+  - `cd server && go test ./plugins/user`
+  - `cd server && go test ./plugins/user -run 'TestChangeCurrentUserPassword|TestChangePasswordRoute'`
+  - `cd server && go run ./cmd/graft validate backend`
 - 本次 PR #8 AI review 跟进直接校验：
   - `cd server && go test ./internal/httpx ./plugins/user`
   - `cd server && go vet ./plugins/user`

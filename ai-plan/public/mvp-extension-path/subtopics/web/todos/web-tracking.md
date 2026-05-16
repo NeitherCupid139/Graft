@@ -24,6 +24,7 @@
 - 前端环境文件治理当前已与 `server` 对齐：提交 `web/.env.example` 作为共享模板，忽略真实 `web/.env.*` 本地开发配置，不再把机器专属开发地址直接提交进仓库。
 - 当前 auth 响应收敛切片已经完成第一轮前端落地：请求层只对 `AUTH_TOKEN_EXPIRED` 触发一次 refresh，`AUTH_TOKEN_INVALID` / `AUTH_TOKEN_MISSING` 统一走单一清理出口并跳转登录；请求层与 `user` store 之间的登录态同步已收敛为显式 session bridge，避免动态导入 store 带来的构建 warning 与双源状态漂移。
 - 当前下一步认证治理切片的 `web` 边界已冻结：首次改密真值只能来自后端 `login/bootstrap`，前端不得通过用户名 `graft` 或默认密码猜测；当前 MVP 的业务阻断由登录后受限态与强制改密弹窗完成，不新增独立安全插件、不改 refresh 单出口，也不把控制流建立在中文 `message` 上。
+- 当前首次改密受限态切片已落地到 `web`：`must_change_password=true` 现在明确表示“已认证但受限”，路由守卫会把业务路由统一拦到静态 `/auth/restricted-session` 入口并保留 token；改密成功后必须按 `change-password -> bootstrap(true) -> rebuild routes -> restore navigation` 顺序恢复，不本地直接把 `must_change_password` 改成 `false`。
 - 当前运行面治理已冻结单一路径：`bootstrap -> module registry -> route -> page`。主运行面不得再保留 demo route、playground page、独立 mock page、feature 自带 runtime 或绕过 bootstrap/menu 的入口。
 - PR #10 的最近一次 review follow-up 已补齐用户页版权年份、用户页列表页文案 i18n、接口说明 `<code>` 展示、用户页样式深度选择器兼容写法，以及 `request` / `user` store 在 refresh 失败路径上的重复清理与重复 refresh 防护；相关 `web` 完成态校验继续以 host Windows Bun `bun run check` 为准。
 - 详细前端实现历史保留在 `subtopics/web/traces/web-trace.md`。
@@ -64,6 +65,9 @@
   - `cd web && bun run test:run -- src/utils/request.test.ts src/store/modules/user.test.ts src/utils/route/bootstrap.test.ts`
   - `cd web && bun run typecheck`
   - `cd web && bun run check`
+- 本次首次改密受限态切片直接校验：
+  - `cd web && bun run test:run -- src/store/modules/user.test.ts src/utils/request.test.ts src/layouts/components/force-password-change.test.ts src/permission.test.ts`
+  - `cd web && bun run typecheck`
 - 本次 PR #10 review follow-up 实际直接校验：
   - `cd web && bun run check`
 - 本次默认管理员/首次改密 web 跟踪同步一致性检查：
@@ -83,6 +87,7 @@
 - 先清理主路由树里的 starter demo 入口、默认 mock runtime 与前端权限旁路，让主运行面重新只服务真实 bootstrap 菜单和已注册页面。
 - 快速隔离或移除当前阶段不再需要的 mock/demo 入口，避免形成前端自洽假闭环。
 - 在当前 auth 契约与刷新单出口已经稳定后，优先把首次登录强制改密受限态接进现有 `login -> refresh -> bootstrap` 恢复链路，确保刷新页面后仍能恢复弹窗与阻断，而不是再回到请求层分支治理或视觉扩张。
+- 保持当前受限态入口与恢复链路稳定，不要再把 `must_change_password` 回退成“未登录”清理路径，也不要在前端本地伪造改密完成状态。
 
 ## 2026-05-15 真实 auth/bootstrap 接线恢复点
 

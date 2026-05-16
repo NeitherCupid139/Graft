@@ -21,24 +21,9 @@ import (
 )
 
 func registerUserPermissions(registry *permission.Registry, pluginName string) {
-	registry.Register(permission.Item{
-		Code:        "user.read",
-		Name:        "Read Users",
-		Description: "Allows reading user management data.",
-		Plugin:      pluginName,
-	})
-	registry.Register(permission.Item{
-		Code:        "user.session.revoke",
-		Name:        "Revoke User Sessions",
-		Description: "Allows revoking refresh sessions for a specified user.",
-		Plugin:      pluginName,
-	})
-	registry.Register(permission.Item{
-		Code:        "user.session.read",
-		Name:        "Read User Sessions",
-		Description: "Allows reading active refresh sessions for a specified user.",
-		Plugin:      pluginName,
-	})
+	for _, item := range userPermissionItems(pluginName) {
+		registry.Register(item)
+	}
 }
 
 func registerUserMenu(registry *menu.Registry, pluginName string) {
@@ -50,6 +35,29 @@ func registerUserMenu(registry *menu.Registry, pluginName string) {
 		Permission: "user.read",
 		Plugin:     pluginName,
 	})
+}
+
+func userPermissionItems(pluginName string) []permission.Item {
+	return []permission.Item{
+		{
+			Code:        "user.read",
+			Name:        "Read Users",
+			Description: "Allows reading user management data.",
+			Plugin:      pluginName,
+		},
+		{
+			Code:        "user.session.revoke",
+			Name:        "Revoke User Sessions",
+			Description: "Allows revoking refresh sessions for a specified user.",
+			Plugin:      pluginName,
+		},
+		{
+			Code:        "user.session.read",
+			Name:        "Read User Sessions",
+			Description: "Allows reading active refresh sessions for a specified user.",
+			Plugin:      pluginName,
+		},
+	}
 }
 
 func (p *Plugin) registerServices(ctx *plugin.Context) (userService, *authService, bootstrapReader, error) {
@@ -77,10 +85,12 @@ func (p *Plugin) registerServices(ctx *plugin.Context) (userService, *authServic
 }
 
 type routeGuards struct {
-	authenticated     gin.HandlerFunc
-	userRead          gin.HandlerFunc
-	userSessionRead   gin.HandlerFunc
-	userSessionRevoke gin.HandlerFunc
+	authenticated          gin.HandlerFunc
+	requiredPasswordChange gin.HandlerFunc
+	restrictedSession      gin.HandlerFunc
+	userRead               gin.HandlerFunc
+	userSessionRead        gin.HandlerFunc
+	userSessionRevoke      gin.HandlerFunc
 }
 
 // routeAuthorizer 在 Register 阶段显式装配到用户路由上，避免请求热路径再走 service locator。
@@ -120,12 +130,86 @@ func newRouteAuthorizer(rbac store.RBACRepository) pluginapi.Authorizer {
 	return routeAuthorizer{rbac: rbac}
 }
 
-func newRouteGuards(localizer *i18n.Service, authService pluginapi.AuthService, authorizer pluginapi.Authorizer) routeGuards {
+func newRouteGuards(localizer *i18n.Service, authSvc *authService, authorizer pluginapi.Authorizer) routeGuards {
 	return routeGuards{
-		authenticated:     httpx.RequirePermission(localizer, authService, nil, ""),
-		userRead:          httpx.RequirePermission(localizer, authService, authorizer, "user.read"),
-		userSessionRead:   httpx.RequirePermission(localizer, authService, authorizer, "user.session.read"),
-		userSessionRevoke: httpx.RequirePermission(localizer, authService, authorizer, "user.session.revoke"),
+		authenticated:          httpx.RequirePermission(localizer, authSvc, nil, ""),
+		requiredPasswordChange: newRequiredPasswordChangeGuard(localizer, authSvc),
+		restrictedSession:      newRestrictedSessionGuard(localizer, authSvc),
+		userRead:               httpx.RequirePermission(localizer, authSvc, authorizer, "user.read"),
+		userSessionRead:        httpx.RequirePermission(localizer, authSvc, authorizer, "user.session.read"),
+		userSessionRevoke:      httpx.RequirePermission(localizer, authSvc, authorizer, "user.session.revoke"),
+	}
+}
+
+func newRequiredPasswordChangeGuard(localizer *i18n.Service, authSvc *authService) gin.HandlerFunc {
+	return func(ginCtx *gin.Context) {
+		if authSvc == nil {
+			httpx.WriteLocalizedError(ginCtx, localizer, http.StatusInternalServerError, "common.internal_error", nil)
+			ginCtx.Abort()
+			return
+		}
+
+		restricted, err := authSvc.isRestrictedPasswordChangeSession(ginCtx.Request.Context())
+		if err != nil {
+			if errors.Is(err, pluginapi.ErrUnauthenticated) {
+				httpx.WriteLocalizedError(ginCtx, localizer, http.StatusUnauthorized, "auth.token_missing", nil)
+				ginCtx.Abort()
+				return
+			}
+
+			httpx.WriteLocalizedError(ginCtx, localizer, http.StatusInternalServerError, "common.internal_error", nil)
+			ginCtx.Abort()
+			return
+		}
+		if !restricted {
+			httpx.WriteLocalizedError(ginCtx, localizer, http.StatusForbidden, "auth.forbidden", nil)
+			ginCtx.Abort()
+			return
+		}
+
+		ginCtx.Next()
+	}
+}
+
+func newRestrictedSessionGuard(localizer *i18n.Service, authSvc *authService) gin.HandlerFunc {
+	allowedPaths := []string{
+		"/auth/bootstrap",
+		"/auth/complete-required-password-change",
+	}
+
+	return func(ginCtx *gin.Context) {
+		if authSvc == nil {
+			httpx.WriteLocalizedError(ginCtx, localizer, http.StatusInternalServerError, "common.internal_error", nil)
+			ginCtx.Abort()
+			return
+		}
+
+		restricted, err := authSvc.isRestrictedPasswordChangeSession(ginCtx.Request.Context())
+		if err != nil {
+			if errors.Is(err, pluginapi.ErrUnauthenticated) {
+				httpx.WriteLocalizedError(ginCtx, localizer, http.StatusUnauthorized, "auth.token_missing", nil)
+				ginCtx.Abort()
+				return
+			}
+
+			httpx.WriteLocalizedError(ginCtx, localizer, http.StatusInternalServerError, "common.internal_error", nil)
+			ginCtx.Abort()
+			return
+		}
+		if !restricted {
+			ginCtx.Next()
+			return
+		}
+
+		for _, allowedPath := range allowedPaths {
+			if strings.HasSuffix(ginCtx.FullPath(), allowedPath) {
+				ginCtx.Next()
+				return
+			}
+		}
+
+		httpx.WriteLocalizedError(ginCtx, localizer, http.StatusForbidden, "auth.forbidden", nil)
+		ginCtx.Abort()
 	}
 }
 
@@ -227,7 +311,7 @@ func registerCurrentUserSessionRoutes(
 	authSvc *authService,
 	guards routeGuards,
 ) {
-	authGroup.POST("/sessions/revoke-all", guards.authenticated, func(ginCtx *gin.Context) {
+	authGroup.POST("/sessions/revoke-all", guards.authenticated, guards.restrictedSession, func(ginCtx *gin.Context) {
 		if err := authSvc.RevokeAllCurrentUserSessions(ginCtx.Request.Context()); err != nil {
 			writeAuthRouteError(ginCtx, ctx.I18n, ctx.Logger, pluginName, "revoke all refresh sessions failed", err)
 			return
@@ -236,7 +320,7 @@ func registerCurrentUserSessionRoutes(
 		authSvc.cookies.clearRefreshCookie(ginCtx)
 		httpx.WriteSuccess[any](ginCtx, http.StatusOK, nil)
 	})
-	authGroup.POST("/sessions/revoke-others", guards.authenticated, func(ginCtx *gin.Context) {
+	authGroup.POST("/sessions/revoke-others", guards.authenticated, guards.restrictedSession, func(ginCtx *gin.Context) {
 		if err := authSvc.RevokeOtherCurrentUserSessions(ginCtx.Request.Context()); err != nil {
 			writeAuthRouteError(ginCtx, ctx.I18n, ctx.Logger, pluginName, "revoke other user refresh sessions failed", err)
 			return
@@ -244,7 +328,7 @@ func registerCurrentUserSessionRoutes(
 
 		httpx.WriteSuccess[any](ginCtx, http.StatusOK, nil)
 	})
-	authGroup.GET("/sessions", guards.authenticated, func(ginCtx *gin.Context) {
+	authGroup.GET("/sessions", guards.authenticated, guards.restrictedSession, func(ginCtx *gin.Context) {
 		listOptions, err := parseSessionListOptions(ginCtx.Query("limit"))
 		if err != nil {
 			httpx.WriteLocalizedError(ginCtx, ctx.I18n, http.StatusBadRequest, "common.invalid_argument", map[string]any{
@@ -261,7 +345,7 @@ func registerCurrentUserSessionRoutes(
 
 		httpx.WriteSuccess(ginCtx, http.StatusOK, sessions)
 	})
-	authGroup.POST("/sessions/:sessionID/revoke", guards.authenticated, func(ginCtx *gin.Context) {
+	authGroup.POST("/sessions/:sessionID/revoke", guards.authenticated, guards.restrictedSession, func(ginCtx *gin.Context) {
 		sessionID := strings.TrimSpace(ginCtx.Param("sessionID"))
 		if sessionID == "" {
 			httpx.WriteLocalizedError(ginCtx, ctx.I18n, http.StatusBadRequest, "common.invalid_argument", map[string]any{
@@ -301,7 +385,7 @@ func registerBootstrapAndPasswordRoutes(
 	bootstrapSvc bootstrapReader,
 	guards routeGuards,
 ) {
-	authGroup.GET("/bootstrap", guards.authenticated, func(ginCtx *gin.Context) {
+	authGroup.GET("/bootstrap", guards.authenticated, guards.restrictedSession, func(ginCtx *gin.Context) {
 		payload, err := bootstrapSvc.Read(ginCtx.Request.Context(), ginCtx.Request)
 		if err != nil {
 			if errors.Is(err, pluginapi.ErrUnauthenticated) {
@@ -319,7 +403,7 @@ func registerBootstrapAndPasswordRoutes(
 
 		httpx.WriteSuccess(ginCtx, http.StatusOK, payload)
 	})
-	authGroup.POST("/change-password", guards.authenticated, func(ginCtx *gin.Context) {
+	authGroup.POST("/change-password", guards.authenticated, guards.restrictedSession, func(ginCtx *gin.Context) {
 		var request changePasswordRequest
 		if err := ginCtx.ShouldBindJSON(&request); err != nil {
 			httpx.WriteLocalizedError(ginCtx, ctx.I18n, http.StatusBadRequest, "common.invalid_argument", map[string]any{
@@ -342,6 +426,28 @@ func registerBootstrapAndPasswordRoutes(
 
 		if err := authSvc.ChangeCurrentUserPassword(ginCtx.Request.Context(), request.CurrentPassword, request.NewPassword); err != nil {
 			writeAuthRouteError(ginCtx, ctx.I18n, ctx.Logger, pluginName, "change current user password failed", err)
+			return
+		}
+
+		httpx.WriteSuccess[any](ginCtx, http.StatusOK, nil)
+	})
+	authGroup.POST("/complete-required-password-change", guards.authenticated, guards.requiredPasswordChange, func(ginCtx *gin.Context) {
+		var request completeRequiredPasswordChangeRequest
+		if err := ginCtx.ShouldBindJSON(&request); err != nil {
+			httpx.WriteLocalizedError(ginCtx, ctx.I18n, http.StatusBadRequest, "common.invalid_argument", map[string]any{
+				"field": "body",
+			})
+			return
+		}
+		if strings.TrimSpace(request.NewPassword) == "" {
+			httpx.WriteLocalizedError(ginCtx, ctx.I18n, http.StatusBadRequest, "common.invalid_argument", map[string]any{
+				"field": "new_password",
+			})
+			return
+		}
+
+		if err := authSvc.CompleteRequiredPasswordChange(ginCtx.Request.Context(), request.NewPassword); err != nil {
+			writeAuthRouteError(ginCtx, ctx.I18n, ctx.Logger, pluginName, "complete required password change failed", err)
 			return
 		}
 
@@ -371,7 +477,7 @@ func registerUserReadRoutes(
 	userSvc userService,
 	guards routeGuards,
 ) {
-	group.GET("", guards.userRead, func(ginCtx *gin.Context) {
+	group.GET("", guards.userRead, guards.restrictedSession, func(ginCtx *gin.Context) {
 		users, err := userSvc.ListUsers(ginCtx.Request.Context())
 		if err != nil {
 			ctx.Logger.Error("list users failed",
@@ -395,7 +501,7 @@ func registerUserReadRoutes(
 
 		httpx.WriteSuccess(ginCtx, http.StatusOK, userListResponse{Items: items})
 	})
-	group.GET("/:id", guards.userRead, func(ginCtx *gin.Context) {
+	group.GET("/:id", guards.userRead, guards.restrictedSession, func(ginCtx *gin.Context) {
 		rawID, err := parseUserID(ginCtx.Param("id"))
 		if err != nil {
 			httpx.WriteLocalizedError(ginCtx, ctx.I18n, http.StatusBadRequest, "common.invalid_argument", map[string]any{
@@ -434,7 +540,7 @@ func registerAdminSessionReadRoute(
 	authSvc *authService,
 	guards routeGuards,
 ) {
-	group.GET("/:id/sessions", guards.userSessionRead, func(ginCtx *gin.Context) {
+	group.GET("/:id/sessions", guards.userSessionRead, guards.restrictedSession, func(ginCtx *gin.Context) {
 		rawID, err := parseUserID(ginCtx.Param("id"))
 		if err != nil {
 			httpx.WriteLocalizedError(ginCtx, ctx.I18n, http.StatusBadRequest, "common.invalid_argument", map[string]any{
@@ -495,7 +601,7 @@ func registerAdminRevokeSingleSessionRoute(
 	authSvc *authService,
 	guards routeGuards,
 ) {
-	group.POST("/:id/sessions/:sessionID/revoke", guards.userSessionRevoke, func(ginCtx *gin.Context) {
+	group.POST("/:id/sessions/:sessionID/revoke", guards.userSessionRevoke, guards.restrictedSession, func(ginCtx *gin.Context) {
 		rawID, err := parseUserID(ginCtx.Param("id"))
 		if err != nil {
 			httpx.WriteLocalizedError(ginCtx, ctx.I18n, http.StatusBadRequest, "common.invalid_argument", map[string]any{
@@ -550,7 +656,7 @@ func registerAdminRevokeAllSessionsRoute(
 	authSvc *authService,
 	guards routeGuards,
 ) {
-	group.POST("/:id/sessions/revoke-all", guards.userSessionRevoke, func(ginCtx *gin.Context) {
+	group.POST("/:id/sessions/revoke-all", guards.userSessionRevoke, guards.restrictedSession, func(ginCtx *gin.Context) {
 		rawID, err := parseUserID(ginCtx.Param("id"))
 		if err != nil {
 			httpx.WriteLocalizedError(ginCtx, ctx.I18n, http.StatusBadRequest, "common.invalid_argument", map[string]any{
@@ -608,7 +714,7 @@ func writeAuthRouteErrorWithFields(
 		logger.Error(message, logFields...)
 	}
 
-	httpx.WriteLocalizedError(ginCtx, localizer, status, messageKey, nil)
+	httpx.WriteLocalizedError(ginCtx, localizer, status, messageKey, authErrorDetails(err))
 }
 
 func writeUserLookupError(

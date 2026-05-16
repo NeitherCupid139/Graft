@@ -244,6 +244,30 @@ describe('request auth handling', () => {
     },
   );
 
+  it('does not clear the session or redirect to login when a restricted session request is rejected with AUTH_PASSWORD_CHANGE_REQUIRED', async () => {
+    const { registerAuthSessionBridge, request } = await loadRequestModule();
+    const { setAccessToken } = await import('@/utils/auth-state');
+    registerAuthSessionBridge(mockUserStore);
+
+    requestHandler.mockImplementation(async () => {
+      throw createApiError(API_CODE.AUTH_PASSWORD_CHANGE_REQUIRED, 401, 'password change required', 'trace-restricted');
+    });
+
+    setAccessToken('restricted-token');
+    localStorage.setItem('user', JSON.stringify({ token: 'restricted-token' }));
+
+    await expect(request.get({ url: '/api/users' })).rejects.toMatchObject({
+      code: API_CODE.AUTH_PASSWORD_CHANGE_REQUIRED,
+      status: 401,
+    });
+
+    expect(mockUserStore.handleAuthFailure).not.toHaveBeenCalled();
+    expect(locationReplace).not.toHaveBeenCalled();
+    expect(JSON.parse(localStorage.getItem('user') || '{}')).toMatchObject({
+      token: 'restricted-token',
+    });
+  });
+
   it('does not recursively refresh when the refresh request itself fails', async () => {
     const { registerAuthSessionBridge, request } = await loadRequestModule();
     const { setAccessToken } = await import('@/utils/auth-state');
@@ -280,6 +304,54 @@ describe('request auth handling', () => {
     expect(callUrls).toEqual(['/api/users', '/api/auth/refresh']);
     expect(mockUserStore.handleAuthFailure).toHaveBeenCalledTimes(1);
     expect(locationReplace).toHaveBeenCalledWith('/login?redirect=%2Fusers');
+  });
+
+  it('retries refresh only once when the replayed request still returns AUTH_TOKEN_EXPIRED', async () => {
+    const { registerAuthSessionBridge, request } = await loadRequestModule();
+    const { setAccessToken } = await import('@/utils/auth-state');
+    registerAuthSessionBridge(mockUserStore);
+
+    const callUrls: string[] = [];
+    requestHandler.mockImplementation(async (config) => {
+      callUrls.push(String(config.url));
+
+      if (config.url === '/api/users' && !config._authRefreshAttempted) {
+        throw createApiError(API_CODE.AUTH_TOKEN_EXPIRED, 401, 'expired', 'trace-expired-initial');
+      }
+
+      if (config.url === '/api/auth/refresh') {
+        return {
+          status: 200,
+          data: {
+            success: true,
+            code: API_CODE.OK,
+            message: 'OK',
+            traceId: 'trace-refresh',
+            data: {
+              access_token: 'fresh-token',
+            },
+          },
+        };
+      }
+
+      if (config.url === '/api/users' && config._authRefreshAttempted) {
+        throw createApiError(API_CODE.AUTH_TOKEN_EXPIRED, 401, 'expired again', 'trace-expired-replay');
+      }
+
+      throw new Error(`unexpected request ${String(config.url)}`);
+    });
+
+    setAccessToken('stale-token');
+    localStorage.setItem('user', JSON.stringify({ token: 'stale-token' }));
+
+    await expect(request.get({ url: '/api/users' })).rejects.toMatchObject({
+      code: API_CODE.AUTH_TOKEN_EXPIRED,
+      status: 401,
+    });
+
+    expect(callUrls).toEqual(['/api/users', '/api/auth/refresh', '/api/users']);
+    expect(mockUserStore.handleAuthFailure).not.toHaveBeenCalled();
+    expect(locationReplace).not.toHaveBeenCalled();
   });
 
   it.each([API_CODE.AUTH_TOKEN_INVALID, API_CODE.AUTH_TOKEN_MISSING])(

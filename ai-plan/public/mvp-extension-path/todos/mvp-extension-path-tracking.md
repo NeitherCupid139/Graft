@@ -52,6 +52,7 @@
 - 当前 cross-boundary 切片已把 `/users` 从“真实菜单路径 + demo 页面内容”的假闭环，收敛为真实 `GET /api/users` 契约加最小只读列表页；`/user/index` 静态个人中心残留入口已移除。
 - 当前 auth / RBAC 最小响应收敛切片也已完成第一轮跨边界对齐：`server` 已冻结 `AUTH_*` 失败 code、统一 envelope 与 request-id 透传，`web` 已冻结“仅 `AUTH_TOKEN_EXPIRED` refresh，`INVALID/MISSING` 单一退出”的请求层行为，并通过显式 session bridge 消除了构建 warning。
 - 当前默认管理员与首次登录强制改密切片的跨边界口径已冻结：`graft-admin` 只允许作为默认管理员初始化例外密码写入；首次改密状态必须由后端持久化并通过 `login/bootstrap` 返回；当前 MVP 不为全部业务接口增加全局后端拦截，而由 `web` 登录后受限态负责阻断，后续如需更强安全再补服务端全局中间件。
+- 当前默认管理员首次改密切片已进一步落地：`must_change_password=true` 现在明确表示“已认证但受限”，`web` 通过受限态路由守卫阻断业务入口但保留 token；`server` 仅在“默认管理员 + 受限态 + 当前仍是初始化例外密码”时允许 `change-password` 省略 `current_password`，改密成功后必须重新 `bootstrap` 恢复正常导航。
 - 当前仓库真值还新增冻结了一条 shared backend governance baseline：`server` 完成态必须收敛到 `graft validate backend`，
   固定使用 `golangci-lint v2.12.2`，并把 backend lint issue 默认视为阻断项；如需暂留，只能登记到 active
   tracking 文档中的 controlled exception。
@@ -108,6 +109,11 @@
   - `cd web && bun run test:run -- src/utils/request.test.ts src/store/modules/user.test.ts src/utils/route/bootstrap.test.ts`
   - `cd web && bun run typecheck`
   - `cd web && bun run check`
+- 本次默认管理员首次改密受限态切片直接校验：
+  - `cd server && go test ./plugins/user`
+  - `cd server && go run ./cmd/graft validate backend`
+  - `cd web && bun run test:run -- src/store/modules/user.test.ts src/utils/request.test.ts src/layouts/components/force-password-change.test.ts src/permission.test.ts`
+  - `cd web && bun run typecheck`
 - 本次默认管理员/首次改密文档与跟踪同步一致性检查：
   - `rg -n "graft-admin|must_change_password|change-password|bootstrap|受限态" ai-plan/design/项目设计.md server/plugins/user/README.md ai-plan/public/mvp-extension-path`
   - `git diff -- ai-plan/design/项目设计.md server/plugins/user/README.md ai-plan/public/mvp-extension-path`

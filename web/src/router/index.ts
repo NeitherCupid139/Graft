@@ -6,6 +6,8 @@ import { BLANK_LAYOUT, PAGE_NOT_FOUND_ROUTE } from '@/utils/route/constant';
 const env = import.meta.env.MODE || 'development';
 
 export const ROOT_ENTRY_ROUTE_NAME = 'RootEntry';
+export const RESTRICTED_SESSION_ROUTE_NAME = 'RestrictedSession';
+export const RESTRICTED_SESSION_PATH = '/auth/restricted-session';
 
 const exceptionRouterList: Array<RouteRecordRaw> = [
   {
@@ -39,6 +41,16 @@ const defaultRouterList: Array<RouteRecordRaw> = [
     path: '/login',
     name: 'login',
     component: () => import('@/pages/login/index.vue'),
+  },
+  {
+    path: RESTRICTED_SESSION_PATH,
+    name: RESTRICTED_SESSION_ROUTE_NAME,
+    component: () => import('@/layouts/index.vue'),
+    meta: {
+      hidden: true,
+      hiddenBreadcrumb: true,
+      keepAlive: false,
+    },
   },
   {
     path: '/',

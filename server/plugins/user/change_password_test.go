@@ -31,7 +31,6 @@ func (r *passwordChangeAtomicAuthRepository) ChangePasswordAndRevokeOtherRefresh
 	return r.changePasswordAndRevokeOtherRefreshSessions(ctx, input)
 }
 
-// TestChangeCurrentUserPasswordUsesAtomicRepositoryOperation 验证改密路径改为显式依赖原子仓储写操作。
 func TestChangeCurrentUserPasswordUsesAtomicRepositoryOperation(t *testing.T) {
 	currentHashBytes, err := bcrypt.GenerateFromPassword([]byte("current-password"), bcrypt.DefaultCost)
 	if err != nil {
@@ -105,7 +104,215 @@ func TestChangeCurrentUserPasswordUsesAtomicRepositoryOperation(t *testing.T) {
 	}
 }
 
-// TestChangeCurrentUserPasswordRequiresAtomicRepositoryOperation 验证缺失原子仓储能力时显式失败。
+func TestChangeCurrentUserPasswordRejectsMissingCurrentPassword(t *testing.T) {
+	currentHashBytes, err := bcrypt.GenerateFromPassword([]byte("current-password"), bcrypt.DefaultCost)
+	if err != nil {
+		t.Fatalf("generate current password hash: %v", err)
+	}
+	currentHash := string(currentHashBytes)
+
+	repo := &passwordChangeAtomicAuthRepository{
+		pluginTestAuthRepository: &pluginTestAuthRepository{
+			getUserCredentialByUsername: func(context.Context, string) (store.UserCredential, error) {
+				return store.UserCredential{
+					UserID:             7,
+					Username:           "alice",
+					PasswordHash:       &currentHash,
+					MustChangePassword: true,
+				}, nil
+			},
+		},
+		changePasswordAndRevokeOtherRefreshSessions: func(context.Context, store.ChangePasswordAndRevokeOtherRefreshSessionsInput) error {
+			t.Fatal("expected atomic password change operation not to be called")
+			return nil
+		},
+	}
+
+	service := authService{
+		auth:            repo,
+		passwordChanges: repo,
+		passwords:       newPasswordHasher(),
+		policy:          newPasswordPolicy(),
+		refreshTokens:   &refreshTokenManager{now: func() time.Time { return time.Date(2026, 5, 16, 8, 30, 0, 0, time.UTC) }},
+	}
+
+	ctx := pluginapi.WithRequestAuthContext(context.Background(), pluginapi.RequestAuthContext{
+		User: &pluginapi.CurrentUser{
+			ID:          7,
+			Username:    "alice",
+			DisplayName: "Alice",
+		},
+		Claims: &pluginapi.AccessTokenClaims{
+			UserID:    7,
+			SessionID: "keep-current-session",
+		},
+	})
+
+	err = service.ChangeCurrentUserPassword(ctx, "", "next-password-123")
+	if !errors.Is(err, errCurrentPasswordRequired) {
+		t.Fatalf("expected current password required error, got %v", err)
+	}
+}
+
+func TestCompleteRequiredPasswordChangeAllowsRestrictedSessionWithoutCurrentPassword(t *testing.T) {
+	currentHash, err := newPasswordHasher().Hash(defaultAdminPassword)
+	if err != nil {
+		t.Fatalf("hash default admin password: %v", err)
+	}
+
+	var called bool
+	var received store.ChangePasswordAndRevokeOtherRefreshSessionsInput
+	repo := &passwordChangeAtomicAuthRepository{
+		pluginTestAuthRepository: &pluginTestAuthRepository{
+			getUserCredentialByUsername: func(context.Context, string) (store.UserCredential, error) {
+				return store.UserCredential{
+					UserID:             9,
+					Username:           defaultAdminUsername,
+					PasswordHash:       &currentHash,
+					MustChangePassword: true,
+				}, nil
+			},
+		},
+		changePasswordAndRevokeOtherRefreshSessions: func(_ context.Context, input store.ChangePasswordAndRevokeOtherRefreshSessionsInput) error {
+			called = true
+			received = input
+			return nil
+		},
+	}
+
+	fixedNow := time.Date(2026, 5, 16, 8, 30, 0, 0, time.UTC)
+	service := authService{
+		auth:            repo,
+		passwordChanges: repo,
+		passwords:       newPasswordHasher(),
+		policy:          newPasswordPolicy(),
+		refreshTokens:   &refreshTokenManager{now: func() time.Time { return fixedNow }},
+	}
+
+	ctx := pluginapi.WithRequestAuthContext(context.Background(), pluginapi.RequestAuthContext{
+		User: &pluginapi.CurrentUser{
+			ID:          9,
+			Username:    defaultAdminUsername,
+			DisplayName: defaultAdminDisplay,
+		},
+		Claims: &pluginapi.AccessTokenClaims{
+			UserID:    9,
+			SessionID: "keep-current-session",
+		},
+	})
+
+	if err := service.CompleteRequiredPasswordChange(ctx, "next-password-123"); err != nil {
+		t.Fatalf("complete required password change: %v", err)
+	}
+	if !called {
+		t.Fatal("expected atomic password change repository operation to be called")
+	}
+	if received.CurrentTokenID != "keep-current-session" {
+		t.Fatalf("expected current token id to be preserved, got %q", received.CurrentTokenID)
+	}
+	if received.MustChangePassword {
+		t.Fatal("expected password change flow to clear must-change flag")
+	}
+}
+
+func TestCompleteRequiredPasswordChangeRejectsNonRestrictedSession(t *testing.T) {
+	currentHash, err := newPasswordHasher().Hash("current-password")
+	if err != nil {
+		t.Fatalf("hash current password: %v", err)
+	}
+
+	repo := &passwordChangeAtomicAuthRepository{
+		pluginTestAuthRepository: &pluginTestAuthRepository{
+			getUserCredentialByUsername: func(context.Context, string) (store.UserCredential, error) {
+				return store.UserCredential{
+					UserID:       7,
+					Username:     "alice",
+					PasswordHash: &currentHash,
+				}, nil
+			},
+		},
+		changePasswordAndRevokeOtherRefreshSessions: func(context.Context, store.ChangePasswordAndRevokeOtherRefreshSessionsInput) error {
+			t.Fatal("expected atomic password change operation not to be called")
+			return nil
+		},
+	}
+
+	service := authService{
+		auth:            repo,
+		passwordChanges: repo,
+		passwords:       newPasswordHasher(),
+		policy:          newPasswordPolicy(),
+		refreshTokens:   &refreshTokenManager{now: func() time.Time { return time.Date(2026, 5, 16, 8, 30, 0, 0, time.UTC) }},
+	}
+
+	ctx := pluginapi.WithRequestAuthContext(context.Background(), pluginapi.RequestAuthContext{
+		User: &pluginapi.CurrentUser{
+			ID:          7,
+			Username:    "alice",
+			DisplayName: "Alice",
+		},
+		Claims: &pluginapi.AccessTokenClaims{
+			UserID:    7,
+			SessionID: "keep-current-session",
+		},
+	})
+
+	err = service.CompleteRequiredPasswordChange(ctx, "next-password-123")
+	if !errors.Is(err, errRequiredPasswordChangeOnly) {
+		t.Fatalf("expected required password change only error, got %v", err)
+	}
+}
+
+func TestCompleteRequiredPasswordChangeRejectsPasswordReuse(t *testing.T) {
+	currentPassword := "CurrentPassword123"
+	currentHash, err := newPasswordHasher().Hash(currentPassword)
+	if err != nil {
+		t.Fatalf("hash current password: %v", err)
+	}
+
+	repo := &passwordChangeAtomicAuthRepository{
+		pluginTestAuthRepository: &pluginTestAuthRepository{
+			getUserCredentialByUsername: func(context.Context, string) (store.UserCredential, error) {
+				return store.UserCredential{
+					UserID:             7,
+					Username:           "alice",
+					PasswordHash:       &currentHash,
+					MustChangePassword: true,
+				}, nil
+			},
+		},
+		changePasswordAndRevokeOtherRefreshSessions: func(context.Context, store.ChangePasswordAndRevokeOtherRefreshSessionsInput) error {
+			t.Fatal("expected atomic password change operation not to be called")
+			return nil
+		},
+	}
+
+	service := authService{
+		auth:            repo,
+		passwordChanges: repo,
+		passwords:       newPasswordHasher(),
+		policy:          newPasswordPolicy(),
+		refreshTokens:   &refreshTokenManager{now: func() time.Time { return time.Date(2026, 5, 16, 8, 30, 0, 0, time.UTC) }},
+	}
+
+	ctx := pluginapi.WithRequestAuthContext(context.Background(), pluginapi.RequestAuthContext{
+		User: &pluginapi.CurrentUser{
+			ID:          7,
+			Username:    "alice",
+			DisplayName: "Alice",
+		},
+		Claims: &pluginapi.AccessTokenClaims{
+			UserID:    7,
+			SessionID: "keep-current-session",
+		},
+	})
+
+	err = service.CompleteRequiredPasswordChange(ctx, currentPassword)
+	if !errors.Is(err, errPasswordReuseForbidden) {
+		t.Fatalf("expected password reuse forbidden error, got %v", err)
+	}
+}
+
 func TestChangeCurrentUserPasswordRequiresAtomicRepositoryOperation(t *testing.T) {
 	currentHashBytes, err := bcrypt.GenerateFromPassword([]byte("current-password"), bcrypt.DefaultCost)
 	if err != nil {
@@ -146,8 +353,6 @@ func TestChangeCurrentUserPasswordRequiresAtomicRepositoryOperation(t *testing.T
 	}
 }
 
-// TestChangeCurrentUserPasswordRejectsMismatchedRequestPrincipal 验证改密路径不会混用
-// 不一致的 request user 与 access token claims。
 func TestChangeCurrentUserPasswordRejectsMismatchedRequestPrincipal(t *testing.T) {
 	currentHashBytes, err := bcrypt.GenerateFromPassword([]byte("current-password"), bcrypt.DefaultCost)
 	if err != nil {

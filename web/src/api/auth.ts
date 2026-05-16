@@ -1,9 +1,16 @@
-import type { BootstrapResponse, ChangePasswordPayload, LoginPayload, LoginResponse } from '@/api/model/authModel';
+import type {
+  BootstrapResponse,
+  ChangePasswordPayload,
+  CompleteRequiredPasswordChangePayload,
+  LoginPayload,
+  LoginResponse,
+} from '@/api/model/authModel';
 import { request } from '@/utils/request';
 
 const Api = {
   Bootstrap: '/api/auth/bootstrap',
   ChangePassword: '/api/auth/change-password',
+  CompleteRequiredPasswordChange: '/api/auth/complete-required-password-change',
   Login: '/api/auth/login',
   Logout: '/api/auth/logout',
   Refresh: '/api/auth/refresh',
@@ -31,6 +38,13 @@ export function logout() {
 export function changePassword(payload: ChangePasswordPayload) {
   return request.post<void>({
     url: Api.ChangePassword,
+    data: payload,
+  });
+}
+
+export function completeRequiredPasswordChange(payload: CompleteRequiredPasswordChangePayload) {
+  return request.post<void>({
+    url: Api.CompleteRequiredPasswordChange,
     data: payload,
   });
 }
