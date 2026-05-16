@@ -8,6 +8,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import sys
 import unittest
 from unittest import mock
 
@@ -18,6 +19,7 @@ if MODULE_SPEC is None or MODULE_SPEC.loader is None:
     raise RuntimeError(f"Unable to load module from {SCRIPT_PATH}.")
 
 MODULE = importlib.util.module_from_spec(MODULE_SPEC)
+sys.modules[MODULE_SPEC.name] = MODULE
 MODULE_SPEC.loader.exec_module(MODULE)
 
 
@@ -284,6 +286,108 @@ class ReviewThreadStatusTests(unittest.TestCase):
         }
 
         self.assertEqual(MODULE.classify_review_thread_status(latest_comment), "unknown")
+
+
+class BuildAllOpenReviewThreadsTests(unittest.TestCase):
+    """Cover PR-wide unresolved AI-thread aggregation beyond the latest commit only."""
+
+    def test_build_all_open_review_threads_keeps_supported_ai_threads_from_older_commits(self) -> None:
+        """Older unresolved AI threads should still be surfaced in the all-open view."""
+        comments = [
+            {
+                "id": 1,
+                "path": "scripts/magic_value/check_magic_values.py",
+                "line": 10,
+                "side": "RIGHT",
+                "created_at": "2026-05-16T10:00:00Z",
+                "updated_at": "2026-05-16T10:00:00Z",
+                "user": {"login": MODULE.CODERABBIT_LOGIN},
+                "commit_id": "older-commit",
+                "in_reply_to_id": None,
+                "body": "Still open on an older commit",
+            },
+            {
+                "id": 2,
+                "path": "server/plugins/user/session.go",
+                "line": 20,
+                "side": "RIGHT",
+                "created_at": "2026-05-16T11:00:00Z",
+                "updated_at": "2026-05-16T11:00:00Z",
+                "user": {"login": MODULE.GREPTILE_LOGIN},
+                "commit_id": "latest-commit",
+                "in_reply_to_id": None,
+                "body": "Still open on latest commit",
+            },
+        ]
+
+        threads = MODULE.build_all_open_review_threads(comments)
+
+        self.assertEqual(len(threads), 2)
+        self.assertEqual(
+            [thread["root_comment"]["user"] for thread in threads],
+            [MODULE.CODERABBIT_LOGIN, MODULE.GREPTILE_LOGIN],
+        )
+
+
+class FetchLatestCommitReviewTests(unittest.TestCase):
+    """Cover latest-commit review payload shape plus PR-wide unresolved thread view."""
+
+    def test_fetch_latest_commit_review_exposes_all_open_threads_beyond_latest_commit(self) -> None:
+        """The helper should keep latest-commit and PR-wide open-thread views separate."""
+        commits = [
+            {"sha": "older-commit", "commit": {"message": "older"}},
+            {"sha": "latest-commit", "commit": {"message": "latest"}},
+        ]
+        reviews = [
+            {
+                "id": 10,
+                "commit_id": "latest-commit",
+                "submitted_at": "2026-05-16T12:00:00Z",
+                "state": "COMMENTED",
+                "user": {"login": MODULE.CODERABBIT_LOGIN},
+                "body": "",
+            }
+        ]
+        comments = [
+            {
+                "id": 1,
+                "path": "scripts/magic_value/check_magic_values.py",
+                "line": 10,
+                "side": "RIGHT",
+                "created_at": "2026-05-16T10:00:00Z",
+                "updated_at": "2026-05-16T10:00:00Z",
+                "user": {"login": MODULE.CODERABBIT_LOGIN},
+                "commit_id": "older-commit",
+                "in_reply_to_id": None,
+                "body": "Older unresolved thread",
+            },
+            {
+                "id": 2,
+                "path": "server/plugins/user/session.go",
+                "line": 20,
+                "side": "RIGHT",
+                "created_at": "2026-05-16T11:00:00Z",
+                "updated_at": "2026-05-16T11:00:00Z",
+                "user": {"login": MODULE.GREPTILE_LOGIN},
+                "commit_id": "latest-commit",
+                "in_reply_to_id": None,
+                "body": "Latest unresolved thread",
+            },
+        ]
+
+        with mock.patch.object(
+            MODULE,
+            "fetch_paged_json",
+            side_effect=[commits, reviews, comments],
+        ):
+            result = MODULE.fetch_latest_commit_review(12)
+
+        self.assertEqual(result["latest_commit"]["sha"], "latest-commit")
+        self.assertEqual(len(result["open_threads"]), 1)
+        self.assertEqual(result["open_threads"][0]["path"], "server/plugins/user/session.go")
+        self.assertEqual(len(result["all_open_threads"]), 2)
+        self.assertEqual(result["all_open_thread_counts_by_user"][MODULE.CODERABBIT_LOGIN], 1)
+        self.assertEqual(result["all_open_thread_counts_by_user"][MODULE.GREPTILE_LOGIN], 1)
 
 
 class SelectLatestCoderabbitGroupedReviewTests(unittest.TestCase):

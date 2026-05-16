@@ -236,16 +236,28 @@ def ci_changed_files() -> list[str]:
     head_sha = os.environ.get("GITHUB_SHA", "").strip()
 
     if base_ref:
-        merge_base = run_git(["merge-base", "HEAD", f"origin/{base_ref}"])
+        try:
+            merge_base = run_git(["merge-base", "HEAD", f"origin/{base_ref}"])
+        except RuntimeError:
+            merge_base = ""
         if merge_base:
-            changed = run_git(["diff", "--name-only", "--diff-filter=ACMR", f"{merge_base}...HEAD"])
+            try:
+                changed = run_git(["diff", "--name-only", "--diff-filter=ACMR", f"{merge_base}...HEAD"])
+            except RuntimeError:
+                changed = ""
             if changed:
                 return [line for line in changed.splitlines() if line]
 
     if head_sha:
-        previous = run_git(["rev-parse", f"{head_sha}^"])
+        try:
+            previous = run_git(["rev-parse", f"{head_sha}^"])
+        except RuntimeError:
+            previous = ""
         if previous:
-            changed = run_git(["diff", "--name-only", "--diff-filter=ACMR", f"{previous}...{head_sha}"])
+            try:
+                changed = run_git(["diff", "--name-only", "--diff-filter=ACMR", f"{previous}...{head_sha}"])
+            except RuntimeError:
+                changed = ""
             if changed:
                 return [line for line in changed.splitlines() if line]
 
@@ -273,21 +285,34 @@ def should_scan_file(path: str) -> bool:
     return suffix in TEXT_FILE_SUFFIXES or path in ALWAYS_INCLUDE_FILES
 
 
-def load_metadata_entries(path: pathlib.Path) -> list[dict[str, Any]]:
+def load_metadata_entries(path: pathlib.Path) -> list[Any]:
     if not path.exists():
         return []
     with path.open("r", encoding="utf-8") as handle:
         data = json.load(handle)
     if not isinstance(data, list):
         raise ValueError(f"{path} must contain a top-level JSON array")
-    return [entry for entry in data if isinstance(entry, dict)]
+    return data
 
 
-def validate_metadata_entries(entries: list[dict[str, Any]], kind: str) -> list[Finding]:
+def validate_metadata_entries(entries: list[Any], kind: str) -> list[Finding]:
     findings: list[Finding] = []
     today = dt.date.today()
     required = {"id", "path", "rule", "severity", "owner", "reason", "created_at", "cleanup_phase", "expire_at"}
     for index, entry in enumerate(entries, start=1):
+        if not isinstance(entry, dict):
+            findings.append(
+                Finding(
+                    rule=f"{kind}-schema",
+                    severity="P0",
+                    path=str(SCRIPT_DIR / f"{kind}.json"),
+                    line=index,
+                    value=f"{kind}-{index}",
+                    message=f"{kind} entry must be a JSON object, got {type(entry).__name__}",
+                    action="fix metadata",
+                )
+            )
+            continue
         missing = sorted(required - set(entry))
         if missing:
             findings.append(

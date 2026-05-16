@@ -3,6 +3,8 @@ package user
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
 
 	"graft/server/internal/store"
 )
@@ -21,6 +23,10 @@ func ResetDefaultAdminForDevelopment(
 	authRepo store.AuthRepository,
 	rbacRepo store.RBACRepository,
 ) error {
+	if !isDevelopmentResetEnv(os.Getenv("GRAFT_APP_ENV")) {
+		return fmt.Errorf("reset default admin is only available in local/test environments, got %q", strings.TrimSpace(os.Getenv("GRAFT_APP_ENV")))
+	}
+
 	service := authService{
 		auth:      authRepo,
 		passwords: newPasswordHasher(),
@@ -89,4 +95,13 @@ func (s authService) resetDefaultAdminForDevelopment(ctx context.Context, rbac s
 	}
 
 	return nil
+}
+
+func isDevelopmentResetEnv(env string) bool {
+	switch strings.TrimSpace(env) {
+	case "local", "test":
+		return true
+	default:
+		return false
+	}
 }

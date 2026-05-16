@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -11,6 +12,8 @@ import (
 // TestResetDefaultAdminForDevelopmentResetsCredentialAndRole 验证 dev-only 重置会把
 // 默认管理员恢复到初始化密码 + 必须改密状态，并补齐角色绑定。
 func TestResetDefaultAdminForDevelopmentResetsCredentialAndRole(t *testing.T) {
+	t.Setenv("GRAFT_APP_ENV", "local")
+
 	currentHash, err := newPasswordHasher().Hash("custom-password-123")
 	if err != nil {
 		t.Fatalf("hash existing password: %v", err)
@@ -23,6 +26,22 @@ func TestResetDefaultAdminForDevelopmentResetsCredentialAndRole(t *testing.T) {
 	}
 
 	assertDevResetState(t, state)
+}
+
+func TestResetDefaultAdminForDevelopmentRejectsNonDevelopmentEnv(t *testing.T) {
+	t.Setenv("GRAFT_APP_ENV", "production")
+
+	state := newDevResetState("unused")
+	err := ResetDefaultAdminForDevelopment(context.Background(), state.authRepo, state.rbacRepo)
+	if err == nil {
+		t.Fatal("expected development env guard error")
+	}
+	if !strings.Contains(err.Error(), "only available in local/test environments") {
+		t.Fatalf("expected development env guard, got %v", err)
+	}
+	if state.ensured {
+		t.Fatal("did not expect reset flow to touch repositories outside local/test env")
+	}
 }
 
 type devResetState struct {
