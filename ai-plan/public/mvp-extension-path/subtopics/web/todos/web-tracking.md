@@ -17,8 +17,9 @@
   `/users` 页面上的权限显隐；本轮不新增 `/roles` 页面、不新增第二批动态菜单、不做完整 CRUD UI。
 - 当前 `web` 侧 RBAC 真值继续保持单一路径：只消费后端 `bootstrap` 快照中的 `roles`、`permissions`、`menus`，
   不允许本地自造 permission code，也不允许把按钮/菜单显隐升级为真实安全边界。
-- 当前与 RBAC MVP 第二波方向的跨边界协同也已冻结：`web` 暂不把最小写 API 视为可消费完成态，不新增 `/roles`
-  写操作页面，也不提前把按钮显隐升级成提交流程；要等 `server` 对最小写接口完成主代理验证后，再决定下一轮前端接线范围。
+- 当前与 RBAC MVP 第二波方向的跨边界协同已进入最小消费态：基于已提交的后端稳定切片，`web` 当前允许新增
+  `/roles` 最小接线页面，只覆盖 `GET /api/roles`、`GET /api/permissions`、角色创建、角色更新与角色权限分配；
+  本轮仍不扩展完整角色中心，不新增 `super_admin` 前端旁路，也不把用户角色分配 UI 并入同一切片。
 
 - `web` 现阶段以真实 `web/` 工程作为唯一运行面；starter 只保留可继续收敛的壳层风格、页面样板和治理参考，不再把 starter 全量工程视为运行基线。
 - 当前主线不是页面扩张，也不是继续深化独立前端工作台能力；任何 shell 级调整都应服务于真实契约挂接和 mock/demo 清理。
@@ -53,7 +54,11 @@
 - 当前前端恢复基线沿用最近一次 host Windows Bun 完成态校验：
   - `bun run check`
 - 该完成态基线要求 `format:check`、`typecheck`、`lint`、`stylelint`、`test:run`、`build` 全部通过且无未处理 warning。
-- 本次 web/topic 文档同步未新增任何基于 RBAC 第二波写接口的前端通过声明；相关接线仍保持待后端验证后的 planned 状态。
+- 本次 `/roles` 最小接线切片实际目标：
+  - 为 `/roles` 新增 typed api + contract。
+  - 新增最小列表页，接 `GET /api/roles` 与 `GET /api/permissions`。
+  - 接入 role create/update 与 role permission assignment。
+  - focused validation 仅覆盖新增动态路由映射与相关前端类型/构建面，不把本轮自动升级成完整 `bun run check` 完成态声明。
 - 本次 PR #9 review follow-up 预期直接校验：
   - `cd web && bun run check`
 - 本次 `/users` 真实列表页切片直接校验：
@@ -90,6 +95,9 @@
   - `rg -n "dashboard/base|vite-plugin-mock|permission-fe|tabs-router" web/src web/package.json web/vite.config.ts`
   - `cd web && bun run typecheck`
   - `cd web && bun run check`
+- 本次 `/roles` 最小接线预期直接校验：
+  - `cd web && bun run test:run -- src/utils/route/bootstrap.test.ts`
+  - `cd web && bun run typecheck`
 
 ## Immediate Next Step
 
