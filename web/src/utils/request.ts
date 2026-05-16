@@ -31,6 +31,7 @@ type AuthSessionBridge = {
 };
 
 const AUTH_REFRESH_URL = AUTH_API_PATH.REFRESH;
+const AUTH_FORBIDDEN_MESSAGE_KEY = 'auth.forbidden';
 let authSessionBridge: AuthSessionBridge | null = null;
 
 function resolveBaseURL() {
@@ -181,6 +182,11 @@ async function tryRefreshAndReplay<T>(config: AxiosRequestConfigRetry) {
     } as RequestConfig);
     await syncAuthStateAfterRefresh(payload);
   } catch (refreshError) {
+    // 受限首次改密态会显式拒绝 refresh；此时保留当前受限会话，交给页面继续完成改密。
+    if (isRestrictedPasswordChangeRefreshError(refreshError)) {
+      throw refreshError;
+    }
+
     // refresh 已经进入会话清理路径时，不再重复执行 store 侧副作用。
     if (!isApiRequestError(refreshError) || !shouldExitToLogin(refreshError)) {
       await clearClientSession();
@@ -265,4 +271,13 @@ export function isApiRequestError(error: unknown): error is ApiRequestError {
 
 export function shouldAttemptRefreshByError(status: number, code: ApiResponseCode) {
   return status === 401 && code === API_CODE.AUTH_TOKEN_EXPIRED;
+}
+
+function isRestrictedPasswordChangeRefreshError(error: unknown) {
+  return (
+    isApiRequestError(error) &&
+    error.status === 403 &&
+    error.code === API_CODE.AUTH_FORBIDDEN &&
+    error.messageKey === AUTH_FORBIDDEN_MESSAGE_KEY
+  );
 }

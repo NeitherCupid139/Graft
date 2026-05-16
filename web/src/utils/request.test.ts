@@ -110,7 +110,13 @@ async function loadRequestModule() {
   return import('./request');
 }
 
-function createApiError(code: string, status = 401, message = code, traceId = 'trace-1') {
+function createApiError(
+  code: string,
+  status = 401,
+  message = code,
+  traceId = 'trace-1',
+  extras?: Partial<{ messageKey: string; locale: string; data: unknown }>,
+) {
   return {
     message,
     response: {
@@ -120,6 +126,7 @@ function createApiError(code: string, status = 401, message = code, traceId = 't
         code,
         message,
         traceId,
+        ...extras,
       },
     },
   };
@@ -308,6 +315,44 @@ describe('request auth handling', () => {
     expect(callUrls).toEqual(['/api/users', AUTH_API_PATH.REFRESH]);
     expect(mockUserStore.handleAuthFailure).toHaveBeenCalledTimes(1);
     expect(locationReplace).toHaveBeenCalledWith('/login?redirect=%2Fusers');
+  });
+
+  it('preserves the restricted session when refresh is rejected during forced password change', async () => {
+    const { registerAuthSessionBridge, request } = await loadRequestModule();
+    const { setAccessToken } = await import('@/utils/auth-state');
+    registerAuthSessionBridge(mockUserStore);
+
+    const callUrls: string[] = [];
+    requestHandler.mockImplementation(async (config) => {
+      callUrls.push(String(config.url));
+
+      if (config.url === '/api/users') {
+        throw createApiError(API_CODE.AUTH_TOKEN_EXPIRED, 401, 'expired', 'trace-expired');
+      }
+      if (config.url === AUTH_API_PATH.REFRESH) {
+        throw createApiError(API_CODE.AUTH_FORBIDDEN, 403, 'forbidden', 'trace-refresh', {
+          messageKey: 'auth.forbidden',
+        });
+      }
+
+      throw new Error(`unexpected request ${String(config.url)}`);
+    });
+
+    setAccessToken('restricted-token');
+    localStorage.setItem(STORAGE_KEY.USER_SESSION, JSON.stringify({ token: 'restricted-token' }));
+
+    await expect(request.get({ url: '/api/users' })).rejects.toMatchObject({
+      code: API_CODE.AUTH_FORBIDDEN,
+      status: 403,
+      messageKey: 'auth.forbidden',
+    });
+
+    expect(callUrls).toEqual(['/api/users', AUTH_API_PATH.REFRESH]);
+    expect(mockUserStore.handleAuthFailure).not.toHaveBeenCalled();
+    expect(locationReplace).not.toHaveBeenCalled();
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY.USER_SESSION) || '{}')).toMatchObject({
+      token: 'restricted-token',
+    });
   });
 
   it('retries refresh only once when the replayed request still returns AUTH_TOKEN_EXPIRED', async () => {
