@@ -209,7 +209,7 @@ func newRestrictedSessionGuard(localizer *i18n.Service, authSvc *authService) gi
 		}
 
 		for _, allowedPath := range allowedPaths {
-			if strings.HasSuffix(ginCtx.FullPath(), allowedPath) {
+			if ginCtx.FullPath() == allowedPath {
 				ginCtx.Next()
 				return
 			}

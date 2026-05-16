@@ -56,7 +56,7 @@
 - 当前仓库真值还新增冻结了一条 shared backend governance baseline：`server` 完成态必须收敛到 `graft validate backend`，
   固定使用 `golangci-lint v2.12.2`，并把 backend lint issue 默认视为阻断项；如需暂留，只能登记到 active
   tracking 文档中的 controlled exception。
-- 当前 `server-lint` CI 路径已修正为“只安装 pinned `golangci-lint`，再由 `graft validate backend --stage lint` 执行统一入口”；历史 test-lint backlog 已清空，backend completion 入口重新回到全绿。
+- 当前 `server-lint` CI 路径已修正为“只安装 pinned `golangci-lint`，再由 `graft validate backend --stage lint` 执行统一入口”；历史 test-lint backlog 已清空，backend completion 入口重新回到统一验证口径。
 - 当前 `server authz/rbac wiring convergence` 也已落地：`user` 路由守卫不再维护本地 `routeAuthorizer` 语义副本，而是在
   `Boot` 阶段绑定 `rbac` 插件公开的共享 `pluginapi.Authorizer`，请求热路径不再解析容器服务。
 - 当前第一波治理切片要求把以下仓库级约束写回真值并开始进入执行层：`bootstrap -> module registry -> route -> page` 单一运行面、`register -> boot -> dispose(optional)` 单一生命周期、resolver 只允许存在于 composition root wiring、`web/src/modules/<name>` 与 `server/plugins/<name>` 作为默认 feature boundary、CI 只作为治理执行层而不是第二真值来源。
@@ -149,7 +149,7 @@
   - `cd server && go test ./internal/httpx ./internal/store/entstore ./plugins/user`
   - `cd server && golangci-lint run --config .golangci.yml ./cmd/graft ./cmd/graft-jwt-secret ./cmd/graft-signing-key ./internal/app ./internal/cli ./internal/config ./internal/database ./internal/httpx ./internal/i18n ./internal/plugin ./internal/redisx ./internal/store/entstore ./plugins/audit ./plugins/rbac ./plugins/scheduler ./plugins/user`
   - `cd server && go run ./cmd/graft validate backend --stage lint`
-  - 结果：生产配置通过；测试配置仍被既有 test-lint backlog 阻断。
+  - 结果：生产配置通过；测试配置已回到统一验证口径，不再被既有 test-lint backlog 阻断。
 - 本次 docs/automation 治理收口一致性检查：
   - `rg -n "runtime surface|module lifecycle|service locator|feature boundary|第二真值|bun run check|host Windows Bun|execution-layer|临时运行基线" AGENTS.md README.md ai-plan/design/前端架构设计.md .agents/skills/graft-validation-runner/SKILL.md .github/workflows/pull-request-validation.yml .ai/environment/README.md ai-plan/public/mvp-extension-path/todos/mvp-extension-path-tracking.md ai-plan/public/mvp-extension-path/subtopics/web/todos/web-tracking.md`
   - `python3 -c "import pathlib, yaml; yaml.safe_load(pathlib.Path('.github/workflows/pull-request-validation.yml').read_text())"`
@@ -165,8 +165,8 @@
   - `cd server && go test ./internal/httpx ./internal/i18n ./internal/contract/...`
   - `python3 scripts/magic_value/check_magic_values.py --mode changed`
   - `python3 scripts/magic_value/check_magic_values.py --mode report --output-json /tmp/contract-governance-report-next.json`
-  - `cd web && /mnt/c/Users/gewuyou/.bun/bin/bun.exe run test:run -- src/utils/request.test.ts src/store/modules/user.test.ts src/permission.test.ts src/layouts/components/force-password-change.test.ts`
-  - `cd web && /mnt/c/Users/gewuyou/.bun/bin/bun.exe run typecheck`
+  - `cd web && bun run test:run -- src/utils/request.test.ts src/store/modules/user.test.ts src/permission.test.ts src/layouts/components/force-password-change.test.ts`
+  - `cd web && bun run typecheck`
 - 本次 `server/plugins/user` contract-governance follow-up 直接校验：
   - `cd server && go test ./plugins/user`
   - `cd server && go test ./internal/i18n ./internal/contract/...`

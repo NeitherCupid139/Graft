@@ -19,7 +19,8 @@ scripts/run_python.sh scripts/magic_value/check_magic_values.py --mode report
   - intended for `pre-commit`; CI remains the authoritative remote blocking
     entrypoint
 - `ci`
-  - scans repository-tracked files, applies baseline / allowlist, and fails on
+  - scans the changed set first; if no change set is available, it falls back to
+    repository-tracked files, then applies baseline / allowlist and fails on
     blocking findings
   - intended for the blocking CI job
 - `report`

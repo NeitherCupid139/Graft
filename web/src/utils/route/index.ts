@@ -123,7 +123,7 @@ export function transformObjectToRoute<T = DynamicRouteItem>(routeList: DynamicR
   return [PAGE_NOT_FOUND_ROUTE, ...routeList] as unknown as T[];
 }
 
-export const RUNTIME_ENTRY_FALLBACK_PATH = '/result/404';
+export const RUNTIME_ENTRY_FALLBACK_PATH = PAGE_NOT_FOUND_ROUTE.redirect;
 
 export function isRootEntryPath(path: string) {
   return path === '/' || path === '';

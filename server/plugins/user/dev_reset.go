@@ -78,7 +78,7 @@ func (s authService) resetDefaultAdminForDevelopment(ctx context.Context, rbac s
 	}
 
 	if err := ensureRolePermissions(ctx, rbac, role.ID, userPermissionItems("user")); err != nil {
-		return err
+		return fmt.Errorf("ensure default admin role permissions: %w", err)
 	}
 
 	if err := rbac.AssignRoleToUser(ctx, store.AssignRoleToUserInput{

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -38,7 +39,7 @@ func newDevResetAdminCommand() *cobra.Command {
 	}
 }
 
-func runDevResetAdmin(cmd *cobra.Command) error {
+func runDevResetAdmin(cmd *cobra.Command) (err error) {
 	cfg, err := devResetLoadConfig()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
@@ -50,10 +51,12 @@ func runDevResetAdmin(cmd *cobra.Command) error {
 
 	resources, err := devResetOpenDB(cfg.Database)
 	if err != nil {
-		return err
+		return fmt.Errorf("open database: %w", err)
 	}
 	defer func() {
-		_ = devResetCloseDB(resources)
+		if closeErr := devResetCloseDB(resources); closeErr != nil {
+			err = errors.Join(err, fmt.Errorf("close database: %w", closeErr))
+		}
 	}()
 
 	factory, err := devResetNewFactory(resources)
@@ -69,7 +72,7 @@ func runDevResetAdmin(cmd *cobra.Command) error {
 		return fmt.Errorf("write reset-admin result: %w", err)
 	}
 
-	return nil
+	return err
 }
 
 func isDevelopmentAppEnv(env string) bool {

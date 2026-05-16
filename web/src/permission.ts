@@ -33,10 +33,12 @@ router.beforeEach(async (to, from, next) => {
     to.path === AUTH_ROUTE_PATH.RESTRICTED_SESSION || to.name === AUTH_ROUTE_NAME.RESTRICTED_SESSION;
   const isRestrictedSession = () => userStore.mustChangePassword;
   const redirectToRestrictedSession = () => {
-    if (!isRestrictedSessionTarget && to.fullPath !== AUTH_ROUTE_PATH.RESTRICTED_SESSION) {
-      userStore.setPendingRestrictedRedirect(to.fullPath);
+    if (isRestrictedSessionTarget) {
+      next();
+      return;
     }
 
+    userStore.setPendingRestrictedRedirect(to.fullPath);
     next({
       path: AUTH_ROUTE_PATH.RESTRICTED_SESSION,
       replace: true,

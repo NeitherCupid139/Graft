@@ -27,7 +27,7 @@ type Runtime interface {
 type CronRuntime struct {
 	logger *zap.Logger
 
-	mu      sync.Mutex
+	mu      sync.RWMutex
 	cron    *cron.Cron
 	started bool
 	entries map[string]cron.EntryID
@@ -158,8 +158,8 @@ func (r *CronRuntime) Stop(ctx context.Context) error {
 }
 
 func (r *CronRuntime) jobContext() context.Context {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 
 	return r.lifecycleCtx
 }

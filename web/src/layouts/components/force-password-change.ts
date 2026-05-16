@@ -24,7 +24,17 @@ export async function completeRestrictedPasswordChange(options: CompleteRestrict
 
   const fallbackPath = resolveRuntimeHomePath(asyncRoutes);
   const redirectPath = options.consumePendingRestrictedRedirect(fallbackPath);
-  const nextPath = redirectPath === AUTH_ROUTE_PATH.RESTRICTED_SESSION ? fallbackPath : redirectPath;
+  const normalizedRedirectPath = redirectPath
+    ? (() => {
+        try {
+          return new URL(redirectPath, window.location.origin).pathname;
+        } catch {
+          return redirectPath.split('?')[0].split('#')[0];
+        }
+      })()
+    : '';
+  const nextPath =
+    normalizedRedirectPath === AUTH_ROUTE_PATH.RESTRICTED_SESSION || !redirectPath ? fallbackPath : redirectPath;
 
   await options.replace(nextPath);
 }

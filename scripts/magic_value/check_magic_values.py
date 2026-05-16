@@ -200,7 +200,10 @@ def run_git(args: list[str]) -> str:
         text=True,
     )
     if completed.returncode != 0:
-        return ""
+        stderr = completed.stderr.strip()
+        stdout = completed.stdout.strip()
+        details = stderr or stdout or "unknown git failure"
+        raise RuntimeError(f"git {' '.join(args)} failed: {details}")
     return completed.stdout.strip()
 
 

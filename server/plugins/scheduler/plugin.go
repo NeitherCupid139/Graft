@@ -44,6 +44,10 @@ func (p *Plugin) Register(_ *plugin.Context) error {
 
 // Boot 在所有插件 Register 完成后装配并启动最小调度器。
 func (p *Plugin) Boot(ctx *plugin.Context) error {
+	if ctx == nil || ctx.CronRegistry == nil {
+		return fmt.Errorf("scheduler boot context is required")
+	}
+
 	runtime := p.runtime
 	if runtime == nil {
 		runtime = schedulercore.New(ctx.Logger)
