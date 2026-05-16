@@ -19,6 +19,9 @@
 - 当前 RBAC MVP 第二波方向也已进入恢复真值：`server/plugins/rbac` 工作树上已出现最小写接口相关实现文件，
   当前活动范围收敛为角色创建、角色更新、角色权限替换与用户角色替换这四类最小写 API；在主代理重新完成 backend
   validation 之前，本文件只把它们记录为 in-progress scope，不把它们标记为已完成闭环。
+- 当前交叉核对还确认：`user-role` 管理面仍缺少“目标用户当前已分配角色”的稳定 HTTP 读契约。现有
+  `ListRolesByUserID` 只在 `bootstrap` 中服务当前登录主体，`rbac` 插件对任意用户仍只暴露
+  `POST /api/users/:id/roles/assign`，尚未提供对称的最小 read route 与 focused tests。
 - 当前 `server` 侧 RBAC 真值同步也已开始进入持久化层：`roles.builtin` 与 `permissions.category`
   已进入 Ent schema / Atlas migration 设计面，`bootstrap` 最小快照开始补齐 `roles`，让后续 `web`
   不再依赖空 roles 数组或本地猜测角色状态。
@@ -89,6 +92,8 @@
 - 如果 `server` 本地完成态、agent 完成态与 CI 阻断继续各自维护不同的 lint 命令或参数，backend quality gate 会在实现落地后迅速重新分叉。
 - 如果 RBAC 第二波最小写 API 在验证未重跑前就被 tracking、README 或 handoff 文本写成“已完成”，后续 `web`
   会基于并未确认的后端闭环安排接线，放大跨边界返工风险。
+- 如果 `server` 继续只有用户角色写接口而没有读接口，`web` 一旦开始接入用户角色分配 UI，就只能靠空初始值或本地猜测
+  驱动表单，重新形成假闭环。
 
 ## Latest Validation
 
@@ -197,6 +202,8 @@
 ## Immediate Next Step
 
 - 在当前 RBAC 第二波方向里，先把 `server/plugins/rbac` 的最小写接口 contract、README 与 tracking 真值收齐，再由主代理补跑最小 backend validation，之后再决定是否进入更高风险的用户禁用、删除或 `super_admin` bypass。
+- 在继续任何 `web user-role` 接线之前，先由 `server/plugins/rbac` 补齐“任意目标用户 -> 已分配角色列表”的最小读契约、
+  route permission 归属和 focused tests，再评估是否允许前端进入用户角色分配 UI。
 - 保持 `bootstrap.roles`、`roles.builtin`、`permissions.category` 的真值收口，后续 `web` 只消费这批后端契约，不得再本地推导角色类别或权限分组。
 - 保持当前共享 `pluginapi.Authorizer` wiring 与 `server/plugins/user/contract` 稳定；后续新增 `server`
   受保护路由时，继续复用 typed permission/route contract 与 `rbac` 插件公开服务，不再在 `user` 或其它插件本地复制实现。
