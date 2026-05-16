@@ -64,6 +64,10 @@
   service locator、feature boundary、AI architecture preservation 与 validation governance；前端设计文档不再把
   starter 全量工程写成临时运行基线；README、validation skill、CI workflow 与环境说明已统一改为引用仓库入口，
   并明确 split stage 只是执行层，不是第二真值。
+- 当前 contract governance / magic-value governance 的 phase-1 底座也已开始进入执行层：根 `AGENTS.md`、
+  `项目设计`、`前端架构设计`、`插件与依赖注入设计` 与新建的 `契约治理与魔法值治理规范` 已统一冻结 canonical
+  ownership、typed contract、lifecycle 与 compatibility 规则；本地 hooks、CI workflow 与仓库扫描脚本开始用同一套
+  phase-1 规则阻断新增高风险裸字面量，而不是继续依赖人工记忆。
 - 较早的拆分前历史保留在 `archive/`，具体实现轨迹保留在各自 `trace` 文件。
 
 ## Shared Milestones
@@ -76,6 +80,9 @@
 - 后端 lint 治理的仓库真值已经先行冻结：后续 `server` 与 cross-boundary 收尾都必须以同一个 backend quality entrypoint 和同一套 lint 口径完成，而不是继续依赖散落的临时命令。
 - docs/automation 侧的第一波治理收口也已冻结：starter 参考源、统一验证入口、host Windows Bun 例外规则和 CI
   stage 语义现在都回指同一套仓库真值，不再保留“临时运行基线”或“workflow 自有验收口径”的文档空间。
+- contract governance / magic-value governance 的第一波 phase-1 底座已经冻结：高风险 contract 的 canonical
+  ownership、typed boundary、lifecycle、baseline/allowlist 与 drift-report 目标现已同时写入设计真值、仓库守卫和
+  automation 入口。
 
 ## Shared Risks
 
@@ -89,6 +96,8 @@
 - 如果默认管理员、首次改密真值来源、或登录后阻断责任在 `server` 与 `web` 之间重新漂移，后续实现会重新引入猜测式前端逻辑或半生效的安全边界。
 - disposable PostgreSQL / Redis 校验仍依赖手工准备环境，后续恢复时必须显式说明当前可用的校验入口。
 - 如果本地、agent 和 CI 在 `server` 完成态上继续各自维护不同的 lint 命令或参数，新的 backend 治理基线会很快再次失真，无法稳定阻断可维护性回退。
+- 如果 contract scanner、allowlist/baseline 元数据与设计文档的 canonical ownership/lifecycle 口径重新分叉，
+  CI 和本地 hook 会很快退化成“有工具但没有同一套 contract 真值”的伪治理状态。
 
 ## Shared Validation Summary
 
@@ -131,9 +140,19 @@
   - `rg -n "runtime surface|module lifecycle|service locator|feature boundary|第二真值|bun run check|host Windows Bun|execution-layer|临时运行基线" AGENTS.md README.md ai-plan/design/前端架构设计.md .agents/skills/graft-validation-runner/SKILL.md .github/workflows/pull-request-validation.yml .ai/environment/README.md ai-plan/public/mvp-extension-path/todos/mvp-extension-path-tracking.md ai-plan/public/mvp-extension-path/subtopics/web/todos/web-tracking.md`
   - `python3 -c "import pathlib, yaml; yaml.safe_load(pathlib.Path('.github/workflows/pull-request-validation.yml').read_text())"`
   - `git diff -- AGENTS.md README.md ai-plan/design/前端架构设计.md .agents/skills/graft-validation-runner/SKILL.md .github/workflows/pull-request-validation.yml .ai/environment/README.md ai-plan/public/mvp-extension-path/todos/mvp-extension-path-tracking.md ai-plan/public/mvp-extension-path/subtopics/web/todos/web-tracking.md`
+- 本次 contract governance / magic-value governance 底座切片直接校验：
+  - `python3 -m py_compile scripts/magic_value/check_magic_values.py`
+  - `python3 scripts/magic_value/check_magic_values.py --mode changed`
+  - `python3 scripts/magic_value/check_magic_values.py --mode report --output-json /tmp/contract-governance-report.json`
+  - `python3 -c "import pathlib, yaml; yaml.safe_load(pathlib.Path('.github/workflows/pull-request-validation.yml').read_text())"`
+  - `sh -n .husky/pre-commit .husky/pre-push`
+  - `git diff -- AGENTS.md .gitignore .husky/pre-commit .husky/pre-push .github/workflows/pull-request-validation.yml ai-plan/design ai-plan/public/mvp-extension-path scripts/magic_value`
 
 ## Immediate Next Step
 
 - 保持 docs/automation 侧新收口的真值稳定，不要再把 starter 全量工程、split stage 或环境例外规则复制成新的并行治理文本。
+- 在 phase-1 底座提交后，继续把魔法值治理推进到真实 contract surface：优先从 `server/internal/httpx`、`server/internal/pluginapi`、
+  `server/plugins/user/contract` 与 `web/src/contracts` / `web/src/modules/*/contract` 建立首批 canonical typed
+  contract，而不是先做全仓“零字面量”清扫。
 - 在当前 backend completion 与 shared authorizer wiring 都已收口后，把跨边界主线切回 `web` 主运行面清理：继续移除 starter demo 入口、默认 mock runtime 与前端权限旁路，让主运行面只服务真实 bootstrap 菜单和已注册页面。
 - 保持当前 `/api/auth/bootstrap`、`AUTH_*` code 与共享 permission 契约冻结，不要回退到第二套授权实现、中文 `message` 分支或 refresh 多出口。

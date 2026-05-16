@@ -39,3 +39,7 @@ go.work.sum
 .codex/
 .ai/private/
 web/ai-libs/
+
+# Python cache
+__pycache__/
+*.pyc

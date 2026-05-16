@@ -33,6 +33,9 @@ Authoritative documents:
 * [ai-plan/design/项目设计.md](ai-plan/design/项目设计.md)
 * [ai-plan/design/插件与依赖注入设计.md](ai-plan/design/插件与依赖注入设计.md)
 * [ai-plan/design/前端架构设计.md](ai-plan/design/前端架构设计.md)
+* [ai-plan/design/契约治理与魔法值治理规范.md](ai-plan/design/契约治理与魔法值治理规范.md) when the task changes
+  typed contracts, magic-value governance, contract lifecycle, ownership, compatibility, drift handling, or shared
+  `server` / `web` semantics
 * [ai-plan/design/代码注释与模块文档规范.md](ai-plan/design/代码注释与模块文档规范.md) when the task changes
   code comments, package docs, module README rules, or AI documentation behavior
 * [ai-plan/design/TDesign-MCP-辅助开发规范.md](ai-plan/design/TDesign-MCP-辅助开发规范.md) when the task changes
@@ -294,6 +297,7 @@ Expected structure:
 * `web/src/modules`
 * `web/src/components`
 * `web/src/api`
+* `web/src/contracts`
 * `web/src/stores`
 * `web/src/router`
 
@@ -305,7 +309,8 @@ Rules:
   or demo shells as a parallel runtime baseline
 * keep new modules aligned with `menu + route + page + api + permission`
 * preserve module lifecycle clarity: `app` owns bootstrap and application wiring, `layouts` own shell chrome,
-  `modules` own feature behavior, and `components` stay reusable rather than becoming hidden feature containers
+  `modules` own feature behavior, `contracts` own platform-level frontend stable contracts, and `components` stay
+  reusable rather than becoming hidden feature containers
 * keep feature boundaries inside explicit module surfaces; do not park long-lived module state, routes, permissions,
   or API semantics in shell-level directories just because a starter or demo structure already has a placeholder
 * use dynamic menus driven by backend data
@@ -363,6 +368,46 @@ Rules:
 * CRUD page layouts should stay consistent across modules
 * module pages should align with backend permissions and menu metadata instead of inventing parallel frontend-only
   access rules
+
+### 8.3 Contract Governance
+
+High-risk runtime literals must follow `ai-plan/design/契约治理与魔法值治理规范.md`.
+
+For this repository, contract means stable values or typed boundaries that callers may depend on, including:
+
+* permission code
+* route name and special route path
+* storage key
+* header name and auth scheme
+* error code
+* message key
+* event name
+* config key / env key
+* feature flag key
+* shared status enum or other values that affect `server` / `web` behavior across module boundaries
+
+Rules:
+
+* before adding a new high-risk contract, search the existing module contract, platform contract, and stable
+  cross-boundary contract first; reuse the canonical definition instead of creating a parallel one
+* do not create new global `constants` or `enums` dump files to satisfy contract governance
+* `server` high-risk string contracts should prefer capability-oriented typed string boundaries when they cross plugin,
+  runtime, or registration surfaces
+* `web` high-risk contracts should prefer literal unions or other explicit typed boundaries at router, storage, request,
+  API, and module contract surfaces instead of scattering raw strings
+* any new or changed high-risk shared contract must have an explicit owner boundary and lifecycle state
+  (`experimental` / `stable` / `deprecated` / `removed`); deprecated contracts also need a replacement or cleanup plan
+* alias compatibility is temporary only; do not treat alias contracts as permanent second truths
+* if a contract rename, removal, or compatibility change affects both `server` and `web`, update the contract design
+  doc in the same change instead of relying on code comments or PR text alone
+
+Phase-1 expectations:
+
+* prioritize canonical ownership, naming, typed boundary, and lifecycle clarity before automation exists
+* do not claim contract drift, deprecated usage, or duplicate-semantic checks passed unless the repository entrypoint
+  for that check exists and was actually run
+* when automation has not landed yet, report the documentation or registry alignment performed and the exact validation
+  gap instead of implying the governance work is complete by default
 
 ## 9. Go 代码组织与命名规范
 
@@ -616,6 +661,9 @@ section.
 * AI 不得生成死代码、占位 `TODO` 或伪实现。
 * AI 不得为了通过编译吞掉错误。
 * AI 必须优先保持现有架构一致性。
+* AI 修改高风险契约时必须先复用已有 canonical contract，不得为局部方便重复定义同义常量、平行 alias 或新的
+  `constants` 垃圾桶文件。
+* AI 不得在新代码中继续引入已标记 `deprecated` 的 contract；如兼容窗口尚未结束，只能在兼容桥接层保留旧 contract。
 * AI 修改 migration 时必须考虑 `atlas migrate hash`。
 * AI 修改 `server` 代码后必须满足 `gofmt`、`go test ./...`、`go build ./cmd/graft`、`golangci-lint run`，
   并与 `12.1 Server Validation` 的统一入口保持一致。
@@ -740,6 +788,10 @@ If a task changes contracts shared across `server` and `web`, or changes menu/pe
 both sides:
 
 * validate both `server` and `web`
+* keep the corresponding contract governance docs aligned in the same change
+* if typed enforcement, drift detection, or compatibility checks are expected by the active contract lifecycle but no
+  repository automation entrypoint exists yet, report that gap explicitly instead of claiming the contract slice is fully
+  validated
 
 ### 12.4 Validation Reporting
 
@@ -1137,6 +1189,8 @@ Review for:
 * unnecessary framework complexity
 * divergence from Go + Gin + Ent + Casbin server rules
 * divergence from Vue 3 + TDesign web rules
+* duplicate canonical contract definitions, undocumented contract ownership, or missing lifecycle / compatibility notes
+  for high-risk contract changes
 * missing tests around plugin lifecycle, dependency ordering, authorization, and dynamic menu/route behavior
 * undocumented public interfaces or lifecycle-sensitive code
 * divergence between `ai-plan/design/`, `ai-plan/roadmap/`, and active topic recovery documents
@@ -1153,6 +1207,8 @@ A task is done only when all relevant items below are satisfied:
 * `server` code in scope complies with `9. Go 代码组织与命名规范`, including context propagation, transaction
   boundaries, resource cleanup, API/DTO boundaries, config loading, runtime wiring, auth handling, logging, and
   AI-code governance constraints
+* any new or changed high-risk contract follows the canonical ownership, lifecycle, and compatibility rules in
+  `ai-plan/design/契约治理与魔法值治理规范.md`
 * affected code has the required comments and documentation
 * the changed area passed direct validation, or the exact validation gap was reported
 * `server` work reached its completion state only after `graft validate backend` passed with the full backend quality

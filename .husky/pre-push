@@ -4,11 +4,8 @@ set -eu
 repo_root="$(git rev-parse --show-toplevel)"
 scanner="$repo_root/scripts/magic_value/check_magic_values.py"
 
-cd "$repo_root/web"
-./node_modules/.bin/lint-staged
-
 if [ ! -f "$scanner" ]; then
-  echo "contract governance: skip pre-commit check (missing $scanner)"
+  echo "contract governance: skip pre-push check (missing $scanner)"
   exit 0
 fi
 

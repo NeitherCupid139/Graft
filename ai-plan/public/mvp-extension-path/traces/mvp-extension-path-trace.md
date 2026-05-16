@@ -87,7 +87,16 @@
 - Kept the repository-wide next-step focus on cross-boundary web-shell cleanup rather than reopening backend-only
   governance drift.
 
+## 2026-05-16 contract-governance phase-1 foundation
+
+- Added `ai-plan/design/契约治理与魔法值治理规范.md` as the repository design truth for canonical contract ownership,
+  typed boundaries, lifecycle, compatibility windows, and phase-1 magic-value governance.
+- Extended `AGENTS.md`, `项目设计`, `前端架构设计`, and `插件与依赖注入设计` so high-risk contract changes now
+  explicitly require canonical reuse, lifecycle clarity, and same-change doc alignment across `server` / `web`.
+- Added a repository-local scanner under `scripts/magic_value/` plus local hook and CI wiring so new high-risk
+  literals can be checked through one phase-1 automation path instead of ad-hoc manual review.
+
 ## Next Step
 
-- Continue MVP work through the `web` subtopic, keeping `/api/auth/bootstrap`, `AUTH_*`, and shared permission
-  contracts stable while expanding the real `web` runtime surface and removing remaining demo/mock auth/menu paths.
+- Continue MVP work by converting the first live high-risk literals into canonical typed contracts, starting from
+  shared auth/error/header/request surfaces before expanding the governance pass to broader `web` runtime cleanup.

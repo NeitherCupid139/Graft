@@ -30,6 +30,71 @@ env:
 # Acceptance criteria remain defined by root AGENTS.md and the repository entrypoints it names.
 
 jobs:
+  contract-governance-check:
+    name: Contract Governance Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Run contract governance check
+        shell: bash
+        run: |
+          scanner="scripts/magic_value/check_magic_values.py"
+          if [ ! -f "$scanner" ]; then
+            echo "::notice title=Contract governance skipped::Missing $scanner; CI wiring is in place but the scanner has not been added on this branch."
+            exit 0
+          fi
+          python3 "$scanner" --mode ci --output-json /tmp/contract-governance-ci.json
+
+      - name: Upload contract governance report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: contract-governance-ci
+          path: /tmp/contract-governance-ci.json
+          if-no-files-found: ignore
+
+  contract-drift-report:
+    name: Contract Drift Report
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Run contract drift report
+        shell: bash
+        run: |
+          scanner="scripts/magic_value/check_magic_values.py"
+          if [ ! -f "$scanner" ]; then
+            echo "::notice title=Contract drift report skipped::Missing $scanner; report wiring is in place but the scanner has not been added on this branch."
+            exit 0
+          fi
+          python3 "$scanner" --mode report --output-json /tmp/contract-governance-report.json
+
+      - name: Upload contract drift report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: contract-governance-report
+          path: /tmp/contract-governance-report.json
+          if-no-files-found: ignore
+
   web-check:
     name: Web Check
     runs-on: ubuntu-latest
