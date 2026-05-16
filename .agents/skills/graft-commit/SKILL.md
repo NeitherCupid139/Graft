@@ -1,0 +1,67 @@
+---
+name: graft-commit
+description: Repository-specific scoped commit workflow for Graft. Use when the user explicitly wants the current validated task slice committed and the agent needs to classify ownership, verify scope, choose a compliant Conventional Commit message, and create a safe git commit without bundling unrelated changes.
+---
+
+# Graft Commit
+
+Use this skill when the user explicitly asks to commit the current `Graft` task slice, for example with
+`$graft-commit`, `commit this slice`, or `提交当前这次改动`.
+
+Treat root `AGENTS.md` as the commit-governance source of truth. This skill does not loosen ownership, staging, or
+validation rules.
+
+## Preconditions
+
+1. Ensure the current turn already has the startup receipt required by `AGENTS.md`.
+2. Read `AGENTS.md` `13. Git Workflow Rules` before staging or committing anything.
+3. Confirm the user explicitly wants a commit. This skill is that explicit trigger.
+4. If the correct validation scope is unclear, use `graft-validation-runner` before committing.
+
+## Workflow
+
+1. Inspect `git status --short` and classify ownership using the three AGENTS scenarios:
+   - clean working tree before task
+   - dirty working tree but owned scope can be reliably separated
+   - mixed or ambiguous ownership that cannot be safely separated
+2. Define the commit scope before staging:
+   - include only files or hunks owned by the current task slice
+   - exclude unrelated files, unknown edits, and user-owned changes
+   - never treat task relevance alone as commit permission
+3. Confirm validation is sufficient for the task class:
+   - `server`: prefer `cd server && go run ./cmd/graft validate backend` for completion-state work
+   - `web`: prefer `cd web && bun run check` for completion-state work
+   - `cross-boundary`: validate both affected sides
+   - `docs/automation`: run the strongest honest structural checks available
+4. Stage only the confirmed owned scope:
+   - do not use `git add .`, `git add -A`, or `git commit -am` unless the user explicitly asks to commit everything
+   - when one file contains mixed ownership, stage only the owned hunks if they can be reliably separated
+5. Build the commit message from `AGENTS.md` rules:
+   - format: `<type>(<scope>): <summary>`
+   - title defaults to English
+   - `scope` is required and explicit
+   - avoid noise titles such as `wip`, `update`, or `fix typo`
+   - if a body is needed, use real multiline bullet items and do not include escaped control text like `\n`
+6. Create one scoped commit for the current logical slice.
+7. Report:
+   - the committed scope
+   - the validation command(s) used
+   - the final commit title and short SHA
+
+## Refusal Cases
+
+Do not commit when any of these are true:
+
+* ownership is mixed and cannot be confidently separated
+* the user asked to commit but the task still lacks the required validation and that validation is still feasible
+* the working tree contains unrelated changes that would be staged only by using broad git add patterns
+* the proposed commit message would violate the repository Conventional Commit rules
+
+In these cases, explain the blocker and stop at the smallest safe next step.
+
+## Example Triggers
+
+* `$graft-commit`
+* `Use $graft-commit for this slice`
+* `提交这次已验证的改动`
+* `Commit the current validated scope`

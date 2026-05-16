@@ -164,6 +164,9 @@ Prefer the repository skills below when their trigger matches the task:
     failed checks, MegaLinter warnings, or failed test signals before local verification
 * `graft-plugin-scaffold`
   * use when adding a new `server` plugin or shaping a plugin before implementation
+* `graft-commit`
+  * use when the current task slice is ready to commit and the user explicitly wants the agent to classify ownership,
+    verify scope, choose a compliant Conventional Commit message, and create a scoped git commit
 * `graft-web-module-scaffold`
   * use when adding a new `web` feature module aligned with backend plugin semantics
 * `graft-validation-runner`
@@ -785,6 +788,18 @@ Automatic commits are allowed only after ownership is classified:
   reliably separated, the agent must not auto-commit; explain the mixed state to the user and limit the next step to
   one of these paths: commit only the confirmable scope, let the user specify the commit scope, or leave the changes
   uncommitted
+
+Explicit commit trigger:
+
+* when the user explicitly invokes a repository commit trigger such as `$graft-commit`, treat it as permission to
+  create one scoped commit for the current validated task slice, but still apply the ownership and mixed-change rules
+  above before staging anything
+* the trigger grants permission to commit the confirmed owned scope only; it does not permit bundling unrelated files,
+  unknown changes, or all current working tree changes by default
+* if the current slice is not yet validated to the level required by its task class, finish the required validation
+  before committing or explain why that validation cannot be completed yet
+* if the working tree is mixed and the owned scope cannot be separated confidently, the trigger does not override the
+  fail-closed rule; stop and report the ambiguity instead of forcing a commit
 
 For staging and mixed-ownership files:
 
