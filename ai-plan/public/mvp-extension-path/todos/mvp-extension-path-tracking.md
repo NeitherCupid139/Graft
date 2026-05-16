@@ -43,6 +43,9 @@
 ## Current Recovery Point
 
 - 当前阶段正式收敛到“后端主导的 MVP 闭环收敛计划”：先补齐 `server` 的 event bus、audit、scheduler 和稳定插件契约，再让 `web` 挂接这些真实契约。
+- 当前仓库级 startup governance 最小迁移切片已落地到文档真值：根 `AGENTS.md` 现在独占 startup preflight、
+  最小 receipt、resume/restart 重验与 subagent 最小继承包定义；`graft-boot`、`graft-multi-agent-batch` 与
+  `ai-plan` 文档不再各自维护第二套 boot 链。
 - `server` 当前已形成最小 runtime 闭环，并新增受保护的 `/api/auth/bootstrap` 真实契约，统一返回当前用户、权限码、按权限过滤的菜单和 locale 快照。
 - `web` 当前已把登录主路径收敛到真实 `login/refresh/bootstrap` 契约，并开始用 bootstrap 菜单快照驱动最小动态路由，而不是继续依赖 starter mock 登录与静态 demo 菜单。
 - 当前 cross-boundary 切片已把 `/users` 从“真实菜单路径 + demo 页面内容”的假闭环，收敛为真实 `GET /api/users` 契约加最小只读列表页；`/user/index` 静态个人中心残留入口已移除。
@@ -67,6 +70,8 @@
 
 - 如果 `web` 回到页面扩张或长期保留 mock/demo 依赖，前后端契约会再次漂移。
 - `auth`、`menu`、`permission`、`locale` 等共享契约若在后端收敛期内继续无边界扩张，会放大 `web` 接线返工成本。
+- 如果后续 skill、README、或 topic 恢复文档再次复制完整 boot 规则，当前 startup governance 收口会重新退化成
+  双轨并存状态，`resume` 与 subagent 入口会最先失真。
 - 如果默认管理员、首次改密真值来源、或登录后阻断责任在 `server` 与 `web` 之间重新漂移，后续实现会重新引入猜测式前端逻辑或半生效的安全边界。
 - disposable PostgreSQL / Redis 校验仍依赖手工准备环境，后续恢复时必须显式说明当前可用的校验入口。
 - 如果本地、agent 和 CI 在 `server` 完成态上继续各自维护不同的 lint 命令或参数，新的 backend 治理基线会很快再次失真，无法稳定阻断可维护性回退。
@@ -83,6 +88,9 @@
   - `cd web && bun run typecheck`
   - `cd web && bun run check`
 - 本次 topic 级同步通过 `sed`、`rg`、`git diff -- ai-plan/public/mvp-extension-path` 与对应直接校验结果完成一致性检查。
+- 本次 startup governance 最小迁移切片一致性检查：
+  - `rg -n "Startup Governance|startup preflight|startup receipt|recovery index|subagent" AGENTS.md .agents/skills/graft-boot/SKILL.md .agents/skills/graft-multi-agent-batch/SKILL.md ai-plan/README.md ai-plan/public/README.md ai-plan/design/AI任务追踪与恢复设计.md ai-plan/public/mvp-extension-path`
+  - `git diff -- AGENTS.md .agents/skills/graft-boot/SKILL.md .agents/skills/graft-multi-agent-batch/SKILL.md ai-plan/README.md ai-plan/public/README.md ai-plan/design/AI任务追踪与恢复设计.md ai-plan/public/mvp-extension-path`
 - 本次 auth / RBAC 响应收敛切片直接校验：
   - `cd server && go test ./internal/httpx ./plugins/user`
   - `cd server && go build ./cmd/graft`

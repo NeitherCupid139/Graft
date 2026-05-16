@@ -17,12 +17,12 @@ Graft 是一个基于 Go 和 Vue 3 的组合式后台平台，目标是通过插
 * [前端架构设计](ai-plan/design/前端架构设计.md)
 * [MVP 实施计划](ai-plan/roadmap/MVP实施计划.md)
 * [AI 任务追踪与恢复设计](ai-plan/design/AI任务追踪与恢复设计.md)
-* [AI Plan 启动索引](ai-plan/public/README.md)
+* [AI Plan 恢复索引](ai-plan/public/README.md)
 * [AI 环境清单说明](.ai/environment/README.md)
 
 ## 当前状态
 
-项目目前仍处于架构与实施设计阶段。开始编码前，先以 `ai-plan/design/` 与 `ai-plan/roadmap/` 下文档固化边界与约束；复杂长期任务再以 `ai-plan/public/` 下主题跟踪和轨迹文件作为恢复入口。
+项目目前仍处于架构与实施设计阶段。开始编码前，先以 `ai-plan/design/` 与 `ai-plan/roadmap/` 下文档固化边界与约束；复杂长期任务的恢复入口位于 `ai-plan/public/` 下主题跟踪和轨迹文件。
 
 仓库同时维护 `.ai/environment/` 作为环境真值入口：
 

@@ -81,6 +81,73 @@ When `.ai/environment/` exists:
 * treat `tools.raw.yaml` and `tools.ai.yaml` as generated repository truth, not hand-maintained notes
 * keep repository startup skills aligned with the inventory read order
 
+### 4.1 Startup Governance
+
+`AGENTS.md` is the only authoritative startup-governance source in this repository.
+
+Other files may point to recovery materials, environment facts, or skill entrypoints, but they must not define a
+second boot chain, a second receipt format, or a second set of startup gating rules.
+
+Every repository task starts in one of these states:
+
+* `unbooted`
+  * no startup preflight has been completed for the current task turn
+* `preflighted`
+  * the startup preflight has completed and the task may enter repository recovery or direct execution
+* `governance-lost`
+  * the current task turn no longer has a trustworthy startup state and must rerun preflight before substantive work
+
+The minimum startup preflight is:
+
+1. confirm the repository root
+2. read this root `AGENTS.md`
+3. read `.ai/environment/tools.ai.yaml` when it exists; use `.ai/environment/tools.raw.yaml` only when the AI-facing
+   summary is missing or insufficient
+4. classify the task as one of:
+   * `server`
+   * `web`
+   * `cross-boundary`
+   * `docs/automation`
+5. decide whether the current turn needs recovery context from `ai-plan/public/README.md`
+
+The minimum startup receipt is:
+
+* `governance source`
+  * the root `AGENTS.md`
+* `task class`
+  * one of `server` / `web` / `cross-boundary` / `docs/automation`
+* `recovery source`
+  * `none`, `parent topic`, or `subtopic`
+
+Fail-closed startup rules:
+
+* do not start implementation, plan finalization, validation conclusions, or subagent delegation without the startup
+  receipt for the current task turn
+* if resume, restart, topic switching, or context loss makes the current startup state unclear, move to
+  `governance-lost` and rerun the startup preflight
+* recovery state does not replace startup state; reading tracking or trace files without the startup receipt is not a
+  valid boot path
+* lightweight lookups may happen before the receipt, but repository-level conclusions, plans, edits, and subagent
+  delegation must wait until the receipt is established
+
+Resume and restart rules:
+
+* `continue`, `resume`, `restart`, and similar prompts must rerun the startup preflight for the current turn
+* only after that preflight may the agent read `ai-plan/public/README.md` and the mapped tracking or trace files
+* restoring a topic recovery point does not mean repository governance has been restored
+
+Subagent inheritance rules:
+
+* the main agent completing startup preflight does not mean a subagent already knows repository governance
+* every subagent task must carry a minimum inherited context package containing:
+  * `governance source`
+    * the root `AGENTS.md`
+  * `task class`
+  * `recovery source`
+  * `owned scope`
+* a subagent must not be launched with only an objective or file target; without the inherited context package the
+  task remains `governance-lost`
+
 ## 5. Repository Skills
 
 Repository-maintained skills live under `.agents/skills/`.
@@ -88,7 +155,8 @@ Repository-maintained skills live under `.agents/skills/`.
 Prefer the repository skills below when their trigger matches the task:
 
 * `graft-boot`
-  * use for short startup prompts, resume prompts, or when the first step should be to read `AGENTS.md` and `ai-plan/`
+  * use for short startup prompts, resume prompts, or when the first step should be to run the startup preflight
+    defined in `4.1 Startup Governance` and then enter repository recovery when needed
 * `graft-multi-agent-batch`
   * use when the user explicitly wants subagent delegation or when the work cleanly splits into disjoint parallel slices
 * `graft-pr-review`
@@ -779,6 +847,7 @@ Use subagents this way:
 
 Every delegation must specify:
 
+* the inherited startup context required by `4.1 Startup Governance`
 * the concrete objective
 * the expected output format
 * the files or subsystem the subagent owns
@@ -803,7 +872,8 @@ For complex, multi-step, or multi-agent work:
 
 * keep an explicit execution record if the task would be hard to resume safely from chat history alone
 * use the repository-local `ai-plan/` workflow instead of inventing ad-hoc tracking files
-* read `ai-plan/public/README.md` before scanning active topics when resuming or booting into complex work
+* after completing the startup preflight in `4.1 Startup Governance`, read `ai-plan/public/README.md` before scanning
+  active topics when resuming or booting into complex work
 * keep repository-wide design truth in `ai-plan/design/` and `ai-plan/roadmap/`
 * keep active topic recovery state under `ai-plan/public/<topic>/`
 
@@ -814,7 +884,7 @@ For complex, multi-step, or multi-agent work:
 * `ai-plan/roadmap/`
   * repository-wide implementation plans and staged delivery documents
 * `ai-plan/public/README.md`
-  * shared startup index that maps branches or worktrees to active topics
+  * shared recovery index that maps branches or worktrees to active topics after startup preflight
 * `ai-plan/public/<topic>/todos/`
   * recovery-safe tracking documents for one active topic
 * `ai-plan/public/<topic>/traces/`
@@ -835,7 +905,8 @@ For complex, multi-step, or multi-agent work:
 Use these workflow rules:
 
 * `ai-plan/public/README.md` must list only active topics
-* when a branch or worktree has an active-topic mapping, read its tracking and trace files before substantive work
+* when a branch or worktree has an active-topic mapping, read its tracking and trace files after startup preflight and
+  before substantive recovery work
 * when an active topic defines subtopics, read the parent topic first and then continue into the relevant subtopic based
   on the current `server`, `web`, or cross-boundary task boundary
 * when working from a tracked topic, update the corresponding tracking document in the same change
@@ -845,7 +916,7 @@ Use these workflow rules:
   the immediate next step
 * keep active tracking and trace files concise enough to serve as recovery entrypoints
 * when a stage inside an active topic is complete, move detailed history into that topic's `archive/` and keep only the
-  active recovery point in the default boot path
+  active recovery point in the default recovery path
 * when a topic is fully complete, move the entire topic directory under `ai-plan/public/archive/<topic>/` and remove it
   from `ai-plan/public/README.md` in the same change
 * never record absolute file-system paths in `ai-plan/**`; use repository-relative paths, branch names, commit ids, PR
