@@ -372,8 +372,12 @@
 - Kept the backend-owned `passwordPolicy` guard that forbids reusing `graft-admin`, added the lifecycle-sensitive
   `must_change_password` field comment, guarded bootstrap reads against a missing auth repository, and dropped the
   hardcoded default-admin password constant from the web forced-password-change dialog.
+- Renamed the Ent association schema files from `rolepermission.go` / `userrole.go` to
+  `role_permission.go` / `user_role.go` so the handwritten schema source now matches the repository's underscore file
+  naming rule and stays portable across stricter tooling and recovery flows, without changing schema types, table
+  mappings, or runtime behavior.
 - Revalidated the accepted follow-up with `cd server && go test ./plugins/user ./internal/store/entstore`,
-  `cd server && go build ./cmd/graft`, and `cd web && /mnt/c/Users/gewuyou/.bun/bin/bun.exe run typecheck`; the
+  `cd server && go build ./cmd/graft`, and the repository-required host Windows Bun `cd web && bun run typecheck`; the
   completion-state `graft validate backend --test-target ./plugins/user --test-target ./internal/store/entstore`
   attempt still stops at the existing repository-wide lint backlog rather than a new regression from this slice.
 

@@ -32,7 +32,10 @@ require (
 
 require golang.org/x/text v0.37.0
 
-require github.com/robfig/cron/v3 v3.0.1
+require (
+	github.com/mattn/go-sqlite3 v1.14.28
+	github.com/robfig/cron/v3 v3.0.1
+)
 
 require (
 	ariga.io/atlas v1.2.0 // indirect

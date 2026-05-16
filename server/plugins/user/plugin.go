@@ -110,13 +110,14 @@ type userService struct {
 // 它把 access token 解析、refresh session 状态校验、当前用户读取和会话治理
 // 保持在同一插件边界内，避免把生命周期敏感的鉴权协作拆散到 core 或其他插件。
 type authService struct {
-	auth          store.AuthRepository // auth 负责 refresh session 持久化与轮换状态读取。
-	users         store.UserRepository // users 提供当前主体与登录路径所需的稳定用户读取能力。
-	passwords     passwordHasher       // passwords 统一封装口令散列与校验策略。
-	policy        passwordPolicy       // policy 固定收敛当前 MVP 的默认管理员与改密规则。
-	tokens        *accessTokenManager  // tokens 负责 access token 的签发与解析。
-	refreshTokens *refreshTokenManager // refreshTokens 负责 refresh token 的签发与解析。
-	cookies       authCookieManager    // cookies 收敛 refresh cookie 的读写与清理约束。
+	auth            store.AuthRepository           // auth 负责 refresh session 持久化与轮换状态读取。
+	passwordChanges store.PasswordChangeRepository // passwordChanges 负责原子改密与会话撤销写路径。
+	users           store.UserRepository           // users 提供当前主体与登录路径所需的稳定用户读取能力。
+	passwords       passwordHasher                 // passwords 统一封装口令散列与校验策略。
+	policy          passwordPolicy                 // policy 固定收敛当前 MVP 的默认管理员与改密规则。
+	tokens          *accessTokenManager            // tokens 负责 access token 的签发与解析。
+	refreshTokens   *refreshTokenManager           // refreshTokens 负责 refresh token 的签发与解析。
+	cookies         authCookieManager              // cookies 收敛 refresh cookie 的读写与清理约束。
 }
 
 const maxSessionListLimit = 100

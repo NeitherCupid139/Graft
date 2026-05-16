@@ -66,6 +66,60 @@ func (r *authRepository) SetPasswordHash(ctx context.Context, input store.SetPas
 	return nil
 }
 
+// ChangePasswordAndRevokeOtherRefreshSessions 以事务方式完成改密并保留当前会话。
+func (r *authRepository) ChangePasswordAndRevokeOtherRefreshSessions(
+	ctx context.Context,
+	input store.ChangePasswordAndRevokeOtherRefreshSessionsInput,
+) error {
+	userID, err := toEntID(input.UserID)
+	if err != nil {
+		if err == store.ErrInvalidID {
+			return store.ErrUserNotFound
+		}
+		return err
+	}
+
+	tx, err := r.client.Tx(ctx)
+	if err != nil {
+		return fmt.Errorf("begin password change transaction: %w", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	if err := tx.User.UpdateOneID(userID).
+		SetPasswordHash(input.PasswordHash).
+		SetMustChangePassword(input.MustChangePassword).
+		SetPasswordChangedAt(input.ChangedAt).
+		Exec(ctx); err != nil {
+		if ent.IsNotFound(err) {
+			return store.ErrUserNotFound
+		}
+		return fmt.Errorf("set user password hash during password change: %w", err)
+	}
+
+	if _, err := tx.RefreshSession.Update().
+		Where(
+			entrefreshsession.UserIDEQ(userID),
+			entrefreshsession.RevokedAtIsNil(),
+			entrefreshsession.TokenIDNEQ(input.CurrentTokenID),
+		).
+		SetRevokedAt(input.ChangedAt).
+		Save(ctx); err != nil {
+		return fmt.Errorf("revoke other refresh sessions during password change: %w", err)
+	}
+
+	if err := commitPasswordChange(tx); err != nil {
+		return err
+	}
+	committed = true
+
+	return nil
+}
+
 // EnsureUserCredential 幂等确保目标用户名的最小认证记录存在。
 func (r *authRepository) EnsureUserCredential(ctx context.Context, input store.EnsureUserCredentialInput) (store.UserCredential, error) {
 	record, err := r.client.User.Query().
@@ -350,6 +404,17 @@ func commitRefreshRotation(tx *ent.Tx) error {
 			return commitErr
 		}
 		return fmt.Errorf("commit refresh session rotation transaction: %w", commitErr)
+	}
+
+	return nil
+}
+
+func commitPasswordChange(tx *ent.Tx) error {
+	if commitErr := tx.Commit(); commitErr != nil {
+		if errors.Is(commitErr, context.Canceled) || errors.Is(commitErr, context.DeadlineExceeded) {
+			return commitErr
+		}
+		return fmt.Errorf("commit password change transaction: %w", commitErr)
 	}
 
 	return nil

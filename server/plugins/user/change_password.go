@@ -31,6 +31,9 @@ func (s authService) ChangeCurrentUserPassword(ctx context.Context, currentPassw
 	if err := s.validateCurrentPassword(credential, currentPassword); err != nil {
 		return err
 	}
+	if credential.UserID != requestAuth.Claims.UserID {
+		return pluginapi.ErrUnauthenticated
+	}
 	if err := s.policy.ValidateNewPassword(currentPassword, newPassword); err != nil {
 		return err
 	}
@@ -40,20 +43,17 @@ func (s authService) ChangeCurrentUserPassword(ctx context.Context, currentPassw
 		return fmt.Errorf("hash new password: %w", err)
 	}
 	changedAt := s.nowUTC()
-	if err := s.auth.SetPasswordHash(ctx, store.SetPasswordHashInput{
+	if s.passwordChanges == nil {
+		return errors.New("auth repository does not support atomic password change")
+	}
+	if err := s.passwordChanges.ChangePasswordAndRevokeOtherRefreshSessions(ctx, store.ChangePasswordAndRevokeOtherRefreshSessionsInput{
 		UserID:             credential.UserID,
 		PasswordHash:       hash,
 		MustChangePassword: false,
-		ChangedAt:          &changedAt,
+		ChangedAt:          changedAt,
+		CurrentTokenID:     requestAuth.Claims.SessionID,
 	}); err != nil {
-		return fmt.Errorf("set current user password hash: %w", err)
-	}
-	if err := s.auth.RevokeOtherRefreshSessionsByUserID(ctx, store.RevokeOtherRefreshSessionsInput{
-		UserID:         credential.UserID,
-		CurrentTokenID: requestAuth.Claims.SessionID,
-		RevokedAt:      changedAt,
-	}); err != nil {
-		return fmt.Errorf("revoke other refresh sessions after password change: %w", err)
+		return fmt.Errorf("change current user password: %w", err)
 	}
 
 	return nil

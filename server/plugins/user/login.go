@@ -49,14 +49,20 @@ func newAuthService(authConfig config.AuthConfig, authRepo store.AuthRepository,
 		return nil, err
 	}
 
+	var passwordChanges store.PasswordChangeRepository
+	if candidate, ok := authRepo.(store.PasswordChangeRepository); ok {
+		passwordChanges = candidate
+	}
+
 	return &authService{
-		auth:          authRepo,
-		users:         usersRepo,
-		passwords:     newPasswordHasher(),
-		policy:        newPasswordPolicy(),
-		tokens:        tokens,
-		refreshTokens: refreshTokens,
-		cookies:       newAuthCookieManager(authConfig),
+		auth:            authRepo,
+		passwordChanges: passwordChanges,
+		users:           usersRepo,
+		passwords:       newPasswordHasher(),
+		policy:          newPasswordPolicy(),
+		tokens:          tokens,
+		refreshTokens:   refreshTokens,
+		cookies:         newAuthCookieManager(authConfig),
 	}, nil
 }
 
