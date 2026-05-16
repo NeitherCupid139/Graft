@@ -21,15 +21,6 @@
         </p>
 
         <t-form ref="formRef" :data="formData" :rules="formRules" label-align="top" @submit="handleSubmit">
-          <t-form-item :label="t('pages.login.forcePasswordChange.currentPassword')" name="currentPassword">
-            <t-input
-              v-model="formData.currentPassword"
-              type="password"
-              autocomplete="current-password"
-              :placeholder="t('pages.login.forcePasswordChange.currentPasswordPlaceholder')"
-            />
-          </t-form-item>
-
           <t-form-item :label="t('pages.login.forcePasswordChange.newPassword')" name="newPassword">
             <t-input
               v-model="formData.newPassword"
@@ -62,15 +53,16 @@
 import type { FormInstanceFunctions, FormRule, SubmitContext } from 'tdesign-vue-next';
 import { MessagePlugin } from 'tdesign-vue-next';
 import { computed, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
-import { changePassword } from '@/api/auth';
 import { API_CODE } from '@/api/model/authModel';
 import { t } from '@/locales';
-import { useUserStore } from '@/store';
+import { usePermissionStore, useUserStore } from '@/store';
 import { isApiRequestError } from '@/utils/request';
 
+import { completeRestrictedPasswordChange } from './force-password-change';
+
 type ForcePasswordChangeForm = {
-  currentPassword: string;
   newPassword: string;
   confirmPassword: string;
 };
@@ -78,11 +70,12 @@ type ForcePasswordChangeForm = {
 const PASSWORD_POLICY = /^(?=.*[A-Za-z])(?=.*\d).{12,}$/;
 
 const INITIAL_FORM_DATA: ForcePasswordChangeForm = {
-  currentPassword: '',
   newPassword: '',
   confirmPassword: '',
 };
 
+const router = useRouter();
+const permissionStore = usePermissionStore();
 const userStore = useUserStore();
 const formRef = ref<FormInstanceFunctions>();
 const submitting = ref(false);
@@ -92,9 +85,6 @@ const formData = ref<ForcePasswordChangeForm>({ ...INITIAL_FORM_DATA });
 const visible = computed(() => Boolean(userStore.token && userStore.bootstrapLoaded && userStore.mustChangePassword));
 
 const formRules = computed<Record<keyof ForcePasswordChangeForm, FormRule[]>>(() => ({
-  currentPassword: [
-    { required: true, message: t('pages.login.forcePasswordChange.required.currentPassword'), type: 'error' },
-  ],
   newPassword: [{ required: true, message: t('pages.login.forcePasswordChange.required.newPassword'), type: 'error' }],
   confirmPassword: [
     { required: true, message: t('pages.login.forcePasswordChange.required.confirmPassword'), type: 'error' },
@@ -110,7 +100,6 @@ function isPasswordChangeApiCode(code: string) {
     code === API_CODE.AUTH_CURRENT_PASSWORD_INVALID ||
     code === API_CODE.AUTH_PASSWORD_POLICY_VIOLATION ||
     code === API_CODE.AUTH_PASSWORD_REUSE_FORBIDDEN ||
-    code === API_CODE.AUTH_PASSWORD_CHANGE_REQUIRED ||
     code === API_CODE.COMMON_INVALID_ARGUMENT
   );
 }
@@ -118,10 +107,6 @@ function isPasswordChangeApiCode(code: string) {
 function validatePasswordPolicy() {
   if (formData.value.newPassword !== formData.value.confirmPassword) {
     return t('pages.login.forcePasswordChange.errors.confirmMismatch');
-  }
-
-  if (formData.value.newPassword === formData.value.currentPassword) {
-    return t('pages.login.forcePasswordChange.errors.sameAsCurrent');
   }
 
   if (!PASSWORD_POLICY.test(formData.value.newPassword)) {
@@ -144,11 +129,13 @@ const handleSubmit = async (ctx: SubmitContext) => {
 
   submitting.value = true;
   try {
-    await changePassword({
-      current_password: formData.value.currentPassword,
-      new_password: formData.value.newPassword,
+    await completeRestrictedPasswordChange({
+      newPassword: formData.value.newPassword,
+      bootstrap: (force) => userStore.bootstrap(force),
+      buildAsyncRoutes: () => permissionStore.buildAsyncRoutes(),
+      consumePendingRestrictedRedirect: (fallbackPath) => userStore.consumePendingRestrictedRedirect(fallbackPath),
+      replace: (path) => router.replace(path),
     });
-    await userStore.bootstrap(true);
     resetForm();
     formRef.value?.clearValidate();
     MessagePlugin.success(t('pages.login.forcePasswordChange.success'));

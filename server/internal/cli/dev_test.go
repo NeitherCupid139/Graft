@@ -77,3 +77,16 @@ func TestNewRootCommandRegistersDevCommand(t *testing.T) {
 		t.Fatalf("expected dev command, got %#v", found)
 	}
 }
+
+// TestNewRootCommandRegistersDevResetAdminCommand 验证 `graft dev reset-admin` 子命令可发现。
+func TestNewRootCommandRegistersDevResetAdminCommand(t *testing.T) {
+	command := NewRootCommand()
+
+	found, _, err := command.Find([]string{"dev", "reset-admin"})
+	if err != nil {
+		t.Fatalf("find dev reset-admin command: %v", err)
+	}
+	if found == nil || found.Name() != "reset-admin" {
+		t.Fatalf("expected reset-admin command, got %#v", found)
+	}
+}

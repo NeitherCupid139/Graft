@@ -33,6 +33,9 @@ Authoritative documents:
 * [ai-plan/design/项目设计.md](ai-plan/design/项目设计.md)
 * [ai-plan/design/插件与依赖注入设计.md](ai-plan/design/插件与依赖注入设计.md)
 * [ai-plan/design/前端架构设计.md](ai-plan/design/前端架构设计.md)
+* [ai-plan/design/契约治理与魔法值治理规范.md](ai-plan/design/契约治理与魔法值治理规范.md) when the task changes
+  typed contracts, magic-value governance, contract lifecycle, ownership, compatibility, drift handling, or shared
+  `server` / `web` semantics
 * [ai-plan/design/代码注释与模块文档规范.md](ai-plan/design/代码注释与模块文档规范.md) when the task changes
   code comments, package docs, module README rules, or AI documentation behavior
 * [ai-plan/design/TDesign-MCP-辅助开发规范.md](ai-plan/design/TDesign-MCP-辅助开发规范.md) when the task changes
@@ -164,6 +167,9 @@ Prefer the repository skills below when their trigger matches the task:
     failed checks, MegaLinter warnings, or failed test signals before local verification
 * `graft-plugin-scaffold`
   * use when adding a new `server` plugin or shaping a plugin before implementation
+* `graft-commit`
+  * use when the current task slice is ready to commit and the user explicitly wants the agent to classify ownership,
+    verify scope, choose a compliant Conventional Commit message, and create a scoped git commit
 * `graft-web-module-scaffold`
   * use when adding a new `web` feature module aligned with backend plugin semantics
 * `graft-validation-runner`
@@ -222,6 +228,12 @@ Core runtime owns:
 * plugin manager
 * service container
 
+Core runtime surface must stay explicit and small.
+
+Only documented runtime surfaces such as config, HTTP, migration, event, permission, menu, cron, plugin, service
+container, and repository CLI entrypoints may own platform-level startup behavior. Do not hide new runtime surfaces in
+unrelated packages, starter code, or ad-hoc background initialization.
+
 Business logic must live in plugins.
 
 Do not put business-specific behavior into the platform core.
@@ -235,6 +247,13 @@ Every backend plugin should follow the same model:
 * register routes, menus, permissions, migrations, jobs, and public services in `Register`
 * start runtime behavior in `Boot`
 * release resources in `Shutdown`
+* keep the plugin runtime surface explicit; if a route, menu, permission, migration, job, event subscription, or
+  public service exists at runtime, its existence and ownership must be traceable to the plugin lifecycle
+* `Register` must declare the complete runtime surface and cross-plugin/public contracts before `Boot` starts side
+  effects
+* `Boot` may only start behavior that was already declared or wired through the documented lifecycle; do not create
+  hidden routes, jobs, listeners, or long-lived goroutines from package globals or ad-hoc side paths
+* `Shutdown` must release everything `Boot` started, including timers, subscriptions, goroutines, and external handles
 
 Plugins must depend on public interfaces, not on another plugin's internal implementation.
 
@@ -261,6 +280,11 @@ Disallowed responsibilities:
 
 If a design requires implicit behavior to be understandable, it is too complex for this repo.
 
+The container or service registry is a runtime composition boundary, not a general-purpose service locator.
+`Resolve` belongs in explicit wiring, plugin lifecycle adapters, or other narrow composition boundaries. Do not spread
+ad-hoc resolution into handlers, services, repositories, pages, stores, or other business paths just because the
+container is reachable.
+
 ### 7.4 Web
 
 Frontend is a platform shell plus feature modules.
@@ -273,6 +297,7 @@ Expected structure:
 * `web/src/modules`
 * `web/src/components`
 * `web/src/api`
+* `web/src/contracts`
 * `web/src/stores`
 * `web/src/router`
 
@@ -280,7 +305,14 @@ Rules:
 
 * use TDesign as the primary component system
 * avoid mixing multiple UI libraries
+* keep the real `web/` application as the only frontend runtime surface; do not treat `web/ai-libs/`, starter trees,
+  or demo shells as a parallel runtime baseline
 * keep new modules aligned with `menu + route + page + api + permission`
+* preserve module lifecycle clarity: `app` owns bootstrap and application wiring, `layouts` own shell chrome,
+  `modules` own feature behavior, `contracts` own platform-level frontend stable contracts, and `components` stay
+  reusable rather than becoming hidden feature containers
+* keep feature boundaries inside explicit module surfaces; do not park long-lived module state, routes, permissions,
+  or API semantics in shell-level directories just because a starter or demo structure already has a placeholder
 * use dynamic menus driven by backend data
 * keep shared state in stores and keep page-local state inside the page or module
 * frontend governance baseline must treat `TypeScript strict`, `format:check`, `ESLint`, `Stylelint`, `Vitest`,
@@ -336,6 +368,49 @@ Rules:
 * CRUD page layouts should stay consistent across modules
 * module pages should align with backend permissions and menu metadata instead of inventing parallel frontend-only
   access rules
+
+### 8.3 Contract Governance
+
+High-risk runtime literals must follow `ai-plan/design/契约治理与魔法值治理规范.md`.
+
+For this repository, contract means stable values or typed boundaries that callers may depend on, including:
+
+* permission code
+* route name and special route path
+* storage key
+* header name and auth scheme
+* error code
+* message key
+* event name
+* config key / env key
+* feature flag key
+* shared status enum or other values that affect `server` / `web` behavior across module boundaries
+
+Rules:
+
+* before adding a new high-risk contract, search the existing module contract, platform contract, and stable
+  cross-boundary contract first; reuse the canonical definition instead of creating a parallel one
+* do not create new global `constants` or `enums` dump files to satisfy contract governance
+* `server` high-risk string contracts should prefer capability-oriented typed string boundaries when they cross plugin,
+  runtime, or registration surfaces
+* `server` route path contracts should keep one canonical truth; prefer `group path + route fragment` over parallel
+  `full path` constants, and compose full paths locally when needed
+* do not add route aliases such as `Foo` + `FooPath` + `FooRoute` for the same server route semantic
+* `web` high-risk contracts should prefer literal unions or other explicit typed boundaries at router, storage, request,
+  API, and module contract surfaces instead of scattering raw strings
+* any new or changed high-risk shared contract must have an explicit owner boundary and lifecycle state
+  (`experimental` / `stable` / `deprecated` / `removed`); deprecated contracts also need a replacement or cleanup plan
+* alias compatibility is temporary only; do not treat alias contracts as permanent second truths
+* if a contract rename, removal, or compatibility change affects both `server` and `web`, update the contract design
+  doc in the same change instead of relying on code comments or PR text alone
+
+Phase-1 expectations:
+
+* prioritize canonical ownership, naming, typed boundary, and lifecycle clarity before automation exists
+* do not claim contract drift, deprecated usage, or duplicate-semantic checks passed unless the repository entrypoint
+  for that check exists and was actually run
+* when automation has not landed yet, report the documentation or registry alignment performed and the exact validation
+  gap instead of implying the governance work is complete by default
 
 ## 9. Go 代码组织与命名规范
 
@@ -579,13 +654,21 @@ section.
 ### 9.19 AI 生成代码约束
 
 * AI 生成代码必须优先复用现有 `runtime`、`plugin`、`service`、`store` 边界。
+* AI 不得把 starter/demo/reference 目录升级为并行 runtime surface、并行模块基线或第二套架构真值。
 * AI 不得擅自新增 framework、ORM、DI container、logging framework。
 * AI 不得无理由扩大 abstraction layer。
+* AI 不得为仅供 Gin 注册或测试拼接使用的 server 路由常量引入无语义类型别名、`String()` 包装或并行 full-path
+  常量集。
+* AI 不得借“临时过渡”之名绕开既有 module lifecycle、feature boundary、plugin lifecycle 或 validation
+  entrypoint 约束。
 * AI 不得新增“未来可能会用到”的接口或扩展点。
 * AI 不得生成未使用代码。
 * AI 不得生成死代码、占位 `TODO` 或伪实现。
 * AI 不得为了通过编译吞掉错误。
 * AI 必须优先保持现有架构一致性。
+* AI 修改高风险契约时必须先复用已有 canonical contract，不得为局部方便重复定义同义常量、平行 alias 或新的
+  `constants` 垃圾桶文件。
+* AI 不得在新代码中继续引入已标记 `deprecated` 的 contract；如兼容窗口尚未结束，只能在兼容桥接层保留旧 contract。
 * AI 修改 migration 时必须考虑 `atlas migrate hash`。
 * AI 修改 `server` 代码后必须满足 `gofmt`、`go test ./...`、`go build ./cmd/graft`、`golangci-lint run`，
   并与 `12.1 Server Validation` 的统一入口保持一致。
@@ -629,6 +712,8 @@ When asked to add a new capability:
 * first identify whether it belongs in `server/core`, a `server` plugin, or a `web` feature module
 * default to a plugin unless the capability is true infrastructure
 * default to a `web/src/modules/<name>` entry path unless the page is a shell-level concern
+* define the capability's runtime surface and lifecycle owner before implementation; entrypoints, menus, routes,
+  permissions, jobs, public services, and boot/shutdown responsibilities must all have one clear home
 * define menu, route, permission, API, and public service boundaries before writing code
 
 ### 11.2 Explicitness
@@ -639,6 +724,8 @@ When unsure:
 * choose the narrower public interface
 * keep the next contributor's mental load low
 * prefer direct construction and visible wiring over hidden framework behavior
+* prefer preserving the current repository architecture over introducing a second baseline, second shell, or second
+  validation contract for temporary convenience
 
 ### 11.3 New Dependencies
 
@@ -706,6 +793,10 @@ If a task changes contracts shared across `server` and `web`, or changes menu/pe
 both sides:
 
 * validate both `server` and `web`
+* keep the corresponding contract governance docs aligned in the same change
+* if typed enforcement, drift detection, or compatibility checks are expected by the active contract lifecycle but no
+  repository automation entrypoint exists yet, report that gap explicitly instead of claiming the contract slice is fully
+  validated
 
 ### 12.4 Validation Reporting
 
@@ -714,12 +805,17 @@ If validation cannot be run:
 * state exactly which command was expected
 * state why it could not be run
 * do not claim the task is fully complete without that caveat
+* distinguish full repository entrypoints from focused direct checks and from execution-stage slices such as
+  `graft validate backend --stage ...`
 
 Warnings or failures in directly affected modules are part of the task scope. Do not ignore them unless the user
 explicitly narrows the task.
 When a frontend warning or backend lint issue is retained as a controlled exception, the corresponding tracking
 document must record its source, impact, temporary retention reason, and next cleanup action instead of calling it
 non-blocking by default.
+README, skills, tracking docs, and CI workflows may point to repository entrypoints or narrower execution slices, but
+they must not redefine validation order, acceptance criteria, or local-vs-CI environment rules into a second source of
+truth. When wording diverges, root `AGENTS.md` plus the repository entrypoints it names win.
 
 ## 13. Git Workflow Rules
 
@@ -749,6 +845,18 @@ Automatic commits are allowed only after ownership is classified:
   reliably separated, the agent must not auto-commit; explain the mixed state to the user and limit the next step to
   one of these paths: commit only the confirmable scope, let the user specify the commit scope, or leave the changes
   uncommitted
+
+Explicit commit trigger:
+
+* when the user explicitly invokes a repository commit trigger such as `$graft-commit`, treat it as permission to
+  create one scoped commit for the current validated task slice, but still apply the ownership and mixed-change rules
+  above before staging anything
+* the trigger grants permission to commit the confirmed owned scope only; it does not permit bundling unrelated files,
+  unknown changes, or all current working tree changes by default
+* if the current slice is not yet validated to the level required by its task class, finish the required validation
+  before committing or explain why that validation cannot be completed yet
+* if the working tree is mixed and the owned scope cannot be separated confidently, the trigger does not override the
+  fail-closed rule; stop and report the ambiguity instead of forcing a commit
 
 For staging and mixed-ownership files:
 
@@ -812,6 +920,8 @@ When the repository adds CI workflows:
 * validate `server` and `web` as separate jobs when both sides exist
 * when backend lint governance is active, keep `server` lint and `server` build/test as separate jobs instead of one
   opaque backend script step
+* when CI keeps split jobs or stage flags, document them as execution-layer decomposition of the same repository
+  validation truth, not as independent acceptance contracts
 * prefer a fast quality or security track plus a build or test track instead of one opaque monolithic job
 * cache dependencies by ecosystem, such as Go modules and frontend package manager caches
 * upload useful failure artifacts or summaries when they materially improve debugging
@@ -819,6 +929,9 @@ When the repository adds CI workflows:
   actual toolchain or artifacts are not stable yet
 * backend CI must reuse the same `graft validate backend` entrypoint and pinned `golangci-lint` version as local
   development instead of rebuilding a second lint parameter set inside workflow YAML
+* when local `web` development in WSL requires host Windows Bun, keep that rule explicit in repository docs; a Linux CI
+  runner reusing the same `bun run check` entrypoint is an execution environment difference, not permission to relax
+  the local WSL rule
 
 ### 14.2 Release Automation
 
@@ -1081,6 +1194,8 @@ Review for:
 * unnecessary framework complexity
 * divergence from Go + Gin + Ent + Casbin server rules
 * divergence from Vue 3 + TDesign web rules
+* duplicate canonical contract definitions, undocumented contract ownership, or missing lifecycle / compatibility notes
+  for high-risk contract changes
 * missing tests around plugin lifecycle, dependency ordering, authorization, and dynamic menu/route behavior
 * undocumented public interfaces or lifecycle-sensitive code
 * divergence between `ai-plan/design/`, `ai-plan/roadmap/`, and active topic recovery documents
@@ -1097,6 +1212,8 @@ A task is done only when all relevant items below are satisfied:
 * `server` code in scope complies with `9. Go 代码组织与命名规范`, including context propagation, transaction
   boundaries, resource cleanup, API/DTO boundaries, config loading, runtime wiring, auth handling, logging, and
   AI-code governance constraints
+* any new or changed high-risk contract follows the canonical ownership, lifecycle, and compatibility rules in
+  `ai-plan/design/契约治理与魔法值治理规范.md`
 * affected code has the required comments and documentation
 * the changed area passed direct validation, or the exact validation gap was reported
 * `server` work reached its completion state only after `graft validate backend` passed with the full backend quality

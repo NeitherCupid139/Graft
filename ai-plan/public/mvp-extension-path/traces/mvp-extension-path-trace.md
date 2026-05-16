@@ -72,7 +72,52 @@
 - Synchronized the parent topic tracking entry so future governance drift can be observed through the active topic
   instead of reintroducing ad-hoc startup notes elsewhere.
 
+## 2026-05-16 restricted-session forced-password-change slice
+
+- Completed the next bounded cross-boundary forced-password-change slice on top of the existing `login / refresh / bootstrap` contract.
+- Fixed the current-state semantics so `must_change_password=true` now means “authenticated but restricted” rather than “logged out”, and the `web` guard keeps tokens while blocking business routes through a dedicated restricted-session entry.
+- Fixed the default-admin first-login path so `server` only allows empty `current_password` when the backend can prove the actor is still the restricted default admin using the initialization-only password, while the frontend re-enters normal navigation only after a fresh `bootstrap`.
+
+## 2026-05-16 shared authorizer convergence
+
+- Cleared the previously recorded backend test-lint backlog and restored `graft validate backend` to a clean local
+  completion baseline.
+- Removed the last active authz dual-truth point on the backend by making `user` route guards bind the shared
+  `pluginapi.Authorizer` from `rbac` during `Boot`, instead of maintaining a plugin-local authorization copy.
+- Kept the repository-wide next-step focus on cross-boundary web-shell cleanup rather than reopening backend-only
+  governance drift.
+
+## 2026-05-16 contract-governance phase-1 foundation
+
+- Added `ai-plan/design/契约治理与魔法值治理规范.md` as the repository design truth for canonical contract ownership,
+  typed boundaries, lifecycle, compatibility windows, and phase-1 magic-value governance.
+- Extended `AGENTS.md`, `项目设计`, `前端架构设计`, and `插件与依赖注入设计` so high-risk contract changes now
+  explicitly require canonical reuse, lifecycle clarity, and same-change doc alignment across `server` / `web`.
+- Added a repository-local scanner under `scripts/magic_value/` plus local hook and CI wiring so new high-risk
+  literals can be checked through one phase-1 automation path instead of ad-hoc manual review.
+
+## 2026-05-16 first live auth contract convergence
+
+- Added the first live canonical auth contract surface under `server/internal/contract/**` and `web/src/contracts/**`,
+  covering auth/common response codes, message keys, auth scheme, request headers, auth API paths, restricted-session
+  route metadata, and the persisted session/locale storage keys used by the current auth runtime.
+- Rewired the current `server/internal/httpx`, `server/internal/i18n`, `web` request/session/bootstrap/route recovery
+  path to consume those canonical contracts instead of maintaining parallel literals inside each runtime consumer.
+- Updated the contract-governance scanner so canonical contract owner files count as definition context and the
+  cross-end drift report now reads server/web auth contracts from their real owner files rather than the older
+  consumer-side literal locations.
+
 ## Next Step
 
-- Continue MVP work through the relevant subtopic, keeping `/api/auth/bootstrap` stable while expanding real
-  `server + web` page hookups instead of widening backend-only governance behavior or restoring demo auth/menu paths.
+- Continue MVP work by pushing the next contract-governance slice into `server/plugins/user` permission/message-key/
+  auth-route hotspots and the remaining shared auth literals still outside the new canonical contract surface.
+
+## 2026-05-16 user-plugin contract-governance follow-up
+
+- Completed the planned `server/plugins/user` follow-up by moving runtime permission and auth-route hotspots onto the
+  plugin-local `contract` package and by switching user-plugin runtime error wiring to canonical `message.Key`
+  consumers instead of raw strings.
+- Extended the server-side canonical message contract and default i18n catalogs with shared `common.conjunction` and
+  `common.copyright`, eliminating the scanner-reported shared message-key drift exposed by current `web` runtime use.
+- Revalidated the slice with focused `server` tests plus a fresh contract-governance report and confirmed the targeted
+  runtime findings disappeared from `plugin.go`, `plugin_routes.go`, and `server/internal/contract/message/key.go`.

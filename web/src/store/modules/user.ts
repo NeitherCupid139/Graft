@@ -1,8 +1,9 @@
 import { defineStore } from 'pinia';
 
 import { getBootstrap, login as loginApi, logout as logoutApi, refresh as refreshApi } from '@/api/auth';
-import { API_CODE, type BootstrapResponse, type LoginResponse } from '@/api/model/authModel';
-import { i18n, localeConfigKey, supportedLocales } from '@/locales';
+import { API_CODE, type ApiResponseCode, type BootstrapResponse, type LoginResponse } from '@/api/model/authModel';
+import { STORAGE_KEY } from '@/contracts/storage/keys';
+import { i18n, supportedLocales } from '@/locales';
 import { usePermissionStore } from '@/store';
 import type { ApiRequestError } from '@/types/axios';
 import { clearAccessToken, setAccessToken } from '@/utils/auth-state';
@@ -22,6 +23,7 @@ export const useUserStore = defineStore('user', {
     bootstrapLoaded: false,
     bootstrapSnapshot: null as BootstrapResponse | null,
     mustChangePassword: false,
+    pendingRestrictedRedirect: '',
     userInfo: { ...InitUserInfo },
   }),
   getters: {
@@ -109,7 +111,16 @@ export const useUserStore = defineStore('user', {
       this.bootstrapLoaded = false;
       this.bootstrapSnapshot = null;
       this.mustChangePassword = false;
+      this.pendingRestrictedRedirect = '';
       this.userInfo = { ...InitUserInfo };
+    },
+    setPendingRestrictedRedirect(path: string) {
+      this.pendingRestrictedRedirect = path;
+    },
+    consumePendingRestrictedRedirect(fallbackPath: string) {
+      const path = this.pendingRestrictedRedirect || fallbackPath;
+      this.pendingRestrictedRedirect = '';
+      return path;
     },
     handleAuthFailure() {
       this.clearSessionState();
@@ -132,7 +143,7 @@ export const useUserStore = defineStore('user', {
       const permissionStore = usePermissionStore();
       permissionStore.initRoutes();
     },
-    key: 'user',
+    key: STORAGE_KEY.USER_SESSION,
     pick: ['token'],
   },
 });
@@ -146,7 +157,7 @@ function syncLocale(payload: BootstrapResponse) {
   i18n.global.locale.value = normalizedLocale;
 
   try {
-    localStorage.setItem(localeConfigKey, normalizedLocale);
+    localStorage.setItem(STORAGE_KEY.LOCALE, normalizedLocale);
   } catch {
     // 受限环境下 locale 同步允许降级为内存态。
   }
@@ -156,7 +167,7 @@ function isRefreshableAuthError(error: unknown) {
   return isApiRequestError(error) && error.status === 401 && error.code === API_CODE.AUTH_TOKEN_EXPIRED;
 }
 
-function createAuthStateError(status: number, code: string, message: string): ApiRequestError {
+function createAuthStateError(status: number, code: ApiResponseCode, message: string): ApiRequestError {
   const error = new Error(message) as ApiRequestError;
   error.name = 'ApiRequestError';
   error.status = status;

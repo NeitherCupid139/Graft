@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	messagecontract "graft/server/internal/contract/message"
 	"graft/server/internal/plugin"
 	"graft/server/internal/pluginapi"
 	"graft/server/internal/store"
@@ -18,6 +19,7 @@ import (
 // 该插件展示业务能力如何在 Register 阶段声明边界，在 Boot/Shutdown 阶段保持显式生命周期。
 type Plugin struct {
 	defaultAdminAuth *authService
+	routeAuthorizer  *deferredAuthorizer
 }
 
 type userListResponse struct {
@@ -64,14 +66,16 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 	registerUserPermissions(ctx.PermissionRegistry, p.Name())
 	registerUserMenu(ctx.MenuRegistry, p.Name())
 
-	userSvc, authSvc, bootstrapSvc, err := p.registerServices(ctx)
+	services, err := p.registerServices(ctx)
 	if err != nil {
 		return err
 	}
-	if err := registerAuthRoutes(ctx, p.Name(), authSvc, bootstrapSvc); err != nil {
+	p.routeAuthorizer = newDeferredAuthorizer()
+	guards := newRouteGuards(ctx.I18n, services.auth, p.routeAuthorizer)
+	if err := registerAuthRoutes(ctx, p.Name(), services.auth, services.bootstrap, guards); err != nil {
 		return err
 	}
-	if err := registerUserRoutes(ctx, p.Name(), userSvc, authSvc); err != nil {
+	if err := registerUserRoutes(ctx, p.Name(), services.user, services.auth, guards); err != nil {
 		return err
 	}
 
@@ -82,6 +86,9 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 //
 // 当前阶段只在这里执行默认管理员引导初始化，确保 Register 保持纯声明式装配。
 func (p *Plugin) Boot(ctx *plugin.Context) error {
+	if err := p.bindRouteAuthorizer(ctx); err != nil {
+		return err
+	}
 	if p.defaultAdminAuth == nil {
 		return errors.New("default admin bootstrap service is unavailable")
 	}
@@ -97,6 +104,28 @@ func (p *Plugin) Boot(ctx *plugin.Context) error {
 //
 // 当前实现没有自主管理的外部资源，因此关闭阶段保持幂等空操作。
 func (p *Plugin) Shutdown(_ *plugin.Context) error {
+	return nil
+}
+
+func (p *Plugin) bindRouteAuthorizer(ctx *plugin.Context) error {
+	if p.routeAuthorizer == nil {
+		return errors.New("route authorizer is unavailable")
+	}
+
+	resolved, err := ctx.Services.Resolve((*pluginapi.Authorizer)(nil))
+	if err != nil {
+		return fmt.Errorf("resolve route authorizer: %w", err)
+	}
+
+	authorizer, ok := resolved.(pluginapi.Authorizer)
+	if !ok {
+		return fmt.Errorf("resolve route authorizer: unexpected type %T", resolved)
+	}
+
+	if err := p.routeAuthorizer.SetTarget(authorizer); err != nil {
+		return fmt.Errorf("bind route authorizer: %w", err)
+	}
+
 	return nil
 }
 
@@ -134,6 +163,15 @@ func (s userService) GetUserByID(ctx context.Context, id uint64) (pluginapi.User
 		Username: record.Username,
 		Display:  record.Display,
 	}, nil
+}
+
+// ListUsers 读取用户列表，供当前插件路由在不暴露 store factory 的前提下复用。
+func (s userService) ListUsers(ctx context.Context) ([]store.User, error) {
+	if s.users == nil {
+		return nil, errors.New("user repository is unavailable")
+	}
+
+	return s.users.List(ctx)
 }
 
 // CurrentUser 根据请求上下文中已解析的访问令牌声明返回当前主体摘要。
@@ -229,27 +267,37 @@ func parseSessionListOptions(rawLimit string) (sessionListOptions, error) {
 }
 
 // mapAuthError 把插件内部鉴权/会话错误收敛为稳定 HTTP 状态与消息键。
-func mapAuthError(err error) (int, string) {
+func mapAuthError(err error) (int, messagecontract.Key) {
 	for _, mapping := range []struct {
 		match  error
 		status int
-		key    string
+		key    messagecontract.Key
 	}{
-		{match: pluginapi.ErrUnauthenticated, status: http.StatusUnauthorized, key: "auth.token_missing"},
-		{match: errInvalidLoginCredentials, status: http.StatusBadRequest, key: "auth.invalid_credentials"},
-		{match: errRefreshTokenRequired, status: http.StatusUnauthorized, key: "auth.token_missing"},
-		{match: errExpiredRefreshToken, status: http.StatusUnauthorized, key: "auth.token_expired"},
-		{match: errInvalidRefreshToken, status: http.StatusUnauthorized, key: "auth.token_invalid"},
-		{match: errSessionNotFound, status: http.StatusNotFound, key: "auth.session_not_found"},
-		{match: errPasswordPolicyViolation, status: http.StatusBadRequest, key: "auth.password_policy_violation"},
-		{match: errPasswordReuseForbidden, status: http.StatusBadRequest, key: "auth.password_reuse_forbidden"},
-		{match: errCurrentPasswordInvalid, status: http.StatusBadRequest, key: "auth.current_password_invalid"},
-		{match: errRefreshSessionFailed, status: http.StatusUnauthorized, key: "auth.token_invalid"},
+		{match: pluginapi.ErrUnauthenticated, status: http.StatusUnauthorized, key: messagecontract.AuthTokenMissing},
+		{match: errInvalidLoginCredentials, status: http.StatusBadRequest, key: messagecontract.AuthInvalidCredentials},
+		{match: errRefreshTokenRequired, status: http.StatusUnauthorized, key: messagecontract.AuthTokenMissing},
+		{match: errExpiredRefreshToken, status: http.StatusUnauthorized, key: messagecontract.AuthTokenExpired},
+		{match: errInvalidRefreshToken, status: http.StatusUnauthorized, key: messagecontract.AuthTokenInvalid},
+		{match: errSessionNotFound, status: http.StatusNotFound, key: messagecontract.AuthSessionNotFound},
+		{match: errRequiredPasswordChangeOnly, status: http.StatusForbidden, key: messagecontract.AuthForbidden},
+		{match: errCurrentPasswordRequired, status: http.StatusBadRequest, key: messagecontract.CommonInvalidArgument},
+		{match: errPasswordPolicyViolation, status: http.StatusBadRequest, key: messagecontract.AuthPasswordPolicyViolation},
+		{match: errPasswordReuseForbidden, status: http.StatusBadRequest, key: messagecontract.AuthPasswordReuseForbidden},
+		{match: errCurrentPasswordInvalid, status: http.StatusBadRequest, key: messagecontract.AuthCurrentPasswordInvalid},
+		{match: errRefreshSessionFailed, status: http.StatusUnauthorized, key: messagecontract.AuthTokenInvalid},
 	} {
 		if errors.Is(err, mapping.match) {
 			return mapping.status, mapping.key
 		}
 	}
 
-	return http.StatusInternalServerError, "common.internal_error"
+	return http.StatusInternalServerError, messagecontract.CommonInternalError
+}
+
+func authErrorDetails(err error) map[string]any {
+	if errors.Is(err, errCurrentPasswordRequired) {
+		return map[string]any{"field": "current_password"}
+	}
+
+	return nil
 }

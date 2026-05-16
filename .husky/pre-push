@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+set -eu
+
+# Local contract governance changed-scan runs at pre-commit.
+# Remote blocking remains owned by CI.
+exit 0

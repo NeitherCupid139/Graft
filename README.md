@@ -59,6 +59,28 @@ go run ./cmd/graft dev
 
 `graft dev` 会先执行显式迁移，再在迁移成功后启动服务；它是开发期编排命令，不会改变 `graft serve` 的纯运行时语义。
 
+如果你需要反复验证默认管理员首次登录强制改密流程，可以使用 dev-only 重置入口：
+
+```bash
+cd server
+go run ./cmd/graft dev reset-admin
+```
+
+该命令只允许在 `GRAFT_APP_ENV=local` 或 `test` 下使用，并会执行三件事：
+
+1. 确保默认管理员 `graft` 存在
+2. 把密码重置为 `graft-admin`
+3. 把 `must_change_password` 重新置为 `true`
+
+典型调试流程：
+
+```bash
+cd server
+go run ./cmd/graft dev reset-admin
+```
+
+然后在浏览器里清空 `localStorage` / `sessionStorage`，重新用 `graft / graft-admin` 登录，即可再次验证受限态和强制改密弹窗。
+
 Windows PowerShell / CMD 可以直接使用同一条命令：
 
 ```powershell
@@ -132,3 +154,22 @@ go run ./cmd/graft validate backend
 * `web/.env.development`、`web/.env.local` 与其它 `web/.env.*` 本地文件都应保持未跟踪状态。
 * `web/.env.example` 只作为共享模板，不应放入个人密钥或机器专属地址。
 * 在 WSL 场景下，按仓库环境约定继续使用 host Windows Bun 运行 `web` 命令。
+
+## 前端验证 `web`
+
+前端完成态统一通过一个脚本入口执行：
+
+```bash
+cd web
+bun run check
+```
+
+说明：
+
+* 在 WSL 场景下，这里的 `bun` 指仓库环境清单标记的 host Windows Bun，而不是 WSL Bun。
+* `bun run check` 会按 `format:check -> typecheck -> lint -> stylelint -> test:run -> build` 顺序执行，是本地交付、
+  交接和合并前的前端真值入口。
+* 开发中间态可以执行更小的直接命令，但 README、skill 和 CI 只能复用这条入口或其显式执行切片，不应再定义第二套
+  完成态规则。
+* CI 在 Linux runner 上复用同一入口时，只是执行环境不同；这不改变 WSL 本地必须使用 host Windows Bun 的规则。
+* 本地 contract governance changed-scan 默认在 `pre-commit` 阶段阻断；`pre-push` 不再重复执行该扫描，推送后的正式阻断由 CI 承担。

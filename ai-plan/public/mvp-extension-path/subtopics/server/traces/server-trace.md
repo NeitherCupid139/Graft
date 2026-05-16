@@ -84,6 +84,22 @@
 - Reused the existing refresh-token parser plus `GetRefreshSessionByTokenID` and `RevokeRefreshSession` store methods for the minimal current-session revoke loop, so this slice did not widen the store boundary.
 - Added direct `server/plugins/user` tests for successful current-session logout and missing-cookie failure, while keeping logout failures on the existing localized `auth.invalid_refresh_session` contract.
 
+## 2026-05-16 restricted default-admin password-change relaxation
+
+- Narrowed the backend forced-password-change relaxation to one explicit case: the restricted default admin can omit `current_password` only while the persisted credential still matches the initialization-only password.
+- Moved the empty-current-password decision fully into `server/plugins/user` service logic so the route no longer guesses based on request shape alone, while non-default actors still receive the stable invalid-argument contract.
+- Kept the atomic password-change write semantics unchanged: clear `must_change_password`, preserve the current session token, and revoke other refresh sessions.
+
+## 2026-05-16 user-plugin contract-governance follow-up
+
+- Added or finalized the plugin-local `server/plugins/user/contract` surface for canonical permission codes and
+  auth-route paths, then rewired `plugin_routes.go` to consume those typed values instead of repeating bare literals
+  in runtime route and guard registration.
+- Switched `server/plugins/user` runtime error mapping and route error writes to canonical platform `message.Key`
+  values so the plugin no longer hard-codes the targeted auth/common/user message keys in runtime code.
+- Filled the server canonical message/i18n gap for shared `common.conjunction` and `common.copyright`, then verified
+  with focused tests plus a fresh scanner report that the targeted runtime findings were cleared.
+
 ## 2026-05-15 request-auth session hardening slice
 
 - Tightened `server/plugins/user` so `pluginapi.AuthService.ParseAccessToken` now validates the access-token-linked session state in addition to JWT syntax and signature.
@@ -403,7 +419,19 @@
   to the new Go-governance chapter instead of duplicated rule lists.
 - Kept this slice documentation-only; no business code, schema, migration, runtime wiring, or plugin behavior changed.
 
+## 2026-05-16 authz/rbac wiring convergence
+
+- Removed the plugin-local `routeAuthorizer` logic from `server/plugins/user` and replaced it with a deferred binding
+  that is created during `Register` and bound during `Boot`.
+- Reused the shared `pluginapi.Authorizer` exposed by `server/plugins/rbac`, so the `user` plugin no longer owns a
+  second RBAC decision path while requests also avoid container `Resolve` calls on the hot path.
+- Updated user-plugin test helpers to follow the real lifecycle order `user.Register -> rbac.Register -> user.Boot`,
+  added a fail-closed regression for missing shared authorizer wiring, and revalidated the slice with
+  `go test ./plugins/user ./plugins/rbac ./internal/httpx`.
+
 ## Next Step
 
-- Take the recorded `server/.golangci.test.yml` backlog as a standalone cleanup slice and rerun `graft validate backend`
-  only after that test-lint queue is materially reduced or cleared.
+- Keep the shared `pluginapi.Authorizer` wiring frozen for future protected `server` routes, and do not reintroduce
+  plugin-local authorization copies.
+- Return the cross-boundary mainline to the parent topic plus `web` subtopic, which now own the next starter-runtime
+  cleanup and restricted-session recovery work.

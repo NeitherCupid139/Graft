@@ -3,12 +3,15 @@ import axios from 'axios';
 
 import {
   API_CODE,
-  type ApiCode,
   type ApiEnvelope,
   type ApiErrorEnvelope,
+  type ApiResponseCode,
   type LoginResponse,
 } from '@/api/model/authModel';
-import { localeConfigKey } from '@/locales';
+import { AUTH_SCHEME, HTTP_HEADER } from '@/contracts/api/headers';
+import { MESSAGE_KEY } from '@/contracts/api/messages';
+import { AUTH_API_PATH } from '@/contracts/auth/paths';
+import { STORAGE_KEY } from '@/contracts/storage/keys';
 import type { ApiRequestError, AxiosRequestConfigRetry, RequestOptions } from '@/types/axios';
 import { clearAccessToken, getAccessToken, setAccessToken } from '@/utils/auth-state';
 
@@ -28,7 +31,7 @@ type AuthSessionBridge = {
   handleAuthFailure(): void | Promise<void>;
 };
 
-const AUTH_REFRESH_URL = '/api/auth/refresh';
+const AUTH_REFRESH_URL = AUTH_API_PATH.REFRESH;
 let authSessionBridge: AuthSessionBridge | null = null;
 
 function resolveBaseURL() {
@@ -50,13 +53,13 @@ client.interceptors.request.use((config) => {
   const accessToken = getAccessToken();
 
   if (accessToken) {
-    headers.Authorization = `Bearer ${accessToken}`;
+    headers[HTTP_HEADER.AUTHORIZATION] = `${AUTH_SCHEME.BEARER} ${accessToken}`;
   }
 
   try {
-    const storedLocale = localStorage.getItem(localeConfigKey);
+    const storedLocale = localStorage.getItem(STORAGE_KEY.LOCALE);
     if (storedLocale) {
-      headers['X-Graft-Locale'] = storedLocale.replaceAll('_', '-');
+      headers[HTTP_HEADER.LOCALE] = storedLocale.replaceAll('_', '-');
     }
   } catch {
     // 受限环境下允许 locale 头缺省。
@@ -179,6 +182,11 @@ async function tryRefreshAndReplay<T>(config: AxiosRequestConfigRetry) {
     } as RequestConfig);
     await syncAuthStateAfterRefresh(payload);
   } catch (refreshError) {
+    // 受限首次改密态会显式拒绝 refresh；此时保留当前受限会话，交给页面继续完成改密。
+    if (isRestrictedPasswordChangeRefreshError(refreshError)) {
+      throw refreshError;
+    }
+
     // refresh 已经进入会话清理路径时，不再重复执行 store 侧副作用。
     if (!isApiRequestError(refreshError) || !shouldExitToLogin(refreshError)) {
       await clearClientSession();
@@ -201,10 +209,10 @@ async function syncAuthStateAfterRefresh(payload: LoginResponse) {
   setAccessToken(payload.access_token);
 
   try {
-    const raw = localStorage.getItem('user');
+    const raw = localStorage.getItem(STORAGE_KEY.USER_SESSION);
     if (raw) {
       const persisted = JSON.parse(raw) as Record<string, unknown>;
-      localStorage.setItem('user', JSON.stringify({ ...persisted, token: payload.access_token }));
+      localStorage.setItem(STORAGE_KEY.USER_SESSION, JSON.stringify({ ...persisted, token: payload.access_token }));
     }
   } catch {
     // 受限环境下允许只更新内存 token。
@@ -223,7 +231,7 @@ async function clearClientSession() {
     clearAccessToken();
 
     try {
-      localStorage.removeItem('user');
+      localStorage.removeItem(STORAGE_KEY.USER_SESSION);
     } catch {
       // 受限环境下允许只清空内存 token。
     }
@@ -261,6 +269,15 @@ export function isApiRequestError(error: unknown): error is ApiRequestError {
   return Boolean(error && typeof error === 'object' && (error as Partial<ApiRequestError>).isApiRequestError);
 }
 
-export function shouldAttemptRefreshByError(status: number, code: ApiCode) {
+export function shouldAttemptRefreshByError(status: number, code: ApiResponseCode) {
   return status === 401 && code === API_CODE.AUTH_TOKEN_EXPIRED;
+}
+
+function isRestrictedPasswordChangeRefreshError(error: unknown) {
+  return (
+    isApiRequestError(error) &&
+    error.status === 403 &&
+    error.code === API_CODE.AUTH_FORBIDDEN &&
+    error.messageKey === MESSAGE_KEY.AUTH_FORBIDDEN
+  );
 }

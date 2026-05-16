@@ -871,6 +871,39 @@ def build_latest_commit_review_threads(comments: list[dict[str, Any]]) -> list[d
     return sorted(threads, key=lambda item: (item["path"], item["line"] or 0, item["thread_id"]))
 
 
+def dedupe_review_threads(threads: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Deduplicate normalized review threads by root id when available, else by path/line/body."""
+    deduped: list[dict[str, Any]] = []
+    seen: set[tuple[Any, ...]] = set()
+    for thread in threads:
+        root_comment = thread.get("root_comment", {})
+        latest_comment = thread.get("latest_comment", {})
+        key = (
+            thread.get("thread_id"),
+            thread.get("path") or "",
+            thread.get("line"),
+            root_comment.get("id"),
+            latest_comment.get("id"),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(thread)
+    return sorted(deduped, key=lambda item: (item["path"], item["line"] or 0, item["thread_id"]))
+
+
+def build_all_open_review_threads(comments: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Group all PR review comments and keep unresolved supported-AI threads, not only latest-commit ones."""
+    threads = build_latest_commit_review_threads(comments)
+    open_threads = [thread for thread in threads if thread["status"] == "open"]
+    ai_open_threads = [
+        thread
+        for thread in open_threads
+        if str(thread.get("root_comment", {}).get("user") or "") in SUPPORTED_AI_REVIEWER_LOGINS
+    ]
+    return dedupe_review_threads(ai_open_threads)
+
+
 def select_latest_submitted_review(
     reviews: list[dict[str, Any]],
     *,
@@ -995,6 +1028,8 @@ def fetch_latest_commit_review(pr_number: int) -> dict[str, Any]:
     threads = build_latest_commit_review_threads(latest_commit_comments)
     open_threads = [thread for thread in threads if thread["status"] == "open"]
     open_thread_counts_by_user = build_open_thread_counts_by_user(open_threads)
+    all_open_threads = build_all_open_review_threads(comments)
+    all_open_thread_counts_by_user = build_open_thread_counts_by_user(all_open_threads)
 
     return {
         "latest_commit": {
@@ -1005,8 +1040,10 @@ def fetch_latest_commit_review(pr_number: int) -> dict[str, Any]:
         "latest_coderabbit_review_with_body": latest_reviews_by_user.get(CODERABBIT_LOGIN, {}),
         "latest_reviews_by_user": latest_reviews_by_user,
         "open_thread_counts_by_user": open_thread_counts_by_user,
+        "all_open_thread_counts_by_user": all_open_thread_counts_by_user,
         "threads": threads,
         "open_threads": open_threads,
+        "all_open_threads": all_open_threads,
     }
 
 
@@ -1049,6 +1086,7 @@ def build_result(pr_number: int, branch: str) -> dict[str, Any]:
         latest_commit_review = fetch_latest_commit_review(pr_number)
         latest_reviews_by_user = latest_commit_review.get("latest_reviews_by_user", {})
         open_thread_counts_by_user = latest_commit_review.get("open_thread_counts_by_user", {})
+        all_open_thread_counts_by_user = latest_commit_review.get("all_open_thread_counts_by_user", {})
         review_agents = [
             {
                 "slug": agent["slug"],
@@ -1057,9 +1095,11 @@ def build_result(pr_number: int, branch: str) -> dict[str, Any]:
                 "supports_review_body_parsing": agent["supports_review_body_parsing"],
                 "latest_review": latest_reviews_by_user.get(agent["login"], {}),
                 "open_thread_count": int(open_thread_counts_by_user.get(agent["login"], 0)),
+                "all_open_thread_count": int(all_open_thread_counts_by_user.get(agent["login"], 0)),
                 "detected": bool(
                     latest_reviews_by_user.get(agent["login"], {}).get("id")
                     or open_thread_counts_by_user.get(agent["login"], 0)
+                    or all_open_thread_counts_by_user.get(agent["login"], 0)
                 ),
             }
             for agent in SUPPORTED_AI_REVIEWERS
@@ -1222,7 +1262,9 @@ def format_text(
     latest_commit = latest_commit_review.get("latest_commit", {})
     latest_review = latest_commit_review.get("latest_review", {})
     open_threads = latest_commit_review.get("open_threads", [])
+    all_open_threads = latest_commit_review.get("all_open_threads", [])
     visible_open_threads = filter_threads_by_path(open_threads, normalized_path_filters)
+    visible_all_open_threads = filter_threads_by_path(all_open_threads, normalized_path_filters)
     review_agents = [agent for agent in result.get("review_agents", []) if agent.get("detected")]
     if latest_commit and "open-threads" in selected_sections:
         lines.append("")
@@ -1240,7 +1282,8 @@ def format_text(
                 lines.append(
                     "- "
                     f"{agent.get('display_name', '')} ({agent.get('login', '')}): "
-                    f"open_threads={agent.get('open_thread_count', 0)}"
+                    f"latest_commit_open_threads={agent.get('open_thread_count', 0)}"
+                    f", all_open_threads={agent.get('all_open_thread_count', 0)}"
                     + (
                         f", latest_review={latest_agent_review.get('state', '')} "
                         f"at {latest_agent_review.get('submitted_at', '')}"
@@ -1271,6 +1314,23 @@ def format_text(
                 )
         if open_threads and not visible_open_threads:
             lines.append("  Details: no open threads matched the current path filter.")
+
+        lines.append(
+            "All unresolved AI review threads on PR: "
+            f"{len(all_open_threads)} total"
+            + (f", {len(visible_all_open_threads)} shown after path filter" if normalized_path_filters else "")
+        )
+        for thread in visible_all_open_threads:
+            root_comment = thread["root_comment"]
+            latest_comment = thread["latest_comment"]
+            lines.append(f"- {thread['path']}:{thread['line']}")
+            lines.append(f"  Root by {root_comment['user']}: {truncate_text(root_comment['body'], max_description_length)}")
+            if latest_comment["id"] != root_comment["id"]:
+                lines.append(
+                    f"  Latest by {latest_comment['user']}: {truncate_text(latest_comment['body'], max_description_length)}"
+                )
+        if all_open_threads and not visible_all_open_threads:
+            lines.append("  Details: no unresolved AI review threads matched the current path filter.")
 
     megalinter_report = result.get("megalinter_report", {})
     if megalinter_report and "megalinter" in selected_sections:
