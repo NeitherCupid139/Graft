@@ -1,11 +1,13 @@
 ---
 name: graft-task-closeout
-description: Repository-specific end-of-task closeout workflow for Graft. Use when a task slice is ending and the agent needs to decide whether to emit only a next-step startup prompt or to commit the current validated slice first and then hand off safely.
+description: Repository-specific end-of-task closeout workflow for Graft. Use when a task slice is ending and the agent needs to decide whether to emit only a next-step startup prompt or to commit the current validated slice first and then hand off safely. This is the default slice-end path for work started through `graft-boot`.
 ---
 
 # Graft Task Closeout
 
 Use this skill when the current `Graft` slice is ending and the agent needs a concise, repeatable closeout workflow.
+When a slice started through `graft-boot`, treat this skill as the normal required wrap-up path rather than an
+optional extra.
 
 Treat root `AGENTS.md` as the closeout-governance source of truth. This skill coordinates existing repository skills; it
 does not replace startup, validation, or commit rules.
@@ -43,16 +45,17 @@ Prefer this skill over `graft-commit` when the main question is task closeout ra
      committing the confirmed owned scope before handoff
    - if validation is still insufficient, do not force a commit; record the exact gap
    - if ownership is mixed or ambiguous, do not force a commit; keep the scope uncommitted
-4. If a commit is justified or explicitly requested, delegate commit execution to `graft-commit`:
+4. Always evaluate commit eligibility using `graft-commit` rules, even when the answer may be “do not commit yet”.
+5. If a commit is justified or explicitly requested, delegate commit execution to `graft-commit`:
    - keep the scope limited to the confirmed owned slice
    - reuse the same ownership and validation rules instead of inventing a second commit path
-5. Emit one explicit next-task startup prompt whenever the output hands work to a future turn. The prompt must include:
+6. Emit one explicit next-task startup prompt whenever the output hands work to a future turn. The prompt must include:
    - `governance source`
    - `task class`
    - `recovery source`
    - `owned scope`
    - if recovery context matters, the parent topic and subtopic to read after startup preflight
-6. Report the closeout result concisely:
+7. Report the closeout result concisely:
    - whether a commit was created, and if so the scoped title and short SHA
    - whether the output is a handoff prompt only
    - what validation was used or what exact validation gap remains
@@ -73,7 +76,8 @@ guessing the inherited context.
 * do not treat this skill as permission to commit unrelated changes
 * do not duplicate `graft-boot`; this skill assumes startup already happened in the current turn
 * do not duplicate `graft-validation-runner`; use it when validation scope is uncertain
-* do not duplicate `graft-commit`; use it when the decision is to create a commit
+* do not duplicate `graft-commit`; use its rules for every commit-eligibility decision and use it directly when the
+  decision is to create a commit
 * do not claim the next turn can skip startup preflight
 
 ## Example Startup Prompt Template

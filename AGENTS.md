@@ -170,20 +170,22 @@ Prefer the repository skills below when their trigger matches the task:
 
 * `graft-boot`
   * use for short startup prompts, resume prompts, or when the first step should be to run the startup preflight
-    defined in `4.1 Startup Governance` and then enter repository recovery when needed
+    defined in `4.1 Startup Governance`, assess whether `graft-multi-agent-batch` is justified, and enter repository
+    recovery or direct execution when needed
 * `graft-multi-agent-batch`
-  * use when the user explicitly wants subagent delegation or when the work cleanly splits into disjoint parallel slices
+  * use when the user explicitly wants subagent delegation or when the work cleanly splits into disjoint parallel slices;
+    `graft-boot` should perform the suitability assessment before delegation starts
 * `graft-pr-review`
   * use when the task depends on the GitHub PR for the current branch, especially to extract AI review findings,
     failed checks, MegaLinter warnings, or failed test signals before local verification
 * `graft-plugin-scaffold`
   * use when adding a new `server` plugin or shaping a plugin before implementation
 * `graft-commit`
-  * use when the current task slice is ready to commit and the user explicitly wants the agent to classify ownership,
-    verify scope, choose a compliant Conventional Commit message, and create a scoped git commit
+  * use as the canonical scoped commit workflow when the current task slice is ready to commit, whether the trigger is
+    an explicit user request or a `graft-task-closeout` decision that the validated owned scope should be committed
 * `graft-task-closeout`
-  * use when a task slice is ending and the agent needs to decide between handoff-only versus commit-plus-handoff,
-    while emitting the required next-task startup prompt
+  * use as the default slice-end path after `graft-boot` work when the agent needs to decide between handoff-only
+    versus commit-plus-handoff, while emitting the required next-task startup prompt
 * `graft-web-module-scaffold`
   * use when adding a new `web` feature module aligned with backend plugin semantics
 * `graft-validation-runner`
@@ -900,6 +902,17 @@ Explicit commit trigger:
 * if the working tree is mixed and the owned scope cannot be separated confidently, the trigger does not override the
   fail-closed rule; stop and report the ambiguity instead of forcing a commit
 
+Closeout-driven commit evaluation:
+
+* when a slice that started through `graft-boot` reaches a stop, completion, or handoff point, route the ending
+  through `graft-task-closeout` instead of relying on an implicit wrap-up path
+* `graft-task-closeout` must always evaluate commit eligibility using the same ownership, validation, and scoped
+  staging rules enforced by `graft-commit`
+* if closeout concludes the validated owned scope should be committed, execute that commit through `graft-commit`
+  rather than inventing a second commit path
+* if validation or ownership is insufficient, closeout must report the exact blocker and keep the handoff state honest
+  instead of forcing a commit
+
 Task handoff and pre-handoff commit rules:
 
 * if the current task ends with a next-task handoff, first evaluate whether the current slice has reached the
@@ -908,6 +921,8 @@ Task handoff and pre-handoff commit rules:
   ownership, validation, and scoped-staging rules enforced by `graft-commit`
 * if that validation level has not been reached, do not claim the slice was ready to commit; record the validation
   gap and keep the handoff status honest
+* if the current slice came through the normal `graft-boot` workflow, use `graft-task-closeout` as the handoff path
+  so commit eligibility and startup-prompt emission stay in one place
 * a next-task handoff must include one explicit next-task startup prompt that tells the next turn to rerun startup
   preflight and provides the minimum inherited context package needed to resume safely
 * a handoff requirement does not override mixed-ownership or insufficient-validation refusal rules; when a safe commit

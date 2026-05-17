@@ -47,6 +47,9 @@
 - 当前仓库级 startup governance 最小迁移切片已落地到文档真值：根 `AGENTS.md` 现在独占 startup preflight、
   最小 receipt、resume/restart 重验与 subagent 最小继承包定义；`graft-boot`、`graft-multi-agent-batch` 与
   `ai-plan` 文档不再各自维护第二套 boot 链。
+- 当前 boot orchestration 也已进一步收口到仓库真值：`graft-boot` 现在不仅负责 startup preflight，还必须先评估
+  `graft-multi-agent-batch` 是否值得启用，并在切片停止、完成或交接时统一走 `graft-task-closeout`；closeout 再按
+  `graft-commit` 规则判断是否允许安全 scoped commit，避免把 closeout/commit 退回成显式口头触发。
 - `server` 当前已形成最小 runtime 闭环，并新增受保护的 `/api/auth/bootstrap` 真实契约，统一返回当前用户、权限码、按权限过滤的菜单和 locale 快照。
 - `web` 当前已把登录主路径收敛到真实 `login/refresh/bootstrap` 契约，并开始用 bootstrap 菜单快照驱动最小动态路由，而不是继续依赖 starter mock 登录与静态 demo 菜单。
 - 当前 cross-boundary 切片已把 `/users` 从“真实菜单路径 + demo 页面内容”的假闭环，收敛为真实 `GET /api/users` 契约加最小只读列表页；`/user/index` 静态个人中心残留入口已移除。
@@ -155,6 +158,9 @@
 - 本次 startup governance 最小迁移切片一致性检查：
   - `rg -n "Startup Governance|startup preflight|startup receipt|recovery index|subagent" AGENTS.md .agents/skills/graft-boot/SKILL.md .agents/skills/graft-multi-agent-batch/SKILL.md ai-plan/README.md ai-plan/public/README.md ai-plan/design/AI任务追踪与恢复设计.md ai-plan/public/mvp-extension-path`
   - `git diff -- AGENTS.md .agents/skills/graft-boot/SKILL.md .agents/skills/graft-multi-agent-batch/SKILL.md ai-plan/README.md ai-plan/public/README.md ai-plan/design/AI任务追踪与恢复设计.md ai-plan/public/mvp-extension-path`
+- 本次 boot-orchestration / closeout / commit 治理切片一致性检查：
+  - `rg -n "graft-boot|graft-task-closeout|graft-commit|graft-multi-agent-batch|closeout|handoff|commit eligibility" AGENTS.md .agents/skills/graft-boot/SKILL.md .agents/skills/graft-task-closeout/SKILL.md .agents/skills/graft-commit/SKILL.md .agents/skills/graft-multi-agent-batch/SKILL.md ai-plan/design/AI任务追踪与恢复设计.md ai-plan/public/mvp-extension-path`
+  - `git diff -- AGENTS.md .agents/skills/graft-boot/SKILL.md .agents/skills/graft-task-closeout/SKILL.md .agents/skills/graft-commit/SKILL.md .agents/skills/graft-multi-agent-batch/SKILL.md ai-plan/design/AI任务追踪与恢复设计.md ai-plan/public/mvp-extension-path`
 - 本次 auth / RBAC 响应收敛切片直接校验：
   - `cd server && go test ./internal/httpx ./plugins/user`
   - `cd server && go build ./cmd/graft`
