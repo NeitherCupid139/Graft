@@ -72,9 +72,10 @@
 - 当前恢复主线已进入 RBAC MVP 第二波方向同步：`server/plugins/rbac` 的最小写接口能力已进入活动实现范围，当前文档真值按
   “角色写接口 + 角色权限分配 + 用户角色分配的最小闭环”登记方向，但本主题文档不会把该方向表述成已完成，也不会替主代理声明
   尚未重新执行的 backend / cross-boundary 验证通过。
-- 当前 `web /user-role minimal read wiring` 阶段阻断已由 `server/plugins/rbac` 本轮最小收口解除：后端现已补齐
-  `GET /api/users/:id/roles` 读契约、`user.role.read` permission、`role_ids` 稳定 DTO、显式目标用户存在性校验与
-  focused tests；因此下一轮可以评估 `web` 是否进入 user-role UI 最小接线，但仍不得借机扩完整角色中心或把写接口包装成假闭环。
+- 当前 `web /user-role minimal UI wiring` 已在既有 `/users` 运行路径内落地：前端现已同时消费
+  `GET /api/users/:id/roles` 初始快照与 `POST /api/users/:id/roles/assign` replace 写接口，并把写入口继续收敛在
+  `/users` 页内的最小角色查看/分配对话框；当前切片未新增第二菜单/运行路径，且继续保持 bootstrap 菜单
+  `title_key` first、`title` fallback second 的单一路径。
 - 当前第一波治理切片要求把以下仓库级约束写回真值并开始进入执行层：`bootstrap -> module registry -> route -> page` 单一运行面、`register -> boot -> dispose(optional)` 单一生命周期、resolver 只允许存在于 composition root wiring、`web/src/modules/<name>` 与 `server/plugins/<name>` 作为默认 feature boundary、CI 只作为治理执行层而不是第二真值来源。
 - docs/automation 第一波治理收口已同步完成：根 `AGENTS.md` 进一步冻结 runtime surface、module lifecycle、
   service locator、feature boundary、AI architecture preservation 与 validation governance；前端设计文档不再把
@@ -215,6 +216,6 @@
 - 在当前菜单本地化 contract 已确认无额外 server consumer 后，把下一轮跨边界菜单 follow-up 明确切到 `web`：优先消费
   bootstrap 返回的 `title_key`，仅在缺失时回退 `title`，不要在 `server` 再补直接本地化标题解析。
 - 保持当前 `/api/auth/bootstrap`、`AUTH_*` code 与共享 permission 契约冻结，不要回退到第二套授权实现、中文 `message` 分支或 refresh 多出口。
-- RBAC 下一步把主线切到 `web`：基于已稳定的 `GET /api/users/:id/roles` 最小读契约，评估是否进入 user-role UI
-  最小接线；范围继续保持在 `/users` 页或其模块内的最小角色查看/分配，不扩完整角色中心、不新增 `super_admin`
-  bypass，也不把一次性写入表单包装成完成态。
+- RBAC 下一步继续留在 `web` 主运行面收敛，但焦点从“是否进入 `/users` user-role 最小接线”切到“在已落地的
+  `/users` user-role 最小对话框之上保持权限显隐、replace-write 阻断语义、bootstrap title_key-first 菜单本地化与
+  单一路径运行面稳定”，不要借机扩完整角色中心、第二菜单路径或 `super_admin` bypass。

@@ -20,9 +20,10 @@
 - 当前与 RBAC MVP 第二波方向的跨边界协同已进入最小消费态：基于已提交的后端稳定切片，`web` 当前允许新增
   `/roles` 最小接线页面，只覆盖 `GET /api/roles`、`GET /api/permissions`、角色创建、角色更新与角色权限分配；
   本轮仍不扩展完整角色中心，不新增 `super_admin` 前端旁路，也不把用户角色分配 UI 并入同一切片。
-- 当前 `web /user-role minimal read wiring` 的前置 server 阻断已解除：后端现已提供 `GET /api/users/:id/roles`
-  稳定读契约，并把 ownership 收敛为 `user.role.read` permission + `role_ids` DTO；因此下一轮可以评估是否进入
-  user-role UI 最小接线，但范围仍限制在 `/users` 模块内，不扩完整角色中心，也不把写接口单独包装成假闭环。
+- 当前 `web /user-role minimal UI wiring` 已在 `/users` 模块内落地：页面现已通过现有真实 `/users` 入口消费
+  `GET /api/users/:id/roles` 稳定快照与 `POST /api/users/:id/roles/assign` replace 写接口，并把 ownership 收敛为
+  `user.role.read` / `user.role.assign` 权限显隐、`role_ids` 稳定 DTO 与“无法恢复当前快照时阻断 replace write”的最小
+  对话框语义；本轮不扩完整角色中心，也不新增第二菜单或运行路径。
 - 当前菜单本地化 follow-up 已在 `web` 落地：bootstrap 动态菜单现在优先消费 `menus[*].title_key`，并通过前端 locale
   catalog 物化为 route/menu title；只有在 `title_key` 缺失或前端未收录对应 key 时才回退 `title`，且不新增任何
   server 侧标题解析路径。
@@ -67,14 +68,19 @@
   - 新增最小列表页，接 `GET /api/roles` 与 `GET /api/permissions`。
   - 接入 role create/update 与 role permission assignment。
   - focused validation 仅覆盖新增动态路由映射与相关前端类型/构建面，不把本轮自动升级成完整 `bun run check` 完成态声明。
-- 本次 `web /user-role minimal read wiring` 新结论：
-  - `server` 已稳定暴露 `GET /api/users/:id/roles` + `POST /api/users/:id/roles/assign` 这组最小 user-role contract。
-  - 当前 `web` 允许评估 `/users` 页内的 user-role 最小 UI 接线，但仍不自动声明功能完成态，也不扩完整角色中心。
-  - focused validation 继续以下一轮实际前端接线范围为准；本轮仅完成 tracking / scope 同步。
+- 本次 `web /user-role minimal UI wiring` 新结论：
+  - `web` 已在既有 `/users` 页内落地最小 user-role 对话框，并同时消费 `GET /api/users/:id/roles` 与
+    `POST /api/users/:id/roles/assign`。
+  - 当前写路径继续保持 replace 语义：只有在成功恢复目标用户当前 `role_ids` 快照后才允许提交；快照恢复失败时必须阻断写入，
+    不把一次性表单包装成完成态。
+  - focused validation 已提升到该最小 UI 切片本身：以 `/users` 页 focused Vitest 覆盖与前端完成态入口校验为准。
 - 本次 PR #9 review follow-up 预期直接校验：
   - `cd web && bun run check`
 - 本次 `/users` 真实列表页切片直接校验：
   - `cd web && bun run typecheck`
+  - `cd web && bun run check`
+- 本次 `/users` user-role 最小 UI 切片直接校验：
+  - `cd web && bun run test:run -- src/pages/user/index.test.ts`
   - `cd web && bun run check`
 - 本次 Git 边界修复直接校验：
   - `git rev-parse --show-toplevel`
@@ -118,8 +124,9 @@
 
 - 先把 permission helper / directive 和 `/users` 页最小权限显隐做实，再决定是否进入 `/roles` 新页面；不要在当前切片里同时扩展第二批动态菜单映射。
 - 在后端最小写 API 仍未完成主代理验证前，保持 `web` 对 RBAC 第二波的状态为“等待稳定契约 + 等待验证结果”，不要提前开启角色写操作 UI。
-- 下一轮可在 `/users` 模块内评估 user-role 最小 UI 接线，但必须同时消费 `GET /api/users/:id/roles` 初始快照与
-  `POST /api/users/:id/roles/assign` 写接口；不要把 assign 写接口单独接成一次性表单，也不要借机扩完整角色中心。
+- 下一轮继续在 `/users` 模块内收敛已落地的 user-role 最小 UI：保持 `GET /api/users/:id/roles` 初始快照与
+  `POST /api/users/:id/roles/assign` replace 写接口成对消费，必要时只补 focused 文案、样式或测试，不要借机扩完整角色中心、
+  第二菜单路径或独立角色运行面。
 - 保持 `bootstrap.roles` 和 `bootstrap.permissions` 作为唯一前端 RBAC 快照来源，不要回到基于页面本地常量或角色名字符串的条件分支。
 - 继续在真实 `web/` 工程里把 starter 壳层风格挂接到真实后端 `auth + current user + menu + permission + locale` 契约。
 - 保持当前 bootstrap 菜单 `title_key` first、`title` fallback second 的单一路径；新增菜单标题 key 时优先补齐前端

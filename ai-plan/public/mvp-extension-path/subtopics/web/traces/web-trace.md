@@ -275,3 +275,15 @@
   `title_key` first, while keeping `title` as the fallback only when the key is missing or untranslated.
 - Added the missing `menu.role_list.title` and `menu.user_list.title` locale entries plus focused Vitest coverage for
   bootstrap route mapping and title localization, without adding any new server-side title resolution path.
+
+## 2026-05-17 `/users` user-role minimal UI wiring
+
+- Kept the user-role slice inside the existing real `/users` runtime path instead of adding a second menu entry,
+  standalone role-center detour, or alternate bootstrap mapping path.
+- Extended the `/users` page to open a minimal role-assignment dialog that first restores the target user's current
+  `role_ids` snapshot from `GET /api/users/:id/roles`, then submits replace writes through
+  `POST /api/users/:id/roles/assign`.
+- Kept the write path intentionally narrow by blocking submission when the current snapshot cannot be restored, so the
+  UI does not present a fake one-shot assignment form detached from backend truth.
+- Added focused Vitest coverage for the dialog's blocked-write and successful replace-write paths, while preserving the
+  existing bootstrap `title_key`-first, `title`-fallback menu localization path.
