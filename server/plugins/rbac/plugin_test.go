@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 	"time"
 
@@ -333,15 +334,7 @@ func TestRegisterRegistersReadManagementContracts(t *testing.T) {
 	if len(items) != 7 {
 		t.Fatalf("expected 7 registered permissions, got %d", len(items))
 	}
-	if items[0].Code != rbaccontract.RoleReadPermission.String() ||
-		items[1].Code != rbaccontract.RoleCreatePermission.String() ||
-		items[2].Code != rbaccontract.RoleUpdatePermission.String() ||
-		items[3].Code != rbaccontract.RolePermissionAssignPermission.String() ||
-		items[4].Code != rbaccontract.PermissionReadPermission.String() ||
-		items[5].Code != rbaccontract.UserRoleReadPermission.String() ||
-		items[6].Code != rbaccontract.UserRoleAssignPermission.String() {
-		t.Fatalf("unexpected registered permissions: %#v", items)
-	}
+	assertRegisteredPermissionCodes(t, items)
 	for _, item := range items {
 		if item.Category != "api" {
 			t.Fatalf("expected registered permission %s to declare category api, got %#v", item.Code, item)
@@ -362,6 +355,28 @@ func TestRegisterRegistersReadManagementContracts(t *testing.T) {
 	}
 	if _, ok := resolved.(pluginapi.Authorizer); !ok {
 		t.Fatalf("expected pluginapi.Authorizer, got %T", resolved)
+	}
+}
+
+func assertRegisteredPermissionCodes(t *testing.T, items []permission.Item) {
+	t.Helper()
+
+	actual := make([]string, 0, len(items))
+	for _, item := range items {
+		actual = append(actual, item.Code)
+	}
+
+	expected := []string{
+		rbaccontract.RoleReadPermission.String(),
+		rbaccontract.RoleCreatePermission.String(),
+		rbaccontract.RoleUpdatePermission.String(),
+		rbaccontract.RolePermissionAssignPermission.String(),
+		rbaccontract.PermissionReadPermission.String(),
+		rbaccontract.UserRoleReadPermission.String(),
+		rbaccontract.UserRoleAssignPermission.String(),
+	}
+	if !reflect.DeepEqual(actual, expected) {
+		t.Fatalf("unexpected registered permissions: %#v", items)
 	}
 }
 

@@ -30,6 +30,10 @@ const (
 	defaultBackendCacheRoot      = "graft-backend-validate"
 	defaultBackendDirPerm        = 0o755
 	defaultHealthProbeReadLimit  = 256
+	defaultLintBaseRefEnv        = "GRAFT_LINT_BASE_REF"
+	githubBaseRefEnv             = "GITHUB_BASE_REF"
+	defaultRemoteName            = "origin"
+	defaultRemoteHeadRef         = "refs/remotes/origin/HEAD"
 )
 
 // smokeValidateOptions 封装最小运行时 smoke 验证的显式输入。
@@ -59,12 +63,15 @@ var backendLintRunner = runBackendLint
 var backendGoTestRunner = runBackendGoTest
 var backendGoBuildRunner = runBackendGoBuild
 var backendSmokeRunner = runValidateSmoke
+var backendCommandRunner = runBackendCommand
+var backendGitOutputRunner = runBackendGitOutput
 
 var backendLookPath = exec.LookPath
 var backendCommandContext = exec.CommandContext
 var backendGetwd = os.Getwd
 var backendReadFile = os.ReadFile
 var backendMkdirAll = os.MkdirAll
+var backendGetenv = os.Getenv
 
 // newValidateCommand 创建后端显式验证命令树。
 //
@@ -227,19 +234,158 @@ func runBackendLint(cmd *cobra.Command, lintConfig string, testLintConfig string
 		return err
 	}
 
-	if err := runBackendCommand(cmd, lintPath, "run", "--config", lintConfig); err != nil {
+	lintArgs, err := buildBackendLintGateArgs(cmd)
+	if err != nil {
+		return err
+	}
+
+	if err := backendCommandRunner(cmd, lintPath, append([]string{"run", "--config", lintConfig}, lintArgs...)...); err != nil {
 		return fmt.Errorf("run production golangci-lint config %q: %w", lintConfig, err)
 	}
-	if err := runBackendCommand(cmd, lintPath, "run", "--config", testLintConfig); err != nil {
+	if err := backendCommandRunner(cmd, lintPath, append([]string{"run", "--config", testLintConfig}, lintArgs...)...); err != nil {
 		return fmt.Errorf("run test golangci-lint config %q: %w", testLintConfig, err)
 	}
 	return nil
 }
 
+func buildBackendLintGateArgs(cmd *cobra.Command) ([]string, error) {
+	workingDir, err := resolveBackendModuleRoot()
+	if err != nil {
+		return nil, fmt.Errorf("resolve backend lint working directory: %w", err)
+	}
+
+	headRef := currentBackendGitHead(cmd, workingDir)
+	baseRef, err := resolveBackendLintBaseRef(cmd, workingDir)
+	if err != nil {
+		return nil, err
+	}
+
+	mergeBase, err := resolveBackendLintMergeBase(cmd, workingDir, baseRef)
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(mergeBase) == "" {
+		return nil, fmt.Errorf("resolve backend lint merge-base for HEAD %q and base %q: empty merge-base result", headRef, baseRef)
+	}
+
+	return []string{
+		"--new-from-rev=" + mergeBase,
+		"--whole-files",
+	}, nil
+}
+
+func resolveBackendLintBaseRef(cmd *cobra.Command, workingDir string) (string, error) {
+	if baseRef := strings.TrimSpace(backendGetenv(defaultLintBaseRefEnv)); baseRef != "" {
+		return normalizeBackendLintBaseRef(baseRef), nil
+	}
+	if baseRef := strings.TrimSpace(backendGetenv(githubBaseRefEnv)); baseRef != "" {
+		return normalizeBackendLintBaseRef(baseRef), nil
+	}
+
+	remoteHead, err := backendGitOutputRunner(cmd, workingDir, "symbolic-ref", defaultRemoteHeadRef)
+	if err != nil {
+		return "", fmt.Errorf(
+			"resolve backend lint base branch: %w; origin/HEAD is not available, run `git remote set-head %s -a` or set %s",
+			err,
+			defaultRemoteName,
+			defaultLintBaseRefEnv,
+		)
+	}
+
+	return strings.TrimSpace(remoteHead), nil
+}
+
+func normalizeBackendLintBaseRef(baseRef string) string {
+	trimmed := strings.TrimSpace(baseRef)
+	switch {
+	case strings.HasPrefix(trimmed, "refs/remotes/"):
+		return trimmed
+	case strings.HasPrefix(trimmed, "refs/"):
+		return trimmed
+	case strings.Contains(trimmed, "/"):
+		if strings.HasPrefix(trimmed, defaultRemoteName+"/") {
+			return "refs/remotes/" + trimmed
+		}
+		return "refs/remotes/" + defaultRemoteName + "/" + trimmed
+	default:
+		return "refs/remotes/" + defaultRemoteName + "/" + trimmed
+	}
+}
+
+func resolveBackendLintMergeBase(cmd *cobra.Command, workingDir string, baseRef string) (string, error) {
+	if _, err := backendGitOutputRunner(cmd, workingDir, "rev-parse", "--verify", baseRef); err != nil {
+		headRef := currentBackendGitHead(cmd, workingDir)
+		return "", fmt.Errorf(
+			"backend lint base branch %q is not available locally for HEAD %q: %w; run `git fetch %s %s`",
+			baseRef,
+			headRef,
+			err,
+			defaultRemoteName,
+			backendLintFetchTarget(baseRef),
+		)
+	}
+
+	mergeBase, err := backendGitOutputRunner(cmd, workingDir, "merge-base", "HEAD", baseRef)
+	if err != nil {
+		headRef := currentBackendGitHead(cmd, workingDir)
+		return "", fmt.Errorf(
+			"resolve backend lint merge-base for HEAD %q and base %q: %w; run `git fetch %s %s`, verify branch ancestry, or set %s",
+			headRef,
+			baseRef,
+			err,
+			defaultRemoteName,
+			backendLintFetchTarget(baseRef),
+			defaultLintBaseRefEnv,
+		)
+	}
+
+	return strings.TrimSpace(mergeBase), nil
+}
+
+func backendLintFetchTarget(baseRef string) string {
+	trimmed := strings.TrimSpace(baseRef)
+	trimmed = strings.TrimPrefix(trimmed, "refs/remotes/"+defaultRemoteName+"/")
+	trimmed = strings.TrimPrefix(trimmed, "refs/heads/")
+	trimmed = strings.TrimPrefix(trimmed, defaultRemoteName+"/")
+	if trimmed == "" {
+		return baseRef
+	}
+
+	return trimmed
+}
+
+func currentBackendGitHead(cmd *cobra.Command, workingDir string) string {
+	headRef, err := backendGitOutputRunner(cmd, workingDir, "rev-parse", "HEAD")
+	if err != nil {
+		return "unknown"
+	}
+	return strings.TrimSpace(headRef)
+}
+
+func runBackendGitOutput(cmd *cobra.Command, workingDir string, args ...string) (string, error) {
+	commandContext := cmd.Context()
+	if commandContext == nil {
+		commandContext = context.Background()
+	}
+
+	command := backendCommandContext(commandContext, "git", args...)
+	command.Dir = workingDir
+	command.Stderr = cmd.ErrOrStderr()
+	command.Stdin = os.Stdin
+	command.Env = os.Environ()
+
+	output, err := command.Output()
+	if err != nil {
+		return "", fmt.Errorf("git %s: %w", strings.Join(args, " "), err)
+	}
+
+	return strings.TrimSpace(string(output)), nil
+}
+
 // runBackendGoTest 执行显式的 `go test` 验证。
 func runBackendGoTest(cmd *cobra.Command, targets []string) error {
 	args := append([]string{"test"}, targets...)
-	if err := runBackendCommand(cmd, "go", args...); err != nil {
+	if err := backendCommandRunner(cmd, "go", args...); err != nil {
 		return fmt.Errorf("run go test on %s: %w", strings.Join(targets, " "), err)
 	}
 	return nil
@@ -247,7 +393,7 @@ func runBackendGoTest(cmd *cobra.Command, targets []string) error {
 
 // runBackendGoBuild 执行显式的 `go build ./cmd/graft` 编译验证。
 func runBackendGoBuild(cmd *cobra.Command) error {
-	if err := runBackendCommand(cmd, "go", "build", "./cmd/graft"); err != nil {
+	if err := backendCommandRunner(cmd, "go", "build", "./cmd/graft"); err != nil {
 		return fmt.Errorf("run go build ./cmd/graft: %w", err)
 	}
 	return nil

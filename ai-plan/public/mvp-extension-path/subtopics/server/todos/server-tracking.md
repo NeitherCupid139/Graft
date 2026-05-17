@@ -65,21 +65,34 @@
 - 当前本地启动修复已补齐 `server/.env.example` 的显式 auth 密钥示例、README 最小启动步骤与 GoLand working directory 提示，并用隔离环境测试锁定“缺少 `GRAFT_AUTH_JWT_SECRET` 与 `GRAFT_AUTH_SIGNING_KEY` 时严格失败”的配置行为；未引入任何 dev-only 默认密钥或 auth 语义变更。
 - `server` 当前已补充两个独立开发辅助程序：`cmd/graft-jwt-secret` 与 `cmd/graft-signing-key`，用于生成可直接写入 `.env` 的随机 auth 密钥文本；该能力只辅助配置准备，不参与运行时加载或 token 语义。
 - `server` 当前已把模块工具链基线提升到 `Go 1.26.x`，并将 `go.uber.org/zap` 收敛到 `v1.28.0`；`go test ./...` 与 `go build ./cmd/...` 在本地 `go1.26.1` 下通过，未触发 Ent/Atlas regeneration。
-- 当前 backend governance 文档真值已经冻结：`server` 完成态必须统一走 `graft validate backend`，固定质量顺序为 `golangci-lint run -> go test (smallest direct scope) -> go build ./cmd/graft -> graft validate smoke when needed`，并固定 pin `golangci-lint v2.12.2`。
+- 当前 backend governance 文档真值已经冻结：`server` 完成态必须统一走 `graft validate backend`，固定质量顺序为 `graft validate backend --stage lint -> go test (smallest direct scope) -> go build ./cmd/graft -> graft validate smoke when needed`，并固定 pin `golangci-lint v2.12.2`。
 - 当前 `AGENTS.md` 已新增独立 `Go 代码组织与命名规范` 章节，统一冻结 `server` 手写 Go 代码的文件/包/类型命名、Context 传播、API/DTO、config、runtime wiring、事务、Ent、并发、日志、安全与 AI 生成代码约束；相关完成态与注释/验证章节仅再做引用式收敛，不再重复堆叠第二套真值。
 - 当前 CI `server-lint` job 已改为只安装固定版 `golangci-lint` 二进制，再回到 `graft validate backend --stage lint` 统一执行入口；不再让 `golangci-lint-action` 在仓库根目录误跑 `./...`。
-- 当前生产代码 lint backlog 已在本地清零；此前记录的 test-lint 阻断已在后续治理切片中清空，当前 `go run ./cmd/graft validate backend` 已可作为统一 completion 入口直接通过。
-- backend lint issue 默认按阻断项处理；如果当前切片无法立即清理，只能登记到本文件的 `Backend Lint Controlled Exceptions`，并记录来源、影响、保留原因和下一步清理动作。
+- backend blocking lint gate is changed-file scoped against the resolved base branch.
+- changed-file scoped means whole-file enforcement on files changed relative to the resolved base branch via
+  `--new-from-rev=<merge-base> --whole-files`.
+- untouched files are not blocking gate failures.
+- full-repo lint is audit-only backlog scanning.
+- touching a historical hotspot file means the touched file must satisfy the current lint gate, unless a narrowly
+  documented temporary `nolint` is justified.
+- new code must not expand the lint backlog.
+- backend lint issue 如当前切片无法立即清理，只能登记到本文件的 `Backend Lint Controlled Exceptions`，并记录来源、
+  影响、保留原因、负责人或上下文与下一步清理条件。
 - 详细实现历史保留在 `subtopics/server/traces/server-trace.md`。
 
 ## Backend Lint Controlled Exceptions
 
 - 当前无活动中的 backend lint controlled exception；若后续再次出现无法在当前切片内清理的 backend lint 阻断，只能在本节追加登记。
+- 当前 audit backlog hotspots：
+  `internal/ent/schema/user_role.go`、`internal/ent/schema/role_permission.go`、`internal/i18n/service.go`、
+  `plugins/rbac/plugin_routes.go`、`plugins/rbac/plugin_write_routes.go`、`plugins/user/plugin_routes.go`。
 - 后续如需暂留 backend lint issue，只能在本节追加受控例外，并至少记录以下字段：
   - Source：linter 名称，以及对应的 package / file / command。
   - Impact：用户可见影响或工程可维护性影响。
   - Retention Reason：为什么当前切片不能安全清理。
+  - Owner / Context：谁拥有该暂留语义，或者该注释所绑定的 slice / file 上下文。
   - Next Cleanup Action：下一步清理动作或计划承接切片。
+  - Cleanup Condition：何时必须移除该临时 `nolint` 或 controlled exception。
 
 ## Active Risks
 

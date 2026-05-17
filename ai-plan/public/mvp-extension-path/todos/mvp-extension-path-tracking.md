@@ -54,9 +54,19 @@
 - 当前默认管理员与首次登录强制改密切片的跨边界口径已冻结：`graft-admin` 只允许作为默认管理员初始化例外密码写入；首次改密状态必须由后端持久化并通过 `login/bootstrap` 返回；当前 MVP 不为全部业务接口增加全局后端拦截，而由 `web` 登录后受限态负责阻断，后续如需更强安全再补服务端全局中间件。
 - 当前默认管理员首次改密切片已进一步落地：`must_change_password=true` 现在明确表示“已认证但受限”，`web` 通过受限态路由守卫阻断业务入口但保留 token；`server` 仅在“默认管理员 + 受限态 + 当前仍是初始化例外密码”时允许 `change-password` 省略 `current_password`，改密成功后必须重新 `bootstrap` 恢复正常导航。
 - 当前仓库真值还新增冻结了一条 shared backend governance baseline：`server` 完成态必须收敛到 `graft validate backend`，
-  固定使用 `golangci-lint v2.12.2`，并把 backend lint issue 默认视为阻断项；如需暂留，只能登记到 active
-  tracking 文档中的 controlled exception。
-- 当前 `server-lint` CI 路径已修正为“只安装 pinned `golangci-lint`，再由 `graft validate backend --stage lint` 执行统一入口”；历史 test-lint backlog 已清空，backend completion 入口重新回到统一验证口径。
+  固定使用 `golangci-lint v2.12.2`，并由 `graft validate backend --stage lint` 作为唯一 blocking lint gate。
+- backend blocking lint gate is changed-file scoped against the resolved base branch.
+- changed-file scoped means whole-file enforcement on files changed relative to the resolved base branch via
+  `--new-from-rev=<merge-base> --whole-files`.
+- untouched files are not blocking gate failures.
+- full-repo lint is audit-only backlog scanning.
+- touching a historical hotspot file means the touched file must satisfy the current lint gate, unless a narrowly
+  documented temporary `nolint` is justified.
+- new code must not expand the lint backlog.
+- 当前 `server-lint` CI 路径已修正为“只安装 pinned `golangci-lint`，再由 `graft validate backend --stage lint` 执行统一入口”；full-repo `golangci-lint run` 仅保留为 audit-only backlog 扫描与 artifact 输出。
+- 当前已知 audit backlog hotspots：
+  `internal/ent/schema/user_role.go`、`internal/ent/schema/role_permission.go`、`internal/i18n/service.go`、
+  `plugins/rbac/plugin_routes.go`、`plugins/rbac/plugin_write_routes.go`、`plugins/user/plugin_routes.go`。
 - 当前 `server authz/rbac wiring convergence` 也已落地：`user` 路由守卫不再维护本地 `routeAuthorizer` 语义副本，而是在
   `Boot` 阶段绑定 `rbac` 插件公开的共享 `pluginapi.Authorizer`，请求热路径不再解析容器服务。
 - 当前恢复主线已进入 RBAC MVP 第二波方向同步：`server/plugins/rbac` 的最小写接口能力已进入活动实现范围，当前文档真值按

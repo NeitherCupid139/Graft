@@ -62,16 +62,7 @@ func registerRoleWriteRoutes(
 	group.POST(rbaccontract.RolePermissionAssignRoute, guards.rolePermissionAssign, func(ginCtx *gin.Context) {
 		handleReplaceStableIDsRoute(ginCtx, ctx, pluginName, replaceStableIDsHandlerConfig{
 			invalidField: "permission_ids",
-			readIDs: func(ginCtx *gin.Context) ([]uint64, error) {
-				var request replaceRolePermissionsRequest
-				if err := ginCtx.ShouldBindJSON(&request); err != nil {
-					return nil, err
-				}
-				if request.PermissionIDs == nil {
-					return nil, nil
-				}
-				return *request.PermissionIDs, nil
-			},
+			readIDs:      readRolePermissionIDs,
 			write: func(ctx context.Context, targetID uint64, ids []uint64) error {
 				return writer.ReplacePermissionsForRole(ctx, store.ReplacePermissionsForRoleInput{
 					RoleID:        targetID,
@@ -203,16 +194,7 @@ func registerUserRoleRoutes(
 	group.POST(rbaccontract.UserRoleAssignRoute, guards.userRoleAssign, func(ginCtx *gin.Context) {
 		handleReplaceStableIDsRoute(ginCtx, ctx, pluginName, replaceStableIDsHandlerConfig{
 			invalidField: "role_ids",
-			readIDs: func(ginCtx *gin.Context) ([]uint64, error) {
-				var request replaceUserRolesRequest
-				if err := ginCtx.ShouldBindJSON(&request); err != nil {
-					return nil, err
-				}
-				if request.RoleIDs == nil {
-					return nil, nil
-				}
-				return *request.RoleIDs, nil
-			},
+			readIDs:      readUserRoleIDs,
 			write: func(ctx context.Context, targetID uint64, ids []uint64) error {
 				return writer.ReplaceRolesForUser(ctx, store.ReplaceRolesForUserInput{
 					UserID:  targetID,
@@ -285,6 +267,29 @@ func normalizeUpdateRoleInput(roleID uint64, request updateRoleRequest) (store.U
 		Display:     strings.TrimSpace(request.Display),
 		Description: normalizeOptionalString(request.Description),
 	}, true
+}
+
+func readRolePermissionIDs(ginCtx *gin.Context) ([]uint64, error) {
+	var request replaceRolePermissionsRequest
+	if err := ginCtx.ShouldBindJSON(&request); err != nil {
+		return nil, err
+	}
+	return optionalStableIDs(request.PermissionIDs), nil
+}
+
+func readUserRoleIDs(ginCtx *gin.Context) ([]uint64, error) {
+	var request replaceUserRolesRequest
+	if err := ginCtx.ShouldBindJSON(&request); err != nil {
+		return nil, err
+	}
+	return optionalStableIDs(request.RoleIDs), nil
+}
+
+func optionalStableIDs(ids *[]uint64) []uint64 {
+	if ids == nil {
+		return nil
+	}
+	return *ids
 }
 
 func normalizeOptionalString(input *string) *string {
