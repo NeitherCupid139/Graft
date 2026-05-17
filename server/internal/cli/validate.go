@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -34,6 +35,8 @@ const (
 	githubBaseRefEnv             = "GITHUB_BASE_REF"
 	defaultRemoteName            = "origin"
 	defaultRemoteHeadRef         = "refs/remotes/origin/HEAD"
+	shaLength40                  = 40
+	shaLength64                  = 64
 )
 
 // smokeValidateOptions 封装最小运行时 smoke 验证的显式输入。
@@ -72,6 +75,7 @@ var backendGetwd = os.Getwd
 var backendReadFile = os.ReadFile
 var backendMkdirAll = os.MkdirAll
 var backendGetenv = os.Getenv
+var backendGitRevisionPattern = regexp.MustCompile(`\A[0-9A-Fa-f]+\z`)
 
 // newValidateCommand 创建后端显式验证命令树。
 //
@@ -303,6 +307,8 @@ func resolveBackendLintBaseRef(cmd *cobra.Command, workingDir string) (string, s
 func normalizeBackendLintBaseRef(baseRef string) string {
 	trimmed := strings.TrimSpace(baseRef)
 	switch {
+	case isBackendGitRevision(trimmed):
+		return trimmed
 	case strings.HasPrefix(trimmed, "refs/remotes/"):
 		return trimmed
 	case strings.HasPrefix(trimmed, "refs/"):
@@ -320,6 +326,16 @@ func normalizeBackendLintBaseRef(baseRef string) string {
 func resolveBackendLintMergeBase(cmd *cobra.Command, workingDir string, baseRef string, baseRefSource string) (string, error) {
 	if _, err := backendGitOutputRunner(cmd, workingDir, "rev-parse", "--verify", baseRef); err != nil {
 		headRef := currentBackendGitHead(cmd, workingDir)
+		if isBackendGitRevision(baseRef) {
+			return "", fmt.Errorf(
+				"backend lint base revision %q (source: %s) is not available locally for HEAD %q: %w; update %s to a reachable commit or ref",
+				baseRef,
+				baseRefSource,
+				headRef,
+				err,
+				defaultLintBaseRefEnv,
+			)
+		}
 		return "", fmt.Errorf(
 			"backend lint base branch %q (source: %s) is not available locally for HEAD %q: %w; run `git fetch %s %s`",
 			baseRef,
@@ -334,6 +350,16 @@ func resolveBackendLintMergeBase(cmd *cobra.Command, workingDir string, baseRef 
 	mergeBase, err := backendGitOutputRunner(cmd, workingDir, "merge-base", "HEAD", baseRef)
 	if err != nil {
 		headRef := currentBackendGitHead(cmd, workingDir)
+		if isBackendGitRevision(baseRef) {
+			return "", fmt.Errorf(
+				"resolve backend lint merge-base for HEAD %q and base %q (source: %s): %w; verify branch ancestry or set %s to a different reachable commit or ref",
+				headRef,
+				baseRef,
+				baseRefSource,
+				err,
+				defaultLintBaseRefEnv,
+			)
+		}
 		return "", fmt.Errorf(
 			"resolve backend lint merge-base for HEAD %q and base %q (source: %s): %w; run `git fetch %s %s`, verify branch ancestry, or set %s",
 			headRef,
@@ -347,6 +373,14 @@ func resolveBackendLintMergeBase(cmd *cobra.Command, workingDir string, baseRef 
 	}
 
 	return strings.TrimSpace(mergeBase), nil
+}
+
+func isBackendGitRevision(baseRef string) bool {
+	trimmed := strings.TrimSpace(baseRef)
+	if len(trimmed) != shaLength40 && len(trimmed) != shaLength64 {
+		return false
+	}
+	return backendGitRevisionPattern.MatchString(trimmed)
 }
 
 func backendLintFetchTarget(baseRef string) string {

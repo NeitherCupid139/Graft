@@ -194,7 +194,7 @@
   - `git worktree list --verbose`
   - `git worktree prune`
   - `git worktree list --verbose`
-  - 结果：backend lint gate 现在在 workflow fetch 后显式校验 `refs/remotes/origin/<base>` 是否可见，并输出最小 HEAD/base 诊断；本地 stale `.git/worktrees/*` 记录已通过 prune 清理，后续临时 worktree 流程必须在结束时执行 remove/prune，避免把仓库卫生问题误判为 CI base-ref 失真根因。
+  - 结果：backend lint gate 现在优先使用 workflow fetch 后可见的 `refs/remotes/origin/<base>`，若 GitHub Actions PR checkout / prune 语义导致该 remote-tracking ref 不可见，则回退到 `FETCH_HEAD` commit SHA，并把 `GRAFT_LINT_BASE_REF` 作为可验证 git revision 传给统一 CLI；本地 stale `.git/worktrees/*` 记录已通过 prune 清理，后续临时 worktree 流程必须在结束时执行 remove/prune，避免把仓库卫生问题误判为 CI base-ref 失真根因。
 - 本次 contract governance / magic-value governance 底座切片直接校验：
   - `python3 -m py_compile scripts/magic_value/check_magic_values.py`
   - `python3 scripts/magic_value/check_magic_values.py --mode changed`
@@ -215,6 +215,12 @@
   - 结果：`server/plugins/user/plugin.go`、`server/plugins/user/plugin_routes.go` 与
     `server/internal/contract/message/key.go` 不再出现本轮 targeted permission/message-key/auth-route 或
     `common.conjunction` / `common.copyright` drift findings。
+- 本次 commit/push 阻塞治理直接校验：
+  - `cd web && ./node_modules/.bin/lint-staged --debug`
+  - `sh -n .husky/pre-commit .husky/pre-push`
+  - `sh .husky/pre-commit`
+  - `git diff -- AGENTS.md .agents/skills/graft-push/SKILL.md .husky/pre-commit ai-plan/public/mvp-extension-path/todos/mvp-extension-path-tracking.md`
+  - 结果：`pre-commit` 现在只在暂存区包含命中 `web` 配置的文件时运行 `lint-staged`；纯 `server`、`.github`、`ai-plan` 或 skill 文档切片不再因为 “could not find any staged files matching configured tasks” 误阻断提交，同时仓库新增 `graft-push` skill 作为 push 诊断与安全重试的统一入口，而不是继续依赖临时口头流程。
 
 ## Immediate Next Step
 
