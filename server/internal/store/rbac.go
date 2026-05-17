@@ -39,6 +39,12 @@ type Permission struct {
 	UpdatedAt   time.Time
 }
 
+// RolePermissionBinding 表示角色当前绑定的一条稳定权限关系。
+type RolePermissionBinding struct {
+	RoleID       uint64
+	PermissionID uint64
+}
+
 // EnsureRoleInput 描述一次最小角色存在性保障所需的输入。
 type EnsureRoleInput struct {
 	Name        string
@@ -137,4 +143,7 @@ type RBACRepository interface {
 
 	// ListPermissions 返回当前稳定排序下的权限快照。
 	ListPermissions(ctx context.Context) ([]Permission, error)
+
+	// ListRolePermissionBindings 返回指定角色当前绑定的权限关系快照。
+	ListRolePermissionBindings(ctx context.Context, roleID uint64) ([]RolePermissionBinding, error)
 }

@@ -357,6 +357,8 @@
         "currentRoleEmpty": "当前未选择角色",
         "groupHint": "当前分组共 {count} 条权限。",
         "category": "分组：{category}",
+        "selectionLoadFailed": "角色已有权限加载失败，当前未执行覆盖写入。",
+        "selectionUnavailable": "当前无法可靠恢复该角色的已有权限，已阻止空权限覆盖提交。",
         "confirm": "保存权限分配"
       }
     },

@@ -10,6 +10,7 @@ import (
 type readManagementService interface {
 	ListRoles(ctx context.Context) ([]store.Role, error)
 	ListPermissions(ctx context.Context) ([]store.Permission, error)
+	ListRolePermissionBindings(ctx context.Context, roleID uint64) ([]store.RolePermissionBinding, error)
 }
 
 type managementReader struct {
@@ -30,4 +31,12 @@ func (r managementReader) ListPermissions(ctx context.Context) ([]store.Permissi
 	}
 
 	return r.rbac.ListPermissions(ctx)
+}
+
+func (r managementReader) ListRolePermissionBindings(ctx context.Context, roleID uint64) ([]store.RolePermissionBinding, error) {
+	if r.rbac == nil {
+		return nil, errors.New("rbac repository is unavailable")
+	}
+
+	return r.rbac.ListRolePermissionBindings(ctx, roleID)
 }

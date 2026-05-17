@@ -265,6 +265,10 @@ func (pluginTestRBACRepositoryStub) ListPermissions(context.Context) ([]store.Pe
 	return nil, nil
 }
 
+func (pluginTestRBACRepositoryStub) ListRolePermissionBindings(context.Context, uint64) ([]store.RolePermissionBinding, error) {
+	return nil, nil
+}
+
 func testDevResetConfig(env string) *config.Config {
 	return &config.Config{
 		App:      config.AppConfig{Env: env},

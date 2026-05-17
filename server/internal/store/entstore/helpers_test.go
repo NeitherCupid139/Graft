@@ -347,6 +347,9 @@ func TestRBACRepositoryRejectsInvalidID(t *testing.T) {
 	if _, err := repo.ListRolesByUserID(context.Background(), 0); !errors.Is(err, store.ErrInvalidID) {
 		t.Fatalf("expected ListRolesByUserID to return ErrInvalidID, got %v", err)
 	}
+	if _, err := repo.ListRolePermissionBindings(context.Background(), 0); !errors.Is(err, store.ErrInvalidID) {
+		t.Fatalf("expected ListRolePermissionBindings to return ErrInvalidID, got %v", err)
+	}
 	if _, err := repo.ListPermissionsByUserID(context.Background(), 0); !errors.Is(err, store.ErrInvalidID) {
 		t.Fatalf("expected ListPermissionsByUserID to return ErrInvalidID, got %v", err)
 	}

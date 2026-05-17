@@ -62,7 +62,7 @@ export const usePermissionStore = defineStore('permission', {
     },
     hasAllPermissions(codes: string[]) {
       if (codes.length === 0) {
-        return false;
+        return true;
       }
 
       return codes.every((code) => this.permissionCodeSet.has(code));

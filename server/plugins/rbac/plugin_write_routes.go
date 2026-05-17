@@ -1,6 +1,7 @@
 package rbac
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -37,6 +38,12 @@ type replaceUserRolesRequest struct {
 	RoleIDs *[]uint64 `json:"role_ids"`
 }
 
+type replaceStableIDsHandlerConfig struct {
+	invalidField string
+	readIDs      func(ginCtx *gin.Context) ([]uint64, error)
+	write        func(ctx context.Context, targetID uint64, ids []uint64) error
+}
+
 func registerRoleWriteRoutes(
 	group *gin.RouterGroup,
 	ctx *plugin.Context,
@@ -45,110 +52,116 @@ func registerRoleWriteRoutes(
 	guards managementGuards,
 ) {
 	group.POST(rbaccontract.RoleCollection, guards.roleCreate, func(ginCtx *gin.Context) {
-		var request createRoleRequest
-		if err := ginCtx.ShouldBindJSON(&request); err != nil {
-			writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
-				"field": "body",
-			})
-			return
-		}
-
-		roleInput, ok := normalizeCreateRoleInput(request)
-		if !ok {
-			writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
-				"field": "name",
-			})
-			return
-		}
-		if strings.TrimSpace(roleInput.Display) == "" {
-			writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
-				"field": "display",
-			})
-			return
-		}
-
-		role, err := writer.CreateRole(ginCtx.Request.Context(), roleInput)
-		if err != nil {
-			writeRBACManagementError(ginCtx, ctx.I18n, ctx.Logger, pluginName, err, "id")
-			return
-		}
-
-		httpx.WriteSuccess(ginCtx, http.StatusOK, toRoleListItem(role))
+		handleCreateRoleRoute(ginCtx, ctx, pluginName, writer)
 	})
 
 	group.POST(rbaccontract.RoleUpdateRoute, guards.roleUpdate, func(ginCtx *gin.Context) {
-		roleID, err := parseManagementID(ginCtx.Param("id"))
-		if err != nil {
-			writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
-				"field": "id",
-			})
-			return
-		}
-
-		var request updateRoleRequest
-		if err := ginCtx.ShouldBindJSON(&request); err != nil {
-			writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
-				"field": "body",
-			})
-			return
-		}
-
-		roleInput, ok := normalizeUpdateRoleInput(roleID, request)
-		if !ok {
-			writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
-				"field": "name",
-			})
-			return
-		}
-		if strings.TrimSpace(roleInput.Display) == "" {
-			writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
-				"field": "display",
-			})
-			return
-		}
-
-		role, err := writer.UpdateRole(ginCtx.Request.Context(), roleInput)
-		if err != nil {
-			writeRBACManagementError(ginCtx, ctx.I18n, ctx.Logger, pluginName, err, "id")
-			return
-		}
-
-		httpx.WriteSuccess(ginCtx, http.StatusOK, toRoleListItem(role))
+		handleUpdateRoleRoute(ginCtx, ctx, pluginName, writer)
 	})
 
 	group.POST(rbaccontract.RolePermissionAssignRoute, guards.rolePermissionAssign, func(ginCtx *gin.Context) {
-		roleID, err := parseManagementID(ginCtx.Param("id"))
-		if err != nil {
-			writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
-				"field": "id",
-			})
-			return
-		}
-
-		var request replaceRolePermissionsRequest
-		if err := ginCtx.ShouldBindJSON(&request); err != nil {
-			writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
-				"field": "body",
-			})
-			return
-		}
-		if request.PermissionIDs == nil || hasInvalidStableIDs(*request.PermissionIDs) {
-			writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
-				"field": "permission_ids",
-			})
-			return
-		}
-
-		if err := writer.ReplacePermissionsForRole(ginCtx.Request.Context(), store.ReplacePermissionsForRoleInput{
-			RoleID:        roleID,
-			PermissionIDs: *request.PermissionIDs,
-		}); err != nil {
-			writeRBACManagementError(ginCtx, ctx.I18n, ctx.Logger, pluginName, err, "permission_ids")
-			return
-		}
-
-		httpx.WriteSuccess[any](ginCtx, http.StatusOK, nil)
+		handleReplaceStableIDsRoute(ginCtx, ctx, pluginName, replaceStableIDsHandlerConfig{
+			invalidField: "permission_ids",
+			readIDs: func(ginCtx *gin.Context) ([]uint64, error) {
+				var request replaceRolePermissionsRequest
+				if err := ginCtx.ShouldBindJSON(&request); err != nil {
+					return nil, err
+				}
+				if request.PermissionIDs == nil {
+					return nil, nil
+				}
+				return *request.PermissionIDs, nil
+			},
+			write: func(ctx context.Context, targetID uint64, ids []uint64) error {
+				return writer.ReplacePermissionsForRole(ctx, store.ReplacePermissionsForRoleInput{
+					RoleID:        targetID,
+					PermissionIDs: ids,
+				})
+			},
+		})
 	})
+}
+
+func handleCreateRoleRoute(
+	ginCtx *gin.Context,
+	ctx *plugin.Context,
+	pluginName string,
+	writer writeManagementService,
+) {
+	var request createRoleRequest
+	if err := ginCtx.ShouldBindJSON(&request); err != nil {
+		writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
+			"field": "body",
+		})
+		return
+	}
+
+	roleInput, ok := normalizeCreateRoleInput(request)
+	if !ok {
+		writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
+			"field": "name",
+		})
+		return
+	}
+	if strings.TrimSpace(roleInput.Display) == "" {
+		writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
+			"field": "display",
+		})
+		return
+	}
+
+	role, err := writer.CreateRole(ginCtx.Request.Context(), roleInput)
+	if err != nil {
+		writeRBACManagementError(ginCtx, ctx.I18n, ctx.Logger, pluginName, err, "id")
+		return
+	}
+
+	httpx.WriteSuccess(ginCtx, http.StatusOK, toRoleListItem(role))
+}
+
+func handleUpdateRoleRoute(
+	ginCtx *gin.Context,
+	ctx *plugin.Context,
+	pluginName string,
+	writer writeManagementService,
+) {
+	roleID, err := parseManagementID(ginCtx.Param("id"))
+	if err != nil {
+		writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
+			"field": "id",
+		})
+		return
+	}
+
+	var request updateRoleRequest
+	if err := ginCtx.ShouldBindJSON(&request); err != nil {
+		writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
+			"field": "body",
+		})
+		return
+	}
+
+	roleInput, ok := normalizeUpdateRoleInput(roleID, request)
+	if !ok {
+		writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
+			"field": "name",
+		})
+		return
+	}
+	if strings.TrimSpace(roleInput.Display) == "" {
+		writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
+			"field": "display",
+		})
+		return
+	}
+
+	role, err := writer.UpdateRole(ginCtx.Request.Context(), roleInput)
+	if err != nil {
+		writeRBACManagementError(ginCtx, ctx.I18n, ctx.Logger, pluginName, err, "id")
+		return
+	}
+
+	httpx.WriteSuccess(ginCtx, http.StatusOK, toRoleListItem(role))
 }
 
 func registerUserRoleRoutes(
@@ -160,38 +173,62 @@ func registerUserRoleRoutes(
 	group := ctx.Router.Group(rbaccontract.UsersGroup)
 	group.Use(httpx.RequestIDMiddleware())
 	group.POST(rbaccontract.UserRoleAssignRoute, authenticated, func(ginCtx *gin.Context) {
-		userID, err := parseManagementID(ginCtx.Param("id"))
-		if err != nil {
-			writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
-				"field": "id",
-			})
-			return
-		}
-
-		var request replaceUserRolesRequest
-		if err := ginCtx.ShouldBindJSON(&request); err != nil {
-			writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
-				"field": "body",
-			})
-			return
-		}
-		if request.RoleIDs == nil || hasInvalidStableIDs(*request.RoleIDs) {
-			writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
-				"field": "role_ids",
-			})
-			return
-		}
-
-		if err := writer.ReplaceRolesForUser(ginCtx.Request.Context(), store.ReplaceRolesForUserInput{
-			UserID:  userID,
-			RoleIDs: *request.RoleIDs,
-		}); err != nil {
-			writeRBACManagementError(ginCtx, ctx.I18n, ctx.Logger, pluginName, err, "role_ids")
-			return
-		}
-
-		httpx.WriteSuccess[any](ginCtx, http.StatusOK, nil)
+		handleReplaceStableIDsRoute(ginCtx, ctx, pluginName, replaceStableIDsHandlerConfig{
+			invalidField: "role_ids",
+			readIDs: func(ginCtx *gin.Context) ([]uint64, error) {
+				var request replaceUserRolesRequest
+				if err := ginCtx.ShouldBindJSON(&request); err != nil {
+					return nil, err
+				}
+				if request.RoleIDs == nil {
+					return nil, nil
+				}
+				return *request.RoleIDs, nil
+			},
+			write: func(ctx context.Context, targetID uint64, ids []uint64) error {
+				return writer.ReplaceRolesForUser(ctx, store.ReplaceRolesForUserInput{
+					UserID:  targetID,
+					RoleIDs: ids,
+				})
+			},
+		})
 	})
+}
+
+func handleReplaceStableIDsRoute(
+	ginCtx *gin.Context,
+	ctx *plugin.Context,
+	pluginName string,
+	config replaceStableIDsHandlerConfig,
+) {
+	targetID, err := parseManagementID(ginCtx.Param("id"))
+	if err != nil {
+		writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
+			"field": "id",
+		})
+		return
+	}
+
+	ids, err := config.readIDs(ginCtx)
+	if err != nil {
+		writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
+			"field": "body",
+		})
+		return
+	}
+	if ids == nil || hasInvalidStableIDs(ids) {
+		writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
+			"field": config.invalidField,
+		})
+		return
+	}
+
+	if err := config.write(ginCtx.Request.Context(), targetID, ids); err != nil {
+		writeRBACManagementError(ginCtx, ctx.I18n, ctx.Logger, pluginName, err, config.invalidField)
+		return
+	}
+
+	httpx.WriteSuccess[any](ginCtx, http.StatusOK, nil)
 }
 
 func normalizeCreateRoleInput(request createRoleRequest) (store.CreateRoleInput, bool) {

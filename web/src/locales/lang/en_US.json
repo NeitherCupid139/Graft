@@ -357,6 +357,8 @@
         "currentRoleEmpty": "No role selected",
         "groupHint": "{count} permissions in this category.",
         "category": "Category: {category}",
+        "selectionLoadFailed": "Failed to load the current role permissions, so no replace write was attempted.",
+        "selectionUnavailable": "The current role permissions could not be restored safely, so empty replace submission is blocked.",
         "confirm": "Save Assignment"
       }
     },

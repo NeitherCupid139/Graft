@@ -126,6 +126,9 @@
               <div class="permission-group__hint">
                 {{ t('pages.roleList.permissionDialog.groupHint', { count: group.items.length }) }}
               </div>
+              <div v-if="!permissionSelectionReady" class="permission-load-warning">
+                {{ t('pages.roleList.permissionDialog.selectionUnavailable') }}
+              </div>
               <t-checkbox-group v-model="selectedPermissionIds" class="permission-checkbox-group">
                 <t-checkbox v-for="item in group.items" :key="item.id" class="permission-checkbox" :value="item.id">
                   <div class="permission-checkbox__content">
@@ -141,7 +144,12 @@
             <t-button variant="outline" @click="closePermissionDialog">
               {{ t('pages.roleList.form.cancel') }}
             </t-button>
-            <t-button theme="primary" :loading="submittingPermissions" @click="submitPermissionAssignment">
+            <t-button
+              theme="primary"
+              :disabled="!permissionSelectionReady"
+              :loading="submittingPermissions"
+              @click="submitPermissionAssignment"
+            >
               {{ t('pages.roleList.permissionDialog.confirm') }}
             </t-button>
           </div>
@@ -157,7 +165,14 @@ import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import type { PermissionListItem, RoleListItem } from '@/api/model/rbacModel';
-import { assignRolePermissions, createRole, getPermissions, getRoles, updateRole } from '@/api/rbac';
+import {
+  assignRolePermissions,
+  createRole,
+  getPermissions,
+  getRolePermissionBindings,
+  getRoles,
+  updateRole,
+} from '@/api/rbac';
 import { RBAC_PERMISSION_CODE } from '@/contracts/rbac/permissions';
 import { usePermissionStore } from '@/store';
 
@@ -198,6 +213,8 @@ const roleFormMode = ref<RoleFormMode>('create');
 const selectedRole = ref<RoleListItem | null>(null);
 const roleForm = ref<RoleFormState>({ ...INITIAL_ROLE_FORM });
 const selectedPermissionIds = ref<number[]>([]);
+const permissionSelectionReady = ref(false);
+const loadingRolePermissions = ref(false);
 
 const permissionCodes = RBAC_PERMISSION_CODE;
 const canReadPermissions = computed(() => permissionStore.hasPermission(permissionCodes.PERMISSION_READ));
@@ -277,6 +294,69 @@ function normalizeDescription(description: string) {
 
 function sortStableIDs(ids: number[]) {
   return ids.slice().sort((left, right) => left - right);
+}
+
+function normalizeRolePermissionIDs(rawPermissionIDs: number[]) {
+  if (!Array.isArray(rawPermissionIDs)) {
+    return null;
+  }
+
+  const availablePermissionIDs = new Set(permissions.value.map((item) => item.id));
+  if (rawPermissionIDs.some((id) => !Number.isInteger(id) || id <= 0 || !availablePermissionIDs.has(id))) {
+    return null;
+  }
+
+  return Array.from(new Set(rawPermissionIDs)).sort((left, right) => left - right);
+}
+
+function updateRolePermissionSnapshot(roleID: number, permissionIDs: number[]) {
+  const normalizedPermissionIDs = sortStableIDs(permissionIDs);
+  roles.value = roles.value.map((item) => {
+    if (item.id !== roleID) {
+      return item;
+    }
+
+    return {
+      ...item,
+      permission_ids: normalizedPermissionIDs,
+    } as RoleListItem;
+  });
+}
+
+function applyRolePermissionSelection(permissionIDs: number[]) {
+  const normalizedPermissionIDs = normalizeRolePermissionIDs(permissionIDs);
+  if (normalizedPermissionIDs === null) {
+    permissionSelectionReady.value = false;
+    selectedPermissionIds.value = [];
+    return false;
+  }
+
+  selectedPermissionIds.value = normalizedPermissionIDs;
+  permissionSelectionReady.value = true;
+  return true;
+}
+
+async function loadRolePermissionSelection(roleID: number) {
+  loadingRolePermissions.value = true;
+  permissionSelectionReady.value = false;
+  selectedPermissionIds.value = [];
+
+  try {
+    const response = await getRolePermissionBindings(roleID);
+    if (!applyRolePermissionSelection(response.permission_ids)) {
+      MessagePlugin.error(t('pages.roleList.permissionDialog.selectionUnavailable'));
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    MessagePlugin.error(
+      error instanceof Error ? error.message : t('pages.roleList.permissionDialog.selectionLoadFailed'),
+    );
+    return false;
+  } finally {
+    loadingRolePermissions.value = false;
+  }
 }
 
 async function fetchRolePageData() {
@@ -363,32 +443,45 @@ async function handleRoleSubmit(ctx: SubmitContext) {
   }
 }
 
-function openPermissionDialog(role: RoleListItem) {
+async function openPermissionDialog(role: RoleListItem) {
   if (!canAssignPermissions.value) {
     MessagePlugin.warning(t('pages.roleList.permissionUnavailable'));
     return;
   }
 
   selectedRole.value = role;
-  selectedPermissionIds.value = [];
+  if (!(await loadRolePermissionSelection(role.id))) {
+    return;
+  }
+
   permissionDialogVisible.value = true;
 }
 
 function closePermissionDialog() {
   permissionDialogVisible.value = false;
+  selectedRole.value = null;
   selectedPermissionIds.value = [];
+  permissionSelectionReady.value = false;
 }
 
 async function submitPermissionAssignment() {
-  if (!selectedRole.value || submittingPermissions.value) {
+  if (!selectedRole.value || submittingPermissions.value || loadingRolePermissions.value) {
+    return;
+  }
+
+  if (!permissionSelectionReady.value) {
+    MessagePlugin.error(t('pages.roleList.permissionDialog.selectionUnavailable'));
     return;
   }
 
   submittingPermissions.value = true;
   try {
+    const permissionIDs = sortStableIDs(selectedPermissionIds.value);
     await assignRolePermissions(selectedRole.value.id, {
-      permission_ids: sortStableIDs(selectedPermissionIds.value),
+      permission_ids: permissionIDs,
     });
+    updateRolePermissionSnapshot(selectedRole.value.id, permissionIDs);
+    selectedRole.value = roles.value.find((item) => item.id === selectedRole.value?.id) ?? selectedRole.value;
     MessagePlugin.success(t('pages.roleList.assignSuccess'));
     closePermissionDialog();
   } catch (error) {

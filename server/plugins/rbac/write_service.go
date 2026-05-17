@@ -61,7 +61,19 @@ func (w managementWriter) ReplacePermissionsForRole(ctx context.Context, input s
 		return err
 	}
 
-	return w.rbac.ReplacePermissionsForRole(ctx, input)
+	if err := w.rbac.ReplacePermissionsForRole(ctx, input); err != nil {
+		if errors.Is(err, store.ErrPermissionNotFound) {
+			if validationErr := ensurePermissionIDsExist(ctx, w.rbac, input.PermissionIDs); validationErr != nil {
+				return validationErr
+			}
+
+			return errInvalidPermissionIDs
+		}
+
+		return err
+	}
+
+	return nil
 }
 
 func (w managementWriter) ReplaceRolesForUser(ctx context.Context, input store.ReplaceRolesForUserInput) error {
@@ -74,6 +86,8 @@ func (w managementWriter) ReplaceRolesForUser(ctx context.Context, input store.R
 			if validationErr := ensureRoleIDsExist(ctx, w.rbac, input.RoleIDs); validationErr != nil {
 				return validationErr
 			}
+
+			return errInvalidRoleIDs
 		}
 
 		return err

@@ -453,6 +453,10 @@ func (r pluginTestRBACRepository) ListPermissions(_ context.Context) ([]store.Pe
 	return []store.Permission{}, nil
 }
 
+func (r pluginTestRBACRepository) ListRolePermissionBindings(_ context.Context, _ uint64) ([]store.RolePermissionBinding, error) {
+	return []store.RolePermissionBinding{}, nil
+}
+
 func newPluginTestContext(t *testing.T, userRepo store.UserRepository, authRepo store.AuthRepository) (*plugin.Context, *gin.Engine) {
 	return newPluginTestContextWithPermissions(t, userRepo, authRepo, map[uint64][]store.Permission{
 		7: {{Code: usercontract.UserReadPermission.String()}},

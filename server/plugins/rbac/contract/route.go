@@ -14,6 +14,8 @@ const (
 	RoleUpdateRoute = "/:id/update"
 	// RolePermissionAssignRoute identifies the role-permission assignment endpoint route fragment.
 	RolePermissionAssignRoute = "/:id/permissions/assign"
+	// RolePermissionBindingRoute identifies the role-permission binding snapshot endpoint route fragment.
+	RolePermissionBindingRoute = "/:id/permissions"
 
 	// PermissionsGroup identifies the permission-management route group.
 	PermissionsGroup = "/permissions"

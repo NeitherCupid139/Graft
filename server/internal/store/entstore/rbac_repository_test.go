@@ -2,6 +2,7 @@ package entstore
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -146,12 +147,112 @@ func TestEnsurePermissionPersistsCategory(t *testing.T) {
 	}
 }
 
-// TestRBACRepositoryWriteOperations 验证最小角色写接口与覆盖式绑定会保留稳定仓储语义。
-func TestRBACRepositoryWriteOperations(t *testing.T) {
+// TestRBACRepositoryRoleWriteOperations 验证角色写接口与权限覆盖式绑定会保留稳定仓储语义。
+func TestRBACRepositoryRoleWriteOperations(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:rbac-write-ops?mode=memory&cache=shared&_fk=1")
 	defer func() { _ = client.Close() }()
 
 	repo := &rbacRepository{client: client}
+
+	updatedRole := createAndUpdateRoleForTest(t, repo)
+	roleEntID, err := toEntID(updatedRole.ID)
+	if err != nil {
+		t.Fatalf("convert updated role id: %v", err)
+	}
+
+	firstPermission, err := client.Permission.Create().
+		SetCode("user.read").
+		SetDisplay("查看用户").
+		Save(context.Background())
+	if err != nil {
+		t.Fatalf("seed first permission: %v", err)
+	}
+	secondPermission, err := client.Permission.Create().
+		SetCode("user.update").
+		SetDisplay("编辑用户").
+		Save(context.Background())
+	if err != nil {
+		t.Fatalf("seed second permission: %v", err)
+	}
+	if _, err := client.RolePermission.Create().
+		SetRoleID(roleEntID).
+		SetPermissionID(firstPermission.ID).
+		Save(context.Background()); err != nil {
+		t.Fatalf("seed role permission: %v", err)
+	}
+
+	if err := repo.ReplacePermissionsForRole(context.Background(), store.ReplacePermissionsForRoleInput{
+		RoleID:        updatedRole.ID,
+		PermissionIDs: []uint64{toStoreID(secondPermission.ID)},
+	}); err != nil {
+		t.Fatalf("replace role permissions: %v", err)
+	}
+
+	rolePermissions, err := client.RolePermission.Query().
+		Where(entrolepermission.RoleIDEQ(roleEntID)).
+		All(context.Background())
+	if err != nil {
+		t.Fatalf("query replaced role permissions: %v", err)
+	}
+	if len(rolePermissions) != 1 || rolePermissions[0].PermissionID != secondPermission.ID {
+		t.Fatalf("expected stale permissions to be replaced, got %#v", rolePermissions)
+	}
+}
+
+// TestRBACRepositoryUserRoleWriteOperations 验证用户角色覆盖式绑定会保留稳定仓储语义。
+func TestRBACRepositoryUserRoleWriteOperations(t *testing.T) {
+	client := enttest.Open(t, "sqlite3", "file:rbac-user-role-write-ops?mode=memory&cache=shared&_fk=1")
+	defer func() { _ = client.Close() }()
+
+	repo := &rbacRepository{client: client}
+
+	updatedRole := createAndUpdateRoleForTest(t, repo)
+	roleEntID, err := toEntID(updatedRole.ID)
+	if err != nil {
+		t.Fatalf("convert updated role id: %v", err)
+	}
+
+	user, err := client.User.Create().
+		SetUsername("alice").
+		SetDisplay("Alice").
+		Save(context.Background())
+	if err != nil {
+		t.Fatalf("seed user: %v", err)
+	}
+	otherRole, err := client.Role.Create().
+		SetName("auditor").
+		SetDisplay("审计员").
+		Save(context.Background())
+	if err != nil {
+		t.Fatalf("seed other role: %v", err)
+	}
+	if _, err := client.UserRole.Create().
+		SetUserID(user.ID).
+		SetRoleID(roleEntID).
+		Save(context.Background()); err != nil {
+		t.Fatalf("seed user role: %v", err)
+	}
+
+	if err := repo.ReplaceRolesForUser(context.Background(), store.ReplaceRolesForUserInput{
+		UserID:  toStoreID(user.ID),
+		RoleIDs: []uint64{toStoreID(otherRole.ID)},
+	}); err != nil {
+		t.Fatalf("replace user roles: %v", err)
+	}
+
+	userRoles, err := client.UserRole.Query().
+		Where(entuserrole.UserIDEQ(user.ID)).
+		All(context.Background())
+	if err != nil {
+		t.Fatalf("query replaced user roles: %v", err)
+	}
+	if len(userRoles) != 1 || userRoles[0].RoleID != otherRole.ID {
+		t.Fatalf("expected stale user roles to be replaced, got %#v", userRoles)
+	}
+}
+
+func createAndUpdateRoleForTest(t *testing.T, repo *rbacRepository) store.Role {
+	t.Helper()
 
 	role, err := repo.CreateRole(context.Background(), store.CreateRoleInput{
 		Name:    "editor",
@@ -174,6 +275,22 @@ func TestRBACRepositoryWriteOperations(t *testing.T) {
 		t.Fatalf("unexpected updated role: %#v", updatedRole)
 	}
 
+	return updatedRole
+}
+
+// TestListRolePermissionBindings 验证角色权限绑定读取会返回稳定排序的权限 ID 快照。
+func TestListRolePermissionBindings(t *testing.T) {
+	client := enttest.Open(t, "sqlite3", "file:rbac-role-permission-bindings?mode=memory&cache=shared&_fk=1")
+	defer func() { _ = client.Close() }()
+
+	role, err := client.Role.Create().
+		SetName("editor").
+		SetDisplay("编辑").
+		Save(context.Background())
+	if err != nil {
+		t.Fatalf("seed role: %v", err)
+	}
+
 	firstPermission, err := client.Permission.Create().
 		SetCode("user.read").
 		SetDisplay("查看用户").
@@ -188,65 +305,42 @@ func TestRBACRepositoryWriteOperations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("seed second permission: %v", err)
 	}
+
 	if _, err := client.RolePermission.Create().
-		SetRoleID(int(updatedRole.ID)).
+		SetRoleID(role.ID).
+		SetPermissionID(secondPermission.ID).
+		Save(context.Background()); err != nil {
+		t.Fatalf("seed second role permission: %v", err)
+	}
+	if _, err := client.RolePermission.Create().
+		SetRoleID(role.ID).
 		SetPermissionID(firstPermission.ID).
 		Save(context.Background()); err != nil {
-		t.Fatalf("seed role permission: %v", err)
+		t.Fatalf("seed first role permission: %v", err)
 	}
 
-	if err := repo.ReplacePermissionsForRole(context.Background(), store.ReplacePermissionsForRoleInput{
-		RoleID:        updatedRole.ID,
-		PermissionIDs: []uint64{toStoreID(secondPermission.ID)},
-	}); err != nil {
-		t.Fatalf("replace role permissions: %v", err)
-	}
-
-	rolePermissions, err := client.RolePermission.Query().
-		Where(entrolepermission.RoleIDEQ(int(updatedRole.ID))).
-		All(context.Background())
+	repo := &rbacRepository{client: client}
+	bindings, err := repo.ListRolePermissionBindings(context.Background(), toStoreID(role.ID))
 	if err != nil {
-		t.Fatalf("query replaced role permissions: %v", err)
+		t.Fatalf("list role permission bindings: %v", err)
 	}
-	if len(rolePermissions) != 1 || rolePermissions[0].PermissionID != secondPermission.ID {
-		t.Fatalf("expected stale permissions to be replaced, got %#v", rolePermissions)
+	if len(bindings) != 2 {
+		t.Fatalf("expected 2 bindings, got %#v", bindings)
 	}
+	if bindings[0].PermissionID != toStoreID(firstPermission.ID) || bindings[1].PermissionID != toStoreID(secondPermission.ID) {
+		t.Fatalf("expected bindings sorted by permission id, got %#v", bindings)
+	}
+}
 
-	user, err := client.User.Create().
-		SetUsername("alice").
-		SetDisplay("Alice").
-		Save(context.Background())
-	if err != nil {
-		t.Fatalf("seed user: %v", err)
-	}
-	otherRole, err := client.Role.Create().
-		SetName("auditor").
-		SetDisplay("审计员").
-		Save(context.Background())
-	if err != nil {
-		t.Fatalf("seed other role: %v", err)
-	}
-	if _, err := client.UserRole.Create().
-		SetUserID(user.ID).
-		SetRoleID(int(updatedRole.ID)).
-		Save(context.Background()); err != nil {
-		t.Fatalf("seed user role: %v", err)
-	}
+// TestListRolePermissionBindingsReturnsRoleNotFound 验证角色权限绑定读取会保留稳定未命中语义。
+func TestListRolePermissionBindingsReturnsRoleNotFound(t *testing.T) {
+	client := enttest.Open(t, "sqlite3", "file:rbac-role-permission-bindings-missing?mode=memory&cache=shared&_fk=1")
+	defer func() { _ = client.Close() }()
 
-	if err := repo.ReplaceRolesForUser(context.Background(), store.ReplaceRolesForUserInput{
-		UserID:  toStoreID(user.ID),
-		RoleIDs: []uint64{toStoreID(otherRole.ID)},
-	}); err != nil {
-		t.Fatalf("replace user roles: %v", err)
-	}
+	repo := &rbacRepository{client: client}
 
-	userRoles, err := client.UserRole.Query().
-		Where(entuserrole.UserIDEQ(user.ID)).
-		All(context.Background())
-	if err != nil {
-		t.Fatalf("query replaced user roles: %v", err)
-	}
-	if len(userRoles) != 1 || userRoles[0].RoleID != otherRole.ID {
-		t.Fatalf("expected stale user roles to be replaced, got %#v", userRoles)
+	_, err := repo.ListRolePermissionBindings(context.Background(), 42)
+	if !errors.Is(err, store.ErrRoleNotFound) {
+		t.Fatalf("expected ErrRoleNotFound, got %v", err)
 	}
 }

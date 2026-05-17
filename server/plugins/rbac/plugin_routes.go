@@ -1,6 +1,7 @@
 package rbac
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -11,6 +12,7 @@ import (
 	"graft/server/internal/menu"
 	"graft/server/internal/permission"
 	"graft/server/internal/plugin"
+	"graft/server/internal/store"
 	rbaccontract "graft/server/plugins/rbac/contract"
 )
 
@@ -24,6 +26,10 @@ type roleListItem struct {
 	Display     string  `json:"display"`
 	Description *string `json:"description,omitempty"`
 	Builtin     bool    `json:"builtin"`
+}
+
+type rolePermissionBindingResponse struct {
+	PermissionIDs []uint64 `json:"permission_ids"`
 }
 
 type permissionListResponse struct {
@@ -155,6 +161,38 @@ func registerRoleRoutes(
 		}
 
 		httpx.WriteSuccess(ginCtx, http.StatusOK, roleListResponse{Items: items})
+	})
+	group.GET(rbaccontract.RolePermissionBindingRoute, guards.rolePermissionAssign, func(ginCtx *gin.Context) {
+		roleID, err := parseManagementID(ginCtx.Param("id"))
+		if err != nil {
+			writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
+				"field": "id",
+			})
+			return
+		}
+
+		bindings, err := reader.ListRolePermissionBindings(ginCtx.Request.Context(), roleID)
+		if err != nil {
+			if errors.Is(err, store.ErrRoleNotFound) {
+				writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusNotFound, messagecontract.RoleNotFound, nil)
+				return
+			}
+
+			ctx.Logger.Error("list role permission bindings failed",
+				zap.String("plugin", pluginName),
+				zap.Uint64("roleId", roleID),
+				zap.Error(err),
+			)
+			httpx.AbortLocalizedError(ginCtx, ctx.I18n, http.StatusInternalServerError, messagecontract.CommonInternalError.String(), nil)
+			return
+		}
+
+		permissionIDs := make([]uint64, 0, len(bindings))
+		for _, item := range bindings {
+			permissionIDs = append(permissionIDs, item.PermissionID)
+		}
+
+		httpx.WriteSuccess(ginCtx, http.StatusOK, rolePermissionBindingResponse{PermissionIDs: permissionIDs})
 	})
 	registerRoleWriteRoutes(group, ctx, pluginName, writer, guards)
 }

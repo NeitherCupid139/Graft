@@ -26,6 +26,10 @@ export interface PermissionListResponse {
   items: PermissionListItem[];
 }
 
+export interface RolePermissionBindingResponse {
+  permission_ids: number[];
+}
+
 export interface CreateRolePayload {
   name: string;
   display: string;

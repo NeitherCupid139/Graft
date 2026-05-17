@@ -32,7 +32,10 @@ type testRBACRepository struct {
 	permissions        []store.Permission
 	rolesByUserID      []store.Role
 	permissionsByUser  []store.Permission
+	rolePermissionIDs  map[uint64][]uint64
 	roleByID           map[uint64]store.Role
+	listRolesFn        func(ctx context.Context) ([]store.Role, error)
+	listPermissionsFn  func(ctx context.Context) ([]store.Permission, error)
 	createRole         func(ctx context.Context, input store.CreateRoleInput) (store.Role, error)
 	updateRole         func(ctx context.Context, input store.UpdateRoleInput) (store.Role, error)
 	replacePermission  func(ctx context.Context, input store.ReplacePermissionsForRoleInput) error
@@ -105,6 +108,9 @@ func (r testRBACRepository) ListRolesByUserID(_ context.Context, _ uint64) ([]st
 }
 
 func (r testRBACRepository) ListRoles(_ context.Context) ([]store.Role, error) {
+	if r.listRolesFn != nil {
+		return r.listRolesFn(context.Background())
+	}
 	if r.listRolesErr != nil {
 		return nil, r.listRolesErr
 	}
@@ -119,10 +125,30 @@ func (r testRBACRepository) ListPermissionsByUserID(_ context.Context, _ uint64)
 }
 
 func (r testRBACRepository) ListPermissions(_ context.Context) ([]store.Permission, error) {
+	if r.listPermissionsFn != nil {
+		return r.listPermissionsFn(context.Background())
+	}
 	if r.listPermissionsErr != nil {
 		return nil, r.listPermissionsErr
 	}
 	return r.permissions, nil
+}
+
+func (r testRBACRepository) ListRolePermissionBindings(_ context.Context, roleID uint64) ([]store.RolePermissionBinding, error) {
+	if _, err := r.GetRoleByID(context.Background(), roleID); err != nil {
+		return nil, err
+	}
+
+	permissionIDs := r.rolePermissionIDs[roleID]
+	bindings := make([]store.RolePermissionBinding, 0, len(permissionIDs))
+	for _, permissionID := range permissionIDs {
+		bindings = append(bindings, store.RolePermissionBinding{
+			RoleID:       roleID,
+			PermissionID: permissionID,
+		})
+	}
+
+	return bindings, nil
 }
 
 type pluginTestStoreFactory struct {
@@ -346,6 +372,35 @@ func TestRoleRoutesListRoles(t *testing.T) {
 	}
 }
 
+// TestRoleRoutesListRolePermissionBindings 验证角色权限绑定读取接口会返回稳定权限 ID 快照。
+func TestRoleRoutesListRolePermissionBindings(t *testing.T) {
+	repo := testRBACRepository{
+		roleByID: map[uint64]store.Role{
+			1: {ID: 1, Name: "admin", Display: "管理员", Builtin: true},
+		},
+		rolePermissionIDs: map[uint64][]uint64{
+			1: {2, 5},
+		},
+		permissionsByUser: []store.Permission{{Code: rbaccontract.RolePermissionAssignPermission.String()}},
+	}
+	_, engine := newPluginTestContext(t, repo)
+
+	recorder := httptest.NewRecorder()
+	engine.ServeHTTP(recorder, newAuthorizedRequest("/api/roles/1/permissions"))
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", recorder.Code)
+	}
+
+	var payload httpx.SuccessResponse[rolePermissionBindingResponse]
+	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(payload.Data.PermissionIDs) != 2 || payload.Data.PermissionIDs[0] != 2 || payload.Data.PermissionIDs[1] != 5 {
+		t.Fatalf("unexpected role permission bindings payload: %#v", payload)
+	}
+}
+
 // TestPermissionRoutesRejectMissingPermission 验证只读权限接口仍以后端授权结果作为最终边界。
 func TestPermissionRoutesRejectMissingPermission(t *testing.T) {
 	repo := testRBACRepository{
@@ -509,6 +564,91 @@ func TestRolePermissionAssignRouteReplacesRolePermissions(t *testing.T) {
 	}
 }
 
+// TestRolePermissionAssignRouteMapsMissingPermissionToInvalidArgument 验证 replace 语义中的权限未命中仍稳定映射为参数错误。
+func TestRolePermissionAssignRouteMapsMissingPermissionToInvalidArgument(t *testing.T) {
+	repo := testRBACRepository{
+		roleByID: map[uint64]store.Role{
+			1: {ID: 1, Name: "editor", Display: "编辑"},
+		},
+		permissions: []store.Permission{
+			{ID: 2, Code: "user.read"},
+		},
+		replacePermission: func(_ context.Context, _ store.ReplacePermissionsForRoleInput) error {
+			return store.ErrPermissionNotFound
+		},
+		permissionsByUser: []store.Permission{
+			{Code: rbaccontract.RolePermissionAssignPermission.String()},
+			{Code: rbaccontract.PermissionReadPermission.String()},
+		},
+	}
+	_, engine := newPluginTestContext(t, repo)
+
+	recorder := httptest.NewRecorder()
+	engine.ServeHTTP(recorder, newAuthorizedJSONRequest(http.MethodPost, "/api/roles/1/permissions/assign", map[string]any{
+		"permission_ids": []uint64{99},
+	}))
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", recorder.Code)
+	}
+
+	var payload httpx.ErrorResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if payload.MessageKey != messagecontract.CommonInvalidArgument.String() || payload.Details["field"] != "permission_ids" {
+		t.Fatalf("unexpected invalid-permission payload: %#v", payload)
+	}
+}
+
+// TestRolePermissionAssignRouteMapsDeletedPermissionIDsToInvalidArgument 验证 TOCTOU 后消失的权限 ID 会稳定映射为参数错误。
+func TestRolePermissionAssignRouteMapsDeletedPermissionIDsToInvalidArgument(t *testing.T) {
+	listPermissionsCalls := 0
+	repo := testRBACRepository{
+		roleByID: map[uint64]store.Role{
+			1: {ID: 1, Name: "editor", Display: "编辑"},
+		},
+		listPermissionsFn: func(_ context.Context) ([]store.Permission, error) {
+			listPermissionsCalls++
+			if listPermissionsCalls == 1 {
+				return []store.Permission{
+					{ID: 2, Code: "user.read"},
+					{ID: 3, Code: "role.read"},
+				}, nil
+			}
+
+			return []store.Permission{
+				{ID: 2, Code: "user.read"},
+			}, nil
+		},
+		replacePermission: func(_ context.Context, _ store.ReplacePermissionsForRoleInput) error {
+			return store.ErrPermissionNotFound
+		},
+		permissionsByUser: []store.Permission{
+			{Code: rbaccontract.RolePermissionAssignPermission.String()},
+			{Code: rbaccontract.PermissionReadPermission.String()},
+		},
+	}
+	_, engine := newPluginTestContext(t, repo)
+
+	recorder := httptest.NewRecorder()
+	engine.ServeHTTP(recorder, newAuthorizedJSONRequest(http.MethodPost, "/api/roles/1/permissions/assign", map[string]any{
+		"permission_ids": []uint64{2, 3},
+	}))
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", recorder.Code)
+	}
+
+	var payload httpx.ErrorResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if payload.MessageKey != messagecontract.CommonInvalidArgument.String() || payload.Details["field"] != "permission_ids" {
+		t.Fatalf("unexpected deleted-permission payload: %#v", payload)
+	}
+}
+
 // TestUserRoleAssignRouteReturnsUserNotFound 验证用户角色分配接口会保留稳定的用户未命中语义。
 func TestUserRoleAssignRouteReturnsUserNotFound(t *testing.T) {
 	repo := testRBACRepository{
@@ -536,5 +676,78 @@ func TestUserRoleAssignRouteReturnsUserNotFound(t *testing.T) {
 	}
 	if payload.MessageKey != messagecontract.UserNotFound.String() || payload.Code != "USER_NOT_FOUND" || payload.Locale != "en-US" {
 		t.Fatalf("unexpected user-role-assign payload: %#v", payload)
+	}
+}
+
+// TestUserRoleAssignRouteMapsMissingRoleToInvalidArgument 验证 replace 语义中的角色未命中仍稳定映射为参数错误。
+func TestUserRoleAssignRouteMapsMissingRoleToInvalidArgument(t *testing.T) {
+	repo := testRBACRepository{
+		roles: []store.Role{
+			{ID: 1, Name: "editor", Display: "编辑"},
+		},
+		replaceUserRoles: func(_ context.Context, _ store.ReplaceRolesForUserInput) error {
+			return store.ErrRoleNotFound
+		},
+		permissionsByUser: []store.Permission{{Code: rbaccontract.UserRoleAssignPermission.String()}},
+	}
+	_, engine := newPluginTestContext(t, repo)
+
+	recorder := httptest.NewRecorder()
+	engine.ServeHTTP(recorder, newAuthorizedJSONRequest(http.MethodPost, "/api/users/7/roles/assign", map[string]any{
+		"role_ids": []uint64{99},
+	}))
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", recorder.Code)
+	}
+
+	var payload httpx.ErrorResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if payload.MessageKey != messagecontract.CommonInvalidArgument.String() || payload.Details["field"] != "role_ids" {
+		t.Fatalf("unexpected invalid-role payload: %#v", payload)
+	}
+}
+
+// TestUserRoleAssignRouteMapsDeletedRoleIDsToInvalidArgument 验证 TOCTOU 后消失的角色 ID 会稳定映射为参数错误。
+func TestUserRoleAssignRouteMapsDeletedRoleIDsToInvalidArgument(t *testing.T) {
+	listRolesCalls := 0
+	repo := testRBACRepository{
+		listRolesFn: func(_ context.Context) ([]store.Role, error) {
+			listRolesCalls++
+			if listRolesCalls == 1 {
+				return []store.Role{
+					{ID: 1, Name: "admin", Display: "管理员"},
+					{ID: 2, Name: "editor", Display: "编辑"},
+				}, nil
+			}
+
+			return []store.Role{
+				{ID: 1, Name: "admin", Display: "管理员"},
+			}, nil
+		},
+		replaceUserRoles: func(_ context.Context, _ store.ReplaceRolesForUserInput) error {
+			return store.ErrRoleNotFound
+		},
+		permissionsByUser: []store.Permission{{Code: rbaccontract.UserRoleAssignPermission.String()}},
+	}
+	_, engine := newPluginTestContext(t, repo)
+
+	recorder := httptest.NewRecorder()
+	engine.ServeHTTP(recorder, newAuthorizedJSONRequest(http.MethodPost, "/api/users/7/roles/assign", map[string]any{
+		"role_ids": []uint64{1, 2},
+	}))
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", recorder.Code)
+	}
+
+	var payload httpx.ErrorResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if payload.MessageKey != messagecontract.CommonInvalidArgument.String() || payload.Details["field"] != "role_ids" {
+		t.Fatalf("unexpected deleted-role payload: %#v", payload)
 	}
 }
