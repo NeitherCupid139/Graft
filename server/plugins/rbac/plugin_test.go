@@ -93,7 +93,8 @@ func (r testRBACRepository) ReplaceRolesForUser(ctx context.Context, input store
 	return nil
 }
 
-func (r testRBACRepository) GetRoleByID(_ context.Context, roleID uint64) (store.Role, error) {
+func (r testRBACRepository) GetRoleByID(ctx context.Context, roleID uint64) (store.Role, error) {
+	_ = ctx
 	if r.roleByID != nil {
 		if role, ok := r.roleByID[roleID]; ok {
 			return role, nil
@@ -107,9 +108,9 @@ func (r testRBACRepository) ListRolesByUserID(_ context.Context, _ uint64) ([]st
 	return r.rolesByUserID, nil
 }
 
-func (r testRBACRepository) ListRoles(_ context.Context) ([]store.Role, error) {
+func (r testRBACRepository) ListRoles(ctx context.Context) ([]store.Role, error) {
 	if r.listRolesFn != nil {
-		return r.listRolesFn(context.Background())
+		return r.listRolesFn(ctx)
 	}
 	if r.listRolesErr != nil {
 		return nil, r.listRolesErr
@@ -124,9 +125,9 @@ func (r testRBACRepository) ListPermissionsByUserID(_ context.Context, _ uint64)
 	return r.permissionsByUser, nil
 }
 
-func (r testRBACRepository) ListPermissions(_ context.Context) ([]store.Permission, error) {
+func (r testRBACRepository) ListPermissions(ctx context.Context) ([]store.Permission, error) {
 	if r.listPermissionsFn != nil {
-		return r.listPermissionsFn(context.Background())
+		return r.listPermissionsFn(ctx)
 	}
 	if r.listPermissionsErr != nil {
 		return nil, r.listPermissionsErr
@@ -134,8 +135,8 @@ func (r testRBACRepository) ListPermissions(_ context.Context) ([]store.Permissi
 	return r.permissions, nil
 }
 
-func (r testRBACRepository) ListRolePermissionBindings(_ context.Context, roleID uint64) ([]store.RolePermissionBinding, error) {
-	if _, err := r.GetRoleByID(context.Background(), roleID); err != nil {
+func (r testRBACRepository) ListRolePermissionBindings(ctx context.Context, roleID uint64) ([]store.RolePermissionBinding, error) {
+	if _, err := r.GetRoleByID(ctx, roleID); err != nil {
 		return nil, err
 	}
 

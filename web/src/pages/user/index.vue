@@ -24,7 +24,7 @@
             <t-button theme="primary" variant="outline" :loading="loading" @click="fetchUsers">
               {{ t('pages.userList.refresh') }}
             </t-button>
-            <t-button v-permission="permissionCodes.create" theme="default" variant="base" disabled>
+            <t-button v-permission="permissionCodes.CREATE" theme="default" variant="base" disabled>
               {{ t('pages.listBase.create') }}
             </t-button>
           </div>
@@ -43,10 +43,10 @@
       >
         <template #operation>
           <div class="operation-cell">
-            <t-button v-permission="permissionCodes.update" variant="text" theme="primary" disabled>
+            <t-button v-permission="permissionCodes.UPDATE" variant="text" theme="primary" disabled>
               {{ t('components.commonTable.detail') }}
             </t-button>
-            <t-button v-permission="permissionCodes.disable" variant="text" theme="danger" disabled>
+            <t-button v-permission="permissionCodes.DISABLE" variant="text" theme="danger" disabled>
               {{ t('components.manage') }}
             </t-button>
           </div>
@@ -65,6 +65,7 @@ import { useI18n } from 'vue-i18n';
 
 import type { UserListItem } from '@/api/model/userModel';
 import { getUsers } from '@/api/user';
+import { USER_PERMISSION_CODE } from '@/contracts/user/permissions';
 import { usePermissionStore } from '@/store';
 
 defineOptions({
@@ -75,14 +76,10 @@ const { t, locale } = useI18n();
 const permissionStore = usePermissionStore();
 const users = ref<UserListItem[]>([]);
 const loading = ref(false);
-const permissionCodes = {
-  create: 'user.create',
-  update: 'user.update',
-  disable: 'user.disable',
-} as const;
+const permissionCodes = USER_PERMISSION_CODE;
 
 const showOperationColumn = computed(() =>
-  permissionStore.hasAnyPermission([permissionCodes.update, permissionCodes.disable]),
+  permissionStore.hasAnyPermission([permissionCodes.UPDATE, permissionCodes.DISABLE]),
 );
 
 const columns = computed<TdBaseTableProps['columns']>(() => {

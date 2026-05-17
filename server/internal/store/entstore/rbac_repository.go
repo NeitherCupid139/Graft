@@ -205,7 +205,13 @@ func (r *rbacRepository) AssignPermissionsToRole(ctx context.Context, input stor
 
 // ReplacePermissionsForRole 把角色权限覆盖为目标集合。
 func (r *rbacRepository) ReplacePermissionsForRole(ctx context.Context, input store.ReplacePermissionsForRoleInput) error {
-	return replaceStableAssignmentByKind(ctx, r.client, stableAssignmentKindRolePermission, input.RoleID, input.PermissionIDs)
+	return replaceStableAssignmentWithConfig(
+		ctx,
+		r.client,
+		input.RoleID,
+		input.PermissionIDs,
+		buildRolePermissionAssignmentConfig,
+	)
 }
 
 // AssignRoleToUser 幂等把目标角色绑定到用户。
@@ -248,7 +254,13 @@ func (r *rbacRepository) AssignRoleToUser(ctx context.Context, input store.Assig
 
 // ReplaceRolesForUser 把用户角色覆盖为目标集合。
 func (r *rbacRepository) ReplaceRolesForUser(ctx context.Context, input store.ReplaceRolesForUserInput) error {
-	return replaceStableAssignmentByKind(ctx, r.client, stableAssignmentKindUserRole, input.UserID, input.RoleIDs)
+	return replaceStableAssignmentWithConfig(
+		ctx,
+		r.client,
+		input.UserID,
+		input.RoleIDs,
+		buildUserRoleAssignmentConfig,
+	)
 }
 
 // GetRoleByID 按稳定 ID 返回单个角色记录。
@@ -444,82 +456,6 @@ type stableAssignmentSetConfig struct {
 	createBinding        func(tx *ent.Tx, relationID int) error
 }
 
-type stableAssignmentAdapter struct {
-	startContext         string
-	commitContext        string
-	checkTargetContext   string
-	countRelationContext string
-	deleteStaleContext   string
-	checkBindingContext  string
-	createBindingContext string
-	targetMissing        error
-	relationMissing      error
-	checkTargetExists    func(tx *ent.Tx, targetID int) (bool, error)
-	countRelationRecords func(tx *ent.Tx, ids []int) (int, error)
-	deleteStale          func(tx *ent.Tx, targetID int, ids []int) error
-	bindingExists        func(tx *ent.Tx, targetID int, relationID int) (bool, error)
-	createBinding        func(tx *ent.Tx, targetID int, relationID int) error
-}
-
-type stableAssignmentAdapterTemplate struct {
-	startContext         string
-	commitFormat         string
-	checkTargetContext   string
-	countRelationContext string
-	deleteStaleContext   string
-	checkBindingContext  string
-	createBindingContext string
-	targetMissing        error
-	relationMissing      error
-	checkTargetExists    func(ctx context.Context, tx *ent.Tx, targetID int) (bool, error)
-	countRelationRecords func(ctx context.Context, tx *ent.Tx, ids []int) (int, error)
-	deleteStale          func(ctx context.Context, tx *ent.Tx, targetID int, ids []int) error
-	bindingExists        func(ctx context.Context, tx *ent.Tx, targetID int, relationID int) (bool, error)
-	createBinding        func(ctx context.Context, tx *ent.Tx, targetID int, relationID int) error
-}
-
-type stableAssignmentKind string
-
-const (
-	stableAssignmentKindRolePermission stableAssignmentKind = "role-permission"
-	stableAssignmentKindUserRole       stableAssignmentKind = "user-role"
-)
-
-var (
-	rolePermissionAssignmentTemplate = stableAssignmentAdapterTemplate{
-		startContext:         "start replace role permissions tx",
-		commitFormat:         "commit replace role permissions for role %d",
-		checkTargetContext:   "check role %d before replacing permissions",
-		countRelationContext: "count permissions for role %d replacement",
-		deleteStaleContext:   "delete stale permissions for role %d",
-		checkBindingContext:  "check role permission replacement",
-		createBindingContext: "replace permission %d for role %d",
-		targetMissing:        store.ErrRoleNotFound,
-		relationMissing:      store.ErrPermissionNotFound,
-		checkTargetExists:    roleTargetExists,
-		countRelationRecords: countPermissionsByIDs,
-		deleteStale:          deleteStaleRolePermissions,
-		bindingExists:        rolePermissionBindingExists,
-		createBinding:        createRolePermissionBinding,
-	}
-	userRoleAssignmentTemplate = stableAssignmentAdapterTemplate{
-		startContext:         "start replace user roles tx",
-		commitFormat:         "commit replace user roles for user %d",
-		checkTargetContext:   "check user %d before replacing roles",
-		countRelationContext: "count roles for user %d replacement",
-		deleteStaleContext:   "delete stale roles for user %d",
-		checkBindingContext:  "check user role replacement",
-		createBindingContext: "replace role %d for user %d",
-		targetMissing:        store.ErrUserNotFound,
-		relationMissing:      store.ErrRoleNotFound,
-		checkTargetExists:    userTargetExists,
-		countRelationRecords: countRolesByIDs,
-		deleteStale:          deleteStaleUserRoles,
-		bindingExists:        userRoleBindingExists,
-		createBinding:        createUserRoleBinding,
-	}
-)
-
 func replaceStableAssignmentSet(
 	ctx context.Context,
 	client *ent.Client,
@@ -561,7 +497,7 @@ func replaceStableAssignmentWithConfig(
 	client *ent.Client,
 	targetID uint64,
 	relationIDs []uint64,
-	build func(targetID int, relationIDs []int) stableAssignmentSetConfig,
+	build func(ctx context.Context, targetID uint64, entTargetID int, relationIDs []int) stableAssignmentSetConfig,
 ) error {
 	entTargetID, err := toEntID(targetID)
 	if err != nil {
@@ -573,84 +509,82 @@ func replaceStableAssignmentWithConfig(
 		return err
 	}
 
-	return replaceStableAssignmentSet(ctx, client, build(entTargetID, entRelationIDs))
+	return replaceStableAssignmentSet(ctx, client, build(ctx, targetID, entTargetID, entRelationIDs))
 }
 
-func replaceStableAssignmentByKind(
+type stableAssignmentConfigTemplate struct {
+	startContext         string
+	commitFormat         string
+	checkTargetContext   string
+	countRelationContext string
+	deleteStaleContext   string
+	checkBindingContext  string
+	createBindingContext string
+	targetMissing        error
+	relationMissing      error
+	checkTargetExists    func(context.Context, *ent.Tx, int) (bool, error)
+	countRelationRecords func(context.Context, *ent.Tx, []int) (int, error)
+	deleteStale          func(context.Context, *ent.Tx, int, []int) error
+	bindingExists        func(context.Context, *ent.Tx, int, int) (bool, error)
+	createBinding        func(context.Context, *ent.Tx, int, int) error
+}
+
+func buildRolePermissionAssignmentConfig(
 	ctx context.Context,
-	client *ent.Client,
-	kind stableAssignmentKind,
-	targetID uint64,
-	relationIDs []uint64,
-) error {
-	adapter, err := stableAssignmentAdapterForKind(ctx, kind, targetID)
-	if err != nil {
-		return err
-	}
-
-	return replaceStableAssignmentWithConfig(ctx, client, targetID, relationIDs, func(entTargetID int, entRelationIDs []int) stableAssignmentSetConfig {
-		return buildStableAssignmentSetConfig(targetID, entTargetID, entRelationIDs, adapter)
-	})
-}
-
-func buildStableAssignmentSetConfig(
 	targetID uint64,
 	entTargetID int,
 	entRelationIDs []int,
-	adapter stableAssignmentAdapter,
+) stableAssignmentSetConfig {
+	return buildStableAssignmentConfig(ctx, targetID, entTargetID, entRelationIDs, stableAssignmentConfigTemplate{
+		startContext:         "start replace role permissions tx",
+		commitFormat:         "commit replace role permissions for role %d",
+		checkTargetContext:   "check role %d before replacing permissions",
+		countRelationContext: "count permissions for role %d replacement",
+		deleteStaleContext:   "delete stale permissions for role %d",
+		checkBindingContext:  "check role permission replacement",
+		createBindingContext: "replace permission %d for role %d",
+		targetMissing:        store.ErrRoleNotFound,
+		relationMissing:      store.ErrPermissionNotFound,
+		checkTargetExists:    roleTargetExists,
+		countRelationRecords: countPermissionsByIDs,
+		deleteStale:          deleteStaleRolePermissions,
+		bindingExists:        rolePermissionBindingExists,
+		createBinding:        createRolePermissionBinding,
+	})
+}
+
+func buildUserRoleAssignmentConfig(
+	ctx context.Context,
+	targetID uint64,
+	entTargetID int,
+	entRelationIDs []int,
+) stableAssignmentSetConfig {
+	return buildStableAssignmentConfig(ctx, targetID, entTargetID, entRelationIDs, stableAssignmentConfigTemplate{
+		startContext:         "start replace user roles tx",
+		commitFormat:         "commit replace user roles for user %d",
+		checkTargetContext:   "check user %d before replacing roles",
+		countRelationContext: "count roles for user %d replacement",
+		deleteStaleContext:   "delete stale roles for user %d",
+		checkBindingContext:  "check user role replacement",
+		createBindingContext: "replace role %d for user %d",
+		targetMissing:        store.ErrUserNotFound,
+		relationMissing:      store.ErrRoleNotFound,
+		checkTargetExists:    userTargetExists,
+		countRelationRecords: countRolesByIDs,
+		deleteStale:          deleteStaleUserRoles,
+		bindingExists:        userRoleBindingExists,
+		createBinding:        createUserRoleBinding,
+	})
+}
+
+func buildStableAssignmentConfig(
+	ctx context.Context,
+	targetID uint64,
+	entTargetID int,
+	entRelationIDs []int,
+	template stableAssignmentConfigTemplate,
 ) stableAssignmentSetConfig {
 	return stableAssignmentSetConfig{
-		startContext:         adapter.startContext,
-		commitContext:        adapter.commitContext,
-		checkTargetContext:   adapter.checkTargetContext,
-		countRelationContext: adapter.countRelationContext,
-		deleteStaleContext:   adapter.deleteStaleContext,
-		checkBindingContext:  adapter.checkBindingContext,
-		createBindingContext: adapter.createBindingContext,
-		targetID:             targetID,
-		relationIDs:          entRelationIDs,
-		relationCount:        len(entRelationIDs),
-		targetMissing:        adapter.targetMissing,
-		relationMissing:      adapter.relationMissing,
-		checkTargetExists: func(tx *ent.Tx) (bool, error) {
-			return adapter.checkTargetExists(tx, entTargetID)
-		},
-		countRelationRecords: func(tx *ent.Tx, ids []int) (int, error) {
-			return adapter.countRelationRecords(tx, ids)
-		},
-		deleteStale: func(tx *ent.Tx, ids []int) error {
-			return adapter.deleteStale(tx, entTargetID, ids)
-		},
-		bindingExists: func(tx *ent.Tx, relationID int) (bool, error) {
-			return adapter.bindingExists(tx, entTargetID, relationID)
-		},
-		createBinding: func(tx *ent.Tx, relationID int) error {
-			return adapter.createBinding(tx, entTargetID, relationID)
-		},
-	}
-}
-
-func stableAssignmentAdapterForKind(
-	ctx context.Context,
-	kind stableAssignmentKind,
-	targetID uint64,
-) (stableAssignmentAdapter, error) {
-	var template stableAssignmentAdapterTemplate
-
-	switch kind {
-	case stableAssignmentKindRolePermission:
-		template = rolePermissionAssignmentTemplate
-	case stableAssignmentKindUserRole:
-		template = userRoleAssignmentTemplate
-	default:
-		return stableAssignmentAdapter{}, fmt.Errorf("unsupported stable assignment kind: %s", kind)
-	}
-
-	return template.instantiate(ctx, targetID), nil
-}
-
-func (template stableAssignmentAdapterTemplate) instantiate(ctx context.Context, targetID uint64) stableAssignmentAdapter {
-	return stableAssignmentAdapter{
 		startContext:         template.startContext,
 		commitContext:        fmt.Sprintf(template.commitFormat, targetID),
 		checkTargetContext:   template.checkTargetContext,
@@ -658,22 +592,25 @@ func (template stableAssignmentAdapterTemplate) instantiate(ctx context.Context,
 		deleteStaleContext:   template.deleteStaleContext,
 		checkBindingContext:  template.checkBindingContext,
 		createBindingContext: template.createBindingContext,
+		targetID:             targetID,
+		relationIDs:          entRelationIDs,
+		relationCount:        len(entRelationIDs),
 		targetMissing:        template.targetMissing,
 		relationMissing:      template.relationMissing,
-		checkTargetExists: func(tx *ent.Tx, stableID int) (bool, error) {
-			return template.checkTargetExists(ctx, tx, stableID)
+		checkTargetExists: func(tx *ent.Tx) (bool, error) {
+			return template.checkTargetExists(ctx, tx, entTargetID)
 		},
 		countRelationRecords: func(tx *ent.Tx, ids []int) (int, error) {
 			return template.countRelationRecords(ctx, tx, ids)
 		},
-		deleteStale: func(tx *ent.Tx, stableID int, ids []int) error {
-			return template.deleteStale(ctx, tx, stableID, ids)
+		deleteStale: func(tx *ent.Tx, ids []int) error {
+			return template.deleteStale(ctx, tx, entTargetID, ids)
 		},
-		bindingExists: func(tx *ent.Tx, stableID int, relationID int) (bool, error) {
-			return template.bindingExists(ctx, tx, stableID, relationID)
+		bindingExists: func(tx *ent.Tx, relationID int) (bool, error) {
+			return template.bindingExists(ctx, tx, entTargetID, relationID)
 		},
-		createBinding: func(tx *ent.Tx, stableID int, relationID int) error {
-			return template.createBinding(ctx, tx, stableID, relationID)
+		createBinding: func(tx *ent.Tx, relationID int) error {
+			return template.createBinding(ctx, tx, entTargetID, relationID)
 		},
 	}
 }
