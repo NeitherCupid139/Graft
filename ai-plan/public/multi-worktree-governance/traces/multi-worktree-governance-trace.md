@@ -41,12 +41,29 @@
   - `modules/<name>/**` is the only valid module-owned feature truth
   - `shared/**` is the only valid cross-module business-agnostic reuse layer
   - root-level module-specific `api/model/contract` files are no longer part of the steady-state standard
-- Recorded the remaining structural gap honestly: the codebase still has root-level module-specific files and does not
-  yet have `web/src/shared/**`; both are follow-up cleanup work rather than sanctioned design.
+- Recorded the remaining structural gap honestly at that time: code cleanup still had to remove root-level
+  module-specific files and land `web/src/shared/**`.
+
+## 2026-05-18 final web code cleanup on refactor/web-module-boundaries
+
+- Confirmed the shared-layer migration landed as scoped commit `71ed60d` after passing the full host-Bun completion
+  chain.
+- Removed the remaining root-level module-specific compatibility files:
+  - `web/src/api/user.ts`
+  - `web/src/api/rbac.ts`
+  - `web/src/api/model/userModel.ts`
+  - `web/src/api/model/rbacModel.ts`
+  - `web/src/contracts/user/**`
+  - `web/src/contracts/rbac/**`
+  - `web/src/constants/index.ts`
+- With this cleanup, the codebase now matches the final ownership standard:
+  - module truth lives under `web/src/modules/**`
+  - shared reusable shell assets live under `web/src/shared/**`
+  - platform contracts remain under `web/src/contracts/**`
+  - root-level business compatibility bridges are no longer part of the runtime surface
 
 ## Next Step
 
 - Keep the recovery mapping aligned with the current root branch until the repository returns to `main` or the first
   dedicated worktree/topic pair is created.
-- Execute the code-side cleanup that removes remaining root-level module-specific files and only then freeze the first
-  additional `web` worktree owned scopes.
+- Freeze the first additional `web` worktree owned scopes against the now-landed final ownership baseline.

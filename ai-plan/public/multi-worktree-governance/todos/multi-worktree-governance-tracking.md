@@ -43,16 +43,14 @@
       for one module
     - `shared-owned`: `web/src/shared/**` is reserved for business-agnostic reusable assets and is not feature-owned by
       any single module worktree
-  - `web/src/shared/**` does not exist yet in the current codebase; that means no qualifying reusable asset has been
-    extracted yet, not that root-level business truth may continue to live under `components/`, `hooks/`, or
-    non-platform `utils/`.
 - The web boundary refactor has already landed on branch `refactor/web-module-boundaries`:
   - `web/src/modules/` is now the real feature registration layer
   - bootstrap dynamic route declarations now resolve through module registrations instead of feature truth living in shared shell code
   - the real `user` and `rbac` business surface now lives under `web/src/modules/<name>/`
+  - reusable shell UI and composables now live under `web/src/shared/**`
   - module registration is now the only allowed new feature-to-shell integration path
-  - remaining root-level module files under `web/src/api/**`, `web/src/api/model/**`, and `web/src/contracts/{user,rbac}/**`
-    are cleanup debt, not sanctioned steady-state ownership surfaces
+  - root-level module files under `web/src/api/**`, `web/src/api/model/**`, and `web/src/contracts/{user,rbac}/**`
+    have been removed from the codebase and are no longer valid steady-state ownership surfaces
 - The first expected future long-lived feature directions are:
   - `RBAC`
   - `server-status-dashboard`
@@ -79,18 +77,14 @@
 - `web/src/locales/lang/en-US.json`
 - `web/src/router/index.ts`
 - `web/src/app/**`
-- `web/src/shared/**` once shared-owned runtime assets begin to land
+- `web/src/shared/**`
 
-## Cleanup Targets Outside Final Web Standard
+## Guardrails Outside Final Web Standard
 
-- `web/src/api/user.ts`
-- `web/src/api/rbac.ts`
-- `web/src/api/model/userModel.ts`
-- `web/src/api/model/rbacModel.ts`
-- `web/src/contracts/user/**`
-- `web/src/contracts/rbac/**`
-- any root-level reusable UI/composable/helper that is neither shell infrastructure nor module-private truth and should
-  instead be extracted into `web/src/shared/**`
+- do not recreate root-level module-specific files under `web/src/api/**`, `web/src/api/model/**`, or
+  `web/src/contracts/{user,rbac}/**`
+- do not recreate root-level reusable UI/composable/helper truth under `components/`, `hooks/`, or non-platform
+  `utils/` when the asset belongs in `web/src/shared/**`
 
 ## Active Risks
 
@@ -125,10 +119,7 @@
   - preserve `web/src/modules/user/**` and `web/src/modules/rbac/**` as module-owned feature truth
   - preserve `web/src/app/**` and other shell-owned code as consumers of module registrations instead of holders of
     feature route truth
-  - remove remaining root-level module-specific API/model/contract files instead of treating them as acceptable bridges
-- Perform the next code-side cleanup before creating the first additional worktree:
-  - eliminate root module-specific files under `web/src/api/**`, `web/src/api/model/**`, and `web/src/contracts/{user,rbac}/**`
-  - extract only genuinely business-agnostic reusable assets into `web/src/shared/**`
+  - preserve `web/src/shared/**` as the only valid cross-module reusable asset layer
 - Before creating the first additional worktree, decide the exact owned scope and shared-hotspot policy for:
   - `RBAC`
   - `server-status-dashboard`
@@ -154,4 +145,4 @@
 - `shared-owned` runtime assets must stay business-agnostic and centrally integrated:
   - `web/src/shared/**`
 - Root-level module-specific files under `web/src/api/**`, `web/src/api/model/**`, and `web/src/contracts/{user,rbac}/**`
-  are not valid long-lived owned scope and should be removed rather than claimed by a feature worktree.
+  are not valid long-lived owned scope and must not be reintroduced by a feature worktree.
