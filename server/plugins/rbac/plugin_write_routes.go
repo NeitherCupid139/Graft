@@ -167,12 +167,40 @@ func handleUpdateRoleRoute(
 func registerUserRoleRoutes(
 	ctx *plugin.Context,
 	pluginName string,
+	reader readManagementService,
 	writer writeManagementService,
-	authenticated gin.HandlerFunc,
+	guards managementGuards,
 ) {
 	group := ctx.Router.Group(rbaccontract.UsersGroup)
 	group.Use(httpx.RequestIDMiddleware())
-	group.POST(rbaccontract.UserRoleAssignRoute, authenticated, func(ginCtx *gin.Context) {
+	group.GET(rbaccontract.UserRoleBindingRoute, guards.userRoleRead, func(ginCtx *gin.Context) {
+		userID, err := parseManagementID(ginCtx.Param("id"))
+		if err != nil {
+			writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
+				"field": "id",
+			})
+			return
+		}
+
+		roleIDs, err := reader.ListRoleIDsByUserID(ginCtx.Request.Context(), userID)
+		if err != nil {
+			if errors.Is(err, store.ErrUserNotFound) {
+				writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusNotFound, messagecontract.UserNotFound, nil)
+				return
+			}
+
+			ctx.Logger.Error("list user-role bindings failed",
+				zap.String("plugin", pluginName),
+				zap.Uint64("userId", userID),
+				zap.Error(err),
+			)
+			httpx.AbortLocalizedError(ginCtx, ctx.I18n, http.StatusInternalServerError, messagecontract.CommonInternalError.String(), nil)
+			return
+		}
+
+		httpx.WriteSuccess(ginCtx, http.StatusOK, userRoleBindingResponse{RoleIDs: roleIDs})
+	})
+	group.POST(rbaccontract.UserRoleAssignRoute, guards.userRoleAssign, func(ginCtx *gin.Context) {
 		handleReplaceStableIDsRoute(ginCtx, ctx, pluginName, replaceStableIDsHandlerConfig{
 			invalidField: "role_ids",
 			readIDs: func(ginCtx *gin.Context) ([]uint64, error) {

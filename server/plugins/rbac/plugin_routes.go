@@ -32,6 +32,10 @@ type rolePermissionBindingResponse struct {
 	PermissionIDs []uint64 `json:"permission_ids"`
 }
 
+type userRoleBindingResponse struct {
+	RoleIDs []uint64 `json:"role_ids"`
+}
+
 type permissionListResponse struct {
 	Items []permissionListItem `json:"items"`
 }
@@ -50,6 +54,7 @@ type managementGuards struct {
 	roleCreate           gin.HandlerFunc
 	roleUpdate           gin.HandlerFunc
 	rolePermissionAssign gin.HandlerFunc
+	userRoleRead         gin.HandlerFunc
 	userRoleAssign       gin.HandlerFunc
 }
 
@@ -108,6 +113,13 @@ func rbacPermissionItems(pluginName string) []permission.Item {
 			Plugin:      pluginName,
 		},
 		{
+			Code:        rbaccontract.UserRoleReadPermission.String(),
+			Name:        "Read User Roles",
+			Description: "Allows reading user-role binding snapshots.",
+			Category:    "api",
+			Plugin:      pluginName,
+		},
+		{
 			Code:        rbaccontract.UserRoleAssignPermission.String(),
 			Name:        "Assign User Roles",
 			Description: "Allows updating user-role bindings.",
@@ -126,7 +138,7 @@ func registerManagementRoutes(
 ) {
 	registerRoleRoutes(ctx, pluginName, reader, writer, guards)
 	registerPermissionRoutes(ctx, pluginName, reader, guards.permissionRead)
-	registerUserRoleRoutes(ctx, pluginName, writer, guards.userRoleAssign)
+	registerUserRoleRoutes(ctx, pluginName, reader, writer, guards)
 }
 
 func registerRoleRoutes(

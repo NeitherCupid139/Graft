@@ -45,6 +45,27 @@ type testRBACRepository struct {
 	permissionsErr     error
 }
 
+type testUserRepository struct {
+	users map[uint64]store.User
+}
+
+func (r testUserRepository) GetByID(_ context.Context, id uint64) (store.User, error) {
+	if user, ok := r.users[id]; ok {
+		return user, nil
+	}
+
+	return store.User{}, store.ErrUserNotFound
+}
+
+func (r testUserRepository) List(_ context.Context) ([]store.User, error) {
+	items := make([]store.User, 0, len(r.users))
+	for _, user := range r.users {
+		items = append(items, user)
+	}
+
+	return items, nil
+}
+
 func (r testRBACRepository) EnsureRole(_ context.Context, _ store.EnsureRoleInput) (store.Role, error) {
 	return store.Role{}, nil
 }
@@ -153,11 +174,12 @@ func (r testRBACRepository) ListRolePermissionBindings(ctx context.Context, role
 }
 
 type pluginTestStoreFactory struct {
-	rbac store.RBACRepository
+	users store.UserRepository
+	rbac  store.RBACRepository
 }
 
 func (f pluginTestStoreFactory) Audit() store.AuditRepository { return nil }
-func (f pluginTestStoreFactory) Users() store.UserRepository  { return nil }
+func (f pluginTestStoreFactory) Users() store.UserRepository  { return f.users }
 func (f pluginTestStoreFactory) Auth() store.AuthRepository   { return nil }
 func (f pluginTestStoreFactory) RBAC() store.RBACRepository   { return f.rbac }
 
@@ -201,7 +223,15 @@ func newPluginTestContext(t *testing.T, repo store.RBACRepository) (*plugin.Cont
 		I18n:               i18n.New(config.I18nConfig{DefaultLocale: "zh-CN", FallbackLocale: "zh-CN", SupportedLocales: []string{"zh-CN", "en-US"}}),
 		Router:             engine.Group("/api"),
 		Services:           container.New(),
-		Stores:             pluginTestStoreFactory{rbac: repo},
+		Stores: pluginTestStoreFactory{
+			users: testUserRepository{
+				users: map[uint64]store.User{
+					7: {ID: 7, Username: "alice", Display: "Alice"},
+					8: {ID: 8, Username: "bob", Display: "Bob"},
+				},
+			},
+			rbac: repo,
+		},
 		MenuRegistry:       menu.NewRegistry(),
 		PermissionRegistry: permission.NewRegistry(),
 		CronRegistry:       cronx.NewRegistry(),
@@ -300,15 +330,16 @@ func TestRegisterRegistersReadManagementContracts(t *testing.T) {
 	ctx, _ := newPluginTestContext(t, testRBACRepository{})
 
 	items := ctx.PermissionRegistry.Items()
-	if len(items) != 6 {
-		t.Fatalf("expected 6 registered permissions, got %d", len(items))
+	if len(items) != 7 {
+		t.Fatalf("expected 7 registered permissions, got %d", len(items))
 	}
 	if items[0].Code != rbaccontract.RoleReadPermission.String() ||
 		items[1].Code != rbaccontract.RoleCreatePermission.String() ||
 		items[2].Code != rbaccontract.RoleUpdatePermission.String() ||
 		items[3].Code != rbaccontract.RolePermissionAssignPermission.String() ||
 		items[4].Code != rbaccontract.PermissionReadPermission.String() ||
-		items[5].Code != rbaccontract.UserRoleAssignPermission.String() {
+		items[5].Code != rbaccontract.UserRoleReadPermission.String() ||
+		items[6].Code != rbaccontract.UserRoleAssignPermission.String() {
 		t.Fatalf("unexpected registered permissions: %#v", items)
 	}
 	for _, item := range items {
@@ -647,6 +678,58 @@ func TestRolePermissionAssignRouteMapsDeletedPermissionIDsToInvalidArgument(t *t
 	}
 	if payload.MessageKey != messagecontract.CommonInvalidArgument.String() || payload.Details["field"] != "permission_ids" {
 		t.Fatalf("unexpected deleted-permission payload: %#v", payload)
+	}
+}
+
+// TestUserRoleBindingRouteReturnsStableRoleIDs 验证目标用户角色读取接口会返回稳定排序的角色 ID 快照。
+func TestUserRoleBindingRouteReturnsStableRoleIDs(t *testing.T) {
+	repo := testRBACRepository{
+		rolesByUserID: []store.Role{
+			{ID: 5, Name: "operator", Display: "运维"},
+			{ID: 2, Name: "editor", Display: "编辑"},
+		},
+		permissionsByUser: []store.Permission{{Code: rbaccontract.UserRoleReadPermission.String()}},
+	}
+	_, engine := newPluginTestContext(t, repo)
+
+	recorder := httptest.NewRecorder()
+	engine.ServeHTTP(recorder, newAuthorizedRequest("/api/users/7/roles"))
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", recorder.Code)
+	}
+
+	var payload httpx.SuccessResponse[userRoleBindingResponse]
+	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(payload.Data.RoleIDs) != 2 || payload.Data.RoleIDs[0] != 2 || payload.Data.RoleIDs[1] != 5 {
+		t.Fatalf("unexpected user-role bindings payload: %#v", payload)
+	}
+}
+
+// TestUserRoleBindingRouteReturnsUserNotFound 验证目标用户未命中时会返回稳定的用户未命中语义。
+func TestUserRoleBindingRouteReturnsUserNotFound(t *testing.T) {
+	repo := testRBACRepository{
+		permissionsByUser: []store.Permission{{Code: rbaccontract.UserRoleReadPermission.String()}},
+	}
+	_, engine := newPluginTestContext(t, repo)
+
+	recorder := httptest.NewRecorder()
+	request := newAuthorizedRequest("/api/users/99/roles")
+	request.Header.Set(i18n.LocaleHeader, "en-US")
+	engine.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("expected status 404, got %d", recorder.Code)
+	}
+
+	var payload httpx.ErrorResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if payload.MessageKey != messagecontract.UserNotFound.String() || payload.Code != "USER_NOT_FOUND" || payload.Locale != "en-US" {
+		t.Fatalf("unexpected user-role-binding payload: %#v", payload)
 	}
 }
 

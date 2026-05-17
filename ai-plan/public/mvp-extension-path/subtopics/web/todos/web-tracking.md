@@ -20,8 +20,9 @@
 - 当前与 RBAC MVP 第二波方向的跨边界协同已进入最小消费态：基于已提交的后端稳定切片，`web` 当前允许新增
   `/roles` 最小接线页面，只覆盖 `GET /api/roles`、`GET /api/permissions`、角色创建、角色更新与角色权限分配；
   本轮仍不扩展完整角色中心，不新增 `super_admin` 前端旁路，也不把用户角色分配 UI 并入同一切片。
-- 当前 `web /user-role minimal read wiring` 核对结果也已冻结：后端尚未提供“任意目标用户当前已分配角色”的稳定读契约，
-  因此本轮不新增用户角色分配 UI、不把 `assignUserRoles` API wrapper 接进页面，也不把写接口单独包装成假闭环。
+- 当前 `web /user-role minimal read wiring` 的前置 server 阻断已解除：后端现已提供 `GET /api/users/:id/roles`
+  稳定读契约，并把 ownership 收敛为 `user.role.read` permission + `role_ids` DTO；因此下一轮可以评估是否进入
+  user-role UI 最小接线，但范围仍限制在 `/users` 模块内，不扩完整角色中心，也不把写接口单独包装成假闭环。
 
 - `web` 现阶段以真实 `web/` 工程作为唯一运行面；starter 只保留可继续收敛的壳层风格、页面样板和治理参考，不再把 starter 全量工程视为运行基线。
 - 当前主线不是页面扩张，也不是继续深化独立前端工作台能力；任何 shell 级调整都应服务于真实契约挂接和 mock/demo 清理。
@@ -63,10 +64,10 @@
   - 新增最小列表页，接 `GET /api/roles` 与 `GET /api/permissions`。
   - 接入 role create/update 与 role permission assignment。
   - focused validation 仅覆盖新增动态路由映射与相关前端类型/构建面，不把本轮自动升级成完整 `bun run check` 完成态声明。
-- 本次 `web /user-role minimal read wiring` 结论：
-  - 已核对当前 `server` 仅暴露 `POST /api/users/:id/roles/assign`，未暴露对称 user-role read contract。
-  - 当前 `web` 保持 `/users` 只读列表页，不新增用户角色分配表单或弹窗。
-  - focused validation 仅要求 tracking / scope 一致性检查，不声明新的前端功能完成态。
+- 本次 `web /user-role minimal read wiring` 新结论：
+  - `server` 已稳定暴露 `GET /api/users/:id/roles` + `POST /api/users/:id/roles/assign` 这组最小 user-role contract。
+  - 当前 `web` 允许评估 `/users` 页内的 user-role 最小 UI 接线，但仍不自动声明功能完成态，也不扩完整角色中心。
+  - focused validation 继续以下一轮实际前端接线范围为准；本轮仅完成 tracking / scope 同步。
 - 本次 PR #9 review follow-up 预期直接校验：
   - `cd web && bun run check`
 - 本次 `/users` 真实列表页切片直接校验：
@@ -111,7 +112,8 @@
 
 - 先把 permission helper / directive 和 `/users` 页最小权限显隐做实，再决定是否进入 `/roles` 新页面；不要在当前切片里同时扩展第二批动态菜单映射。
 - 在后端最小写 API 仍未完成主代理验证前，保持 `web` 对 RBAC 第二波的状态为“等待稳定契约 + 等待验证结果”，不要提前开启角色写操作 UI。
-- 在 `server` 补齐“目标用户当前角色”稳定读契约之前，保持 `web` 对 user-role 管理面的状态为“阻断，不进入 UI 接线”，不要把 `assignUserRoles` 单独接成一次性写入表单。
+- 下一轮可在 `/users` 模块内评估 user-role 最小 UI 接线，但必须同时消费 `GET /api/users/:id/roles` 初始快照与
+  `POST /api/users/:id/roles/assign` 写接口；不要把 assign 写接口单独接成一次性表单，也不要借机扩完整角色中心。
 - 保持 `bootstrap.roles` 和 `bootstrap.permissions` 作为唯一前端 RBAC 快照来源，不要回到基于页面本地常量或角色名字符串的条件分支。
 - 继续在真实 `web/` 工程里把 starter 壳层风格挂接到真实后端 `auth + current user + menu + permission + locale` 契约。
 - 先清理主路由树里的 starter demo 入口、默认 mock runtime 与前端权限旁路，让主运行面重新只服务真实 bootstrap 菜单和已注册页面。

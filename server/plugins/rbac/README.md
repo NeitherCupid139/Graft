@@ -11,7 +11,7 @@
 * 暴露 `pluginapi.Authorizer`
 * 基于稳定仓储接口判断请求主体是否拥有所需权限
 * 注册 RBAC 只读权限元数据与菜单元数据
-* 提供 `GET /api/roles` 与 `GET /api/permissions` 只读接口
+* 提供 `GET /api/roles`、`GET /api/permissions` 与 `GET /api/users/:id/roles` 最小只读接口
 * 在当前第二波实施方向中收敛最小写接口：角色创建、角色更新、角色权限分配、用户角色分配
 
 这个模块不负责：
@@ -25,7 +25,7 @@
 * `doc.go`：插件用途说明
 * `plugin.go`：插件生命周期与授权服务注册
 * `plugin_routes.go`：角色/权限只读路由
-* `plugin_write_routes.go`：最小写接口路由
+* `plugin_write_routes.go`：用户角色只读快照路由与最小写接口路由
 * `read_service.go`：插件内只读管理服务收口
 * `write_service.go`：插件内最小写接口服务收口
 
@@ -35,5 +35,6 @@
 
 * handler 不直接扩散 repository 或 ORM 细节
 * 权限判断继续统一走 `pluginapi.Authorizer` 与 `httpx.RequirePermission`
+* 用户角色最小读面只返回稳定 `role_ids` 快照，角色详情继续由 `GET /api/roles` 持有
 * 角色/权限写操作单独通过插件内 service/usecase 收敛，而不是在路由层散落规则
 * 当前最小写接口只有在主代理补跑相应 backend validation 后，才能从“实施中”升级为跟踪文档中的完成态

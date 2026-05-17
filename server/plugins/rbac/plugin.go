@@ -48,7 +48,10 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 	registerRBACPermissions(ctx.PermissionRegistry, p.Name())
 	registerRBACMenu(ctx.MenuRegistry, p.Name())
 	repository := ctx.Stores.RBAC()
-	readService := managementReader{rbac: repository}
+	readService := managementReader{
+		users: ctx.Stores.Users(),
+		rbac:  repository,
+	}
 	writeService := managementWriter{rbac: repository}
 
 	if err := ctx.Services.RegisterSingleton((*pluginapi.Authorizer)(nil), func(_ container.Resolver) (any, error) {
@@ -79,6 +82,7 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 			roleCreate:           httpx.RequirePermission(ctx.I18n, authService, routeAuthorizer, rbaccontract.RoleCreatePermission.String()),
 			roleUpdate:           httpx.RequirePermission(ctx.I18n, authService, routeAuthorizer, rbaccontract.RoleUpdatePermission.String()),
 			rolePermissionAssign: httpx.RequirePermission(ctx.I18n, authService, routeAuthorizer, rbaccontract.RolePermissionAssignPermission.String()),
+			userRoleRead:         httpx.RequirePermission(ctx.I18n, authService, routeAuthorizer, rbaccontract.UserRoleReadPermission.String()),
 			userRoleAssign:       httpx.RequirePermission(ctx.I18n, authService, routeAuthorizer, rbaccontract.UserRoleAssignPermission.String()),
 		},
 	)
