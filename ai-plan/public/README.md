@@ -14,18 +14,28 @@ every public artifact.
 5. If there is no match, fall back to scanning active topic directories.
 6. Ignore `ai-plan/public/archive/**` by default unless historical context is explicitly requested.
 
+## Mapping Conventions
+
+- Prefer recording both `Worktree` and `Branch` when a long-lived local worktree already exists.
+- If a long-lived worktree has not been created yet, branch-only mapping is acceptable as a temporary state.
+- Short-lived branches for hotfixes or narrow fixes should not be added as default active-topic mappings.
+- When a future topic is planned but its worktree has not been created yet, keep the current active-topic mapping stable
+  and record the intended split in the relevant tracking documents first.
+
 ## Active Topics
 
-- `mvp-extension-path`
-  - Purpose: continue the MVP extension path across server core, platform registries, early plugins, and the web shell.
-  - Tracking: `ai-plan/public/mvp-extension-path/todos/mvp-extension-path-tracking.md`
-  - Trace: `ai-plan/public/mvp-extension-path/traces/mvp-extension-path-trace.md`
-  - Subtopics:
-    - `server`: `ai-plan/public/mvp-extension-path/subtopics/server/todos/server-tracking.md`
-    - `web`: `ai-plan/public/mvp-extension-path/subtopics/web/todos/web-tracking.md`
-  - Recovery note: always read the parent `mvp-extension-path` entry first, then continue into the relevant subtopic.
+- `multi-worktree-governance`
+  - Purpose: govern the repository on local `main` so shared contracts, recovery rules, and ownership boundaries are
+    ready before spawning long-lived worktrees from local branches.
+  - Tracking: `ai-plan/public/multi-worktree-governance/todos/multi-worktree-governance-tracking.md`
+  - Trace: `ai-plan/public/multi-worktree-governance/traces/multi-worktree-governance-trace.md`
+  - Recovery note: use this topic only for shared baseline governance on `main`; once a long-lived worktree/topic pair
+    is actually created, map that worktree to its own active topic instead of keeping the work on `main`.
 
 ## Worktree To Active Topic Map
 
-- Branch: `feat/mvp-extension-path`
-  - Priority 1: `mvp-extension-path`
+- Worktree: `primary-main`
+- Branch: `main`
+  - Priority 1: `multi-worktree-governance`
+  - Note: `primary-main` is the logical label for the repository root worktree on local `main`; it exists only to
+    track shared baseline governance before dedicated long-lived worktrees are created.

@@ -16,6 +16,7 @@
 - `public/README.md`
   - Shared recovery index used after `AGENTS.md` startup preflight.
   - Maps branches or worktrees to active topics and points at the primary tracking and trace entry paths.
+  - When a long-lived local worktree exists, prefer recording both the worktree name and the current branch name.
   - Must list only active topics.
 - `public/<topic>/todos/`
   - Repository-safe recovery documents for one active topic.
@@ -53,6 +54,8 @@
 - Read `design/` and `roadmap/` before making architecture or implementation-boundary decisions.
 - If the current branch or worktree appears in the public index, read the mapped topic tracking and trace files after
   startup preflight and before substantive recovery work.
+- Short-lived branches used for hotfixes or narrow fixes should not become default active-topic mappings unless they are
+  intentionally promoted into a long-lived worktree/topic recovery path.
 - If an active topic defines subtopics, read the parent topic first and then continue into the relevant subtopic based
   on the current `server`, `web`, or cross-boundary task shape.
 - When a topic is active, update its tracking document in the same change as substantive work.

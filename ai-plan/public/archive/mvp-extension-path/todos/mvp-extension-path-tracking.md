@@ -42,6 +42,11 @@
 
 ## Current Recovery Point
 
+- 当前 worktree/topic 治理准备已进入文档真值补强阶段：未来计划把长期本地 worktree 与 active topic 做一对一映射，并把
+  `RBAC` 与 `server-status-dashboard` 作为候选长期方向，但当前还没有实际拉出新的长期 worktree，因此
+  `mvp-extension-path` 继续保留为唯一默认恢复入口。
+- 当前关于未来并行主题的冻结约束已明确：`server` 侧优先按 plugin owned scope 切分；`web` 侧在真实 feature 边界尚未落地前，
+  共享壳层热点必须通过集中整合窗口处理，不应先把当前 active topic 直接拆散。
 - 当前阶段正式收敛到“后端主导的 MVP 闭环收敛计划”：先补齐 `server` 的 event bus、audit、scheduler 和稳定插件契约，再让 `web` 挂接这些真实契约。
 - 当前第一波 AGENTS 合规整治实施切片已冻结为“治理真值收口 + `web` 主运行面收口”，不扩展业务范围，不进入新的页面广度，也不新增第二套 runtime、第二套 lifecycle 或第二套 validation 入口。
 - 当前仓库级 startup governance 最小迁移切片已落地到文档真值：根 `AGENTS.md` 现在独占 startup preflight、
@@ -224,6 +229,9 @@
 
 ## Immediate Next Step
 
+- 先保持 `mvp-extension-path` 为默认恢复入口，继续把“长期 worktree = active topic”的治理规则写回 `ai-plan`
+  真值；待未来真的创建 `RBAC` 与 `server-status-dashboard` 长期 worktree 时，再把 `ai-plan/public/README.md`
+  和相关 tracking/trace 正式拆成多 active topic。
 - 保持新的交接治理真值：当当前切片结束并移交下一任务时，先按 `graft-commit` 风格判断是否可以安全提交当前已验证范围，再在交接文本中附带下一任务 startup prompt，避免下一轮从隐式上下文继续。
 - 在 RBAC MVP 第二波方向上，继续把焦点放在 `server/plugins/rbac` 的最小写接口与 shared contract 稳定化；若主代理尚未重新跑通 `graft validate backend`，或在 cross-boundary 收口时尚未同时跑通 backend completion entrypoint 与 host Windows Bun `bun run check`，相关 tracking 继续保持 in-progress 语气，且该切片不得标记为 done。
 - 保持 docs/automation 侧新收口的真值稳定，不要再把 starter 全量工程、split stage 或环境例外规则复制成新的并行治理文本。

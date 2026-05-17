@@ -1,14 +1,10 @@
 import type { RouteRecordRaw } from 'vue-router';
 
 import type { BootstrapMenu } from '@/api/model/authModel';
+import { getBootstrapRouteRegistration } from '@/modules';
 import type { AppRouteMeta } from '@/utils/types';
 
 import { localizeRouteTitle } from './title';
-
-const bootstrapRouteComponentMap: Record<string, RouteRecordRaw['component']> = {
-  '/roles': () => import('@/pages/role/index.vue'),
-  '/users': () => import('@/pages/user/index.vue'),
-} as const;
 
 const bootstrapLayout: RouteRecordRaw['component'] = () => import('@/layouts/index.vue');
 
@@ -17,15 +13,10 @@ const bootstrapLayout: RouteRecordRaw['component'] = () => import('@/layouts/ind
 // 当前阶段只接入已在 `web` 内存在页面实现的真实菜单项，避免继续沿用 starter demo 菜单树。
 export function transformBootstrapMenusToRoutes(menus: BootstrapMenu[]): RouteRecordRaw[] {
   return menus.flatMap((menu) => {
-    const pageComponent = bootstrapRouteComponentMap[menu.path];
-    if (!pageComponent) {
+    const registration = getBootstrapRouteRegistration(menu.path);
+    if (!registration) {
       return [];
     }
-
-    const routeName = menu.code
-      .split('.')
-      .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
-      .join('');
 
     const routeMeta: AppRouteMeta = {
       title: localizeRouteTitle(menu.title, menu.title_key),
@@ -43,13 +34,13 @@ export function transformBootstrapMenusToRoutes(menus: BootstrapMenu[]): RouteRe
       path: menu.path,
       component: bootstrapLayout,
       redirect: `${menu.path}/index`,
-      name: routeName,
+      name: registration.routeName,
       meta: routeMeta,
       children: [
         {
           path: 'index',
-          name: `${routeName}Index`,
-          component: pageComponent,
+          name: `${registration.routeName}Index`,
+          component: registration.loadPage,
           meta: childMeta,
         },
       ],
