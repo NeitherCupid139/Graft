@@ -77,7 +77,7 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 	}
 	p.routeAuthorizer = newDeferredAuthorizer()
 	guards := newRouteGuards(ctx.I18n, services.auth, p.routeAuthorizer)
-	if err := registerAuthRoutes(ctx, p.Name(), services.auth, services.bootstrap, guards); err != nil {
+	if err := registerAuthRoutes(ctx, p.Name(), services.auth, services.bootstrap, &guards); err != nil {
 		return err
 	}
 	if err := registerUserRoutes(ctx, p.Name(), services.user, services.auth, guards); err != nil {

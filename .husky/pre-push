@@ -25,6 +25,28 @@ resolve_fetch_target() {
   esac
 }
 
+normalize_base_ref() {
+  ref="$1"
+
+  case "$ref" in
+    refs/remotes/*)
+      printf '%s\n' "$ref"
+      ;;
+    refs/heads/*)
+      printf 'refs/remotes/origin/%s\n' "${ref#refs/heads/}"
+      ;;
+    origin/*)
+      printf 'refs/remotes/%s\n' "$ref"
+      ;;
+    refs/*)
+      printf '%s\n' "$ref"
+      ;;
+    *)
+      printf 'refs/remotes/origin/%s\n' "$ref"
+      ;;
+  esac
+}
+
 if [ "${GRAFT_LINT_BASE_REF:-}" != "" ]; then
   base_ref="$GRAFT_LINT_BASE_REF"
 else
@@ -36,6 +58,7 @@ else
   base_ref="${origin_head_ref#refs/remotes/}"
 fi
 
+base_ref="$(normalize_base_ref "$base_ref")"
 fetch_target="$(resolve_fetch_target "$base_ref")"
 
 if ! git fetch --quiet origin "$fetch_target"; then

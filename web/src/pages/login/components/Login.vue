@@ -142,8 +142,20 @@ const onSubmit = async (ctx: SubmitContext) => {
       await userStore.login(formData.value);
 
       MessagePlugin.success(t('pages.login.loginSuccess'));
-      const redirect = route.query.redirect as string;
-      const redirectUrl = redirect ? decodeURIComponent(redirect) : '/';
+      const redirectQuery = route.query.redirect;
+      const redirect = typeof redirectQuery === 'string' ? redirectQuery : '';
+      const redirectUrl = (() => {
+        if (!redirect) {
+          return '/';
+        }
+
+        try {
+          const decoded = decodeURIComponent(redirect);
+          return decoded.startsWith('/') ? decoded : '/';
+        } catch {
+          return '/';
+        }
+      })();
       const nextPath = userStore.mustChangePassword ? AUTH_ROUTE_PATH.RESTRICTED_SESSION : redirectUrl;
       router.push(nextPath);
     } catch (e) {

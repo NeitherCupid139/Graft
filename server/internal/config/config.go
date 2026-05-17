@@ -226,12 +226,14 @@ func validateI18nConfig(c *Config) error {
 	if fallbackLocaleValue == "" {
 		return errors.New("GRAFT_I18N_FALLBACK_LOCALE is required")
 	}
+
+	c.I18n.DefaultLocale = defaultLocaleValue
+	c.I18n.FallbackLocale = fallbackLocaleValue
+
+	normalizedLocales, supportedLocales := normalizeLocaleList(c.I18n.SupportedLocales)
+	c.I18n.SupportedLocales = normalizedLocales
 	if len(c.I18n.SupportedLocales) == 0 {
 		return errors.New("GRAFT_I18N_SUPPORTED_LOCALES must include at least one locale")
-	}
-	supportedLocales := make(map[string]struct{}, len(c.I18n.SupportedLocales))
-	for _, locale := range c.I18n.SupportedLocales {
-		supportedLocales[strings.TrimSpace(locale)] = struct{}{}
 	}
 	if _, ok := supportedLocales[defaultLocaleValue]; !ok {
 		return errors.New("GRAFT_I18N_DEFAULT_LOCALE must be listed in GRAFT_I18N_SUPPORTED_LOCALES")
@@ -246,6 +248,26 @@ func validateI18nConfig(c *Config) error {
 	}
 
 	return nil
+}
+
+func normalizeLocaleList(locales []string) ([]string, map[string]struct{}) {
+	items := make([]string, 0, len(locales))
+	seen := make(map[string]struct{}, len(locales))
+
+	for _, raw := range locales {
+		locale := strings.TrimSpace(raw)
+		if locale == "" {
+			continue
+		}
+		if _, ok := seen[locale]; ok {
+			continue
+		}
+
+		seen[locale] = struct{}{}
+		items = append(items, locale)
+	}
+
+	return items, seen
 }
 
 func validateAuthConfig(c *Config) error {
@@ -326,21 +348,6 @@ func setDefaults(reader *viper.Viper) {
 }
 
 func parseLocaleList(raw string) []string {
-	items := make([]string, 0)
-	seen := make(map[string]struct{})
-
-	for _, part := range strings.Split(raw, ",") {
-		locale := strings.TrimSpace(part)
-		if locale == "" {
-			continue
-		}
-		if _, ok := seen[locale]; ok {
-			continue
-		}
-
-		seen[locale] = struct{}{}
-		items = append(items, locale)
-	}
-
+	items, _ := normalizeLocaleList(strings.Split(raw, ","))
 	return items
 }

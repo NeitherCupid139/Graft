@@ -175,7 +175,6 @@ func newRouteGuards(localizer *i18n.Service, authSvc *authService, authorizer pl
 	return routeGuards{
 		authenticated:          httpx.RequirePermission(localizer, authSvc, nil, ""),
 		requiredPasswordChange: newRequiredPasswordChangeGuard(localizer, authSvc),
-		restrictedSession:      newRestrictedSessionGuard(localizer, authSvc),
 		userRead:               httpx.RequirePermission(localizer, authSvc, authorizer, usercontract.UserReadPermission.String()),
 		userSessionRead:        httpx.RequirePermission(localizer, authSvc, authorizer, usercontract.UserSessionReadPermission.String()),
 		userSessionRevoke:      httpx.RequirePermission(localizer, authSvc, authorizer, usercontract.UserSessionRevokePermission.String()),
@@ -199,10 +198,10 @@ func newRequiredPasswordChangeGuard(localizer *i18n.Service, authSvc *authServic
 	}
 }
 
-func newRestrictedSessionGuard(localizer *i18n.Service, authSvc *authService) gin.HandlerFunc {
-	allowedPathSuffixes := []string{
-		usercontract.JoinRoute(usercontract.AuthGroup, usercontract.AuthBootstrap),
-		usercontract.JoinRoute(usercontract.AuthGroup, usercontract.AuthCompleteRequiredPasswordChange),
+func newRestrictedSessionGuard(localizer *i18n.Service, authSvc *authService, apiBasePath string) gin.HandlerFunc {
+	allowedPaths := []string{
+		usercontract.JoinRoute(apiBasePath, usercontract.JoinRoute(usercontract.AuthGroup, usercontract.AuthBootstrap)),
+		usercontract.JoinRoute(apiBasePath, usercontract.JoinRoute(usercontract.AuthGroup, usercontract.AuthCompleteRequiredPasswordChange)),
 	}
 
 	return func(ginCtx *gin.Context) {
@@ -215,8 +214,8 @@ func newRestrictedSessionGuard(localizer *i18n.Service, authSvc *authService) gi
 			return
 		}
 
-		for _, allowedPathSuffix := range allowedPathSuffixes {
-			if strings.HasSuffix(ginCtx.FullPath(), allowedPathSuffix) {
+		for _, allowedPath := range allowedPaths {
+			if ginCtx.FullPath() == allowedPath {
 				ginCtx.Next()
 				return
 			}
@@ -231,17 +230,18 @@ func registerAuthRoutes(
 	pluginName string,
 	authSvc *authService,
 	bootstrapSvc bootstrapReader,
-	guards routeGuards,
+	guards *routeGuards,
 ) error {
+	authGroup := ctx.Router.Group(usercontract.AuthGroup)
+	guards.restrictedSession = newRestrictedSessionGuard(ctx.I18n, authSvc, authGroup.BasePath())
+
 	registrar := authRouteRegistrar{
 		ctx:          ctx,
 		pluginName:   pluginName,
 		authSvc:      authSvc,
 		bootstrapSvc: bootstrapSvc,
-		guards:       guards,
+		guards:       *guards,
 	}
-
-	authGroup := registrar.ctx.Router.Group(usercontract.AuthGroup)
 	authGroup.Use(httpx.RequestIDMiddleware())
 	registrar.registerLoginRoutes(authGroup)
 	registrar.registerCurrentUserSessionRoutes(authGroup)

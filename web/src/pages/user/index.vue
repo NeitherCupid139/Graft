@@ -283,6 +283,7 @@ async function ensureRoleOptionsLoaded(session: number) {
 function closeUserRoleDialog() {
   userRoleDialogSession.value += 1;
   userRoleDialogVisible.value = false;
+  submittingRoles.value = false;
   selectedUser.value = null;
   selectedRoleIds.value = [];
   loadingRoles.value = false;
@@ -363,17 +364,29 @@ async function submitUserRoleAssignment() {
     return;
   }
 
+  const session = userRoleDialogSession.value;
+  const userId = selectedUser.value.id;
+  const roleIds = [...selectedRoleIds.value];
+
   submittingRoles.value = true;
   try {
-    await assignUserRoles(selectedUser.value.id, {
-      role_ids: selectedRoleIds.value,
+    await assignUserRoles(userId, {
+      role_ids: roleIds,
     });
+    if (!isActiveUserRoleDialogSession(session)) {
+      return;
+    }
+
     MessagePlugin.success(t('pages.userList.assignSuccess'));
     closeUserRoleDialog();
   } catch (error) {
-    MessagePlugin.error(error instanceof Error ? error.message : t('pages.userList.assignFailed'));
+    if (isActiveUserRoleDialogSession(session)) {
+      MessagePlugin.error(error instanceof Error ? error.message : t('pages.userList.assignFailed'));
+    }
   } finally {
-    submittingRoles.value = false;
+    if (userRoleDialogSession.value === session) {
+      submittingRoles.value = false;
+    }
   }
 }
 

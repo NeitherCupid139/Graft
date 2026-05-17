@@ -432,6 +432,86 @@ describe('UsersIndex role dialog', () => {
     expect(wrapper.find('[data-testid="user-role-dialog"]').exists()).toBe(true);
   });
 
+  it('ignores stale submit success after the dialog is closed and reopened', async () => {
+    const firstAssignRequest = createDeferred<null>();
+
+    userApiMocks.getUsers.mockResolvedValue(createUserListResponse());
+    rbacApiMocks.getRoles.mockResolvedValue(createRoleListResponse());
+    rbacApiMocks.getUserRoleBindings.mockResolvedValue({
+      role_ids: [2],
+    });
+    rbacApiMocks.assignUserRoles.mockImplementationOnce(() => firstAssignRequest.promise).mockResolvedValueOnce(null);
+
+    const wrapper = mountUserPage();
+    await flushPromises();
+
+    const openDialogButton = findButtonByText(wrapper, 'pages.userList.assignRoles');
+    expect(openDialogButton).toBeDefined();
+
+    await openDialogButton!.trigger('click');
+    await flushPromises();
+
+    const submitButton = findButtonByText(wrapper, 'pages.userList.roleDialog.confirm');
+    expect(submitButton).toBeDefined();
+
+    await submitButton!.trigger('click');
+    await flushPromises();
+
+    const cancelButton = findButtonByText(wrapper, 'pages.roleList.form.cancel');
+    expect(cancelButton).toBeDefined();
+
+    await cancelButton!.trigger('click');
+    await flushPromises();
+    await openDialogButton!.trigger('click');
+    await flushPromises();
+
+    firstAssignRequest.resolve(null);
+    await flushPromises();
+
+    expect(messageMocks.success).not.toHaveBeenCalled();
+    expect(wrapper.find('[data-testid="user-role-dialog"]').exists()).toBe(true);
+  });
+
+  it('ignores stale submit errors after the dialog is closed and reopened', async () => {
+    const firstAssignRequest = createDeferred<null>();
+
+    userApiMocks.getUsers.mockResolvedValue(createUserListResponse());
+    rbacApiMocks.getRoles.mockResolvedValue(createRoleListResponse());
+    rbacApiMocks.getUserRoleBindings.mockResolvedValue({
+      role_ids: [2],
+    });
+    rbacApiMocks.assignUserRoles.mockImplementationOnce(() => firstAssignRequest.promise).mockResolvedValueOnce(null);
+
+    const wrapper = mountUserPage();
+    await flushPromises();
+
+    const openDialogButton = findButtonByText(wrapper, 'pages.userList.assignRoles');
+    expect(openDialogButton).toBeDefined();
+
+    await openDialogButton!.trigger('click');
+    await flushPromises();
+
+    const submitButton = findButtonByText(wrapper, 'pages.userList.roleDialog.confirm');
+    expect(submitButton).toBeDefined();
+
+    await submitButton!.trigger('click');
+    await flushPromises();
+
+    const cancelButton = findButtonByText(wrapper, 'pages.roleList.form.cancel');
+    expect(cancelButton).toBeDefined();
+
+    await cancelButton!.trigger('click');
+    await flushPromises();
+    await openDialogButton!.trigger('click');
+    await flushPromises();
+
+    firstAssignRequest.reject(new Error('stale failure'));
+    await flushPromises();
+
+    expect(messageMocks.error).not.toHaveBeenCalled();
+    expect(wrapper.find('[data-testid="user-role-dialog"]').exists()).toBe(true);
+  });
+
   it('ignores stale user-role responses after the dialog is closed and reopened', async () => {
     const firstRoleBindingRequest = createDeferred<{ role_ids: number[] }>();
 

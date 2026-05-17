@@ -301,6 +301,23 @@ func TestValidateRejectsFallbackLocaleOutsideSupported(t *testing.T) {
 	assertValidateError(t, cfg, "GRAFT_I18N_FALLBACK_LOCALE must be listed in GRAFT_I18N_SUPPORTED_LOCALES")
 }
 
+// TestValidateNormalizesI18nLocales 验证 Validate 会把 locale 配置收敛到稳定格式，
+// 避免校验期通过、运行期仍保留空白和重复值。
+func TestValidateNormalizesI18nLocales(t *testing.T) {
+	cfg := validConfigForValidateTests()
+	cfg.I18n.DefaultLocale = " zh-CN "
+	cfg.I18n.FallbackLocale = " en-US "
+	cfg.I18n.SupportedLocales = []string{" zh-CN ", "en-US", "zh-CN", " "}
+
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("validate config: %v", err)
+	}
+
+	assertEqual(t, "normalized default locale", cfg.I18n.DefaultLocale, "zh-CN")
+	assertEqual(t, "normalized fallback locale", cfg.I18n.FallbackLocale, "en-US")
+	assertStringSliceEqual(t, "normalized supported locales", cfg.I18n.SupportedLocales, []string{"zh-CN", "en-US"})
+}
+
 // TestValidateRejectsMissingAuthTokenTTLs 验证 Validate 会拒绝非正数的 token 期限。
 func TestValidateRejectsMissingAuthTokenTTLs(t *testing.T) {
 	cfg := validConfigForValidateTests()
