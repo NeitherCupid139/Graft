@@ -226,3 +226,4 @@
   受保护路由时，继续复用 typed permission/route contract 与 `rbac` 插件公开服务，不再在 `user` 或其它插件本地复制实现。
 - 当前纯 `server` 的 runtime auth/authz contract 热点已经完成一轮清扫；后续若继续做 `server` 治理，优先收敛
   `plugin_test.go` 与其它测试侧仍残留的 auth/shared 字面量，否则跨边界主线回到父主题与 `web` 子主题继续推进主运行面清理。
+- 当前 `internal/ent/schema/{user_role.go,role_permission.go}` 的配对重复清理已回到 `0 issues`；若继续执行本轮 audit-backlog reduction，优先转到 `internal/i18n/service.go`，并把 `plugins/rbac/plugin_routes.go` 与 `plugins/rbac/plugin_write_routes.go` 保持为后续同类热点。
