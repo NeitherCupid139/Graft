@@ -871,11 +871,12 @@ Explicit commit trigger:
 
 Task handoff and pre-handoff commit rules:
 
-* if the current task ends with a next-task handoff and the current slice has already reached the validation level
-  required by its task class, commit the confirmed owned scope before the handoff using the same ownership,
-  validation, and scoped-staging rules enforced by `graft-commit`
-* if the current task ends with a next-task handoff but the current slice is not yet validated to its required task
-  class level, do not claim it was ready to commit; record the validation gap and keep the handoff status honest
+* if the current task ends with a next-task handoff, first evaluate whether the current slice has reached the
+  validation level required by its task class
+* if that validation level has been reached, commit the confirmed owned scope before the handoff using the same
+  ownership, validation, and scoped-staging rules enforced by `graft-commit`
+* if that validation level has not been reached, do not claim the slice was ready to commit; record the validation
+  gap and keep the handoff status honest
 * a next-task handoff must include one explicit next-task startup prompt that tells the next turn to rerun startup
   preflight and provides the minimum inherited context package needed to resume safely
 * a handoff requirement does not override mixed-ownership or insufficient-validation refusal rules; when a safe commit

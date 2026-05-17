@@ -188,7 +188,7 @@
 ## Immediate Next Step
 
 - 保持新的交接治理真值：当当前切片结束并移交下一任务时，先按 `graft-commit` 风格判断是否可以安全提交当前已验证范围，再在交接文本中附带下一任务 startup prompt，避免下一轮从隐式上下文继续。
-- 在 RBAC MVP 第二波方向上，继续把焦点放在 `server/plugins/rbac` 的最小写接口与 shared contract 稳定化；若主代理尚未重新完成 backend / cross-boundary 校验，相关 tracking 继续保持 in-progress 语气。
+- 在 RBAC MVP 第二波方向上，继续把焦点放在 `server/plugins/rbac` 的最小写接口与 shared contract 稳定化；若主代理尚未重新跑通 `graft validate backend`，或在 cross-boundary 收口时尚未同时跑通 backend completion entrypoint 与 host Windows Bun `bun run check`，相关 tracking 继续保持 in-progress 语气，且该切片不得标记为 done。
 - 保持 docs/automation 侧新收口的真值稳定，不要再把 starter 全量工程、split stage 或环境例外规则复制成新的并行治理文本。
 - 在 phase-1 底座提交后，继续把魔法值治理推进到真实 contract surface：优先从 `server/internal/httpx`、`server/internal/pluginapi`、
   `server/plugins/user/contract` 与 `web/src/contracts` / `web/src/modules/*/contract` 建立首批 canonical typed
