@@ -178,6 +178,14 @@
       }
     }
   },
+  "menu": {
+    "role_list": {
+      "title": "Role Management"
+    },
+    "user_list": {
+      "title": "User Management"
+    }
+  },
   "pages": {
     "dashboardBase": {
       "title": "Overview Dashboard",

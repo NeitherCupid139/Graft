@@ -42,6 +42,7 @@ export interface LoginResponse {
 
 export interface BootstrapMenu {
   code: string;
+  title_key?: string;
   title: string;
   path: string;
   icon: string;
@@ -80,6 +81,7 @@ export interface CompleteRequiredPasswordChangePayload {
 
 export interface AppBootstrapRouteMeta {
   title: LocalizedTitle;
+  titleKey?: string;
   icon?: string;
   permission?: string;
 }

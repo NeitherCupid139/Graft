@@ -7,6 +7,7 @@ export type ModeType = 'light' | 'dark';
 
 export interface AppRouteMeta {
   title?: LocalizedTitle;
+  titleKey?: string;
   icon?: string | Component | FunctionalComponent | (() => VNodeChild);
   orderNo?: number;
   hidden?: boolean;

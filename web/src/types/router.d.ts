@@ -8,6 +8,7 @@ export {};
 declare module 'vue-router' {
   interface RouteMeta {
     title?: LocalizedTitle;
+    titleKey?: string;
     icon?: string | Component | FunctionalComponent | DefineComponent;
     expanded?: boolean;
     orderNo?: number;

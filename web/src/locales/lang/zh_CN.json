@@ -178,6 +178,14 @@
       }
     }
   },
+  "menu": {
+    "role_list": {
+      "title": "角色管理"
+    },
+    "user_list": {
+      "title": "用户管理"
+    }
+  },
   "pages": {
     "dashboardBase": {
       "title": "概览仪表盘",

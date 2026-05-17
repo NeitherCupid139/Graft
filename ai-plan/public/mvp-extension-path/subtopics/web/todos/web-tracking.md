@@ -23,8 +23,9 @@
 - 当前 `web /user-role minimal read wiring` 的前置 server 阻断已解除：后端现已提供 `GET /api/users/:id/roles`
   稳定读契约，并把 ownership 收敛为 `user.role.read` permission + `role_ids` DTO；因此下一轮可以评估是否进入
   user-role UI 最小接线，但范围仍限制在 `/users` 模块内，不扩完整角色中心，也不把写接口单独包装成假闭环。
-- 当前菜单本地化 follow-up 的 server 核对也已完成：后端不会再补第二套标题直译 consumer，`web` 下一轮应直接消费
-  bootstrap `menus[*].title_key`，并仅在 `title_key` 缺失时回退 `title`，以此完成当前菜单本地化 contract 的前端收敛。
+- 当前菜单本地化 follow-up 已在 `web` 落地：bootstrap 动态菜单现在优先消费 `menus[*].title_key`，并通过前端 locale
+  catalog 物化为 route/menu title；只有在 `title_key` 缺失或前端未收录对应 key 时才回退 `title`，且不新增任何
+  server 侧标题解析路径。
 
 - `web` 现阶段以真实 `web/` 工程作为唯一运行面；starter 只保留可继续收敛的壳层风格、页面样板和治理参考，不再把 starter 全量工程视为运行基线。
 - 当前主线不是页面扩张，也不是继续深化独立前端工作台能力；任何 shell 级调整都应服务于真实契约挂接和 mock/demo 清理。
@@ -109,6 +110,9 @@
 - 本次 `/roles` 最小接线预期直接校验：
   - `cd web && bun run test:run -- src/utils/route/bootstrap.test.ts`
   - `cd web && bun run typecheck`
+- 本次 bootstrap 菜单 `title_key`-first 收敛直接校验：
+  - `cd web && bun run test:run -- src/utils/route/bootstrap.test.ts src/utils/route/title.test.ts`
+  - `cd web && bun run typecheck`
 
 ## Immediate Next Step
 
@@ -118,8 +122,8 @@
   `POST /api/users/:id/roles/assign` 写接口；不要把 assign 写接口单独接成一次性表单，也不要借机扩完整角色中心。
 - 保持 `bootstrap.roles` 和 `bootstrap.permissions` 作为唯一前端 RBAC 快照来源，不要回到基于页面本地常量或角色名字符串的条件分支。
 - 继续在真实 `web/` 工程里把 starter 壳层风格挂接到真实后端 `auth + current user + menu + permission + locale` 契约。
-- 在当前菜单本地化 contract 已由 `server` 核对收口后，优先把 bootstrap 菜单消费面改为 `title_key` first、`title`
-  fallback second，不要在前端继续把 `title` 当作长期主真值，也不要等待新的 server 标题解析接口。
+- 保持当前 bootstrap 菜单 `title_key` first、`title` fallback second 的单一路径；新增菜单标题 key 时优先补齐前端
+  locale catalog，而不是把 fallback `title` 再抬回长期主真值，也不要等待新的 server 标题解析接口。
 - 先清理主路由树里的 starter demo 入口、默认 mock runtime 与前端权限旁路，让主运行面重新只服务真实 bootstrap 菜单和已注册页面。
 - 快速隔离或移除当前阶段不再需要的 mock/demo 入口，避免形成前端自洽假闭环。
 - 在当前 auth 契约与刷新单出口已经稳定后，优先把首次登录强制改密受限态接进现有 `login -> refresh -> bootstrap` 恢复链路，确保刷新页面后仍能恢复弹窗与阻断，而不是再回到请求层分支治理或视觉扩张。

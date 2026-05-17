@@ -266,3 +266,12 @@
   scattering raw `includes()` checks.
 - Kept the slice intentionally narrow: the current route/bootstrap mapping stays centered on `/users`, and the wider
   RBAC management UI continues in parallel rather than reopening starter demo menus or role pages.
+
+## 2026-05-17 bootstrap menu title-key consumption
+
+- Extended the frontend bootstrap menu contract so `web` now accepts backend `menus[*].title_key` alongside the
+  existing compatibility `title`.
+- Reworked the bootstrap menu-to-route mapper to materialize route meta titles from the frontend locale catalog using
+  `title_key` first, while keeping `title` as the fallback only when the key is missing or untranslated.
+- Added the missing `menu.role_list.title` and `menu.user_list.title` locale entries plus focused Vitest coverage for
+  bootstrap route mapping and title localization, without adding any new server-side title resolution path.
