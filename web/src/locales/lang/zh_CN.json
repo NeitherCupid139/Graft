@@ -904,10 +904,11 @@
         "title": "管理用户角色",
         "currentUser": "当前用户：{name}",
         "currentUserEmpty": "当前未选择用户",
-        "roleSummary": "当前已加载 {count} 个角色，可用于最小分配闭环。",
+        "roleSummary": "当前已加载 {count} 个可分配角色。",
         "empty": "暂无可用角色",
-        "roleLoadFailed": "角色定义加载失败，当前无法继续用户角色接线。",
-        "selectionLoadFailed": "当前用户角色快照加载失败，已阻止覆盖写入。",
+        "roleLoadFailed": "角色定义加载失败。",
+        "selectionLoadFailed": "当前角色分配数据加载失败，恢复前将保持禁用保存。",
+        "retry": "重试",
         "confirm": "保存角色分配"
       }
     }

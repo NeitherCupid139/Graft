@@ -902,10 +902,11 @@
         "title": "Manage User Roles",
         "currentUser": "Current user: {name}",
         "currentUserEmpty": "No user selected",
-        "roleSummary": "{count} roles are available for the minimal assignment flow.",
+        "roleSummary": "{count} roles are available for assignment.",
         "empty": "No roles available",
-        "roleLoadFailed": "Failed to load role definitions for this user.",
-        "selectionLoadFailed": "Failed to load the current user-role snapshot, so replace write stays blocked.",
+        "roleLoadFailed": "Failed to load role definitions.",
+        "selectionLoadFailed": "Failed to load the current role assignment. Saving stays disabled until the data is restored.",
+        "retry": "Retry",
         "confirm": "Save Assignment"
       }
     }

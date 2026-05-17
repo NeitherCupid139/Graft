@@ -173,10 +173,22 @@ const checkboxGroupStub = defineComponent({
       type: Boolean,
       default: false,
     },
+    modelValue: {
+      type: Array<number>,
+      default: () => [],
+    },
   },
   setup(props, { slots }) {
     return () =>
-      h('div', { 'data-testid': 'role-checkbox-group', 'data-disabled': String(props.disabled) }, slots.default?.());
+      h(
+        'div',
+        {
+          'data-testid': 'role-checkbox-group',
+          'data-disabled': String(props.disabled),
+          'data-selected-role-ids': JSON.stringify(props.modelValue),
+        },
+        slots.default?.(),
+      );
   },
 });
 
@@ -290,6 +302,66 @@ describe('UsersIndex role dialog', () => {
     expect(rbacApiMocks.assignUserRoles).not.toHaveBeenCalled();
   });
 
+  it('retries the dialog load in place after role definitions fail to load', async () => {
+    userApiMocks.getUsers.mockResolvedValue(createUserListResponse());
+    rbacApiMocks.getRoles
+      .mockRejectedValueOnce(new Error('role load failed'))
+      .mockResolvedValueOnce(createRoleListResponse());
+    rbacApiMocks.getUserRoleBindings.mockResolvedValue({
+      role_ids: [2],
+    });
+
+    const wrapper = mountUserPage();
+    await flushPromises();
+
+    const openDialogButton = findButtonByText(wrapper, 'pages.userList.assignRoles');
+    expect(openDialogButton).toBeDefined();
+
+    await openDialogButton!.trigger('click');
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('role load failed');
+
+    const retryButton = findButtonByText(wrapper, 'pages.userList.roleDialog.retry');
+    expect(retryButton).toBeDefined();
+
+    await retryButton!.trigger('click');
+    await flushPromises();
+
+    expect(rbacApiMocks.getRoles).toHaveBeenCalledTimes(2);
+    expect(rbacApiMocks.getUserRoleBindings).toHaveBeenCalledWith(7);
+    expect(wrapper.text()).not.toContain('role load failed');
+
+    const checkboxGroup = wrapper.get('[data-testid="role-checkbox-group"]');
+    expect(checkboxGroup.attributes('data-disabled')).toBe('false');
+    expect(checkboxGroup.attributes('data-selected-role-ids')).toBe('[2]');
+  });
+
+  it('keeps the role checkbox group disabled when the actor lacks assign permission', async () => {
+    permissionState.grantedCodes = [RBAC_PERMISSION_CODE.USER_ROLE_READ];
+    userApiMocks.getUsers.mockResolvedValue(createUserListResponse());
+    rbacApiMocks.getRoles.mockResolvedValue(createRoleListResponse());
+    rbacApiMocks.getUserRoleBindings.mockResolvedValue({
+      role_ids: [2],
+    });
+
+    const wrapper = mountUserPage();
+    await flushPromises();
+
+    const openDialogButton = findButtonByText(wrapper, 'pages.userList.assignRoles');
+    expect(openDialogButton).toBeDefined();
+
+    await openDialogButton!.trigger('click');
+    await flushPromises();
+
+    const checkboxGroup = wrapper.get('[data-testid="role-checkbox-group"]');
+    expect(checkboxGroup.attributes('data-disabled')).toBe('true');
+
+    const submitButton = findButtonByText(wrapper, 'pages.userList.roleDialog.confirm');
+    expect(submitButton).toBeDefined();
+    expect(submitButton!.attributes('disabled')).toBeDefined();
+  });
+
   it('submits the restored role snapshot for the selected user and closes the dialog on success', async () => {
     userApiMocks.getUsers.mockResolvedValue(createUserListResponse());
     rbacApiMocks.getRoles.mockResolvedValue(createRoleListResponse());
@@ -319,5 +391,32 @@ describe('UsersIndex role dialog', () => {
     });
     expect(messageMocks.success).toHaveBeenCalledWith('pages.userList.assignSuccess');
     expect(wrapper.find('[data-testid="user-role-dialog"]').exists()).toBe(false);
+  });
+
+  it('shows an error toast and keeps the dialog open when the role assignment submit fails', async () => {
+    userApiMocks.getUsers.mockResolvedValue(createUserListResponse());
+    rbacApiMocks.getRoles.mockResolvedValue(createRoleListResponse());
+    rbacApiMocks.getUserRoleBindings.mockResolvedValue({
+      role_ids: [2],
+    });
+    rbacApiMocks.assignUserRoles.mockRejectedValue(new Error('assign failed'));
+
+    const wrapper = mountUserPage();
+    await flushPromises();
+
+    const openDialogButton = findButtonByText(wrapper, 'pages.userList.assignRoles');
+    expect(openDialogButton).toBeDefined();
+
+    await openDialogButton!.trigger('click');
+    await flushPromises();
+
+    const submitButton = findButtonByText(wrapper, 'pages.userList.roleDialog.confirm');
+    expect(submitButton).toBeDefined();
+
+    await submitButton!.trigger('click');
+    await flushPromises();
+
+    expect(messageMocks.error).toHaveBeenCalledWith('assign failed');
+    expect(wrapper.find('[data-testid="user-role-dialog"]').exists()).toBe(true);
   });
 });

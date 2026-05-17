@@ -84,10 +84,16 @@
             {{ t('pages.userList.roleDialog.roleSummary', { count: roles.length }) }}
           </div>
           <div v-if="roleLoadWarning" class="permission-load-warning">
-            {{ roleLoadWarning }}
+            <span>{{ roleLoadWarning }}</span>
+            <t-button variant="text" theme="primary" :loading="loadingRoleDialogData" @click="retryUserRoleDialogLoad">
+              {{ t('pages.userList.roleDialog.retry') }}
+            </t-button>
           </div>
 
-          <t-checkbox-group v-model="selectedRoleIds" :disabled="!roleSelectionReady || !canAssignUserRoles">
+          <t-checkbox-group
+            v-model="selectedRoleIds"
+            :disabled="loadingRoleDialogData || !roleSelectionReady || !canAssignUserRoles"
+          >
             <div class="role-grid">
               <label v-for="role in roles" :key="role.id" class="role-option">
                 <t-checkbox :value="role.id">
@@ -150,6 +156,7 @@ const permissionStore = usePermissionStore();
 const users = ref<UserListItem[]>([]);
 const loading = ref(false);
 const loadingRoles = ref(false);
+const loadingRoleSelection = ref(false);
 const submittingRoles = ref(false);
 const userRoleDialogVisible = ref(false);
 const selectedUser = ref<UserListItem | null>(null);
@@ -169,6 +176,7 @@ const showOperationColumn = computed(() =>
   ]),
 );
 
+const loadingRoleDialogData = computed(() => loadingRoles.value || loadingRoleSelection.value);
 const canAssignUserRoles = computed(() => permissionStore.hasPermission(rbacPermissionCodes.USER_ROLE_ASSIGN));
 const canSubmitRoleAssignment = computed(
   () => canAssignUserRoles.value && roleSelectionReady.value && roleOptionsReady.value && selectedUser.value !== null,
@@ -261,14 +269,11 @@ function closeUserRoleDialog() {
   roleLoadWarning.value = '';
 }
 
-async function handleOpenUserRoleDialog(row: TableRowData) {
-  const user = row as UserListItem;
+async function loadUserRoleDialog(user: UserListItem) {
   selectedUser.value = user;
   selectedRoleIds.value = [];
   roleSelectionReady.value = false;
-  roleOptionsReady.value = false;
   roleLoadWarning.value = '';
-  userRoleDialogVisible.value = true;
 
   try {
     await ensureRoleOptionsLoaded();
@@ -280,6 +285,7 @@ async function handleOpenUserRoleDialog(row: TableRowData) {
     return;
   }
 
+  loadingRoleSelection.value = true;
   try {
     const response = await getUserRoleBindings(user.id);
     selectedRoleIds.value = response.role_ids;
@@ -287,7 +293,24 @@ async function handleOpenUserRoleDialog(row: TableRowData) {
   } catch (error) {
     roleSelectionReady.value = false;
     roleLoadWarning.value = error instanceof Error ? error.message : t('pages.userList.roleDialog.selectionLoadFailed');
+  } finally {
+    loadingRoleSelection.value = false;
   }
+}
+
+async function handleOpenUserRoleDialog(row: TableRowData) {
+  const user = row as UserListItem;
+  roleOptionsReady.value = false;
+  userRoleDialogVisible.value = true;
+  await loadUserRoleDialog(user);
+}
+
+async function retryUserRoleDialogLoad() {
+  if (!selectedUser.value) {
+    return;
+  }
+
+  await loadUserRoleDialog(selectedUser.value);
 }
 
 async function submitUserRoleAssignment() {
@@ -387,7 +410,11 @@ onMounted(() => {
 }
 
 .permission-load-warning {
+  align-items: center;
   color: var(--td-error-color);
+  display: flex;
   font: var(--td-font-body-small);
+  gap: var(--td-comp-margin-xs);
+  justify-content: space-between;
 }
 </style>
