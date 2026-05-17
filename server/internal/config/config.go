@@ -21,7 +21,8 @@ const (
 	defaultRedisAddr             = "localhost:6379"
 	defaultLogLevel              = "info"
 	defaultLocale                = "zh-CN"
-	defaultSupported             = "zh-CN"
+	defaultSecondaryLocale       = "en-US"
+	defaultSupported             = "zh-CN,en-US"
 	defaultAccessTokenTTL        = 15 * time.Minute
 	defaultRefreshTokenTTL       = 7 * 24 * time.Hour
 	defaultRefreshCookieName     = "graft_refresh_token"
@@ -217,14 +218,31 @@ func validateRedisConfig(c *Config) error {
 }
 
 func validateI18nConfig(c *Config) error {
-	if strings.TrimSpace(c.I18n.DefaultLocale) == "" {
+	defaultLocaleValue := strings.TrimSpace(c.I18n.DefaultLocale)
+	if defaultLocaleValue == "" {
 		return errors.New("GRAFT_I18N_DEFAULT_LOCALE is required")
 	}
-	if strings.TrimSpace(c.I18n.FallbackLocale) == "" {
+	fallbackLocaleValue := strings.TrimSpace(c.I18n.FallbackLocale)
+	if fallbackLocaleValue == "" {
 		return errors.New("GRAFT_I18N_FALLBACK_LOCALE is required")
 	}
 	if len(c.I18n.SupportedLocales) == 0 {
 		return errors.New("GRAFT_I18N_SUPPORTED_LOCALES must include at least one locale")
+	}
+	supportedLocales := make(map[string]struct{}, len(c.I18n.SupportedLocales))
+	for _, locale := range c.I18n.SupportedLocales {
+		supportedLocales[strings.TrimSpace(locale)] = struct{}{}
+	}
+	if _, ok := supportedLocales[defaultLocaleValue]; !ok {
+		return errors.New("GRAFT_I18N_DEFAULT_LOCALE must be listed in GRAFT_I18N_SUPPORTED_LOCALES")
+	}
+	if _, ok := supportedLocales[fallbackLocaleValue]; !ok {
+		return errors.New("GRAFT_I18N_FALLBACK_LOCALE must be listed in GRAFT_I18N_SUPPORTED_LOCALES")
+	}
+	for _, locale := range []string{defaultLocale, defaultSecondaryLocale} {
+		if _, ok := supportedLocales[locale]; !ok {
+			return fmt.Errorf("GRAFT_I18N_SUPPORTED_LOCALES must include %q", locale)
+		}
 	}
 
 	return nil
