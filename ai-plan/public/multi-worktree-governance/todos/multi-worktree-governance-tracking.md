@@ -3,16 +3,17 @@
 ## Topic
 
 - Topic: `multi-worktree-governance`
-- Branch: `main`
-- Worktree: `primary-main`
-- Scope: archive the completed `mvp-extension-path` topic, govern shared repository truth on local `main`, and prepare
-  stable ownership boundaries before creating long-lived worktrees from local branches.
+- Branch: `refactor/web-module-boundaries`
+- Worktree: repository root only; no dedicated long-lived worktree exists yet
+- Scope: keep `mvp-extension-path` archived, reconcile recovery truth with the current root-branch reality, freeze the
+  final post-compatibility `web` ownership model, and prepare stable owned scopes before creating dedicated long-lived
+  worktrees.
 
 ## Goal
 
 - Make the repository safe for multi-worktree execution by moving completed recovery state out of the active path,
-  freezing shared governance on `main`, and defining which shared files must be integrated centrally before future
-  long-lived worktrees are created.
+  freezing shared governance on the current repository root, and defining which files must be integrated centrally
+  before future long-lived worktrees are created.
 
 ## Repository Truth
 
@@ -25,24 +26,33 @@
 
 ## Current Recovery Point
 
-- `mvp-extension-path` has been completed as the old long-lived MVP topic and is no longer the default recovery entry on
-  `main`; its full recovery materials now belong under `ai-plan/public/archive/mvp-extension-path/`.
-- The repository is currently running from the root worktree on local `main`, with no additional long-lived worktrees
-  created yet.
-- The immediate governance task on `main` is not feature implementation. It is shared-baseline preparation for future
-  worktree splits.
+- `mvp-extension-path` has been completed as the old long-lived MVP topic; its recovery materials now belong under
+  `ai-plan/public/archive/mvp-extension-path/` and are no longer the default active entry.
+- The repository is currently running from the root worktree on branch `refactor/web-module-boundaries`; `git worktree list`
+  shows no additional worktrees.
+- The immediate governance task on this branch is not to preserve compatibility bridges. It is to lock the final
+  post-compatibility ownership model and recovery truth before the first dedicated long-lived worktree is created.
 - Current boundary facts are frozen as follows:
   - `server` is already close to plugin-oriented parallel execution, and future long-lived worktree ownership should be
     plugin-first.
-  - `web` still has shared shell hotspots such as bootstrap route mapping, global stores, layout wiring, and locale
-    catalogs; `app/**` is also shell-owned during the root-pages retirement migration, and future long-lived worktrees
-    must not treat those files as freely owned by multiple topics at once.
-- The first web-side mitigation slice has landed on short branch `refactor/web-module-boundaries`:
+  - `web` final ownership now follows three explicit layers:
+    - `shell-owned`: `web/src/app/**`, `web/src/layouts/**`, `web/src/router/**`, `web/src/utils/route/**`,
+      `web/src/store/modules/user.ts`, `web/src/store/modules/permission.ts`, `web/src/permission.ts`,
+      `web/src/locales/**`, platform `web/src/contracts/**`, and other platform bootstrap surfaces
+    - `module-owned`: `web/src/modules/<name>/**` holds page, API, type, contract, locale, and bootstrap-route truth
+      for one module
+    - `shared-owned`: `web/src/shared/**` is reserved for business-agnostic reusable assets and is not feature-owned by
+      any single module worktree
+  - `web/src/shared/**` does not exist yet in the current codebase; that means no qualifying reusable asset has been
+    extracted yet, not that root-level business truth may continue to live under `components/`, `hooks/`, or
+    non-platform `utils/`.
+- The web boundary refactor has already landed on branch `refactor/web-module-boundaries`:
   - `web/src/modules/` is now the real feature registration layer
   - bootstrap dynamic route declarations now resolve through module registrations instead of feature truth living in shared shell code
   - the real `user` and `rbac` business surface now lives under `web/src/modules/<name>/`
-  - compatibility re-exports remain in shared API/model/contract entrypoints where needed, but module-owned code now carries the feature truth
   - module registration is now the only allowed new feature-to-shell integration path
+  - remaining root-level module files under `web/src/api/**`, `web/src/api/model/**`, and `web/src/contracts/{user,rbac}/**`
+    are cleanup debt, not sanctioned steady-state ownership surfaces
 - The first expected future long-lived feature directions are:
   - `RBAC`
   - `server-status-dashboard`
@@ -69,50 +79,61 @@
 - `web/src/locales/lang/en-US.json`
 - `web/src/router/index.ts`
 - `web/src/app/**`
+- `web/src/shared/**` once shared-owned runtime assets begin to land
+
+## Cleanup Targets Outside Final Web Standard
+
+- `web/src/api/user.ts`
+- `web/src/api/rbac.ts`
+- `web/src/api/model/userModel.ts`
+- `web/src/api/model/rbacModel.ts`
+- `web/src/contracts/user/**`
+- `web/src/contracts/rbac/**`
+- any root-level reusable UI/composable/helper that is neither shell infrastructure nor module-private truth and should
+  instead be extracted into `web/src/shared/**`
 
 ## Active Risks
 
 - If a future long-lived worktree is created before shared hotspot ownership is frozen, the first merge wave will
   recreate hidden dual-truth and integration churn.
-- If `web` continues to treat shell wiring and locale catalogs as normal feature-owned files, long-lived parallel work
-  will conflict even when business pages are otherwise disjoint.
-- If old recovery materials remain active after the branch has returned to `main`, future boot/recovery flows will land
-  on historical work instead of the current governance baseline.
+- If `web` continues to let module-specific truth linger under root `api/model/contracts` surfaces, future worktrees
+  will keep competing over files that are no longer valid steady-state ownership boundaries.
+- If the recovery index is not refreshed when the repository root branch changes again, future boot/recovery flows will
+  land on stale branch/worktree assumptions instead of current governance truth.
 
 ## Latest Validation
 
-- Recovery index and governance truth were updated on local `main` after confirming:
-  - `git branch --all --verbose --no-abbrev`
-  - `git worktree list --porcelain`
-  - `git status --short --branch`
+- Recovery truth was grounded against the current repository state with:
+  - `pwd`
+  - `git branch --show-current`
+  - `git worktree list`
+  - `git status --short`
 - Documentation consistency was checked with:
-  - `rg -n "multi-worktree-governance|primary-main|mvp-extension-path|long-lived worktree|默认恢复入口" ai-plan`
-- Current frontend refactor slice was grounded with:
+  - `rg -n "multi-worktree|worktree|兼容|compat|shared/|app/|modules/|refactor/web-module-boundaries|primary-main|main" ai-plan/public/multi-worktree-governance ai-plan/design/前端架构设计.md ai-plan/public/README.md`
+- Current frontend structure and ownership surfaces were grounded with:
   - `find web/src -maxdepth 3 -type d | sort`
-  - `sed -n '1,260p' web/src/utils/route/bootstrap.ts`
-  - `sed -n '1,260p' web/src/router/index.ts`
+  - `rg --files web/src | rg "^(web/src/(api|contracts|app|modules|components|store|router|shared|pages|hooks|utils))"`
   - `sed -n '1,260p' ai-plan/design/前端架构设计.md`
-- Focused frontend validation for the first module-boundary slice passed with host Windows Bun:
-  - `cd web && /mnt/c/Users/gewuyou/.bun/bin/bun.exe run test:run -- src/utils/route/bootstrap.test.ts src/utils/route/index.test.ts`
-  - `cd web && /mnt/c/Users/gewuyou/.bun/bin/bun.exe run typecheck`
-  - `cd web && /mnt/c/Users/gewuyou/.bun/bin/bun.exe run lint -- src/utils/route/bootstrap.ts src/modules/index.ts src/modules/rbac/bootstrap-routes.ts src/modules/user/bootstrap-routes.ts src/modules/types.ts`
-- The landed module-boundary branch currently has no uncommitted owned-scope changes:
-  - `git status --short --branch`
-  - `git diff -- web/src/modules/user web/src/modules/rbac web/src/modules/index.ts ai-plan/public/multi-worktree-governance`
+- This slice intentionally used targeted consistency searches only; no `web` runtime validation was run because the
+  owned scope is documentation-only.
 
 ## Immediate Next Step
 
-- Keep using `multi-worktree-governance` on local `main` until the repository has explicit owned-scope rules for the
-  first real long-lived worktrees.
+- Keep using `multi-worktree-governance` on the current root branch until the repository either returns to `main` with
+  the same baseline or creates the first dedicated worktree/topic pair.
 - Keep the landed module-boundary refactor as the baseline for future `web` worktree ownership:
   - preserve `web/src/modules/user/**` and `web/src/modules/rbac/**` as module-owned feature truth
-  - preserve `web/src/app/**` and other shared shell code as consumers of module registrations instead of holders of feature route truth
-  - keep compatibility bridges narrow so future cleanup can remove them without reopening feature ownership
+  - preserve `web/src/app/**` and other shell-owned code as consumers of module registrations instead of holders of
+    feature route truth
+  - remove remaining root-level module-specific API/model/contract files instead of treating them as acceptable bridges
+- Perform the next code-side cleanup before creating the first additional worktree:
+  - eliminate root module-specific files under `web/src/api/**`, `web/src/api/model/**`, and `web/src/contracts/{user,rbac}/**`
+  - extract only genuinely business-agnostic reusable assets into `web/src/shared/**`
 - Before creating the first additional worktree, decide the exact owned scope and shared-hotspot policy for:
   - `RBAC`
   - `server-status-dashboard`
 - Once the first real worktree/topic pair exists, add it to `ai-plan/public/README.md` and create its dedicated
-  tracking/trace files instead of continuing to stage feature recovery on `main`.
+  tracking/trace files instead of continuing to stage feature recovery on the root branch.
 
 ## Web Owned Scope Freeze
 
@@ -130,3 +151,7 @@
   - `web/src/permission.ts`
   - `web/src/locales/**`
   - platform `web/src/contracts/**`
+- `shared-owned` runtime assets must stay business-agnostic and centrally integrated:
+  - `web/src/shared/**`
+- Root-level module-specific files under `web/src/api/**`, `web/src/api/model/**`, and `web/src/contracts/{user,rbac}/**`
+  are not valid long-lived owned scope and should be removed rather than claimed by a feature worktree.
