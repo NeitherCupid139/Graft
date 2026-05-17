@@ -97,6 +97,9 @@
 - 当前 Phase 2 title/message follow-up 也已开始从 design direction 进入运行时落地：`server/internal/menu` 与
   `GET /api/auth/bootstrap` 菜单快照现在新增 `title_key` 并保留 `title` fallback，`user` / `rbac` 插件在
   `Register` 阶段把内建菜单标题注册到统一 `server/internal/i18n` facade，而不是继续把菜单本地化文案停留在裸标题常量。
+- 当前菜单本地化 follow-up 已完成本轮 server 侧核对：现有后端运行时没有剩余 consumer 会在 bootstrap 之外直接解析菜单标题本地化；
+  `title_key + title fallback` 已经是稳定对外 contract，下一切片应交给 `web` 按同一 contract 消费，而不是继续在 `server`
+  增加第二套标题解析路径。
 - 较早的拆分前历史保留在 `archive/`，具体实现轨迹保留在各自 `trace` 文件。
 
 ## Shared Milestones
@@ -209,6 +212,8 @@
 - 在 `server/plugins/user` runtime hotspots 与 shared `common.*` drift 已收口后，下一步优先处理 `server` / `web`
   tests 与其它消费侧仍残留的 auth/shared route/message 字面量，不要回到全仓泛扫或页面广度扩张。
 - 在当前 backend completion 与 shared authorizer wiring 都已收口后，把跨边界主线切回 `web` 主运行面清理：继续移除 starter demo 入口、默认 mock runtime 与前端权限旁路，让主运行面只服务真实 bootstrap 菜单和已注册页面。
+- 在当前菜单本地化 contract 已确认无额外 server consumer 后，把下一轮跨边界菜单 follow-up 明确切到 `web`：优先消费
+  bootstrap 返回的 `title_key`，仅在缺失时回退 `title`，不要在 `server` 再补直接本地化标题解析。
 - 保持当前 `/api/auth/bootstrap`、`AUTH_*` code 与共享 permission 契约冻结，不要回退到第二套授权实现、中文 `message` 分支或 refresh 多出口。
 - RBAC 下一步把主线切到 `web`：基于已稳定的 `GET /api/users/:id/roles` 最小读契约，评估是否进入 user-role UI
   最小接线；范围继续保持在 `/users` 页或其模块内的最小角色查看/分配，不扩完整角色中心、不新增 `super_admin`

@@ -43,6 +43,7 @@
 - 当前 i18n 收敛边界保持不变：`server/internal/i18n` 仍是唯一平台 facade；本轮设计真值只要求先补 registry / namespace / duplicate-key / freeze 语义，不提前声称已经进入 `go-i18n` 接入阶段。
 - 插件 i18n 生命周期边界已冻结为：插件可在 `Register` 阶段注册 message bundles / message keys，runtime 必须在进入 `Boot` 前冻结 i18n 注册面；`Boot` 之后新增注册不属于当前允许语义。
 - 当前 locale 范围继续只收敛到 `zh-CN` / `en-US`；菜单本地化 contract 已开始实际落地为 `title_key` 优先、`title` 回退：`user` / `rbac` 内建菜单标题现由插件在 `Register` 阶段注册到 `server/internal/i18n`，`bootstrap` 菜单快照同步暴露 `title_key`，供 `web` 后续按同一 contract 收敛。
+- 当前菜单本地化 contract 已完成本轮 server 侧消费核对：除 bootstrap 快照序列化外，没有剩余后端运行时 consumer 需要直接解析本地化菜单标题；因此这一方向的下一切片不再是 `server` 增量实现，而是交给 `web` 消费 `title_key` 并保留 `title` 回退。
 - `user` 插件现已补齐最小 `GET /api/users` 只读列表契约，继续保持在现有 plugin/store 边界内，不提前扩展分页、筛选和写操作，只为 `web` 当前 `/users` 真实接线提供稳定落点。
 - 当前 `auth / RBAC` 最小响应收敛切片已经进入实施准备：只允许修改 `server/internal/httpx` 与 `server/plugins/user` 现有链路，目标是稳定 HTTP status 语义、稳定业务 `code`、稳定 auth/bootstrap envelope，并让 `web` 后续只基于 `HTTP status + code` 处理认证分支。
 - 当前下一步认证治理切片边界已冻结：默认管理员账号固定为 `graft`；`graft-admin` 是仅允许在初始化路径写入的例外密码；首次改密状态必须由后端持久化并通过 `login/bootstrap` 返回；当前 MVP 不在本切片内给全部业务接口追加全局“已改密”中间件，而是把登录后受限态阻断交给 `web`，后续如需更强安全再评估服务端全局 hardening。
@@ -241,6 +242,8 @@
   `super_admin` bypass。
 - 当前 `server` 在 user-role 管理面上的最小阻断已解除；下一步由 `web` 基于 `GET /api/users/:id/roles` 与
   `POST /api/users/:id/roles/assign` 评估是否进入最小 UI 接线，同时继续把范围限制在 `/users` 模块内的最小角色查看/分配。
+- 当前 `title_key` 菜单 contract 的下一步也应由 `web` 接手：前端菜单、路由元信息与展示面优先消费 bootstrap `title_key`，
+  仅在 key 缺失时回退 `title`；不要再为这一需求回到 `server` 增加标题直译 consumer。
 - 保持 `bootstrap.roles`、`roles.builtin`、`permissions.category` 的真值收口，后续 `web` 只消费这批后端契约，不得再本地推导角色类别或权限分组。
 - 保持当前共享 `pluginapi.Authorizer` wiring 与 `server/plugins/user/contract` 稳定；后续新增 `server`
   受保护路由时，继续复用 typed permission/route contract 与 `rbac` 插件公开服务，不再在 `user` 或其它插件本地复制实现。
