@@ -647,8 +647,15 @@ section.
 * 多词 schema 文件必须使用下划线，例如 `user_role.go`。
 * `Mixin`、`Hook`、`Policy`、`Edge`、`Field` 应按职责拆分，避免单文件无限膨胀。
 * schema、field、edge 命名必须服务于查询可读性。
+* 当任务修改 `server/internal/ent/schema/**`、`server/internal/ent/generate.go`、实际 Ent 生成入口（如存在 `server/entc.go`）、
+  Atlas/Ent 迁移生成相关配置，或任何会影响 Ent schema、field、edge、index、mixin、annotation、hook、policy 的手写代码时，
+  必须重新运行 `cd server && go generate ./internal/ent`，并把生成结果纳入同一变更范围。
+* 禁止手动修改 `server/internal/ent` 下由 Ent 生成的文件；如需调整生成结果，必须修改 schema、生成入口或相关手写配置后重新生成。
 * 迁移相关变更必须考虑 Atlas 校验与 hash。
+* 当 Ent 相关变更同时影响数据库结构时，必须按仓库现有显式迁移流程生成或更新迁移文件；优先复用仓库已有 CLI、脚本、README、
+  `AGENTS.md` 与 `ai-plan` 中已经记录的入口，不得凭空发明迁移命令。
 * 修改 migration 文件后必须重新执行 `atlas migrate hash`，除非只是新增尚未应用 migration。
+* 如果当前切片没有运行 Ent 生成命令，交付说明中必须明确说明原因；不得声称 Ent 相关修改已经完成。
 * handler、service、cross-plugin public API 不得把 Ent schema 或 generated entity 当作外部契约真值。
 
 ### 9.18 测试规范
@@ -775,6 +782,11 @@ For `server` changes:
 * when a `server` task reaches a completion-state milestone such as 功能完成、任务完成, or 准备合并, it must run the
   full backend quality chain in the explicit order `graft validate backend --stage lint -> go test (smallest direct
   scope) -> go build ./cmd/graft -> graft validate smoke` when runtime startup validation is needed
+* when a `server` task touches Ent-affecting inputs such as `server/internal/ent/schema/**`,
+  `server/internal/ent/generate.go`, the actual Ent generation entrypoint, Atlas/Ent migration generation config, or
+  hand-written code that changes Ent schema semantics, completion additionally requires `cd server && go generate
+  ./internal/ent`, inclusion of generated outputs in the same change, and migration updates through the existing
+  repository flow when the database structure changed
 * intermediate backend iteration may still use the smallest direct validation that covers the touched area, but the
   full backend quality chain is required before a `server` task is considered complete
 * agent, local development, and CI must use the same backend entrypoint and the same pinned lint version instead of
@@ -790,6 +802,9 @@ For `server` changes:
 * directly affected `server` code that violates `9. Go 代码组织与命名规范` is not considered validation-complete,
   even when the code still builds
 * run the smallest `go test` scope that still covers the touched packages when tests exist
+* Ent-affecting `server` changes raise the minimum direct test scope to `cd server && go test ./internal/ent/...` and
+  `cd server && go test ./...`; if either command is not run, validation reporting must state the exact reason and the
+  task must not be described as Ent-complete
 * run `go build ./cmd/graft` as the default backend compile gate, and widen the build scope only when the current
   change materially affects other `cmd/*` entrypoints
 * prefer wider validation such as `go test ./...` or `go build ./...` when the task changes shared abstractions, plugin

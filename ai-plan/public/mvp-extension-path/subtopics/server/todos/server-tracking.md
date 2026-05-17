@@ -85,7 +85,7 @@
 - 当前无活动中的 backend lint controlled exception；若后续再次出现无法在当前切片内清理的 backend lint 阻断，只能在本节追加登记。
 - 当前 audit backlog hotspots：
   `internal/ent/schema/user_role.go`、`internal/ent/schema/role_permission.go`、`internal/i18n/service.go`、
-  `plugins/rbac/plugin_routes.go`、`plugins/rbac/plugin_write_routes.go`、`plugins/user/plugin_routes.go`。
+  `plugins/rbac/plugin_routes.go`、`plugins/rbac/plugin_write_routes.go`。
 - 后续如需暂留 backend lint issue，只能在本节追加受控例外，并至少记录以下字段：
   - Source：linter 名称，以及对应的 package / file / command。
   - Impact：用户可见影响或工程可维护性影响。
@@ -194,6 +194,13 @@
   - `cd server && go build ./cmd/...`
   - `cd server && PATH=/tmp/codex-bin:$PATH go run ./cmd/graft validate backend`
 - 本次 PR #11 review follow-up 的 focused `go test`、`go build ./cmd/graft` 与 `web` `typecheck` 已通过；`graft validate backend --test-target ./plugins/user --test-target ./internal/store/entstore` 仍被既有仓库级 lint backlog 阻断，当前输出包含历史 `cyclop`、`dupl`、`revive`、`gosec`、`staticcheck` 等问题，不属于本次 follow-up 新增回归。
+- 本次 `server/plugins/user/plugin_routes.go` hotspot reduction 直接校验：
+  - `cd server && golangci-lint run --config .golangci.yml ./plugins/user --new-from-rev "$(git merge-base HEAD origin/main)" --whole-files`
+  - `cd server && go test ./plugins/user`
+  - `cd server && go test ./internal/i18n`
+  - `cd server && go build ./cmd/graft`
+  - 结果：`plugins/user/plugin_routes.go` 的 changed-file scoped lint gate 已回到 `0 issues`。
+  - 当前阻断：`cd server && go test ./internal/store/entstore` 与 `cd server && go run ./cmd/graft validate backend` 在当前工作树都会因 `internal/ent/runtime.go:150` 的现有 panic 失败，因此这次 hotspot-reduction 切片暂不能按 `server` 完成态宣称验证充分。
 - 当前后端恢复基线沿用最近一次 focused backend validation：
   - `cd server && go test ./internal/cli ./internal/app ./internal/store ./internal/store/entstore ./plugins/user ./plugins/rbac`
   - `cd server && go build ./cmd/graft`
@@ -218,6 +225,7 @@
 
 ## Immediate Next Step
 
+- 当前 `internal/ent/schema/{user_role.go,role_permission.go}` 的配对重复清理已回到 `0 issues`；若继续执行本轮 audit-backlog reduction，优先转到 `internal/i18n/service.go`，并把 `plugins/rbac/plugin_routes.go` 与 `plugins/rbac/plugin_write_routes.go` 保持为后续同类热点。
 - 在当前 RBAC 第二波方向里，先把 `server/plugins/rbac` 的最小写接口 contract、README 与 tracking 真值收齐，再由主代理补跑最小 backend validation，之后再决定是否进入更高风险的用户禁用、删除或 `super_admin` bypass。
 - 当前 `server` 在 user-role 管理面上的最小阻断已解除；下一步由 `web` 基于 `GET /api/users/:id/roles` 与
   `POST /api/users/:id/roles/assign` 评估是否进入最小 UI 接线，同时继续把范围限制在 `/users` 模块内的最小角色查看/分配。
@@ -226,4 +234,4 @@
   受保护路由时，继续复用 typed permission/route contract 与 `rbac` 插件公开服务，不再在 `user` 或其它插件本地复制实现。
 - 当前纯 `server` 的 runtime auth/authz contract 热点已经完成一轮清扫；后续若继续做 `server` 治理，优先收敛
   `plugin_test.go` 与其它测试侧仍残留的 auth/shared 字面量，否则跨边界主线回到父主题与 `web` 子主题继续推进主运行面清理。
-- 当前 `internal/ent/schema/{user_role.go,role_permission.go}` 的配对重复清理已回到 `0 issues`；若继续执行本轮 audit-backlog reduction，优先转到 `internal/i18n/service.go`，并把 `plugins/rbac/plugin_routes.go` 与 `plugins/rbac/plugin_write_routes.go` 保持为后续同类热点。
+- 若继续关闭当前 `plugin_routes.go` hotspot-reduction 切片，先定位并修复 `internal/ent/runtime.go:150` 触发的现有 panic，或由后续拥有者明确接受低于 `server` 完成态的暂挂状态；在此之前不要为本切片创建 scoped commit。
