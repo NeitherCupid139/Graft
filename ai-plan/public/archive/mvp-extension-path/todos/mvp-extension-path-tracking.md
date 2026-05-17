@@ -229,9 +229,9 @@
 
 ## Immediate Next Step
 
-- 先保持 `mvp-extension-path` 为默认恢复入口，继续把“长期 worktree = active topic”的治理规则写回 `ai-plan`
-  真值；待未来真的创建 `RBAC` 与 `server-status-dashboard` 长期 worktree 时，再把 `ai-plan/public/README.md`
-  和相关 tracking/trace 正式拆成多 active topic。
+- 历史说明：这一条记录的是当时仍以 `mvp-extension-path` 为恢复入口的阶段性下一步，不再代表当前默认恢复映射；
+  现行恢复入口与 active topic 映射以 `ai-plan/public/README.md` 为准。若未来真的创建 `RBAC` 与
+  `server-status-dashboard` 长期 worktree，再按当时计划把相关 tracking/trace 正式拆成多 active topic。
 - 保持新的交接治理真值：当当前切片结束并移交下一任务时，先按 `graft-commit` 风格判断是否可以安全提交当前已验证范围，再在交接文本中附带下一任务 startup prompt，避免下一轮从隐式上下文继续。
 - 在 RBAC MVP 第二波方向上，继续把焦点放在 `server/plugins/rbac` 的最小写接口与 shared contract 稳定化；若主代理尚未重新跑通 `graft validate backend`，或在 cross-boundary 收口时尚未同时跑通 backend completion entrypoint 与 host Windows Bun `bun run check`，相关 tracking 继续保持 in-progress 语气，且该切片不得标记为 done。
 - 保持 docs/automation 侧新收口的真值稳定，不要再把 starter 全量工程、split stage 或环境例外规则复制成新的并行治理文本。
