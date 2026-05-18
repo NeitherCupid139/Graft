@@ -60,7 +60,7 @@ Prefer this skill over `graft-commit` when the main question is task closeout ra
    - whether the output is a handoff prompt only
    - what validation was used or what exact validation gap remains
 8. When the caller asks for machine-readable closeout, end the result with one fenced ` ```json ` block that matches the
-   closeout state and the current round budget.
+   closeout state and the current delegated-round budget.
 
 ## Output Contract
 
@@ -95,8 +95,8 @@ When a caller such as `graft-multi-agent-loop` requests machine-readable closeou
 * `continue=false` requires `next_prompt=null`
 * `validation.status` should be one of `passed`, `failed`, or `not_run`
 * `risk_level` should be one of `low`, `medium`, or `high`
-* `consumed_budget` must describe only the current slice or round
-* `remaining_budget` must reflect the budget left after the current slice or round
+* `consumed_budget` must describe only the current slice or delegated round
+* `remaining_budget` must reflect the budget left after the current slice or delegated round
 
 Recommended JSON shape:
 

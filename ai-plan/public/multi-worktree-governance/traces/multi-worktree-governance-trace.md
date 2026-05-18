@@ -436,7 +436,7 @@
   through the active `multi-worktree-governance` parent topic, and implemented the looped orchestration slice locally
   without subagents because the write scope stayed tightly coupled across repository skill text, a new automation
   runner, and recovery/governance docs.
-- Added `.agents/skills/graft-multi-agent-loop/**` as a new repository skill that wraps repeated fresh-session
+- Added `.agents/skills/graft-multi-agent-loop/**` as a new repository skill that initially wrapped repeated fresh-session
   `graft-multi-agent-task` execution behind an explicit budget:
   - `max_rounds`
   - `max_files_changed`
@@ -444,7 +444,7 @@
   - `max_runtime_minutes`
   - `allowed_scopes`
   - validation-failure stop policy
-- Added `scripts/run_loop.py` as a standard-library Python runner that:
+- Added `scripts/run_loop.py` as the first standard-library Python runner prototype that:
   - launches `codex exec --ephemeral` child sessions
   - injects inherited startup context plus remaining budget into each round prompt
   - parses the child closeout JSON first and falls back to `Next-session startup prompt:` only when JSON is missing
@@ -488,6 +488,22 @@
   - keeping the existing sequential registry-apply behavior once both core and plugin directories have Atlas state
 - Validation for the slice finished with:
   - `cd server && go test ./internal/cli`
+
+## 2026-05-18 docs automation multi-agent loop contract shift
+
+- Re-ran startup preflight on `refactor/server-module-boundaries`, classified the work as `docs/automation`, and
+  returned to the active `multi-worktree-governance` parent topic to replace the unstable fresh-session loop contract.
+- Promoted the observed failure mode into the repository skill design instead of leaving it as an ad-hoc recovery step:
+  - the old `codex exec --ephemeral` child could stall without emitting the required closeout JSON
+  - the outer Python runner then lost its machine-readable control surface
+  - the human operator had to manually recover the coherent partial diff on the main critical path
+- Reframed `graft-multi-agent-loop` as a same-session main-agent delegation loop:
+  - the main agent now owns budget tracking, stop conditions, validation planning, and final acceptance
+  - delegated rounds still run through `graft-multi-agent-task` and close out through `graft-task-closeout`
+  - the JSON closeout remains the only loop control surface, while `Next-session startup prompt:` stays a
+    human-readable mirror for future-turn handoff
+- Removed the prototype `run_loop.py` / `test_run_loop.py` implementation and cleaned live governance, skill text, and
+  prompt references so active repository truth no longer describes `graft-multi-agent-loop` as a fresh-session script.
   - `cd server && env GOCACHE=/tmp/go-build go run ./cmd/graft validate backend --stage lint`
 - Immediate next step after this slice:
   - continue the real Phase 3 ownership split by separating the shared Ent/schema and mixed Atlas history around the

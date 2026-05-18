@@ -375,7 +375,8 @@
 - Validate and harden the new docs/automation loop workflow before relying on it for long-running repository work:
   - keep `graft-multi-agent-loop` as an outer wrapper only; do not let it redefine startup, closeout, or commit rules
   - keep `graft-multi-agent-task` and `graft-task-closeout` aligned on the new dual-channel closeout contract
-  - require JSON closeout as the primary machine-readable control surface and treat keyword parsing only as fallback
+  - require JSON closeout as the primary machine-readable control surface interpreted by the main agent instead of an
+    external fresh-session parser
 
 ## Server Owned Scope Freeze
 
