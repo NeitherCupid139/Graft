@@ -116,6 +116,11 @@
 
 ## Latest Validation
 
+- Commit-scope diagnosis on `2026-05-18` confirmed one recurrent Git/IDE ambiguity:
+  - `git status --short` showed the current `web` slice as ` M` on five files, which means modified but unstaged
+  - `git diff --cached --name-only` was therefore correctly empty because the Git index had no staged entries
+  - JetBrains changelist checkboxes or selected-file UI state must not be treated as Git staged proof in repository
+    commit workflows; the `graft-commit` skill now calls this out explicitly
 - Recovery truth was grounded against the current repository state with:
   - `pwd`
   - `git branch --show-current`

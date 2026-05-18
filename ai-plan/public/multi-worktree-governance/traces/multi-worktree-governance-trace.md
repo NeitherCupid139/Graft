@@ -152,3 +152,17 @@
   - `cd web && bun run test:run -- src/modules/index.test.ts src/router/index.test.ts src/locales/index.test.ts src/permission.test.ts`
   - `cd web && bun run typecheck`
   - `cd web && bun run check`
+
+## 2026-05-18 graft-commit staging diagnosis
+
+- Re-ran startup preflight on `refactor/web-module-boundaries` for a docs/automation investigation into why
+  `$graft-commit` appeared to miss files after a prior `$graft-push`.
+- Confirmed the reported symptom was not a Git index bug:
+  - `git status --short` showed five `web` files as ` M`
+  - `git diff --cached --name-only` returned empty
+  - that combination means the files were modified in the working tree but never staged into the Git index
+- Root cause was workflow ambiguity, not command failure: the repository skill text did not state explicitly that IDE
+  changelist checkboxes are not authoritative proof of Git staging state.
+- Updated `.agents/skills/graft-commit/SKILL.md` so the workflow now requires explicit interpretation of `git status`
+  columns, explains why `git diff --cached --name-only` can be empty, and forbids treating IDE selection UI as staged
+  proof.
