@@ -25,6 +25,7 @@ var migrateCommandContext = exec.CommandContext
 var migrateGetwd = os.Getwd
 var migrateStdin io.Reader = os.Stdin
 var migrateRegistryMigrationDirs = pluginregistry.MigrationDirs
+var migrateReadDir = os.ReadDir
 
 // migrateUpOptions 封装一次显式迁移执行所需的输入。
 type migrateUpOptions struct {
@@ -139,6 +140,7 @@ func resolveMigrationDirs(baseDir string, migrationDir string) ([]string, error)
 		return nil, fmt.Errorf("migration dir is required")
 	}
 
+	includeAllResolvedDirs := true
 	searchDirs := []string{migrationDir}
 	if migrationDir == defaultMigrationDir {
 		var err error
@@ -146,6 +148,7 @@ func resolveMigrationDirs(baseDir string, migrationDir string) ([]string, error)
 		if err != nil {
 			return nil, fmt.Errorf("load compile-time migration registry: %w", err)
 		}
+		includeAllResolvedDirs = false
 	}
 
 	resolved := make([]string, 0, len(searchDirs))
@@ -153,6 +156,19 @@ func resolveMigrationDirs(baseDir string, migrationDir string) ([]string, error)
 		absDir, err := resolveMigrationDir(baseDir, current)
 		if err != nil {
 			return nil, err
+		}
+
+		if includeAllResolvedDirs {
+			resolved = append(resolved, absDir)
+			continue
+		}
+
+		hasAtlasState, err := directoryContainsAtlasState(absDir)
+		if err != nil {
+			return nil, err
+		}
+		if !hasAtlasState {
+			continue
 		}
 
 		resolved = append(resolved, absDir)
@@ -202,4 +218,22 @@ func resolveMigrationDir(baseDir string, migrationDir string) (string, error) {
 	}
 
 	return "", fmt.Errorf("cannot find migration dir %q from %s", migrationDir, baseDir)
+}
+
+func directoryContainsAtlasState(absDir string) (bool, error) {
+	entries, err := migrateReadDir(absDir)
+	if err != nil {
+		return false, fmt.Errorf("read migration dir %s: %w", absDir, err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		if entry.Name() == "atlas.sum" {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }

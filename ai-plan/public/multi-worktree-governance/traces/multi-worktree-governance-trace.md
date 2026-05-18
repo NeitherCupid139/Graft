@@ -463,3 +463,33 @@
   - one trailing fenced JSON block with status, validation, commit, budget, scope, and risk fields
 - Updated root `AGENTS.md` and the active topic tracking so repository governance now recognizes
   `graft-multi-agent-loop` as a repository skill without treating it as a second startup or closeout system.
+
+## 2026-05-18 server Phase 3b migration-directory gating
+
+- Re-ran startup preflight on `refactor/server-module-boundaries`, recovered through the active
+  `multi-worktree-governance` parent topic, and attempted to execute the next Phase 3 slice through
+  `graft-multi-agent-loop`.
+- The loop orchestration itself was not reliable enough to trust as the execution record for this server slice:
+  - the first fresh-session child stalled without emitting the required closeout JSON
+  - the stalled child still left one owned diff in `server/internal/cli/migrate.go`
+  - after reviewing that diff locally, kept the coherent part and completed the slice directly on the main critical path
+- Chose the smallest honest follow-up after Phase 3a:
+  - do not pretend the shared Ent graph or mixed Atlas revision history has already been split
+  - instead, make the default migrate chain stop treating empty plugin-owned migration directories as runnable history
+- Landed the slice in `server/internal/cli/migrate.go` by:
+  - keeping explicit `graft migrate up --dir ...` behavior unchanged
+  - filtering the default registry-driven migration directory list so only directories containing `atlas.sum` are
+    included in the automatic apply chain
+  - preserving `plugins/user/migrations/**` as the declared plugin-owned future boundary without forcing it into the
+    live Atlas execution path before the directory actually owns versioned history
+- Added focused regression coverage in `server/internal/cli/migrate_test.go` for:
+  - skipping registry-declared migration directories that do not yet contain Atlas state
+  - preserving explicit `--dir` execution even when the target directory has no `atlas.sum`
+  - keeping the existing sequential registry-apply behavior once both core and plugin directories have Atlas state
+- Validation for the slice finished with:
+  - `cd server && go test ./internal/cli`
+  - `cd server && env GOCACHE=/tmp/go-build go run ./cmd/graft validate backend --stage lint`
+- Immediate next step after this slice:
+  - continue the real Phase 3 ownership split by separating the shared Ent/schema and mixed Atlas history around the
+    `users` / `refresh_sessions` vs `user_roles` / `rbac` boundary, now that the default migrate path no longer
+    assumes every declared plugin migration directory is already active

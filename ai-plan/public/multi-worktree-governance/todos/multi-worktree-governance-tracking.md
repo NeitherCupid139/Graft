@@ -178,6 +178,20 @@
     - historical Atlas file `server/internal/ent/migrate/migrations/202605140001_auth_rbac_foundation.sql` still mixes
       `users`, `refresh_sessions`, `user_roles`, `roles`, `permissions`, and `role_permissions`
     - `user_roles` remains outside this first extraction and must stay out until the user/RBAC bridge is split safely
+- The current `2026-05-18` Phase 3b migration-directory gating slice has now landed on the same branch:
+  - `server/internal/cli/migrate.go` now treats compile-time registry migration directories differently from
+    user-specified `--dir` input:
+    - explicit `--dir` paths still run exactly as requested
+    - the default registry-driven migration chain now skips plugin-owned directories that do not yet contain
+      `atlas.sum`
+  - this keeps `server/plugins/user/migrations/**` declared as the plugin-owned future boundary without pretending the
+    directory already owns live Atlas history
+  - the slice intentionally does not rewrite `202605140001_auth_rbac_foundation.sql`, does not generate
+    `plugins/user/migrations/atlas.sum`, and does not claim the shared Ent graph around `user_roles` is already split
+  - the remaining honest Phase 3 gap is therefore unchanged in structure but narrower operationally:
+    - default migrate wiring no longer assumes every declared plugin migration directory is immediately runnable
+    - the actual `users` / `refresh_sessions` vs `user_roles` / `rbac` ownership split still requires a later schema
+      and Atlas-history migration slice
 
 ## Shared Hotspots
 
@@ -259,6 +273,9 @@
   - `cd server && env GOCACHE=/tmp/go-build go run ./cmd/graft validate backend --stage lint`
 - The current `server` Phase 2e explicit-repository builder slice was validated with:
   - `cd server && go test ./internal/plugin ./internal/pluginregistry/... ./internal/app ./plugins/user ./plugins/rbac ./plugins/audit`
+- The current `server` Phase 3b migration-directory gating slice was validated with:
+  - `cd server && go test ./internal/cli`
+  - `cd server && env GOCACHE=/tmp/go-build go run ./cmd/graft validate backend --stage lint`
   - `cd server && env GOCACHE=/tmp/go-build go run ./cmd/graft validate backend --stage lint`
 - Current frontend structure and ownership surfaces were grounded with:
   - `find web/src -maxdepth 3 -type d | sort`

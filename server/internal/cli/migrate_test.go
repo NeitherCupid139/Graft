@@ -68,8 +68,10 @@ func TestResolveMigrationDirRejectsMissingPath(t *testing.T) {
 // compile-time registry 读取目录集合。
 func TestResolveMigrationDirsUsesCompileTimeRegistry(t *testing.T) {
 	originalRegistryMigrationDirs := migrateRegistryMigrationDirs
+	originalReadDir := migrateReadDir
 	defer func() {
 		migrateRegistryMigrationDirs = originalRegistryMigrationDirs
+		migrateReadDir = originalReadDir
 	}()
 
 	root := t.TempDir()
@@ -80,10 +82,16 @@ func TestResolveMigrationDirsUsesCompileTimeRegistry(t *testing.T) {
 			t.Fatalf("mkdir %s: %v", dir, err)
 		}
 	}
+	for _, dir := range []string{coreDir, pluginDir} {
+		if err := os.WriteFile(filepath.Join(dir, "atlas.sum"), []byte(filepath.Base(dir)), 0o600); err != nil {
+			t.Fatalf("write atlas.sum in %s: %v", dir, err)
+		}
+	}
 
 	migrateRegistryMigrationDirs = func() ([]string, error) {
 		return []string{defaultMigrationDir, "plugins/user/migrations"}, nil
 	}
+	migrateReadDir = os.ReadDir
 
 	resolved, err := resolveMigrationDirs(root, defaultMigrationDir)
 	if err != nil {
@@ -91,6 +99,64 @@ func TestResolveMigrationDirsUsesCompileTimeRegistry(t *testing.T) {
 	}
 
 	expected := []string{coreDir, pluginDir}
+	if !reflect.DeepEqual(resolved, expected) {
+		t.Fatalf("expected %v, got %v", expected, resolved)
+	}
+}
+
+// TestResolveMigrationDirsSkipsRegistryDirsWithoutAtlasState 验证默认迁移目录会跳过
+// 尚未形成 Atlas 状态的插件自有目录，避免空目录参与默认 apply 链路。
+func TestResolveMigrationDirsSkipsRegistryDirsWithoutAtlasState(t *testing.T) {
+	originalRegistryMigrationDirs := migrateRegistryMigrationDirs
+	originalReadDir := migrateReadDir
+	defer func() {
+		migrateRegistryMigrationDirs = originalRegistryMigrationDirs
+		migrateReadDir = originalReadDir
+	}()
+
+	root := t.TempDir()
+	coreDir := filepath.Join(root, "server", defaultMigrationDir)
+	pluginDir := filepath.Join(root, "server", "plugins", "user", "migrations")
+	for _, dir := range []string{coreDir, pluginDir} {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
+			t.Fatalf("mkdir %s: %v", dir, err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(coreDir, "atlas.sum"), []byte("core"), 0o600); err != nil {
+		t.Fatalf("write atlas.sum: %v", err)
+	}
+
+	migrateRegistryMigrationDirs = func() ([]string, error) {
+		return []string{defaultMigrationDir, "plugins/user/migrations"}, nil
+	}
+	migrateReadDir = os.ReadDir
+
+	resolved, err := resolveMigrationDirs(root, defaultMigrationDir)
+	if err != nil {
+		t.Fatalf("resolve migration dirs: %v", err)
+	}
+
+	expected := []string{coreDir}
+	if !reflect.DeepEqual(resolved, expected) {
+		t.Fatalf("expected %v, got %v", expected, resolved)
+	}
+}
+
+// TestResolveMigrationDirsKeepsExplicitDirWithoutAtlasState 验证显式传入的迁移目录
+// 仍按用户要求参与执行，而不是被默认链路的 Atlas 状态过滤逻辑跳过。
+func TestResolveMigrationDirsKeepsExplicitDirWithoutAtlasState(t *testing.T) {
+	root := t.TempDir()
+	pluginDir := filepath.Join(root, "server", "plugins", "user", "migrations")
+	if err := os.MkdirAll(pluginDir, 0o750); err != nil {
+		t.Fatalf("mkdir %s: %v", pluginDir, err)
+	}
+
+	resolved, err := resolveMigrationDirs(root, "plugins/user/migrations")
+	if err != nil {
+		t.Fatalf("resolve migration dirs: %v", err)
+	}
+
+	expected := []string{pluginDir}
 	if !reflect.DeepEqual(resolved, expected) {
 		t.Fatalf("expected %v, got %v", expected, resolved)
 	}
@@ -129,18 +195,23 @@ func TestRunMigrateUpFallsBackToBackgroundContext(t *testing.T) {
 	originalCommandContext := migrateCommandContext
 	originalStdin := migrateStdin
 	originalRegistryMigrationDirs := migrateRegistryMigrationDirs
+	originalReadDir := migrateReadDir
 	defer func() {
 		migrateGetwd = originalGetwd
 		migrateLookPath = originalLookPath
 		migrateCommandContext = originalCommandContext
 		migrateStdin = originalStdin
 		migrateRegistryMigrationDirs = originalRegistryMigrationDirs
+		migrateReadDir = originalReadDir
 	}()
 
 	root := t.TempDir()
 	migrationDir := filepath.Join(root, "server", defaultMigrationDir)
 	if err := os.MkdirAll(migrationDir, 0o750); err != nil {
 		t.Fatalf("mkdir migration dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(migrationDir, "atlas.sum"), []byte("core"), 0o600); err != nil {
+		t.Fatalf("write atlas.sum: %v", err)
 	}
 
 	t.Setenv("GRAFT_DATABASE_URL", "postgres://user:pass@localhost:5432/graft?sslmode=disable")
@@ -156,6 +227,7 @@ func TestRunMigrateUpFallsBackToBackgroundContext(t *testing.T) {
 	migrateRegistryMigrationDirs = func() ([]string, error) {
 		return []string{defaultMigrationDir}, nil
 	}
+	migrateReadDir = os.ReadDir
 
 	capturedCtx := context.Context(nil)
 	migrateCommandContext = func(ctx context.Context, _ string, _ ...string) *exec.Cmd {
@@ -185,12 +257,14 @@ func TestRunMigrateUpAppliesRegistryDirsSequentially(t *testing.T) {
 	originalCommandContext := migrateCommandContext
 	originalStdin := migrateStdin
 	originalRegistryMigrationDirs := migrateRegistryMigrationDirs
+	originalReadDir := migrateReadDir
 	defer func() {
 		migrateGetwd = originalGetwd
 		migrateLookPath = originalLookPath
 		migrateCommandContext = originalCommandContext
 		migrateStdin = originalStdin
 		migrateRegistryMigrationDirs = originalRegistryMigrationDirs
+		migrateReadDir = originalReadDir
 	}()
 
 	root := t.TempDir()
@@ -199,6 +273,11 @@ func TestRunMigrateUpAppliesRegistryDirsSequentially(t *testing.T) {
 	for _, dir := range []string{coreDir, pluginDir} {
 		if err := os.MkdirAll(dir, 0o750); err != nil {
 			t.Fatalf("mkdir %s: %v", dir, err)
+		}
+	}
+	for _, dir := range []string{coreDir, pluginDir} {
+		if err := os.WriteFile(filepath.Join(dir, "atlas.sum"), []byte(filepath.Base(dir)), 0o600); err != nil {
+			t.Fatalf("write atlas.sum in %s: %v", dir, err)
 		}
 	}
 
@@ -215,6 +294,7 @@ func TestRunMigrateUpAppliesRegistryDirsSequentially(t *testing.T) {
 	migrateRegistryMigrationDirs = func() ([]string, error) {
 		return []string{defaultMigrationDir, "plugins/user/migrations"}, nil
 	}
+	migrateReadDir = os.ReadDir
 
 	var gotDirs []string
 	migrateCommandContext = func(_ context.Context, _ string, _ ...string) *exec.Cmd {
