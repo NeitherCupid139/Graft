@@ -20,11 +20,11 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 
+	"graft/server/internal/config"
+	"graft/server/internal/container"
 	authcontract "graft/server/internal/contract/auth"
 	errorcodecontract "graft/server/internal/contract/errorcode"
 	httpheadercontract "graft/server/internal/contract/httpheader"
-	"graft/server/internal/config"
-	"graft/server/internal/container"
 	messagecontract "graft/server/internal/contract/message"
 	"graft/server/internal/cronx"
 	"graft/server/internal/httpx"
@@ -1010,7 +1010,7 @@ func newDefaultAdminBootAuthRepository(t *testing.T, ensuredDefaultAdmin *bool) 
 	}
 }
 
-func newDefaultAdminBootPluginContext(authRepo store.AuthRepository) *plugin.Context {
+func newDefaultAdminBootPluginContext(authRepo store.AuthRepository, rbacRepo store.RBACRepository) *plugin.Context {
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
 
@@ -1028,7 +1028,7 @@ func newDefaultAdminBootPluginContext(authRepo store.AuthRepository) *plugin.Con
 		I18n:               i18n.New(config.I18nConfig{DefaultLocale: "zh-CN", FallbackLocale: "zh-CN", SupportedLocales: []string{"zh-CN", "en-US"}}),
 		Router:             engine.Group(testAPIBasePath),
 		Services:           container.New(),
-		Stores:             pluginTestStoreFactory{auth: authRepo, users: pluginTestUserRepository{}, permissions: map[uint64][]store.Permission{}},
+		Stores:             pluginTestStoreFactory{auth: authRepo, rbac: rbacRepo, users: pluginTestUserRepository{}, permissions: map[uint64][]store.Permission{}},
 		MenuRegistry:       menu.NewRegistry(),
 		PermissionRegistry: permission.NewRegistry(),
 		CronRegistry:       cronx.NewRegistry(),
@@ -1331,7 +1331,7 @@ func TestBootEnsuresDefaultAdmin(t *testing.T) {
 	authRepo := newDefaultAdminBootAuthRepository(t, &ensuredDefaultAdmin)
 	rbacRepo := newDefaultAdminBootRBACRepository(t, &assignedRole)
 
-	ctx := newDefaultAdminBootPluginContext(authRepo)
+	ctx := newDefaultAdminBootPluginContext(authRepo, rbacRepo)
 
 	pluginInstance := NewPlugin()
 	if err := pluginInstance.Register(ctx); err != nil {
@@ -1344,12 +1344,6 @@ func TestBootEnsuresDefaultAdmin(t *testing.T) {
 		t.Fatalf("register rbac plugin: %v", err)
 	}
 
-	ctx.Stores = pluginTestStoreFactory{
-		auth:        authRepo,
-		rbac:        rbacRepo,
-		users:       pluginTestUserRepository{},
-		permissions: map[uint64][]store.Permission{},
-	}
 	if err := pluginInstance.Boot(ctx); err != nil {
 		t.Fatalf("boot plugin: %v", err)
 	}
@@ -1380,20 +1374,13 @@ func TestBootMarksExistingDefaultAdminForPasswordChange(t *testing.T) {
 	var assignedRole bool
 	rbacRepo := newDefaultAdminBootRBACRepository(t, &assignedRole)
 
-	ctx := newDefaultAdminBootPluginContext(authRepo)
+	ctx := newDefaultAdminBootPluginContext(authRepo, rbacRepo)
 	pluginInstance := NewPlugin()
 	if err := pluginInstance.Register(ctx); err != nil {
 		t.Fatalf("register plugin: %v", err)
 	}
 	if err := rbac.NewPlugin().Register(ctx); err != nil {
 		t.Fatalf("register rbac plugin: %v", err)
-	}
-
-	ctx.Stores = pluginTestStoreFactory{
-		auth:        authRepo,
-		rbac:        rbacRepo,
-		users:       pluginTestUserRepository{},
-		permissions: map[uint64][]store.Permission{},
 	}
 	if err := pluginInstance.Boot(ctx); err != nil {
 		t.Fatalf("boot plugin: %v", err)
@@ -1413,7 +1400,7 @@ func TestBootMarksExistingDefaultAdminForPasswordChange(t *testing.T) {
 // TestBootFailsWithoutSharedRouteAuthorizer 验证 Boot 会在共享 Authorizer 未注册时
 // fail closed，而不是继续让用户路由带着未绑定的授权器启动。
 func TestBootFailsWithoutSharedRouteAuthorizer(t *testing.T) {
-	ctx := newDefaultAdminBootPluginContext(&pluginTestAuthRepository{})
+	ctx := newDefaultAdminBootPluginContext(&pluginTestAuthRepository{}, pluginTestRBACRepository{})
 	pluginInstance := NewPlugin()
 	if err := pluginInstance.Register(ctx); err != nil {
 		t.Fatalf("register plugin: %v", err)

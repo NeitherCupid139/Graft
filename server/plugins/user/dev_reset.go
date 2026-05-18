@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"graft/server/internal/pluginapi"
 	"graft/server/internal/store"
 )
 
@@ -32,15 +33,15 @@ func ResetDefaultAdminForDevelopment(
 		passwords: newPasswordHasher(),
 	}
 
-	return service.resetDefaultAdminForDevelopment(ctx, rbacRepo)
+	return service.resetDefaultAdminForDevelopment(ctx, repositoryBackedRBACBootstrapService{rbac: rbacRepo})
 }
 
-func (s authService) resetDefaultAdminForDevelopment(ctx context.Context, rbac store.RBACRepository) error {
+func (s authService) resetDefaultAdminForDevelopment(ctx context.Context, rbac pluginapi.RBACBootstrapService) error {
 	if s.auth == nil {
 		return fmt.Errorf("auth repository is unavailable")
 	}
 	if rbac == nil {
-		return fmt.Errorf("rbac repository is unavailable")
+		return fmt.Errorf("rbac bootstrap service is unavailable")
 	}
 
 	hash, err := s.passwords.Hash(defaultAdminPassword)
@@ -75,7 +76,7 @@ func (s authService) resetDefaultAdminForDevelopment(ctx context.Context, rbac s
 		return fmt.Errorf("revoke default admin refresh sessions: %w", err)
 	}
 
-	if err := ensureDefaultAdminAccess(ctx, rbac, credential.UserID, userPermissionItems("user")); err != nil {
+	if err := rbac.EnsureDefaultAdminAccess(ctx, credential.UserID, permissionSeedsFromItems(userPermissionItems("user"))); err != nil {
 		return fmt.Errorf("ensure default admin access: %w", err)
 	}
 

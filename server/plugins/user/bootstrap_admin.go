@@ -8,23 +8,28 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"graft/server/internal/permission"
+	"graft/server/internal/pluginapi"
 	"graft/server/internal/store"
 )
 
 // ensureDefaultAdmin 幂等确保默认管理员存在且具备当前 MVP 所需的最小后台可见性。
-func (s authService) ensureDefaultAdmin(ctx context.Context, rbac store.RBACRepository, permissions []permission.Item) error {
+func (s authService) ensureDefaultAdmin(
+	ctx context.Context,
+	rbac pluginapi.RBACBootstrapService,
+	permissions []permission.Item,
+) error {
 	if s.auth == nil {
 		return fmt.Errorf("auth repository is unavailable")
 	}
 	if rbac == nil {
-		return fmt.Errorf("rbac repository is unavailable")
+		return fmt.Errorf("rbac bootstrap service is unavailable")
 	}
 
 	credential, err := s.ensureAdminCredential(ctx)
 	if err != nil {
 		return err
 	}
-	return ensureDefaultAdminAccess(ctx, rbac, credential.UserID, permissions)
+	return rbac.EnsureDefaultAdminAccess(ctx, credential.UserID, permissionSeedsFromItems(permissions))
 }
 
 func (s authService) ensureAdminCredential(ctx context.Context) (store.UserCredential, error) {
@@ -150,3 +155,45 @@ func stringPtrOrNil(value string) *string {
 	result := value
 	return &result
 }
+
+func permissionSeedsFromItems(items []permission.Item) []pluginapi.PermissionSeed {
+	seeds := make([]pluginapi.PermissionSeed, 0, len(items))
+	for _, item := range items {
+		seeds = append(seeds, pluginapi.PermissionSeed{
+			Code:        item.Code,
+			Display:     item.Name,
+			Description: item.Description,
+			Category:    item.Category,
+		})
+	}
+
+	return seeds
+}
+
+type repositoryBackedRBACBootstrapService struct {
+	rbac store.RBACRepository
+}
+
+func (s repositoryBackedRBACBootstrapService) EnsureDefaultAdminAccess(
+	ctx context.Context,
+	userID uint64,
+	permissions []pluginapi.PermissionSeed,
+) error {
+	if s.rbac == nil {
+		return errors.New("rbac repository is unavailable")
+	}
+
+	items := make([]permission.Item, 0, len(permissions))
+	for _, permissionSeed := range permissions {
+		items = append(items, permission.Item{
+			Code:        permissionSeed.Code,
+			Name:        permissionSeed.Display,
+			Description: permissionSeed.Description,
+			Category:    permissionSeed.Category,
+		})
+	}
+
+	return ensureDefaultAdminAccess(ctx, s.rbac, userID, items)
+}
+
+var _ pluginapi.RBACBootstrapService = repositoryBackedRBACBootstrapService{}

@@ -22,6 +22,7 @@ import (
 type Plugin struct {
 	defaultAdminAuth *authService
 	routeAuthorizer  *deferredAuthorizer
+	bootstrapAccess  *deferredRBACAccessService
 }
 
 type userListResponse struct {
@@ -123,11 +124,24 @@ func (p *Plugin) Boot(ctx *plugin.Context) error {
 	if err := p.bindRouteAuthorizer(ctx); err != nil {
 		return err
 	}
+	if err := p.bindBootstrapAccess(ctx); err != nil {
+		return err
+	}
 	if p.defaultAdminAuth == nil {
 		return errors.New("default admin bootstrap service is unavailable")
 	}
 
-	if err := p.defaultAdminAuth.ensureDefaultAdmin(ctx.LifecycleContext, ctx.Stores.RBAC(), ctx.PermissionRegistry.Items()); err != nil {
+	resolved, err := ctx.Services.Resolve((*pluginapi.RBACBootstrapService)(nil))
+	if err != nil {
+		return fmt.Errorf("resolve rbac bootstrap service: %w", err)
+	}
+
+	rbacBootstrap, ok := resolved.(pluginapi.RBACBootstrapService)
+	if !ok {
+		return fmt.Errorf("resolve rbac bootstrap service: unexpected type %T", resolved)
+	}
+
+	if err := p.defaultAdminAuth.ensureDefaultAdmin(ctx.LifecycleContext, rbacBootstrap, ctx.PermissionRegistry.Items()); err != nil {
 		return err
 	}
 
@@ -146,14 +160,9 @@ func (p *Plugin) bindRouteAuthorizer(ctx *plugin.Context) error {
 		return errors.New("route authorizer is unavailable")
 	}
 
-	resolved, err := ctx.Services.Resolve((*pluginapi.Authorizer)(nil))
+	authorizer, err := resolveService[pluginapi.Authorizer](ctx, (*pluginapi.Authorizer)(nil), "route authorizer")
 	if err != nil {
-		return fmt.Errorf("resolve route authorizer: %w", err)
-	}
-
-	authorizer, ok := resolved.(pluginapi.Authorizer)
-	if !ok {
-		return fmt.Errorf("resolve route authorizer: unexpected type %T", resolved)
+		return err
 	}
 
 	if err := p.routeAuthorizer.SetTarget(authorizer); err != nil {
@@ -161,6 +170,39 @@ func (p *Plugin) bindRouteAuthorizer(ctx *plugin.Context) error {
 	}
 
 	return nil
+}
+
+func (p *Plugin) bindBootstrapAccess(ctx *plugin.Context) error {
+	if p.bootstrapAccess == nil {
+		return errors.New("bootstrap access service is unavailable")
+	}
+
+	accessService, err := resolveService[pluginapi.RBACAccessService](ctx, (*pluginapi.RBACAccessService)(nil), "rbac access service")
+	if err != nil {
+		return err
+	}
+
+	if err := p.bootstrapAccess.SetTarget(accessService); err != nil {
+		return fmt.Errorf("bind bootstrap access service: %w", err)
+	}
+
+	return nil
+}
+
+func resolveService[T any](ctx *plugin.Context, key any, label string) (T, error) {
+	var zero T
+
+	resolved, err := ctx.Services.Resolve(key)
+	if err != nil {
+		return zero, fmt.Errorf("resolve %s: %w", label, err)
+	}
+
+	service, ok := resolved.(T)
+	if !ok {
+		return zero, fmt.Errorf("resolve %s: unexpected type %T", label, resolved)
+	}
+
+	return service, nil
 }
 
 // userService 把用户插件内部仓储读取收敛为跨插件稳定用户摘要服务。

@@ -85,7 +85,8 @@ func (p *Plugin) registerServices(ctx *plugin.Context) (registeredServices, erro
 	if err != nil {
 		return registeredServices{}, err
 	}
-	bootstrapSvc := newBootstrapReader(ctx.Config.I18n, ctx.I18n, ctx.MenuRegistry, ctx.Stores.Auth(), ctx.Stores.RBAC())
+	p.bootstrapAccess = newDeferredRBACAccessService()
+	bootstrapSvc := newBootstrapReader(ctx.Config.I18n, ctx.I18n, ctx.MenuRegistry, ctx.Stores.Auth(), p.bootstrapAccess)
 	p.defaultAdminAuth = authSvc
 
 	if err := ctx.Services.RegisterSingleton((*pluginapi.AuthService)(nil), func(_ container.Resolver) (any, error) {
@@ -182,6 +183,53 @@ func newRouteGuards(localizer *i18n.Service, authSvc *authService, authorizer pl
 }
 
 var _ pluginapi.Authorizer = (*deferredAuthorizer)(nil)
+
+type deferredRBACAccessService struct {
+	mu     sync.RWMutex
+	target pluginapi.RBACAccessService
+}
+
+func newDeferredRBACAccessService() *deferredRBACAccessService {
+	return &deferredRBACAccessService{}
+}
+
+func (s *deferredRBACAccessService) SetTarget(target pluginapi.RBACAccessService) error {
+	if target == nil {
+		return errors.New("rbac access service is required")
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.target = target
+	return nil
+}
+
+func (s *deferredRBACAccessService) ListRoleNamesByUserID(ctx context.Context, userID uint64) ([]string, error) {
+	s.mu.RLock()
+	target := s.target
+	s.mu.RUnlock()
+
+	if target == nil {
+		return nil, errors.New("rbac access service is unavailable")
+	}
+
+	return target.ListRoleNamesByUserID(ctx, userID)
+}
+
+func (s *deferredRBACAccessService) ListPermissionCodesByUserID(ctx context.Context, userID uint64) ([]string, error) {
+	s.mu.RLock()
+	target := s.target
+	s.mu.RUnlock()
+
+	if target == nil {
+		return nil, errors.New("rbac access service is unavailable")
+	}
+
+	return target.ListPermissionCodesByUserID(ctx, userID)
+}
+
+var _ pluginapi.RBACAccessService = (*deferredRBACAccessService)(nil)
 
 func newRequiredPasswordChangeGuard(localizer *i18n.Service, authSvc *authService) gin.HandlerFunc {
 	return func(ginCtx *gin.Context) {

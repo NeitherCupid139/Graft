@@ -94,6 +94,15 @@
   - `core-owned`: runtime/infrastructure packages only
   - `internal/store/**` and `internal/ent/**` are no longer valid steady-state landing zones for new business logic
     once the corresponding plugin-owned boundary exists
+- The current `2026-05-18` Phase 2a service-decoupling slice has now landed on the same branch:
+  - `server/internal/pluginapi/rbac.go` defines stable `PermissionSeed`, `RBACAccessService`, and
+    `RBACBootstrapService`
+  - `server/plugins/rbac/**` now registers RBAC access/bootstrap capabilities and no longer reads user existence
+    through `ctx.Stores.Users()`
+  - `server/plugins/user/**` now consumes deferred RBAC capabilities for bootstrap reads and default-admin bootstrapping
+    instead of direct runtime `RBACRepository` calls
+  - the remaining backend merge hotspots are therefore narrowed further to shared contracts plus still-centralized
+    `internal/store/**`, `internal/ent/**`, and migration ownership
 
 ## Shared Hotspots
 
@@ -195,6 +204,9 @@
   - `migrate` consumes registry-derived default migration directories instead of a hard-coded single core path
   - `server/internal/pluginregistry/generated.go` is now the only centralized plugin wiring hotspot
   - each current plugin exports its own `NewDescriptor()` shim under `server/plugins/<name>/descriptor.go`
+- The current `server` Phase 2a service-decoupling slice revalidated the landed implementation with:
+  - `cd server && go test ./plugins/rbac ./plugins/user ./internal/cli`
+  - `cd server && env GOCACHE=/tmp/go-build go run ./cmd/graft validate backend`
 
 ## Immediate Next Step
 
@@ -225,7 +237,9 @@
 - Continue backend work from the landed Phase 1 baseline instead of reopening hand-written wiring:
   - preserve `plugin.Descriptor` / `plugin.Builder` as the only new plugin onboarding seam
   - keep `generated.go` as the sole centralized plugin-list artifact
-  - start Phase 2 only after the next slice chooses one plugin-owned store/capability migration boundary
+  - continue Phase 2 from the landed service-capability seam instead of reintroducing direct user/rbac repository
+    coupling
+  - choose the next plugin-owned migration boundary: `user` private store or `rbac` private store
 
 ## Server Owned Scope Freeze
 

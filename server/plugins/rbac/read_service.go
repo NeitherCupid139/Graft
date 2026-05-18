@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sort"
 
+	"graft/server/internal/pluginapi"
 	"graft/server/internal/store"
 )
 
@@ -16,7 +17,7 @@ type readManagementService interface {
 }
 
 type managementReader struct {
-	users store.UserRepository
+	users pluginapi.UserService
 	rbac  store.RBACRepository
 }
 
@@ -46,13 +47,13 @@ func (r managementReader) ListRolePermissionBindings(ctx context.Context, roleID
 
 func (r managementReader) ListRoleIDsByUserID(ctx context.Context, userID uint64) ([]uint64, error) {
 	if r.users == nil {
-		return nil, errors.New("user repository is unavailable")
+		return nil, errors.New("user service is unavailable")
 	}
 	if r.rbac == nil {
 		return nil, errors.New("rbac repository is unavailable")
 	}
 
-	if _, err := r.users.GetByID(ctx, userID); err != nil {
+	if _, err := r.users.GetUserByID(ctx, userID); err != nil {
 		return nil, err
 	}
 

@@ -67,6 +67,23 @@ func (r testUserRepository) List(_ context.Context) ([]store.User, error) {
 	return items, nil
 }
 
+type testUserService struct {
+	users map[uint64]store.User
+}
+
+func (s testUserService) GetUserByID(_ context.Context, id uint64) (pluginapi.UserSummary, error) {
+	user, ok := s.users[id]
+	if !ok {
+		return pluginapi.UserSummary{}, store.ErrUserNotFound
+	}
+
+	return pluginapi.UserSummary{
+		ID:       user.ID,
+		Username: user.Username,
+		Display:  user.Display,
+	}, nil
+}
+
 func (r testRBACRepository) EnsureRole(_ context.Context, _ store.EnsureRoleInput) (store.Role, error) {
 	return store.Role{}, nil
 }
@@ -218,12 +235,12 @@ func newPluginTestContext(t *testing.T, repo store.RBACRepository) (*plugin.Cont
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
 	ctx := &plugin.Context{
-		LifecycleContext:   context.Background(),
-		Logger:             zap.NewNop(),
-		Config:             &config.Config{},
-		I18n:               i18n.New(config.I18nConfig{DefaultLocale: "zh-CN", FallbackLocale: "zh-CN", SupportedLocales: []string{"zh-CN", "en-US"}}),
-		Router:             engine.Group("/api"),
-		Services:           container.New(),
+		LifecycleContext: context.Background(),
+		Logger:           zap.NewNop(),
+		Config:           &config.Config{},
+		I18n:             i18n.New(config.I18nConfig{DefaultLocale: "zh-CN", FallbackLocale: "zh-CN", SupportedLocales: []string{"zh-CN", "en-US"}}),
+		Router:           engine.Group("/api"),
+		Services:         container.New(),
 		Stores: pluginTestStoreFactory{
 			users: testUserRepository{
 				users: map[uint64]store.User{
@@ -244,6 +261,16 @@ func newPluginTestContext(t *testing.T, repo store.RBACRepository) (*plugin.Cont
 		}, nil
 	}); err != nil {
 		t.Fatalf("register auth service: %v", err)
+	}
+	if err := ctx.Services.RegisterSingleton((*pluginapi.UserService)(nil), func(container.Resolver) (any, error) {
+		return testUserService{
+			users: map[uint64]store.User{
+				7: {ID: 7, Username: "alice", Display: "Alice"},
+				8: {ID: 8, Username: "bob", Display: "Bob"},
+			},
+		}, nil
+	}); err != nil {
+		t.Fatalf("register user service: %v", err)
 	}
 
 	if err := NewPlugin().Register(ctx); err != nil {

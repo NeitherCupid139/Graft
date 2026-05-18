@@ -52,8 +52,29 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 	registerRBACPermissions(ctx.PermissionRegistry, p.Name())
 	registerRBACMenu(ctx.MenuRegistry, p.Name())
 	repository := ctx.Stores.RBAC()
+	if err := ctx.Services.RegisterSingleton((*pluginapi.RBACAccessService)(nil), func(_ container.Resolver) (any, error) {
+		return accessService{rbac: repository}, nil
+	}); err != nil {
+		return err
+	}
+	if err := ctx.Services.RegisterSingleton((*pluginapi.RBACBootstrapService)(nil), func(_ container.Resolver) (any, error) {
+		return bootstrapService{rbac: repository}, nil
+	}); err != nil {
+		return err
+	}
+
+	resolvedUserService, err := ctx.Services.Resolve((*pluginapi.UserService)(nil))
+	if err != nil {
+		return fmt.Errorf("resolve user service: %w", err)
+	}
+
+	userService, ok := resolvedUserService.(pluginapi.UserService)
+	if !ok {
+		return fmt.Errorf("resolve user service: unexpected type %T", resolvedUserService)
+	}
+
 	readService := managementReader{
-		users: ctx.Stores.Users(),
+		users: userService,
 		rbac:  repository,
 	}
 	writeService := managementWriter{rbac: repository}

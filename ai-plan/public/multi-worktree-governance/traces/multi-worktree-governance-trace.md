@@ -220,3 +220,30 @@
 - Immediate next step after this slice:
   - preserve the new compile-time registry seam as the only central wiring path
   - choose one Phase 2 boundary for plugin-private store/capability migration instead of reopening core-owned wiring
+
+## 2026-05-18 server Phase 2a service-capability decoupling
+
+- Re-ran startup preflight on `refactor/server-module-boundaries`, recovered through the active
+  `multi-worktree-governance` parent topic, and executed the slice through `graft-multi-agent-task`.
+- Used a bounded multi-agent wave for the initial split, but kept acceptance and final implementation on the local
+  critical path after both worker slices stopped before landing code:
+  - one worker confirmed the `pluginapi + rbac` contract shape and hit only an `apply_patch` context mismatch
+  - one worker confirmed the `user` call sites and correctly reported that the shared `pluginapi` contracts had to
+    land before a user-only refactor could complete
+- Landed the decoupling locally with these boundary changes:
+  - added `server/internal/pluginapi/rbac.go` with stable `PermissionSeed`, `RBACAccessService`, and
+    `RBACBootstrapService`
+  - registered RBAC access/bootstrap services in `server/plugins/rbac/**`
+  - removed runtime `rbac -> ctx.Stores.Users()` coupling by switching read-management existence checks to
+    `pluginapi.UserService`
+  - removed runtime `user -> RBACRepository` coupling in boot/bootstrap paths by introducing deferred RBAC access
+    binding plus RBAC bootstrap capability consumption
+  - kept the dev-only `ResetDefaultAdminForDevelopment` CLI shape stable by adapting the repository input behind a
+    private compatibility adapter instead of broadening the core slice
+- Revalidated the slice with:
+  - `cd server && go test ./plugins/rbac ./plugins/user ./internal/cli`
+  - `cd server && env GOCACHE=/tmp/go-build go run ./cmd/graft validate backend`
+- Immediate next step after this slice:
+  - keep the new RBAC capability seam as the only allowed user/rbac cross-plugin path
+  - move the next Phase 2 slice to plugin-private `store/**` / `storeent/**` ownership instead of touching runtime
+    capability wiring again
