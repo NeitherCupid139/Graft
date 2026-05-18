@@ -9,7 +9,8 @@ import (
 
 	"graft/server/internal/permission"
 	"graft/server/internal/pluginapi"
-	"graft/server/internal/store"
+	internalstore "graft/server/internal/store"
+	userstore "graft/server/plugins/user/store"
 )
 
 // ensureDefaultAdmin 幂等确保默认管理员存在且具备当前 MVP 所需的最小后台可见性。
@@ -32,28 +33,28 @@ func (s authService) ensureDefaultAdmin(
 	return rbac.EnsureDefaultAdminAccess(ctx, credential.UserID, permissionSeedsFromItems(permissions))
 }
 
-func (s authService) ensureAdminCredential(ctx context.Context) (store.UserCredential, error) {
+func (s authService) ensureAdminCredential(ctx context.Context) (userstore.UserCredential, error) {
 	credential, err := s.auth.GetUserCredentialByUsername(ctx, defaultAdminUsername)
 	if err == nil {
 		return s.reconcileDefaultAdminCredential(ctx, credential)
 	}
-	if !errors.Is(err, store.ErrUserNotFound) {
-		return store.UserCredential{}, fmt.Errorf("get default admin credential: %w", err)
+	if !errors.Is(err, userstore.ErrUserNotFound) {
+		return userstore.UserCredential{}, fmt.Errorf("get default admin credential: %w", err)
 	}
 
 	hash, hashErr := s.passwords.Hash(defaultAdminPassword)
 	if hashErr != nil {
-		return store.UserCredential{}, fmt.Errorf("hash default admin password: %w", hashErr)
+		return userstore.UserCredential{}, fmt.Errorf("hash default admin password: %w", hashErr)
 	}
 
-	credential, err = s.auth.EnsureUserCredential(ctx, store.EnsureUserCredentialInput{
+	credential, err = s.auth.EnsureUserCredential(ctx, userstore.EnsureUserCredentialInput{
 		Username:           defaultAdminUsername,
 		Display:            defaultAdminDisplay,
 		PasswordHash:       hash,
 		MustChangePassword: true,
 	})
 	if err != nil {
-		return store.UserCredential{}, fmt.Errorf("ensure default admin credential: %w", err)
+		return userstore.UserCredential{}, fmt.Errorf("ensure default admin credential: %w", err)
 	}
 
 	return credential, nil
@@ -61,8 +62,8 @@ func (s authService) ensureAdminCredential(ctx context.Context) (store.UserCrede
 
 func (s authService) reconcileDefaultAdminCredential(
 	ctx context.Context,
-	credential store.UserCredential,
-) (store.UserCredential, error) {
+	credential userstore.UserCredential,
+) (userstore.UserCredential, error) {
 	if credential.MustChangePassword || credential.PasswordHash == nil || *credential.PasswordHash == "" {
 		return credential, nil
 	}
@@ -71,16 +72,16 @@ func (s authService) reconcileDefaultAdminCredential(
 		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
 			return credential, nil
 		}
-		return store.UserCredential{}, fmt.Errorf("compare default admin password hash: %w", err)
+		return userstore.UserCredential{}, fmt.Errorf("compare default admin password hash: %w", err)
 	}
 
-	if err := s.auth.SetPasswordHash(ctx, store.SetPasswordHashInput{
+	if err := s.auth.SetPasswordHash(ctx, userstore.SetPasswordHashInput{
 		UserID:             credential.UserID,
 		PasswordHash:       *credential.PasswordHash,
 		MustChangePassword: true,
 		ChangedAt:          credential.PasswordChangedAt,
 	}); err != nil {
-		return store.UserCredential{}, fmt.Errorf("mark default admin credential for password change: %w", err)
+		return userstore.UserCredential{}, fmt.Errorf("mark default admin credential for password change: %w", err)
 	}
 
 	credential.MustChangePassword = true
@@ -89,13 +90,13 @@ func (s authService) reconcileDefaultAdminCredential(
 
 func ensureRolePermissions(
 	ctx context.Context,
-	rbac store.RBACRepository,
+	rbac internalstore.RBACRepository,
 	roleID uint64,
 	permissions []permission.Item,
 ) error {
 	permissionIDs := make([]uint64, 0, len(permissions))
 	for _, item := range permissions {
-		record, err := rbac.EnsurePermission(ctx, store.EnsurePermissionInput{
+		record, err := rbac.EnsurePermission(ctx, internalstore.EnsurePermissionInput{
 			Code:        item.Code,
 			Display:     item.Name,
 			Description: stringPtrOrNil(item.Description),
@@ -110,7 +111,7 @@ func ensureRolePermissions(
 		return nil
 	}
 
-	if err := rbac.AssignPermissionsToRole(ctx, store.AssignPermissionsToRoleInput{
+	if err := rbac.AssignPermissionsToRole(ctx, internalstore.AssignPermissionsToRoleInput{
 		RoleID:        roleID,
 		PermissionIDs: permissionIDs,
 	}); err != nil {
@@ -122,11 +123,11 @@ func ensureRolePermissions(
 
 func ensureDefaultAdminAccess(
 	ctx context.Context,
-	rbac store.RBACRepository,
+	rbac internalstore.RBACRepository,
 	userID uint64,
 	permissions []permission.Item,
 ) error {
-	role, err := rbac.EnsureRole(ctx, store.EnsureRoleInput{
+	role, err := rbac.EnsureRole(ctx, internalstore.EnsureRoleInput{
 		Name:    defaultAdminRoleName,
 		Display: "管理员",
 		Builtin: true,
@@ -138,7 +139,7 @@ func ensureDefaultAdminAccess(
 	if err := ensureRolePermissions(ctx, rbac, role.ID, permissions); err != nil {
 		return err
 	}
-	if err := rbac.AssignRoleToUser(ctx, store.AssignRoleToUserInput{
+	if err := rbac.AssignRoleToUser(ctx, internalstore.AssignRoleToUserInput{
 		UserID: userID,
 		RoleID: role.ID,
 	}); err != nil {
@@ -171,7 +172,7 @@ func permissionSeedsFromItems(items []permission.Item) []pluginapi.PermissionSee
 }
 
 type repositoryBackedRBACBootstrapService struct {
-	rbac store.RBACRepository
+	rbac internalstore.RBACRepository
 }
 
 func (s repositoryBackedRBACBootstrapService) EnsureDefaultAdminAccess(

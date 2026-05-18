@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"graft/server/internal/store"
 	"graft/server/internal/store/entstore"
 	"graft/server/plugins/user"
+	"graft/server/plugins/user/storeadapter"
 )
 
 var (
@@ -21,7 +23,9 @@ var (
 	devResetNewFactory = func(resources *database.Resources) (store.Factory, error) {
 		return entstore.NewFactory(resources.Client)
 	}
-	devResetAdmin = user.ResetDefaultAdminForDevelopment
+	devResetAdmin = func(ctx context.Context, authRepo store.AuthRepository, rbacRepo store.RBACRepository) error {
+		return user.ResetDefaultAdminForDevelopment(ctx, storeadapter.NewAuthRepositoryAdapter(authRepo), rbacRepo)
+	}
 )
 
 func newDevResetAdminCommand() *cobra.Command {

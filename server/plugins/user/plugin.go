@@ -9,8 +9,8 @@ import (
 	"graft/server/internal/i18n"
 	"graft/server/internal/plugin"
 	"graft/server/internal/pluginapi"
-	"graft/server/internal/store"
 	usercontract "graft/server/plugins/user/contract"
+	userstore "graft/server/plugins/user/store"
 	"net/http"
 	"strconv"
 	"strings"
@@ -207,7 +207,7 @@ func resolveService[T any](ctx *plugin.Context, key any, label string) (T, error
 
 // userService 把用户插件内部仓储读取收敛为跨插件稳定用户摘要服务。
 type userService struct {
-	users store.UserRepository
+	users userstore.UserRepository
 }
 
 // authService 是 `pluginapi.AuthService` 在用户插件内的最小实现。
@@ -215,14 +215,14 @@ type userService struct {
 // 它把 access token 解析、refresh session 状态校验、当前用户读取和会话治理
 // 保持在同一插件边界内，避免把生命周期敏感的鉴权协作拆散到 core 或其他插件。
 type authService struct {
-	auth            store.AuthRepository           // auth 负责 refresh session 持久化与轮换状态读取。
-	passwordChanges store.PasswordChangeRepository // passwordChanges 负责原子改密与会话撤销写路径。
-	users           store.UserRepository           // users 提供当前主体与登录路径所需的稳定用户读取能力。
-	passwords       passwordHasher                 // passwords 统一封装口令散列与校验策略。
-	policy          passwordPolicy                 // policy 固定收敛当前 MVP 的默认管理员与改密规则。
-	tokens          *accessTokenManager            // tokens 负责 access token 的签发与解析。
-	refreshTokens   *refreshTokenManager           // refreshTokens 负责 refresh token 的签发与解析。
-	cookies         authCookieManager              // cookies 收敛 refresh cookie 的读写与清理约束。
+	auth            userstore.AuthRepository           // auth 负责 refresh session 持久化与轮换状态读取。
+	passwordChanges userstore.PasswordChangeRepository // passwordChanges 负责原子改密与会话撤销写路径。
+	users           userstore.UserRepository           // users 提供当前主体与登录路径所需的稳定用户读取能力。
+	passwords       passwordHasher                     // passwords 统一封装口令散列与校验策略。
+	policy          passwordPolicy                     // policy 固定收敛当前 MVP 的默认管理员与改密规则。
+	tokens          *accessTokenManager                // tokens 负责 access token 的签发与解析。
+	refreshTokens   *refreshTokenManager               // refreshTokens 负责 refresh token 的签发与解析。
+	cookies         authCookieManager                  // cookies 收敛 refresh cookie 的读写与清理约束。
 }
 
 const maxSessionListLimit = 100
@@ -231,7 +231,7 @@ const maxSessionListLimit = 100
 func (s userService) GetUserByID(ctx context.Context, id uint64) (pluginapi.UserSummary, error) {
 	record, err := s.users.GetByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, store.ErrUserNotFound) {
+		if errors.Is(err, userstore.ErrUserNotFound) {
 			return pluginapi.UserSummary{}, pluginapi.ErrUserNotFound
 		}
 		return pluginapi.UserSummary{}, err
@@ -245,7 +245,7 @@ func (s userService) GetUserByID(ctx context.Context, id uint64) (pluginapi.User
 }
 
 // ListUsers 读取用户列表，供当前插件路由在不暴露 store factory 的前提下复用。
-func (s userService) ListUsers(ctx context.Context) ([]store.User, error) {
+func (s userService) ListUsers(ctx context.Context) ([]userstore.User, error) {
 	if s.users == nil {
 		return nil, errors.New("user repository is unavailable")
 	}
@@ -269,7 +269,7 @@ func (s authService) CurrentUser(ctx context.Context) (*pluginapi.CurrentUser, e
 
 	record, err := s.users.GetByID(ctx, requestAuth.Claims.UserID)
 	if err != nil {
-		if errors.Is(err, store.ErrUserNotFound) {
+		if errors.Is(err, userstore.ErrUserNotFound) {
 			return nil, pluginapi.ErrUnauthenticated
 		}
 		return nil, err

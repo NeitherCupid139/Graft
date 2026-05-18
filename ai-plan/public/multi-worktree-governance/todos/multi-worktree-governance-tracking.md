@@ -116,6 +116,16 @@
   - the remaining backend hotspot for RBAC persistence is therefore narrowed to the temporary adapter plus the still
     centralized `internal/store/**` / `internal/store/entstore/**` implementation ownership that must be migrated in a
     later slice
+- The current `2026-05-18` Phase 2c user private-store contract slice has now landed on the same branch:
+  - `server/plugins/user/store/**` now owns the user plugin's private user/auth/session repository contract surface
+  - `server/plugins/user/storeadapter/internal_store.go` is the temporary compatibility seam that adapts
+    `ctx.Stores.Users()` and `ctx.Stores.Auth()` into that plugin-local contract without changing runtime behavior
+  - `server/plugins/user/**` runtime code now depends on the local user store contract instead of directly importing
+    `server/internal/store/{user,auth}.go`
+  - the remaining direct `internal/store` dependency inside `server/plugins/user/**` is now limited to the
+    dev-only RBAC bootstrap compatibility helper used by `ResetDefaultAdminForDevelopment`
+  - the remaining backend hotspots are therefore narrowed further to shared contracts plus still-centralized
+    `internal/store/**`, `internal/store/entstore/**`, `internal/ent/**`, and migration ownership
 
 ## Shared Hotspots
 
@@ -224,6 +234,10 @@
   - `cd server && go test ./plugins/rbac`
   - `cd server && go test ./plugins/rbac ./plugins/user ./internal/cli`
   - `cd server && env GOCACHE=/tmp/go-build go run ./cmd/graft validate backend`
+- The current `server` Phase 2c user private-store contract slice revalidated the landed implementation with:
+  - `cd server && go test ./plugins/user ./internal/cli`
+  - `cd server && go test ./plugins/rbac ./plugins/user ./internal/cli`
+  - `cd server && env GOCACHE=/tmp/go-build go run ./cmd/graft validate backend`
 
 ## Immediate Next Step
 
@@ -256,8 +270,9 @@
   - keep `generated.go` as the sole centralized plugin-list artifact
   - continue Phase 2 from the landed service-capability seam instead of reintroducing direct user/rbac repository
     coupling
-  - continue after the landed RBAC contract move by migrating the remaining RBAC persistence implementation ownership
-    out of `internal/store/**` / `internal/store/entstore/**`, or choose the separate `user` private-store slice
+  - continue after the landed RBAC and user contract moves by migrating the remaining persistence implementation
+    ownership out of `internal/store/**` / `internal/store/entstore/**`, starting with either `rbac/storeent/**` or
+    the matching `user/storeent/**` slice
 
 ## Server Owned Scope Freeze
 

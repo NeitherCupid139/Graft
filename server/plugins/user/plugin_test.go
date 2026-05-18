@@ -36,6 +36,8 @@ import (
 	"graft/server/internal/store"
 	"graft/server/plugins/rbac"
 	usercontract "graft/server/plugins/user/contract"
+	userstore "graft/server/plugins/user/store"
+	"graft/server/plugins/user/storeadapter"
 )
 
 type successEnvelope[T any] struct {
@@ -63,6 +65,20 @@ func decodeSuccessData[T any](t *testing.T, recorder *httptest.ResponseRecorder)
 	}
 
 	return payload.Data
+}
+
+func adaptTestAuthRepository(repo store.AuthRepository) userstoreAuthPair {
+	auth := storeadapter.NewAuthRepositoryAdapter(repo)
+	pair := userstoreAuthPair{auth: auth}
+	if passwordRepo, ok := repo.(store.PasswordChangeRepository); ok {
+		pair.passwordChanges = storeadapter.NewPasswordChangeRepositoryAdapter(passwordRepo)
+	}
+	return pair
+}
+
+type userstoreAuthPair struct {
+	auth            userstore.AuthRepository
+	passwordChanges userstore.PasswordChangeRepository
 }
 
 // pluginTestStoreFactory 为插件路由测试提供最小仓储装配。
@@ -1592,12 +1608,12 @@ func TestBootstrapLocaleSnapshotDeduplicatesFallbackLocales(t *testing.T) {
 // TestAuthServiceCurrentUserRequiresClaims 验证当前主体解析要求调用链先建立稳定 claims。
 func TestAuthServiceCurrentUserRequiresClaims(t *testing.T) {
 	service := authService{
-		users: pluginTestUserRepository{
+		users: storeadapter.NewUserRepositoryAdapter(pluginTestUserRepository{
 			getByID: func(context.Context, uint64) (store.User, error) {
 				t.Fatal("user repository should not be called when claims are missing")
 				return store.User{}, nil
 			},
-		},
+		}),
 	}
 
 	_, err := service.CurrentUser(context.Background())
@@ -1898,7 +1914,7 @@ func TestLoginDoesNotIssueOrphanedAccessToken(t *testing.T) {
 		RefreshCookieName:     "graft_refresh_token",
 		RefreshCookiePath:     "/",
 		RefreshCookieSameSite: "lax",
-	}, &pluginTestAuthRepository{
+	}, storeadapter.NewAuthRepositoryAdapter(&pluginTestAuthRepository{
 		getUserCredentialByUsername: func(_ context.Context, username string) (store.UserCredential, error) {
 			if username != "alice" {
 				return store.UserCredential{}, store.ErrUserNotFound
@@ -1909,7 +1925,7 @@ func TestLoginDoesNotIssueOrphanedAccessToken(t *testing.T) {
 				PasswordHash: &passwordHash,
 			}, nil
 		},
-	}, pluginTestUserRepository{
+	}), storeadapter.NewUserRepositoryAdapter(pluginTestUserRepository{
 		getByID: func(_ context.Context, id uint64) (store.User, error) {
 			if id != 7 {
 				return store.User{}, store.ErrUserNotFound
@@ -1920,7 +1936,7 @@ func TestLoginDoesNotIssueOrphanedAccessToken(t *testing.T) {
 				Display:  "Alice",
 			}, nil
 		},
-	})
+	}))
 	if err != nil {
 		t.Fatalf("new auth service: %v", err)
 	}

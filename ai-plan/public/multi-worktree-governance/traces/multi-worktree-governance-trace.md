@@ -277,3 +277,29 @@
   - migrate the remaining RBAC persistence implementation ownership out of `internal/store/**` and
     `internal/store/entstore/**` in a later slice, or start the separate `user` private-store migration without
     reopening direct repository coupling
+
+## 2026-05-18 server Phase 2c user private-store contract migration
+
+- Re-ran startup preflight on `refactor/server-module-boundaries`, recovered through the active
+  `multi-worktree-governance` parent topic, and executed the slice through `graft-multi-agent-task`.
+- Used a bounded multi-agent wave for two read-only explorer sidecars to confirm the narrowest compatibility seam, then
+  kept acceptance and final implementation on the local critical path.
+- Landed the migration with these boundary changes:
+  - added `server/plugins/user/store/**` as the user plugin-owned user/auth/session repository contract surface
+  - added `server/plugins/user/storeadapter/internal_store.go` as the temporary adapter from
+    `ctx.Stores.{Users,Auth}` into the plugin-local repository contract
+  - rewired `server/plugins/user/**` runtime code to consume the local contract instead of directly importing
+    `server/internal/store/{user,auth}.go`
+  - preserved the dev-only `graft dev reset-admin` command shape by adapting the shared auth repository input inside
+    `server/internal/cli/dev_reset.go`
+  - kept the remaining `internal/store` dependency inside `server/plugins/user/**` limited to the dev-only RBAC
+    bootstrap compatibility helper instead of reopening runtime `user -> rbac` repository coupling
+- Revalidated the slice with:
+  - `cd server && go test ./plugins/user ./internal/cli`
+  - `cd server && go test ./plugins/rbac ./plugins/user ./internal/cli`
+  - `cd server && env GOCACHE=/tmp/go-build go run ./cmd/graft validate backend`
+- Immediate next step after this slice:
+  - keep the new plugin-local user contract as the only allowed direct user/auth/session repository dependency inside
+    `server/plugins/user/**`
+  - move the next Phase 2/3 slice to plugin-owned persistence implementation ownership under `storeent/**`, `ent/**`,
+    and `migrations/**` instead of reopening direct shared-store imports

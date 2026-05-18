@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"graft/server/internal/store"
+	"graft/server/plugins/user/storeadapter"
 )
 
 // TestResetDefaultAdminForDevelopmentResetsCredentialAndRole 验证 dev-only 重置会把
@@ -21,7 +22,7 @@ func TestResetDefaultAdminForDevelopmentResetsCredentialAndRole(t *testing.T) {
 
 	state := newDevResetState(t, currentHash)
 
-	if err := ResetDefaultAdminForDevelopment(context.Background(), state.authRepo, state.rbacRepo); err != nil {
+	if err := ResetDefaultAdminForDevelopment(context.Background(), storeadapter.NewAuthRepositoryAdapter(state.authRepo), state.rbacRepo); err != nil {
 		t.Fatalf("reset default admin: %v", err)
 	}
 
@@ -32,7 +33,7 @@ func TestResetDefaultAdminForDevelopmentRejectsNonDevelopmentEnv(t *testing.T) {
 	t.Setenv("GRAFT_APP_ENV", "production")
 
 	state := newDevResetState(t, "unused")
-	err := ResetDefaultAdminForDevelopment(context.Background(), state.authRepo, state.rbacRepo)
+	err := ResetDefaultAdminForDevelopment(context.Background(), storeadapter.NewAuthRepositoryAdapter(state.authRepo), state.rbacRepo)
 	if err == nil {
 		t.Fatal("expected development env guard error")
 	}

@@ -7,7 +7,8 @@ import (
 	"strings"
 
 	"graft/server/internal/pluginapi"
-	"graft/server/internal/store"
+	internalstore "graft/server/internal/store"
+	userstore "graft/server/plugins/user/store"
 )
 
 // ResetDefaultAdminForDevelopment 在开发环境里把默认管理员重置回首次登录受限态。
@@ -21,8 +22,8 @@ import (
 // 这个入口只用于 CLI 的 dev-only 调试能力，不应被运行时业务链路或 HTTP 路由直接复用。
 func ResetDefaultAdminForDevelopment(
 	ctx context.Context,
-	authRepo store.AuthRepository,
-	rbacRepo store.RBACRepository,
+	authRepo userstore.AuthRepository,
+	rbacRepo internalstore.RBACRepository,
 ) error {
 	if !isDevelopmentResetEnv(os.Getenv("GRAFT_APP_ENV")) {
 		return fmt.Errorf("reset default admin is only available in local/test environments, got %q", strings.TrimSpace(os.Getenv("GRAFT_APP_ENV")))
@@ -49,7 +50,7 @@ func (s authService) resetDefaultAdminForDevelopment(ctx context.Context, rbac p
 		return fmt.Errorf("hash default admin password: %w", err)
 	}
 
-	credential, err := s.auth.EnsureUserCredential(ctx, store.EnsureUserCredentialInput{
+	credential, err := s.auth.EnsureUserCredential(ctx, userstore.EnsureUserCredentialInput{
 		Username:           defaultAdminUsername,
 		Display:            defaultAdminDisplay,
 		PasswordHash:       hash,
@@ -60,7 +61,7 @@ func (s authService) resetDefaultAdminForDevelopment(ctx context.Context, rbac p
 	}
 
 	changedAt := s.nowUTC()
-	if err := s.auth.SetPasswordHash(ctx, store.SetPasswordHashInput{
+	if err := s.auth.SetPasswordHash(ctx, userstore.SetPasswordHashInput{
 		UserID:             credential.UserID,
 		PasswordHash:       hash,
 		MustChangePassword: true,
@@ -69,7 +70,7 @@ func (s authService) resetDefaultAdminForDevelopment(ctx context.Context, rbac p
 		return fmt.Errorf("reset default admin password hash: %w", err)
 	}
 
-	if err := s.auth.RevokeRefreshSessionsByUserID(ctx, store.RevokeRefreshSessionsByUserIDInput{
+	if err := s.auth.RevokeRefreshSessionsByUserID(ctx, userstore.RevokeRefreshSessionsByUserIDInput{
 		UserID:    credential.UserID,
 		RevokedAt: changedAt,
 	}); err != nil {

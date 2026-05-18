@@ -19,8 +19,9 @@ import (
 	"graft/server/internal/permission"
 	"graft/server/internal/plugin"
 	"graft/server/internal/pluginapi"
-	"graft/server/internal/store"
 	usercontract "graft/server/plugins/user/contract"
+	userstore "graft/server/plugins/user/store"
+	"graft/server/plugins/user/storeadapter"
 )
 
 func registerUserPermissions(registry *permission.Registry, pluginName string) {
@@ -74,19 +75,21 @@ type registeredServices struct {
 }
 
 func (p *Plugin) registerServices(ctx *plugin.Context) (registeredServices, error) {
-	userSvc := userService{users: ctx.Stores.Users()}
+	userRepo := storeadapter.NewUserRepositoryAdapter(ctx.Stores.Users())
+	authRepo := storeadapter.NewAuthRepositoryAdapter(ctx.Stores.Auth())
+	userSvc := userService{users: userRepo}
 	if err := ctx.Services.RegisterSingleton((*pluginapi.UserService)(nil), func(_ container.Resolver) (any, error) {
 		return userSvc, nil
 	}); err != nil {
 		return registeredServices{}, err
 	}
 
-	authSvc, err := newAuthService(ctx.Config.Auth, ctx.Stores.Auth(), ctx.Stores.Users())
+	authSvc, err := newAuthService(ctx.Config.Auth, authRepo, userRepo)
 	if err != nil {
 		return registeredServices{}, err
 	}
 	p.bootstrapAccess = newDeferredRBACAccessService()
-	bootstrapSvc := newBootstrapReader(ctx.Config.I18n, ctx.I18n, ctx.MenuRegistry, ctx.Stores.Auth(), p.bootstrapAccess)
+	bootstrapSvc := newBootstrapReader(ctx.Config.I18n, ctx.I18n, ctx.MenuRegistry, authRepo, p.bootstrapAccess)
 	p.defaultAdminAuth = authSvc
 
 	if err := ctx.Services.RegisterSingleton((*pluginapi.AuthService)(nil), func(_ container.Resolver) (any, error) {
@@ -759,7 +762,7 @@ func (r routeRuntime) writeAuthRouteError(ginCtx *gin.Context, message string, e
 func (r routeRuntime) writeUserLookupError(ginCtx *gin.Context, userID uint64, message string, err error) {
 	status := http.StatusInternalServerError
 	messageKey := messagecontract.CommonInternalError
-	if errors.Is(err, store.ErrUserNotFound) || errors.Is(err, pluginapi.ErrUserNotFound) {
+	if errors.Is(err, userstore.ErrUserNotFound) || errors.Is(err, pluginapi.ErrUserNotFound) {
 		status = http.StatusNotFound
 		messageKey = messagecontract.UserNotFound
 	} else {

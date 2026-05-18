@@ -10,7 +10,7 @@ import (
 	"graft/server/internal/i18n"
 	"graft/server/internal/menu"
 	"graft/server/internal/pluginapi"
-	"graft/server/internal/store"
+	userstore "graft/server/plugins/user/store"
 )
 
 type bootstrapResponse struct {
@@ -43,7 +43,7 @@ type bootstrapLocaleSnapshot struct {
 // 该读模型继续停留在 user 插件边界内，避免为了一个受保护的 bootstrap
 // 契约，把菜单过滤、locale 快照或权限聚合拆散到 core 或新增共享抽象里。
 type bootstrapReader struct {
-	auth         store.AuthRepository
+	auth         userstore.AuthRepository
 	rbac         pluginapi.RBACAccessService
 	menuRegistry *menu.Registry
 	localizer    *i18n.Service
@@ -56,7 +56,7 @@ func newBootstrapReader(
 	localeConfig config.I18nConfig,
 	localizer *i18n.Service,
 	menuRegistry *menu.Registry,
-	auth store.AuthRepository,
+	auth userstore.AuthRepository,
 	rbac pluginapi.RBACAccessService,
 ) bootstrapReader {
 	return bootstrapReader{
@@ -89,7 +89,7 @@ func (r bootstrapReader) Read(ctx context.Context, request *http.Request) (boots
 	}
 	credential, err := r.auth.GetUserCredentialByUsername(ctx, requestAuth.User.Username)
 	if err != nil {
-		if errors.Is(err, store.ErrUserNotFound) {
+		if errors.Is(err, userstore.ErrUserNotFound) {
 			return bootstrapResponse{}, pluginapi.ErrUnauthenticated
 		}
 		return bootstrapResponse{}, err
