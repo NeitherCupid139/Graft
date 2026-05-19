@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"graft/server/internal/ent"
-	entuser "graft/server/internal/ent/user"
+	ent "graft/server/plugins/user/ent"
+	userent "graft/server/plugins/user/ent/user"
 	userstore "graft/server/plugins/user/store"
 )
 
@@ -15,6 +15,10 @@ type userRepository struct {
 
 // NewUserRepository builds the user plugin's Ent-backed user repository.
 func NewUserRepository(client *ent.Client) (userstore.UserRepository, error) {
+	return newUserRepository(client)
+}
+
+func newUserRepository(client *ent.Client) (*userRepository, error) {
 	if client == nil {
 		return nil, fmt.Errorf("user storeent requires a non-nil ent client")
 	}
@@ -32,7 +36,7 @@ func (r *userRepository) GetByID(ctx context.Context, id uint64) (userstore.User
 	}
 
 	record, err := r.client.User.Query().
-		Where(entuser.IDEQ(entID)).
+		Where(userent.IDEQ(entID)).
 		Only(ctx)
 	if err != nil {
 		if ent.IsNotFound(err) {
@@ -52,7 +56,7 @@ func (r *userRepository) GetByID(ctx context.Context, id uint64) (userstore.User
 
 func (r *userRepository) List(ctx context.Context) ([]userstore.User, error) {
 	records, err := r.client.User.Query().
-		Order(ent.Asc(entuser.FieldID)).
+		Order(ent.Asc(userent.FieldID)).
 		All(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list users: %w", err)

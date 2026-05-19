@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"graft/server/internal/pluginapi"
-	"graft/server/internal/store"
-	"graft/server/plugins/user/storeadapter"
+	rbacstore "graft/server/plugins/rbac/store"
+	userstore "graft/server/plugins/user/store"
 )
 
 // TestResetDefaultAdminForDevelopmentResetsCredentialAndRole 验证 dev-only 重置会把
@@ -25,7 +25,7 @@ func TestResetDefaultAdminForDevelopmentResetsCredentialAndRole(t *testing.T) {
 
 	if err := ResetDefaultAdminForDevelopment(
 		context.Background(),
-		storeadapter.NewAuthRepositoryAdapter(state.authRepo),
+		state.authRepo,
 		devResetRBACBootstrapStub{state: state},
 	); err != nil {
 		t.Fatalf("reset default admin: %v", err)
@@ -40,7 +40,7 @@ func TestResetDefaultAdminForDevelopmentRejectsNonDevelopmentEnv(t *testing.T) {
 	state := newDevResetState(t, "unused")
 	err := ResetDefaultAdminForDevelopment(
 		context.Background(),
-		storeadapter.NewAuthRepositoryAdapter(state.authRepo),
+		state.authRepo,
 		devResetRBACBootstrapStub{state: state},
 	)
 	if err == nil {
@@ -56,9 +56,9 @@ func TestResetDefaultAdminForDevelopmentRejectsNonDevelopmentEnv(t *testing.T) {
 
 type devResetState struct {
 	ensured                bool
-	setPasswordInput       store.SetPasswordHashInput
-	assignRoleInput        store.AssignRoleToUserInput
-	assignPermissionsInput store.AssignPermissionsToRoleInput
+	setPasswordInput       userstore.SetPasswordHashInput
+	assignRoleInput        rbacstore.AssignRoleToUserInput
+	assignPermissionsInput rbacstore.AssignPermissionsToRoleInput
 	authRepo               *pluginTestAuthRepository
 	rbacRepo               pluginTestRBACRepository
 }
@@ -68,7 +68,7 @@ type devResetRBACBootstrapStub struct {
 }
 
 func (s devResetRBACBootstrapStub) EnsureDefaultAdminAccess(ctx context.Context, userID uint64, permissions []pluginapi.PermissionSeed) error {
-	role, err := s.state.rbacRepo.EnsureRole(ctx, store.EnsureRoleInput{
+	role, err := s.state.rbacRepo.EnsureRole(ctx, rbacstore.EnsureRoleInput{
 		Name:    "admin",
 		Display: "管理员",
 		Builtin: true,
@@ -79,7 +79,7 @@ func (s devResetRBACBootstrapStub) EnsureDefaultAdminAccess(ctx context.Context,
 
 	permissionIDs := make([]uint64, 0, len(permissions))
 	for _, item := range permissions {
-		record, err := s.state.rbacRepo.EnsurePermission(ctx, store.EnsurePermissionInput{
+		record, err := s.state.rbacRepo.EnsurePermission(ctx, rbacstore.EnsurePermissionInput{
 			Code:        item.Code,
 			Display:     item.Display,
 			Description: devResetStringPtrOrNil(item.Description),
@@ -91,7 +91,7 @@ func (s devResetRBACBootstrapStub) EnsureDefaultAdminAccess(ctx context.Context,
 		permissionIDs = append(permissionIDs, record.ID)
 	}
 	if len(permissionIDs) > 0 {
-		if err := s.state.rbacRepo.AssignPermissionsToRole(ctx, store.AssignPermissionsToRoleInput{
+		if err := s.state.rbacRepo.AssignPermissionsToRole(ctx, rbacstore.AssignPermissionsToRoleInput{
 			RoleID:        role.ID,
 			PermissionIDs: permissionIDs,
 		}); err != nil {
@@ -99,7 +99,7 @@ func (s devResetRBACBootstrapStub) EnsureDefaultAdminAccess(ctx context.Context,
 		}
 	}
 
-	return s.state.rbacRepo.AssignRoleToUser(ctx, store.AssignRoleToUserInput{
+	return s.state.rbacRepo.AssignRoleToUser(ctx, rbacstore.AssignRoleToUserInput{
 		UserID: userID,
 		RoleID: role.ID,
 	})
@@ -118,21 +118,21 @@ func newDevResetState(t *testing.T, currentHash string) *devResetState {
 
 	state := &devResetState{}
 	state.authRepo = &pluginTestAuthRepository{
-		ensureUserCredential: func(_ context.Context, input store.EnsureUserCredentialInput) (store.UserCredential, error) {
+		ensureUserCredential: func(_ context.Context, input userstore.EnsureUserCredentialInput) (userstore.UserCredential, error) {
 			state.ensured = true
-			return store.UserCredential{
+			return userstore.UserCredential{
 				UserID:             9,
 				Username:           input.Username,
 				PasswordHash:       &currentHash,
 				MustChangePassword: false,
 			}, nil
 		},
-		setPasswordHash: func(_ context.Context, input store.SetPasswordHashInput) error {
+		setPasswordHash: func(_ context.Context, input userstore.SetPasswordHashInput) error {
 			state.setPasswordInput = input
 			return nil
 		},
 	}
-	state.authRepo.refreshSessions = map[string]store.RefreshSession{
+	state.authRepo.refreshSessions = map[string]userstore.RefreshSession{
 		"session-a": {
 			UserID:    9,
 			TokenID:   "session-a",
@@ -140,20 +140,20 @@ func newDevResetState(t *testing.T, currentHash string) *devResetState {
 		},
 	}
 	state.rbacRepo = pluginTestRBACRepository{
-		ensureRole: func(_ context.Context, input store.EnsureRoleInput) (store.Role, error) {
+		ensureRole: func(_ context.Context, input rbacstore.EnsureRoleInput) (rbacstore.Role, error) {
 			if !input.Builtin {
 				t.Fatal("expected development reset to keep the default admin role builtin")
 			}
-			return store.Role{ID: 3, Name: input.Name, Display: input.Display}, nil
+			return rbacstore.Role{ID: 3, Name: input.Name, Display: input.Display}, nil
 		},
-		ensurePermission: func(_ context.Context, input store.EnsurePermissionInput) (store.Permission, error) {
-			return store.Permission{ID: uint64(len(input.Code)), Code: input.Code, Display: input.Display}, nil
+		ensurePermission: func(_ context.Context, input rbacstore.EnsurePermissionInput) (rbacstore.Permission, error) {
+			return rbacstore.Permission{ID: uint64(len(input.Code)), Code: input.Code, Display: input.Display}, nil
 		},
-		assignPermissionsToRole: func(_ context.Context, input store.AssignPermissionsToRoleInput) error {
+		assignPermissionsToRole: func(_ context.Context, input rbacstore.AssignPermissionsToRoleInput) error {
 			state.assignPermissionsInput = input
 			return nil
 		},
-		assignRoleToUser: func(_ context.Context, input store.AssignRoleToUserInput) error {
+		assignRoleToUser: func(_ context.Context, input rbacstore.AssignRoleToUserInput) error {
 			state.assignRoleInput = input
 			return nil
 		},

@@ -33,12 +33,10 @@ import (
 	"graft/server/internal/permission"
 	"graft/server/internal/plugin"
 	"graft/server/internal/pluginapi"
-	"graft/server/internal/store"
 	"graft/server/plugins/rbac"
-	rbacstoreadapter "graft/server/plugins/rbac/storeadapter"
+	rbacstore "graft/server/plugins/rbac/store"
 	usercontract "graft/server/plugins/user/contract"
-	userstore "graft/server/plugins/user/store"
-	"graft/server/plugins/user/storeadapter"
+	store "graft/server/plugins/user/store"
 )
 
 type successEnvelope[T any] struct {
@@ -69,17 +67,16 @@ func decodeSuccessData[T any](t *testing.T, recorder *httptest.ResponseRecorder)
 }
 
 func adaptTestAuthRepository(repo store.AuthRepository) userstoreAuthPair {
-	auth := storeadapter.NewAuthRepositoryAdapter(repo)
-	pair := userstoreAuthPair{auth: auth}
+	pair := userstoreAuthPair{auth: repo}
 	if passwordRepo, ok := repo.(store.PasswordChangeRepository); ok {
-		pair.passwordChanges = storeadapter.NewPasswordChangeRepositoryAdapter(passwordRepo)
+		pair.passwordChanges = passwordRepo
 	}
 	return pair
 }
 
 type userstoreAuthPair struct {
-	auth            userstore.AuthRepository
-	passwordChanges userstore.PasswordChangeRepository
+	auth            store.AuthRepository
+	passwordChanges store.PasswordChangeRepository
 }
 
 // pluginTestAuthRepository 以内存状态模拟认证仓储的最小行为。
@@ -342,51 +339,51 @@ func (r pluginTestUserRepository) List(ctx context.Context) ([]store.User, error
 }
 
 type pluginTestRBACRepository struct {
-	permissions             map[uint64][]store.Permission
-	roles                   map[uint64][]store.Role
-	ensureRole              func(ctx context.Context, input store.EnsureRoleInput) (store.Role, error)
-	ensurePermission        func(ctx context.Context, input store.EnsurePermissionInput) (store.Permission, error)
-	createRole              func(ctx context.Context, input store.CreateRoleInput) (store.Role, error)
-	updateRole              func(ctx context.Context, input store.UpdateRoleInput) (store.Role, error)
-	assignPermissionsToRole func(ctx context.Context, input store.AssignPermissionsToRoleInput) error
-	replacePermissions      func(ctx context.Context, input store.ReplacePermissionsForRoleInput) error
-	assignRoleToUser        func(ctx context.Context, input store.AssignRoleToUserInput) error
-	replaceRolesForUser     func(ctx context.Context, input store.ReplaceRolesForUserInput) error
+	permissions             map[uint64][]rbacstore.Permission
+	roles                   map[uint64][]rbacstore.Role
+	ensureRole              func(ctx context.Context, input rbacstore.EnsureRoleInput) (rbacstore.Role, error)
+	ensurePermission        func(ctx context.Context, input rbacstore.EnsurePermissionInput) (rbacstore.Permission, error)
+	createRole              func(ctx context.Context, input rbacstore.CreateRoleInput) (rbacstore.Role, error)
+	updateRole              func(ctx context.Context, input rbacstore.UpdateRoleInput) (rbacstore.Role, error)
+	assignPermissionsToRole func(ctx context.Context, input rbacstore.AssignPermissionsToRoleInput) error
+	replacePermissions      func(ctx context.Context, input rbacstore.ReplacePermissionsForRoleInput) error
+	assignRoleToUser        func(ctx context.Context, input rbacstore.AssignRoleToUserInput) error
+	replaceRolesForUser     func(ctx context.Context, input rbacstore.ReplaceRolesForUserInput) error
 }
 
-func (r pluginTestRBACRepository) EnsureRole(ctx context.Context, input store.EnsureRoleInput) (store.Role, error) {
+func (r pluginTestRBACRepository) EnsureRole(ctx context.Context, input rbacstore.EnsureRoleInput) (rbacstore.Role, error) {
 	if r.ensureRole != nil {
 		return r.ensureRole(ctx, input)
 	}
 
-	return store.Role{ID: 1, Name: input.Name, Display: input.Display}, nil
+	return rbacstore.Role{ID: 1, Name: input.Name, Display: input.Display}, nil
 }
 
-func (r pluginTestRBACRepository) EnsurePermission(ctx context.Context, input store.EnsurePermissionInput) (store.Permission, error) {
+func (r pluginTestRBACRepository) EnsurePermission(ctx context.Context, input rbacstore.EnsurePermissionInput) (rbacstore.Permission, error) {
 	if r.ensurePermission != nil {
 		return r.ensurePermission(ctx, input)
 	}
 
-	return store.Permission{ID: 1, Code: input.Code, Display: input.Display}, nil
+	return rbacstore.Permission{ID: 1, Code: input.Code, Display: input.Display}, nil
 }
 
-func (r pluginTestRBACRepository) CreateRole(ctx context.Context, input store.CreateRoleInput) (store.Role, error) {
+func (r pluginTestRBACRepository) CreateRole(ctx context.Context, input rbacstore.CreateRoleInput) (rbacstore.Role, error) {
 	if r.createRole != nil {
 		return r.createRole(ctx, input)
 	}
 
-	return store.Role{ID: 1, Name: input.Name, Display: input.Display, Description: input.Description, Builtin: input.Builtin}, nil
+	return rbacstore.Role{ID: 1, Name: input.Name, Display: input.Display, Description: input.Description, Builtin: input.Builtin}, nil
 }
 
-func (r pluginTestRBACRepository) UpdateRole(ctx context.Context, input store.UpdateRoleInput) (store.Role, error) {
+func (r pluginTestRBACRepository) UpdateRole(ctx context.Context, input rbacstore.UpdateRoleInput) (rbacstore.Role, error) {
 	if r.updateRole != nil {
 		return r.updateRole(ctx, input)
 	}
 
-	return store.Role{ID: input.ID, Name: input.Name, Display: input.Display, Description: input.Description}, nil
+	return rbacstore.Role{ID: input.ID, Name: input.Name, Display: input.Display, Description: input.Description}, nil
 }
 
-func (r pluginTestRBACRepository) AssignPermissionsToRole(ctx context.Context, input store.AssignPermissionsToRoleInput) error {
+func (r pluginTestRBACRepository) AssignPermissionsToRole(ctx context.Context, input rbacstore.AssignPermissionsToRoleInput) error {
 	if r.assignPermissionsToRole != nil {
 		return r.assignPermissionsToRole(ctx, input)
 	}
@@ -394,7 +391,7 @@ func (r pluginTestRBACRepository) AssignPermissionsToRole(ctx context.Context, i
 	return nil
 }
 
-func (r pluginTestRBACRepository) ReplacePermissionsForRole(ctx context.Context, input store.ReplacePermissionsForRoleInput) error {
+func (r pluginTestRBACRepository) ReplacePermissionsForRole(ctx context.Context, input rbacstore.ReplacePermissionsForRoleInput) error {
 	if r.replacePermissions != nil {
 		return r.replacePermissions(ctx, input)
 	}
@@ -402,7 +399,7 @@ func (r pluginTestRBACRepository) ReplacePermissionsForRole(ctx context.Context,
 	return nil
 }
 
-func (r pluginTestRBACRepository) AssignRoleToUser(ctx context.Context, input store.AssignRoleToUserInput) error {
+func (r pluginTestRBACRepository) AssignRoleToUser(ctx context.Context, input rbacstore.AssignRoleToUserInput) error {
 	if r.assignRoleToUser != nil {
 		return r.assignRoleToUser(ctx, input)
 	}
@@ -410,7 +407,7 @@ func (r pluginTestRBACRepository) AssignRoleToUser(ctx context.Context, input st
 	return nil
 }
 
-func (r pluginTestRBACRepository) ReplaceRolesForUser(ctx context.Context, input store.ReplaceRolesForUserInput) error {
+func (r pluginTestRBACRepository) ReplaceRolesForUser(ctx context.Context, input rbacstore.ReplaceRolesForUserInput) error {
 	if r.replaceRolesForUser != nil {
 		return r.replaceRolesForUser(ctx, input)
 	}
@@ -418,45 +415,45 @@ func (r pluginTestRBACRepository) ReplaceRolesForUser(ctx context.Context, input
 	return nil
 }
 
-func (r pluginTestRBACRepository) GetRoleByID(_ context.Context, roleID uint64) (store.Role, error) {
-	return store.Role{ID: roleID}, nil
+func (r pluginTestRBACRepository) GetRoleByID(_ context.Context, roleID uint64) (rbacstore.Role, error) {
+	return rbacstore.Role{ID: roleID}, nil
 }
 
-func (r pluginTestRBACRepository) ListRolesByUserID(_ context.Context, userID uint64) ([]store.Role, error) {
+func (r pluginTestRBACRepository) ListRolesByUserID(_ context.Context, userID uint64) ([]rbacstore.Role, error) {
 	if r.roles == nil {
-		return []store.Role{}, nil
+		return []rbacstore.Role{}, nil
 	}
 
 	return r.roles[userID], nil
 }
 
-func (r pluginTestRBACRepository) ListRoles(_ context.Context) ([]store.Role, error) {
-	return []store.Role{}, nil
+func (r pluginTestRBACRepository) ListRoles(_ context.Context) ([]rbacstore.Role, error) {
+	return []rbacstore.Role{}, nil
 }
 
-func (r pluginTestRBACRepository) ListPermissionsByUserID(_ context.Context, userID uint64) ([]store.Permission, error) {
+func (r pluginTestRBACRepository) ListPermissionsByUserID(_ context.Context, userID uint64) ([]rbacstore.Permission, error) {
 	if r.permissions == nil {
-		return []store.Permission{}, nil
+		return []rbacstore.Permission{}, nil
 	}
 
 	return r.permissions[userID], nil
 }
 
-func (r pluginTestRBACRepository) ListPermissions(_ context.Context) ([]store.Permission, error) {
-	return []store.Permission{}, nil
+func (r pluginTestRBACRepository) ListPermissions(_ context.Context) ([]rbacstore.Permission, error) {
+	return []rbacstore.Permission{}, nil
 }
 
-func (r pluginTestRBACRepository) ListRolePermissionBindings(_ context.Context, _ uint64) ([]store.RolePermissionBinding, error) {
-	return []store.RolePermissionBinding{}, nil
+func (r pluginTestRBACRepository) ListRolePermissionBindings(_ context.Context, _ uint64) ([]rbacstore.RolePermissionBinding, error) {
+	return []rbacstore.RolePermissionBinding{}, nil
 }
 
 func newPluginTestContext(t *testing.T, userRepo store.UserRepository, authRepo store.AuthRepository) (*plugin.Context, *gin.Engine) {
-	return newPluginTestContextWithPermissions(t, userRepo, authRepo, map[uint64][]store.Permission{
+	return newPluginTestContextWithPermissions(t, userRepo, authRepo, map[uint64][]rbacstore.Permission{
 		7: {{Code: usercontract.UserReadPermission.String()}},
 	})
 }
 
-func newPluginTestContextWithPermissions(t *testing.T, userRepo store.UserRepository, authRepo store.AuthRepository, permissions map[uint64][]store.Permission) (*plugin.Context, *gin.Engine) {
+func newPluginTestContextWithPermissions(t *testing.T, userRepo store.UserRepository, authRepo store.AuthRepository, permissions map[uint64][]rbacstore.Permission) (*plugin.Context, *gin.Engine) {
 	t.Helper()
 
 	if authRepo == nil {
@@ -496,29 +493,26 @@ func newPluginTestContextWithPermissions(t *testing.T, userRepo store.UserReposi
 			FallbackLocale:   "zh-CN",
 			SupportedLocales: []string{"zh-CN", "en-US"},
 		}},
-		I18n:     i18n.New(config.I18nConfig{DefaultLocale: "zh-CN", FallbackLocale: "zh-CN", SupportedLocales: []string{"zh-CN", "en-US"}}),
-		Router:   engine.Group("/api"),
-		Services: container.New(),
+		I18n:               i18n.New(config.I18nConfig{DefaultLocale: "zh-CN", FallbackLocale: "zh-CN", SupportedLocales: []string{"zh-CN", "en-US"}}),
+		Router:             engine.Group("/api"),
+		Services:           container.New(),
 		MenuRegistry:       menu.NewRegistry(),
 		PermissionRegistry: permission.NewRegistry(),
 		CronRegistry:       cronx.NewRegistry(),
 	}
 
-	pluginInstance := NewPlugin(
-		storeadapter.NewUserRepositoryAdapter(userRepo),
-		storeadapter.NewAuthRepositoryAdapter(authRepo),
-	)
+	pluginInstance := NewPlugin(userRepo, authRepo)
 	if err := pluginInstance.Register(ctx); err != nil {
 		t.Fatalf("register plugin: %v", err)
 	}
-	if err := rbac.NewPlugin(rbacstoreadapter.NewInternalRepositoryAdapter(pluginTestRBACRepository{
-		roles: map[uint64][]store.Role{
+	if err := rbac.NewPlugin(pluginTestRBACRepository{
+		roles: map[uint64][]rbacstore.Role{
 			7: {{ID: 1, Name: "admin", Display: "管理员"}},
 			8: {{ID: 2, Name: "viewer", Display: "只读用户"}},
 			9: {{ID: 1, Name: "admin", Display: "管理员"}},
 		},
 		permissions: permissions,
-	})).Register(ctx); err != nil {
+	}).Register(ctx); err != nil {
 		t.Fatalf("register rbac plugin: %v", err)
 	}
 	if err := pluginInstance.Boot(ctx); err != nil {
@@ -643,7 +637,7 @@ func fixedUserRepository(users ...store.User) pluginTestUserRepository {
 func newSessionAdminEngine(t *testing.T, authRepo *pluginTestAuthRepository, users ...store.User) *gin.Engine {
 	t.Helper()
 
-	_, engine := newPluginTestContextWithPermissions(t, fixedUserRepository(users...), authRepo, map[uint64][]store.Permission{
+	_, engine := newPluginTestContextWithPermissions(t, fixedUserRepository(users...), authRepo, map[uint64][]rbacstore.Permission{
 		9: {{Code: usercontract.UserSessionReadPermission.String()}, {Code: usercontract.UserSessionRevokePermission.String()}},
 	})
 
@@ -934,22 +928,22 @@ func newDefaultAdminBootRBACRepository(t *testing.T, assignedRole *bool) pluginT
 	t.Helper()
 
 	return pluginTestRBACRepository{
-		ensureRole: func(_ context.Context, input store.EnsureRoleInput) (store.Role, error) {
+		ensureRole: func(_ context.Context, input rbacstore.EnsureRoleInput) (rbacstore.Role, error) {
 			if !input.Builtin {
 				t.Fatal("expected default admin role to be marked builtin")
 			}
-			return store.Role{ID: 1, Name: input.Name, Display: input.Display}, nil
+			return rbacstore.Role{ID: 1, Name: input.Name, Display: input.Display}, nil
 		},
-		ensurePermission: func(_ context.Context, input store.EnsurePermissionInput) (store.Permission, error) {
+		ensurePermission: func(_ context.Context, input rbacstore.EnsurePermissionInput) (rbacstore.Permission, error) {
 			if input.Category != "api" {
 				t.Fatalf("expected ensured permission %s to carry category api, got %#v", input.Code, input)
 			}
-			return store.Permission{ID: 1, Code: input.Code, Display: input.Display}, nil
+			return rbacstore.Permission{ID: 1, Code: input.Code, Display: input.Display}, nil
 		},
-		assignPermissionsToRole: func(_ context.Context, _ store.AssignPermissionsToRoleInput) error {
+		assignPermissionsToRole: func(_ context.Context, _ rbacstore.AssignPermissionsToRoleInput) error {
 			return nil
 		},
-		assignRoleToUser: func(_ context.Context, input store.AssignRoleToUserInput) error {
+		assignRoleToUser: func(_ context.Context, input rbacstore.AssignRoleToUserInput) error {
 			*assignedRole = true
 			if input.UserID != 9 {
 				t.Fatalf("expected default admin user id 9, got %d", input.UserID)
@@ -995,7 +989,7 @@ func newDefaultAdminBootAuthRepository(t *testing.T, ensuredDefaultAdmin *bool) 
 	}
 }
 
-func newDefaultAdminBootPluginContext(_ store.AuthRepository, _ store.RBACRepository) *plugin.Context {
+func newDefaultAdminBootPluginContext(_ store.AuthRepository, _ rbacstore.Repository) *plugin.Context {
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
 
@@ -1171,7 +1165,7 @@ func loginAdminEngine(t *testing.T, passwordHash string) (*pluginTestAuthReposit
 		testUser(7, "alice", "Alice"),
 		testUser(8, "bob", "Bob"),
 		testUser(9, "admin", "Admin"),
-	), authRepo, map[uint64][]store.Permission{
+	), authRepo, map[uint64][]rbacstore.Permission{
 		9: {{Code: usercontract.UserSessionRevokePermission.String()}},
 	})
 	return authRepo, engine
@@ -1318,8 +1312,8 @@ func TestBootEnsuresDefaultAdmin(t *testing.T) {
 	ctx := newDefaultAdminBootPluginContext(authRepo, rbacRepo)
 
 	pluginInstance := NewPlugin(
-		storeadapter.NewUserRepositoryAdapter(pluginTestUserRepository{}),
-		storeadapter.NewAuthRepositoryAdapter(authRepo),
+		pluginTestUserRepository{},
+		authRepo,
 	)
 	if err := pluginInstance.Register(ctx); err != nil {
 		t.Fatalf("register plugin: %v", err)
@@ -1327,7 +1321,7 @@ func TestBootEnsuresDefaultAdmin(t *testing.T) {
 	if ensuredDefaultAdmin {
 		t.Fatal("expected register to stay side-effect free for default admin bootstrap")
 	}
-	if err := rbac.NewPlugin(rbacstoreadapter.NewInternalRepositoryAdapter(rbacRepo)).Register(ctx); err != nil {
+	if err := rbac.NewPlugin(rbacRepo).Register(ctx); err != nil {
 		t.Fatalf("register rbac plugin: %v", err)
 	}
 
@@ -1363,13 +1357,13 @@ func TestBootMarksExistingDefaultAdminForPasswordChange(t *testing.T) {
 
 	ctx := newDefaultAdminBootPluginContext(authRepo, rbacRepo)
 	pluginInstance := NewPlugin(
-		storeadapter.NewUserRepositoryAdapter(pluginTestUserRepository{}),
-		storeadapter.NewAuthRepositoryAdapter(authRepo),
+		pluginTestUserRepository{},
+		authRepo,
 	)
 	if err := pluginInstance.Register(ctx); err != nil {
 		t.Fatalf("register plugin: %v", err)
 	}
-	if err := rbac.NewPlugin(rbacstoreadapter.NewInternalRepositoryAdapter(rbacRepo)).Register(ctx); err != nil {
+	if err := rbac.NewPlugin(rbacRepo).Register(ctx); err != nil {
 		t.Fatalf("register rbac plugin: %v", err)
 	}
 	if err := pluginInstance.Boot(ctx); err != nil {
@@ -1392,8 +1386,8 @@ func TestBootMarksExistingDefaultAdminForPasswordChange(t *testing.T) {
 func TestBootFailsWithoutSharedRouteAuthorizer(t *testing.T) {
 	ctx := newDefaultAdminBootPluginContext(&pluginTestAuthRepository{}, pluginTestRBACRepository{})
 	pluginInstance := NewPlugin(
-		storeadapter.NewUserRepositoryAdapter(pluginTestUserRepository{}),
-		storeadapter.NewAuthRepositoryAdapter(&pluginTestAuthRepository{}),
+		pluginTestUserRepository{},
+		&pluginTestAuthRepository{},
 	)
 	if err := pluginInstance.Register(ctx); err != nil {
 		t.Fatalf("register plugin: %v", err)
@@ -1525,7 +1519,7 @@ func TestBootstrapRouteRequiresAuthenticatedActor(t *testing.T) {
 // 去重排序后的权限列表、按权限过滤的菜单以及 locale 配置快照。
 func TestBootstrapRouteReturnsFilteredContract(t *testing.T) {
 	authRepo := &pluginTestAuthRepository{}
-	ctx, engine := newPluginTestContextWithPermissions(t, fixedUserRepository(testUser(7, "alice", "Alice")), authRepo, map[uint64][]store.Permission{
+	ctx, engine := newPluginTestContextWithPermissions(t, fixedUserRepository(testUser(7, "alice", "Alice")), authRepo, map[uint64][]rbacstore.Permission{
 		7: {
 			{Code: " " + usercontract.UserReadPermission.String() + " "},
 			{Code: usercontract.UserReadPermission.String()},
@@ -1585,12 +1579,12 @@ func TestBootstrapLocaleSnapshotDeduplicatesFallbackLocales(t *testing.T) {
 // TestAuthServiceCurrentUserRequiresClaims 验证当前主体解析要求调用链先建立稳定 claims。
 func TestAuthServiceCurrentUserRequiresClaims(t *testing.T) {
 	service := authService{
-		users: storeadapter.NewUserRepositoryAdapter(pluginTestUserRepository{
+		users: pluginTestUserRepository{
 			getByID: func(context.Context, uint64) (store.User, error) {
 				t.Fatal("user repository should not be called when claims are missing")
 				return store.User{}, nil
 			},
-		}),
+		},
 	}
 
 	_, err := service.CurrentUser(context.Background())
@@ -1891,7 +1885,7 @@ func TestLoginDoesNotIssueOrphanedAccessToken(t *testing.T) {
 		RefreshCookieName:     "graft_refresh_token",
 		RefreshCookiePath:     "/",
 		RefreshCookieSameSite: "lax",
-	}, storeadapter.NewAuthRepositoryAdapter(&pluginTestAuthRepository{
+	}, &pluginTestAuthRepository{
 		getUserCredentialByUsername: func(_ context.Context, username string) (store.UserCredential, error) {
 			if username != "alice" {
 				return store.UserCredential{}, store.ErrUserNotFound
@@ -1902,7 +1896,7 @@ func TestLoginDoesNotIssueOrphanedAccessToken(t *testing.T) {
 				PasswordHash: &passwordHash,
 			}, nil
 		},
-	}), storeadapter.NewUserRepositoryAdapter(pluginTestUserRepository{
+	}, pluginTestUserRepository{
 		getByID: func(_ context.Context, id uint64) (store.User, error) {
 			if id != 7 {
 				return store.User{}, store.ErrUserNotFound
@@ -1913,7 +1907,7 @@ func TestLoginDoesNotIssueOrphanedAccessToken(t *testing.T) {
 				Display:  "Alice",
 			}, nil
 		},
-	}))
+	})
 	if err != nil {
 		t.Fatalf("new auth service: %v", err)
 	}
@@ -2358,7 +2352,7 @@ func TestAdminListUserSessionsRouteReturnsNotFoundContract(t *testing.T) {
 				return store.User{}, store.ErrUserNotFound
 			}
 		},
-	}, authRepo, map[uint64][]store.Permission{
+	}, authRepo, map[uint64][]rbacstore.Permission{
 		9: {{Code: usercontract.UserSessionReadPermission.String()}},
 	})
 
@@ -2481,7 +2475,7 @@ func TestAdminRevokeUserSessionRouteRevokesOnlyTargetSession(t *testing.T) {
 		testUser(7, "alice", "Alice"),
 		testUser(8, "bob", "Bob"),
 		testUser(9, "admin", "Admin"),
-	), authRepo, map[uint64][]store.Permission{
+	), authRepo, map[uint64][]rbacstore.Permission{
 		9: {{Code: usercontract.UserSessionRevokePermission.String()}},
 	})
 
@@ -2542,7 +2536,7 @@ func TestAdminRevokeUserSessionRouteReturnsNotFoundContract(t *testing.T) {
 				return store.User{}, store.ErrUserNotFound
 			}
 		},
-	}, authRepo, map[uint64][]store.Permission{
+	}, authRepo, map[uint64][]rbacstore.Permission{
 		9: {{Code: usercontract.UserSessionRevokePermission.String()}},
 	})
 
@@ -2643,7 +2637,7 @@ func TestAdminRevokeUserSessionsRouteRejectsInvalidID(t *testing.T) {
 			}
 			return store.User{ID: 9, Username: "admin", Display: "Admin", CreatedAt: time.Now(), UpdatedAt: time.Now()}, nil
 		},
-	}, authRepo, map[uint64][]store.Permission{
+	}, authRepo, map[uint64][]rbacstore.Permission{
 		9: {{Code: usercontract.UserSessionRevokePermission.String()}},
 	})
 
@@ -2914,7 +2908,7 @@ func TestRestrictedSessionCannotAccessBusinessRoutes(t *testing.T) {
 		t,
 		fixedUserRepository(testUser(9, defaultAdminUsername, defaultAdminDisplay)),
 		authRepo,
-		map[uint64][]store.Permission{
+		map[uint64][]rbacstore.Permission{
 			9: {{Code: usercontract.UserReadPermission.String()}},
 		},
 	)
@@ -2953,7 +2947,7 @@ func TestRestrictedSessionCanReadBootstrap(t *testing.T) {
 		t,
 		fixedUserRepository(testUser(9, defaultAdminUsername, defaultAdminDisplay)),
 		authRepo,
-		map[uint64][]store.Permission{
+		map[uint64][]rbacstore.Permission{
 			9: {{Code: usercontract.UserReadPermission.String()}},
 		},
 	)
