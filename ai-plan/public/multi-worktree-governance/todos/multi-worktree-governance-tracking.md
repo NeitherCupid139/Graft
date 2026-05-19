@@ -34,6 +34,9 @@
   part of the active recovery path.
 - The repository root is still the only active worktree and is currently on branch
   `refactor/server-module-boundaries`.
+- The root worktree is currently a governance-only recovery entry, not a permanent feature-owned worktree; until a
+  dedicated long-lived worktree/topic pair exists, feature-specific history should stay out of this topic unless it is
+  directly about shared baseline governance or hotspot policy.
 - The frozen `web` ownership model is:
   - `shell-owned`: `web/src/app/**`, `web/src/layouts/**`, `web/src/router/**`, `web/src/config/**`,
     `web/src/utils/route/**`, `web/src/store/modules/{user,permission}.ts`, `web/src/locales/**`, and platform
@@ -60,6 +63,23 @@
   - the remaining backend hotspot is now deeper ownership work around `server/internal/ent/**` and migration
     boundaries, not the already-removed shared store seams
 
+## Long-Lived Worktree Mapping Policy
+
+- A future long-lived worktree must not become active by implication alone; before feature recovery moves there, record:
+  - its `Worktree` identity
+  - its `Branch`
+  - its dedicated active topic name
+  - its owned scope
+  - any shared hotspot exceptions it is still allowed to touch
+- The first dedicated long-lived worktree/topic pair should be created only when one bounded slice is stable enough to
+  own its own recovery path, such as one plugin or one hotspot-governance slice.
+- Once a dedicated worktree/topic pair exists, give it its own tracking and trace files and stop appending that
+  feature's phase ledger to `multi-worktree-governance`.
+- If the repository root returns to `main`, update `ai-plan/public/README.md` in the same slice so the governance entry
+  does not keep stale branch assumptions.
+- If the repository root remains on `refactor/server-module-boundaries` temporarily, keep treating it as the shared
+  baseline coordination point rather than as a long-lived feature-owned worktree.
+
 ## Shared Hotspots
 
 - `AGENTS.md`
@@ -81,6 +101,23 @@
 - `web/src/store/modules/user.ts`
 - `web/src/store/modules/permission.ts`
 - `web/src/locales/**`
+
+## Shared Hotspot Handling Policy
+
+- Shared hotspots stay opt-in and limited; they are not default owned scopes for long-lived feature worktrees.
+- A dedicated feature worktree should prefer plugin-owned or module-owned paths and avoid taking standing ownership of:
+  - `server/internal/ent/**`
+  - `server/internal/ent/migrate/migrations/**`
+  - `server/internal/pluginregistry/generated.go`
+  - `ai-plan/**` outside the worktree's own recovery topic
+- If a slice needs both plugin-owned files and one of the shared hotspots, prefer either:
+  - a separate bounded hotspot-governance slice on the root worktree
+  - or serialized hotspot updates after the feature-owned slice lands
+- `server/internal/pluginregistry/generated.go` remains the only accepted centralized plugin wiring artifact; parallel
+  plugin work may each prepare their own plugin-local changes, but registry regeneration still requires explicit merge
+  coordination.
+- `server/internal/ent/**` and `server/internal/ent/migrate/migrations/**` remain shared backend hotspots until the
+  deeper ownership migration finishes; do not treat them as safe default parallel-worktree surfaces.
 
 ## Active Risks
 

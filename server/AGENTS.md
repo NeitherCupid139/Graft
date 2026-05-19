@@ -315,6 +315,49 @@ Ent 与 Atlas 是后端数据库真相链路的一部分。
 
 除白名单外，其它目录默认视为 owned scope，不应被多个长期工作树共同持有。
 
+长期多工作树默认分两类：
+
+- `main` 共享基线 worktree
+  - 只负责共享治理、共享热点收口、active topic/worktree 映射准备、以及尚未稳定下沉前的短期过渡修整
+  - 不应长期承担某个业务插件的日常 feature 开发
+- dedicated long-lived worktree
+  - 一条长期 worktree 只对应一个清晰 owned scope
+  - owned scope 必须在 tracking 或治理文档中写明，不允许靠“当前是谁在改”临时推断
+  - 若某项改动同时需要多个长期 worktree 频繁碰同一目录，说明该 owned scope 尚未稳定，应先回到 `main` 共享基线治理
+
+长期 worktree 的 owned scope 声明至少要回答：
+
+- 该 worktree 拥有哪些 `plugin-owned` 或 `core-owned` 目录
+- 允许触碰哪些 `shared-stable-boundary`
+- 是否允许触碰 `generated-shared-hotspot`
+- 遇到 `internal/ent/**`、`internal/app/**`、`internal/plugin/**` 这类 core 共享面时，是回到 `main` 治理还是切出单独 core worktree
+
+shared hotspot 处理规则如下：
+
+- `shared-stable-boundary`
+  - 只允许承载稳定 capability、DTO、typed contract 与共享治理文字真相
+  - 进入该边界的改动必须同时说明 canonical owner 与 consumer；不要把临时业务实验塞成长期共享接口
+- `generated-shared-hotspot`
+  - `internal/pluginregistry/generated.go` 是唯一允许的集中接线产物
+  - 该文件只能承载 compile-time registry 的机械生成结果，不允许手写业务规则、兼容分支或第二套插件真相
+  - 若多个长期 worktree 同时需要修改它，应把该变更视为可预期冲突面，并通过短生命周期集成或共享基线串行收口，而不是扩大共享编辑范围
+- `core-owned` 高冲突面
+  - `internal/ent/**`、`internal/app/**`、`internal/plugin/**`、`internal/migration/**` 默认不是长期共享编辑面
+  - 某个插件 worktree 一旦需要持续修改这些目录，必须先明确它是在进行 core-owned 治理还是插件 feature 开发；两者不要混在同一长期 worktree 里无限扩张
+
+从 `main` 共享基线切换到 dedicated long-lived worktree 前，至少满足：
+
+- 该方向已经有稳定 owned scope，而不是仍在反复争抢共享热点
+- 该方向的共享热点白名单已明确，不再依赖“默认可以改所有白名单”
+- 该方向的 tracking / trace 恢复入口已准备好，能让后续会话恢复时直接知道 branch、worktree、owned scope 与验证责任
+- 该方向的日常验证路径已经清楚，避免 worktree 建好后仍靠 `main` topic 兜底判断完成态
+
+切换完成后应收紧职责：
+
+- dedicated worktree 默认只改自己的 `plugin-owned` 或明确声明的 `core-owned` 目录
+- `main` 共享基线只保留共享热点治理、跨 worktree 对齐、topic/worktree 映射与归档调整
+- 如果 dedicated worktree 需要新增共享边界或改变 ownership，先更新治理文档，再扩展代码面
+
 与 `user` / `rbac` 边界直接相关的多工作树规则再补充为：
 
 - `RBAC` worktree 可以修改 `user_roles` 相关的 schema、repository、migration、测试与 plugin-local contract

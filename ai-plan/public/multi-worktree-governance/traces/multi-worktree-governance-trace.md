@@ -1,5 +1,18 @@
 # Multi Worktree Governance Trace
 
+## 2026-05-19 long-lived worktree mapping rules made explicit
+
+- Expanded the active public recovery docs so the root-only state is operationally clear:
+  - the repository root remains the only active worktree
+  - the root is acting as shared-baseline governance, not as a permanent feature-owned worktree
+  - future long-lived worktrees must be mapped with their own active topic plus tracking/trace pair before feature
+    recovery moves there
+- Added an explicit shared-hotspot handling policy to the active recovery path:
+  - shared hotspots remain limited and opt-in
+  - plugin-owned worktrees should not take standing ownership of `internal/ent/**`,
+    `internal/ent/migrate/migrations/**`, or `internal/pluginregistry/generated.go`
+  - hotspot updates should be split into bounded governance slices or serialized instead of being co-owned by default
+
 ## 2026-05-19 active recovery compaction
 
 - Archived the previous active tracking and trace files into topic-local snapshots because the default recovery path had

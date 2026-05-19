@@ -100,6 +100,21 @@
 - `RBAC` worktree 可以修改 `user_roles` 相关的 schema、repository、migration、测试与 plugin-local contract。
 - `User` worktree 不直接修改 `user_roles`；若需协同，只能通过 `user` 自有稳定 capability / contract 与共享治理文档对齐。
 
+### Long-Lived Worktree Mapping Rules
+
+- 长期 worktree 必须是一条显式映射，而不是“某个分支正好还在”：
+  - 一个长期 worktree 对应一个 active topic
+  - 一个 active topic 对应一份 tracking 文件和一份 trace 文件
+  - 映射记录必须写明 `Worktree`、`Branch`、owned scope、允许触碰的 shared hotspot
+- 在第一条 dedicated worktree/topic pair 真正创建前，仓库 root 只承担共享基线治理与 hotspot 协调，不承担长期
+  feature-owned 恢复历史。
+- 新建长期 worktree 时，优先按一个插件或一个明确治理 slice 切分；不要让一个 worktree 默认同时拥有多个插件和多个
+  shared hotspot。
+- 若某个 worktree 需要临时触碰 shared hotspot，必须在治理文档中先声明该例外，并把该热点修改保持为短、可串行化
+  的 bounded slice。
+- 一旦 dedicated feature worktree/topic pair 已建立，对应 feature 的恢复记录应迁出 root 治理 topic，而不是继续
+  堆积在共享治理入口里。
+
 ### No Business Logic Backflow
 
 - 一旦插件边界迁移完成，以下区域禁止重新接纳业务逻辑：
