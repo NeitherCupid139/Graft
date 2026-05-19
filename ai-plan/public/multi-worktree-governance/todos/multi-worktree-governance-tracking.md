@@ -51,10 +51,14 @@
   - `user_roles` final owner is `rbac`
   - new business logic must not flow back into `server/internal/store/**` or non-core-owned portions of
     `server/internal/ent/**`
-- The latest backend ownership slice already landed:
-  - live RBAC persistence now runs from plugin-local `server/plugins/rbac/storeent/**`
-  - transitional shared RBAC adapter/store paths were removed
-  - test callers that embedded RBAC behavior now use plugin-local `server/plugins/rbac/store/**` contracts
+- The latest backend ownership slices already landed:
+  - `654c791` moved audit persistence into `server/plugins/audit/store/**` and `server/plugins/audit/storeent/**`
+  - `5f45b31` removed the shared audit compatibility shim from `internal/store`
+  - `799f1ff` removed the shared `user` store compatibility seam
+  - `866582a` removed the shared `user/auth` seam, leaving `internal/store` as a doc-only placeholder rather than a
+    business persistence owner
+  - the remaining backend hotspot is now deeper ownership work around `server/internal/ent/**` and migration
+    boundaries, not the already-removed shared store seams
 
 ## Shared Hotspots
 
@@ -66,6 +70,10 @@
 - `server/internal/contract/**`
 - `server/internal/pluginregistry/generated.go`
 - `server/cmd/graft/**`
+- `server/internal/ent/**`
+- `server/internal/ent/migrate/migrations/**`
+- `server/plugins/*/ent/**`
+- `server/plugins/*/migrations/**`
 - `web/src/app/**`
 - `web/src/shared/**`
 - `web/src/router/index.ts`
@@ -92,10 +100,9 @@
   - `cd server && go test ./internal/store/...`
   - `cd server && env GOCACHE=/tmp/go-build go run ./cmd/graft validate backend --stage lint`
 - This compaction slice rechecked the recovery-path shape with:
-  - `wc -l ai-plan/public/multi-worktree-governance/todos/multi-worktree-governance-tracking.md`
-  - `wc -l ai-plan/public/multi-worktree-governance/traces/multi-worktree-governance-trace.md`
-  - `git status --short`
+  - `git show --stat --oneline --decorate=short 654c791 5f45b31 799f1ff 866582a --`
   - `git diff -- ai-plan/public/multi-worktree-governance`
+  - `wc -l ai-plan/public/multi-worktree-governance/todos/multi-worktree-governance-tracking.md ai-plan/public/multi-worktree-governance/traces/multi-worktree-governance-trace.md`
 
 ## Archive Pointers
 
@@ -108,7 +115,7 @@
 
 - Keep `multi-worktree-governance` limited to shared baseline governance while the repository root remains the only
   active worktree.
-- For the next backend slice, continue reducing remaining shared persistence/schema hotspots without weakening the
-  frozen `rbac` ownership over `user_roles`.
+- For the next backend slice, continue reducing deeper `internal/ent/**` and migration ownership hotspots without
+  weakening the frozen `rbac` ownership over `user_roles`.
 - Before creating the first dedicated long-lived worktree/topic pair, record its owned scope and shared-hotspot policy
   in `ai-plan/public/README.md` and give it its own tracking/trace files instead of extending this governance topic.

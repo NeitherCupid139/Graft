@@ -14,6 +14,16 @@
   - latest validation
   - immediate next step
 
+## 2026-05-19 backend boundary cleanup landed
+
+- `654c791` moved audit persistence into plugin-local storage surfaces under `server/plugins/audit/**`, so audit no longer
+  relies on the shared store path for its live repository wiring.
+- `5f45b31` removed the shared audit compatibility shim from `internal/store`, closing the last shared audit transition path.
+- `799f1ff` removed the shared user store compatibility seam, so user tests and reset helpers now exercise plugin-local
+  store contracts instead of the old shared adapter.
+- `866582a` removed the shared user/auth seam and left `internal/store` as documentation-only scaffolding, which means the
+  active backend hotspot is no longer shared store cleanup but the deeper `internal/ent/**` and migration ownership boundary.
+
 ## Active Baseline After Compaction
 
 - `mvp-extension-path` stays archived and is no longer part of the active recovery path.
@@ -28,10 +38,10 @@
   - shared backend boundary at `internal/pluginapi/**` and `internal/contract/**`
   - generated shared hotspot at `internal/pluginregistry/generated.go`
   - `user_roles -> rbac` ownership
-- The latest landed backend milestone remains the Phase 3e/3f RBAC persistence cleanup:
-  - live RBAC repository wiring is plugin-local
-  - transitional shared RBAC adapter/store paths are removed
-  - embedded-RBAC tests now consume plugin-local store contracts
+- The latest landed backend milestone is now the full shared-store seam cleanup for audit, user, and user/auth:
+  - live RBAC persistence is plugin-local
+  - transitional shared audit/user compatibility paths are removed
+  - `internal/store` is no longer a business persistence landing zone
 
 ## Historical Detail Pointer
 
