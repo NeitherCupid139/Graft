@@ -6,10 +6,10 @@ import (
 	"math"
 
 	"graft/server/internal/ent"
-	entpermission "graft/server/internal/ent/permission"
-	entrole "graft/server/internal/ent/role"
-	entrolepermission "graft/server/internal/ent/rolepermission"
-	entuserrole "graft/server/internal/ent/userrole"
+	rbacpermission "graft/server/plugins/rbac/ent/permission"
+	rbacrole "graft/server/plugins/rbac/ent/role"
+	rbacrolepermission "graft/server/plugins/rbac/ent/rolepermission"
+	rbacuserrole "graft/server/plugins/rbac/ent/userrole"
 	rbacstore "graft/server/plugins/rbac/store"
 )
 
@@ -59,7 +59,7 @@ func (r *repository) EnsurePermission(ctx context.Context, input rbacstore.Ensur
 	return ensureUniqueEntity(
 		func() (*ent.Permission, error) {
 			return r.client.Permission.Query().
-				Where(entpermission.CodeEQ(input.Code)).
+				Where(rbacpermission.CodeEQ(input.Code)).
 				Only(ctx)
 		},
 		func() (*ent.Permission, error) {
@@ -134,8 +134,8 @@ func (r *repository) AssignPermissionsToRole(ctx context.Context, input rbacstor
 
 		exists, err := r.client.RolePermission.Query().
 			Where(
-				entrolepermission.RoleIDEQ(roleID),
-				entrolepermission.PermissionIDEQ(entPermissionID),
+				rbacrolepermission.RoleIDEQ(roleID),
+				rbacrolepermission.PermissionIDEQ(entPermissionID),
 			).
 			Exist(ctx)
 		if err != nil {
@@ -182,8 +182,8 @@ func (r *repository) AssignRoleToUser(ctx context.Context, input rbacstore.Assig
 
 	exists, err := r.client.UserRole.Query().
 		Where(
-			entuserrole.UserIDEQ(userID),
-			entuserrole.RoleIDEQ(roleID),
+			rbacuserrole.UserIDEQ(userID),
+			rbacuserrole.RoleIDEQ(roleID),
 		).
 		Exist(ctx)
 	if err != nil {
@@ -200,8 +200,8 @@ func (r *repository) AssignRoleToUser(ctx context.Context, input rbacstore.Assig
 		if ent.IsConstraintError(err) {
 			duplicate, duplicateErr := r.client.UserRole.Query().
 				Where(
-					entuserrole.UserIDEQ(userID),
-					entuserrole.RoleIDEQ(roleID),
+					rbacuserrole.UserIDEQ(userID),
+					rbacuserrole.RoleIDEQ(roleID),
 				).
 				Exist(ctx)
 			if duplicateErr == nil && duplicate {
@@ -232,7 +232,7 @@ func (r *repository) GetRoleByID(ctx context.Context, roleID uint64) (rbacstore.
 	}
 
 	record, err := r.client.Role.Query().
-		Where(entrole.IDEQ(id)).
+		Where(rbacrole.IDEQ(id)).
 		Only(ctx)
 	if err != nil {
 		if ent.IsNotFound(err) {
@@ -252,7 +252,7 @@ func (r *repository) ListRolesByUserID(ctx context.Context, userID uint64) ([]rb
 	}
 
 	records, err := r.client.UserRole.Query().
-		Where(entuserrole.UserIDEQ(id)).
+		Where(rbacuserrole.UserIDEQ(id)).
 		QueryRole().
 		All(ctx)
 	if err != nil {
@@ -269,7 +269,7 @@ func (r *repository) ListRolesByUserID(ctx context.Context, userID uint64) ([]rb
 
 func (r *repository) ListRoles(ctx context.Context) ([]rbacstore.Role, error) {
 	records, err := r.client.Role.Query().
-		Order(ent.Asc(entrole.FieldID)).
+		Order(ent.Asc(rbacrole.FieldID)).
 		All(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list roles: %w", err)
@@ -290,7 +290,7 @@ func (r *repository) ListPermissionsByUserID(ctx context.Context, userID uint64)
 	}
 
 	roleRecords, err := r.client.UserRole.Query().
-		Where(entuserrole.UserIDEQ(id)).
+		Where(rbacuserrole.UserIDEQ(id)).
 		QueryRole().
 		All(ctx)
 	if err != nil {
@@ -306,7 +306,7 @@ func (r *repository) ListPermissionsByUserID(ctx context.Context, userID uint64)
 	}
 
 	records, err := r.client.Permission.Query().
-		Where(entpermission.HasRolePermissionsWith(entrolepermission.RoleIDIn(roleIDs...))).
+		Where(rbacpermission.HasRolePermissionsWith(rbacrolepermission.RoleIDIn(roleIDs...))).
 		Unique(true).
 		All(ctx)
 	if err != nil {
@@ -323,7 +323,7 @@ func (r *repository) ListPermissionsByUserID(ctx context.Context, userID uint64)
 
 func (r *repository) ListPermissions(ctx context.Context) ([]rbacstore.Permission, error) {
 	records, err := r.client.Permission.Query().
-		Order(ent.Asc(entpermission.FieldID)).
+		Order(ent.Asc(rbacpermission.FieldID)).
 		All(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list permissions: %w", err)
@@ -351,8 +351,8 @@ func (r *repository) ListRolePermissionBindings(ctx context.Context, roleID uint
 	}
 
 	records, err := r.client.RolePermission.Query().
-		Where(entrolepermission.RoleIDEQ(id)).
-		Order(ent.Asc(entrolepermission.FieldPermissionID)).
+		Where(rbacrolepermission.RoleIDEQ(id)).
+		Order(ent.Asc(rbacrolepermission.FieldPermissionID)).
 		All(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list role permission bindings: %w", err)
@@ -371,7 +371,7 @@ func (r *repository) ListRolePermissionBindings(ctx context.Context, roleID uint
 
 func (r *repository) findRoleByName(ctx context.Context, name string) (*ent.Role, error) {
 	return r.client.Role.Query().
-		Where(entrole.NameEQ(name)).
+		Where(rbacrole.NameEQ(name)).
 		Only(ctx)
 }
 
@@ -632,17 +632,17 @@ func buildStableAssignmentConfig(
 }
 
 func roleTargetExists(ctx context.Context, tx *ent.Tx, targetID int) (bool, error) {
-	return tx.Role.Query().Where(entrole.IDEQ(targetID)).Exist(ctx)
+	return tx.Role.Query().Where(rbacrole.IDEQ(targetID)).Exist(ctx)
 }
 
 func countPermissionsByIDs(ctx context.Context, tx *ent.Tx, ids []int) (int, error) {
-	return tx.Permission.Query().Where(entpermission.IDIn(ids...)).Count(ctx)
+	return tx.Permission.Query().Where(rbacpermission.IDIn(ids...)).Count(ctx)
 }
 
 func deleteStaleRolePermissions(ctx context.Context, tx *ent.Tx, targetID int, ids []int) error {
-	deleteQuery := tx.RolePermission.Delete().Where(entrolepermission.RoleIDEQ(targetID))
+	deleteQuery := tx.RolePermission.Delete().Where(rbacrolepermission.RoleIDEQ(targetID))
 	if len(ids) > 0 {
-		deleteQuery = deleteQuery.Where(entrolepermission.Not(entrolepermission.PermissionIDIn(ids...)))
+		deleteQuery = deleteQuery.Where(rbacrolepermission.Not(rbacrolepermission.PermissionIDIn(ids...)))
 	}
 	_, err := deleteQuery.Exec(ctx)
 	return err
@@ -651,8 +651,8 @@ func deleteStaleRolePermissions(ctx context.Context, tx *ent.Tx, targetID int, i
 func rolePermissionBindingExists(ctx context.Context, tx *ent.Tx, targetID int, relationID int) (bool, error) {
 	return tx.RolePermission.Query().
 		Where(
-			entrolepermission.RoleIDEQ(targetID),
-			entrolepermission.PermissionIDEQ(relationID),
+			rbacrolepermission.RoleIDEQ(targetID),
+			rbacrolepermission.PermissionIDEQ(relationID),
 		).
 		Exist(ctx)
 }
@@ -667,13 +667,13 @@ func userRoleTargetExists(context.Context, *ent.Tx, int) (bool, error) {
 }
 
 func countRolesByIDs(ctx context.Context, tx *ent.Tx, ids []int) (int, error) {
-	return tx.Role.Query().Where(entrole.IDIn(ids...)).Count(ctx)
+	return tx.Role.Query().Where(rbacrole.IDIn(ids...)).Count(ctx)
 }
 
 func deleteStaleUserRoles(ctx context.Context, tx *ent.Tx, targetID int, ids []int) error {
-	deleteQuery := tx.UserRole.Delete().Where(entuserrole.UserIDEQ(targetID))
+	deleteQuery := tx.UserRole.Delete().Where(rbacuserrole.UserIDEQ(targetID))
 	if len(ids) > 0 {
-		deleteQuery = deleteQuery.Where(entuserrole.Not(entuserrole.RoleIDIn(ids...)))
+		deleteQuery = deleteQuery.Where(rbacuserrole.Not(rbacuserrole.RoleIDIn(ids...)))
 	}
 	_, err := deleteQuery.Exec(ctx)
 	return err
@@ -682,8 +682,8 @@ func deleteStaleUserRoles(ctx context.Context, tx *ent.Tx, targetID int, ids []i
 func userRoleBindingExists(ctx context.Context, tx *ent.Tx, targetID int, relationID int) (bool, error) {
 	return tx.UserRole.Query().
 		Where(
-			entuserrole.UserIDEQ(targetID),
-			entuserrole.RoleIDEQ(relationID),
+			rbacuserrole.UserIDEQ(targetID),
+			rbacuserrole.RoleIDEQ(relationID),
 		).
 		Exist(ctx)
 }
