@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"graft/server/internal/ent"
-	entuser "graft/server/internal/ent/user"
+	userent "graft/server/plugins/user/ent/user"
 	userstore "graft/server/plugins/user/store"
 )
 
@@ -32,7 +32,7 @@ func (r *userRepository) GetByID(ctx context.Context, id uint64) (userstore.User
 	}
 
 	record, err := r.client.User.Query().
-		Where(entuser.IDEQ(entID)).
+		Where(userent.IDEQ(entID)).
 		Only(ctx)
 	if err != nil {
 		if ent.IsNotFound(err) {
@@ -52,7 +52,7 @@ func (r *userRepository) GetByID(ctx context.Context, id uint64) (userstore.User
 
 func (r *userRepository) List(ctx context.Context) ([]userstore.User, error) {
 	records, err := r.client.User.Query().
-		Order(ent.Asc(entuser.FieldID)).
+		Order(ent.Asc(userent.FieldID)).
 		All(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list users: %w", err)

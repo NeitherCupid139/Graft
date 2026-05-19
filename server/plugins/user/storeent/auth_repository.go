@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"graft/server/internal/ent"
-	entrefreshsession "graft/server/internal/ent/refreshsession"
-	entuser "graft/server/internal/ent/user"
+	refreshsessionent "graft/server/plugins/user/ent/refreshsession"
+	userent "graft/server/plugins/user/ent/user"
 	userstore "graft/server/plugins/user/store"
 )
 
@@ -27,7 +27,7 @@ func NewAuthRepository(client *ent.Client) (userstore.AuthRepository, error) {
 
 func (r *authRepository) GetUserCredentialByUsername(ctx context.Context, username string) (userstore.UserCredential, error) {
 	record, err := r.client.User.Query().
-		Where(entuser.UsernameEQ(username)).
+		Where(userent.UsernameEQ(username)).
 		Only(ctx)
 	if err != nil {
 		if ent.IsNotFound(err) {
@@ -101,9 +101,9 @@ func (r *authRepository) ChangePasswordAndRevokeOtherRefreshSessions(
 
 	if _, err := tx.RefreshSession.Update().
 		Where(
-			entrefreshsession.UserIDEQ(userID),
-			entrefreshsession.RevokedAtIsNil(),
-			entrefreshsession.TokenIDNEQ(input.CurrentTokenID),
+			refreshsessionent.UserIDEQ(userID),
+			refreshsessionent.RevokedAtIsNil(),
+			refreshsessionent.TokenIDNEQ(input.CurrentTokenID),
 		).
 		SetRevokedAt(input.ChangedAt).
 		Save(ctx); err != nil {
@@ -120,7 +120,7 @@ func (r *authRepository) ChangePasswordAndRevokeOtherRefreshSessions(
 
 func (r *authRepository) EnsureUserCredential(ctx context.Context, input userstore.EnsureUserCredentialInput) (userstore.UserCredential, error) {
 	record, err := r.client.User.Query().
-		Where(entuser.UsernameEQ(input.Username)).
+		Where(userent.UsernameEQ(input.Username)).
 		Only(ctx)
 	if err == nil {
 		return toStoreUserCredential(record), nil
@@ -170,7 +170,7 @@ func (r *authRepository) CreateRefreshSession(ctx context.Context, input usersto
 
 func (r *authRepository) GetRefreshSessionByTokenID(ctx context.Context, tokenID string) (userstore.RefreshSession, error) {
 	record, err := r.client.RefreshSession.Query().
-		Where(entrefreshsession.TokenIDEQ(tokenID)).
+		Where(refreshsessionent.TokenIDEQ(tokenID)).
 		Only(ctx)
 	if err != nil {
 		if ent.IsNotFound(err) {
@@ -184,7 +184,7 @@ func (r *authRepository) GetRefreshSessionByTokenID(ctx context.Context, tokenID
 
 func (r *authRepository) RevokeRefreshSession(ctx context.Context, input userstore.RevokeRefreshSessionInput) error {
 	updater := r.client.RefreshSession.Update().
-		Where(entrefreshsession.TokenIDEQ(input.TokenID)).
+		Where(refreshsessionent.TokenIDEQ(input.TokenID)).
 		SetRevokedAt(input.RevokedAt)
 	if input.ReplacedByTokenID != nil {
 		updater = updater.SetReplacedByTokenID(*input.ReplacedByTokenID)
@@ -209,8 +209,8 @@ func (r *authRepository) RevokeRefreshSessionsByUserID(ctx context.Context, inpu
 
 	if _, err := r.client.RefreshSession.Update().
 		Where(
-			entrefreshsession.UserIDEQ(userID),
-			entrefreshsession.RevokedAtIsNil(),
+			refreshsessionent.UserIDEQ(userID),
+			refreshsessionent.RevokedAtIsNil(),
 		).
 		SetRevokedAt(input.RevokedAt).
 		Save(ctx); err != nil {
@@ -228,9 +228,9 @@ func (r *authRepository) RevokeOtherRefreshSessionsByUserID(ctx context.Context,
 
 	if _, err := r.client.RefreshSession.Update().
 		Where(
-			entrefreshsession.UserIDEQ(userID),
-			entrefreshsession.RevokedAtIsNil(),
-			entrefreshsession.TokenIDNEQ(input.CurrentTokenID),
+			refreshsessionent.UserIDEQ(userID),
+			refreshsessionent.RevokedAtIsNil(),
+			refreshsessionent.TokenIDNEQ(input.CurrentTokenID),
 		).
 		SetRevokedAt(input.RevokedAt).
 		Save(ctx); err != nil {
@@ -248,10 +248,10 @@ func (r *authRepository) RevokeRefreshSessionByUserID(ctx context.Context, input
 
 	affected, err := r.client.RefreshSession.Update().
 		Where(
-			entrefreshsession.UserIDEQ(userID),
-			entrefreshsession.TokenIDEQ(input.TokenID),
-			entrefreshsession.RevokedAtIsNil(),
-			entrefreshsession.ExpiresAtGT(input.RevokedAt),
+			refreshsessionent.UserIDEQ(userID),
+			refreshsessionent.TokenIDEQ(input.TokenID),
+			refreshsessionent.RevokedAtIsNil(),
+			refreshsessionent.ExpiresAtGT(input.RevokedAt),
 		).
 		SetRevokedAt(input.RevokedAt).
 		Save(ctx)
@@ -273,11 +273,11 @@ func (r *authRepository) ListActiveRefreshSessionsByUserID(ctx context.Context, 
 
 	records, err := r.client.RefreshSession.Query().
 		Where(
-			entrefreshsession.UserIDEQ(userID),
-			entrefreshsession.RevokedAtIsNil(),
-			entrefreshsession.ExpiresAtGT(input.Now),
+			refreshsessionent.UserIDEQ(userID),
+			refreshsessionent.RevokedAtIsNil(),
+			refreshsessionent.ExpiresAtGT(input.Now),
 		).
-		Order(ent.Desc(entrefreshsession.FieldCreatedAt), ent.Desc(entrefreshsession.FieldID)).
+		Order(ent.Desc(refreshsessionent.FieldCreatedAt), ent.Desc(refreshsessionent.FieldID)).
 		All(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list active refresh sessions by user id: %w", err)
@@ -329,7 +329,7 @@ func loadActiveRefreshSessionForRotation(
 	now time.Time,
 ) (*ent.RefreshSession, error) {
 	current, err := tx.RefreshSession.Query().
-		Where(entrefreshsession.TokenIDEQ(currentTokenID)).
+		Where(refreshsessionent.TokenIDEQ(currentTokenID)).
 		Only(ctx)
 	if err != nil {
 		if ent.IsNotFound(err) {
@@ -352,9 +352,9 @@ func revokeRefreshSessionForRotation(
 ) error {
 	affected, err := tx.RefreshSession.Update().
 		Where(
-			entrefreshsession.IDEQ(sessionID),
-			entrefreshsession.RevokedAtIsNil(),
-			entrefreshsession.ExpiresAtGT(input.Now),
+			refreshsessionent.IDEQ(sessionID),
+			refreshsessionent.RevokedAtIsNil(),
+			refreshsessionent.ExpiresAtGT(input.Now),
 		).
 		SetRevokedAt(input.RevokedAt).
 		SetReplacedByTokenID(input.NewTokenID).

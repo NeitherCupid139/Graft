@@ -221,6 +221,26 @@
     - historical Atlas file `server/internal/ent/migrate/migrations/202605140001_auth_rbac_foundation.sql` remains the
       immutable mixed history root for `users`, `refresh_sessions`, `user_roles`, `roles`, `permissions`, and
       `role_permissions`
+- The current `2026-05-19` Phase 3d user plugin-owned Ent-path and migration-checkpoint slice has now landed on the same branch:
+  - `server/internal/store/entstore/rbac_repository.go` no longer imports shared generated `internal/ent/user` for
+    `user_roles` writes; user existence checks now narrow to direct `User.Get` lookups while preserving stable
+    `store.ErrUserNotFound` semantics
+  - `server/plugins/user/ent/**` now provides the first plugin-owned generated import surface for the user-owned Ent
+    packages consumed by `server/plugins/user/storeent/**`
+  - `server/plugins/user/storeent/**` now imports plugin-owned `plugins/user/ent/{user,refreshsession}` packages
+    instead of directly importing shared generated `server/internal/ent/user` and
+    `server/internal/ent/refreshsession`
+  - `server/plugins/user/migrations/**` is now runnable with a forward-only no-op checkpoint
+    `202605190001_user_plugin_boundary_checkpoint.sql` plus `atlas.sum`, without rewriting or deleting any historical
+    mixed Atlas files under `server/internal/ent/migrate/migrations/**`
+  - the remaining honest Phase 3 blockers are therefore narrowed again:
+    - the runtime still uses the shared `server/internal/ent.Client` because introducing a separate plugin-owned Ent
+      client would require out-of-scope runtime/container wiring changes
+    - historical Atlas file `server/internal/ent/migrate/migrations/202605140001_auth_rbac_foundation.sql` remains the
+      immutable mixed history root for `users`, `refresh_sessions`, `user_roles`, `roles`, `permissions`, and
+      `role_permissions`
+    - `user_roles` ownership is still shared with `rbac`, so this slice intentionally stops short of a full user/RBAC
+      Ent graph split
 
 ## Shared Hotspots
 

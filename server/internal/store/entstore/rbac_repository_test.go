@@ -7,6 +7,7 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 
+	"graft/server/internal/ent"
 	"graft/server/internal/ent/enttest"
 	entrole "graft/server/internal/ent/role"
 	entrolepermission "graft/server/internal/ent/rolepermission"
@@ -19,6 +20,23 @@ import (
 func TestRBACRepositoryListRolesAndPermissions(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:rbac-list-snapshots?mode=memory&cache=shared&_fk=1")
 	defer func() { _ = client.Close() }()
+
+	snapshots := seedRoleAndPermissionSnapshots(t, client)
+	repo := &rbacRepository{client: client}
+
+	assertRoleSnapshots(t, repo, snapshots)
+	assertPermissionSnapshots(t, repo, snapshots)
+}
+
+type rolePermissionSnapshots struct {
+	firstRoleID        uint64
+	secondRoleID       uint64
+	firstPermissionID  uint64
+	secondPermissionID uint64
+}
+
+func seedRoleAndPermissionSnapshots(t *testing.T, client *ent.Client) rolePermissionSnapshots {
+	t.Helper()
 
 	firstRole, err := client.Role.Create().
 		SetName("admin").
@@ -54,7 +72,16 @@ func TestRBACRepositoryListRolesAndPermissions(t *testing.T) {
 		t.Fatalf("seed second permission: %v", err)
 	}
 
-	repo := &rbacRepository{client: client}
+	return rolePermissionSnapshots{
+		firstRoleID:        toStoreID(firstRole.ID),
+		secondRoleID:       toStoreID(secondRole.ID),
+		firstPermissionID:  toStoreID(firstPermission.ID),
+		secondPermissionID: toStoreID(secondPermission.ID),
+	}
+}
+
+func assertRoleSnapshots(t *testing.T, repo *rbacRepository, snapshots rolePermissionSnapshots) {
+	t.Helper()
 
 	roles, err := repo.ListRoles(context.Background())
 	if err != nil {
@@ -63,12 +90,16 @@ func TestRBACRepositoryListRolesAndPermissions(t *testing.T) {
 	if len(roles) != 2 {
 		t.Fatalf("expected 2 roles, got %#v", roles)
 	}
-	if roles[0].ID != toStoreID(firstRole.ID) || !roles[0].Builtin {
+	if roles[0].ID != snapshots.firstRoleID || !roles[0].Builtin {
 		t.Fatalf("unexpected first role snapshot: %#v", roles[0])
 	}
-	if roles[1].ID != toStoreID(secondRole.ID) || roles[1].Builtin {
+	if roles[1].ID != snapshots.secondRoleID || roles[1].Builtin {
 		t.Fatalf("unexpected second role snapshot: %#v", roles[1])
 	}
+}
+
+func assertPermissionSnapshots(t *testing.T, repo *rbacRepository, snapshots rolePermissionSnapshots) {
+	t.Helper()
 
 	permissions, err := repo.ListPermissions(context.Background())
 	if err != nil {
@@ -77,10 +108,10 @@ func TestRBACRepositoryListRolesAndPermissions(t *testing.T) {
 	if len(permissions) != 2 {
 		t.Fatalf("expected 2 permissions, got %#v", permissions)
 	}
-	if permissions[0].ID != toStoreID(firstPermission.ID) || permissions[0].Category != "menu" {
+	if permissions[0].ID != snapshots.firstPermissionID || permissions[0].Category != "menu" {
 		t.Fatalf("unexpected first permission snapshot: %#v", permissions[0])
 	}
-	if permissions[1].ID != toStoreID(secondPermission.ID) || permissions[1].Category != "api" {
+	if permissions[1].ID != snapshots.secondPermissionID || permissions[1].Category != "api" {
 		t.Fatalf("unexpected second permission snapshot: %#v", permissions[1])
 	}
 }
@@ -248,6 +279,29 @@ func TestRBACRepositoryUserRoleWriteOperations(t *testing.T) {
 	}
 	if len(userRoles) != 1 || userRoles[0].RoleID != otherRole.ID {
 		t.Fatalf("expected stale user roles to be replaced, got %#v", userRoles)
+	}
+}
+
+// TestRBACRepositoryAssignRoleToUserReturnsUserNotFound 验证用户角色写入会保留稳定缺失用户语义。
+func TestRBACRepositoryAssignRoleToUserReturnsUserNotFound(t *testing.T) {
+	client := enttest.Open(t, "sqlite3", "file:rbac-assign-role-user-missing?mode=memory&cache=shared&_fk=1")
+	defer func() { _ = client.Close() }()
+
+	role, err := client.Role.Create().
+		SetName("editor").
+		SetDisplay("编辑").
+		Save(context.Background())
+	if err != nil {
+		t.Fatalf("seed role: %v", err)
+	}
+
+	repo := &rbacRepository{client: client}
+	err = repo.AssignRoleToUser(context.Background(), store.AssignRoleToUserInput{
+		UserID: 42,
+		RoleID: toStoreID(role.ID),
+	})
+	if !errors.Is(err, store.ErrUserNotFound) {
+		t.Fatalf("expected ErrUserNotFound, got %v", err)
 	}
 }
 

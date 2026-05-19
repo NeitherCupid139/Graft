@@ -8,7 +8,6 @@ import (
 	entpermission "graft/server/internal/ent/permission"
 	entrole "graft/server/internal/ent/role"
 	entrolepermission "graft/server/internal/ent/rolepermission"
-	entuser "graft/server/internal/ent/user"
 	entuserrole "graft/server/internal/ent/userrole"
 	"graft/server/internal/store"
 )
@@ -223,6 +222,14 @@ func (r *rbacRepository) AssignRoleToUser(ctx context.Context, input store.Assig
 	roleID, err := toEntID(input.RoleID)
 	if err != nil {
 		return err
+	}
+
+	userExists, err := userRecordExists(ctx, r.client.User.Get, userID)
+	if err != nil {
+		return fmt.Errorf("check user %d before assigning role: %w", input.UserID, err)
+	}
+	if !userExists {
+		return store.ErrUserNotFound
 	}
 
 	exists, err := r.client.UserRole.Query().
@@ -647,7 +654,7 @@ func createRolePermissionBinding(ctx context.Context, tx *ent.Tx, targetID int, 
 }
 
 func userTargetExists(ctx context.Context, tx *ent.Tx, targetID int) (bool, error) {
-	return tx.User.Query().Where(entuser.IDEQ(targetID)).Exist(ctx)
+	return userRecordExists(ctx, tx.User.Get, targetID)
 }
 
 func countRolesByIDs(ctx context.Context, tx *ent.Tx, ids []int) (int, error) {
@@ -675,6 +682,21 @@ func userRoleBindingExists(ctx context.Context, tx *ent.Tx, targetID int, relati
 func createUserRoleBinding(ctx context.Context, tx *ent.Tx, targetID int, relationID int) error {
 	_, err := tx.UserRole.Create().SetUserID(targetID).SetRoleID(relationID).Save(ctx)
 	return err
+}
+
+func userRecordExists(
+	ctx context.Context,
+	get func(context.Context, int) (*ent.User, error),
+	targetID int,
+) (bool, error) {
+	if _, err := get(ctx, targetID); err != nil {
+		if ent.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	return true, nil
 }
 
 func ensureStableAssignmentTarget(tx *ent.Tx, config stableAssignmentSetConfig) error {

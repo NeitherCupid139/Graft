@@ -258,6 +258,37 @@
   multi-agent work because the write scope stayed tightly coupled across plugin/runtime assembly boundaries.
 - Moved runtime plugin construction behind explicit core-owned build context:
   - `plugin.Builder` now consumes `plugin.BuildContext`
+
+## 2026-05-19 server Phase 3d user plugin-owned Ent path
+
+- Re-ran startup preflight on `refactor/server-module-boundaries`, recovered through the active
+  `multi-worktree-governance` parent topic, and executed the bounded round through `graft-multi-agent-task`.
+- Kept the immediate blocking work local; `graft-multi-agent-batch` was not used because the RBAC write narrowing,
+  plugin-owned user Ent import path, and migration checkpoint stayed tightly coupled inside one allowed-scope slice.
+- Narrowed the remaining RBAC shared generated-user dependency without changing stable write semantics:
+  - `server/internal/store/entstore/rbac_repository.go` now checks user existence for `AssignRoleToUser` and
+    `ReplaceRolesForUser` through direct shared-client `User.Get` lookups instead of importing the shared generated
+    `internal/ent/user` package
+  - added focused regression coverage in `server/internal/store/entstore/rbac_repository_test.go` for the missing-user
+    write path
+- Introduced the first plugin-owned generated Ent import surface under `server/plugins/user/ent/**`:
+  - added `go generate ./plugins/user/ent` with a local alias generator that emits plugin-owned wrappers for the
+    user-owned `user` and `refreshsession` generated packages
+  - rewired `server/plugins/user/storeent/{user_repository,auth_repository}.go` to consume those plugin-owned import
+    paths instead of directly importing `server/internal/ent/user` and `server/internal/ent/refreshsession`
+- Introduced the first runnable forward-only user migration state under `server/plugins/user/migrations/**`:
+  - added no-op checkpoint `202605190001_user_plugin_boundary_checkpoint.sql`
+  - generated `plugins/user/migrations/atlas.sum` so the plugin-owned migration directory now participates in the
+    default registry-driven migration chain without claiming ownership of the historical mixed Atlas files
+- Validation completed with:
+  - `cd server && go generate ./plugins/user/ent`
+  - `cd server && atlas migrate hash --dir file://plugins/user/migrations`
+  - `cd server && go test ./internal/store/entstore ./plugins/user/storeent ./internal/cli`
+  - `cd server && go test ./plugins/user/...`
+- Honest remaining gap after this slice:
+  - the runtime still shares `server/internal/ent.Client`; a separate plugin-owned user Ent client would require
+    out-of-scope runtime/container changes
+  - the mixed historical Atlas root remains immutable and `user_roles` ownership is still shared with `rbac`
   - `pluginregistry.BuildPlugins(...)` now requires that build context
   - `app.NewRuntime()` now constructs plugins only after core services and `store.Factory` exist
   - `serve` no longer constructs plugin instances directly
