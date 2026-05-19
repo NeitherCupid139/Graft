@@ -540,6 +540,36 @@
     `users` / `refresh_sessions` vs `user_roles` / `rbac` boundary, now that builder/runtime seams fail earlier and
     the default migrate chain reports empty registry state explicitly
 
+## 2026-05-19 server Phase 3c user-role reverse-edge narrowing
+
+- Re-ran startup preflight on `refactor/server-module-boundaries`, classified the work as `server`, recovered through
+  the active `multi-worktree-governance` parent topic, and executed the slice through `graft-multi-agent-loop` as one
+  bounded delegated round with two read-only discovery sidecars.
+- Kept the critical path local after the sidecars confirmed the same blocking constraints:
+  - the live Ent generation path is still a single shared `server/internal/ent/generate.go`
+  - the mixed Atlas revision `202605140001_auth_rbac_foundation.sql` remains immutable live history because
+    `internal/ent/migrate/migrations/atlas.sum` already records it
+  - RBAC still depends on shared generated `internal/ent/user` for `user_roles` existence checks
+- Chose the smallest honest Phase 3 schema slice that reduces shared coupling without claiming the ownership split is
+  complete:
+  - removed the unused reverse `User -> user_roles` Ent edge from `server/internal/ent/schema/user.go`
+  - rewired `server/internal/ent/schema/user_role.go` so the `user_id` foreign-key stays modeled as a one-way
+    `UserRole -> User` Ent edge instead of an inverse edge that requires `User.user_roles`
+  - regenerated shared `server/internal/ent/**` so the generated reverse-traversal helpers disappeared while the live
+    shared `*ent.Client` runtime surface remained behavior-compatible
+- Kept explicit non-goals for this round:
+  - no plugin-owned `server/plugins/user/ent/**` generation path yet
+  - no rewrite of the mixed Atlas revision chain
+  - no `plugins/user/migrations/atlas.sum`
+  - no attempt to remove RBAC's remaining direct shared-Ent `User` dependency yet
+- Focused validation for the slice finished with:
+  - `cd server && go test ./internal/store/entstore ./plugins/user ./plugins/rbac`
+  - `cd server && go test ./internal/ent/...`
+- Immediate next step after this slice:
+  - continue Phase 3 by replacing RBAC's remaining shared `internal/ent/user` dependency around `user_roles` writes,
+    then introduce the first plugin-owned `server/plugins/user/ent/**` generation path and forward-only user migration
+    state without rewriting the historical mixed Atlas chain
+
 ## 2026-05-19 docs automation loop serial-subagent contract correction
 
 - Re-ran startup preflight on `refactor/server-module-boundaries`, classified the work as `docs/automation`, and

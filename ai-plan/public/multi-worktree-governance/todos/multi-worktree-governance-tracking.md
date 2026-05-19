@@ -204,6 +204,23 @@
   - focused tests now cover the hardened resolution and ordering paths in `internal/app`, `internal/cli`,
     `internal/plugin`, and `internal/pluginregistry`, while nil-safe helpers were added to the RBAC transitional
     bootstrap/adapter seams
+- The current `2026-05-19` Phase 3c user-role reverse-edge narrowing slice has now landed on the same branch:
+  - `server/internal/ent/schema/user.go` no longer declares the unused reverse `user_roles` edge from `User`
+  - `server/internal/ent/schema/user_role.go` now keeps the `user_id` foreign-key relation as a one-way `UserRole ->
+    User` Ent edge instead of depending on the removed `User.user_roles` back-reference
+  - regenerated shared `server/internal/ent/**` code now drops the generated `User` API surface that only existed to
+    support the reverse `user_roles` traversal, while keeping runtime behavior and the shared `*ent.Client` shape
+    otherwise intact
+  - this slice intentionally does not create `server/plugins/user/ent/**`, does not introduce plugin-owned user Ent
+    generation yet, and does not rewrite the mixed Atlas history or generate `plugins/user/migrations/atlas.sum`
+  - the remaining honest Phase 3 blockers are therefore narrower and more explicit:
+    - `server/internal/store/entstore/rbac_repository.go` still imports shared generated `internal/ent/user` and still
+      checks user existence through the shared Ent client for `user_roles` writes
+    - `server/plugins/user/**` still consumes the shared generated `internal/ent/**` client because no plugin-owned
+      `user/ent/**` generation path exists yet
+    - historical Atlas file `server/internal/ent/migrate/migrations/202605140001_auth_rbac_foundation.sql` remains the
+      immutable mixed history root for `users`, `refresh_sessions`, `user_roles`, `roles`, `permissions`, and
+      `role_permissions`
 
 ## Shared Hotspots
 
