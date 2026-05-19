@@ -28,7 +28,7 @@ var (
 		)
 	}
 	devResetResolveRBACBootstrap = func(resources *database.Resources) (pluginapi.RBACBootstrapService, error) {
-		repo, err := rbac.NewRepositoryForReset(resources.Client)
+		repo, err := rbac.NewRepositoryForReset(resources.SQL)
 		if err != nil {
 			return nil, err
 		}

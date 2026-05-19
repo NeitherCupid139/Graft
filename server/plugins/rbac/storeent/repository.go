@@ -405,6 +405,9 @@ func (r *repository) ListRolePermissionBindings(ctx context.Context, roleID uint
 	if err != nil {
 		return nil, fmt.Errorf("list role permission bindings: %w", err)
 	}
+	defer func() {
+		_ = rows.Close()
+	}()
 	bindings := make([]rbacstore.RolePermissionBinding, 0)
 	for rows.Next() {
 		var permissionID int64
@@ -418,9 +421,6 @@ func (r *repository) ListRolePermissionBindings(ctx context.Context, roleID uint
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate role permission bindings: %w", err)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, fmt.Errorf("close role permission bindings rows: %w", err)
 	}
 
 	return bindings, nil
