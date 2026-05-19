@@ -6,8 +6,9 @@
 - 本轮不做运行时插件平台，不引入动态发现、热加载、外部插件市场、分布式插件协议，也不把当前单体演进成微服务。
 - 当前 server 基线已经清除先前阻断长期 feature-worktree `functional zero-sharing` 的 `internal/ent` 依赖：
   - runtime/core 不再依赖 `server/internal/ent/**`
-  - 默认 migration 入口不再串接历史 core/shared migration chain
+  - 默认 migration 入口不再串接历史 core/shared migration chain，并已通过 fresh DB 验证 owner-aligned baseline
   - `server/internal/ent/**` 的 Go/schema 兼容层已删除，仅保留显式/manual 历史 migration 目录
+- 按当前治理口径，`server` 已达到长期 feature worktree 的 `functional zero-sharing` 基线
 - 完成后应满足三类验收：
   - `user`、`rbac`、未来新插件可在独立工作树长期开发，主冲突面限制在少数刻意共享热点
   - 新增插件低冲突接入，不再要求手改一批中心化核心文件

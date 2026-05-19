@@ -51,7 +51,8 @@
   - compile-time modular monolith only; no runtime plugin loading, discovery, hot-load lifecycle, or generalized
     service locator
   - zero-shared means functional worktree zero-sharing, not absolute zero-sharing of every tracked file
-  - the former `internal/ent` blockers for long-lived feature-worktree functional zero-sharing are cleared
+  - the current server baseline has reached the governance target for long-lived feature-worktree functional
+    zero-sharing
   - plugin-first owned scope under `server/plugins/<name>/**`
   - long-lived server feature worktrees should normally own only `server/plugins/<name>/**`
   - shared stable backend boundary under `server/internal/pluginapi/**` and `server/internal/contract/**`
@@ -156,22 +157,22 @@
   - avoid reopening shared store seams
   - keep new business logic inside `server/plugins/<name>/**`
   - keep cross-plugin collaboration on capability/contract boundaries
-- Phase 3 is the remaining blocker-clearing phase before long-lived feature-worktree functional zero-sharing:
-  - keep runtime/core free of new `server/internal/ent/**` business-plugin truth dependencies
-  - keep the default migration entry off the historical core/shared replay chain and on the owner-aligned baseline
-  - keep `server/internal/ent/**` deleted as a live Go/schema surface; only the historical manual migration directory may remain
-  - preserve `user_roles -> rbac` ownership while keeping the allowed early-phase whole-database rebuild posture
+- Phase 3 has landed and established the current functional zero-sharing baseline:
+  - runtime/core stays free of new `server/internal/ent/**` business-plugin truth dependencies
+  - the default migration entry stays off the historical core/shared replay chain and on the owner-aligned baseline
+  - `server/internal/ent/**` stays deleted as a live Go/schema surface; only the historical manual migration directory may remain
+  - `user_roles -> rbac` ownership remains preserved under the allowed early-phase whole-database rebuild posture
 
 ## Latest Validation
 
-- Latest backend validation carried by the active baseline before this compaction:
-  - `cd server && go test ./plugins/rbac ./plugins/user`
-  - `cd server && go test ./internal/store/...`
+- Latest backend validation for the functional zero-sharing baseline:
   - `cd server && env GOCACHE=/tmp/go-build go run ./cmd/graft validate backend --stage lint`
-- This compaction slice rechecked the recovery-path shape with:
-  - `git show --stat --oneline --decorate=short 654c791 5f45b31 799f1ff 866582a --`
-  - `git diff -- ai-plan/public/multi-worktree-governance`
-  - `wc -l ai-plan/public/multi-worktree-governance/todos/multi-worktree-governance-tracking.md ai-plan/public/multi-worktree-governance/traces/multi-worktree-governance-trace.md`
+  - `cd server && go test ./...`
+  - `cd server && go build ./cmd/graft`
+  - fresh DB proof on local Docker `postgres:16`:
+    - `cd server && GRAFT_DATABASE_URL='postgres://graft:graft@localhost:55432/graft_repair_round?sslmode=disable' GRAFT_REDIS_ADDR='127.0.0.1:6379' GRAFT_AUTH_JWT_SECRET='repair-round-secret' go run ./cmd/graft migrate up`
+    - resulting tables include `users`, `refresh_sessions`, `roles`, `permissions`, `user_roles`, `role_permissions`, `audit_logs`
+    - revision rows include `202605190001`, `202605190002`, `202605190003`
 
 ## Archive Pointers
 
@@ -184,8 +185,8 @@
 
 - Keep `multi-worktree-governance` limited to shared baseline governance while the repository root remains the only
   active worktree.
-- For the next backend slice, keep `server/internal/ent/**` deleted as a live code surface, avoid re-centralizing the
-  default migration path, and decide whether the historical manual migration directory should stay in place or be
-  archived behind a later governance slice.
+- For the next backend slice, keep `server/internal/ent/**` deleted as a live code surface, keep the owner-aligned
+  default migration baseline intact, and decide whether the historical manual migration directory should stay in place
+  or be archived behind a later governance slice.
 - Before creating the first dedicated long-lived worktree/topic pair, record its owned scope and shared-hotspot policy
   in `ai-plan/public/README.md` and give it its own tracking/trace files instead of extending this governance topic.

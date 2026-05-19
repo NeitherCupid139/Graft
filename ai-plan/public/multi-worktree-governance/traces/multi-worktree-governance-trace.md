@@ -1,5 +1,22 @@
 # Multi Worktree Governance Trace
 
+## 2026-05-20 server functional zero-sharing baseline completed
+
+- Closed the remaining server-side blockers and reached the current governance target for long-lived feature-worktree
+  functional zero-sharing:
+  - runtime/core no longer depends on `server/internal/ent/**`
+  - the default migration entry no longer replays the historical shared chain
+  - `server/internal/ent/**` Go/schema compatibility residue has been physically removed
+- Repaired the owner-aligned default migration baseline after a real fresh-DB failure exposed that Atlas cannot safely
+  apply multiple independent versioned directories sequentially against one database.
+- Changed the default `graft migrate up` execution model to synthesize one temporary Atlas directory from the ordered
+  plugin-owned SQL files, hash it, and apply it as one chain.
+- Revalidated the repaired baseline against a real local Docker `postgres:16` fresh database:
+  - applied `202605190001`, `202605190002`, `202605190003`
+  - built `users`, `refresh_sessions`, `roles`, `permissions`, `user_roles`, `role_permissions`, `audit_logs`
+- The only remaining `internal/ent` residue is the explicit/manual historical migration directory under
+  `server/internal/ent/migrate/migrations/**`; it is no longer part of the default feature-worktree path.
+
 ## 2026-05-19 shared internal-ent Go residue removed
 
 - Deleted the remaining `server/internal/ent/**` Go packages, generated code, forwarder schema shells, and tests after
@@ -11,23 +28,6 @@
   - `internal/ent/**` is no longer a live compatibility shell or runtime dependency surface
   - future work must not silently recreate shared Ent code under `server/internal/ent/**`
   - the remaining `internal/ent` residue is historical SQL state, not active plugin/runtime truth
-
-## 2026-05-19 server functional zero-sharing not yet reached
-
-- Recorded the current server governance conclusion so later implementation rounds do not over-claim the baseline:
-  - long-lived feature-worktree `functional zero-sharing` has NOT yet been reached
-  - compile-time generated plugin registry is already acceptable as a short-lived integration hotspot
-- Made the remaining blockers explicit in the active trace:
-  - runtime/core still depends on `server/internal/ent/**`
-  - the default migration entry still includes the historical core/shared migration chain
-  - `server/internal/ent/**` remains a compatibility shell/shared hotspot
-- Locked the agreed early-phase migration allowance into the active topic truth:
-  - whole-database rebuild is allowed while the project is still early
-  - historical mixed migration replay compatibility is not required as long as functionality remains unchanged
-- Recorded the phased implementation direction required to reach the target posture:
-  - keep registry/CLI hotspot handling short-lived and integration-scoped
-  - finish the plugin-local ownership hardening without reopening shared store seams
-  - clear the runtime/core and migration-entry dependencies that still force `internal/ent/**` to stay shared
 
 ## 2026-05-19 Phase 1 server functional zero-sharing governance freeze
 
