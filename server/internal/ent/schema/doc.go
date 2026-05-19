@@ -1,5 +1,6 @@
-// Package schema 定义 Graft 后端手写的 Ent schema 真值。
+// Package schema 定义 Graft 后端当前仍由 internal/ent 持有的手写 Ent schema，
+// 以及为既有生成包保留的最小兼容引用面。
 //
-// 这些 schema 只描述平台当前确认的持久化边界；插件和上层服务必须通过
-// `server/internal/store` 暴露的稳定 DTO 与仓储接口访问数据，而不是直接依赖 Ent 生成类型。
+// plugin-owned schema 真值应收敛到各自插件目录；这里只保留 core-owned 定义或
+// 过渡期兼容别名，避免把共享 generated package 重新当作业务真值来源。
 package schema

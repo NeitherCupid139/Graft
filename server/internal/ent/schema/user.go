@@ -1,49 +1,22 @@
 package schema
 
 import (
-	"time"
-
 	"entgo.io/ent"
-	"entgo.io/ent/schema/edge"
-	"entgo.io/ent/schema/field"
+
+	userschema "graft/server/plugins/user/ent/schema"
 )
 
-// User 定义 MVP 用户能力的持久化模型。
+// User 保留 internal/ent 的兼容引用面，真正 schema 真值由 user 插件拥有。
 type User struct {
 	ent.Schema
 }
 
-// Fields 返回用户字段定义。
+// Fields 转发到 user 插件拥有的 schema 真值。
 func (User) Fields() []ent.Field {
-	return []ent.Field{
-		field.String("username").
-			NotEmpty().
-			Unique(),
-		field.String("display").
-			NotEmpty(),
-		field.String("password_hash").
-			Sensitive().
-			Optional().
-			Nillable(),
-		// must_change_password 标识该用户下次登录后是否必须先完成改密。
-		// 默认管理员初始化和后续密码重置会把它设为 true；用户成功改密后再清回 false。
-		field.Bool("must_change_password").
-			Default(false),
-		field.Time("password_changed_at").
-			Optional().
-			Nillable(),
-		field.Time("created_at").
-			Immutable().
-			Default(time.Now),
-		field.Time("updated_at").
-			Default(time.Now).
-			UpdateDefault(time.Now),
-	}
+	return userschema.User{}.Fields()
 }
 
-// Edges 返回用户相关的关系定义。
+// Edges 转发到 user 插件拥有的 schema 真值。
 func (User) Edges() []ent.Edge {
-	return []ent.Edge{
-		edge.To("refresh_sessions", RefreshSession.Type),
-	}
+	return userschema.User{}.Edges()
 }
