@@ -50,6 +50,7 @@ type Runtime struct {
 	permissionRegistry *permission.Registry
 	cronRegistry       *cronx.Registry
 	pluginManager      *plugin.Manager
+	runtimeMetadata    plugin.RuntimeMetadata
 }
 
 // NewRuntime 使用给定插件构造显式的 MVP 运行时外壳。
@@ -115,6 +116,13 @@ func NewRuntime() (*Runtime, error) {
 
 	runtime.registerCoreRoutes(server.Engine())
 
+	orderedDescriptors, err := pluginregistry.OrderedDescriptors()
+	if err != nil {
+		_ = runtime.closeCoreResources()
+		return nil, fmt.Errorf("order runtime plugin descriptors: %w", err)
+	}
+	runtime.runtimeMetadata = plugin.NewRuntimeMetadata(orderedDescriptors)
+
 	plugins, err := pluginregistry.BuildPlugins(plugin.BuildContext{
 		Services: services,
 	})
@@ -153,6 +161,7 @@ func (r *Runtime) Run(runCtx context.Context) error {
 		Redis:              r.redis,
 		Router:             r.server.Engine().Group("/api"),
 		Services:           r.services,
+		RuntimeMetadata:    r.runtimeMetadata,
 		MenuRegistry:       r.menuRegistry,
 		PermissionRegistry: r.permissionRegistry,
 		CronRegistry:       r.cronRegistry,

@@ -42,6 +42,12 @@ func TestBuildServerStatusResponseIncludesCurrentSliceFields(t *testing.T) {
 			},
 		},
 		Services: services,
+		RuntimeMetadata: plugin.NewRuntimeMetadata([]plugin.Descriptor{
+			{ID: "audit", PluginVersion: "0.1.0"},
+			{ID: "user", PluginVersion: "0.2.0"},
+			{ID: "rbac", PluginVersion: "0.3.0", Dependencies: []string{"user"}},
+			{ID: pluginID, PluginVersion: pluginVersion, Dependencies: []string{"user", "rbac"}},
+		}),
 	}, &Plugin{startedAt: startedAt})
 	if err != nil {
 		t.Fatalf("build server status response: %v", err)
@@ -61,9 +67,10 @@ func TestBuildServerStatusResponseIncludesCurrentSliceFields(t *testing.T) {
 	}
 
 	expectedPlugins := []serverStatusPlugin{
+		{Name: "audit", Status: "healthy", Version: "0.1.0"},
+		{Name: "user", Status: "healthy", Version: "0.2.0"},
+		{Name: "rbac", Status: "healthy", Version: "0.3.0"},
 		{Name: pluginID, Status: "healthy", Version: pluginVersion},
-		{Name: "user", Status: "healthy", Version: unknownPluginVersion},
-		{Name: "rbac", Status: "healthy", Version: unknownPluginVersion},
 	}
 	assertPluginSummaries(t, response.Plugins, expectedPlugins)
 }

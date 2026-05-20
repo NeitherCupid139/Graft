@@ -14,3 +14,6 @@
 - Chose the explicit server version fallback value `dev` because no stronger canonical runtime version source exists yet in current core surfaces.
 - Validated the slice with `cd server && GIT_DIR=... GIT_WORK_TREE=... go run ./cmd/graft validate backend` because plain worktree git resolution is still misconfigured in WSL.
 - Validated the frontend slice with `cd web && /mnt/c/Users/gewuyou/.bun/bin/bun.exe run check`.
+- Completed a server-only follow-up round that replaces monitor plugin summary placeholders with runtime ordered descriptor snapshots.
+- Injected the runtime metadata snapshot through `server/internal/app/runtime.go`, `server/internal/plugin/plugin.go`, and `server/internal/plugin/runtime_metadata.go` without expanding beyond the recorded shared-hotspot exceptions.
+- Verified the follow-up with `go test ./internal/plugin ./plugins/monitor` and `cd server && GIT_DIR=... GIT_WORK_TREE=... go run ./cmd/graft validate backend`.

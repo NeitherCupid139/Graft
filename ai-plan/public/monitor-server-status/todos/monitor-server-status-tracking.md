@@ -31,10 +31,15 @@
 - The first implementation slice now exists in `server/plugins/monitor/**` and `web/src/modules/monitor/**`.
 - Backend plugin registration required one explicit shared-hotspot update in `server/internal/pluginregistry/generated.go`.
 - The first minimal cross-boundary `monitor/server-status` slice now passes the backend and frontend completion entrypoints in this worktree.
+- A server-only follow-up round now switches monitor plugin summaries from local dependency placeholders to runtime ordered plugin descriptors.
+- That follow-up required explicit shared-hotspot updates in `server/internal/app/runtime.go`, `server/internal/plugin/plugin.go`, and `server/internal/plugin/runtime_metadata.go` to inject an observation-only runtime metadata snapshot into plugin context.
+- The follow-up round passes direct package tests for `internal/plugin` and `plugins/monitor`, and also passes `cd server && GIT_DIR=... GIT_WORK_TREE=... go run ./cmd/graft validate backend`.
 
 ## Shared Hotspots
 
 - `ai-plan/public/README.md`
+- `server/internal/app/runtime.go`
+- `server/internal/plugin/**`
 - `server/internal/pluginregistry/generated.go`
 - `server/internal/pluginapi/**`
 - `server/internal/contract/**`
@@ -46,7 +51,8 @@
 
 - Standing ownership does not include the shared hotspots above.
 - This slice used only the explicit shared-hotspot exception for `server/internal/pluginregistry/generated.go`.
-- No additional shared-hotspot expansion was required.
+- The follow-up round additionally used explicit shared-hotspot exceptions for `server/internal/app/runtime.go` and `server/internal/plugin/**` only to expose runtime metadata snapshots to plugins.
+- No web scope or other plugin scope expansion was required.
 
 ## Active Risks
 
@@ -56,5 +62,5 @@
 
 ## Immediate Next Step
 
-- No additional implementation is required for the first minimal slice unless a follow-up round is requested.
-- If a follow-up round is needed, keep it inside `server-status` depth improvements rather than broadening to new monitor capabilities.
+- No additional implementation is required for the current server-status follow-up round.
+- If a later round is requested, keep it inside `server-status` depth improvements rather than broadening to new monitor capabilities or unrelated core surfaces.

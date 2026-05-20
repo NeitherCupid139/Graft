@@ -26,7 +26,6 @@ import (
 
 const (
 	fallbackServerVersion = "dev"
-	unknownPluginVersion  = "unknown"
 	healthCheckTimeout    = 2 * time.Second
 )
 
@@ -251,9 +250,7 @@ func buildServerStatusResponse(
 	}
 
 	redisStatus := redisHealth(ctx, pluginCtx)
-	plugins := append([]serverStatusPlugin{
-		{Name: pluginID, Status: "healthy", Version: pluginVersion},
-	}, dependencyPluginSummaries()...)
+	plugins := runtimePluginSummaries(pluginCtx)
 
 	return serverStatusResponse{
 		Status:     deriveOverallStatus(databaseStatus, redisStatus),
@@ -320,13 +317,18 @@ func redisHealth(ctx context.Context, pluginCtx *plugin.Context) string {
 	return "healthy"
 }
 
-func dependencyPluginSummaries() []serverStatusPlugin {
-	items := make([]serverStatusPlugin, 0, len(pluginDependencies))
-	for _, name := range pluginDependencies {
+func runtimePluginSummaries(pluginCtx *plugin.Context) []serverStatusPlugin {
+	if pluginCtx == nil {
+		return nil
+	}
+
+	descriptors := pluginCtx.RuntimeMetadata.OrderedPluginDescriptors()
+	items := make([]serverStatusPlugin, 0, len(descriptors))
+	for _, descriptor := range descriptors {
 		items = append(items, serverStatusPlugin{
-			Name:    name,
+			Name:    descriptor.Name,
 			Status:  "healthy",
-			Version: unknownPluginVersion,
+			Version: descriptor.Version,
 		})
 	}
 
