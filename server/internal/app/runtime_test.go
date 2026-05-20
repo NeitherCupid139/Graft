@@ -7,7 +7,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -264,7 +263,7 @@ func assertServiceKeyNotRegistered(t *testing.T, resolver container.Resolver, ke
 	if err == nil {
 		t.Fatalf("expected runtime services to omit %s", name)
 	}
-	if !strings.Contains(err.Error(), "service not registered") {
+	if !errors.Is(err, container.ErrServiceNotRegistered) {
 		t.Fatalf("expected %s to be unregistered, got %v", name, err)
 	}
 }
