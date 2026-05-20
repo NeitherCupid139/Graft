@@ -1,43 +1,130 @@
-import { flushPromises, mount } from '@vue/test-utils';
+import { readFile, unlink, writeFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+import { compileScript, parse } from '@vue/compiler-sfc';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { defineComponent, h } from 'vue';
+import type { Component } from 'vue';
 
 import { RBAC_PERMISSION_CODE } from '../contract/permissions';
-import RolePage from './index.vue';
 
-const rbacApiMocks = vi.hoisted(() => ({
-  assignRolePermissions: vi.fn(),
-  createRole: vi.fn(),
-  getPermissions: vi.fn(),
-  getRolePermissionBindings: vi.fn(),
-  getRoles: vi.fn(),
-  updateRole: vi.fn(),
-}));
+type RbacPageTestState = {
+  permissionState: {
+    grantedCodes: string[];
+  };
+  rbacApiMocks: {
+    assignRolePermissions: ReturnType<typeof vi.fn>;
+    createRole: ReturnType<typeof vi.fn>;
+    getPermissions: ReturnType<typeof vi.fn>;
+    getRolePermissionBindings: ReturnType<typeof vi.fn>;
+    getRoles: ReturnType<typeof vi.fn>;
+    updateRole: ReturnType<typeof vi.fn>;
+  };
+};
 
-const messageMocks = vi.hoisted(() => ({
-  error: vi.fn(),
-  success: vi.fn(),
-  warning: vi.fn(),
-}));
+function getTestState(): RbacPageTestState {
+  const globalState = globalThis as typeof globalThis & {
+    __rbacPageTestState?: RbacPageTestState;
+  };
 
-const permissionState = vi.hoisted(() => ({
-  grantedCodes: [] as string[],
-}));
+  if (!globalState.__rbacPageTestState) {
+    globalState.__rbacPageTestState = {
+      permissionState: {
+        grantedCodes: [],
+      },
+      rbacApiMocks: {
+        assignRolePermissions: vi.fn(),
+        createRole: vi.fn(),
+        getPermissions: vi.fn(),
+        getRolePermissionBindings: vi.fn(),
+        getRoles: vi.fn(),
+        updateRole: vi.fn(),
+      },
+    };
+  }
+
+  return globalState.__rbacPageTestState;
+}
+
+async function loadVueComponent(relativePath: string): Promise<Component> {
+  const filename = fileURLToPath(new URL(relativePath, import.meta.url));
+  const source = await readFile(filename, 'utf8');
+  const { descriptor } = parse(source, { filename });
+  const script = compileScript(descriptor, {
+    id: filename,
+    inlineTemplate: true,
+  });
+  const compiledPath = join(dirname(filename), `.bun-test-${Date.now()}-${Math.random().toString(36).slice(2)}.ts`);
+
+  await writeFile(compiledPath, script.content, 'utf8');
+
+  try {
+    const module = (await import(`${pathToFileURL(compiledPath).href}?t=${Date.now()}`)) as {
+      default: Component;
+    };
+
+    return module.default;
+  } finally {
+    await unlink(compiledPath).catch(() => undefined);
+  }
+}
+
+function ensureDomEnvironment() {
+  if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+    return;
+  }
+
+  const require = createRequire(import.meta.url);
+  const { JSDOM } = require('jsdom') as {
+    JSDOM: new (
+      html?: string,
+      options?: { url?: string },
+    ) => {
+      window: Window & typeof globalThis;
+    };
+  };
+  const jsdom = new JSDOM('<!doctype html><html><body></body></html>', {
+    url: 'http://localhost/',
+  });
+  const { window: domWindow } = jsdom;
+
+  Object.assign(globalThis, {
+    document: domWindow.document,
+    Element: domWindow.Element,
+    Event: domWindow.Event,
+    HTMLElement: domWindow.HTMLElement,
+    MutationObserver: domWindow.MutationObserver,
+    Node: domWindow.Node,
+    SVGElement: domWindow.SVGElement,
+    navigator: domWindow.navigator,
+    window: domWindow,
+  });
+}
+
+ensureDomEnvironment();
+
+const { flushPromises, mount } = await import('@vue/test-utils');
+const { MessagePlugin } = await import('tdesign-vue-next');
+const { defineComponent, h } = await import('vue');
+const createMessagePromise = () => Promise.resolve({} as Awaited<ReturnType<typeof MessagePlugin.error>>);
 
 vi.mock('../api/rbac', () => ({
-  assignRolePermissions: rbacApiMocks.assignRolePermissions,
-  createRole: rbacApiMocks.createRole,
-  getPermissions: rbacApiMocks.getPermissions,
-  getRolePermissionBindings: rbacApiMocks.getRolePermissionBindings,
-  getRoles: rbacApiMocks.getRoles,
-  updateRole: rbacApiMocks.updateRole,
+  assignRolePermissions: getTestState().rbacApiMocks.assignRolePermissions,
+  createRole: getTestState().rbacApiMocks.createRole,
+  getPermissions: getTestState().rbacApiMocks.getPermissions,
+  getRolePermissionBindings: getTestState().rbacApiMocks.getRolePermissionBindings,
+  getRoles: getTestState().rbacApiMocks.getRoles,
+  updateRole: getTestState().rbacApiMocks.updateRole,
 }));
 
-vi.mock('@/store', () => ({
-  usePermissionStore: () => ({
-    hasPermission: (code: string) => permissionState.grantedCodes.includes(code),
-  }),
-}));
+vi.mock('@/store', () => {
+  return {
+    usePermissionStore: () => ({
+      hasPermission: (code: string) => getTestState().permissionState.grantedCodes.includes(code),
+    }),
+  };
+});
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
@@ -47,14 +134,13 @@ vi.mock('vue-i18n', () => ({
     },
   }),
 }));
-
-vi.mock('tdesign-vue-next', () => ({
-  MessagePlugin: {
-    error: messageMocks.error,
-    success: messageMocks.success,
-    warning: messageMocks.warning,
-  },
-}));
+const messageMocks = {
+  error: vi.spyOn(MessagePlugin, 'error').mockImplementation(() => createMessagePromise()),
+  success: vi.spyOn(MessagePlugin, 'success').mockImplementation(() => createMessagePromise()),
+  warning: vi.spyOn(MessagePlugin, 'warning').mockImplementation(() => createMessagePromise()),
+};
+const { permissionState, rbacApiMocks } = getTestState();
+const RolePage = await loadVueComponent('./index.vue');
 
 const passthroughStub = defineComponent({
   name: 'PassthroughStub',
@@ -328,26 +414,26 @@ function createDeferred<T>() {
 function mountRolePage() {
   return mount(RolePage, {
     global: {
+      components: {
+        TButton: buttonStub,
+        TCard: passthroughStub,
+        TCheckbox: checkboxStub,
+        TCheckboxGroup: checkboxGroupStub,
+        TCol: passthroughStub,
+        TDialog: dialogStub,
+        TEmpty: passthroughStub,
+        TForm: formStub,
+        TFormItem: passthroughStub,
+        TInput: inputStub,
+        TRow: passthroughStub,
+        TTable: tableStub,
+        TTag: passthroughStub,
+        TTextarea: textareaStub,
+      },
       directives: {
         permission: {
           mounted() {},
         },
-      },
-      stubs: {
-        't-button': buttonStub,
-        't-card': passthroughStub,
-        't-checkbox': checkboxStub,
-        't-checkbox-group': checkboxGroupStub,
-        't-col': passthroughStub,
-        't-dialog': dialogStub,
-        't-empty': passthroughStub,
-        't-form': formStub,
-        't-form-item': passthroughStub,
-        't-input': inputStub,
-        't-row': passthroughStub,
-        't-table': tableStub,
-        't-tag': passthroughStub,
-        't-textarea': textareaStub,
       },
     },
   });
