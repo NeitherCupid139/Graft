@@ -1,0 +1,36 @@
+{
+  "monitor": {
+    "serverStatus": {
+      "overviewTitle": "Server Status Overview",
+      "summaryTitle": "Current Status",
+      "summaryHint": "This page wires the minimal server-status loop only: aggregate status, dependency summary, and manual refresh.",
+      "endpointTitle": "Live Contract",
+      "endpointLabel": "Endpoint: ",
+      "fieldsLabel": "Minimal fields: ",
+      "fieldsValue": "status, observed_at, server, dependencies, plugins",
+      "refresh": "Refresh Status",
+      "lastObserved": "Last observed: {time}",
+      "loadFailed": "Failed to load server status",
+      "serverCardTitle": "Server Information",
+      "dependencyCardTitle": "Dependency Status",
+      "pluginCardTitle": "Plugin Summary",
+      "statusLabel": "Overall status",
+      "versionLabel": "Version",
+      "startedAtLabel": "Started at",
+      "uptimeLabel": "Uptime",
+      "goVersionLabel": "Go Version",
+      "appLabel": "Application",
+      "envLabel": "Environment",
+      "databaseLabel": "Database",
+      "redisLabel": "Redis",
+      "pluginName": "Plugin",
+      "pluginVersion": "Version",
+      "pluginStatus": "Status",
+      "statusHealthy": "Healthy",
+      "statusDegraded": "Degraded",
+      "statusUnknown": "Unknown",
+      "statusDisabled": "Disabled",
+      "empty": "No server-status data"
+    }
+  }
+}

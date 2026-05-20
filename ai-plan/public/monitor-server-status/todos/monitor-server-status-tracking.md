@@ -4,15 +4,15 @@
 
 - Topic: `monitor-server-status`
 - Parent topic: `multi-worktree-governance` (archived)
-- Branch: none yet
-- Worktree: none yet
-- Scope: design-only topic; future implementation is expected under `server/plugins/monitor/**` and `web/src/modules/monitor/**`
+- Branch: `feat/wt-monitor-server-status`
+- Worktree: `/mnt/f/gewuyou/Project/Go/Graft-WorkTree/Graft-wt-monitor-server-status`
+- Scope: first minimal implementation slice under `server/plugins/monitor/**` and `web/src/modules/monitor/**`
 
 ## Goal
 
-- Freeze the recovery entry for the new standalone monitor topic.
 - Keep the first capability focused on `server-status` only.
-- Preserve the existing repository boundaries before any implementation slice starts.
+- Deliver the first minimal cross-boundary implementation slice without expanding beyond owned scope.
+- Preserve the existing repository boundaries while wiring menu, route, permission, API, and page ownership inside the plugin/module.
 
 ## Repository Truth
 
@@ -28,8 +28,8 @@
 ## Current Recovery Point
 
 - This topic was split out of `multi-worktree-governance` as a standalone active topic.
-- The repository root is back on `main`.
-- This topic currently stops at design materials only; no `server/**` or `web/**` source code is modified.
+- The first implementation slice now exists in `server/plugins/monitor/**` and `web/src/modules/monitor/**`.
+- Backend plugin registration required one explicit shared-hotspot update in `server/internal/pluginregistry/generated.go`.
 
 ## Shared Hotspots
 
@@ -44,14 +44,15 @@
 ## Ownership Boundary
 
 - Standing ownership does not include the shared hotspots above.
-- The owned scope for the next implementation slice should stay inside `server/plugins/monitor/**` and `web/src/modules/monitor/**`.
+- This slice used only the explicit shared-hotspot exception for `server/internal/pluginregistry/generated.go`.
+- No additional shared-hotspot expansion was required.
 
 ## Active Risks
 
-- If future work pushes `monitor` business truth into shell-owned or shared-hotspot paths, the topic will stop being a clean standalone recovery entry.
-- If the first implementation slice expands beyond `server-status`, the topic will lose the intended minimal MVP boundary.
+- Server version currently uses the explicit fallback value `dev`; there is still no stronger canonical runtime version source in the current repository surface.
+- The dependency snapshot is intentionally shallow and based on existing runtime resources only; deeper health semantics would require a new scoped slice.
 
 ## Immediate Next Step
 
-- Keep this topic design-only until the corresponding implementation slice is explicitly started.
-- When implementation begins, keep menu, route, permission, API, and locale ownership inside the plugin/module boundaries above.
+- Validate the current cross-boundary slice with backend and frontend completion entrypoints.
+- If a follow-up round is needed, keep future work inside `server-status` depth improvements rather than broadening to new monitor capabilities.
