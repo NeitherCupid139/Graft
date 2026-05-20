@@ -126,7 +126,7 @@
           >
             <span>{{ permissionDialogStatusMessage }}</span>
             <t-button
-              v-if="permissionLoadWarning"
+              v-if="permissionLoadRetryable"
               variant="text"
               theme="primary"
               :loading="loadingRolePermissions"
@@ -236,6 +236,7 @@ const permissionDialogSession = ref(0);
 const permissionSelectionReady = ref(false);
 const loadingRolePermissions = ref(false);
 const permissionLoadWarning = ref('');
+const permissionLoadRetryable = ref(false);
 
 const permissionCodes = RBAC_PERMISSION_CODE;
 const canReadPermissions = computed(() => permissionStore.hasPermission(permissionCodes.PERMISSION_READ));
@@ -373,6 +374,7 @@ async function loadRolePermissionSelection(roleID: number, session: number) {
     permissionSelectionReady.value = false;
     selectedPermissionIds.value = [];
     permissionLoadWarning.value = '';
+    permissionLoadRetryable.value = false;
   }
 
   try {
@@ -383,10 +385,12 @@ async function loadRolePermissionSelection(roleID: number, session: number) {
 
     if (!applyRolePermissionSelection(response.permission_ids)) {
       permissionLoadWarning.value = t('rbac.roleList.permissionDialog.selectionUnavailable');
+      permissionLoadRetryable.value = false;
       return false;
     }
 
     permissionLoadWarning.value = '';
+    permissionLoadRetryable.value = false;
     return true;
   } catch (error) {
     if (!isActivePermissionDialogSession(session)) {
@@ -395,6 +399,7 @@ async function loadRolePermissionSelection(roleID: number, session: number) {
 
     permissionLoadWarning.value =
       error instanceof Error ? error.message : t('rbac.roleList.permissionDialog.selectionLoadFailed');
+    permissionLoadRetryable.value = true;
     return false;
   } finally {
     if (isActivePermissionDialogSession(session)) {
@@ -414,7 +419,6 @@ async function retryPermissionDialogLoad() {
 }
 
 async function fetchRolePageData() {
-  permissionSelectionReady.value = false;
   loading.value = true;
   try {
     const results = await Promise.allSettled([
@@ -521,6 +525,7 @@ function closePermissionDialog() {
   loadingRolePermissions.value = false;
   permissionSelectionReady.value = false;
   permissionLoadWarning.value = '';
+  permissionLoadRetryable.value = false;
 }
 
 async function submitPermissionAssignment() {
