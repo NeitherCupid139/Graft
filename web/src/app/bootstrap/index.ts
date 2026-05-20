@@ -5,7 +5,7 @@ import TDesign from 'tdesign-vue-next';
 import App from '@/App.vue';
 import { i18n } from '@/locales';
 import router from '@/router';
-import { store } from '@/store';
+import { store, useTabsRouterStore } from '@/store';
 
 import { registerPermissionDirective } from './permission-directive';
 import { registerRouteGuards } from './route-guards';
@@ -18,6 +18,10 @@ export function bootstrapApp() {
   registerRouteGuards(router);
 
   const app = createApp(App);
+  const tabsRouterStore = useTabsRouterStore(store);
+
+  // 自愈上一次异常中断时遗留的 tabs 刷新态，避免内容区被全局 loading 永久覆盖。
+  tabsRouterStore.healPersistedState();
 
   app.use(TDesign);
   app.use(store);

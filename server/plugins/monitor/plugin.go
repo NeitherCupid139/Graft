@@ -3,15 +3,22 @@ package monitor
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
+	"os"
 	"runtime"
+	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
+	"github.com/shirou/gopsutil/v4/process"
 	"go.uber.org/zap"
 
 	"graft/server/internal/container"
@@ -26,23 +33,40 @@ import (
 )
 
 const (
-	fallbackServerVersion = "dev"
-	healthCheckTimeout    = 2 * time.Second
+	fallbackServerVersion   = "dev"
+	healthCheckTimeout      = 2 * time.Second
+	trendSampleInterval     = 5 * time.Second
+	maxTrendRetentionWindow = time.Hour
+	trendStorageTTL         = 2 * time.Hour
+	samplerShutdownTimeout  = 3 * time.Second
+	millisecondsPerSecond   = 1000
+	latencyPrecisionScale   = 100
+	trendStorageKeyPrefix   = "graft:monitor:server-status:trend"
+	maxProcessIDInt32       = int64(1<<31 - 1)
 )
 
-// Plugin implements the minimal monitor/server-status slice.
+// Plugin implements the monitor/server-status slice.
 type Plugin struct {
 	startedAtUnixNs atomic.Int64
 	db              *sql.DB
+	redis           *redis.Client
+	logger          *zap.Logger
 	authService     pluginapi.AuthService
 	routeAuthorizer pluginapi.Authorizer
+
+	samplerMu     sync.Mutex
+	samplerCancel context.CancelFunc
+	samplerDone   chan struct{}
 }
 
 type serverStatusResponse struct {
 	Status       string                   `json:"status"`
 	ObservedAt   string                   `json:"observed_at"`
 	Server       serverStatusServer       `json:"server"`
+	Runtime      serverStatusRuntime      `json:"runtime"`
 	Dependencies serverStatusDependencies `json:"dependencies"`
+	Summary      serverStatusSummary      `json:"summary"`
+	Trend        serverStatusTrend        `json:"trend"`
 	Plugins      []serverStatusPlugin     `json:"plugins"`
 }
 
@@ -61,16 +85,58 @@ type serverStatusDependencies struct {
 }
 
 type dependencyStatus struct {
-	Status string `json:"status"`
+	Status    string   `json:"status"`
+	Detail    string   `json:"detail"`
+	LatencyMs *float64 `json:"latency_ms"`
 }
 
 type serverStatusPlugin struct {
-	Name    string `json:"name"`
-	Status  string `json:"status"`
-	Version string `json:"version"`
+	Name      string   `json:"name"`
+	Status    string   `json:"status"`
+	Version   string   `json:"version"`
+	DependsOn []string `json:"depends_on"`
 }
 
-// NewPlugin creates the minimal monitor plugin.
+type serverStatusRuntime struct {
+	GoVersion         string `json:"go_version"`
+	HostName          string `json:"host_name"`
+	OperatingSystem   string `json:"operating_system"`
+	Architecture      string `json:"architecture"`
+	CPUCores          int    `json:"cpu_cores"`
+	Goroutines        int    `json:"goroutines"`
+	AllocBytes        uint64 `json:"alloc_bytes"`
+	HeapInUseBytes    uint64 `json:"heap_in_use_bytes"`
+	SystemMemoryBytes uint64 `json:"system_memory_bytes"`
+	GCCycles          uint32 `json:"gc_cycles"`
+}
+
+type serverStatusSummary struct {
+	TotalDependencies    int `json:"total_dependencies"`
+	HealthyDependencies  int `json:"healthy_dependencies"`
+	DegradedDependencies int `json:"degraded_dependencies"`
+	UnknownDependencies  int `json:"unknown_dependencies"`
+	DisabledDependencies int `json:"disabled_dependencies"`
+	TotalPlugins         int `json:"total_plugins"`
+	HealthyPlugins       int `json:"healthy_plugins"`
+}
+
+type serverStatusTrend struct {
+	Range                 string                   `json:"range"`
+	RetentionSeconds      int64                    `json:"retention_seconds"`
+	SampleIntervalSeconds int64                    `json:"sample_interval_seconds"`
+	Points                []serverStatusTrendPoint `json:"points"`
+}
+
+type serverStatusTrendPoint struct {
+	ObservedAt        string  `json:"observed_at"`
+	CPUPercent        float64 `json:"cpu_percent"`
+	Goroutines        int     `json:"goroutines"`
+	AllocBytes        uint64  `json:"alloc_bytes"`
+	HeapInUseBytes    uint64  `json:"heap_in_use_bytes"`
+	SystemMemoryBytes uint64  `json:"system_memory_bytes"`
+}
+
+// NewPlugin creates the monitor plugin.
 func NewPlugin() *Plugin {
 	return &Plugin{}
 }
@@ -105,15 +171,21 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 	return nil
 }
 
-// Boot records the first stable startup timestamp owned by this plugin.
-func (p *Plugin) Boot(_ *plugin.Context) error {
+// Boot records the first stable startup timestamp and starts the Redis-backed trend sampler.
+func (p *Plugin) Boot(ctx *plugin.Context) error {
 	p.startedAtUnixNs.CompareAndSwap(0, time.Now().UTC().UnixNano())
+	if ctx != nil {
+		p.redis = ctx.Redis
+		p.logger = ctx.Logger
+	}
+
+	p.startTrendSampler(ctx)
 	return nil
 }
 
-// Shutdown currently has no owned runtime resources to release.
-func (p *Plugin) Shutdown(_ *plugin.Context) error {
-	return nil
+// Shutdown stops the owned trend sampler before shared runtime resources are released.
+func (p *Plugin) Shutdown(ctx *plugin.Context) error {
+	return p.stopTrendSampler(ctx)
 }
 
 func registerMessages(localizer *i18n.Service) error {
@@ -126,14 +198,18 @@ func registerMessages(localizer *i18n.Service) error {
 			Namespace: "monitor",
 			Locale:    i18n.LocaleZHCN,
 			Messages: []i18n.MessageResource{
+				{Key: i18n.MessageKey(monitorcontract.MonitorSectionTitle.String()), Text: "服务器管理"},
 				{Key: i18n.MessageKey(monitorcontract.ServerStatusMenuTitle.String()), Text: "服务器状态"},
+				{Key: i18n.MessageKey(monitorcontract.ServerStatusOverviewMenuTitle.String()), Text: "概览"},
 			},
 		},
 		{
 			Namespace: "monitor",
 			Locale:    i18n.LocaleENUS,
 			Messages: []i18n.MessageResource{
+				{Key: i18n.MessageKey(monitorcontract.MonitorSectionTitle.String()), Text: "Server Management"},
 				{Key: i18n.MessageKey(monitorcontract.ServerStatusMenuTitle.String()), Text: "Server Status"},
+				{Key: i18n.MessageKey(monitorcontract.ServerStatusOverviewMenuTitle.String()), Text: "Overview"},
 			},
 		},
 	} {
@@ -151,6 +227,8 @@ func (p *Plugin) bindDependencies(ctx *plugin.Context) error {
 		return err
 	}
 	p.db = db
+	p.redis = ctx.Redis
+	p.logger = ctx.Logger
 
 	authResolved, err := ctx.Services.Resolve((*pluginapi.AuthService)(nil))
 	if err != nil {
@@ -206,7 +284,7 @@ func registerMonitorPermissions(registry *permission.Registry, pluginName string
 	registry.Register(permission.Item{
 		Code:        monitorcontract.ServerStatusReadPermission.String(),
 		Name:        "Read Server Status",
-		Description: "Allows reading the minimal server status overview.",
+		Description: "Allows reading the server status overview.",
 		Category:    "api",
 		Plugin:      pluginName,
 	})
@@ -218,10 +296,30 @@ func registerMonitorMenu(registry *menu.Registry, pluginName string) {
 	}
 
 	registry.Register(menu.Item{
+		Code:       "monitor.section",
+		Title:      "服务器管理",
+		TitleKey:   monitorcontract.MonitorSectionTitle.String(),
+		Path:       monitorcontract.MonitorGroup,
+		Icon:       "server",
+		Permission: "",
+		Plugin:     pluginName,
+	})
+
+	registry.Register(menu.Item{
 		Code:       "monitor.server-status",
 		Title:      "服务器状态",
 		TitleKey:   monitorcontract.ServerStatusMenuTitle.String(),
-		Path:       monitorcontract.JoinRoute(monitorcontract.MonitorGroup, monitorcontract.ServerStatusRoute),
+		Path:       monitorcontract.ServerStatusMenuPath,
+		Icon:       "chart-bubble",
+		Permission: "",
+		Plugin:     pluginName,
+	})
+
+	registry.Register(menu.Item{
+		Code:       "monitor.server-status.overview",
+		Title:      "概览",
+		TitleKey:   monitorcontract.ServerStatusOverviewMenuTitle.String(),
+		Path:       monitorcontract.ServerStatusOverviewMenuPath,
 		Icon:       "chart-bubble",
 		Permission: monitorcontract.ServerStatusReadPermission.String(),
 		Plugin:     pluginName,
@@ -246,7 +344,8 @@ func registerMonitorRoutes(
 
 func newServerStatusHandler(ctx *plugin.Context, instance *Plugin, pluginName string) gin.HandlerFunc {
 	return func(ginCtx *gin.Context) {
-		payload, err := buildServerStatusResponse(ginCtx.Request.Context(), ctx, instance)
+		trendRange := parseTrendRange(ginCtx.Query(monitorcontract.TrendRangeQueryKey))
+		payload, err := buildServerStatusResponse(ginCtx.Request.Context(), ctx, instance, trendRange)
 		if err != nil {
 			ctx.Logger.Error("build monitor server status failed",
 				zap.String("plugin", pluginName),
@@ -264,6 +363,7 @@ func buildServerStatusResponse(
 	ctx context.Context,
 	pluginCtx *plugin.Context,
 	instance *Plugin,
+	trendRange monitorcontract.TrendRange,
 ) (serverStatusResponse, error) {
 	observedAt := time.Now().UTC()
 	startedAt := observedAt
@@ -273,12 +373,15 @@ func buildServerStatusResponse(
 		}
 	}
 
+	runtimeSnapshot := collectRuntimeSnapshot()
 	databaseStatus := databaseHealth(ctx, instance)
 	redisStatus := redisHealth(ctx, pluginCtx)
 	plugins := runtimePluginSummaries(pluginCtx)
+	summary := buildServerStatusSummary(databaseStatus, redisStatus, plugins)
+	trend := buildServerStatusTrend(ctx, pluginCtx, instance, observedAt, trendRange)
 
 	return serverStatusResponse{
-		Status:     deriveOverallStatus(databaseStatus, redisStatus),
+		Status:     deriveOverallStatus(databaseStatus.Status, redisStatus.Status),
 		ObservedAt: observedAt.Format(time.RFC3339),
 		Server: serverStatusServer{
 			Version:       fallbackServerVersion,
@@ -288,42 +391,69 @@ func buildServerStatusResponse(
 			AppName:       resolveAppName(pluginCtx),
 			AppEnv:        resolveAppEnv(pluginCtx),
 		},
+		Runtime: runtimeSnapshot,
 		Dependencies: serverStatusDependencies{
-			Database: dependencyStatus{Status: databaseStatus},
-			Redis:    dependencyStatus{Status: redisStatus},
+			Database: databaseStatus,
+			Redis:    redisStatus,
 		},
+		Summary: summary,
+		Trend:   trend,
 		Plugins: plugins,
 	}, nil
 }
 
-func databaseHealth(ctx context.Context, instance *Plugin) string {
+func databaseHealth(ctx context.Context, instance *Plugin) dependencyStatus {
 	if instance == nil || instance.db == nil {
-		return "unknown"
+		return dependencyStatus{
+			Status: "unknown",
+			Detail: "Database handle is unavailable",
+		}
 	}
 
 	pingCtx, cancel := context.WithTimeout(ctx, healthCheckTimeout)
 	defer cancel()
 
+	startedAt := time.Now()
 	if err := instance.db.PingContext(pingCtx); err != nil {
-		return "degraded"
+		return dependencyStatus{
+			Status: "degraded",
+			Detail: fmt.Sprintf("Database ping failed: %v", err),
+		}
 	}
 
-	return "healthy"
+	latencyMs := roundLatencyMilliseconds(time.Since(startedAt))
+	return dependencyStatus{
+		Status:    "healthy",
+		Detail:    "Database ping succeeded",
+		LatencyMs: &latencyMs,
+	}
 }
 
-func redisHealth(ctx context.Context, pluginCtx *plugin.Context) string {
+func redisHealth(ctx context.Context, pluginCtx *plugin.Context) dependencyStatus {
 	if pluginCtx == nil || pluginCtx.Redis == nil {
-		return "disabled"
+		return dependencyStatus{
+			Status: "disabled",
+			Detail: "Redis client is not configured",
+		}
 	}
 
 	pingCtx, cancel := context.WithTimeout(ctx, healthCheckTimeout)
 	defer cancel()
 
+	startedAt := time.Now()
 	if err := pluginCtx.Redis.Ping(pingCtx).Err(); err != nil {
-		return "degraded"
+		return dependencyStatus{
+			Status: "degraded",
+			Detail: fmt.Sprintf("Redis ping failed: %v", err),
+		}
 	}
 
-	return "healthy"
+	latencyMs := roundLatencyMilliseconds(time.Since(startedAt))
+	return dependencyStatus{
+		Status:    "healthy",
+		Detail:    "Redis ping succeeded",
+		LatencyMs: &latencyMs,
+	}
 }
 
 func runtimePluginSummaries(pluginCtx *plugin.Context) []serverStatusPlugin {
@@ -335,13 +465,345 @@ func runtimePluginSummaries(pluginCtx *plugin.Context) []serverStatusPlugin {
 	items := make([]serverStatusPlugin, 0, len(descriptors))
 	for _, descriptor := range descriptors {
 		items = append(items, serverStatusPlugin{
-			Name:    descriptor.Name,
-			Status:  "unknown",
-			Version: descriptor.Version,
+			Name:      descriptor.Name,
+			Status:    "unknown",
+			Version:   descriptor.Version,
+			DependsOn: append([]string(nil), descriptor.DependsOn...),
 		})
 	}
 
 	return items
+}
+
+func buildServerStatusSummary(
+	database dependencyStatus,
+	redis dependencyStatus,
+	plugins []serverStatusPlugin,
+) serverStatusSummary {
+	summary := serverStatusSummary{
+		TotalDependencies: len([]dependencyStatus{database, redis}),
+		TotalPlugins:      len(plugins),
+	}
+
+	for _, dependency := range []dependencyStatus{database, redis} {
+		switch dependency.Status {
+		case "healthy":
+			summary.HealthyDependencies++
+		case "degraded":
+			summary.DegradedDependencies++
+		case "disabled":
+			summary.DisabledDependencies++
+		default:
+			summary.UnknownDependencies++
+		}
+	}
+
+	for _, plugin := range plugins {
+		if plugin.Status == "healthy" {
+			summary.HealthyPlugins++
+		}
+	}
+
+	return summary
+}
+
+func buildServerStatusTrend(
+	ctx context.Context,
+	pluginCtx *plugin.Context,
+	instance *Plugin,
+	observedAt time.Time,
+	trendRange monitorcontract.TrendRange,
+) serverStatusTrend {
+	retention := trendRange.Duration()
+	trend := serverStatusTrend{
+		Range:                 trendRange.String(),
+		RetentionSeconds:      int64(retention.Seconds()),
+		SampleIntervalSeconds: int64(trendSampleInterval.Seconds()),
+		Points:                nil,
+	}
+
+	redisClient := resolveRedisClient(pluginCtx, instance)
+	if redisClient == nil {
+		return trend
+	}
+
+	points, err := loadTrendPoints(ctx, redisClient, trendStorageKey(resolveAppName(pluginCtx), resolveHostName()), observedAt, retention)
+	if err != nil {
+		logTrendWarning(instance, pluginCtx, "load redis trend points failed", err)
+		return trend
+	}
+
+	trend.Points = points
+	return trend
+}
+
+func resolveRedisClient(pluginCtx *plugin.Context, instance *Plugin) *redis.Client {
+	if instance != nil && instance.redis != nil {
+		return instance.redis
+	}
+	if pluginCtx != nil {
+		return pluginCtx.Redis
+	}
+	return nil
+}
+
+func (p *Plugin) startTrendSampler(ctx *plugin.Context) {
+	if p == nil || ctx == nil || ctx.Redis == nil || ctx.LifecycleContext == nil {
+		return
+	}
+
+	p.samplerMu.Lock()
+	defer p.samplerMu.Unlock()
+
+	if p.samplerCancel != nil {
+		return
+	}
+
+	runCtx, cancel := context.WithCancel(ctx.LifecycleContext)
+	done := make(chan struct{})
+	p.samplerCancel = cancel
+	p.samplerDone = done
+
+	storageKey := trendStorageKey(resolveAppName(ctx), resolveHostName())
+	go func() {
+		defer close(done)
+		p.runTrendSampler(runCtx, ctx.Redis, storageKey)
+	}()
+}
+
+func (p *Plugin) stopTrendSampler(ctx *plugin.Context) error {
+	if p == nil {
+		return nil
+	}
+
+	p.samplerMu.Lock()
+	cancel := p.samplerCancel
+	done := p.samplerDone
+	p.samplerCancel = nil
+	p.samplerDone = nil
+	p.samplerMu.Unlock()
+
+	if cancel == nil || done == nil {
+		return nil
+	}
+
+	cancel()
+	waitCtx := context.Background()
+	if ctx != nil && ctx.LifecycleContext != nil {
+		waitCtx = ctx.LifecycleContext
+	}
+
+	select {
+	case <-done:
+		return nil
+	case <-waitCtx.Done():
+		return waitCtx.Err()
+	case <-time.After(samplerShutdownTimeout):
+		return errors.New("monitor trend sampler shutdown timed out")
+	}
+}
+
+func (p *Plugin) runTrendSampler(ctx context.Context, redisClient *redis.Client, storageKey string) {
+	var processHandle *process.Process
+	processID, err := currentProcessID()
+	if err != nil {
+		logTrendWarning(p, nil, "resolve monitor cpu sampler pid failed", err)
+	} else {
+		processHandle, err = process.NewProcessWithContext(ctx, processID)
+		if err != nil {
+			logTrendWarning(p, nil, "initialize monitor cpu sampler failed", err)
+			processHandle = nil
+		}
+	}
+
+	// Prime the CPU sampler before the first stored sample.
+	if processHandle != nil {
+		_, _ = processHandle.CPUPercentWithContext(ctx)
+	}
+
+	p.recordTrendSample(ctx, redisClient, storageKey, processHandle)
+
+	ticker := time.NewTicker(trendSampleInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			p.recordTrendSample(ctx, redisClient, storageKey, processHandle)
+		}
+	}
+}
+
+func (p *Plugin) recordTrendSample(
+	ctx context.Context,
+	redisClient *redis.Client,
+	storageKey string,
+	processHandle *process.Process,
+) {
+	if redisClient == nil {
+		return
+	}
+
+	runtimeSnapshot := collectRuntimeSnapshot()
+	observedAt := time.Now().UTC()
+	point := serverStatusTrendPoint{
+		ObservedAt:        observedAt.Format(time.RFC3339),
+		CPUPercent:        collectCPUPercent(ctx, processHandle),
+		Goroutines:        runtimeSnapshot.Goroutines,
+		AllocBytes:        runtimeSnapshot.AllocBytes,
+		HeapInUseBytes:    runtimeSnapshot.HeapInUseBytes,
+		SystemMemoryBytes: runtimeSnapshot.SystemMemoryBytes,
+	}
+
+	if err := storeTrendPoint(ctx, redisClient, storageKey, observedAt, point); err != nil {
+		logTrendWarning(p, nil, "store monitor trend sample failed", err)
+	}
+}
+
+func collectCPUPercent(ctx context.Context, processHandle *process.Process) float64 {
+	if processHandle == nil {
+		return 0
+	}
+
+	percent, err := processHandle.CPUPercentWithContext(ctx)
+	if err != nil {
+		return 0
+	}
+
+	return roundCPUPercent(percent)
+}
+
+func storeTrendPoint(
+	ctx context.Context,
+	redisClient *redis.Client,
+	storageKey string,
+	observedAt time.Time,
+	point serverStatusTrendPoint,
+) error {
+	payload, err := json.Marshal(point)
+	if err != nil {
+		return fmt.Errorf("marshal trend point: %w", err)
+	}
+
+	observedAtMillis := observedAt.UnixMilli()
+	cutoffMillis := observedAt.Add(-maxTrendRetentionWindow).UnixMilli()
+	pipe := redisClient.TxPipeline()
+	pipe.ZAdd(ctx, storageKey, redis.Z{
+		Score:  float64(observedAtMillis),
+		Member: string(payload),
+	})
+	pipe.ZRemRangeByScore(ctx, storageKey, "-inf", strconv.FormatInt(cutoffMillis, 10))
+	pipe.Expire(ctx, storageKey, trendStorageTTL)
+
+	if _, err := pipe.Exec(ctx); err != nil {
+		return fmt.Errorf("exec redis trend pipeline: %w", err)
+	}
+
+	return nil
+}
+
+func loadTrendPoints(
+	ctx context.Context,
+	redisClient *redis.Client,
+	storageKey string,
+	observedAt time.Time,
+	retention time.Duration,
+) ([]serverStatusTrendPoint, error) {
+	if redisClient == nil {
+		return nil, nil
+	}
+
+	minScore := strconv.FormatInt(observedAt.Add(-retention).UnixMilli(), 10)
+	maxScore := strconv.FormatInt(observedAt.UnixMilli(), 10)
+	members, err := redisClient.ZRangeArgs(ctx, redis.ZRangeArgs{
+		Key:     storageKey,
+		Start:   minScore,
+		Stop:    maxScore,
+		ByScore: true,
+	}).Result()
+	if err != nil {
+		return nil, fmt.Errorf("range redis trend points: %w", err)
+	}
+
+	points := make([]serverStatusTrendPoint, 0, len(members))
+	for _, member := range members {
+		var point serverStatusTrendPoint
+		if err := json.Unmarshal([]byte(member), &point); err != nil {
+			continue
+		}
+		points = append(points, point)
+	}
+
+	return points, nil
+}
+
+func trendStorageKey(appName string, hostName string) string {
+	resolvedAppName := sanitizeTrendKeySegment(appName)
+	if resolvedAppName == "" {
+		resolvedAppName = "app"
+	}
+
+	resolvedHostName := sanitizeTrendKeySegment(hostName)
+	if resolvedHostName == "" {
+		resolvedHostName = "host"
+	}
+
+	return fmt.Sprintf("%s:%s:%s", trendStorageKeyPrefix, resolvedAppName, resolvedHostName)
+}
+
+func sanitizeTrendKeySegment(value string) string {
+	trimmed := strings.TrimSpace(strings.ToLower(value))
+	if trimmed == "" {
+		return ""
+	}
+
+	replacer := strings.NewReplacer(" ", "-", "/", "-", "\\", "-", ":", "-", ".", "-")
+	return replacer.Replace(trimmed)
+}
+
+func resolveHostName() string {
+	hostName, err := os.Hostname()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(hostName)
+}
+
+func currentProcessID() (int32, error) {
+	pid := os.Getpid()
+	if pid < 0 || int64(pid) > maxProcessIDInt32 {
+		return 0, fmt.Errorf("current pid %d overflows int32", pid)
+	}
+
+	return int32(pid), nil
+}
+
+func collectRuntimeSnapshot() serverStatusRuntime {
+	stats := runtime.MemStats{}
+	runtime.ReadMemStats(&stats)
+
+	return serverStatusRuntime{
+		GoVersion:         runtime.Version(),
+		HostName:          resolveHostName(),
+		OperatingSystem:   runtime.GOOS,
+		Architecture:      runtime.GOARCH,
+		CPUCores:          runtime.NumCPU(),
+		Goroutines:        runtime.NumGoroutine(),
+		AllocBytes:        stats.Alloc,
+		HeapInUseBytes:    stats.HeapInuse,
+		SystemMemoryBytes: stats.Sys,
+		GCCycles:          stats.NumGC,
+	}
+}
+
+func roundLatencyMilliseconds(duration time.Duration) float64 {
+	return math.Round(duration.Seconds()*millisecondsPerSecond*latencyPrecisionScale) / latencyPrecisionScale
+}
+
+func roundCPUPercent(value float64) float64 {
+	return math.Round(value*latencyPrecisionScale) / latencyPrecisionScale
 }
 
 func resolveAppName(pluginCtx *plugin.Context) string {
@@ -370,6 +832,26 @@ func deriveOverallStatus(databaseStatus string, redisStatus string) string {
 	}
 
 	return "unknown"
+}
+
+func parseTrendRange(raw string) monitorcontract.TrendRange {
+	switch monitorcontract.TrendRange(strings.TrimSpace(raw)) {
+	case monitorcontract.TrendRange30Minutes:
+		return monitorcontract.TrendRange30Minutes
+	case monitorcontract.TrendRange1Hour:
+		return monitorcontract.TrendRange1Hour
+	default:
+		return monitorcontract.TrendRange10Minutes
+	}
+}
+
+func logTrendWarning(instance *Plugin, pluginCtx *plugin.Context, message string, err error) {
+	switch {
+	case instance != nil && instance.logger != nil:
+		instance.logger.Warn(message, zap.Error(err))
+	case pluginCtx != nil && pluginCtx.Logger != nil:
+		pluginCtx.Logger.Warn(message, zap.Error(err))
+	}
 }
 
 var _ plugin.Plugin = (*Plugin)(nil)

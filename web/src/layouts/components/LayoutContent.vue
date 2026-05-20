@@ -122,10 +122,10 @@ const renderTitle = (title?: LocalizedTitle) => {
   return title[locale.value as keyof LocalizedTitle] || '';
 };
 const handleRefresh = (route: TRouterInfo, routeIdx: number) => {
-  tabsRouterStore.toggleTabRouterAlive(routeIdx);
+  tabsRouterStore.startTabRefresh(routeIdx);
   nextTick(() => {
-    tabsRouterStore.toggleTabRouterAlive(routeIdx);
-    router.replace({ path: route.path, query: normalizeQuery(route.query) });
+    tabsRouterStore.finishTabRefresh(routeIdx);
+    void router.replace({ path: route.path, query: normalizeQuery(route.query) });
   });
   activeTabPath.value = null;
 };

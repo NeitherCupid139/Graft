@@ -14,31 +14,57 @@ const homeRoute: Array<TRouterInfo> = [
   },
 ];
 
-const state = {
-  tabRouterList: homeRoute,
-  isRefreshing: false,
-};
-
 // 不需要做多标签tabs页缓存的列表 值为每个页面对应的name 如 DashboardDetail
 // const ignoreCacheRoutes = ['DashboardDetail'];
 const ignoreCacheRoutes: string[] = [AUTH_ROUTE_NAME.LOGIN];
 
+function createInitialState(): TTabRouterType {
+  return {
+    tabRouterList: homeRoute.map((route) => ({ ...route })),
+    isRefreshing: false,
+  };
+}
+
+function shouldKeepTabAlive(route: TRouterInfo) {
+  return !route.isHome && !ignoreCacheRoutes.includes(route.name as string) && route.meta?.keepAlive !== false;
+}
+
 export const useTabsRouterStore = defineStore('tabsRouter', {
-  state: () => state,
+  state: createInitialState,
   getters: {
     tabRouters: (state: TTabRouterType) => state.tabRouterList,
     refreshing: (state: TTabRouterType) => state.isRefreshing,
   },
   actions: {
-    // 处理刷新
-    toggleTabRouterAlive(routeIdx: number) {
-      this.isRefreshing = !this.isRefreshing;
-      this.tabRouters[routeIdx].isAlive = !this.tabRouters[routeIdx].isAlive;
+    startTabRefresh(routeIdx: number) {
+      const route = this.tabRouters[routeIdx];
+      if (!route) {
+        this.isRefreshing = false;
+        return;
+      }
+
+      this.isRefreshing = true;
+      route.isAlive = false;
+    },
+    finishTabRefresh(routeIdx: number) {
+      const route = this.tabRouters[routeIdx];
+      if (route) {
+        route.isAlive = shouldKeepTabAlive(route);
+      }
+
+      this.isRefreshing = false;
+    },
+    healPersistedState() {
+      this.isRefreshing = false;
+      this.tabRouterList = this.tabRouters.map((route) => ({
+        ...route,
+        isAlive: route.isHome ? true : shouldKeepTabAlive(route),
+      }));
     },
     // 处理新增
     appendTabRouterList(newRoute: TRouterInfo) {
       // 不要将判断条件newRoute.meta.keepAlive !== false修改为newRoute.meta.keepAlive，starter默认开启保活，所以meta.keepAlive未定义时也需要进行保活，只有显式说明false才禁用保活。
-      const needAlive = !ignoreCacheRoutes.includes(newRoute.name as string) && newRoute.meta?.keepAlive !== false;
+      const needAlive = shouldKeepTabAlive(newRoute);
       if (!this.tabRouters.find((route: TRouterInfo) => route.path === newRoute.path)) {
         this.tabRouterList = this.tabRouterList.concat({ ...newRoute, isAlive: needAlive });
       }
@@ -85,5 +111,7 @@ export const useTabsRouterStore = defineStore('tabsRouter', {
       newRoutes?.forEach((route: TRouterInfo) => this.appendTabRouterList(route));
     },
   },
-  persist: true,
+  persist: {
+    pick: ['tabRouterList'],
+  },
 });

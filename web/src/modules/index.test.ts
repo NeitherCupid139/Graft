@@ -11,6 +11,9 @@ describe('module registration aggregation', () => {
   it('exposes the actual module bootstrap registration map', () => {
     expect(getBootstrapRouteRegistration('/users')?.routeName).toBe('UserList');
     expect(getBootstrapRouteRegistration('/roles')?.routeName).toBe('RoleList');
+    expect(getBootstrapRouteRegistration('/monitor/server-status/overview')?.routeName).toBe(
+      'MonitorServerStatusOverview',
+    );
   });
 
   it('rejects duplicate menu paths', () => {
