@@ -238,6 +238,10 @@ const textareaStub = defineComponent({
 const checkboxGroupStub = defineComponent({
   name: 'TCheckboxGroupStub',
   props: {
+    disabled: {
+      type: Boolean,
+      default: false,
+    },
     modelValue: {
       type: Array<number>,
       default: () => [],
@@ -248,6 +252,7 @@ const checkboxGroupStub = defineComponent({
       h(
         'div',
         {
+          'data-disabled': String(props.disabled),
           'data-testid': 'permission-checkbox-group',
           'data-selected-permission-ids': JSON.stringify(props.modelValue),
         },
@@ -301,6 +306,22 @@ function createPermissionListResponse() {
         category: 'role',
       },
     ],
+  };
+}
+
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+
+  return {
+    promise,
+    reject,
+    resolve,
   };
 }
 
@@ -443,7 +464,7 @@ describe('RolePage', () => {
     expect(wrapper.text()).toContain('Editorial Team');
   });
 
-  it('blocks permission replacement when the current snapshot cannot be restored safely', async () => {
+  it('keeps replace-write blocked when the current role-permission snapshot cannot be restored', async () => {
     permissionState.grantedCodes = [RBAC_PERMISSION_CODE.PERMISSION_READ, RBAC_PERMISSION_CODE.ROLE_PERMISSION_ASSIGN];
     rbacApiMocks.getRoles.mockResolvedValue(createRoleListResponse());
     rbacApiMocks.getPermissions.mockResolvedValue(createPermissionListResponse());
@@ -461,9 +482,81 @@ describe('RolePage', () => {
     await flushPromises();
 
     expect(rbacApiMocks.getRolePermissionBindings).toHaveBeenCalledWith(2);
-    expect(messageMocks.error).toHaveBeenCalledWith('rbac.roleList.permissionDialog.selectionUnavailable');
-    expect(wrapper.find('[data-header="rbac.roleList.permissionDialog.title"]').exists()).toBe(false);
+    expect(wrapper.find('[data-header="rbac.roleList.permissionDialog.title"]').exists()).toBe(true);
+    expect(wrapper.text()).toContain('rbac.roleList.permissionDialog.selectionUnavailable');
+    expect(wrapper.get('[data-testid="permission-checkbox-group"]').attributes('data-disabled')).toBe('true');
     expect(rbacApiMocks.assignRolePermissions).not.toHaveBeenCalled();
+  });
+
+  it('retries the permission dialog load in place after the role-permission snapshot fails to load', async () => {
+    permissionState.grantedCodes = [RBAC_PERMISSION_CODE.PERMISSION_READ, RBAC_PERMISSION_CODE.ROLE_PERMISSION_ASSIGN];
+    rbacApiMocks.getRoles.mockResolvedValue(createRoleListResponse());
+    rbacApiMocks.getPermissions.mockResolvedValue(createPermissionListResponse());
+    rbacApiMocks.getRolePermissionBindings
+      .mockRejectedValueOnce(new Error('selection load failed'))
+      .mockResolvedValueOnce({
+        permission_ids: [2],
+      });
+
+    const wrapper = mountRolePage();
+    await flushPromises();
+
+    const openPermissionButton = findButtonByText(wrapper, 'rbac.roleList.assignPermissions');
+    expect(openPermissionButton).toBeDefined();
+
+    await openPermissionButton!.trigger('click');
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('selection load failed');
+    expect(
+      wrapper.findAll('button').filter((button) => button.text().trim() === 'rbac.roleList.permissionDialog.retry'),
+    ).toHaveLength(1);
+
+    const retryButton = findButtonByText(wrapper, 'rbac.roleList.permissionDialog.retry');
+    expect(retryButton).toBeDefined();
+
+    await retryButton!.trigger('click');
+    await flushPromises();
+
+    expect(rbacApiMocks.getRolePermissionBindings).toHaveBeenCalledTimes(2);
+    expect(wrapper.text()).not.toContain('selection load failed');
+    expect(wrapper.get('[data-testid="permission-checkbox-group"]').attributes('data-disabled')).toBe('false');
+    expect(wrapper.get('[data-testid="permission-checkbox-group"]').attributes('data-selected-permission-ids')).toBe(
+      '[2]',
+    );
+  });
+
+  it('shows a single loading status while the current role-permission snapshot is still loading', async () => {
+    permissionState.grantedCodes = [RBAC_PERMISSION_CODE.PERMISSION_READ, RBAC_PERMISSION_CODE.ROLE_PERMISSION_ASSIGN];
+    const permissionBindingRequest = createDeferred<{ permission_ids: number[] }>();
+
+    rbacApiMocks.getRoles.mockResolvedValue(createRoleListResponse());
+    rbacApiMocks.getPermissions.mockResolvedValue(createPermissionListResponse());
+    rbacApiMocks.getRolePermissionBindings.mockImplementationOnce(() => permissionBindingRequest.promise);
+
+    const wrapper = mountRolePage();
+    await flushPromises();
+
+    const openPermissionButton = findButtonByText(wrapper, 'rbac.roleList.assignPermissions');
+    expect(openPermissionButton).toBeDefined();
+
+    await openPermissionButton!.trigger('click');
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.find('[data-header="rbac.roleList.permissionDialog.title"]').exists()).toBe(true);
+    expect(wrapper.text()).toContain('rbac.roleList.permissionDialog.loadingSelection');
+    expect(
+      wrapper.findAll('button').filter((button) => button.text().trim() === 'rbac.roleList.permissionDialog.retry'),
+    ).toHaveLength(0);
+    expect(wrapper.get('[data-testid="permission-checkbox-group"]').attributes('data-disabled')).toBe('true');
+
+    permissionBindingRequest.resolve({
+      permission_ids: [1],
+    });
+    await flushPromises();
+
+    expect(wrapper.text()).not.toContain('rbac.roleList.permissionDialog.loadingSelection');
+    expect(wrapper.get('[data-testid="permission-checkbox-group"]').attributes('data-disabled')).toBe('false');
   });
 
   it('submits the restored permission snapshot for the selected role', async () => {
@@ -499,5 +592,164 @@ describe('RolePage', () => {
     });
     expect(messageMocks.success).toHaveBeenCalledWith('rbac.roleList.assignSuccess');
     expect(wrapper.find('[data-header="rbac.roleList.permissionDialog.title"]').exists()).toBe(false);
+  });
+
+  it('shows an error toast and keeps the dialog open when the permission assignment submit fails', async () => {
+    permissionState.grantedCodes = [RBAC_PERMISSION_CODE.PERMISSION_READ, RBAC_PERMISSION_CODE.ROLE_PERMISSION_ASSIGN];
+    rbacApiMocks.getRoles.mockResolvedValue(createRoleListResponse());
+    rbacApiMocks.getPermissions.mockResolvedValue(createPermissionListResponse());
+    rbacApiMocks.getRolePermissionBindings.mockResolvedValue({
+      permission_ids: [2],
+    });
+    rbacApiMocks.assignRolePermissions.mockRejectedValue(new Error('assign failed'));
+
+    const wrapper = mountRolePage();
+    await flushPromises();
+
+    const openPermissionButton = findButtonByText(wrapper, 'rbac.roleList.assignPermissions');
+    expect(openPermissionButton).toBeDefined();
+
+    await openPermissionButton!.trigger('click');
+    await flushPromises();
+
+    const submitButton = findButtonByText(wrapper, 'rbac.roleList.permissionDialog.confirm');
+    expect(submitButton).toBeDefined();
+
+    await submitButton!.trigger('click');
+    await flushPromises();
+
+    expect(messageMocks.error).toHaveBeenCalledWith('assign failed');
+    expect(wrapper.find('[data-header="rbac.roleList.permissionDialog.title"]').exists()).toBe(true);
+  });
+
+  it('ignores stale role-permission responses after the dialog is closed and reopened', async () => {
+    permissionState.grantedCodes = [RBAC_PERMISSION_CODE.PERMISSION_READ, RBAC_PERMISSION_CODE.ROLE_PERMISSION_ASSIGN];
+    const firstPermissionBindingRequest = createDeferred<{ permission_ids: number[] }>();
+
+    rbacApiMocks.getRoles.mockResolvedValue(createRoleListResponse());
+    rbacApiMocks.getPermissions.mockResolvedValue(createPermissionListResponse());
+    rbacApiMocks.getRolePermissionBindings
+      .mockImplementationOnce(() => firstPermissionBindingRequest.promise)
+      .mockResolvedValueOnce({
+        permission_ids: [],
+      });
+
+    const wrapper = mountRolePage();
+    await flushPromises();
+
+    const openPermissionButton = findButtonByText(wrapper, 'rbac.roleList.assignPermissions');
+    expect(openPermissionButton).toBeDefined();
+
+    await openPermissionButton!.trigger('click');
+    await flushPromises();
+
+    const cancelButton = findButtonByText(wrapper, 'rbac.roleList.form.cancel');
+    expect(cancelButton).toBeDefined();
+
+    await cancelButton!.trigger('click');
+    await flushPromises();
+
+    await openPermissionButton!.trigger('click');
+    await flushPromises();
+
+    expect(wrapper.get('[data-testid="permission-checkbox-group"]').attributes('data-selected-permission-ids')).toBe(
+      '[]',
+    );
+
+    firstPermissionBindingRequest.resolve({
+      permission_ids: [1, 2],
+    });
+    await flushPromises();
+
+    expect(wrapper.get('[data-testid="permission-checkbox-group"]').attributes('data-selected-permission-ids')).toBe(
+      '[]',
+    );
+    expect(rbacApiMocks.getRolePermissionBindings).toHaveBeenCalledTimes(2);
+  });
+
+  it('ignores stale submit errors after the dialog is closed and reopened', async () => {
+    permissionState.grantedCodes = [RBAC_PERMISSION_CODE.PERMISSION_READ, RBAC_PERMISSION_CODE.ROLE_PERMISSION_ASSIGN];
+    const firstAssignRequest = createDeferred<null>();
+
+    rbacApiMocks.getRoles.mockResolvedValue(createRoleListResponse());
+    rbacApiMocks.getPermissions.mockResolvedValue(createPermissionListResponse());
+    rbacApiMocks.getRolePermissionBindings.mockResolvedValue({
+      permission_ids: [2],
+    });
+    rbacApiMocks.assignRolePermissions
+      .mockImplementationOnce(() => firstAssignRequest.promise)
+      .mockResolvedValueOnce(null);
+
+    const wrapper = mountRolePage();
+    await flushPromises();
+
+    const openPermissionButton = findButtonByText(wrapper, 'rbac.roleList.assignPermissions');
+    expect(openPermissionButton).toBeDefined();
+
+    await openPermissionButton!.trigger('click');
+    await flushPromises();
+
+    const submitButton = findButtonByText(wrapper, 'rbac.roleList.permissionDialog.confirm');
+    expect(submitButton).toBeDefined();
+
+    await submitButton!.trigger('click');
+    await flushPromises();
+
+    const cancelButton = findButtonByText(wrapper, 'rbac.roleList.form.cancel');
+    expect(cancelButton).toBeDefined();
+
+    await cancelButton!.trigger('click');
+    await flushPromises();
+    await openPermissionButton!.trigger('click');
+    await flushPromises();
+
+    firstAssignRequest.reject(new Error('stale failure'));
+    await flushPromises();
+
+    expect(messageMocks.error).not.toHaveBeenCalled();
+    expect(wrapper.find('[data-header="rbac.roleList.permissionDialog.title"]').exists()).toBe(true);
+  });
+
+  it('ignores stale submit success after the dialog is closed and reopened', async () => {
+    permissionState.grantedCodes = [RBAC_PERMISSION_CODE.PERMISSION_READ, RBAC_PERMISSION_CODE.ROLE_PERMISSION_ASSIGN];
+    const firstAssignRequest = createDeferred<null>();
+
+    rbacApiMocks.getRoles.mockResolvedValue(createRoleListResponse());
+    rbacApiMocks.getPermissions.mockResolvedValue(createPermissionListResponse());
+    rbacApiMocks.getRolePermissionBindings.mockResolvedValue({
+      permission_ids: [2],
+    });
+    rbacApiMocks.assignRolePermissions
+      .mockImplementationOnce(() => firstAssignRequest.promise)
+      .mockResolvedValueOnce(null);
+
+    const wrapper = mountRolePage();
+    await flushPromises();
+
+    const openPermissionButton = findButtonByText(wrapper, 'rbac.roleList.assignPermissions');
+    expect(openPermissionButton).toBeDefined();
+
+    await openPermissionButton!.trigger('click');
+    await flushPromises();
+
+    const submitButton = findButtonByText(wrapper, 'rbac.roleList.permissionDialog.confirm');
+    expect(submitButton).toBeDefined();
+
+    await submitButton!.trigger('click');
+    await flushPromises();
+
+    const cancelButton = findButtonByText(wrapper, 'rbac.roleList.form.cancel');
+    expect(cancelButton).toBeDefined();
+
+    await cancelButton!.trigger('click');
+    await flushPromises();
+    await openPermissionButton!.trigger('click');
+    await flushPromises();
+
+    firstAssignRequest.resolve(null);
+    await flushPromises();
+
+    expect(messageMocks.success).not.toHaveBeenCalled();
+    expect(wrapper.find('[data-header="rbac.roleList.permissionDialog.title"]').exists()).toBe(true);
   });
 });
