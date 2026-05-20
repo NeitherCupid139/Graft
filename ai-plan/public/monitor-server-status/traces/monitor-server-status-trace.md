@@ -2,8 +2,7 @@
 
 ## 2026-05-20
 
-- Split this work out of `multi-worktree-governance` into a standalone topic after the parent topic was archived.
-- Confirmed the repository root has returned to `main`.
-- Recorded the topic as design-only for now; no source code changes were made.
-- Kept the future owned scope explicit: `server/plugins/monitor/**` and `web/src/modules/monitor/**`.
-- Kept shared hotspots out of standing ownership.
+- Completed the first minimal `monitor/server-status` slice across `server/plugins/monitor/**` and `web/src/modules/monitor/**`.
+- Registered the backend plugin through the approved shared-hotspot exception in `server/internal/pluginregistry/generated.go`.
+- Completed the runtime metadata snapshot follow-up and validated that slice with backend checks.
+- Full command- and file-level history for this stage stays in the session log; keep this trace as the concise recovery entrypoint.

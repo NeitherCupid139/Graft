@@ -175,3 +175,29 @@ func TestDescriptorBuildRejectsRuntimeMetadataDrift(t *testing.T) {
 		t.Fatalf("expected descriptor mismatch error, got %v", err)
 	}
 }
+
+func TestNewRuntimeMetadataPreservesOrderedDescriptorSnapshot(t *testing.T) {
+	metadata := NewRuntimeMetadata([]Descriptor{
+		{ID: "audit", PluginVersion: "0.1.0"},
+		{ID: "user", PluginVersion: "0.2.0"},
+		{ID: "rbac", PluginVersion: "0.3.0", Dependencies: []string{"user"}},
+	})
+
+	got := metadata.OrderedPluginDescriptors()
+	expected := []DescriptorSnapshot{
+		{Name: "audit", Version: "0.1.0"},
+		{Name: "user", Version: "0.2.0"},
+		{Name: "rbac", Version: "0.3.0", DependsOn: []string{"user"}},
+	}
+	if !reflect.DeepEqual(got, expected) {
+		t.Fatalf("expected %v, got %v", expected, got)
+	}
+
+	got[0].Name = "mutated"
+	got[2].DependsOn[0] = "mutated"
+
+	unchanged := metadata.OrderedPluginDescriptors()
+	if !reflect.DeepEqual(unchanged, expected) {
+		t.Fatalf("expected runtime metadata to remain immutable, got %v", unchanged)
+	}
+}

@@ -4,6 +4,7 @@ package pluginregistry
 import (
 	"graft/server/internal/plugin"
 	auditplugin "graft/server/plugins/audit"
+	monitorplugin "graft/server/plugins/monitor"
 	rbacplugin "graft/server/plugins/rbac"
 	schedulerplugin "graft/server/plugins/scheduler"
 	userplugin "graft/server/plugins/user"
@@ -11,6 +12,7 @@ import (
 
 var generatedDescriptors = []plugin.Descriptor{
 	auditplugin.NewDescriptor(),
+	monitorplugin.NewDescriptor(),
 	rbacplugin.NewDescriptor(),
 	schedulerplugin.NewDescriptor(),
 	userplugin.NewDescriptor(),

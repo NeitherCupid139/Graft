@@ -199,6 +199,7 @@ type Context struct {
 	Redis              *redis.Client
 	Router             gin.IRouter
 	Services           *container.Container
+	RuntimeMetadata    RuntimeMetadata
 	MenuRegistry       *menu.Registry
 	PermissionRegistry *permission.Registry
 	CronRegistry       *cronx.Registry
