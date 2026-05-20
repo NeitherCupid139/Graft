@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
+	"graft/server/internal/container"
 	messagecontract "graft/server/internal/contract/message"
 	"graft/server/internal/httpx"
 	"graft/server/internal/i18n"
@@ -280,6 +281,9 @@ func databaseHealth(ctx context.Context, pluginCtx *plugin.Context) (string, err
 
 	resolved, err := pluginCtx.Services.Resolve((*sql.DB)(nil))
 	if err != nil {
+		if errors.Is(err, container.ErrServiceNotRegistered) {
+			return "unknown", nil
+		}
 		return "unknown", fmt.Errorf("resolve sql db: %w", err)
 	}
 

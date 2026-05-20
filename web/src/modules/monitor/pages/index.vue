@@ -149,7 +149,9 @@ async function fetchServerStatus() {
     serverStatus.value = await getServerStatus();
   } catch (error) {
     serverStatus.value = null;
-    MessagePlugin.error(error instanceof Error ? error.message : t('monitor.serverStatus.loadFailed'));
+    const fallbackMessage = t('monitor.serverStatus.loadFailed');
+    const message = error instanceof Error && error.message.trim() ? error.message : fallbackMessage;
+    MessagePlugin.error(message);
   } finally {
     loading.value = false;
   }
