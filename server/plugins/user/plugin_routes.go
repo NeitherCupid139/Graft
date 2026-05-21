@@ -560,6 +560,7 @@ func (r userRouteRegistrar) registerUserReadRoutes(group *gin.RouterGroup) {
 				ID:        user.ID,
 				Username:  user.Username,
 				Display:   user.Display,
+				Status:    normalizeUserStatus(user.Status),
 				CreatedAt: user.CreatedAt.UTC().Format(time.RFC3339),
 				UpdatedAt: user.UpdatedAt.UTC().Format(time.RFC3339),
 			})
@@ -581,6 +582,15 @@ func (r userRouteRegistrar) registerUserReadRoutes(group *gin.RouterGroup) {
 
 		httpx.WriteSuccess(ginCtx, http.StatusOK, summary)
 	})
+}
+
+func normalizeUserStatus(status string) string {
+	switch strings.TrimSpace(status) {
+	case usercontract.UserStatusDisabled:
+		return usercontract.UserStatusDisabled
+	default:
+		return usercontract.UserStatusEnabled
+	}
 }
 
 func (r userRouteRegistrar) registerAdminSessionRoutes(group *gin.RouterGroup) {

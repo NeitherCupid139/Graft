@@ -3,6 +3,7 @@ package rbac
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -21,11 +22,14 @@ type roleListResponse struct {
 }
 
 type roleListItem struct {
-	ID          uint64  `json:"id"`
-	Name        string  `json:"name"`
-	Display     string  `json:"display"`
-	Description *string `json:"description,omitempty"`
-	Builtin     bool    `json:"builtin"`
+	ID              uint64  `json:"id"`
+	Name            string  `json:"name"`
+	Display         string  `json:"display"`
+	Description     *string `json:"description,omitempty"`
+	Builtin         bool    `json:"builtin"`
+	UpdatedAt       string  `json:"updated_at"`
+	PermissionCount int     `json:"permission_count"`
+	UserCount       int     `json:"user_count"`
 }
 
 type rolePermissionBindingResponse struct {
@@ -164,11 +168,14 @@ func registerRoleRoutes(
 			items := make([]roleListItem, 0, len(roles))
 			for _, role := range roles {
 				items = append(items, roleListItem{
-					ID:          role.ID,
-					Name:        role.Name,
-					Display:     role.Display,
-					Description: role.Description,
-					Builtin:     role.Builtin,
+					ID:              role.ID,
+					Name:            role.Name,
+					Display:         role.Display,
+					Description:     role.Description,
+					Builtin:         role.Builtin,
+					UpdatedAt:       role.UpdatedAt.UTC().Format(time.RFC3339),
+					PermissionCount: role.PermissionCount,
+					UserCount:       role.UserCount,
 				})
 			}
 

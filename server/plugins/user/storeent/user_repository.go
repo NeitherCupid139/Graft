@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	usercontract "graft/server/plugins/user/contract"
 	ent "graft/server/plugins/user/ent"
 	userent "graft/server/plugins/user/ent/user"
 	userstore "graft/server/plugins/user/store"
@@ -36,7 +37,10 @@ func (r *userRepository) GetByID(ctx context.Context, id uint64) (userstore.User
 	}
 
 	record, err := r.client.User.Query().
-		Where(userent.IDEQ(entID)).
+		Where(
+			userent.IDEQ(entID),
+			userent.DeletedAtEQ(0),
+		).
 		Only(ctx)
 	if err != nil {
 		if ent.IsNotFound(err) {
@@ -49,6 +53,7 @@ func (r *userRepository) GetByID(ctx context.Context, id uint64) (userstore.User
 		ID:        toStoreID(record.ID),
 		Username:  record.Username,
 		Display:   record.Display,
+		Status:    normalizeStoredUserStatus(record.Status),
 		CreatedAt: record.CreatedAt,
 		UpdatedAt: record.UpdatedAt,
 	}, nil
@@ -56,6 +61,7 @@ func (r *userRepository) GetByID(ctx context.Context, id uint64) (userstore.User
 
 func (r *userRepository) List(ctx context.Context) ([]userstore.User, error) {
 	records, err := r.client.User.Query().
+		Where(userent.DeletedAtEQ(0)).
 		Order(ent.Asc(userent.FieldID)).
 		All(ctx)
 	if err != nil {
@@ -68,10 +74,20 @@ func (r *userRepository) List(ctx context.Context) ([]userstore.User, error) {
 			ID:        toStoreID(record.ID),
 			Username:  record.Username,
 			Display:   record.Display,
+			Status:    normalizeStoredUserStatus(record.Status),
 			CreatedAt: record.CreatedAt,
 			UpdatedAt: record.UpdatedAt,
 		})
 	}
 
 	return users, nil
+}
+
+func normalizeStoredUserStatus(status string) string {
+	switch status {
+	case usercontract.UserStatusDisabled:
+		return usercontract.UserStatusDisabled
+	default:
+		return usercontract.UserStatusEnabled
+	}
 }

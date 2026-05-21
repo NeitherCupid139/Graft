@@ -19,6 +19,7 @@ type User struct {
 	ID        uint64
 	Username  string
 	Display   string
+	Status    string
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }

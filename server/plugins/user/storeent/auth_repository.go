@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	usercontract "graft/server/plugins/user/contract"
 	ent "graft/server/plugins/user/ent"
 	refreshsessionent "graft/server/plugins/user/ent/refreshsession"
 	userent "graft/server/plugins/user/ent/user"
@@ -31,7 +32,10 @@ func newAuthRepository(client *ent.Client) (*authRepository, error) {
 
 func (r *authRepository) GetUserCredentialByUsername(ctx context.Context, username string) (userstore.UserCredential, error) {
 	record, err := r.client.User.Query().
-		Where(userent.UsernameEQ(username)).
+		Where(
+			userent.UsernameEQ(username),
+			userent.DeletedAtEQ(0),
+		).
 		Only(ctx)
 	if err != nil {
 		if ent.IsNotFound(err) {
@@ -124,7 +128,10 @@ func (r *authRepository) ChangePasswordAndRevokeOtherRefreshSessions(
 
 func (r *authRepository) EnsureUserCredential(ctx context.Context, input userstore.EnsureUserCredentialInput) (userstore.UserCredential, error) {
 	record, err := r.client.User.Query().
-		Where(userent.UsernameEQ(input.Username)).
+		Where(
+			userent.UsernameEQ(input.Username),
+			userent.DeletedAtEQ(0),
+		).
 		Only(ctx)
 	if err == nil {
 		return toStoreUserCredential(record), nil
@@ -136,6 +143,7 @@ func (r *authRepository) EnsureUserCredential(ctx context.Context, input usersto
 	record, err = r.client.User.Create().
 		SetUsername(input.Username).
 		SetDisplay(input.Display).
+		SetStatus(usercontract.UserStatusEnabled).
 		SetPasswordHash(input.PasswordHash).
 		SetMustChangePassword(input.MustChangePassword).
 		Save(ctx)
