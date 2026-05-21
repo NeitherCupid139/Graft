@@ -129,8 +129,10 @@ def build_ai_inventory(raw: dict[str, Any]) -> dict[str, Any]:
     )
     web_package_manager = select_tool(
         use_for="Installing and validating the web toolchain.",
-        preferred="bun" if has_bun and web_bun_lock else "npm" if has_npm else None,
-        fallback="npm" if has_npm else None,
+        preferred=(
+            "bun" if web_bun_lock and has_bun else None if web_bun_lock else "npm" if has_npm else None
+        ),
+        fallback="npm" if has_npm and not web_bun_lock else None,
     )
     server_build_and_test = select_tool(
         use_for="Server build and test workflows once server/go.mod exists.",
