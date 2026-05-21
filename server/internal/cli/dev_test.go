@@ -3,7 +3,6 @@ package cli
 import (
 	"errors"
 	"os"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -112,10 +111,9 @@ func TestRunDevAirWrapsRunnerError(t *testing.T) {
 // TestServerAirConfigUsesEntrypointForServe 验证仓库内置的 Air 配置使用 entrypoint 数组
 // 来表达 `graft serve`，避免把可执行文件与参数拼成一个错误路径。
 func TestServerAirConfigUsesEntrypointForServe(t *testing.T) {
-	configPath := serverAirConfigPath(t)
-	content, err := os.ReadFile(configPath)
+	content, err := os.ReadFile("../../.air.toml")
 	if err != nil {
-		t.Fatalf("read %s: %v", configPath, err)
+		t.Fatalf("read ../../.air.toml: %v", err)
 	}
 
 	config := string(content)
@@ -169,25 +167,5 @@ func TestNewRootCommandRegistersDevAirCommand(t *testing.T) {
 	}
 	if found == nil || found.Name() != "air" {
 		t.Fatalf("expected air command, got %#v", found)
-	}
-}
-
-func serverAirConfigPath(t *testing.T) string {
-	t.Helper()
-
-	dir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("get working dir: %v", err)
-	}
-	for {
-		if filepath.Base(dir) == "server" {
-			return filepath.Join(dir, ".air.toml")
-		}
-
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			t.Fatal("resolve server/.air.toml")
-		}
-		dir = parent
 	}
 }
