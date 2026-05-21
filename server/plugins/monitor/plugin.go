@@ -18,6 +18,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
+	"github.com/shirou/gopsutil/v4/disk"
+	"github.com/shirou/gopsutil/v4/load"
+	"github.com/shirou/gopsutil/v4/mem"
 	"github.com/shirou/gopsutil/v4/process"
 	"go.uber.org/zap"
 
@@ -43,6 +46,7 @@ const (
 	latencyPrecisionScale   = 100
 	trendStorageKeyPrefix   = "graft:monitor:server-status:trend"
 	maxProcessIDInt32       = int64(1<<31 - 1)
+	diskUsagePath           = "/"
 
 	statusHealthy  = "healthy"
 	statusDegraded = "degraded"
@@ -96,23 +100,45 @@ type dependencyStatus struct {
 }
 
 type serverStatusPlugin struct {
-	Name      string   `json:"name"`
-	Status    string   `json:"status"`
-	Version   string   `json:"version"`
-	DependsOn []string `json:"depends_on"`
+	Name                string   `json:"name"`
+	Status              string   `json:"status"`
+	StatusDetail        string   `json:"status_detail"`
+	Version             string   `json:"version"`
+	DependsOn           []string `json:"depends_on"`
+	MissingDependencies []string `json:"missing_dependencies,omitempty"`
 }
 
 type serverStatusRuntime struct {
-	GoVersion         string `json:"go_version"`
-	HostName          string `json:"host_name"`
-	OperatingSystem   string `json:"operating_system"`
-	Architecture      string `json:"architecture"`
-	CPUCores          int    `json:"cpu_cores"`
-	Goroutines        int    `json:"goroutines"`
-	AllocBytes        uint64 `json:"alloc_bytes"`
-	HeapInUseBytes    uint64 `json:"heap_in_use_bytes"`
-	SystemMemoryBytes uint64 `json:"system_memory_bytes"`
-	GCCycles          uint32 `json:"gc_cycles"`
+	GoVersion             string                  `json:"go_version"`
+	HostName              string                  `json:"host_name"`
+	OperatingSystem       string                  `json:"operating_system"`
+	Architecture          string                  `json:"architecture"`
+	CPUCores              int                     `json:"cpu_cores"`
+	LoadAverage           serverStatusLoadAverage `json:"load_average"`
+	DiskUsage             serverStatusDiskUsage   `json:"disk_usage"`
+	HostMemoryTotalBytes  uint64                  `json:"host_memory_total_bytes"`
+	HostMemoryUsedBytes   uint64                  `json:"host_memory_used_bytes"`
+	HostMemoryFreeBytes   uint64                  `json:"host_memory_free_bytes"`
+	HostMemoryUsedPercent float64                 `json:"host_memory_used_percent"`
+	Goroutines            int                     `json:"goroutines"`
+	RuntimeAllocBytes     uint64                  `json:"runtime_alloc_bytes"`
+	RuntimeHeapInUseBytes uint64                  `json:"runtime_heap_in_use_bytes"`
+	RuntimeSysBytes       uint64                  `json:"runtime_sys_bytes"`
+	RuntimeGCCycles       uint32                  `json:"runtime_gc_cycles"`
+}
+
+type serverStatusLoadAverage struct {
+	OneMinute      float64 `json:"one_minute"`
+	FiveMinutes    float64 `json:"five_minutes"`
+	FifteenMinutes float64 `json:"fifteen_minutes"`
+}
+
+type serverStatusDiskUsage struct {
+	Path        string  `json:"path"`
+	TotalBytes  uint64  `json:"total_bytes"`
+	UsedBytes   uint64  `json:"used_bytes"`
+	FreeBytes   uint64  `json:"free_bytes"`
+	UsedPercent float64 `json:"used_percent"`
 }
 
 type serverStatusSummary struct {
@@ -133,12 +159,16 @@ type serverStatusTrend struct {
 }
 
 type serverStatusTrendPoint struct {
-	ObservedAt        string  `json:"observed_at"`
-	CPUPercent        float64 `json:"cpu_percent"`
-	Goroutines        int     `json:"goroutines"`
-	AllocBytes        uint64  `json:"alloc_bytes"`
-	HeapInUseBytes    uint64  `json:"heap_in_use_bytes"`
-	SystemMemoryBytes uint64  `json:"system_memory_bytes"`
+	ObservedAt             string  `json:"observed_at"`
+	CPUPercent             float64 `json:"cpu_percent"`
+	HostMemoryUsedPercent  float64 `json:"host_memory_used_percent"`
+	LoadAverageOneMinute   float64 `json:"load_average_one_minute"`
+	LoadAverageFiveMinutes float64 `json:"load_average_five_minutes"`
+	LoadAverageFifteenMins float64 `json:"load_average_fifteen_minutes"`
+	Goroutines             int     `json:"goroutines"`
+	RuntimeAllocBytes      uint64  `json:"runtime_alloc_bytes"`
+	RuntimeHeapInUseBytes  uint64  `json:"runtime_heap_in_use_bytes"`
+	RuntimeSysBytes        uint64  `json:"runtime_sys_bytes"`
 }
 
 // NewPlugin creates the monitor plugin.
@@ -378,7 +408,7 @@ func buildServerStatusResponse(
 		}
 	}
 
-	runtimeSnapshot := collectRuntimeSnapshot()
+	runtimeSnapshot := collectRuntimeSnapshot(ctx)
 	databaseStatus := databaseHealth(ctx, instance)
 	redisStatus := redisHealth(ctx, pluginCtx)
 	plugins := runtimePluginSummaries(pluginCtx, databaseStatus, redisStatus)
@@ -486,44 +516,57 @@ func runtimePluginSummaries(
 	items := make([]serverStatusPlugin, 0, len(descriptors))
 	for _, descriptor := range descriptors {
 		dependsOn := append([]string(nil), descriptor.DependsOn...)
+		status, statusDetail, missingDependencies := deriveRuntimePluginObservation(descriptor, available, platformStatus)
 		items = append(items, serverStatusPlugin{
-			Name:      descriptor.Name,
-			Status:    deriveRuntimePluginStatus(descriptor, available, platformStatus),
-			Version:   descriptor.Version,
-			DependsOn: dependsOn,
+			Name:                descriptor.Name,
+			Status:              status,
+			StatusDetail:        statusDetail,
+			Version:             descriptor.Version,
+			DependsOn:           dependsOn,
+			MissingDependencies: missingDependencies,
 		})
 	}
 
 	return items
 }
 
-// deriveRuntimePluginStatus keeps plugin runtime semantics explicit and narrow:
-// a plugin is only "healthy" when it is present in runtime metadata, its declared
-// plugin dependencies are also present, and the current shared runtime signals are
-// not degraded. Without a stronger plugin-owned liveness signal, unknown remains
-// the safe fallback when the platform itself is only partially observable.
-func deriveRuntimePluginStatus(
+// deriveRuntimePluginObservation keeps plugin runtime semantics explicit and narrow:
+// a plugin is healthy only when its runtime metadata is complete, its declared
+// plugin dependencies are present, and the current shared runtime signals are not
+// degraded. When that cannot be confirmed, the returned detail explains the most
+// useful operator-facing reason instead of collapsing everything into a coarse summary.
+func deriveRuntimePluginObservation(
 	descriptor plugin.DescriptorSnapshot,
 	available map[string]struct{},
 	platformStatus string,
-) string {
+) (status string, detail string, missingDependencies []string) {
 	if strings.TrimSpace(descriptor.Name) == "" || strings.TrimSpace(descriptor.Version) == "" {
-		return statusUnknown
+		return statusUnknown, "Runtime metadata is incomplete", nil
 	}
 
 	for _, dependency := range descriptor.DependsOn {
-		if _, ok := available[strings.TrimSpace(dependency)]; !ok {
-			return statusDegraded
+		dependencyName := strings.TrimSpace(dependency)
+		if dependencyName == "" {
+			continue
 		}
+		if _, ok := available[dependencyName]; !ok {
+			missingDependencies = append(missingDependencies, dependencyName)
+		}
+	}
+
+	if len(missingDependencies) > 0 {
+		return statusDegraded,
+			fmt.Sprintf("Missing runtime dependencies: %s", strings.Join(missingDependencies, ", ")),
+			missingDependencies
 	}
 
 	switch platformStatus {
 	case statusHealthy:
-		return statusHealthy
+		return statusHealthy, "Runtime metadata is present and platform signals are healthy", nil
 	case statusDegraded:
-		return statusDegraded
+		return statusDegraded, "Runtime metadata is present, but shared runtime signals are degraded", nil
 	default:
-		return statusUnknown
+		return statusUnknown, "Runtime status is not fully observable from shared platform signals", nil
 	}
 }
 
@@ -699,15 +742,19 @@ func (p *Plugin) recordTrendSample(
 		return
 	}
 
-	runtimeSnapshot := collectRuntimeSnapshot()
+	runtimeSnapshot := collectRuntimeSnapshot(ctx)
 	observedAt := time.Now().UTC()
 	point := serverStatusTrendPoint{
-		ObservedAt:        observedAt.Format(time.RFC3339),
-		CPUPercent:        collectCPUPercent(ctx, processHandle),
-		Goroutines:        runtimeSnapshot.Goroutines,
-		AllocBytes:        runtimeSnapshot.AllocBytes,
-		HeapInUseBytes:    runtimeSnapshot.HeapInUseBytes,
-		SystemMemoryBytes: runtimeSnapshot.SystemMemoryBytes,
+		ObservedAt:             observedAt.Format(time.RFC3339),
+		CPUPercent:             collectCPUPercent(ctx, processHandle),
+		HostMemoryUsedPercent:  runtimeSnapshot.HostMemoryUsedPercent,
+		LoadAverageOneMinute:   runtimeSnapshot.LoadAverage.OneMinute,
+		LoadAverageFiveMinutes: runtimeSnapshot.LoadAverage.FiveMinutes,
+		LoadAverageFifteenMins: runtimeSnapshot.LoadAverage.FifteenMinutes,
+		Goroutines:             runtimeSnapshot.Goroutines,
+		RuntimeAllocBytes:      runtimeSnapshot.RuntimeAllocBytes,
+		RuntimeHeapInUseBytes:  runtimeSnapshot.RuntimeHeapInUseBytes,
+		RuntimeSysBytes:        runtimeSnapshot.RuntimeSysBytes,
 	}
 
 	if err := storeTrendPoint(ctx, redisClient, storageKey, observedAt, point); err != nil {
@@ -833,21 +880,77 @@ func currentProcessID() (int32, error) {
 	return int32(pid), nil
 }
 
-func collectRuntimeSnapshot() serverStatusRuntime {
+func collectRuntimeSnapshot(ctx context.Context) serverStatusRuntime {
 	stats := runtime.MemStats{}
 	runtime.ReadMemStats(&stats)
+	hostMemory := collectHostMemory(ctx)
 
 	return serverStatusRuntime{
-		GoVersion:         runtime.Version(),
-		HostName:          resolveHostName(),
-		OperatingSystem:   runtime.GOOS,
-		Architecture:      runtime.GOARCH,
-		CPUCores:          runtime.NumCPU(),
-		Goroutines:        runtime.NumGoroutine(),
-		AllocBytes:        stats.Alloc,
-		HeapInUseBytes:    stats.HeapInuse,
-		SystemMemoryBytes: stats.Sys,
-		GCCycles:          stats.NumGC,
+		GoVersion:             runtime.Version(),
+		HostName:              resolveHostName(),
+		OperatingSystem:       runtime.GOOS,
+		Architecture:          runtime.GOARCH,
+		CPUCores:              runtime.NumCPU(),
+		LoadAverage:           collectLoadAverage(ctx),
+		DiskUsage:             collectDiskUsage(ctx, diskUsagePath),
+		HostMemoryTotalBytes:  hostMemory.Total,
+		HostMemoryUsedBytes:   hostMemory.Used,
+		HostMemoryFreeBytes:   hostMemory.Available,
+		HostMemoryUsedPercent: roundUsagePercent(hostMemory.UsedPercent),
+		Goroutines:            runtime.NumGoroutine(),
+		RuntimeAllocBytes:     stats.Alloc,
+		RuntimeHeapInUseBytes: stats.HeapInuse,
+		RuntimeSysBytes:       stats.Sys,
+		RuntimeGCCycles:       stats.NumGC,
+	}
+}
+
+func collectHostMemory(ctx context.Context) *mem.VirtualMemoryStat {
+	if ctx == nil {
+		return &mem.VirtualMemoryStat{}
+	}
+
+	snapshot, err := mem.VirtualMemoryWithContext(ctx)
+	if err != nil || snapshot == nil {
+		return &mem.VirtualMemoryStat{}
+	}
+
+	return snapshot
+}
+
+func collectLoadAverage(ctx context.Context) serverStatusLoadAverage {
+	if ctx == nil {
+		return serverStatusLoadAverage{}
+	}
+
+	avg, err := load.AvgWithContext(ctx)
+	if err != nil || avg == nil {
+		return serverStatusLoadAverage{}
+	}
+
+	return serverStatusLoadAverage{
+		OneMinute:      avg.Load1,
+		FiveMinutes:    avg.Load5,
+		FifteenMinutes: avg.Load15,
+	}
+}
+
+func collectDiskUsage(ctx context.Context, path string) serverStatusDiskUsage {
+	if ctx == nil {
+		return serverStatusDiskUsage{Path: path}
+	}
+
+	usage, err := disk.UsageWithContext(ctx, path)
+	if err != nil || usage == nil {
+		return serverStatusDiskUsage{Path: path}
+	}
+
+	return serverStatusDiskUsage{
+		Path:        usage.Path,
+		TotalBytes:  usage.Total,
+		UsedBytes:   usage.Used,
+		FreeBytes:   usage.Free,
+		UsedPercent: roundUsagePercent(usage.UsedPercent),
 	}
 }
 
@@ -856,6 +959,10 @@ func roundLatencyMilliseconds(duration time.Duration) float64 {
 }
 
 func roundCPUPercent(value float64) float64 {
+	return math.Round(value*latencyPrecisionScale) / latencyPrecisionScale
+}
+
+func roundUsagePercent(value float64) float64 {
 	return math.Round(value*latencyPrecisionScale) / latencyPrecisionScale
 }
 
