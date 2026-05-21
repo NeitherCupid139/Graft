@@ -96,12 +96,12 @@ const translations = vi.hoisted(
     'monitor.serverStatus.trendGroupResourceUsage': 'Resource Usage',
     'monitor.serverStatus.trendGroupSystemLoad': 'System Load',
     'monitor.serverStatus.trendGroupGoRuntime': 'Go Runtime',
-    'monitor.serverStatus.overviewResourceHint': 'CPU and host memory share a 0-100% scale for quick pressure checks.',
-    'monitor.serverStatus.overviewLoadHint':
+    'monitor.serverStatus.trendGroupResourceUsageInfo':
+      'CPU and host memory share a 0-100% scale for quick pressure checks.',
+    'monitor.serverStatus.trendGroupSystemLoadInfo':
       'Load is separated from percentage-based resources to avoid mixed semantics on one axis.',
     'monitor.serverStatus.runtimeSummaryTitle': 'Runtime Summary',
-    'monitor.serverStatus.runtimeSummaryHint':
-      'Overview keeps runtime signals compact. Use small charts or focus mode for deeper inspection.',
+    'monitor.serverStatus.infoActionLabel': 'Info',
     'monitor.serverStatus.currentValue': 'Current value',
     'monitor.serverStatus.unitLabel': 'Unit',
     'monitor.serverStatus.referenceCoreCountValue': 'Reference: {count} cores',
@@ -383,6 +383,13 @@ const radioButtonStub = defineComponent({
   },
 });
 
+const popupStub = defineComponent({
+  name: 'TPopupStub',
+  setup(_props, { slots }) {
+    return () => h('div', [slots.default?.(), slots.content?.()]);
+  },
+});
+
 const tableStub = defineComponent({
   name: 'TTableStub',
   props: {
@@ -543,6 +550,7 @@ function mountMonitorPage() {
         't-radio-group': radioGroupStub,
         't-row': rowStub,
         't-select': selectStub,
+        't-popup': popupStub,
         't-table': tableStub,
         't-tag': passthroughStub,
       },
@@ -621,7 +629,6 @@ describe('MonitorPage', () => {
     expect(wrapper.text()).toContain('Runtime sys');
     expect(wrapper.text()).toContain('Disk Detail');
     expect(wrapper.text()).toContain('Runtime status');
-    expect(wrapper.text()).toContain('Summary of service, dependencies, and sampling status');
     expect(wrapper.text()).not.toContain('Dependency Status');
     expect(wrapper.findAll('.metric-card')).toHaveLength(4);
     expect(wrapper.find('.metric-card__ring').exists()).toBe(false);

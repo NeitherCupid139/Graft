@@ -236,6 +236,8 @@ func registerMessages(localizer *i18n.Service) error {
 				{Key: i18n.MessageKey(monitorcontract.MonitorSectionTitle.String()), Text: "服务器管理"},
 				{Key: i18n.MessageKey(monitorcontract.ServerStatusMenuTitle.String()), Text: "服务器状态"},
 				{Key: i18n.MessageKey(monitorcontract.ServerStatusOverviewMenuTitle.String()), Text: "概览"},
+				{Key: i18n.MessageKey(monitorcontract.ServerStatusRuntimeMenuTitle.String()), Text: "运行时"},
+				{Key: i18n.MessageKey(monitorcontract.ServerStatusDependenciesMenuTitle.String()), Text: "依赖服务"},
 			},
 		},
 		{
@@ -245,6 +247,8 @@ func registerMessages(localizer *i18n.Service) error {
 				{Key: i18n.MessageKey(monitorcontract.MonitorSectionTitle.String()), Text: "Server Management"},
 				{Key: i18n.MessageKey(monitorcontract.ServerStatusMenuTitle.String()), Text: "Server Status"},
 				{Key: i18n.MessageKey(monitorcontract.ServerStatusOverviewMenuTitle.String()), Text: "Overview"},
+				{Key: i18n.MessageKey(monitorcontract.ServerStatusRuntimeMenuTitle.String()), Text: "Runtime"},
+				{Key: i18n.MessageKey(monitorcontract.ServerStatusDependenciesMenuTitle.String()), Text: "Dependencies"},
 			},
 		},
 	} {
@@ -345,7 +349,7 @@ func registerMonitorMenu(registry *menu.Registry, pluginName string) {
 		Title:      "服务器状态",
 		TitleKey:   monitorcontract.ServerStatusMenuTitle.String(),
 		Path:       monitorcontract.ServerStatusMenuPath,
-		Icon:       "chart-bubble",
+		Icon:       "activity",
 		Permission: "",
 		Plugin:     pluginName,
 	})
@@ -355,7 +359,27 @@ func registerMonitorMenu(registry *menu.Registry, pluginName string) {
 		Title:      "概览",
 		TitleKey:   monitorcontract.ServerStatusOverviewMenuTitle.String(),
 		Path:       monitorcontract.ServerStatusOverviewMenuPath,
-		Icon:       "chart-bubble",
+		Icon:       "dashboard",
+		Permission: monitorcontract.ServerStatusReadPermission.String(),
+		Plugin:     pluginName,
+	})
+
+	registry.Register(menu.Item{
+		Code:       "monitor.server-status.runtime",
+		Title:      "运行时",
+		TitleKey:   monitorcontract.ServerStatusRuntimeMenuTitle.String(),
+		Path:       monitorcontract.ServerStatusRuntimeMenuPath,
+		Icon:       "time",
+		Permission: monitorcontract.ServerStatusReadPermission.String(),
+		Plugin:     pluginName,
+	})
+
+	registry.Register(menu.Item{
+		Code:       "monitor.server-status.dependencies",
+		Title:      "依赖服务",
+		TitleKey:   monitorcontract.ServerStatusDependenciesMenuTitle.String(),
+		Path:       monitorcontract.ServerStatusDependenciesMenuPath,
+		Icon:       "data-base",
 		Permission: monitorcontract.ServerStatusReadPermission.String(),
 		Plugin:     pluginName,
 	})

@@ -16,7 +16,6 @@
             {{ overallStatusLabel(overallStatus) }}
           </t-tag>
         </div>
-        <p class="dashboard-header__hint">{{ t('monitor.serverStatus.overviewHint') }}</p>
         <div class="dashboard-header__meta">
           <span>{{ t('monitor.serverStatus.lastUpdated', { time: formatTimestamp(lastUpdatedAt) }) }}</span>
           <span>{{
@@ -157,8 +156,21 @@
               >
                 <header class="trend-section-header">
                   <div class="trend-section-header__copy">
-                    <h3 class="trend-section-header__title">{{ section.title }}</h3>
-                    <p class="trend-section-header__description">{{ section.description }}</p>
+                    <div class="trend-section-header__title-row">
+                      <h3 class="trend-section-header__title">{{ section.title }}</h3>
+                      <t-popup v-if="section.infoText" expand-animation placement="top" show-arrow trigger="click">
+                        <template #content>
+                          <div class="trend-info-popup">{{ section.infoText }}</div>
+                        </template>
+                        <button
+                          type="button"
+                          class="trend-info-trigger"
+                          :aria-label="`${section.title}${t('monitor.serverStatus.infoActionLabel')}`"
+                        >
+                          <info-circle-icon class="trend-info-trigger__icon" />
+                        </button>
+                      </t-popup>
+                    </div>
                   </div>
                   <div v-if="section.helperText" class="trend-section-header__helper">
                     {{ section.helperText }}
@@ -187,7 +199,6 @@
                 <header class="trend-section-header">
                   <div class="trend-section-header__copy">
                     <h3 class="trend-section-header__title">{{ t('monitor.serverStatus.runtimeSummaryTitle') }}</h3>
-                    <p class="trend-section-header__description">{{ t('monitor.serverStatus.runtimeSummaryHint') }}</p>
                   </div>
                 </header>
                 <div class="trend-runtime-summary__grid">
@@ -199,7 +210,6 @@
                   >
                     <span class="trend-runtime-summary__label">{{ metric.shortLabel }}</span>
                     <strong class="trend-runtime-summary__value">{{ metric.currentValue }}</strong>
-                    <span class="trend-runtime-summary__description">{{ metric.description }}</span>
                   </article>
                 </div>
               </article>
@@ -221,8 +231,21 @@
               >
                 <header class="trend-small-card__header">
                   <div class="trend-small-card__copy">
-                    <h3 class="trend-small-card__title">{{ metric.label }}</h3>
-                    <p class="trend-small-card__description">{{ metric.description }}</p>
+                    <div class="trend-small-card__title-row">
+                      <h3 class="trend-small-card__title">{{ metric.label }}</h3>
+                      <t-popup v-if="metric.infoText" expand-animation placement="top" show-arrow trigger="click">
+                        <template #content>
+                          <div class="trend-info-popup">{{ metric.infoText }}</div>
+                        </template>
+                        <button
+                          type="button"
+                          class="trend-info-trigger"
+                          :aria-label="`${metric.label}${t('monitor.serverStatus.infoActionLabel')}`"
+                        >
+                          <info-circle-icon class="trend-info-trigger__icon" />
+                        </button>
+                      </t-popup>
+                    </div>
                   </div>
                   <div class="trend-small-card__meta">
                     <span class="trend-small-card__meta-label">{{ t('monitor.serverStatus.currentValue') }}</span>
@@ -260,9 +283,26 @@
                 <div class="trend-focus-panel__copy">
                   <div class="trend-focus-panel__title-row">
                     <h3 class="trend-focus-panel__title">{{ currentFocusMetric?.label }}</h3>
+                    <t-popup
+                      v-if="currentFocusMetric?.infoText"
+                      expand-animation
+                      placement="top"
+                      show-arrow
+                      trigger="click"
+                    >
+                      <template #content>
+                        <div class="trend-info-popup">{{ currentFocusMetric?.infoText }}</div>
+                      </template>
+                      <button
+                        type="button"
+                        class="trend-info-trigger"
+                        :aria-label="`${currentFocusMetric?.label ?? ''}${t('monitor.serverStatus.infoActionLabel')}`"
+                      >
+                        <info-circle-icon class="trend-info-trigger__icon" />
+                      </button>
+                    </t-popup>
                     <span class="trend-focus-panel__group">{{ currentFocusMetric?.groupLabel }}</span>
                   </div>
-                  <p class="trend-focus-panel__description">{{ currentFocusMetric?.description }}</p>
                 </div>
                 <div class="trend-focus-panel__meta">
                   <span class="trend-focus-panel__meta-label">{{ t('monitor.serverStatus.currentValue') }}</span>
@@ -293,8 +333,6 @@
 
       <t-card class="panel-card status-sidebar" :bordered="false" :title="t('monitor.serverStatus.runtimeStatusTitle')">
         <div v-if="serverStatus" class="status-sidebar__content">
-          <p class="status-sidebar__intro">{{ t('monitor.serverStatus.runtimeStatusSubtitle') }}</p>
-
           <section class="status-sidebar__section" data-status-sidebar-group="dependencies">
             <header class="status-sidebar__section-header">
               <h3 class="status-sidebar__section-title">
@@ -423,6 +461,7 @@ import {
   ChartBubbleIcon,
   CpuIcon,
   DataBaseIcon,
+  InfoCircleIcon,
   LinkIcon,
   RefreshIcon,
   ServerIcon,
@@ -505,6 +544,7 @@ interface TrendMetricDefinition {
   visibleInSmallMultiples: boolean;
   visibleInFocus: boolean;
   chartKey: TrendChartKey;
+  infoText?: string;
   helperText?: string;
   values: number[];
   currentValue: string;
@@ -514,7 +554,7 @@ interface TrendOverviewSection {
   key: 'resourceUsage' | 'systemLoad';
   chartKey: TrendChartKey;
   title: string;
-  description: string;
+  infoText?: string;
   helperText?: string;
   metrics: TrendMetricDefinition[];
 }
@@ -566,6 +606,17 @@ const selectedTrendModeLabel = computed(() => {
   return trendModeOptions.value.find((option) => option.value === selectedTrendMode.value)?.label ?? '--';
 });
 
+function trendGroupInfoText(group: TrendMetricGroup) {
+  switch (group) {
+    case 'resourceUsage':
+      return t('monitor.serverStatus.trendGroupResourceUsageInfo');
+    case 'systemLoad':
+      return t('monitor.serverStatus.trendGroupSystemLoadInfo');
+    default:
+      return undefined;
+  }
+}
+
 const trendMetricConfigs = computed<TrendMetricDefinition[]>(() => {
   const points = trendPoints.value;
   const cpuCores = serverStatus.value?.runtime.cpu_cores ?? 0;
@@ -586,6 +637,7 @@ const trendMetricConfigs = computed<TrendMetricDefinition[]>(() => {
       visibleInSmallMultiples: true,
       visibleInFocus: true,
       chartKey: 'multi-cpu',
+      infoText: trendGroupInfoText('resourceUsage'),
       currentValue: formatPercentPrecise(latestTrendPoint.value?.cpu_percent ?? null),
       values: points.map((point) => Number(point.cpu_percent.toFixed(2))),
     },
@@ -604,6 +656,7 @@ const trendMetricConfigs = computed<TrendMetricDefinition[]>(() => {
       visibleInSmallMultiples: true,
       visibleInFocus: true,
       chartKey: 'multi-hostMemory',
+      infoText: trendGroupInfoText('resourceUsage'),
       currentValue: formatPercentPrecise(latestTrendPoint.value?.host_memory_used_percent ?? null),
       values: points.map((point) => Number(point.host_memory_used_percent.toFixed(2))),
     },
@@ -622,6 +675,7 @@ const trendMetricConfigs = computed<TrendMetricDefinition[]>(() => {
       visibleInSmallMultiples: true,
       visibleInFocus: true,
       chartKey: 'multi-load',
+      infoText: trendGroupInfoText('systemLoad'),
       helperText:
         cpuCores > 0 ? t('monitor.serverStatus.referenceCoreCountValue', { count: String(cpuCores) }) : undefined,
       currentValue: formatLoadAverage(latestTrendPoint.value?.load_average_one_minute ?? null),
@@ -729,14 +783,14 @@ const overviewTrendSections = computed<TrendOverviewSection[]>(() => [
     key: 'resourceUsage',
     chartKey: 'overviewUsage',
     title: t('monitor.serverStatus.trendGroupResourceUsage'),
-    description: t('monitor.serverStatus.overviewResourceHint'),
+    infoText: t('monitor.serverStatus.trendGroupResourceUsageInfo'),
     metrics: trendMetricConfigs.value.filter((metric) => metric.group === 'resourceUsage' && metric.visibleInOverview),
   },
   {
     key: 'systemLoad',
     chartKey: 'overviewLoad',
     title: t('monitor.serverStatus.trendGroupSystemLoad'),
-    description: t('monitor.serverStatus.overviewLoadHint'),
+    infoText: t('monitor.serverStatus.trendGroupSystemLoadInfo'),
     helperText:
       (serverStatus.value?.runtime.cpu_cores ?? 0) > 0
         ? t('monitor.serverStatus.referenceCoreCountValue', {
