@@ -63,12 +63,12 @@ go run ./cmd/graft dev
 
 ```bash
 cd server
-go get -tool github.com/air-verse/air@v1.65.2
 go run ./cmd/graft dev air
 ```
 
 约束：
 
+* Air 作为 `server/go.mod` 中锁定的 dev-only Go tool 依赖存在；它不会进入 `graft` 生产二进制，但会保留自身的上游模块图作为本地热重载能力的显式代价。
 * Air 只负责监听本地 Go 代码与 `.env` 变化后重新 build，并重启 `graft serve`。
 * Air 不执行 `graft dev`，也不执行 `graft migrate up`。
 * `server` 仍然按当前规则自行读取 `.env` / `server/.env`；Air 不通过 `env_files` 接管配置加载语义。
