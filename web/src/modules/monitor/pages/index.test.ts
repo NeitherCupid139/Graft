@@ -473,12 +473,13 @@ describe('MonitorPage', () => {
     };
     expect(option.color).toEqual(['#0052D9', '#00A870', '#ED7B2F']);
     expect(option.yAxis[0]?.axisLabel?.formatter?.(32)).toBe('32%');
+    expect(option.yAxis[2]?.axisLabel?.formatter?.(32)).toBe('32');
     expect(option.series).toHaveLength(3);
     expect(option.series[0]?.data).toEqual([14.5, 21.2]);
     expect(option.series[1]?.data).toEqual([96, 100]);
     expect(option.series[2]?.data).toEqual([28, 32]);
     expect(option.series[1]?.yAxisIndex).toBe(1);
-    expect(option.series[2]?.yAxisIndex).toBe(1);
+    expect(option.series[2]?.yAxisIndex).toBe(2);
     expect(option.series[0]?.areaStyle?.opacity).toBe(0);
     expect(option.series[1]?.areaStyle?.opacity).toBe(0);
     expect(option.series[2]?.areaStyle?.opacity).toBe(0);

@@ -18,12 +18,12 @@ const visibleScopes: VisibleScope[] = [
   {
     label: 'root zh visible ui',
     filePath: resolve(process.cwd(), 'src/locales/lang/zh-CN.json'),
-    paths: ['common.appName', 'common.copyright', 'layout', 'menu', 'result'],
+    paths: ['common.appName', 'common.copyright', 'layout', 'menu', 'app.result'],
   },
   {
     label: 'root en visible ui',
     filePath: resolve(process.cwd(), 'src/locales/lang/en-US.json'),
-    paths: ['common.appName', 'common.copyright', 'layout', 'menu', 'result'],
+    paths: ['common.appName', 'common.copyright', 'layout', 'menu', 'app.result'],
   },
   {
     label: 'monitor zh visible ui',

@@ -744,7 +744,7 @@ function buildTrendChartOption(points: ServerStatusTrendPoint[], chartColors: TC
     },
     grid: {
       left: '12px',
-      right: '18px',
+      right: '72px',
       top: '20px',
       bottom: '48px',
       containLabel: true,
@@ -790,6 +790,19 @@ function buildTrendChartOption(points: ServerStatusTrendPoint[], chartColors: TC
           show: false,
         },
       },
+      {
+        type: 'value',
+        name: t('monitor.serverStatus.chartGoroutines'),
+        position: 'right',
+        offset: 56,
+        axisLabel: {
+          color: chartColors.placeholderColor,
+          formatter: (value: number) => `${value}`,
+        },
+        splitLine: {
+          show: false,
+        },
+      },
     ],
     series: [
       {
@@ -815,7 +828,7 @@ function buildTrendChartOption(points: ServerStatusTrendPoint[], chartColors: TC
         name: t('monitor.serverStatus.chartGoroutines'),
         type: 'line',
         smooth: true,
-        yAxisIndex: 1,
+        yAxisIndex: 2,
         symbol: 'circle',
         symbolSize: 8,
         ...buildTrendSeriesInteraction(),

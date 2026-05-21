@@ -415,9 +415,10 @@ func databaseHealth(ctx context.Context, instance *Plugin) dependencyStatus {
 
 	startedAt := time.Now()
 	if err := instance.db.PingContext(pingCtx); err != nil {
+		logTrendWarning(instance, nil, "database ping failed", err)
 		return dependencyStatus{
 			Status: "degraded",
-			Detail: fmt.Sprintf("Database ping failed: %v", err),
+			Detail: "Database ping failed",
 		}
 	}
 
@@ -442,9 +443,10 @@ func redisHealth(ctx context.Context, pluginCtx *plugin.Context) dependencyStatu
 
 	startedAt := time.Now()
 	if err := pluginCtx.Redis.Ping(pingCtx).Err(); err != nil {
+		logTrendWarning(nil, pluginCtx, "redis ping failed", err)
 		return dependencyStatus{
 			Status: "degraded",
-			Detail: fmt.Sprintf("Redis ping failed: %v", err),
+			Detail: "Redis ping failed",
 		}
 	}
 
@@ -588,10 +590,11 @@ func (p *Plugin) stopTrendSampler(ctx *plugin.Context) error {
 	}
 
 	cancel()
-	waitCtx := context.Background()
-	if ctx != nil && ctx.LifecycleContext != nil {
-		waitCtx = ctx.LifecycleContext
+
+	if ctx == nil || ctx.LifecycleContext == nil {
+		return errors.New("monitor trend sampler shutdown missing lifecycle context")
 	}
+	waitCtx := ctx.LifecycleContext
 
 	select {
 	case <-done:

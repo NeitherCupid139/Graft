@@ -152,11 +152,31 @@ func TestBuildServerStatusResponseReportsDegradedOnDatabasePingError(t *testing.
 	if response.Dependencies.Database.Status != "degraded" {
 		t.Fatalf("expected database status degraded on ping error, got %q", response.Dependencies.Database.Status)
 	}
-	if !strings.Contains(response.Dependencies.Database.Detail, "Database ping failed") {
-		t.Fatalf("expected degraded detail to mention database ping failure, got %q", response.Dependencies.Database.Detail)
+	if response.Dependencies.Database.Detail != "Database ping failed" {
+		t.Fatalf("expected degraded detail to be sanitized, got %q", response.Dependencies.Database.Detail)
 	}
 	if response.Status != "degraded" {
 		t.Fatalf("expected overall status degraded on ping error, got %q", response.Status)
+	}
+}
+
+func TestStopTrendSamplerRequiresLifecycleContext(t *testing.T) {
+	t.Parallel()
+
+	done := make(chan struct{})
+	pluginInstance := &Plugin{
+		samplerCancel: func() {
+			close(done)
+		},
+		samplerDone: done,
+	}
+
+	err := pluginInstance.stopTrendSampler(&plugin.Context{})
+	if err == nil {
+		t.Fatalf("expected missing lifecycle context error")
+	}
+	if !strings.Contains(err.Error(), "missing lifecycle context") {
+		t.Fatalf("expected missing lifecycle context error, got %v", err)
 	}
 }
 

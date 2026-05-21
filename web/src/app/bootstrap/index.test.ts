@@ -64,5 +64,6 @@ describe('bootstrapApp', () => {
     expect(useMock).toHaveBeenCalledTimes(4);
     expect(registerPermissionDirective).toHaveBeenCalledTimes(1);
     expect(mountMock).toHaveBeenCalledWith('#app');
+    expect(healPersistedState.mock.invocationCallOrder[0]).toBeLessThan(mountMock.mock.invocationCallOrder[0]);
   });
 });
