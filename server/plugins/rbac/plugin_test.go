@@ -411,7 +411,7 @@ func TestRoleRoutesListRolePermissionBindings(t *testing.T) {
 		rolePermissionIDs: map[uint64][]uint64{
 			1: {2, 5},
 		},
-		permissionsByUser: []store.Permission{{Code: rbaccontract.RolePermissionAssignPermission.String()}},
+		permissionsByUser: []store.Permission{{Code: rbaccontract.PermissionReadPermission.String()}},
 	}
 	_, engine := newPluginTestContext(t, repo)
 
@@ -428,6 +428,34 @@ func TestRoleRoutesListRolePermissionBindings(t *testing.T) {
 	}
 	if len(payload.Data.PermissionIDs) != 2 || payload.Data.PermissionIDs[0] != 2 || payload.Data.PermissionIDs[1] != 5 {
 		t.Fatalf("unexpected role permission bindings payload: %#v", payload)
+	}
+}
+
+// TestRoleRoutesListRolePermissionBindingsRejectMissingReadPermission 验证读取角色权限绑定快照必须具备 permission.read。
+func TestRoleRoutesListRolePermissionBindingsRejectMissingReadPermission(t *testing.T) {
+	repo := testRBACRepository{
+		permissionsByUser: []store.Permission{{Code: rbaccontract.RolePermissionAssignPermission.String()}},
+	}
+	_, engine := newPluginTestContext(t, repo)
+
+	recorder := httptest.NewRecorder()
+	request := newAuthorizedRequest("/api/roles/1/permissions")
+	request.Header.Set(i18n.LocaleHeader, "en-US")
+	engine.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("expected status 403, got %d", recorder.Code)
+	}
+
+	var payload httpx.ErrorResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if payload.MessageKey != messagecontract.AuthForbidden.String() || payload.Code != "AUTH_FORBIDDEN" || payload.Locale != "en-US" {
+		t.Fatalf("unexpected forbidden payload: %#v", payload)
+	}
+	if payload.Details["permission"] != rbaccontract.PermissionReadPermission.String() {
+		t.Fatalf("expected denied permission detail, got %#v", payload)
 	}
 }
 

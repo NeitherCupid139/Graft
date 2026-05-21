@@ -175,7 +175,7 @@ func registerRoleRoutes(
 			return roleListResponse{Items: items}, nil
 		},
 	))
-	group.GET(rbaccontract.RolePermissionBindingRoute, guards.rolePermissionAssign, func(ginCtx *gin.Context) {
+	group.GET(rbaccontract.RolePermissionBindingRoute, guards.permissionRead, func(ginCtx *gin.Context) {
 		roleID, err := parseManagementID(ginCtx.Param("id"))
 		if err != nil {
 			writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
