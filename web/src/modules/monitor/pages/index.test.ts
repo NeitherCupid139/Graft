@@ -97,7 +97,7 @@ const translations = vi.hoisted(
     'monitor.serverStatus.trendGroupSystemLoad': 'System Load',
     'monitor.serverStatus.trendGroupGoRuntime': 'Go Runtime',
     'monitor.serverStatus.trendGroupResourceUsageInfo':
-      'CPU and host memory share a 0-100% scale for quick pressure checks.',
+      'CPU and server memory share a 0-100% scale for quick pressure checks.',
     'monitor.serverStatus.trendGroupSystemLoadInfo':
       'Load is separated from percentage-based resources to avoid mixed semantics on one axis.',
     'monitor.serverStatus.runtimeSummaryTitle': 'Runtime Summary',
@@ -130,7 +130,7 @@ const translations = vi.hoisted(
     'monitor.serverStatus.metricMemoryStatusHealthy': 'Sufficient',
     'monitor.serverStatus.metricMemoryStatusWarning': 'Normal',
     'monitor.serverStatus.metricMemoryStatusCritical': 'Elevated',
-    'monitor.serverStatus.metricMemoryDescriptionHealthy': 'Host memory is sufficient',
+    'monitor.serverStatus.metricMemoryDescriptionHealthy': 'Server memory is sufficient',
     'monitor.serverStatus.metricMemoryDescriptionWarning': 'Memory usage is normal',
     'monitor.serverStatus.metricMemoryDescriptionCritical': 'Memory pressure is elevated',
     'monitor.serverStatus.metricDiskLabel': 'Disk',
@@ -165,7 +165,7 @@ const translations = vi.hoisted(
     'monitor.serverStatus.cpuLabel': 'CPU',
     'monitor.serverStatus.cpuValue': '{count} cores',
     'monitor.serverStatus.heapLabel': 'Heap in use',
-    'monitor.serverStatus.hostMemoryLabel': 'Host memory',
+    'monitor.serverStatus.hostMemoryLabel': 'Server memory',
     'monitor.serverStatus.hostMemoryValue': '{used} / {total}',
     'monitor.serverStatus.runtimeAllocLabel': 'Runtime alloc',
     'monitor.serverStatus.runtimeSysLabel': 'Runtime sys',
@@ -184,9 +184,9 @@ const translations = vi.hoisted(
     'monitor.serverStatus.chartCpu': 'CPU usage',
     'monitor.serverStatus.chartCpuShort': 'CPU usage',
     'monitor.serverStatus.chartCpuDescription': 'Track processor utilization over time.',
-    'monitor.serverStatus.chartHostMemory': 'Host memory used',
-    'monitor.serverStatus.chartHostMemoryShort': 'Host memory',
-    'monitor.serverStatus.chartHostMemoryDescription': 'Track host memory utilization over time.',
+    'monitor.serverStatus.chartHostMemory': 'Server memory used',
+    'monitor.serverStatus.chartHostMemoryShort': 'Server memory',
+    'monitor.serverStatus.chartHostMemoryDescription': 'Track server memory utilization over time.',
     'monitor.serverStatus.chartLoad': '1m load average',
     'monitor.serverStatus.chartLoadShort': '1m load',
     'monitor.serverStatus.chartLoadDescription': 'Compare system load to available CPU cores.',
@@ -654,7 +654,7 @@ describe('MonitorPage', () => {
     expect(memoryCardText).toContain('47%');
     expect(memoryCardText).toContain('15.1 GB / 32.0 GB');
     expect(memoryCardText).toContain('Available 16.9 GB');
-    expect(memoryCardText).toContain('Host memory is sufficient');
+    expect(memoryCardText).toContain('Server memory is sufficient');
     expect(memoryCardText).not.toContain('Runtime sys');
     expect(memoryCardText).not.toContain('GC cycles');
 
@@ -719,7 +719,7 @@ describe('MonitorPage', () => {
     expect(wrapper.find('[data-trend-overview-section="runtimeSummary"]').text()).toContain('Runtime Summary');
     expect(wrapper.find('[data-trend-overview-section="runtimeSummary"]').text()).not.toContain('Reference: 8 cores');
     expect(wrapper.find('[data-trend-legend-group="resourceUsage"]').text()).toContain('CPU usage');
-    expect(wrapper.find('[data-trend-legend-group="resourceUsage"]').text()).toContain('Host memory');
+    expect(wrapper.find('[data-trend-legend-group="resourceUsage"]').text()).toContain('Server memory');
     expect(wrapper.find('[data-trend-legend-group="systemLoad"]').text()).toContain('1m load');
     expect(wrapper.find('[data-trend-overview-section="systemLoad"]').text()).toContain('Reference: 8 cores');
 
@@ -740,7 +740,7 @@ describe('MonitorPage', () => {
     }>;
 
     const usageOption = overviewOptions.find((item) => item.series?.some((series) => series.name === 'CPU usage'));
-    expect(usageOption?.series?.map((series) => series.name)).toEqual(['CPU usage', 'Host memory used']);
+    expect(usageOption?.series?.map((series) => series.name)).toEqual(['CPU usage', 'Server memory used']);
     expect(usageOption?.yAxis?.[0]?.name).toBe('%');
 
     const loadOption = overviewOptions.find((item) => item.series?.some((series) => series.name === '1m load average'));
@@ -750,7 +750,7 @@ describe('MonitorPage', () => {
     const legendItems = wrapper.findAll('[data-trend-legend-item="true"]');
     expect(legendItems.length).toBeGreaterThan(0);
     expect(legendItems.some((item) => item.text().includes('CPU usage'))).toBe(true);
-    expect(legendItems.some((item) => item.text().includes('Host memory'))).toBe(true);
+    expect(legendItems.some((item) => item.text().includes('Server memory'))).toBe(true);
 
     const allOverviewText = wrapper.text();
     expect(allOverviewText).toContain('7 metrics grouped as Resource Usage / System Load / Go Runtime.');
@@ -790,7 +790,7 @@ describe('MonitorPage', () => {
     expect(focusOptions).toHaveLength(7);
     expect(focusOptions.map((option) => option.text())).toEqual([
       'Resource Usage / CPU usage',
-      'Resource Usage / Host memory used',
+      'Resource Usage / Server memory used',
       'System Load / 1m load average',
       'Go Runtime / Runtime alloc',
       'Go Runtime / Runtime heap in use',
@@ -843,7 +843,7 @@ describe('MonitorPage', () => {
       'goroutines',
     ]);
     expect(cards[0]?.text()).toContain('CPU usage');
-    expect(cards[1]?.text()).toContain('Host memory used');
+    expect(cards[1]?.text()).toContain('Server memory used');
     expect(cards[2]?.text()).toContain('Reference: 8 cores');
     expect(cards[3]?.text()).toContain('Runtime alloc');
     expect(cards[6]?.text()).toContain('Goroutines');

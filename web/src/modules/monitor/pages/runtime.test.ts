@@ -18,22 +18,24 @@ const translations = vi.hoisted(
     'monitor.shared.notReported': 'Not reported',
     'monitor.runtimePage.title': 'Runtime',
     'monitor.runtimePage.subtitle':
-      'Inspect the current Go process runtime snapshot and host environment. Host memory and Go Runtime memory stay explicitly separated here.',
+      'Inspect the current Go process snapshot, build details, and server environment while keeping server memory separate from Go Runtime memory.',
     'monitor.runtimePage.snapshotReady': 'Snapshot ready',
     'monitor.runtimePage.snapshotPending': 'Waiting for snapshot',
-    'monitor.runtimePage.memoryBoundaryTitle': 'Memory ownership boundary',
-    'monitor.runtimePage.memoryBoundaryDescription':
-      'Host memory reflects the full machine snapshot. Go Runtime memory only reflects allocations inside the current Go process.',
+    'monitor.runtimePage.memoryBoundaryNotice':
+      'Memory scope: server memory covers the whole server, while Go Runtime memory covers only the current service process.',
+    'monitor.runtimePage.refreshFrequencyUnit': ' s',
     'monitor.runtimePage.runtimeMemoryTitle': 'Go Runtime Memory',
+    'monitor.runtimePage.runtimeMemoryDescription': 'Current in-process memory usage and garbage collection snapshot.',
     'monitor.runtimePage.processBuildTitle': 'Process and Build',
-    'monitor.runtimePage.hostEnvironmentTitle': 'Host Environment',
-    'monitor.runtimePage.snapshotContextTitle': 'Snapshot Context',
+    'monitor.runtimePage.hostEnvironmentTitle': 'Server Environment',
+    'monitor.runtimePage.serverEnvironmentDescription':
+      'Whole-server memory snapshot, not the same as Go Runtime memory.',
     'monitor.runtimePage.summary.uptime': 'Uptime',
     'monitor.runtimePage.summary.uptimeDescription': 'Process running duration',
     'monitor.runtimePage.summary.goroutines': 'Goroutines',
     'monitor.runtimePage.summary.goroutinesDescription': 'Current Go scheduler concurrency',
-    'monitor.runtimePage.summary.goVersion': 'Go version',
-    'monitor.runtimePage.summary.goVersionDescription': 'Version reported by the current process',
+    'monitor.runtimePage.summary.runtimeAlloc': 'Current alloc',
+    'monitor.runtimePage.summary.runtimeAllocDescription': 'Currently allocated by the Go runtime',
     'monitor.runtimePage.summary.gcCycles': 'GC cycles',
     'monitor.runtimePage.summary.gcCyclesDescription': 'Completed garbage collection rounds',
     'monitor.runtimePage.fields.runtimeAlloc': 'Runtime alloc',
@@ -46,11 +48,13 @@ const translations = vi.hoisted(
     'monitor.runtimePage.fields.appName': 'Application',
     'monitor.runtimePage.fields.appEnv': 'Environment',
     'monitor.runtimePage.fields.startedAt': 'Started at',
+    'monitor.runtimePage.fields.goVersion': 'Go version',
     'monitor.runtimePage.fields.hostName': 'Host name',
     'monitor.runtimePage.fields.platform': 'Platform',
     'monitor.runtimePage.fields.cpuCores': 'CPU cores',
-    'monitor.runtimePage.fields.hostMemory': 'Host memory',
+    'monitor.runtimePage.fields.hostMemory': 'Server memory',
     'monitor.runtimePage.fields.observedAt': 'Last observed',
+    'monitor.runtimePage.fields.refreshFrequency': 'Refresh frequency',
     'monitor.runtimePage.fields.loadAverage': 'Load average',
     'monitor.runtimePage.fieldDescriptions.runtimeAlloc': 'Bytes currently allocated by the Go runtime.',
     'monitor.runtimePage.fieldDescriptions.runtimeHeap': 'Heap bytes actively used by the Go process.',
@@ -63,12 +67,12 @@ const translations = vi.hoisted(
     'monitor.runtimePage.fieldDescriptions.appName': 'Application identifier reported by the service.',
     'monitor.runtimePage.fieldDescriptions.appEnv': 'Current runtime environment label.',
     'monitor.runtimePage.fieldDescriptions.startedAt': 'First stable process startup time.',
-    'monitor.runtimePage.fieldDescriptions.hostName': 'Host reported by the runtime snapshot.',
+    'monitor.runtimePage.fieldDescriptions.hostName': 'Server host name reported by the runtime snapshot.',
     'monitor.runtimePage.fieldDescriptions.platform': 'Operating system and architecture for the host.',
     'monitor.runtimePage.fieldDescriptions.cpuCores': 'Logical CPU core count visible to the process.',
-    'monitor.runtimePage.fieldDescriptions.hostMemory': 'Whole-host memory snapshot, not Go Runtime memory.',
+    'monitor.runtimePage.fieldDescriptions.hostMemory': 'Whole-server memory snapshot, not Go Runtime memory.',
     'monitor.runtimePage.fieldDescriptions.observedAt': 'Timestamp of the latest aggregated snapshot.',
-    'monitor.runtimePage.fieldDescriptions.loadAverage': '1m / 5m / 15m load averages from the current host.',
+    'monitor.runtimePage.fieldDescriptions.loadAverage': '1m / 5m / 15m load averages from the current server.',
   }),
 );
 
@@ -192,11 +196,20 @@ describe('monitor runtime page', () => {
     expect(wrapper.attributes('data-page-type')).toBe('overview-dashboard');
     expect(wrapper.text()).toContain('Runtime');
     expect(wrapper.text()).toContain('Go Runtime Memory');
-    expect(wrapper.text()).toContain('Host Environment');
-    expect(wrapper.text()).toContain('Host memory');
+    expect(wrapper.text()).toContain('Server Environment');
+    expect(wrapper.text()).toContain('Server memory');
     expect(wrapper.text()).toContain('Git commit');
     expect(wrapper.text()).toContain('Not reported');
     expect(wrapper.text()).toContain('Build version');
+    expect(wrapper.text()).toContain('Go version');
+    expect(wrapper.text()).toContain('Refresh frequency');
+    expect(wrapper.text()).toContain('Current alloc');
+    expect(wrapper.text()).toContain(
+      'Memory scope: server memory covers the whole server, while Go Runtime memory covers only the current service process.',
+    );
     expect(wrapper.text()).toContain('v0.3.2');
+    expect(wrapper.text()).not.toContain('Snapshot Context');
+    expect(wrapper.text().match(/Snapshot ready/g)).toHaveLength(1);
+    expect(wrapper.text()).not.toContain('Data status');
   });
 });

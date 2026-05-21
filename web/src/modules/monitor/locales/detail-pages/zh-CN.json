@@ -9,22 +9,23 @@
     },
     "runtimePage": {
       "title": "运行时",
-      "subtitle": "查看当前 Go 进程运行时快照与宿主机环境信息，并明确区分宿主机内存和 Go Runtime 内存。",
+      "subtitle": "查看当前 Go 进程运行时快照、进程构建信息与服务器环境，并明确区分服务器内存和 Go Runtime 内存。",
       "snapshotReady": "快照已就绪",
       "snapshotPending": "等待快照",
-      "memoryBoundaryTitle": "内存归属边界",
-      "memoryBoundaryDescription": "宿主机内存反映整台机器快照；Go Runtime 内存只反映当前 Go 进程内部的内存申请和使用。",
+      "memoryBoundaryNotice": "内存口径说明：服务器内存看整台服务器，Go Runtime 内存看当前服务进程。",
+      "refreshFrequencyUnit": " 秒",
       "runtimeMemoryTitle": "Go Runtime 内存",
+      "runtimeMemoryDescription": "当前 Go 进程内部内存使用与垃圾回收快照。",
       "processBuildTitle": "进程与构建信息",
-      "hostEnvironmentTitle": "宿主机环境",
-      "snapshotContextTitle": "快照上下文",
+      "hostEnvironmentTitle": "服务器环境",
+      "serverEnvironmentDescription": "整机内存快照，不等同于 Go Runtime 内存。",
       "summary": {
         "uptime": "运行时长",
-        "uptimeDescription": "进程持续运行时间",
+        "uptimeDescription": "进程持续运行",
         "goroutines": "Goroutine 数",
-        "goroutinesDescription": "当前 Go 调度并发规模",
-        "goVersion": "Go 版本",
-        "goVersionDescription": "当前进程上报的 Go 版本",
+        "goroutinesDescription": "当前调度并发规模",
+        "runtimeAlloc": "当前已分配内存",
+        "runtimeAllocDescription": "当前 Go Runtime 已分配",
         "gcCycles": "GC 次数",
         "gcCyclesDescription": "已完成的垃圾回收轮次"
       },
@@ -39,11 +40,13 @@
         "appName": "应用标识",
         "appEnv": "运行环境",
         "startedAt": "启动时间",
+        "goVersion": "Go 版本",
         "hostName": "主机名",
         "platform": "平台",
         "cpuCores": "CPU 核心数",
-        "hostMemory": "宿主机内存",
+        "hostMemory": "服务器内存",
         "observedAt": "最近观测",
+        "refreshFrequency": "刷新频率",
         "loadAverage": "负载均值"
       },
       "fieldDescriptions": {
@@ -57,12 +60,12 @@
         "appName": "服务上报的应用标识。",
         "appEnv": "当前运行环境标签。",
         "startedAt": "进程首次稳定启动时间。",
-        "hostName": "运行时快照上报的宿主机名称。",
-        "platform": "宿主机操作系统与架构信息。",
+        "hostName": "运行时快照上报的服务器主机名。",
+        "platform": "服务器操作系统与架构信息。",
         "cpuCores": "当前进程可见的逻辑 CPU 核心数。",
         "hostMemory": "整机内存快照，不等同于 Go Runtime 内存。",
         "observedAt": "最近一次聚合快照时间。",
-        "loadAverage": "当前宿主机 1m / 5m / 15m 负载均值。"
+        "loadAverage": "当前服务器 1m / 5m / 15m 负载均值。"
       }
     },
     "dependenciesPage": {

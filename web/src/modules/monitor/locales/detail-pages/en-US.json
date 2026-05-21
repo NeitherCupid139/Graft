@@ -9,22 +9,23 @@
     },
     "runtimePage": {
       "title": "Runtime",
-      "subtitle": "Inspect the current Go process runtime snapshot and host environment. Host memory and Go Runtime memory stay explicitly separated here.",
+      "subtitle": "Inspect the current Go process snapshot, build details, and server environment while keeping server memory separate from Go Runtime memory.",
       "snapshotReady": "Snapshot ready",
       "snapshotPending": "Waiting for snapshot",
-      "memoryBoundaryTitle": "Memory ownership boundary",
-      "memoryBoundaryDescription": "Host memory reflects the full machine snapshot. Go Runtime memory only reflects allocations inside the current Go process.",
+      "memoryBoundaryNotice": "Memory scope: server memory covers the whole server, while Go Runtime memory covers only the current service process.",
+      "refreshFrequencyUnit": " s",
       "runtimeMemoryTitle": "Go Runtime Memory",
+      "runtimeMemoryDescription": "Current in-process memory usage and garbage collection snapshot.",
       "processBuildTitle": "Process and Build",
-      "hostEnvironmentTitle": "Host Environment",
-      "snapshotContextTitle": "Snapshot Context",
+      "hostEnvironmentTitle": "Server Environment",
+      "serverEnvironmentDescription": "Whole-server memory snapshot, not the same as Go Runtime memory.",
       "summary": {
         "uptime": "Uptime",
         "uptimeDescription": "Process running duration",
         "goroutines": "Goroutines",
         "goroutinesDescription": "Current Go scheduler concurrency",
-        "goVersion": "Go version",
-        "goVersionDescription": "Version reported by the current process",
+        "runtimeAlloc": "Current alloc",
+        "runtimeAllocDescription": "Currently allocated by the Go runtime",
         "gcCycles": "GC cycles",
         "gcCyclesDescription": "Completed garbage collection rounds"
       },
@@ -39,11 +40,13 @@
         "appName": "Application",
         "appEnv": "Environment",
         "startedAt": "Started at",
+        "goVersion": "Go version",
         "hostName": "Host name",
         "platform": "Platform",
         "cpuCores": "CPU cores",
-        "hostMemory": "Host memory",
+        "hostMemory": "Server memory",
         "observedAt": "Last observed",
+        "refreshFrequency": "Refresh frequency",
         "loadAverage": "Load average"
       },
       "fieldDescriptions": {
@@ -57,12 +60,12 @@
         "appName": "Application identifier reported by the service.",
         "appEnv": "Current runtime environment label.",
         "startedAt": "First stable process startup time.",
-        "hostName": "Host reported by the runtime snapshot.",
+        "hostName": "Server host name reported by the runtime snapshot.",
         "platform": "Operating system and architecture for the host.",
         "cpuCores": "Logical CPU core count visible to the process.",
-        "hostMemory": "Whole-host memory snapshot, not Go Runtime memory.",
+        "hostMemory": "Whole-server memory snapshot, not Go Runtime memory.",
         "observedAt": "Timestamp of the latest aggregated snapshot.",
-        "loadAverage": "1m / 5m / 15m load averages from the current host."
+        "loadAverage": "1m / 5m / 15m load averages from the current server."
       }
     },
     "dependenciesPage": {
