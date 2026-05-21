@@ -11,4 +11,13 @@ const (
 
 	// ServerStatusRoute identifies the server-status route fragment.
 	ServerStatusRoute = "/server-status"
+
+	// OverviewRoute identifies the overview route fragment under server-status.
+	OverviewRoute = "/overview"
+
+	// ServerStatusMenuPath identifies the second-level server-status menu path.
+	ServerStatusMenuPath = MonitorGroup + ServerStatusRoute
+
+	// ServerStatusOverviewMenuPath identifies the third-level overview menu path.
+	ServerStatusOverviewMenuPath = ServerStatusMenuPath + OverviewRoute
 )

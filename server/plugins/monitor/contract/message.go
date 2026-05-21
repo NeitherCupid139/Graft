@@ -9,6 +9,10 @@ func (k MenuMessageKey) String() string {
 }
 
 const (
+	// MonitorSectionTitle identifies the localized title for the monitor navigation group.
+	MonitorSectionTitle MenuMessageKey = "monitor.sectionTitle"
 	// ServerStatusMenuTitle identifies the localized title for the server-status menu.
 	ServerStatusMenuTitle MenuMessageKey = "menu.monitor.server_status.title"
+	// ServerStatusOverviewMenuTitle identifies the localized title for the server-status overview menu.
+	ServerStatusOverviewMenuTitle MenuMessageKey = "menu.monitor.server_status.overview.title"
 )

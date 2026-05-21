@@ -8,6 +8,10 @@ describe('localizeRouteTitle', () => {
       'zh-CN': '用户管理',
       'en-US': 'User Management',
     });
+    expect(localizeRouteTitle('服务器管理', 'monitor.sectionTitle')).toEqual({
+      'zh-CN': '服务器管理',
+      'en-US': 'Server Management',
+    });
   });
 
   it('falls back to bootstrap title when title_key is missing or untranslated', () => {

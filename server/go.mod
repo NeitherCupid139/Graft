@@ -20,6 +20,7 @@ require (
 )
 
 require (
+	github.com/alicebob/miniredis/v2 v2.38.0
 	// Ent 是 server 当前的 ORM 与 schema-as-code 基线。
 	entgo.io/ent v0.14.6
 
@@ -27,6 +28,7 @@ require (
 	github.com/jackc/pgx/v5 v5.9.2
 
 	// Cobra 提供显式的 serve / migrate CLI 入口。
+	github.com/shirou/gopsutil/v4 v4.26.4
 	github.com/spf13/cobra v1.10.2
 )
 
@@ -35,6 +37,16 @@ require golang.org/x/text v0.37.0
 require (
 	github.com/mattn/go-sqlite3 v1.14.28
 	github.com/robfig/cron/v3 v3.0.1
+)
+
+require (
+	github.com/ebitengine/purego v0.10.0 // indirect
+	github.com/go-ole/go-ole v1.2.6 // indirect
+	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
+	github.com/tklauser/go-sysconf v0.3.16 // indirect
+	github.com/tklauser/numcpus v0.11.0 // indirect
+	github.com/yuin/gopher-lua v1.1.1 // indirect
+	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 )
 
 require (
