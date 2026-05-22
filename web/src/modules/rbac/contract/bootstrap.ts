@@ -1,7 +1,11 @@
 export const RBAC_BOOTSTRAP_ROUTE = {
   ROLE_LIST: {
-    menuPath: '/roles',
+    menuPath: '/access-control/roles',
     routeName: 'RoleList',
+  },
+  PERMISSION_LIST: {
+    menuPath: '/access-control/permissions',
+    routeName: 'PermissionList',
   },
 } as const;
 

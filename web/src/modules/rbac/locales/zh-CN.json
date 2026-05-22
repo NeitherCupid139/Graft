@@ -2,8 +2,9 @@
   "rbac": {
     "roleList": {
       "listTitle": "角色管理",
-      "hint": "维护角色定义，并为角色分配权限。",
+      "hint": "维护角色定义、权限范围与用户绑定关系。",
       "summary": "已显示 {count} 个角色",
+      "tableHint": "支持按角色名称、编码与类型快速筛选。",
       "refresh": "刷新",
       "retry": "重试",
       "create": "新建角色",
@@ -12,6 +13,7 @@
       "more": "更多",
       "assignPermissions": "分配权限",
       "columnSettings": "列设置",
+      "emptyTitle": "暂无角色数据",
       "empty": "暂无角色数据",
       "loadFailed": "角色管理数据加载失败",
       "errorTitle": "角色数据暂时不可用",
@@ -30,6 +32,13 @@
       "userCount": "{count} 位用户",
       "moreBuiltinHint": "内置角色不支持删除，请通过详情查看限制说明",
       "moreCustomHint": "更多角色操作暂未开放",
+      "stats": {
+        "totalRoles": "总角色",
+        "builtinRoles": "内置角色",
+        "customRoles": "自定义角色",
+        "assignedUsers": "已分配用户数",
+        "permissionBindings": "权限绑定数"
+      },
       "columns": {
         "role": "角色",
         "type": "类型",
@@ -78,6 +87,32 @@
         "emptyDescription": "暂无描述",
         "empty": "暂无匹配的权限项",
         "confirm": "保存权限"
+      }
+    },
+    "permissionList": {
+      "listTitle": "权限管理",
+      "hint": "查看系统权限点、模块归属与授权使用情况。",
+      "summary": "已显示 {count} 项权限",
+      "refresh": "刷新",
+      "retry": "重试",
+      "columnSettings": "列设置",
+      "detail": "详情",
+      "emptyTitle": "暂无权限数据",
+      "empty": "暂无权限数据",
+      "loadFailed": "权限列表加载失败",
+      "errorTitle": "权限数据暂时不可用",
+      "readonlyNotice": "当前权限列表为只读视图。",
+      "readonlyHint": "当前仅支持查看权限详情",
+      "columns": {
+        "permission": "权限",
+        "module": "模块",
+        "code": "权限编码",
+        "roleCount": "使用角色数"
+      },
+      "toolbar": {
+        "searchPlaceholder": "搜索权限编码、权限名称",
+        "modulePlaceholder": "筛选模块",
+        "clearFilters": "清空筛选"
       }
     }
   }

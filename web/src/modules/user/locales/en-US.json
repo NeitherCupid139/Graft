@@ -30,8 +30,9 @@
     },
     "userList": {
       "listTitle": "User Management",
-      "hint": "Manage system users, account status, and role assignments.",
+      "hint": "Manage admin accounts, status switches, role assignments, and security actions.",
       "summary": "{count} users shown",
+      "tableHint": "Filter the current user list by account, status, and role.",
       "refresh": "Refresh",
       "retry": "Retry",
       "create": "Create User",
@@ -44,10 +45,27 @@
       "errorTitle": "User data is temporarily unavailable",
       "assignSuccess": "User roles updated",
       "assignFailed": "Failed to update user roles",
+      "emptyTitle": "No user data",
+      "footerTotal": "{count} users total",
+      "stats": {
+        "totalUsers": "Total Users",
+        "enabledUsers": "Enabled Users",
+        "disabledUsers": "Disabled Users",
+        "adminUsers": "Admin Users",
+        "recentCreated": "Recently Created",
+        "recentLoggedIn": "Recently Logged In"
+      },
+      "batch": {
+        "selected": "{count} selected",
+        "enable": "Batch Enable",
+        "disable": "Batch Disable",
+        "assignRoles": "Batch Assign Roles"
+      },
       "columns": {
         "user": "User",
         "status": "Status",
         "roles": "Roles",
+        "lastLoginAt": "Last Login",
         "createdAt": "Created At",
         "updatedAt": "Updated At"
       },

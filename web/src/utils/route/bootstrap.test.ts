@@ -6,6 +6,14 @@ describe('transformBootstrapMenusToRoutes', () => {
   it('只为当前 web 已接入的 bootstrap 菜单生成动态路由', () => {
     const routes = transformBootstrapMenusToRoutes([
       {
+        code: 'access-control.overview',
+        title_key: 'menu.access_control.overview.title',
+        title: '概览',
+        path: '/access-control/overview',
+        icon: 'secured',
+        permission: '',
+      },
+      {
         code: 'role.list',
         title_key: 'menu.role_list.title',
         title: '角色管理',
@@ -30,17 +38,18 @@ describe('transformBootstrapMenusToRoutes', () => {
       },
     ]);
 
-    expect(routes).toHaveLength(2);
-    expect(routes[0]?.path).toBe('/roles');
-    expect(routes[0]?.redirect).toBe('/roles/index');
-    expect(routes[0]?.children?.[0]?.name).toBe('RoleListIndex');
-    expect(routes[0]?.meta?.titleKey).toBe('menu.role_list.title');
-    expect(routes[0]?.meta?.title).toEqual({ 'zh-CN': '角色管理', 'en-US': 'Role Management' });
-    expect(routes[1]?.path).toBe('/users');
-    expect(routes[1]?.redirect).toBe('/users/index');
-    expect(routes[1]?.children?.[0]?.name).toBe('UserListIndex');
-    expect(routes[1]?.meta?.titleKey).toBe('menu.user_list.title');
-    expect(routes[1]?.meta?.title).toEqual({ 'zh-CN': '用户管理', 'en-US': 'User Management' });
+    expect(routes).toHaveLength(1);
+    expect(routes[0]?.path).toBe('/access-control');
+    expect(routes[0]?.name).toBe('BootstrapGroupAccessControl');
+    expect(routes[0]?.meta?.titleKey).toBe('menu.access_control.title');
+    expect(routes[0]?.children?.[0]?.path).toBe('overview');
+    expect(routes[0]?.children?.[0]?.name).toBe('AccessControlOverviewIndex');
+    expect(routes[0]?.children?.[1]?.path).toBe('roles');
+    expect(routes[0]?.children?.[1]?.name).toBe('RoleListIndex');
+    expect(routes[0]?.children?.[1]?.meta?.titleKey).toBe('menu.role_list.title');
+    expect(routes[0]?.children?.[2]?.path).toBe('users');
+    expect(routes[0]?.children?.[2]?.name).toBe('UserListIndex');
+    expect(routes[0]?.children?.[2]?.meta?.titleKey).toBe('menu.user_list.title');
   });
 
   it('为监控模块合成显式父级导航并避免 index 面包屑段', () => {

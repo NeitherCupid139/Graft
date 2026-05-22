@@ -1,0 +1,68 @@
+{
+  "accessControl": {
+    "overview": {
+      "title": "访问控制概览",
+      "description": "查看系统账号、角色、权限与授权关系的整体状态。",
+      "actions": {
+        "createUser": "创建用户",
+        "createRole": "新建角色",
+        "viewPermissions": "查看权限",
+        "refresh": "刷新"
+      },
+      "stats": {
+        "totalUsers": "总用户数",
+        "enabledUsers": "启用用户数",
+        "disabledUsers": "禁用用户数",
+        "totalRoles": "总角色数",
+        "builtinRoles": "内置角色数",
+        "customRoles": "自定义角色数",
+        "totalPermissions": "权限总数",
+        "assignedUsers": "已分配角色的用户数"
+      },
+      "risk": {
+        "title": "风险与待处理事项",
+        "emptyTitle": "暂无可识别的访问控制风险",
+        "emptyDescription": "后续接入审计日志后可展示角色与权限变更历史",
+        "unassignedUsers": "未分配角色的用户",
+        "emptyRoles": "无权限绑定的自定义角色",
+        "disabledUsers": "禁用用户数量",
+        "builtinNotice": "内置角色保护说明",
+        "builtinNoticeDescription": "内置角色不可删除，部分字段不可编辑",
+        "stale": "最近没有更新时间的数据提示"
+      },
+      "quickLinks": {
+        "title": "快捷入口",
+        "users": {
+          "title": "用户管理",
+          "description": "管理账号、状态和角色授权",
+          "action": "跳转用户管理"
+        },
+        "roles": {
+          "title": "角色管理",
+          "description": "维护角色定义和权限范围",
+          "action": "跳转角色管理"
+        },
+        "permissions": {
+          "title": "权限管理",
+          "description": "查看系统权限点和模块归属",
+          "action": "跳转权限管理"
+        }
+      },
+      "changes": {
+        "title": "最近变更",
+        "emptyTitle": "暂无最近变更记录",
+        "emptyDescription": "后续接入审计日志后展示角色与权限变更历史"
+      },
+      "state": {
+        "loadFailedTitle": "访问控制概览暂时不可用",
+        "loadFailedDescription": "请重试加载用户、角色与权限统计。",
+        "retry": "重试",
+        "unknown": "-"
+      },
+      "navHint": "访问控制"
+    },
+    "todo": {
+      "menuContractAlignment": "动态菜单层级与 title_key 仍需后端菜单契约对齐，当前由前端聚合层兼容。"
+    }
+  }
+}

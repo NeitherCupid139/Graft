@@ -30,8 +30,9 @@
     },
     "userList": {
       "listTitle": "用户管理",
-      "hint": "管理系统用户、账号状态与角色授权。",
+      "hint": "管理后台账号、启停状态、角色授权与安全操作。",
       "summary": "已显示 {count} 位用户",
+      "tableHint": "支持按账号、状态与角色筛选当前用户列表。",
       "refresh": "刷新",
       "retry": "重试",
       "create": "创建用户",
@@ -44,10 +45,27 @@
       "errorTitle": "用户数据暂时不可用",
       "assignSuccess": "用户角色更新成功",
       "assignFailed": "用户角色更新失败",
+      "emptyTitle": "暂无用户数据",
+      "footerTotal": "共 {count} 位用户",
+      "stats": {
+        "totalUsers": "总用户",
+        "enabledUsers": "启用用户",
+        "disabledUsers": "禁用用户",
+        "adminUsers": "管理员数量",
+        "recentCreated": "最近新增",
+        "recentLoggedIn": "最近登录用户数"
+      },
+      "batch": {
+        "selected": "已选择 {count} 项",
+        "enable": "批量启用",
+        "disable": "批量禁用",
+        "assignRoles": "批量分配角色"
+      },
       "columns": {
         "user": "用户",
         "status": "状态",
         "roles": "角色",
+        "lastLoginAt": "最近登录",
         "createdAt": "创建时间",
         "updatedAt": "更新时间"
       },

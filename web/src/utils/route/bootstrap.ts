@@ -2,6 +2,7 @@ import type { RouteRecordRaw } from 'vue-router';
 
 import type { BootstrapMenu } from '@/api/model/authModel';
 import { getBootstrapRouteRegistration } from '@/modules';
+import { ACCESS_CONTROL_ROUTE_PATH } from '@/modules/access-control/contract/bootstrap';
 import { BLANK_LAYOUT, LAYOUT } from '@/utils/route/constant';
 import type { AppRouteMeta } from '@/utils/types';
 
@@ -22,12 +23,66 @@ type BootstrapLeaf = {
 //
 // 当前阶段只接入已在 `web` 内存在页面实现的真实菜单项，避免继续沿用 starter demo 菜单树。
 export function transformBootstrapMenusToRoutes(menus: BootstrapMenu[]): RouteRecordRaw[] {
-  const rootNodes = buildBootstrapMenuTree(menus);
+  const rootNodes = buildBootstrapMenuTree(normalizeAccessControlMenus(menus));
   const routes = rootNodes
     .map((node) => buildRootRoute(node))
     .filter((route): route is RouteRecordRaw => Boolean(route));
 
   return routes;
+}
+
+function normalizeAccessControlMenus(menus: BootstrapMenu[]): BootstrapMenu[] {
+  const managedPaths = new Set<string>([
+    ACCESS_CONTROL_ROUTE_PATH.OVERVIEW,
+    ACCESS_CONTROL_ROUTE_PATH.USERS,
+    ACCESS_CONTROL_ROUTE_PATH.ROLES,
+    ACCESS_CONTROL_ROUTE_PATH.PERMISSIONS,
+  ]);
+  const normalizedMenus = menus.map((menu) => {
+    switch (normalizePath(menu.path)) {
+      case ACCESS_CONTROL_ROUTE_PATH.LEGACY_USERS:
+        return {
+          ...menu,
+          path: ACCESS_CONTROL_ROUTE_PATH.USERS,
+          title_key: menu.title_key || 'menu.access_control.users.title',
+        };
+      case ACCESS_CONTROL_ROUTE_PATH.LEGACY_ROLES:
+        return {
+          ...menu,
+          path: ACCESS_CONTROL_ROUTE_PATH.ROLES,
+          title_key: menu.title_key || 'menu.access_control.roles.title',
+        };
+      case ACCESS_CONTROL_ROUTE_PATH.LEGACY_PERMISSIONS:
+        return {
+          ...menu,
+          path: ACCESS_CONTROL_ROUTE_PATH.PERMISSIONS,
+          title_key: menu.title_key || 'menu.access_control.permissions.title',
+        };
+      default:
+        return menu;
+    }
+  });
+
+  const hasAccessControlRoot = normalizedMenus.some(
+    (menu) => normalizePath(menu.path) === ACCESS_CONTROL_ROUTE_PATH.ROOT,
+  );
+  const hasManagedChildren = normalizedMenus.some((menu) => managedPaths.has(normalizePath(menu.path)));
+
+  if (!hasManagedChildren || hasAccessControlRoot) {
+    return normalizedMenus;
+  }
+
+  return [
+    {
+      code: 'access-control.group',
+      title: '访问控制',
+      title_key: 'menu.access_control.title',
+      path: ACCESS_CONTROL_ROUTE_PATH.ROOT,
+      icon: 'secured',
+      permission: '',
+    },
+    ...normalizedMenus,
+  ];
 }
 
 function toRouteRecordRaw(route: object): RouteRecordRaw {

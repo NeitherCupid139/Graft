@@ -204,6 +204,23 @@ const drawerStub = defineComponent({
   },
 });
 
+const paginationStub = defineComponent({
+  name: 'TPaginationStub',
+  props: {
+    current: {
+      type: Number,
+      default: 1,
+    },
+    pageSize: {
+      type: Number,
+      default: 10,
+    },
+  },
+  setup(_, { attrs }) {
+    return () => h('div', { ...attrs, 'data-testid': 'pagination' });
+  },
+});
+
 const checkboxGroupStub = defineComponent({
   name: 'TCheckboxGroupStub',
   props: {
@@ -290,6 +307,7 @@ function mountUserPage() {
         't-drawer': drawerStub,
         't-empty': passthroughStub,
         't-input': inputStub,
+        't-pagination': paginationStub,
         't-select': selectStub,
         't-table': tableStub,
         't-tag': passthroughStub,

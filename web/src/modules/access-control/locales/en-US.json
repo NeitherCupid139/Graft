@@ -1,0 +1,68 @@
+{
+  "accessControl": {
+    "overview": {
+      "title": "Access Control Overview",
+      "description": "Review the overall state of system accounts, roles, permissions, and assignments.",
+      "actions": {
+        "createUser": "Create User",
+        "createRole": "New Role",
+        "viewPermissions": "View Permissions",
+        "refresh": "Refresh"
+      },
+      "stats": {
+        "totalUsers": "Total Users",
+        "enabledUsers": "Enabled Users",
+        "disabledUsers": "Disabled Users",
+        "totalRoles": "Total Roles",
+        "builtinRoles": "Builtin Roles",
+        "customRoles": "Custom Roles",
+        "totalPermissions": "Total Permissions",
+        "assignedUsers": "Users With Roles"
+      },
+      "risk": {
+        "title": "Risks and Follow-up",
+        "emptyTitle": "No recognizable access control risks",
+        "emptyDescription": "Role and permission history can be shown after audit logs are added.",
+        "unassignedUsers": "Users without roles",
+        "emptyRoles": "Custom roles without permissions",
+        "disabledUsers": "Disabled users",
+        "builtinNotice": "Builtin role protection",
+        "builtinNoticeDescription": "Builtin roles cannot be deleted and some fields stay read-only",
+        "stale": "Records without recent update timestamps"
+      },
+      "quickLinks": {
+        "title": "Quick Links",
+        "users": {
+          "title": "User Management",
+          "description": "Manage accounts, statuses, and role assignments",
+          "action": "Open User Management"
+        },
+        "roles": {
+          "title": "Role Management",
+          "description": "Maintain role definitions and permission scope",
+          "action": "Open Role Management"
+        },
+        "permissions": {
+          "title": "Permission Management",
+          "description": "Review system permissions and module ownership",
+          "action": "Open Permission Management"
+        }
+      },
+      "changes": {
+        "title": "Recent Changes",
+        "emptyTitle": "No recent change records",
+        "emptyDescription": "Role and permission history will appear after audit logs are integrated."
+      },
+      "state": {
+        "loadFailedTitle": "Access control overview is unavailable",
+        "loadFailedDescription": "Retry loading user, role, and permission statistics.",
+        "retry": "Retry",
+        "unknown": "-"
+      },
+      "navHint": "Access Control"
+    },
+    "todo": {
+      "menuContractAlignment": "Dynamic menu hierarchy and title_key still need backend contract alignment. The frontend aggregation layer currently bridges the gap."
+    }
+  }
+}

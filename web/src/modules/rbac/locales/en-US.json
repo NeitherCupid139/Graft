@@ -2,8 +2,9 @@
   "rbac": {
     "roleList": {
       "listTitle": "Role Management",
-      "hint": "Maintain role definitions and assign permissions to roles.",
+      "hint": "Maintain role definitions, permission scope, and user assignments.",
       "summary": "{count} roles shown",
+      "tableHint": "Filter roles by name, code, and type.",
       "refresh": "Refresh",
       "retry": "Retry",
       "create": "New Role",
@@ -12,6 +13,7 @@
       "more": "More",
       "assignPermissions": "Assign Permissions",
       "columnSettings": "Columns",
+      "emptyTitle": "No role data",
       "empty": "No role data",
       "loadFailed": "Failed to load roles",
       "errorTitle": "Role data is temporarily unavailable",
@@ -30,6 +32,13 @@
       "userCount": "{count} users",
       "moreBuiltinHint": "Builtin roles cannot be deleted. Open details for the restrictions.",
       "moreCustomHint": "Additional role actions are not available yet",
+      "stats": {
+        "totalRoles": "Total Roles",
+        "builtinRoles": "Builtin Roles",
+        "customRoles": "Custom Roles",
+        "assignedUsers": "Assigned Users",
+        "permissionBindings": "Permission Bindings"
+      },
       "columns": {
         "role": "Role",
         "type": "Type",
@@ -78,6 +87,32 @@
         "emptyDescription": "No description",
         "empty": "No matching permissions",
         "confirm": "Save Permissions"
+      }
+    },
+    "permissionList": {
+      "listTitle": "Permission Management",
+      "hint": "Review system permissions, module ownership, and authorization usage.",
+      "summary": "{count} permissions shown",
+      "refresh": "Refresh",
+      "retry": "Retry",
+      "columnSettings": "Columns",
+      "detail": "Details",
+      "emptyTitle": "No permission data",
+      "empty": "No permission data",
+      "loadFailed": "Failed to load permissions",
+      "errorTitle": "Permission data is temporarily unavailable",
+      "readonlyNotice": "This permission list is currently read only.",
+      "readonlyHint": "Only permission details are available right now",
+      "columns": {
+        "permission": "Permission",
+        "module": "Module",
+        "code": "Permission Code",
+        "roleCount": "Roles Using It"
+      },
+      "toolbar": {
+        "searchPlaceholder": "Search permission code or name",
+        "modulePlaceholder": "Filter module",
+        "clearFilters": "Clear Filters"
       }
     }
   }

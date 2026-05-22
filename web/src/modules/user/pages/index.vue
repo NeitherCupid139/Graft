@@ -1,77 +1,107 @@
 <template>
   <div class="user-page" data-page-type="list-form-detail">
-    <header class="admin-page-header">
-      <div class="admin-page-header__copy">
-        <h1 class="admin-page-header__title">{{ t('user.userList.listTitle') }}</h1>
-        <p class="admin-page-header__description">{{ t('user.userList.hint') }}</p>
-      </div>
-    </header>
+    <management-page-header :title="t('user.userList.listTitle')" :description="t('user.userList.hint')">
+      <template #eyebrow>{{ t('menu.access_control.title') }}</template>
+      <template #actions>
+        <t-button theme="primary" data-testid="user-create" @click="handleUnavailableAction('create')">
+          {{ t('user.userList.create') }}
+        </t-button>
+        <t-button theme="default" variant="outline" :loading="loading" data-testid="user-refresh" @click="fetchUsers">
+          {{ t('user.userList.refresh') }}
+        </t-button>
+      </template>
+    </management-page-header>
 
-    <section class="admin-surface">
-      <div class="toolbar">
-        <div class="toolbar__filters">
-          <t-input
-            v-model="filters.keyword"
-            clearable
-            class="toolbar__search"
-            :placeholder="t('user.userList.toolbar.searchPlaceholder')"
-          />
-          <t-select
-            v-model="filters.status"
-            clearable
-            class="toolbar__select"
-            :options="statusOptions"
-            :placeholder="t('user.userList.toolbar.statusPlaceholder')"
-          />
-          <t-select
-            v-model="filters.roleId"
-            clearable
-            class="toolbar__select"
-            :options="roleOptions"
-            :loading="roleCatalogLoading"
-            :placeholder="t('user.userList.toolbar.rolePlaceholder')"
-          />
-          <t-button variant="text" @click="resetFilters">
+    <management-stats-grid :items="statItems" />
+
+    <management-toolbar>
+      <template #filters>
+        <t-input
+          v-model="filters.keyword"
+          clearable
+          class="toolbar__search"
+          :placeholder="t('user.userList.toolbar.searchPlaceholder')"
+        />
+        <t-select
+          v-model="filters.status"
+          clearable
+          class="toolbar__select"
+          :options="statusOptions"
+          :placeholder="t('user.userList.toolbar.statusPlaceholder')"
+        />
+        <t-select
+          v-model="filters.roleId"
+          clearable
+          class="toolbar__select"
+          :options="roleOptions"
+          :loading="roleCatalogLoading"
+          :placeholder="t('user.userList.toolbar.rolePlaceholder')"
+        />
+        <t-button variant="text" @click="resetFilters">
+          {{ t('user.userList.toolbar.clearFilters') }}
+        </t-button>
+      </template>
+      <template #actions>
+        <t-button theme="default" variant="outline" @click="columnDrawerVisible = true">
+          {{ t('user.userList.columnSettings') }}
+        </t-button>
+        <t-button theme="default" variant="outline" :loading="loading" @click="fetchUsers">
+          {{ t('user.userList.refresh') }}
+        </t-button>
+        <t-button theme="primary" @click="handleUnavailableAction('create')">
+          {{ t('user.userList.create') }}
+        </t-button>
+      </template>
+    </management-toolbar>
+
+    <management-table-card>
+      <template #head>
+        <div class="table-head">
+          <div>
+            <p class="table-head__summary">{{ t('user.userList.summary', { count: filteredUsers.length }) }}</p>
+            <p class="table-head__description">{{ t('user.userList.tableHint') }}</p>
+          </div>
+          <t-button v-if="hasActiveFilters" variant="text" @click="resetFilters">
             {{ t('user.userList.toolbar.clearFilters') }}
           </t-button>
         </div>
-        <div class="toolbar__actions">
-          <t-button theme="default" variant="outline" :loading="loading" data-testid="user-refresh" @click="fetchUsers">
-            {{ t('user.userList.refresh') }}
-          </t-button>
-          <t-button theme="default" variant="outline" @click="columnDrawerVisible = true">
-            {{ t('user.userList.columnSettings') }}
-          </t-button>
-          <t-button theme="primary" data-testid="user-create" @click="handleUnavailableAction('create')">
-            {{ t('user.userList.create') }}
-          </t-button>
+      </template>
+
+      <template #batch>
+        <div v-if="selectedRowKeys.length > 0" class="batch-bar">
+          <span>{{ t('user.userList.batch.selected', { count: selectedRowKeys.length }) }}</span>
+          <div class="batch-bar__actions">
+            <t-button size="small" variant="outline" disabled>{{ t('user.userList.batch.enable') }}</t-button>
+            <t-button size="small" variant="outline" disabled>{{ t('user.userList.batch.disable') }}</t-button>
+            <t-button size="small" theme="primary" variant="outline" disabled>
+              {{ t('user.userList.batch.assignRoles') }}
+            </t-button>
+          </div>
         </div>
-      </div>
-    </section>
+      </template>
 
-    <section class="admin-surface admin-surface--table">
-      <div class="table-head">
-        <p class="table-head__summary">{{ t('user.userList.summary', { count: filteredUsers.length }) }}</p>
-        <t-button v-if="hasActiveFilters" variant="text" @click="resetFilters">
-          {{ t('user.userList.toolbar.clearFilters') }}
-        </t-button>
-      </div>
-
-      <div v-if="listError && !loading" class="state-panel state-panel--error" data-testid="user-list-error">
-        <p class="state-panel__title">{{ t('user.userList.errorTitle') }}</p>
-        <p class="state-panel__description">{{ listError }}</p>
-        <t-button theme="primary" variant="outline" @click="fetchUsers">
-          {{ t('user.userList.retry') }}
-        </t-button>
-      </div>
+      <management-empty-state
+        v-if="listError && !loading"
+        tone="error"
+        :title="t('user.userList.errorTitle')"
+        :description="listError"
+      >
+        <template #actions>
+          <t-button theme="primary" variant="outline" @click="fetchUsers">
+            {{ t('user.userList.retry') }}
+          </t-button>
+        </template>
+      </management-empty-state>
 
       <t-table
         v-else
         row-key="id"
-        :data="filteredUsers"
+        :data="pagedUsers"
         :columns="visibleColumns"
         :loading="loading"
+        :selected-row-keys="selectedRowKeys"
         cell-empty-content="-"
+        @select-change="handleSelectChange"
       >
         <template #user="{ row }">
           <div class="user-cell">
@@ -99,7 +129,7 @@
             </template>
             <template v-else-if="resolveUserRoles(row.id).length > 0">
               <t-tag
-                v-for="role in resolveUserRoles(row.id)"
+                v-for="role in resolveUserRoles(row.id).slice(0, 2)"
                 :key="role.id"
                 theme="default"
                 variant="light-outline"
@@ -107,9 +137,16 @@
               >
                 {{ role.display }}
               </t-tag>
+              <t-tag v-if="resolveUserRoles(row.id).length > 2" theme="default" variant="light-outline" size="small">
+                +{{ resolveUserRoles(row.id).length - 2 }}
+              </t-tag>
             </template>
             <span v-else class="table-muted">{{ t('user.userList.roleSummary.empty') }}</span>
           </div>
+        </template>
+
+        <template #last_login_at="{ row }">
+          <span>{{ formatTimestamp(row.last_login_at) }}</span>
         </template>
 
         <template #created_at="{ row }">
@@ -142,10 +179,28 @@
         </template>
 
         <template #empty>
-          <t-empty :description="t('user.userList.empty')" />
+          <management-empty-state :title="t('user.userList.emptyTitle')" :description="t('user.userList.empty')">
+            <template #actions>
+              <t-button theme="primary" @click="handleUnavailableAction('create')">
+                {{ t('user.userList.create') }}
+              </t-button>
+            </template>
+          </management-empty-state>
         </template>
       </t-table>
-    </section>
+
+      <template #footer>
+        <div class="table-footer">
+          <span class="table-muted">{{ t('user.userList.footerTotal', { count: filteredUsers.length }) }}</span>
+          <t-pagination
+            v-model:current="pagination.current"
+            v-model:page-size="pagination.pageSize"
+            :total="filteredUsers.length"
+            :page-size-options="[10, 20, 50]"
+          />
+        </div>
+      </template>
+    </management-table-card>
 
     <t-drawer
       v-model:visible="userRoleDrawerVisible"
@@ -284,6 +339,14 @@ import { useI18n } from 'vue-i18n';
 
 import { RBAC_PERMISSION_CODE } from '@/modules/rbac/contract/permissions';
 import type { RoleListItem } from '@/modules/rbac/contract/role';
+import {
+  ManagementEmptyState,
+  ManagementPageHeader,
+  type ManagementStatItem,
+  ManagementStatsGrid,
+  ManagementTableCard,
+  ManagementToolbar,
+} from '@/shared/components/management';
 import { usePermissionStore } from '@/store';
 
 import { assignUserRoles, getRoles, getUserRoleBindings } from '../api/user-roles';
@@ -303,9 +366,20 @@ type UserFilters = {
   status: '' | UserStatus;
 };
 
-type UserRow = UserListItem;
+type UserRow = UserListItem & {
+  last_login_at?: string | null;
+};
 
-const DEFAULT_VISIBLE_COLUMNS = ['user', 'status', 'roles', 'created_at', 'updated_at', 'operation'];
+const DEFAULT_VISIBLE_COLUMNS = [
+  'row-select',
+  'user',
+  'status',
+  'roles',
+  'last_login_at',
+  'created_at',
+  'updated_at',
+  'operation',
+];
 
 const { t, locale } = useI18n();
 const permissionStore = usePermissionStore();
@@ -314,7 +388,6 @@ const roles = ref<RoleListItem[]>([]);
 const loading = ref(false);
 const listError = ref('');
 const roleCatalogLoading = ref(false);
-const roleCatalogError = ref('');
 const roleSummaryRequestId = ref(0);
 const roleBindings = ref<Record<number, number[]>>({});
 const roleSummaryLoading = ref<Record<number, boolean>>({});
@@ -334,6 +407,11 @@ const submittingRoles = ref(false);
 const roleSelectionReady = ref(false);
 const roleLoadWarning = ref('');
 const drawerSession = ref(0);
+const selectedRowKeys = ref<Array<string | number>>([]);
+const pagination = ref({
+  current: 1,
+  pageSize: 10,
+});
 
 const userPermissionCodes = USER_PERMISSION_CODE;
 const rbacPermissionCodes = RBAC_PERMISSION_CODE;
@@ -371,6 +449,7 @@ const columnSettingOptions = computed(() => [
   { label: t('user.userList.columns.user'), value: 'user' },
   { label: t('user.userList.columns.status'), value: 'status' },
   { label: t('user.userList.columns.roles'), value: 'roles' },
+  { label: t('user.userList.columns.lastLoginAt'), value: 'last_login_at' },
   { label: t('user.userList.columns.createdAt'), value: 'created_at' },
   { label: t('user.userList.columns.updatedAt'), value: 'updated_at' },
   { label: t('components.commonTable.operation'), value: 'operation' },
@@ -402,19 +481,51 @@ const filteredUsers = computed(() => {
   });
 });
 
+const pagedUsers = computed(() => {
+  const start = (pagination.value.current - 1) * pagination.value.pageSize;
+  return filteredUsers.value.slice(start, start + pagination.value.pageSize);
+});
+
 const currentUserRoles = computed(() => {
   const roleIDs = selectedRoleIds.value;
   return roles.value.filter((role) => roleIDs.includes(role.id));
 });
 
+const statItems = computed<ManagementStatItem[]>(() => {
+  const totalUsers = users.value.length;
+  const disabledUsers = users.value.filter((user) => normalizeUserStatus(user.status) === USER_STATUS.DISABLED).length;
+  const enabledUsers = totalUsers - disabledUsers;
+  const adminCount = roles.value.some((role) => role.name === 'admin')
+    ? Object.values(roleBindings.value).filter((assigned) =>
+        assigned.includes(roles.value.find((role) => role.name === 'admin')?.id ?? -1),
+      ).length
+    : null;
+
+  return [
+    { label: t('user.userList.stats.totalUsers'), value: totalUsers },
+    { label: t('user.userList.stats.enabledUsers'), value: enabledUsers },
+    { label: t('user.userList.stats.disabledUsers'), value: disabledUsers },
+    { label: t('user.userList.stats.adminUsers'), value: adminCount ?? '-' },
+    { label: t('user.userList.stats.recentCreated'), value: '-' },
+    { label: t('user.userList.stats.recentLoggedIn'), value: '-' },
+  ];
+});
+
 const columns = computed<TdBaseTableProps['columns']>(() => {
   void locale.value;
 
-  const allColumns: TdBaseTableProps['columns'] = [
+  const baseColumns = [
+    {
+      colKey: 'row-select',
+      type: 'multiple',
+      width: 58,
+      fixed: 'left' as const,
+    },
     {
       title: t('user.userList.columns.user'),
       colKey: 'user',
-      minWidth: 240,
+      minWidth: 260,
+      fixed: 'left' as const,
     },
     {
       title: t('user.userList.columns.status'),
@@ -425,6 +536,11 @@ const columns = computed<TdBaseTableProps['columns']>(() => {
       title: t('user.userList.columns.roles'),
       colKey: 'roles',
       minWidth: 220,
+    },
+    {
+      title: t('user.userList.columns.lastLoginAt'),
+      colKey: 'last_login_at',
+      width: 200,
     },
     {
       title: t('user.userList.columns.createdAt'),
@@ -438,17 +554,20 @@ const columns = computed<TdBaseTableProps['columns']>(() => {
     },
   ];
 
-  if (canShowOperationColumn.value) {
-    allColumns.push({
-      title: t('components.commonTable.operation'),
-      colKey: 'operation',
-      width: 260,
-      fixed: 'right',
-    });
-  }
+  const allColumns = canShowOperationColumn.value
+    ? [
+        ...baseColumns,
+        {
+          title: t('components.commonTable.operation'),
+          colKey: 'operation',
+          width: 260,
+          fixed: 'right' as const,
+        },
+      ]
+    : baseColumns;
 
   const visibleKeys = new Set(visibleColumnKeys.value);
-  return allColumns.filter((column) => visibleKeys.has(String(column.colKey)));
+  return allColumns.filter((column) => visibleKeys.has(String(column.colKey))) as TdBaseTableProps['columns'];
 });
 
 const visibleColumns = computed(() => {
@@ -468,6 +587,8 @@ async function fetchUsers() {
   try {
     const response = await getUsers();
     users.value = response.items;
+    selectedRowKeys.value = [];
+    pagination.value.current = 1;
 
     if (canReadUserRoles.value) {
       void hydrateUserRoleSummaries(response.items);
@@ -489,11 +610,6 @@ async function loadRoleCatalog() {
   try {
     const response = await getRoles();
     roles.value = response.items;
-    roleCatalogError.value = '';
-  } catch (error) {
-    roles.value = [];
-    roleCatalogError.value = error instanceof Error ? error.message : t('user.userList.roleSummary.loadFailed');
-    throw error;
   } finally {
     roleCatalogLoading.value = false;
   }
@@ -551,6 +667,7 @@ function resetFilters() {
     roleId: undefined,
     status: '',
   };
+  pagination.value.current = 1;
 }
 
 function formatTimestamp(value?: string | null) {
@@ -593,6 +710,10 @@ function statusTheme(status?: string | null) {
 
 function handleUnavailableAction(action: 'create' | 'edit' | 'more') {
   MessagePlugin.warning(t(`user.userList.unavailable.${action}`));
+}
+
+function handleSelectChange(value: Array<string | number>) {
+  selectedRowKeys.value = value;
 }
 
 function closeUserRoleDrawer() {

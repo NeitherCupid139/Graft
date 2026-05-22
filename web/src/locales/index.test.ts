@@ -31,6 +31,7 @@ describe('locales bootstrap', () => {
 
     expect(i18n.global.t('user.userList.listTitle')).toBe('用户管理');
     expect(i18n.global.t('rbac.roleList.listTitle')).toBe('角色管理');
+    expect(i18n.global.t('accessControl.overview.title')).toBe('访问控制概览');
   });
 
   it('deep merges nested locale namespaces instead of replacing the whole top-level branch', async () => {

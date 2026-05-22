@@ -1,5 +1,6 @@
 export const USER_ROUTE_PATH = {
-  LIST: '/users',
+  LIST: '/access-control/users',
+  LEGACY_LIST: '/users',
 } as const;
 
 export const USER_API_PATH = {
