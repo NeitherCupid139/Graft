@@ -41,6 +41,7 @@
       "assignRoles": "管理角色",
       "columnSettings": "列设置",
       "empty": "暂无用户数据",
+      "emptyDescription": "当前筛选条件下没有数据，可清空筛选或创建新数据。",
       "loadFailed": "用户列表加载失败",
       "errorTitle": "用户数据暂时不可用",
       "assignSuccess": "用户角色更新成功",

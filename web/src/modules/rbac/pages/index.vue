@@ -169,13 +169,26 @@
           </template>
 
           <template #empty>
-            <management-empty-state :title="t('rbac.roleList.emptyTitle')" :description="t('rbac.roleList.empty')">
-              <template #actions>
-                <t-button theme="primary" @click="openCreateDrawer">
-                  {{ t('rbac.roleList.create') }}
-                </t-button>
-              </template>
-            </management-empty-state>
+            <div class="table-empty-state">
+              <t-empty :title="t('rbac.roleList.emptyTitle')" :description="t('rbac.roleList.emptyDescription')">
+                <template #action>
+                  <div class="table-empty-state__actions">
+                    <t-button
+                      v-if="hasActiveFilters"
+                      theme="default"
+                      variant="outline"
+                      data-testid="role-empty-clear-filters"
+                      @click="resetFilters"
+                    >
+                      {{ t('rbac.roleList.toolbar.clearFilters') }}
+                    </t-button>
+                    <t-button theme="primary" data-testid="role-empty-create" @click="openCreateDrawer">
+                      {{ t('rbac.roleList.emptyCreate') }}
+                    </t-button>
+                  </div>
+                </template>
+              </t-empty>
+            </div>
           </template>
         </t-table>
 

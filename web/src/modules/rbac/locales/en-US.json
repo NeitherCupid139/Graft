@@ -15,6 +15,8 @@
       "columnSettings": "Columns",
       "emptyTitle": "No role data",
       "empty": "No role data",
+      "emptyDescription": "No data matches the current filters. Clear filters or create a new record.",
+      "emptyCreate": "Create Role",
       "footerTotal": "{count} roles total",
       "loadFailed": "Failed to load roles",
       "errorTitle": "Role data is temporarily unavailable",

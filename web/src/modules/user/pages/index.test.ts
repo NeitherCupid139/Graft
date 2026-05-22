@@ -67,9 +67,13 @@ const passthroughStub = defineComponent({
       type: String,
       default: '',
     },
+    title: {
+      type: String,
+      default: '',
+    },
   },
   setup(props, { slots }) {
-    return () => h('div', [props.description, slots.default?.()]);
+    return () => h('div', [props.title, props.description, slots.default?.(), slots.action?.()]);
   },
 });
 
@@ -385,5 +389,28 @@ describe('UserPage', () => {
     expect(roleApiMocks.assignUserRoles).toHaveBeenCalledWith(7, { role_ids: [2] });
     expect(messageMocks.success).toHaveBeenCalledWith('user.userList.assignSuccess');
     expect(wrapper.find('[data-testid="user-role-drawer"]').exists()).toBe(false);
+  });
+
+  it('renders the table empty state and clears filters from the empty action area', async () => {
+    userApiMocks.getUsers.mockResolvedValue({ items: [] });
+    roleApiMocks.getRoles.mockResolvedValue({ items: [] });
+
+    const wrapper = mountUserPage();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('user.userList.emptyTitle');
+    expect(wrapper.text()).toContain('user.userList.emptyDescription');
+    expect(wrapper.find('[data-testid="user-empty-clear-filters"]').exists()).toBe(false);
+
+    await wrapper.get('input[placeholder="user.userList.toolbar.searchPlaceholder"]').setValue('alice');
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="user-empty-clear-filters"]').exists()).toBe(true);
+    await wrapper.get('[data-testid="user-empty-clear-filters"]').trigger('click');
+    await flushPromises();
+
+    expect(
+      (wrapper.get('input[placeholder="user.userList.toolbar.searchPlaceholder"]').element as HTMLInputElement).value,
+    ).toBe('');
   });
 });

@@ -62,6 +62,22 @@
   font: var(--td-font-title-small);
 }
 
+.table-empty-state {
+  align-items: center;
+  background: transparent;
+  display: flex;
+  justify-content: center;
+  min-height: 288px;
+  padding: 48px 24px;
+}
+
+.table-empty-state__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+}
+
 .role-identity,
 .role-identity__main,
 .drawer-panel,
@@ -215,10 +231,37 @@
   text-align: right;
 }
 
+:deep(.t-table__empty) {
+  padding: 0;
+}
+
+:deep(.t-table__empty-row td) {
+  padding-block: 0;
+}
+
+:deep(.t-empty) {
+  align-items: center;
+  text-align: center;
+}
+
+:deep(.t-empty__title) {
+  color: var(--td-text-color-primary);
+}
+
+:deep(.t-empty__description) {
+  color: var(--td-text-color-secondary);
+  max-width: 420px;
+}
+
 @media (width <= 768px) {
   .toolbar__search,
   .toolbar__select {
     width: 100%;
+  }
+
+  .table-empty-state {
+    min-height: 260px;
+    padding-inline: 16px;
   }
 
   .role-page :deep(.management-toolbar__filters) {

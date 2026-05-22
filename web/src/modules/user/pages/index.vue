@@ -183,13 +183,30 @@
           </template>
 
           <template #empty>
-            <management-empty-state :title="t('user.userList.emptyTitle')" :description="t('user.userList.empty')">
-              <template #actions>
-                <t-button theme="primary" @click="handleUnavailableAction('create')">
-                  {{ t('user.userList.create') }}
-                </t-button>
-              </template>
-            </management-empty-state>
+            <div class="table-empty-state">
+              <t-empty :title="t('user.userList.emptyTitle')" :description="t('user.userList.emptyDescription')">
+                <template #action>
+                  <div class="table-empty-state__actions">
+                    <t-button
+                      v-if="hasActiveFilters"
+                      theme="default"
+                      variant="outline"
+                      data-testid="user-empty-clear-filters"
+                      @click="resetFilters"
+                    >
+                      {{ t('user.userList.toolbar.clearFilters') }}
+                    </t-button>
+                    <t-button
+                      theme="primary"
+                      data-testid="user-empty-create"
+                      @click="handleUnavailableAction('create')"
+                    >
+                      {{ t('user.userList.create') }}
+                    </t-button>
+                  </div>
+                </template>
+              </t-empty>
+            </div>
           </template>
         </t-table>
 

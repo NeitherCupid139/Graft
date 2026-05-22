@@ -41,6 +41,7 @@
       "assignRoles": "Manage Roles",
       "columnSettings": "Columns",
       "empty": "No user data",
+      "emptyDescription": "No data matches the current filters. Clear filters or create a new record.",
       "loadFailed": "Failed to load users",
       "errorTitle": "User data is temporarily unavailable",
       "assignSuccess": "User roles updated",

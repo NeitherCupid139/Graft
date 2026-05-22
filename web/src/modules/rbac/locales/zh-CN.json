@@ -15,6 +15,8 @@
       "columnSettings": "列设置",
       "emptyTitle": "暂无角色数据",
       "empty": "暂无角色数据",
+      "emptyDescription": "当前筛选条件下没有数据，可清空筛选或创建新数据。",
+      "emptyCreate": "创建角色",
       "footerTotal": "共 {count} 个角色",
       "loadFailed": "角色管理数据加载失败",
       "errorTitle": "角色数据暂时不可用",

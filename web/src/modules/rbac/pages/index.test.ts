@@ -64,9 +64,13 @@ const passthroughStub = defineComponent({
       type: String,
       default: '',
     },
+    title: {
+      type: String,
+      default: '',
+    },
   },
   setup(props, { slots }) {
-    return () => h('div', [props.description, slots.default?.()]);
+    return () => h('div', [props.title, props.description, slots.default?.(), slots.action?.()]);
   },
 });
 
@@ -423,5 +427,33 @@ describe('RolePage', () => {
       permission_ids: [1, 2],
     });
     expect(messageMocks.success).toHaveBeenCalledWith('rbac.roleList.assignSuccess');
+  });
+
+  it('renders the table empty state, clears filters, and opens the create drawer from the empty action', async () => {
+    rbacApiMocks.getRoles.mockResolvedValue({ items: [] });
+    rbacApiMocks.getPermissions.mockResolvedValue({ items: [] });
+
+    const wrapper = mountRolePage();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('rbac.roleList.emptyTitle');
+    expect(wrapper.text()).toContain('rbac.roleList.emptyDescription');
+    expect(wrapper.find('[data-testid="role-empty-clear-filters"]').exists()).toBe(false);
+
+    await wrapper.get('input[placeholder="rbac.roleList.toolbar.searchPlaceholder"]').setValue('editor');
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="role-empty-clear-filters"]').exists()).toBe(true);
+    await wrapper.get('[data-testid="role-empty-clear-filters"]').trigger('click');
+    await flushPromises();
+
+    expect(
+      (wrapper.get('input[placeholder="rbac.roleList.toolbar.searchPlaceholder"]').element as HTMLInputElement).value,
+    ).toBe('');
+
+    await wrapper.get('[data-testid="role-empty-create"]').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="drawer"]').exists()).toBe(true);
   });
 });
