@@ -1,7 +1,8 @@
 import { flushPromises, mount } from '@vue/test-utils';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { defineComponent, h } from 'vue';
 
+import { resetMonitorRefreshPreferencesForTests } from '../composables/use-monitor-refresh-preferences';
 import DependenciesPage from './dependencies.vue';
 
 const monitorApiMocks = vi.hoisted(() => ({
@@ -34,7 +35,7 @@ const translations = vi.hoisted(
       'Review health signals for PostgreSQL, Redis, and the future extension point for plugin-owned dependency checks.',
     'monitor.dependenciesPage.noteTitle': 'Dependency health scope',
     'monitor.dependenciesPage.noteDescription':
-      'The current page reflects the latest aggregated snapshot. Service-specific probes can extend this area later through plugin-owned health entries.',
+      'The current page reflects the latest aggregated snapshot. Additional services can show their own health checks here as they become available.',
     'monitor.dependenciesPage.statusHealthy': 'Healthy',
     'monitor.dependenciesPage.statusAbnormal': 'Abnormal',
     'monitor.dependenciesPage.statusNotConfigured': 'Not configured',
@@ -45,8 +46,9 @@ const translations = vi.hoisted(
     'monitor.dependenciesPage.futureEntrySubtitle': 'Reserved for plugin-owned health probes',
     'monitor.dependenciesPage.futureEntryLabel': 'Reserved entry',
     'monitor.dependenciesPage.futureEntryHint':
-      'Future plugins can attach their own dependency checks here without changing the top-level IA again.',
-    'monitor.dependenciesPage.futureEntryDescription': 'Future plugin dependency checks will appear in this card area.',
+      'Additional service checks can appear here as plugin capabilities are enabled over time.',
+    'monitor.dependenciesPage.futureEntryDescription':
+      'This card will show new dependency checks when they are available.',
     'monitor.dependenciesPage.noError': 'No current error',
     'monitor.dependenciesPage.summary.healthy': 'Healthy',
     'monitor.dependenciesPage.summary.healthyDescription': 'Dependencies responding normally',
@@ -148,6 +150,10 @@ function mountDependenciesPage() {
     },
   });
 }
+
+afterEach(() => {
+  resetMonitorRefreshPreferencesForTests();
+});
 
 function createResponse() {
   return {

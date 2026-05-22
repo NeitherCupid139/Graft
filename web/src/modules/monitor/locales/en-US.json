@@ -60,6 +60,7 @@
       "overviewResourceHint": "CPU and server memory share a 0-100% scale for quick pressure checks.",
       "overviewLoadHint": "Load is separated from percentage-based resources to avoid mixed semantics on one axis.",
       "runtimeSummaryTitle": "Runtime Summary",
+      "infoActionLabel": "Info",
       "runtimeSummaryHint": "Overview keeps runtime signals compact. Use small charts or focus mode for deeper inspection.",
       "currentValue": "Current value",
       "unitLabel": "Unit",

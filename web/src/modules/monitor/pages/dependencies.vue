@@ -88,7 +88,7 @@ import { useI18n } from 'vue-i18n';
 import DependencyStatusCard from '../components/DependencyStatusCard.vue';
 import MonitorToolbar from '../components/MonitorToolbar.vue';
 import SectionCard from '../components/SectionCard.vue';
-import { resolveServerStatusTone, type ServerStatusTone } from '../components/server-status-ui';
+import { type ServerStatusTone } from '../components/server-status-ui';
 import ServerStatusPageShell from '../components/ServerStatusPageShell.vue';
 import StatusTag from '../components/StatusTag.vue';
 import SummaryMetricCard from '../components/SummaryMetricCard.vue';
@@ -129,7 +129,7 @@ const {
   toggleAutoRefresh,
 } = useServerStatusSnapshot();
 
-const headerStatus = computed(() => resolveServerStatusTone(serverStatus.value?.status));
+const headerStatus = computed(() => overallDependencyStatus.value);
 const headerStatusLabel = computed(() => {
   switch (overallDependencyStatus.value) {
     case 'healthy':

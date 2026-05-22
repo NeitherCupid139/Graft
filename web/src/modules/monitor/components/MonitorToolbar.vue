@@ -20,6 +20,7 @@
         class="monitor-toolbar__select"
         :model-value="trendRangeValue"
         :options="trendRangeOptions"
+        :placeholder="trendRangeLabelPlaceholder"
         size="small"
         data-monitor-refresh-extra-select="true"
         @update:model-value="handleTrendRangeChange"
@@ -103,7 +104,16 @@ function handleTrendRangeChange(value: ToolbarOptionValue) {
 }
 
 function resolveOptionValue(value: ToolbarOptionValue, options: ToolbarOption[]) {
-  return options.find((option) => String(option.value) === String(value))?.value;
+  const directMatch = options.find((option) => option.value === value);
+  if (directMatch) {
+    return directMatch.value;
+  }
+
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  return options.find((option) => typeof option.value === 'number' && String(option.value) === value)?.value;
 }
 </script>
 <style scoped lang="less">

@@ -2,6 +2,7 @@ import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineComponent, h, nextTick } from 'vue';
 
+import { resetMonitorRefreshPreferencesForTests } from '../composables/use-monitor-refresh-preferences';
 import DependenciesPage from './dependencies.vue';
 import MonitorPage from './index.vue';
 import RuntimePage from './runtime.vue';
@@ -620,6 +621,7 @@ describe('MonitorPage', () => {
     while (mountedWrappers.length > 0) {
       mountedWrappers.pop()?.unmount();
     }
+    resetMonitorRefreshPreferencesForTests();
     vi.clearAllMocks();
     vi.useRealTimers();
   });

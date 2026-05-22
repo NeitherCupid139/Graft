@@ -1,7 +1,8 @@
 import { flushPromises, mount } from '@vue/test-utils';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { defineComponent, h } from 'vue';
 
+import { resetMonitorRefreshPreferencesForTests } from '../composables/use-monitor-refresh-preferences';
 import RuntimePage from './runtime.vue';
 
 const monitorApiMocks = vi.hoisted(() => ({
@@ -165,6 +166,10 @@ function mountRuntimePage() {
     },
   });
 }
+
+afterEach(() => {
+  resetMonitorRefreshPreferencesForTests();
+});
 
 function createResponse() {
   return {

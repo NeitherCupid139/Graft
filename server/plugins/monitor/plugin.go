@@ -46,13 +46,35 @@ const (
 	latencyPrecisionScale   = 100
 	trendStorageKeyPrefix   = "graft:monitor:server-status:trend"
 	maxProcessIDInt32       = int64(1<<31 - 1)
-	diskUsagePath           = "/"
-
-	statusHealthy  = "healthy"
-	statusDegraded = "degraded"
-	statusDisabled = "disabled"
-	statusUnknown  = "unknown"
+	statusHealthy           = "healthy"
+	statusDegraded          = "degraded"
+	statusDisabled          = "disabled"
+	statusUnknown           = "unknown"
 )
+
+func defaultDiskUsagePath() string {
+	return defaultDiskUsagePathForGOOS(runtime.GOOS, os.Getenv)
+}
+
+func defaultDiskUsagePathForGOOS(goos string, lookupEnv func(string) string) string {
+	if goos != "windows" {
+		return "/"
+	}
+
+	if lookupEnv == nil {
+		lookupEnv = func(string) string { return "" }
+	}
+
+	drive := strings.TrimSpace(lookupEnv("SystemDrive"))
+	if drive == "" {
+		drive = "C:"
+	}
+	if !strings.HasSuffix(drive, "\\") {
+		drive += "\\"
+	}
+
+	return drive
+}
 
 // Plugin implements the monitor/server-status slice.
 type Plugin struct {
@@ -916,10 +938,10 @@ func collectRuntimeSnapshot(ctx context.Context) serverStatusRuntime {
 		Architecture:          runtime.GOARCH,
 		CPUCores:              runtime.NumCPU(),
 		LoadAverage:           collectLoadAverage(ctx),
-		DiskUsage:             collectDiskUsage(ctx, diskUsagePath),
+		DiskUsage:             collectDiskUsage(ctx, defaultDiskUsagePath()),
 		HostMemoryTotalBytes:  hostMemory.Total,
 		HostMemoryUsedBytes:   hostMemory.Used,
-		HostMemoryFreeBytes:   hostMemory.Available,
+		HostMemoryFreeBytes:   hostMemory.Free,
 		HostMemoryUsedPercent: roundUsagePercent(hostMemory.UsedPercent),
 		Goroutines:            runtime.NumGoroutine(),
 		RuntimeAllocBytes:     stats.Alloc,

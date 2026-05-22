@@ -480,7 +480,7 @@ func assertCurrentSliceRuntimeSnapshot(t *testing.T, response serverStatusRespon
 	assertEqual(t, "runtime go version", response.Runtime.GoVersion, runtime.Version())
 	assertEqual(t, "runtime operating system", response.Runtime.OperatingSystem, runtime.GOOS)
 	assertEqual(t, "runtime architecture", response.Runtime.Architecture, runtime.GOARCH)
-	assertEqual(t, "runtime disk path", response.Runtime.DiskUsage.Path, "/")
+	assertEqual(t, "runtime disk path", response.Runtime.DiskUsage.Path, defaultDiskUsagePath())
 	if response.Runtime.CPUCores < 1 {
 		t.Fatalf("expected cpu cores to be positive, got %d", response.Runtime.CPUCores)
 	}
@@ -492,6 +492,9 @@ func assertCurrentSliceRuntimeSnapshot(t *testing.T, response serverStatusRespon
 	}
 	if response.Runtime.HostMemoryUsedBytes > response.Runtime.HostMemoryTotalBytes {
 		t.Fatalf("expected host memory used bytes to be within total bytes")
+	}
+	if response.Runtime.HostMemoryFreeBytes > response.Runtime.HostMemoryTotalBytes {
+		t.Fatalf("expected host memory free bytes to be within total bytes")
 	}
 	if response.Runtime.HostMemoryUsedPercent < 0 {
 		t.Fatalf("expected host memory used percent to be non-negative")
@@ -605,4 +608,34 @@ func pluginWithStartedAt(db *sql.DB, startedAt time.Time) *Plugin {
 	pluginInstance := &Plugin{db: db}
 	pluginInstance.startedAtUnixNs.Store(startedAt.UnixNano())
 	return pluginInstance
+}
+
+func TestDefaultDiskUsagePathForGOOS(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		goos     string
+		envValue string
+		want     string
+	}{
+		{name: "non-windows", goos: "linux", want: "/"},
+		{name: "windows uses system drive", goos: "windows", envValue: "D:", want: "D:\\"},
+		{name: "windows defaults to c drive", goos: "windows", want: "C:\\"},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := defaultDiskUsagePathForGOOS(tc.goos, func(string) string {
+				return tc.envValue
+			})
+
+			if got != tc.want {
+				t.Fatalf("expected disk usage path %q, got %q", tc.want, got)
+			}
+		})
+	}
 }

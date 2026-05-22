@@ -11,6 +11,11 @@ type RefreshIntervalOption = {
 const selectedRefreshInterval = ref<MonitorRefreshInterval>(MONITOR_REFRESH_INTERVAL.FIVE_SECONDS);
 const autoRefreshEnabled = ref(true);
 
+export function resetMonitorRefreshPreferencesForTests() {
+  selectedRefreshInterval.value = MONITOR_REFRESH_INTERVAL.FIVE_SECONDS;
+  autoRefreshEnabled.value = true;
+}
+
 export function useMonitorRefreshPreferences() {
   const { t } = useI18n();
 
