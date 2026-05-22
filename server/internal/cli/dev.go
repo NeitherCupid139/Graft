@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"context"
+	"errors"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -109,6 +111,9 @@ func runDev(cmd *cobra.Command, args []string, opts devOptions) error {
 // runDevAir 启动基于 Air 的本地热重载循环。
 func runDevAir(cmd *cobra.Command, opts devAirOptions) error {
 	if err := devAirRunner(cmd, opts.configPath); err != nil {
+		if errors.Is(err, context.Canceled) {
+			return nil
+		}
 		return fmt.Errorf("start Air live reload: %w", err)
 	}
 
