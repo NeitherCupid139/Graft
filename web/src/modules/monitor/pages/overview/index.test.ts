@@ -2,10 +2,10 @@ import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineComponent, h, nextTick } from 'vue';
 
-import { resetMonitorRefreshPreferencesForTests } from '../composables/use-monitor-refresh-preferences';
-import DependenciesPage from './dependencies.vue';
+import { resetMonitorRefreshPreferencesForTests } from '../../composables/use-monitor-refresh-preferences';
+import DependenciesPage from '../dependencies/index.vue';
+import RuntimePage from '../runtime/index.vue';
 import MonitorPage from './index.vue';
-import RuntimePage from './runtime.vue';
 
 const monitorApiMocks = vi.hoisted(() => ({
   getServerStatus: vi.fn(),
@@ -30,6 +30,33 @@ const chartMocks = vi.hoisted(() => {
     setOption,
     resize,
     dispose,
+  };
+});
+
+const resizeObserverMocks = vi.hoisted(() => {
+  const observe = vi.fn();
+  const unobserve = vi.fn();
+  const disconnect = vi.fn();
+  let callback: ResizeObserverCallback | null = null;
+
+  class ResizeObserverMock {
+    constructor(nextCallback: ResizeObserverCallback) {
+      callback = nextCallback;
+    }
+
+    observe = observe;
+    unobserve = unobserve;
+    disconnect = disconnect;
+  }
+
+  return {
+    ResizeObserverMock,
+    observe,
+    unobserve,
+    disconnect,
+    trigger() {
+      callback?.([], {} as ResizeObserver);
+    },
   };
 });
 
@@ -227,7 +254,7 @@ const translations = vi.hoisted(
   }),
 );
 
-vi.mock('../api/server-status', () => ({
+vi.mock('../../api/server-status', () => ({
   getServerStatus: monitorApiMocks.getServerStatus,
 }));
 
@@ -600,12 +627,16 @@ function getLatestChartOption<T = unknown>() {
 describe('MonitorPage', () => {
   beforeEach(() => {
     vi.useRealTimers();
+    vi.stubGlobal('ResizeObserver', resizeObserverMocks.ResizeObserverMock);
     monitorApiMocks.getServerStatus.mockReset();
     messageMocks.error.mockReset();
     chartMocks.init.mockClear();
     chartMocks.setOption.mockClear();
     chartMocks.resize.mockClear();
     chartMocks.dispose.mockClear();
+    resizeObserverMocks.observe.mockClear();
+    resizeObserverMocks.unobserve.mockClear();
+    resizeObserverMocks.disconnect.mockClear();
     document.body.innerHTML = '';
     setVisibilityState('visible');
     document.documentElement.style.setProperty('--td-brand-color', '#0052D9');
@@ -623,6 +654,7 @@ describe('MonitorPage', () => {
     }
     resetMonitorRefreshPreferencesForTests();
     vi.clearAllMocks();
+    vi.unstubAllGlobals();
     vi.useRealTimers();
   });
 
@@ -918,6 +950,21 @@ describe('MonitorPage', () => {
     expect(sidebarGroupText(wrapper, 'sampling')).toContain('30 min');
     expect(sidebarGroupText(wrapper, 'sampling')).toContain('Trend mode');
     expect(sidebarGroupText(wrapper, 'sampling')).toContain('Small charts');
+  });
+
+  it('resizes trend charts when the container observer reports a layout change', async () => {
+    monitorApiMocks.getServerStatus.mockResolvedValue(createServerStatusResponse());
+
+    mountMonitorPage();
+    await flushPromises();
+    await nextTick();
+
+    expect(resizeObserverMocks.observe).toHaveBeenCalled();
+
+    chartMocks.resize.mockClear();
+    resizeObserverMocks.trigger();
+
+    expect(chartMocks.resize).toHaveBeenCalled();
   });
 
   it('counts down auto refresh, pauses while hidden or paused by the user, and resumes immediately', async () => {

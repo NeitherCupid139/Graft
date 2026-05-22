@@ -85,21 +85,21 @@
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 
-import DependencyStatusCard from '../components/DependencyStatusCard.vue';
-import MonitorToolbar from '../components/MonitorToolbar.vue';
-import SectionCard from '../components/SectionCard.vue';
-import { type ServerStatusTone } from '../components/server-status-ui';
-import ServerStatusPageShell from '../components/ServerStatusPageShell.vue';
-import StatusTag from '../components/StatusTag.vue';
-import SummaryMetricCard from '../components/SummaryMetricCard.vue';
-import type { MonitorRefreshInterval } from '../contract/refresh';
+import DependencyStatusCard from '../../components/DependencyStatusCard.vue';
+import MonitorToolbar from '../../components/MonitorToolbar.vue';
+import SectionCard from '../../components/SectionCard.vue';
+import { type ServerStatusTone } from '../../components/server-status-ui';
+import ServerStatusPageShell from '../../components/ServerStatusPageShell.vue';
+import StatusTag from '../../components/StatusTag.vue';
+import SummaryMetricCard from '../../components/SummaryMetricCard.vue';
+import type { MonitorRefreshInterval } from '../../contract/refresh';
 import {
   displayText,
   formatLatency,
   formatTimestamp,
   normalizeDependencyStatus,
   useServerStatusSnapshot,
-} from './server-status-snapshot';
+} from '../../shared/server-status-snapshot';
 
 type DependencyCard = {
   key: string;
@@ -359,8 +359,8 @@ function formatDateOnly(value?: string | null) {
 
 .server-status-plugin-entry {
   align-items: flex-start;
-  background: var(--td-bg-color-container-select);
-  border: 1px dashed var(--td-component-stroke);
+  background: var(--server-status-card-background-subtle, var(--td-bg-color-container-hover));
+  border: 1px dashed var(--server-status-card-border, var(--td-component-stroke));
   border-radius: calc(var(--td-radius-large) - 2px);
   display: flex;
   flex-direction: column;

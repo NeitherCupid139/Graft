@@ -376,16 +376,16 @@ import { useI18n } from 'vue-i18n';
 import type { TChartColor } from '@/config/color';
 import { useSettingStore } from '@/store';
 
-import { getServerStatus } from '../api/server-status';
-import MonitorToolbar from '../components/MonitorToolbar.vue';
-import SectionCard from '../components/SectionCard.vue';
-import type { ServerStatusTone } from '../components/server-status-ui';
-import ServerStatusPageShell from '../components/ServerStatusPageShell.vue';
-import SummaryMetricCard from '../components/SummaryMetricCard.vue';
-import { useMonitorRefreshPreferences } from '../composables/use-monitor-refresh-preferences';
-import type { MonitorRefreshInterval } from '../contract/refresh';
-import { MONITOR_TREND_RANGE, type MonitorTrendRange } from '../contract/trend';
-import type { ServerStatusDependency, ServerStatusResponse, ServerStatusTrendPoint } from '../types/server-status';
+import { getServerStatus } from '../../api/server-status';
+import MonitorToolbar from '../../components/MonitorToolbar.vue';
+import SectionCard from '../../components/SectionCard.vue';
+import type { ServerStatusTone } from '../../components/server-status-ui';
+import ServerStatusPageShell from '../../components/ServerStatusPageShell.vue';
+import SummaryMetricCard from '../../components/SummaryMetricCard.vue';
+import { useMonitorRefreshPreferences } from '../../composables/use-monitor-refresh-preferences';
+import type { MonitorRefreshInterval } from '../../contract/refresh';
+import { MONITOR_TREND_RANGE, type MonitorTrendRange } from '../../contract/trend';
+import type { ServerStatusDependency, ServerStatusResponse, ServerStatusTrendPoint } from '../../types/server-status';
 
 defineOptions({
   name: 'MonitorServerStatusOverviewIndex',
@@ -485,6 +485,7 @@ let refreshTickTimer: number | null = null;
 let nextRefreshAt: number | null = null;
 let pendingTrendRange: TrendRange | null = null;
 const trendCharts = new Map<TrendChartKey, echarts.ECharts>();
+let trendChartResizeObserver: ResizeObserver | null = null;
 
 const trendRangeOptions = computed(() => [
   { label: t('monitor.serverStatus.trendRange10Minutes'), value: MONITOR_TREND_RANGE.TEN_MINUTES },
@@ -1323,7 +1324,17 @@ function formatCountValue(value: number | null) {
 }
 
 function setTrendChartRef(key: TrendChartKey, el: Element | Component | null) {
-  trendChartRefs.value[key] = el instanceof HTMLDivElement ? el : null;
+  const previous = trendChartRefs.value[key];
+  if (previous && trendChartResizeObserver) {
+    trendChartResizeObserver.unobserve(previous);
+  }
+
+  const nextElement = el instanceof HTMLDivElement ? el : null;
+  trendChartRefs.value[key] = nextElement;
+
+  if (nextElement && trendChartResizeObserver) {
+    trendChartResizeObserver.observe(nextElement);
+  }
 }
 
 function ensureTrendChart(key: TrendChartKey) {
@@ -1382,6 +1393,29 @@ function resizeTrendChart() {
 function disposeTrendChart() {
   trendCharts.forEach((chart) => chart.dispose());
   trendCharts.clear();
+}
+
+function ensureTrendChartResizeObserver() {
+  if (trendChartResizeObserver || typeof ResizeObserver === 'undefined') {
+    return;
+  }
+
+  trendChartResizeObserver = new ResizeObserver(() => {
+    resizeTrendChart();
+  });
+}
+
+function reconnectTrendChartResizeObserver() {
+  if (!trendChartResizeObserver) {
+    return;
+  }
+
+  trendChartResizeObserver.disconnect();
+  Object.values(trendChartRefs.value).forEach((element) => {
+    if (element) {
+      trendChartResizeObserver?.observe(element);
+    }
+  });
 }
 
 function buildTrendChartOptions(points: ServerStatusTrendPoint[], chartColors: TChartColor) {
@@ -1782,6 +1816,21 @@ watch(
   { deep: true },
 );
 
+watch(
+  [
+    () => settingStore.layout,
+    () => settingStore.splitMenu,
+    () => settingStore.isSidebarCompact,
+    () => settingStore.isSidebarFixed,
+    () => settingStore.showHeader,
+  ],
+  async () => {
+    await nextTick();
+    reconnectTrendChartResizeObserver();
+    resizeTrendChart();
+  },
+);
+
 watch(selectedTrendRange, async (nextRange, previousRange) => {
   if (nextRange === previousRange) {
     return;
@@ -1801,6 +1850,8 @@ watch(selectedRefreshInterval, (nextValue, previousValue) => {
 onMounted(async () => {
   await fetchServerStatus();
   await nextTick();
+  ensureTrendChartResizeObserver();
+  reconnectTrendChartResizeObserver();
   syncTrendChart();
   window.addEventListener('resize', resizeTrendChart, false);
   document.addEventListener('visibilitychange', handleVisibilityChange, false);
@@ -1810,30 +1861,11 @@ onUnmounted(() => {
   stopRefreshTick();
   window.removeEventListener('resize', resizeTrendChart);
   document.removeEventListener('visibilitychange', handleVisibilityChange);
+  trendChartResizeObserver?.disconnect();
+  trendChartResizeObserver = null;
   disposeTrendChart();
 });
 </script>
 <style lang="less" scoped>
 @import './index.less';
-
-.server-status-overview-layout {
-  display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-}
-
-.server-status-overview-layout__trend {
-  grid-column: span 8;
-}
-
-.server-status-overview-layout__status {
-  grid-column: span 4;
-}
-
-@media (width <= 991px) {
-  .server-status-overview-layout__trend,
-  .server-status-overview-layout__status {
-    grid-column: span 12;
-  }
-}
 </style>
