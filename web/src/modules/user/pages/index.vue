@@ -1,206 +1,209 @@
 <template>
   <div class="user-page" data-page-type="list-form-detail">
-    <management-page-header :title="t('user.userList.listTitle')" :description="t('user.userList.hint')">
-      <template #eyebrow>{{ t('menu.access_control.title') }}</template>
-      <template #actions>
-        <t-button theme="primary" data-testid="user-create" @click="handleUnavailableAction('create')">
-          {{ t('user.userList.create') }}
-        </t-button>
-        <t-button theme="default" variant="outline" :loading="loading" data-testid="user-refresh" @click="fetchUsers">
-          {{ t('user.userList.refresh') }}
-        </t-button>
-      </template>
-    </management-page-header>
-
-    <management-stats-grid :items="statItems" />
-
-    <management-toolbar>
-      <template #filters>
-        <t-input
-          v-model="filters.keyword"
-          clearable
-          class="toolbar__search"
-          :placeholder="t('user.userList.toolbar.searchPlaceholder')"
-        />
-        <t-select
-          v-model="filters.status"
-          clearable
-          class="toolbar__select"
-          :options="statusOptions"
-          :placeholder="t('user.userList.toolbar.statusPlaceholder')"
-        />
-        <t-select
-          v-model="filters.roleId"
-          clearable
-          class="toolbar__select"
-          :options="roleOptions"
-          :loading="roleCatalogLoading"
-          :placeholder="t('user.userList.toolbar.rolePlaceholder')"
-        />
-        <t-button variant="text" @click="resetFilters">
-          {{ t('user.userList.toolbar.clearFilters') }}
-        </t-button>
-      </template>
-      <template #actions>
-        <t-button theme="default" variant="outline" @click="columnDrawerVisible = true">
-          {{ t('user.userList.columnSettings') }}
-        </t-button>
-        <t-button theme="default" variant="outline" :loading="loading" @click="fetchUsers">
-          {{ t('user.userList.refresh') }}
-        </t-button>
-        <t-button theme="primary" @click="handleUnavailableAction('create')">
-          {{ t('user.userList.create') }}
-        </t-button>
-      </template>
-    </management-toolbar>
-
-    <management-table-card>
-      <template #head>
-        <div class="table-head">
-          <div>
-            <p class="table-head__summary">{{ t('user.userList.summary', { count: filteredUsers.length }) }}</p>
-            <p class="table-head__description">{{ t('user.userList.tableHint') }}</p>
-          </div>
-          <t-button v-if="hasActiveFilters" variant="text" @click="resetFilters">
-            {{ t('user.userList.toolbar.clearFilters') }}
-          </t-button>
-        </div>
-      </template>
-
-      <template #batch>
-        <div v-if="selectedRowKeys.length > 0" class="batch-bar">
-          <span>{{ t('user.userList.batch.selected', { count: selectedRowKeys.length }) }}</span>
-          <div class="batch-bar__actions">
-            <t-button size="small" variant="outline" disabled>{{ t('user.userList.batch.enable') }}</t-button>
-            <t-button size="small" variant="outline" disabled>{{ t('user.userList.batch.disable') }}</t-button>
-            <t-button size="small" theme="primary" variant="outline" disabled>
-              {{ t('user.userList.batch.assignRoles') }}
-            </t-button>
-          </div>
-        </div>
-      </template>
-
-      <management-empty-state
-        v-if="listError && !loading"
-        tone="error"
-        :title="t('user.userList.errorTitle')"
-        :description="listError"
-      >
+    <management-page-content>
+      <management-page-header :title="t('user.userList.listTitle')" :description="t('user.userList.hint')">
+        <template #eyebrow>{{ t('menu.access_control.title') }}</template>
         <template #actions>
-          <t-button theme="primary" variant="outline" @click="fetchUsers">
-            {{ t('user.userList.retry') }}
+          <t-button theme="default" variant="outline" :loading="loading" data-testid="user-refresh" @click="fetchUsers">
+            {{ t('user.userList.refresh') }}
+          </t-button>
+          <t-button theme="primary" data-testid="user-create" @click="handleUnavailableAction('create')">
+            {{ t('user.userList.create') }}
           </t-button>
         </template>
-      </management-empty-state>
+      </management-page-header>
 
-      <t-table
-        v-else
-        row-key="id"
-        :data="pagedUsers"
-        :columns="visibleColumns"
-        :loading="loading"
-        :selected-row-keys="selectedRowKeys"
-        cell-empty-content="-"
-        @select-change="handleSelectChange"
-      >
-        <template #user="{ row }">
-          <div class="user-cell">
-            <div class="user-cell__avatar">{{ userInitial(row.display || row.username) }}</div>
-            <div class="user-cell__meta">
-              <span class="user-cell__display">{{ row.display || row.username }}</span>
-              <span class="user-cell__username">@{{ row.username }}</span>
+      <management-toolbar>
+        <template #filters>
+          <t-input
+            v-model="filters.keyword"
+            clearable
+            class="toolbar__search"
+            :placeholder="t('user.userList.toolbar.searchPlaceholder')"
+          />
+          <t-select
+            v-model="filters.status"
+            clearable
+            class="toolbar__select"
+            :options="statusOptions"
+            :placeholder="t('user.userList.toolbar.statusPlaceholder')"
+          />
+          <t-select
+            v-model="filters.roleId"
+            clearable
+            class="toolbar__select"
+            :options="roleOptions"
+            :loading="roleCatalogLoading"
+            :placeholder="t('user.userList.toolbar.rolePlaceholder')"
+          />
+          <t-button theme="default" variant="text" @click="resetFilters">
+            {{ t('user.userList.toolbar.clearFilters') }}
+          </t-button>
+        </template>
+        <template #actions>
+          <t-button theme="default" variant="outline" @click="columnDrawerVisible = true">
+            {{ t('user.userList.columnSettings') }}
+          </t-button>
+        </template>
+      </management-toolbar>
+
+      <management-table-card>
+        <template #head>
+          <div class="table-head">
+            <div>
+              <p class="table-head__summary">{{ t('user.userList.summary', { count: filteredUsers.length }) }}</p>
+              <p class="table-head__description">{{ t('user.userList.tableHint') }}</p>
+            </div>
+            <t-button v-if="hasActiveFilters" theme="default" variant="text" @click="resetFilters">
+              {{ t('user.userList.toolbar.clearFilters') }}
+            </t-button>
+          </div>
+        </template>
+
+        <template #batch>
+          <div v-if="selectedRowKeys.length > 0" class="batch-bar">
+            <span>{{ t('user.userList.batch.selected', { count: selectedRowKeys.length }) }}</span>
+            <div class="batch-bar__actions">
+              <t-button size="small" variant="outline" disabled>{{ t('user.userList.batch.enable') }}</t-button>
+              <t-button size="small" variant="outline" disabled>{{ t('user.userList.batch.disable') }}</t-button>
+              <t-button size="small" theme="primary" variant="outline" disabled>
+                {{ t('user.userList.batch.assignRoles') }}
+              </t-button>
+              <t-button size="small" theme="default" variant="text" @click="selectedRowKeys = []">
+                {{ t('user.userList.batch.cancelSelection') }}
+              </t-button>
             </div>
           </div>
         </template>
 
-        <template #status="{ row }">
-          <t-tag :theme="statusTheme(row.status)" variant="light">
-            {{ statusLabel(row.status) }}
-          </t-tag>
-        </template>
+        <management-empty-state
+          v-if="listError && !loading"
+          tone="error"
+          :title="t('user.userList.errorTitle')"
+          :description="listError"
+        >
+          <template #actions>
+            <t-button theme="primary" variant="outline" @click="fetchUsers">
+              {{ t('user.userList.retry') }}
+            </t-button>
+          </template>
+        </management-empty-state>
 
-        <template #roles="{ row }">
-          <div class="role-tag-list">
-            <template v-if="roleSummaryLoading[row.id]">
-              <t-tag theme="default" variant="light">{{ t('user.userList.roleSummary.loading') }}</t-tag>
-            </template>
-            <template v-else-if="roleSummaryErrors[row.id]">
-              <span class="table-muted">{{ t('user.userList.roleSummary.unavailable') }}</span>
-            </template>
-            <template v-else-if="resolveUserRoles(row.id).length > 0">
-              <t-tag
-                v-for="role in resolveUserRoles(row.id).slice(0, 2)"
-                :key="role.id"
-                theme="default"
-                variant="light-outline"
+        <t-table
+          v-else
+          row-key="id"
+          :data="pagedUsers"
+          :columns="visibleColumns"
+          :loading="loading"
+          :selected-row-keys="selectedRowKeys"
+          cell-empty-content="-"
+          @select-change="handleSelectChange"
+        >
+          <template #user="{ row }">
+            <div class="user-cell">
+              <div class="user-cell__avatar">{{ userInitial(row.display || row.username) }}</div>
+              <div class="user-cell__meta">
+                <span class="user-cell__display">{{ row.display || row.username }}</span>
+                <span class="user-cell__username">{{ row.email || `@${row.username}` }}</span>
+              </div>
+            </div>
+          </template>
+
+          <template #status="{ row }">
+            <t-tag :theme="statusTheme(row.status)" variant="light">
+              {{ statusLabel(row.status) }}
+            </t-tag>
+          </template>
+
+          <template #roles="{ row }">
+            <div class="role-tag-list">
+              <template v-if="roleSummaryLoading[row.id]">
+                <t-tag theme="default" variant="light">{{ t('user.userList.roleSummary.loading') }}</t-tag>
+              </template>
+              <template v-else-if="roleSummaryErrors[row.id]">
+                <span class="table-muted">{{ t('user.userList.roleSummary.unavailable') }}</span>
+              </template>
+              <template v-else-if="resolveUserRoles(row.id).length > 0">
+                <t-tag
+                  v-for="role in resolveUserRoles(row.id).slice(0, 2)"
+                  :key="role.id"
+                  theme="default"
+                  variant="light-outline"
+                  size="small"
+                >
+                  {{ role.display }}
+                </t-tag>
+                <t-tag v-if="resolveUserRoles(row.id).length > 2" theme="default" variant="light-outline" size="small">
+                  +{{ resolveUserRoles(row.id).length - 2 }}
+                </t-tag>
+              </template>
+              <span v-else class="table-muted">{{ t('user.userList.roleSummary.empty') }}</span>
+            </div>
+          </template>
+
+          <template #last_login_at="{ row }">
+            <span>{{ formatTimestamp(row.last_login_at) }}</span>
+          </template>
+
+          <template #created_at="{ row }">
+            <span>{{ formatTimestamp(row.created_at) }}</span>
+          </template>
+
+          <template #updated_at="{ row }">
+            <span>{{ formatTimestamp(row.updated_at) }}</span>
+          </template>
+
+          <template #operation="{ row }">
+            <div class="table-actions">
+              <t-button
+                v-if="canReadUserRoles"
                 size="small"
+                theme="default"
+                variant="outline"
+                data-testid="user-manage-roles"
+                @click="handleOpenUserRoleDrawer(row)"
               >
-                {{ role.display }}
-              </t-tag>
-              <t-tag v-if="resolveUserRoles(row.id).length > 2" theme="default" variant="light-outline" size="small">
-                +{{ resolveUserRoles(row.id).length - 2 }}
-              </t-tag>
-            </template>
-            <span v-else class="table-muted">{{ t('user.userList.roleSummary.empty') }}</span>
-          </div>
-        </template>
-
-        <template #last_login_at="{ row }">
-          <span>{{ formatTimestamp(row.last_login_at) }}</span>
-        </template>
-
-        <template #created_at="{ row }">
-          <span>{{ formatTimestamp(row.created_at) }}</span>
-        </template>
-
-        <template #updated_at="{ row }">
-          <span>{{ formatTimestamp(row.updated_at) }}</span>
-        </template>
-
-        <template #operation="{ row }">
-          <div class="table-actions">
-            <t-button
-              v-if="canReadUserRoles"
-              size="small"
-              theme="primary"
-              variant="outline"
-              data-testid="user-manage-roles"
-              @click="handleOpenUserRoleDrawer(row)"
-            >
-              {{ t('user.userList.assignRoles') }}
-            </t-button>
-            <t-button size="small" theme="default" variant="outline" @click="handleUnavailableAction('edit')">
-              {{ t('user.userList.edit') }}
-            </t-button>
-            <t-button size="small" theme="default" variant="outline" @click="handleUnavailableAction('more')">
-              {{ t('user.userList.more') }}
-            </t-button>
-          </div>
-        </template>
-
-        <template #empty>
-          <management-empty-state :title="t('user.userList.emptyTitle')" :description="t('user.userList.empty')">
-            <template #actions>
-              <t-button theme="primary" @click="handleUnavailableAction('create')">
-                {{ t('user.userList.create') }}
+                {{ t('user.userList.assignRoles') }}
               </t-button>
-            </template>
-          </management-empty-state>
-        </template>
-      </t-table>
+              <t-button size="small" theme="default" variant="outline" @click="handleUnavailableAction('edit')">
+                {{ t('user.userList.edit') }}
+              </t-button>
+              <t-dropdown
+                :options="userRowMoreOptions(row)"
+                trigger="click"
+                @click="(payload) => handleUserMoreAction(payload, row)"
+              >
+                <t-button size="small" theme="default" variant="outline">
+                  {{ t('user.userList.more') }}
+                </t-button>
+              </t-dropdown>
+            </div>
+          </template>
 
-      <template #footer>
-        <div class="table-footer">
-          <span class="table-muted">{{ t('user.userList.footerTotal', { count: filteredUsers.length }) }}</span>
-          <t-pagination
-            v-model:current="pagination.current"
-            v-model:page-size="pagination.pageSize"
-            :total="filteredUsers.length"
-            :page-size-options="[10, 20, 50]"
-          />
-        </div>
-      </template>
-    </management-table-card>
+          <template #empty>
+            <management-empty-state :title="t('user.userList.emptyTitle')" :description="t('user.userList.empty')">
+              <template #actions>
+                <t-button theme="primary" @click="handleUnavailableAction('create')">
+                  {{ t('user.userList.create') }}
+                </t-button>
+              </template>
+            </management-empty-state>
+          </template>
+        </t-table>
+
+        <template #footer>
+          <management-table-pagination :summary="t('user.userList.footerTotal', { count: filteredUsers.length })">
+            <t-pagination
+              v-model:current="pagination.current"
+              v-model:page-size="pagination.pageSize"
+              :total="filteredUsers.length"
+              :page-size-options="[10, 20, 50]"
+              :show-page-number="true"
+            />
+          </management-table-pagination>
+        </template>
+      </management-table-card>
+    </management-page-content>
 
     <t-drawer
       v-model:visible="userRoleDrawerVisible"
@@ -341,10 +344,10 @@ import { RBAC_PERMISSION_CODE } from '@/modules/rbac/contract/permissions';
 import type { RoleListItem } from '@/modules/rbac/contract/role';
 import {
   ManagementEmptyState,
+  ManagementPageContent,
   ManagementPageHeader,
-  type ManagementStatItem,
-  ManagementStatsGrid,
   ManagementTableCard,
+  ManagementTablePagination,
   ManagementToolbar,
 } from '@/shared/components/management';
 import { usePermissionStore } from '@/store';
@@ -460,7 +463,7 @@ const filteredUsers = computed(() => {
 
   return users.value.filter((user) => {
     if (keyword) {
-      const haystack = `${user.username} ${user.display}`.toLowerCase();
+      const haystack = `${user.username} ${user.display} ${user.email ?? ''}`.toLowerCase();
       if (!haystack.includes(keyword)) {
         return false;
       }
@@ -491,25 +494,25 @@ const currentUserRoles = computed(() => {
   return roles.value.filter((role) => roleIDs.includes(role.id));
 });
 
-const statItems = computed<ManagementStatItem[]>(() => {
-  const totalUsers = users.value.length;
-  const disabledUsers = users.value.filter((user) => normalizeUserStatus(user.status) === USER_STATUS.DISABLED).length;
-  const enabledUsers = totalUsers - disabledUsers;
-  const adminCount = roles.value.some((role) => role.name === 'admin')
-    ? Object.values(roleBindings.value).filter((assigned) =>
-        assigned.includes(roles.value.find((role) => role.name === 'admin')?.id ?? -1),
-      ).length
-    : null;
-
-  return [
-    { label: t('user.userList.stats.totalUsers'), value: totalUsers },
-    { label: t('user.userList.stats.enabledUsers'), value: enabledUsers },
-    { label: t('user.userList.stats.disabledUsers'), value: disabledUsers },
-    { label: t('user.userList.stats.adminUsers'), value: adminCount ?? '-' },
-    { label: t('user.userList.stats.recentCreated'), value: '-' },
-    { label: t('user.userList.stats.recentLoggedIn'), value: '-' },
-  ];
-});
+const userRowMoreOptions = (user: UserRow) => [
+  {
+    content:
+      normalizeUserStatus(user.status) === USER_STATUS.DISABLED
+        ? t('user.userList.moreActions.enable')
+        : t('user.userList.moreActions.disable'),
+    disabled: true,
+    value: 'toggle-status',
+  },
+  {
+    content: t('user.userList.moreActions.resetPassword'),
+    disabled: true,
+    value: 'reset-password',
+  },
+  {
+    content: t('user.userList.moreActions.delete'),
+    value: 'delete',
+  },
+];
 
 const columns = computed<TdBaseTableProps['columns']>(() => {
   void locale.value;
@@ -524,33 +527,33 @@ const columns = computed<TdBaseTableProps['columns']>(() => {
     {
       title: t('user.userList.columns.user'),
       colKey: 'user',
-      minWidth: 260,
+      minWidth: 320,
       fixed: 'left' as const,
     },
     {
       title: t('user.userList.columns.status'),
       colKey: 'status',
-      width: 120,
+      width: 108,
     },
     {
       title: t('user.userList.columns.roles'),
       colKey: 'roles',
-      minWidth: 220,
+      width: 180,
     },
     {
       title: t('user.userList.columns.lastLoginAt'),
       colKey: 'last_login_at',
-      width: 200,
+      width: 180,
     },
     {
       title: t('user.userList.columns.createdAt'),
       colKey: 'created_at',
-      width: 200,
+      width: 176,
     },
     {
       title: t('user.userList.columns.updatedAt'),
       colKey: 'updated_at',
-      width: 200,
+      width: 176,
     },
   ];
 
@@ -560,7 +563,7 @@ const columns = computed<TdBaseTableProps['columns']>(() => {
         {
           title: t('components.commonTable.operation'),
           colKey: 'operation',
-          width: 260,
+          width: 192,
           fixed: 'right' as const,
         },
       ]
@@ -710,6 +713,19 @@ function statusTheme(status?: string | null) {
 
 function handleUnavailableAction(action: 'create' | 'edit' | 'more') {
   MessagePlugin.warning(t(`user.userList.unavailable.${action}`));
+}
+
+function handleUserMoreAction(payload: { value?: string | number | Record<string, unknown> }, user: UserRow) {
+  if (payload.value === 'delete') {
+    const confirmed = window.confirm(
+      t('user.userList.deleteConfirmDescription', { user: user.display || user.username }),
+    );
+    if (!confirmed) {
+      return;
+    }
+  }
+
+  handleUnavailableAction('more');
 }
 
 function handleSelectChange(value: Array<string | number>) {

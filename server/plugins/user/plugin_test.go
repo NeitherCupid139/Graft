@@ -1038,15 +1038,22 @@ func assertBootstrapIdentityAndPermissions(t *testing.T, payload bootstrapRespon
 func assertBootstrapMenus(t *testing.T, menus []bootstrapMenuResponse) {
 	t.Helper()
 
-	if len(menus) != 2 {
-		t.Fatalf("expected filtered menus to keep user and public entries, got %#v", menus)
+	if len(menus) != 3 {
+		t.Fatalf("expected filtered menus to keep access-control overview, user, and public entries, got %#v", menus)
 	}
 	if menus[0].Code != "user.list" ||
 		menus[0].Path != usercontract.UsersGroup ||
-		menus[0].Permission != usercontract.UserReadPermission.String() {
+		menus[0].Permission != usercontract.UserReadPermission.String() ||
+		menus[0].TitleKey != "menu.access_control.users.title" {
 		t.Fatalf("expected first menu to be users entry, got %#v", menus[0])
 	}
-	if menus[1].Code != "profile.self" || menus[1].Path != "/profile" || menus[1].Permission != "" {
+	if menus[1].Code != "access-control.overview" ||
+		menus[1].Path != "/access-control/overview" ||
+		menus[1].Permission != "" ||
+		menus[1].TitleKey != "menu.access_control.overview.title" {
+		t.Fatalf("expected second menu to be access-control overview entry, got %#v", menus[1])
+	}
+	if menus[2].Code != "profile.self" || menus[2].Path != "/profile" || menus[2].Permission != "" {
 		t.Fatalf("expected public profile menu, got %#v", menus[1])
 	}
 }
@@ -1549,6 +1556,18 @@ func TestBootstrapRouteReturnsFilteredContract(t *testing.T) {
 
 	payload := decodeSuccessData[bootstrapResponse](t, recorder)
 	assertBootstrapPayload(t, payload)
+	if len(payload.Menus) != 3 {
+		t.Fatalf("expected filtered menus to keep access-control overview, user, and public entries, got %#v", payload.Menus)
+	}
+	if payload.Menus[0].Path != "/users" || payload.Menus[0].TitleKey != "menu.access_control.users.title" {
+		t.Fatalf("unexpected filtered user menu: %#v", payload.Menus[0])
+	}
+	if payload.Menus[1].Path != "/access-control/overview" || payload.Menus[1].TitleKey != "menu.access_control.overview.title" {
+		t.Fatalf("unexpected filtered overview menu: %#v", payload.Menus[1])
+	}
+	if payload.Menus[2].Path != "/profile" {
+		t.Fatalf("unexpected filtered public menu: %#v", payload.Menus[2])
+	}
 }
 
 // TestBootstrapLocaleSnapshotDeduplicatesFallbackLocales 验证默认 locale 与回退 locale

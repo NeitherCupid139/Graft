@@ -304,6 +304,7 @@ function mountUserPage() {
         't-button': buttonStub,
         't-checkbox': checkboxStub,
         't-checkbox-group': checkboxGroupStub,
+        't-dropdown': passthroughStub,
         't-drawer': drawerStub,
         't-empty': passthroughStub,
         't-input': inputStub,
@@ -342,6 +343,8 @@ describe('UserPage', () => {
     expect(wrapper.attributes('data-page-type')).toBe('list-form-detail');
     expect(wrapper.text()).toContain('Alice');
     expect(wrapper.text()).not.toContain('user.userList.assignRoles');
+    expect(wrapper.text()).not.toContain('user.userList.stats.totalUsers');
+    expect(wrapper.text()).not.toContain('user.userList.stats.recentCreated');
   });
 
   it('keeps role assignment blocked when the current snapshot fails to load', async () => {

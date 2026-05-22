@@ -45,11 +45,12 @@ type permissionListResponse struct {
 }
 
 type permissionListItem struct {
-	ID          uint64  `json:"id"`
-	Code        string  `json:"code"`
-	Display     string  `json:"display"`
-	Description *string `json:"description,omitempty"`
-	Category    string  `json:"category"`
+	ID               uint64  `json:"id"`
+	Code             string  `json:"code"`
+	Display          string  `json:"display"`
+	Description      *string `json:"description,omitempty"`
+	Category         string  `json:"category"`
+	RoleBindingCount int     `json:"role_binding_count"`
 }
 
 type managementGuards struct {
@@ -70,12 +71,30 @@ func registerRBACPermissions(registry *permission.Registry, pluginName string) {
 
 func registerRBACMenu(registry *menu.Registry, pluginName string) {
 	registry.Register(menu.Item{
+		Code:       "access-control.overview",
+		Title:      "概览",
+		TitleKey:   rbaccontract.AccessControlOverviewMenuTitle.String(),
+		Path:       "/access-control/overview",
+		Icon:       "secured",
+		Permission: "",
+		Plugin:     pluginName,
+	})
+	registry.Register(menu.Item{
 		Code:       "role.list",
 		Title:      "角色管理",
 		TitleKey:   rbaccontract.RoleListMenuTitle.String(),
 		Path:       rbaccontract.RolesGroup,
 		Icon:       "secured",
 		Permission: rbaccontract.RoleReadPermission.String(),
+		Plugin:     pluginName,
+	})
+	registry.Register(menu.Item{
+		Code:       "permission.list",
+		Title:      "权限管理",
+		TitleKey:   rbaccontract.PermissionListMenuTitle.String(),
+		Path:       rbaccontract.PermissionsGroup,
+		Icon:       "secured",
+		Permission: rbaccontract.PermissionReadPermission.String(),
 		Plugin:     pluginName,
 	})
 }
@@ -238,11 +257,12 @@ func registerPermissionRoutes(
 			items := make([]permissionListItem, 0, len(permissions))
 			for _, item := range permissions {
 				items = append(items, permissionListItem{
-					ID:          item.ID,
-					Code:        item.Code,
-					Display:     item.Display,
-					Description: item.Description,
-					Category:    item.Category,
+					ID:               item.ID,
+					Code:             item.Code,
+					Display:          item.Display,
+					Description:      item.Description,
+					Category:         item.Category,
+					RoleBindingCount: item.RoleBindingCount,
 				})
 			}
 

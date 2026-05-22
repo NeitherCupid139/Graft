@@ -54,7 +54,7 @@ defineProps<{
   flex-direction: column;
   gap: var(--server-status-page-shell-gap);
   min-width: 0;
-  padding-bottom: var(--graft-floating-toolbar-safe-space);
+  padding-bottom: var(--graft-page-bottom-safe-area);
 }
 
 .server-status-page-shell__header {

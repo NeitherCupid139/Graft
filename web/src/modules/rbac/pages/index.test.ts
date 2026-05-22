@@ -295,6 +295,7 @@ function createPermissionListResponse() {
         display: 'Permission Read',
         description: 'Read permissions',
         category: 'permission',
+        role_binding_count: 1,
       },
       {
         id: 2,
@@ -302,6 +303,7 @@ function createPermissionListResponse() {
         display: 'Role Update',
         description: 'Update roles',
         category: 'role',
+        role_binding_count: 1,
       },
     ],
   };
@@ -319,6 +321,7 @@ function mountRolePage() {
         't-button': buttonStub,
         't-checkbox': checkboxStub,
         't-checkbox-group': checkboxGroupStub,
+        't-dropdown': passthroughStub,
         't-drawer': drawerStub,
         't-empty': passthroughStub,
         't-form': formStub,
@@ -328,6 +331,8 @@ function mountRolePage() {
         't-table': tableStub,
         't-tag': passthroughStub,
         't-textarea': textareaStub,
+        't-pagination': passthroughStub,
+        't-tooltip': passthroughStub,
       },
     },
   });
@@ -363,6 +368,7 @@ describe('RolePage', () => {
     expect(rbacApiMocks.getPermissions).toHaveBeenCalledTimes(1);
     expect(wrapper.attributes('data-page-type')).toBe('list-form-detail');
     expect(wrapper.text()).toContain('Editor');
+    expect(wrapper.text()).not.toContain('rbac.roleList.stats.totalRoles');
   });
 
   it('submits the trimmed create payload', async () => {

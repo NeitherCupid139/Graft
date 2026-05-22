@@ -47,19 +47,12 @@
       "assignFailed": "用户角色更新失败",
       "emptyTitle": "暂无用户数据",
       "footerTotal": "共 {count} 位用户",
-      "stats": {
-        "totalUsers": "总用户",
-        "enabledUsers": "启用用户",
-        "disabledUsers": "禁用用户",
-        "adminUsers": "管理员数量",
-        "recentCreated": "最近新增",
-        "recentLoggedIn": "最近登录用户数"
-      },
       "batch": {
         "selected": "已选择 {count} 项",
         "enable": "批量启用",
         "disable": "批量禁用",
-        "assignRoles": "批量分配角色"
+        "assignRoles": "批量分配角色",
+        "cancelSelection": "取消选择"
       },
       "columns": {
         "user": "用户",
@@ -70,7 +63,7 @@
         "updatedAt": "更新时间"
       },
       "toolbar": {
-        "searchPlaceholder": "搜索用户名、显示名",
+        "searchPlaceholder": "搜索用户名、显示名、邮箱",
         "statusAll": "全部状态",
         "statusPlaceholder": "筛选状态",
         "roleAll": "全部角色",
@@ -92,6 +85,13 @@
         "edit": "编辑用户能力暂未开放",
         "more": "更多用户操作暂未开放"
       },
+      "moreActions": {
+        "enable": "启用用户",
+        "disable": "禁用用户",
+        "resetPassword": "重置密码",
+        "delete": "删除用户"
+      },
+      "deleteConfirmDescription": "确认将 {user} 放入删除流程吗？当前仅保留二次确认入口，真实删除能力暂未开放。",
       "roleDialog": {
         "title": "管理用户角色",
         "currentRolesTitle": "当前角色",

@@ -22,41 +22,44 @@
   box-shadow: var(--td-shadow-1);
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 20px;
+  gap: 0;
+  overflow: hidden;
+  padding: 0;
 }
 
 .management-table-card__head,
 .management-table-card__batch,
 .management-table-card__footer {
   align-items: center;
+  border-bottom: 1px solid var(--td-component-stroke);
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
   justify-content: space-between;
-}
-
-.management-table-card__batch {
-  background: var(--td-bg-color-secondarycontainer);
-  border: 1px solid var(--td-component-border);
-  border-radius: var(--td-radius-medium);
-  padding: 12px 14px;
+  padding: 16px 20px;
 }
 
 .management-table-card__body {
   min-width: 0;
+  padding: 0 20px 20px;
+}
+
+.management-table-card__footer {
+  border-bottom: 0;
+  border-top: 1px solid var(--td-component-stroke);
 }
 
 @media (width <= 768px) {
-  .management-table-card {
-    padding: 16px;
-  }
-
   .management-table-card__head,
   .management-table-card__batch,
   .management-table-card__footer {
     align-items: stretch;
     flex-direction: column;
+    padding: 16px;
+  }
+
+  .management-table-card__body {
+    padding: 0 16px 16px;
   }
 }
 </style>

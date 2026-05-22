@@ -63,7 +63,7 @@
     <t-content :class="`${prefix}-content-layout`">
       <div :class="`${prefix}-content-layout__body`">
         <l-breadcrumb v-if="settingStore.showBreadcrumb" />
-        <page-container :show-footer="showFooter" :footer-text="footerText">
+        <page-container :show-footer="showFooter" :footer-text="footerText" :surface="pageSurfaceType">
           <l-content />
         </page-container>
       </div>
@@ -97,15 +97,19 @@ const tabsRouterStore = useTabsRouterStore();
 const tabRouters = computed(() => tabsRouterStore.tabRouters.filter((route) => route.isAlive || route.isHome));
 const activeTabPath = ref<string | null>('');
 const footerMeta = computed(() => route.meta.footer);
-const showFooter = computed(
-  () => settingStore.showFooter && footerMeta.value !== false && footerMeta.value?.visible !== false,
-);
+const showFooter = computed(() => false);
 const pageSurfaceType = computed<'shell' | 'overview-dashboard' | 'list-form-detail'>(() => {
-  if (route.path.startsWith('/monitor/')) {
+  if (route.path.startsWith('/monitor/') || route.path === '/access-control/overview') {
     return 'overview-dashboard';
   }
 
-  if (route.path.startsWith('/roles') || route.path.startsWith('/users')) {
+  if (
+    route.path === '/access-control/users' ||
+    route.path === '/access-control/roles' ||
+    route.path === '/access-control/permissions' ||
+    route.path.startsWith('/roles') ||
+    route.path.startsWith('/users')
+  ) {
     return 'list-form-detail';
   }
 

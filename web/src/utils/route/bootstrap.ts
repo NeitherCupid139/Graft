@@ -41,48 +41,119 @@ function normalizeAccessControlMenus(menus: BootstrapMenu[]): BootstrapMenu[] {
   const normalizedMenus = menus.map((menu) => {
     switch (normalizePath(menu.path)) {
       case ACCESS_CONTROL_ROUTE_PATH.LEGACY_USERS:
-        return {
+        return withAccessControlIcon({
           ...menu,
           path: ACCESS_CONTROL_ROUTE_PATH.USERS,
-          title_key: menu.title_key || 'menu.access_control.users.title',
-        };
+          title_key:
+            !menu.title_key || menu.title_key === 'menu.user_list.title'
+              ? 'menu.access_control.users.title'
+              : menu.title_key,
+        });
       case ACCESS_CONTROL_ROUTE_PATH.LEGACY_ROLES:
-        return {
+        return withAccessControlIcon({
           ...menu,
           path: ACCESS_CONTROL_ROUTE_PATH.ROLES,
-          title_key: menu.title_key || 'menu.access_control.roles.title',
-        };
+          title_key:
+            !menu.title_key || menu.title_key === 'menu.role_list.title'
+              ? 'menu.access_control.roles.title'
+              : menu.title_key,
+        });
       case ACCESS_CONTROL_ROUTE_PATH.LEGACY_PERMISSIONS:
-        return {
+        return withAccessControlIcon({
           ...menu,
           path: ACCESS_CONTROL_ROUTE_PATH.PERMISSIONS,
-          title_key: menu.title_key || 'menu.access_control.permissions.title',
-        };
+          title_key:
+            !menu.title_key || menu.title_key === 'menu.permission_list.title'
+              ? 'menu.access_control.permissions.title'
+              : menu.title_key,
+        });
       default:
-        return menu;
+        return withAccessControlIcon(menu);
     }
   });
 
   const hasAccessControlRoot = normalizedMenus.some(
     (menu) => normalizePath(menu.path) === ACCESS_CONTROL_ROUTE_PATH.ROOT,
   );
+  const hasAccessControlOverview = normalizedMenus.some(
+    (menu) => normalizePath(menu.path) === ACCESS_CONTROL_ROUTE_PATH.OVERVIEW,
+  );
   const hasManagedChildren = normalizedMenus.some((menu) => managedPaths.has(normalizePath(menu.path)));
 
-  if (!hasManagedChildren || hasAccessControlRoot) {
+  if (!hasManagedChildren) {
     return normalizedMenus;
   }
 
-  return [
-    {
+  const synthesizedMenus: BootstrapMenu[] = [];
+
+  if (!hasAccessControlRoot) {
+    synthesizedMenus.push({
       code: 'access-control.group',
       title: '访问控制',
       title_key: 'menu.access_control.title',
       path: ACCESS_CONTROL_ROUTE_PATH.ROOT,
       icon: 'secured',
       permission: '',
-    },
-    ...normalizedMenus,
-  ];
+    });
+  }
+
+  if (!hasAccessControlOverview) {
+    synthesizedMenus.push({
+      code: 'access-control.overview',
+      title: '概览',
+      title_key: 'menu.access_control.overview.title',
+      path: ACCESS_CONTROL_ROUTE_PATH.OVERVIEW,
+      icon: 'dashboard',
+      permission: '',
+    });
+  }
+
+  return [...synthesizedMenus, ...normalizedMenus].sort(compareAccessControlMenus);
+}
+
+function compareAccessControlMenus(left: BootstrapMenu, right: BootstrapMenu) {
+  const leftPath = normalizePath(left.path);
+  const rightPath = normalizePath(right.path);
+  const accessControlOrder = new Map<string, number>([
+    [ACCESS_CONTROL_ROUTE_PATH.ROOT, 0],
+    [ACCESS_CONTROL_ROUTE_PATH.OVERVIEW, 1],
+    [ACCESS_CONTROL_ROUTE_PATH.USERS, 2],
+    [ACCESS_CONTROL_ROUTE_PATH.ROLES, 3],
+    [ACCESS_CONTROL_ROUTE_PATH.PERMISSIONS, 4],
+  ]);
+
+  const leftOrder = accessControlOrder.get(leftPath);
+  const rightOrder = accessControlOrder.get(rightPath);
+  if (leftOrder !== undefined && rightOrder !== undefined) {
+    return leftOrder - rightOrder;
+  }
+
+  if (leftOrder !== undefined) {
+    return -1;
+  }
+
+  if (rightOrder !== undefined) {
+    return 1;
+  }
+
+  return 0;
+}
+
+function withAccessControlIcon(menu: BootstrapMenu): BootstrapMenu {
+  switch (normalizePath(menu.path)) {
+    case ACCESS_CONTROL_ROUTE_PATH.ROOT:
+      return { ...menu, icon: 'secured' };
+    case ACCESS_CONTROL_ROUTE_PATH.OVERVIEW:
+      return { ...menu, icon: 'dashboard' };
+    case ACCESS_CONTROL_ROUTE_PATH.USERS:
+      return { ...menu, icon: 'usergroup' };
+    case ACCESS_CONTROL_ROUTE_PATH.ROLES:
+      return { ...menu, icon: 'secured' };
+    case ACCESS_CONTROL_ROUTE_PATH.PERMISSIONS:
+      return { ...menu, icon: 'lock-on' };
+    default:
+      return menu;
+  }
 }
 
 function toRouteRecordRaw(route: object): RouteRecordRaw {

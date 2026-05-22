@@ -15,6 +15,7 @@
       "columnSettings": "Columns",
       "emptyTitle": "No role data",
       "empty": "No role data",
+      "footerTotal": "{count} roles total",
       "loadFailed": "Failed to load roles",
       "errorTitle": "Role data is temporarily unavailable",
       "permissionLoadFailed": "Failed to load the permission catalog. Showing roles only.",
@@ -27,28 +28,23 @@
       "builtinYes": "Builtin",
       "builtinNo": "Custom",
       "builtinHint": "Builtin roles cannot be deleted and some fields stay read-only",
-      "emptyDescription": "No description",
       "permissionCount": "{count} permissions",
       "userCount": "{count} users",
       "moreBuiltinHint": "Builtin roles cannot be deleted. Open details for the restrictions.",
       "moreCustomHint": "Additional role actions are not available yet",
-      "stats": {
-        "totalRoles": "Total Roles",
-        "builtinRoles": "Builtin Roles",
-        "customRoles": "Custom Roles",
-        "assignedUsers": "Assigned Users",
-        "permissionBindings": "Permission Bindings"
+      "moreActions": {
+        "delete": "Delete Role"
       },
       "columns": {
         "role": "Role",
         "type": "Type",
         "permissionCount": "Permissions",
         "userCount": "Users",
-        "description": "Description",
+        "remark": "Remark",
         "updatedAt": "Updated At"
       },
       "toolbar": {
-        "searchPlaceholder": "Search role name or display name",
+        "searchPlaceholder": "Search role name, display name, or role code",
         "typeAll": "All Types",
         "typePlaceholder": "Filter role type",
         "clearFilters": "Clear Filters"
@@ -62,8 +58,8 @@
         "namePlaceholder": "Enter a stable role code",
         "display": "Display Name",
         "displayPlaceholder": "Enter the role display name",
-        "description": "Description",
-        "descriptionPlaceholder": "Enter a role description, optional",
+        "description": "Remark",
+        "descriptionPlaceholder": "Enter an optional role remark",
         "cancel": "Cancel",
         "confirm": "Save Role",
         "required": {
@@ -93,6 +89,8 @@
       "listTitle": "Permission Management",
       "hint": "Review system permissions, module ownership, and authorization usage.",
       "summary": "{count} permissions shown",
+      "footerTotal": "{count} permissions total",
+      "tableHint": "Filter permissions by name, code, and module.",
       "refresh": "Refresh",
       "retry": "Retry",
       "columnSettings": "Columns",
@@ -103,10 +101,14 @@
       "errorTitle": "Permission data is temporarily unavailable",
       "readonlyNotice": "This permission list is currently read only.",
       "readonlyHint": "Only permission details are available right now",
+      "readonlyDescription": "Permissions are registered by the system and plugins. This page shows permission points and module ownership.",
+      "todoHint": "TODO: add role-binding visibility and permission-module filtering later.",
+      "emptyDescription": "No description",
       "columns": {
         "permission": "Permission",
         "module": "Module",
         "code": "Permission Code",
+        "description": "Description",
         "roleCount": "Roles Using It"
       },
       "toolbar": {

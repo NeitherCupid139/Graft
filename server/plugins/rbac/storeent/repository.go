@@ -363,7 +363,8 @@ func (r *repository) ListPermissionsByUserID(ctx context.Context, userID uint64)
 		ctx,
 		r.db,
 		"list permissions by user id",
-		`SELECT DISTINCT p.id, p.code, p.display, p.description, p.category, p.created_at, p.updated_at
+		`SELECT DISTINCT p.id, p.code, p.display, p.description, p.category, p.created_at, p.updated_at,
+			(SELECT COUNT(*) FROM role_permissions rp WHERE rp.permission_id = p.id) AS role_binding_count
 		FROM user_roles ur
 		INNER JOIN role_permissions rp ON rp.role_id = ur.role_id
 		INNER JOIN permissions p ON p.id = rp.permission_id
@@ -379,7 +380,8 @@ func (r *repository) ListPermissions(ctx context.Context) ([]rbacstore.Permissio
 		ctx,
 		r.db,
 		"list permissions",
-		`SELECT id, code, display, description, category, created_at, updated_at
+		`SELECT id, code, display, description, category, created_at, updated_at,
+			(SELECT COUNT(*) FROM role_permissions rp WHERE rp.permission_id = permissions.id) AS role_binding_count
 		FROM permissions
 		WHERE deleted_at = 0
 		ORDER BY id ASC`,
@@ -800,26 +802,28 @@ type permissionScanner interface {
 //nolint:dupl // role 与 permission 的行映射器需要有意保持镜像结构。
 func scanPermission(scanner permissionScanner) (rbacstore.Permission, error) {
 	var (
-		id          int64
-		code        string
-		display     string
-		description sql.NullString
-		category    string
-		createdAt   time.Time
-		updatedAt   time.Time
+		id               int64
+		code             string
+		display          string
+		description      sql.NullString
+		category         string
+		createdAt        time.Time
+		updatedAt        time.Time
+		roleBindingCount int
 	)
-	if err := scanner.Scan(&id, &code, &display, &description, &category, &createdAt, &updatedAt); err != nil {
+	if err := scanner.Scan(&id, &code, &display, &description, &category, &createdAt, &updatedAt, &roleBindingCount); err != nil {
 		return rbacstore.Permission{}, err
 	}
 
 	return rbacstore.Permission{
-		ID:          toStoreID(id),
-		Code:        code,
-		Display:     display,
-		Description: nullStringPtr(description),
-		Category:    category,
-		CreatedAt:   createdAt,
-		UpdatedAt:   updatedAt,
+		ID:               toStoreID(id),
+		Code:             code,
+		Display:          display,
+		Description:      nullStringPtr(description),
+		Category:         category,
+		CreatedAt:        createdAt,
+		UpdatedAt:        updatedAt,
+		RoleBindingCount: roleBindingCount,
 	}, nil
 }
 

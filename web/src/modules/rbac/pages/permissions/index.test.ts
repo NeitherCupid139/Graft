@@ -6,7 +6,6 @@ import PermissionPage from './index.vue';
 
 const rbacApiMocks = vi.hoisted(() => ({
   getPermissions: vi.fn(),
-  getRoles: vi.fn(),
 }));
 
 const messageMocks = vi.hoisted(() => ({
@@ -16,7 +15,6 @@ const messageMocks = vi.hoisted(() => ({
 
 vi.mock('../../api/rbac', () => ({
   getPermissions: rbacApiMocks.getPermissions,
-  getRoles: rbacApiMocks.getRoles,
 }));
 
 vi.mock('vue-i18n', () => ({
@@ -154,6 +152,7 @@ function mountPermissionPage() {
         't-drawer': drawerStub,
         't-empty': passthroughStub,
         't-input': inputStub,
+        't-pagination': passthroughStub,
         't-select': selectStub,
         't-table': tableStub,
         't-tag': passthroughStub,
@@ -165,7 +164,6 @@ function mountPermissionPage() {
 describe('PermissionPage', () => {
   beforeEach(() => {
     rbacApiMocks.getPermissions.mockReset();
-    rbacApiMocks.getRoles.mockReset();
     messageMocks.error.mockReset();
     messageMocks.warning.mockReset();
   });
@@ -176,9 +174,17 @@ describe('PermissionPage', () => {
 
   it('loads permissions on mount', async () => {
     rbacApiMocks.getPermissions.mockResolvedValue({
-      items: [{ id: 1, code: 'permission.read', display: 'Permission Read', description: null, category: 'rbac' }],
+      items: [
+        {
+          id: 1,
+          code: 'permission.read',
+          display: 'Permission Read',
+          description: null,
+          category: 'rbac',
+          role_binding_count: 2,
+        },
+      ],
     });
-    rbacApiMocks.getRoles.mockResolvedValue({ items: [] });
 
     const wrapper = mountPermissionPage();
     await flushPromises();

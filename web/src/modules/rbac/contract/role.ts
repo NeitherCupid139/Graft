@@ -3,6 +3,7 @@ export interface RoleListItem {
   id: number;
   name: string;
   display: string;
+  remark?: string | null;
   description?: string | null;
   builtin: boolean;
   updated_at: string;

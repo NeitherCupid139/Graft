@@ -47,19 +47,12 @@
       "assignFailed": "Failed to update user roles",
       "emptyTitle": "No user data",
       "footerTotal": "{count} users total",
-      "stats": {
-        "totalUsers": "Total Users",
-        "enabledUsers": "Enabled Users",
-        "disabledUsers": "Disabled Users",
-        "adminUsers": "Admin Users",
-        "recentCreated": "Recently Created",
-        "recentLoggedIn": "Recently Logged In"
-      },
       "batch": {
         "selected": "{count} selected",
         "enable": "Batch Enable",
         "disable": "Batch Disable",
-        "assignRoles": "Batch Assign Roles"
+        "assignRoles": "Batch Assign Roles",
+        "cancelSelection": "Clear Selection"
       },
       "columns": {
         "user": "User",
@@ -70,7 +63,7 @@
         "updatedAt": "Updated At"
       },
       "toolbar": {
-        "searchPlaceholder": "Search username or display name",
+        "searchPlaceholder": "Search username, display name, or email",
         "statusAll": "All Statuses",
         "statusPlaceholder": "Filter status",
         "roleAll": "All Roles",
@@ -92,6 +85,13 @@
         "edit": "User editing is not available yet",
         "more": "Additional user actions are not available yet"
       },
+      "moreActions": {
+        "enable": "Enable User",
+        "disable": "Disable User",
+        "resetPassword": "Reset Password",
+        "delete": "Delete User"
+      },
+      "deleteConfirmDescription": "Confirm placing {user} into the deletion flow. Real delete capability is not available yet.",
       "roleDialog": {
         "title": "Manage User Roles",
         "currentRolesTitle": "Current Roles",

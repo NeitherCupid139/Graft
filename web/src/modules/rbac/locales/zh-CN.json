@@ -15,6 +15,7 @@
       "columnSettings": "列设置",
       "emptyTitle": "暂无角色数据",
       "empty": "暂无角色数据",
+      "footerTotal": "共 {count} 个角色",
       "loadFailed": "角色管理数据加载失败",
       "errorTitle": "角色数据暂时不可用",
       "permissionLoadFailed": "权限目录加载失败，当前仅展示角色列表",
@@ -27,28 +28,23 @@
       "builtinYes": "内置",
       "builtinNo": "自定义",
       "builtinHint": "内置角色不可删除，部分字段不可编辑",
-      "emptyDescription": "暂无描述",
       "permissionCount": "{count} 项权限",
       "userCount": "{count} 位用户",
       "moreBuiltinHint": "内置角色不支持删除，请通过详情查看限制说明",
       "moreCustomHint": "更多角色操作暂未开放",
-      "stats": {
-        "totalRoles": "总角色",
-        "builtinRoles": "内置角色",
-        "customRoles": "自定义角色",
-        "assignedUsers": "已分配用户数",
-        "permissionBindings": "权限绑定数"
+      "moreActions": {
+        "delete": "删除角色"
       },
       "columns": {
         "role": "角色",
         "type": "类型",
         "permissionCount": "权限数",
         "userCount": "用户数",
-        "description": "描述",
+        "remark": "备注",
         "updatedAt": "更新时间"
       },
       "toolbar": {
-        "searchPlaceholder": "搜索角色名、显示名",
+        "searchPlaceholder": "搜索角色名、显示名、角色编码",
         "typeAll": "全部类型",
         "typePlaceholder": "筛选角色类型",
         "clearFilters": "清空筛选"
@@ -62,8 +58,8 @@
         "namePlaceholder": "请输入稳定角色编码",
         "display": "显示名",
         "displayPlaceholder": "请输入角色展示名称",
-        "description": "描述",
-        "descriptionPlaceholder": "请输入角色描述，可留空",
+        "description": "备注",
+        "descriptionPlaceholder": "请输入角色备注，可留空",
         "cancel": "取消",
         "confirm": "保存角色",
         "required": {
@@ -93,6 +89,8 @@
       "listTitle": "权限管理",
       "hint": "查看系统权限点、模块归属与授权使用情况。",
       "summary": "已显示 {count} 项权限",
+      "footerTotal": "共 {count} 项权限",
+      "tableHint": "支持按权限名称、编码与模块快速筛选。",
       "refresh": "刷新",
       "retry": "重试",
       "columnSettings": "列设置",
@@ -103,10 +101,14 @@
       "errorTitle": "权限数据暂时不可用",
       "readonlyNotice": "当前权限列表为只读视图。",
       "readonlyHint": "当前仅支持查看权限详情",
+      "readonlyDescription": "权限点由系统和插件注册，当前页面用于查看权限点与模块归属。",
+      "todoHint": "TODO：后续补充权限绑定角色查看、权限模块筛选等能力。",
+      "emptyDescription": "暂无描述",
       "columns": {
         "permission": "权限",
         "module": "模块",
         "code": "权限编码",
+        "description": "说明",
         "roleCount": "使用角色数"
       },
       "toolbar": {

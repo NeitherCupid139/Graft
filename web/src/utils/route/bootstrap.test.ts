@@ -10,7 +10,7 @@ describe('transformBootstrapMenusToRoutes', () => {
         title_key: 'menu.access_control.overview.title',
         title: '概览',
         path: '/access-control/overview',
-        icon: 'secured',
+        icon: 'dashboard',
         permission: '',
       },
       {
@@ -44,12 +44,51 @@ describe('transformBootstrapMenusToRoutes', () => {
     expect(routes[0]?.meta?.titleKey).toBe('menu.access_control.title');
     expect(routes[0]?.children?.[0]?.path).toBe('overview');
     expect(routes[0]?.children?.[0]?.name).toBe('AccessControlOverviewIndex');
-    expect(routes[0]?.children?.[1]?.path).toBe('roles');
-    expect(routes[0]?.children?.[1]?.name).toBe('RoleListIndex');
-    expect(routes[0]?.children?.[1]?.meta?.titleKey).toBe('menu.role_list.title');
-    expect(routes[0]?.children?.[2]?.path).toBe('users');
-    expect(routes[0]?.children?.[2]?.name).toBe('UserListIndex');
-    expect(routes[0]?.children?.[2]?.meta?.titleKey).toBe('menu.user_list.title');
+    expect(routes[0]?.children?.[0]?.meta?.icon).toBe('dashboard');
+    expect(routes[0]?.children?.[1]?.path).toBe('users');
+    expect(routes[0]?.children?.[1]?.name).toBe('UserListIndex');
+    expect(routes[0]?.children?.[1]?.meta?.titleKey).toBe('menu.access_control.users.title');
+    expect(routes[0]?.children?.[1]?.meta?.icon).toBe('usergroup');
+    expect(routes[0]?.children?.[2]?.path).toBe('roles');
+    expect(routes[0]?.children?.[2]?.name).toBe('RoleListIndex');
+    expect(routes[0]?.children?.[2]?.meta?.titleKey).toBe('menu.access_control.roles.title');
+    expect(routes[0]?.children?.[2]?.meta?.icon).toBe('secured');
+  });
+
+  it('后端未返回访问控制概览时前端仍补出概览菜单', () => {
+    const routes = transformBootstrapMenusToRoutes([
+      {
+        code: 'role.list',
+        title_key: 'menu.role_list.title',
+        title: '角色管理',
+        path: '/roles',
+        icon: 'secured',
+        permission: 'role.read',
+      },
+      {
+        code: 'user.list',
+        title_key: 'menu.user_list.title',
+        title: '用户管理',
+        path: '/users',
+        icon: 'usergroup',
+        permission: 'user.read',
+      },
+      {
+        code: 'permission.list',
+        title_key: 'menu.permission_list.title',
+        title: '权限管理',
+        path: '/permissions',
+        icon: 'secured',
+        permission: 'permission.read',
+      },
+    ]);
+
+    expect(routes).toHaveLength(1);
+    expect(routes[0]?.path).toBe('/access-control');
+    expect(routes[0]?.children?.map((child) => child.path)).toEqual(['overview', 'users', 'roles', 'permissions']);
+    expect(routes[0]?.children?.[0]?.name).toBe('AccessControlOverviewIndex');
+    expect(routes[0]?.children?.[0]?.meta?.titleKey).toBe('menu.access_control.overview.title');
+    expect(routes[0]?.children?.[3]?.meta?.icon).toBe('lock-on');
   });
 
   it('为监控模块合成显式父级导航并避免 index 面包屑段', () => {

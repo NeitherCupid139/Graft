@@ -1,5 +1,5 @@
 <template>
-  <section class="management-stats-grid">
+  <section class="management-stats-grid" :class="`management-stats-grid--${layout}`">
     <article v-for="item in items" :key="item.label" class="management-stats-grid__item">
       <div class="management-stats-grid__head">
         <span class="management-stats-grid__label">{{ item.label }}</span>
@@ -18,15 +18,25 @@ export type ManagementStatItem = {
   tip?: string;
 };
 
-defineProps<{
-  items: ManagementStatItem[];
-}>();
+withDefaults(
+  defineProps<{
+    items: ManagementStatItem[];
+    layout?: 'auto' | 'dashboard';
+  }>(),
+  {
+    layout: 'auto',
+  },
+);
 </script>
 <style scoped lang="less">
 .management-stats-grid {
   display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, minmax(0, 1fr)));
+}
+
+.management-stats-grid--dashboard {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 .management-stats-grid__item {
@@ -36,9 +46,9 @@ defineProps<{
   box-shadow: var(--td-shadow-1);
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  min-height: 132px;
-  padding: 18px 20px;
+  gap: 8px;
+  min-height: 112px;
+  padding: 14px 16px;
 }
 
 .management-stats-grid__head {
@@ -56,12 +66,24 @@ defineProps<{
 
 .management-stats-grid__value {
   color: var(--td-text-color-primary);
-  font: var(--td-font-headline-large);
+  font: var(--td-font-title-large);
   line-height: 1.1;
 }
 
 .management-stats-grid__description {
   font: var(--td-font-body-small);
   margin: 0;
+}
+
+@media (width <= 1199px) {
+  .management-stats-grid--dashboard {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (width <= 767px) {
+  .management-stats-grid--dashboard {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

@@ -6,6 +6,7 @@ export interface UserListItem {
   id: number;
   username: string;
   display: string;
+  email?: string | null;
   status: UserStatus;
   created_at: string;
   updated_at: string;

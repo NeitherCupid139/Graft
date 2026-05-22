@@ -1,107 +1,134 @@
 <template>
   <div class="permission-page" data-page-type="list-form-detail">
-    <management-page-header :title="t('rbac.permissionList.listTitle')" :description="t('rbac.permissionList.hint')">
-      <template #eyebrow>{{ t('menu.access_control.title') }}</template>
-      <template #actions>
-        <t-button theme="default" variant="outline" :loading="loading" @click="fetchPermissions">
-          {{ t('rbac.permissionList.refresh') }}
-        </t-button>
-      </template>
-    </management-page-header>
-
-    <management-toolbar>
-      <template #filters>
-        <t-input
-          v-model="filters.keyword"
-          clearable
-          class="toolbar__search"
-          :placeholder="t('rbac.permissionList.toolbar.searchPlaceholder')"
-        />
-        <t-select
-          v-model="filters.category"
-          clearable
-          class="toolbar__select"
-          :options="categoryOptions"
-          :placeholder="t('rbac.permissionList.toolbar.modulePlaceholder')"
-        />
-        <t-button variant="text" @click="resetFilters">
-          {{ t('rbac.permissionList.toolbar.clearFilters') }}
-        </t-button>
-      </template>
-      <template #actions>
-        <t-button theme="default" variant="outline" @click="columnDrawerVisible = true">
-          {{ t('rbac.permissionList.columnSettings') }}
-        </t-button>
-        <t-button theme="default" variant="outline" :loading="loading" @click="fetchPermissions">
-          {{ t('rbac.permissionList.refresh') }}
-        </t-button>
-      </template>
-    </management-toolbar>
-
-    <management-table-card>
-      <template #head>
-        <div class="table-head">
-          <div>
-            <p class="table-head__summary">
-              {{ t('rbac.permissionList.summary', { count: filteredPermissions.length }) }}
-            </p>
-            <p class="table-head__description">{{ t('rbac.permissionList.readonlyNotice') }}</p>
-          </div>
-        </div>
-      </template>
-
-      <management-empty-state
-        v-if="listError && !loading"
-        tone="error"
-        :title="t('rbac.permissionList.errorTitle')"
-        :description="listError"
-      >
+    <management-page-content>
+      <management-page-header :title="t('rbac.permissionList.listTitle')" :description="t('rbac.permissionList.hint')">
+        <template #eyebrow>{{ t('menu.access_control.title') }}</template>
+        <template #meta>
+          <t-tag theme="default" variant="light">{{ t('rbac.permissionList.readonlyNotice') }}</t-tag>
+        </template>
         <template #actions>
-          <t-button theme="primary" variant="outline" @click="fetchPermissions">
-            {{ t('rbac.permissionList.retry') }}
+          <t-button theme="default" variant="outline" :loading="loading" @click="fetchPermissions">
+            {{ t('rbac.permissionList.refresh') }}
           </t-button>
         </template>
-      </management-empty-state>
+      </management-page-header>
 
-      <t-table
-        v-else
-        row-key="id"
-        :data="filteredPermissions"
-        :columns="visibleColumns"
-        :loading="loading"
-        cell-empty-content="-"
-      >
-        <template #permission="{ row }">
-          <div class="permission-cell">
-            <span class="permission-cell__name">{{ row.display }}</span>
-            <span class="permission-cell__code">{{ row.code }}</span>
-          </div>
-        </template>
-
-        <template #category="{ row }">
-          <t-tag theme="default" variant="light">{{ row.category || '-' }}</t-tag>
-        </template>
-
-        <template #role_count="{ row }">
-          <span>{{ roleUsageMap[row.id] ?? '-' }}</span>
-        </template>
-
-        <template #operation="{ row }">
-          <div class="table-actions">
-            <t-button size="small" variant="outline" @click="showReadonlyMessage(row.code)">
-              {{ t('rbac.permissionList.detail') }}
-            </t-button>
-          </div>
-        </template>
-
-        <template #empty>
-          <management-empty-state
-            :title="t('rbac.permissionList.emptyTitle')"
-            :description="t('rbac.permissionList.empty')"
+      <management-toolbar>
+        <template #filters>
+          <t-input
+            v-model="filters.keyword"
+            clearable
+            class="toolbar__search"
+            :placeholder="t('rbac.permissionList.toolbar.searchPlaceholder')"
           />
+          <t-select
+            v-model="filters.category"
+            clearable
+            class="toolbar__select"
+            :options="categoryOptions"
+            :placeholder="t('rbac.permissionList.toolbar.modulePlaceholder')"
+          />
+          <t-button theme="default" variant="text" @click="resetFilters">
+            {{ t('rbac.permissionList.toolbar.clearFilters') }}
+          </t-button>
         </template>
-      </t-table>
-    </management-table-card>
+        <template #actions>
+          <t-button theme="default" variant="outline" @click="columnDrawerVisible = true">
+            {{ t('rbac.permissionList.columnSettings') }}
+          </t-button>
+        </template>
+      </management-toolbar>
+
+      <management-table-card>
+        <template #head>
+          <div class="table-head">
+            <div>
+              <p class="table-head__summary">
+                {{ t('rbac.permissionList.summary', { count: filteredPermissions.length }) }}
+              </p>
+              <p class="table-head__description">{{ t('rbac.permissionList.tableHint') }}</p>
+            </div>
+          </div>
+        </template>
+
+        <div class="inline-note">
+          <p>{{ t('rbac.permissionList.readonlyDescription') }}</p>
+          <p>{{ t('rbac.permissionList.todoHint') }}</p>
+        </div>
+
+        <management-empty-state
+          v-if="listError && !loading"
+          tone="error"
+          :title="t('rbac.permissionList.errorTitle')"
+          :description="listError"
+        >
+          <template #actions>
+            <t-button theme="primary" variant="outline" @click="fetchPermissions">
+              {{ t('rbac.permissionList.retry') }}
+            </t-button>
+          </template>
+        </management-empty-state>
+
+        <t-table
+          v-else
+          row-key="id"
+          :data="pagedPermissions"
+          :columns="visibleColumns"
+          :loading="loading"
+          cell-empty-content="-"
+        >
+          <template #permission="{ row }">
+            <div class="permission-cell">
+              <span class="permission-cell__name">{{ row.display }}</span>
+              <span class="permission-cell__code">{{ row.code }}</span>
+            </div>
+          </template>
+
+          <template #category="{ row }">
+            <t-tag theme="default" variant="light">{{ row.category || '-' }}</t-tag>
+          </template>
+
+          <template #description="{ row }">
+            <span class="permission-description">{{
+              row.description || t('rbac.permissionList.emptyDescription')
+            }}</span>
+          </template>
+
+          <template #role_count="{ row }">
+            <span>{{ row.role_binding_count ?? '-' }}</span>
+          </template>
+
+          <template #operation="{ row }">
+            <div class="table-actions">
+              <t-button size="small" variant="outline" @click="showReadonlyMessage(row.code)">
+                {{ t('rbac.permissionList.detail') }}
+              </t-button>
+            </div>
+          </template>
+
+          <template #empty>
+            <management-empty-state
+              :title="t('rbac.permissionList.emptyTitle')"
+              :description="t('rbac.permissionList.empty')"
+            />
+          </template>
+        </t-table>
+
+        <template #footer>
+          <management-table-pagination
+            :summary="t('rbac.permissionList.footerTotal', { count: filteredPermissions.length })"
+          >
+            <t-pagination
+              v-model:current="pagination.current"
+              v-model:page-size="pagination.pageSize"
+              :total="filteredPermissions.length"
+              :page-size-options="[10, 20, 50]"
+              :show-page-number="true"
+            />
+          </management-table-pagination>
+        </template>
+      </management-table-card>
+    </management-page-content>
 
     <t-drawer
       v-model:visible="columnDrawerVisible"
@@ -129,12 +156,14 @@ import { useI18n } from 'vue-i18n';
 
 import {
   ManagementEmptyState,
+  ManagementPageContent,
   ManagementPageHeader,
   ManagementTableCard,
+  ManagementTablePagination,
   ManagementToolbar,
 } from '@/shared/components/management';
 
-import { getPermissions, getRoles } from '../../api/rbac';
+import { getPermissions } from '../../api/rbac';
 import type { PermissionListItem } from '../../types/rbac';
 
 defineOptions({
@@ -150,13 +179,16 @@ const { t, locale } = useI18n();
 const loading = ref(false);
 const listError = ref('');
 const permissions = ref<PermissionListItem[]>([]);
-const roleUsageMap = ref<Record<number, number>>({});
 const filters = ref<PermissionFilters>({
   keyword: '',
   category: '',
 });
 const columnDrawerVisible = ref(false);
-const visibleColumnKeys = ref(['permission', 'category', 'code', 'role_count', 'operation']);
+const visibleColumnKeys = ref(['permission', 'category', 'code', 'description', 'role_count', 'operation']);
+const pagination = ref({
+  current: 1,
+  pageSize: 10,
+});
 
 const categoryOptions = computed(() => {
   const categories = Array.from(new Set(permissions.value.map((item) => item.category).filter(Boolean))).sort();
@@ -167,6 +199,7 @@ const columnSettingOptions = computed(() => [
   { label: t('rbac.permissionList.columns.permission'), value: 'permission' },
   { label: t('rbac.permissionList.columns.module'), value: 'category' },
   { label: t('rbac.permissionList.columns.code'), value: 'code' },
+  { label: t('rbac.permissionList.columns.description'), value: 'description' },
   { label: t('rbac.permissionList.columns.roleCount'), value: 'role_count' },
   { label: t('components.commonTable.operation'), value: 'operation' },
 ]);
@@ -187,15 +220,21 @@ const filteredPermissions = computed(() => {
   });
 });
 
+const pagedPermissions = computed(() => {
+  const start = (pagination.value.current - 1) * pagination.value.pageSize;
+  return filteredPermissions.value.slice(start, start + pagination.value.pageSize);
+});
+
 const visibleColumns = computed<TdBaseTableProps['columns']>(() => {
   void locale.value;
 
   const allColumns: TdBaseTableProps['columns'] = [
-    { title: t('rbac.permissionList.columns.permission'), colKey: 'permission', minWidth: 260, fixed: 'left' },
-    { title: t('rbac.permissionList.columns.module'), colKey: 'category', width: 180 },
+    { title: t('rbac.permissionList.columns.permission'), colKey: 'permission', minWidth: 320, fixed: 'left' },
+    { title: t('rbac.permissionList.columns.module'), colKey: 'category', width: 160 },
     { title: t('rbac.permissionList.columns.code'), colKey: 'code', minWidth: 240 },
-    { title: t('rbac.permissionList.columns.roleCount'), colKey: 'role_count', width: 140 },
-    { title: t('components.commonTable.operation'), colKey: 'operation', width: 140, fixed: 'right' },
+    { title: t('rbac.permissionList.columns.description'), colKey: 'description', minWidth: 260 },
+    { title: t('rbac.permissionList.columns.roleCount'), colKey: 'role_count', width: 120 },
+    { title: t('components.commonTable.operation'), colKey: 'operation', width: 132, fixed: 'right' },
   ];
 
   const visibleKeys = new Set(visibleColumnKeys.value);
@@ -207,22 +246,11 @@ async function fetchPermissions() {
   listError.value = '';
 
   try {
-    const [permissionResult, roleResult] = await Promise.all([getPermissions(), getRoles()]);
+    const permissionResult = await getPermissions();
     permissions.value = permissionResult.items;
-
-    const usageMap: Record<number, number> = {};
-    roleResult.items.forEach((role) => {
-      if (typeof role.permission_count !== 'number') {
-        return;
-      }
-      permissions.value.forEach((permission) => {
-        usageMap[permission.id] = usageMap[permission.id] ?? 0;
-      });
-    });
-    roleUsageMap.value = usageMap;
+    pagination.value.current = 1;
   } catch (error) {
     permissions.value = [];
-    roleUsageMap.value = {};
     listError.value = error instanceof Error ? error.message : t('rbac.permissionList.loadFailed');
     MessagePlugin.error(listError.value);
   } finally {
@@ -235,6 +263,7 @@ function resetFilters() {
     keyword: '',
     category: '',
   };
+  pagination.value.current = 1;
 }
 
 function showReadonlyMessage(permissionCode: string) {
@@ -252,12 +281,52 @@ onMounted(() => {
   gap: 16px;
 }
 
+.inline-note {
+  background: color-mix(in srgb, var(--td-brand-color) 4%, var(--td-bg-color-container));
+  border: 1px solid var(--td-component-stroke);
+  border-radius: var(--td-radius-medium);
+  color: var(--td-text-color-secondary);
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+}
+
+.inline-note p {
+  margin: 0;
+}
+
 .toolbar__search {
   width: min(100%, 320px);
 }
 
 .toolbar__select {
   width: min(100%, 220px);
+}
+
+.permission-page :deep(.management-toolbar__filters) {
+  flex-wrap: nowrap;
+}
+
+.toolbar__search :deep(.t-input__wrap),
+.toolbar__select :deep(.t-input__wrap),
+.toolbar__select :deep(.t-select__wrap) {
+  min-height: 36px;
+}
+
+.table-head__summary {
+  color: var(--td-text-color-primary);
+  font: var(--td-font-title-small);
+  margin: 0;
+}
+
+.table-head__description {
+  color: var(--td-text-color-secondary);
+  font: var(--td-font-body-small);
+  margin: 0;
+}
+
+:deep(.t-table) {
+  --td-comp-paddingTB-m: 10px;
 }
 
 .table-head,
@@ -270,7 +339,8 @@ onMounted(() => {
 
 .table-head__summary,
 .table-head__description,
-.permission-cell__code {
+.permission-cell__code,
+.permission-description {
   color: var(--td-text-color-secondary);
   margin: 0;
 }
@@ -286,6 +356,10 @@ onMounted(() => {
   font: var(--td-font-title-small);
 }
 
+.table-actions :deep(.t-button) {
+  flex: 0 0 auto;
+}
+
 .drawer-panel,
 .column-grid {
   display: flex;
@@ -297,6 +371,10 @@ onMounted(() => {
   .toolbar__search,
   .toolbar__select {
     width: 100%;
+  }
+
+  .permission-page :deep(.management-toolbar__filters) {
+    flex-wrap: wrap;
   }
 
   .table-head,
