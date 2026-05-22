@@ -33,6 +33,33 @@ const chartMocks = vi.hoisted(() => {
   };
 });
 
+const resizeObserverMocks = vi.hoisted(() => {
+  const observe = vi.fn();
+  const unobserve = vi.fn();
+  const disconnect = vi.fn();
+  let callback: ResizeObserverCallback | null = null;
+
+  class ResizeObserverMock {
+    constructor(nextCallback: ResizeObserverCallback) {
+      callback = nextCallback;
+    }
+
+    observe = observe;
+    unobserve = unobserve;
+    disconnect = disconnect;
+  }
+
+  return {
+    ResizeObserverMock,
+    observe,
+    unobserve,
+    disconnect,
+    trigger() {
+      callback?.([], {} as ResizeObserver);
+    },
+  };
+});
+
 const settingStoreMock = vi.hoisted(() => ({
   displayMode: 'light',
   brandTheme: '#0052D9',
@@ -600,12 +627,16 @@ function getLatestChartOption<T = unknown>() {
 describe('MonitorPage', () => {
   beforeEach(() => {
     vi.useRealTimers();
+    vi.stubGlobal('ResizeObserver', resizeObserverMocks.ResizeObserverMock);
     monitorApiMocks.getServerStatus.mockReset();
     messageMocks.error.mockReset();
     chartMocks.init.mockClear();
     chartMocks.setOption.mockClear();
     chartMocks.resize.mockClear();
     chartMocks.dispose.mockClear();
+    resizeObserverMocks.observe.mockClear();
+    resizeObserverMocks.unobserve.mockClear();
+    resizeObserverMocks.disconnect.mockClear();
     document.body.innerHTML = '';
     setVisibilityState('visible');
     document.documentElement.style.setProperty('--td-brand-color', '#0052D9');
@@ -623,6 +654,7 @@ describe('MonitorPage', () => {
     }
     resetMonitorRefreshPreferencesForTests();
     vi.clearAllMocks();
+    vi.unstubAllGlobals();
     vi.useRealTimers();
   });
 
@@ -918,6 +950,21 @@ describe('MonitorPage', () => {
     expect(sidebarGroupText(wrapper, 'sampling')).toContain('30 min');
     expect(sidebarGroupText(wrapper, 'sampling')).toContain('Trend mode');
     expect(sidebarGroupText(wrapper, 'sampling')).toContain('Small charts');
+  });
+
+  it('resizes trend charts when the container observer reports a layout change', async () => {
+    monitorApiMocks.getServerStatus.mockResolvedValue(createServerStatusResponse());
+
+    mountMonitorPage();
+    await flushPromises();
+    await nextTick();
+
+    expect(resizeObserverMocks.observe).toHaveBeenCalled();
+
+    chartMocks.resize.mockClear();
+    resizeObserverMocks.trigger();
+
+    expect(chartMocks.resize).toHaveBeenCalled();
   });
 
   it('counts down auto refresh, pauses while hidden or paused by the user, and resumes immediately', async () => {
