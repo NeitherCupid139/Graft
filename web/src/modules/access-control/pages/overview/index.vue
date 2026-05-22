@@ -373,6 +373,11 @@ onMounted(() => {
 });
 </script>
 <style scoped lang="less">
+.access-control-overview {
+  --graft-page-width-ratio: 88vw;
+  --graft-page-max-width: 1520px;
+}
+
 .access-control-overview__grid {
   display: grid;
   gap: 16px;

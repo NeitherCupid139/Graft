@@ -50,6 +50,7 @@ defineProps<{
   --server-status-card-border: var(--td-component-stroke);
   --server-status-card-border-strong: var(--td-component-border);
 
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: var(--server-status-page-shell-gap);

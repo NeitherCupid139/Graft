@@ -22,11 +22,13 @@ const props = defineProps<{
 }>();
 
 const containerClasses = computed(() => [
+  'graft-page-container',
   `${prefix}-page-container`,
   `${prefix}-page-container--${props.surface ?? 'shell'}`,
 ]);
 
 const mainClasses = computed(() => [
+  'graft-page',
   `${prefix}-page-container__main`,
   `${prefix}-page-container__main--${props.surface ?? 'shell'}`,
 ]);
