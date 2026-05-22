@@ -4,7 +4,6 @@
     :eyebrow="t('monitor.sectionTitle')"
     :title="t('monitor.serverStatus.overviewTitle')"
     :description="t('monitor.serverStatus.overviewHint')"
-    compact-header
   >
     <template #toolbar>
       <monitor-toolbar
@@ -48,7 +47,7 @@
         class="server-status-overview-layout__trend"
         :title="t('monitor.serverStatus.trendCardTitle')"
         :description="refreshCountdownText"
-        :min-height="440"
+        :min-height="520"
       >
         <template #actions>
           <div class="trend-panel__actions">
@@ -288,7 +287,7 @@
         class="server-status-overview-layout__status"
         :title="t('monitor.serverStatus.runtimeStatusTitle')"
         :description="t('monitor.serverStatus.runtimeStatusSubtitle')"
-        :min-height="440"
+        :min-height="520"
       >
         <div v-if="serverStatus" class="status-sidebar__content">
           <section class="status-sidebar__section" data-status-sidebar-group="dependencies">
