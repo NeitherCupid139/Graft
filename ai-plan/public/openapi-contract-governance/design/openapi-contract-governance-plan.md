@@ -1,7 +1,8 @@
 # Graft OpenAPI First 契约治理长分支计划
 
-> Historical status: `openapi-contract-governance` is complete, archived in place, and inactive. This document remains
-> as the final topic design record; future implementation must start under a new topic rather than continuing this one.
+> Historical status: `openapi-contract-governance` is complete and inactive. Detailed phase history now lives in the
+> topic-local `archive/` snapshots, while this document remains the final topic design record. Future implementation
+> must start under a new topic rather than continuing this one.
 
 ## 1. 结论
 
