@@ -1113,8 +1113,28 @@ export interface operations {
           'application/json': components['schemas']['enveloped-empty-response'];
         };
       };
+      /** @description Invalid request payload. */
+      400: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['error-response'];
+        };
+      };
       401: components['responses']['unauthorized'];
       403: components['responses']['forbidden'];
+      /** @description Role not found. */
+      404: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['error-response'];
+        };
+      };
       500: components['responses']['internal-server-error'];
     };
   };

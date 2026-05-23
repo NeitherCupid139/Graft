@@ -10,7 +10,11 @@ import UserPage from './index.vue';
 
 const userApiMocks = vi.hoisted(() => ({
   createUser: vi.fn(),
+  deleteUser: vi.fn(),
   getUsers: vi.fn(),
+  resetUserPassword: vi.fn(),
+  updateUser: vi.fn(),
+  updateUserStatus: vi.fn(),
 }));
 
 const roleApiMocks = vi.hoisted(() => ({
@@ -31,7 +35,11 @@ const permissionState = vi.hoisted(() => ({
 
 vi.mock('@/modules/user/api/users', () => ({
   createUser: userApiMocks.createUser,
+  deleteUser: userApiMocks.deleteUser,
   getUsers: userApiMocks.getUsers,
+  resetUserPassword: userApiMocks.resetUserPassword,
+  updateUser: userApiMocks.updateUser,
+  updateUserStatus: userApiMocks.updateUserStatus,
 }));
 
 vi.mock('@/modules/user/api/user-roles', () => ({
@@ -91,6 +99,39 @@ const passthroughStub = defineComponent({
   },
   setup(props, { slots }) {
     return () => h('div', [props.title, props.description, slots.default?.(), slots.action?.()]);
+  },
+});
+
+const dropdownStub = defineComponent({
+  name: 'TDropdownStub',
+  props: {
+    options: {
+      type: Array,
+      default: () => [],
+    },
+  },
+  emits: ['click'],
+  setup(props, { emit, slots }) {
+    return () =>
+      h('div', [
+        slots.default?.(),
+        ...(props.options as Array<{ value: string; content: string; disabled?: boolean }>).map((option) =>
+          h(
+            'button',
+            {
+              type: 'button',
+              disabled: Boolean(option.disabled),
+              'data-testid': `dropdown-option-${option.value}`,
+              onClick: () => {
+                if (!option.disabled) {
+                  emit('click', { value: option.value });
+                }
+              },
+            },
+            option.content,
+          ),
+        ),
+      ]);
   },
 });
 
@@ -363,6 +404,38 @@ const drawerStub = defineComponent({
   },
 });
 
+const dialogStub = defineComponent({
+  name: 'TDialogStub',
+  props: {
+    visible: {
+      type: Boolean,
+      default: false,
+    },
+    header: {
+      type: String,
+      default: '',
+    },
+  },
+  emits: ['confirm', 'close'],
+  setup(props, { emit, slots }) {
+    return () =>
+      props.visible
+        ? h('section', { 'data-testid': 'dialog', 'data-header': props.header }, [
+            slots.default?.(),
+            h(
+              'button',
+              {
+                type: 'button',
+                'data-testid': 'dialog-confirm',
+                onClick: () => emit('confirm'),
+              },
+              'confirm',
+            ),
+          ])
+        : null;
+  },
+});
+
 const paginationStub = defineComponent({
   name: 'TPaginationStub',
   props: {
@@ -463,7 +536,8 @@ function mountUserPage() {
         't-button': buttonStub,
         't-checkbox': checkboxStub,
         't-checkbox-group': checkboxGroupStub,
-        't-dropdown': passthroughStub,
+        't-dialog': dialogStub,
+        't-dropdown': dropdownStub,
         't-drawer': drawerStub,
         't-empty': passthroughStub,
         't-form': formStub,
@@ -482,7 +556,11 @@ describe('UserPage', () => {
   beforeEach(() => {
     permissionState.grantedCodes = [];
     userApiMocks.createUser.mockReset();
+    userApiMocks.deleteUser.mockReset();
     userApiMocks.getUsers.mockReset();
+    userApiMocks.resetUserPassword.mockReset();
+    userApiMocks.updateUser.mockReset();
+    userApiMocks.updateUserStatus.mockReset();
     roleApiMocks.assignUserRoles.mockReset();
     roleApiMocks.getRoles.mockReset();
     roleApiMocks.getUserRoleBindings.mockReset();
@@ -636,6 +714,88 @@ describe('UserPage', () => {
 
     expect(wrapper.get('[data-testid="validate-username"]').text()).toContain('请求参数不合法');
     expect(messageMocks.error).not.toHaveBeenCalled();
+  });
+
+  it('binds backend invalid argument errors to the matching edit-user field', async () => {
+    permissionState.grantedCodes = [USER_PERMISSION_CODE.UPDATE];
+    userApiMocks.getUsers.mockResolvedValue(createUserListResponse());
+    userApiMocks.updateUser.mockRejectedValue({
+      isApiRequestError: true,
+      code: API_CODE.COMMON_INVALID_ARGUMENT,
+      message: '用户名已存在',
+      messageKey: '',
+      responseData: {
+        data: {
+          field: 'username',
+        },
+      },
+    });
+
+    const wrapper = mountUserPage();
+    await flushPromises();
+
+    await wrapper.get('[data-testid="user-edit"]').trigger('click');
+    await flushPromises();
+    await wrapper.get('input[placeholder="user.userList.form.usernamePlaceholder"]').setValue('alice');
+    await wrapper.get('input[placeholder="user.userList.form.displayPlaceholder"]').setValue('Alice Updated');
+    await wrapper.get('form').trigger('submit');
+    await flushPromises();
+
+    expect(wrapper.get('[data-testid="validate-username"]').text()).toContain('用户名已存在');
+    expect(messageMocks.error).not.toHaveBeenCalled();
+  });
+
+  it('binds reset-password API errors to the password field inside the dialog', async () => {
+    permissionState.grantedCodes = [USER_PERMISSION_CODE.UPDATE];
+    userApiMocks.getUsers.mockResolvedValue(createUserListResponse());
+    userApiMocks.resetUserPassword.mockRejectedValue({
+      isApiRequestError: true,
+      code: API_CODE.AUTH_PASSWORD_POLICY_VIOLATION,
+      message: '新密码不符合安全要求',
+      messageKey: '',
+      responseData: {
+        data: {
+          field: 'new_password',
+        },
+      },
+    });
+
+    const wrapper = mountUserPage();
+    await flushPromises();
+
+    await wrapper.get('[data-testid="dropdown-option-reset-password"]').trigger('click');
+    await flushPromises();
+    await wrapper.get('input[placeholder="user.userList.resetPasswordDialog.passwordPlaceholder"]').setValue('short');
+    await wrapper.get('[data-testid="dialog-confirm"]').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.get('[data-testid="validate-password"]').text()).toContain('新密码不符合安全要求');
+    expect(messageMocks.error).not.toHaveBeenCalledWith('user.userList.resetPasswordFailed');
+  });
+
+  it('uses the API error message for status update failures on covered write routes', async () => {
+    permissionState.grantedCodes = [USER_PERMISSION_CODE.DISABLE];
+    userApiMocks.getUsers.mockResolvedValue(createUserListResponse());
+    userApiMocks.updateUserStatus.mockRejectedValue({
+      isApiRequestError: true,
+      status: 404,
+      code: 'USER_NOT_FOUND',
+      message: '用户不存在',
+      messageKey: 'user.not_found',
+      responseData: {},
+    });
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    const wrapper = mountUserPage();
+    await flushPromises();
+
+    await wrapper.get('[data-testid="dropdown-option-toggle-status"]').trigger('click');
+    await flushPromises();
+
+    expect(messageMocks.error).toHaveBeenCalledWith('用户不存在');
+    expect(messageMocks.error).not.toHaveBeenCalledWith('user.userList.statusUpdateFailed');
+
+    confirmSpy.mockRestore();
   });
 
   it('keeps role assignment blocked when the current snapshot fails to load', async () => {

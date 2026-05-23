@@ -95,3 +95,69 @@
   - `success`, `code`, `message`, `messageKey`, `locale`, `traceId`, `data`
 - Left `POST /api/auth/login` unchanged in Phase 3 because the currently modeled auth route does not decide the covered
   write-route field-error convention and no shared-envelope mismatch was found during this phase
+
+## 2026-05-24 Phase 4 web alignment attempt and validation blocker
+
+- Implemented bounded module-local write-error consumption for the covered `user` and `rbac` pages without moving field
+  semantics into `request.ts`:
+  - `web/src/modules/user/**`
+    - extended the existing user error adapter so create and edit forms consume `data.field`
+    - bound reset-password API field errors to the dialog password field using the route contract field
+      `new_password -> password`
+    - switched covered status-update failures to use backend `messageKey` / message fallback instead of a generic
+      module toast when the API returns a structured error such as `user.not_found`
+  - `web/src/modules/rbac/**`
+    - added a module-local error adapter for role form and permission-assignment write errors
+    - bound covered role create/update invalid-argument errors to the role form field surface
+    - kept `permission_ids` and `role.not_found` assignment failures inside the permission drawer feedback surface
+      instead of collapsing them into a generic transport-level toast
+- Added focused page-test evidence for those covered routes:
+  - `src/modules/user/pages/index.test.ts`
+    - edit-field invalid argument
+    - reset-password password-policy violation
+    - status-update not-found feedback
+  - `src/modules/rbac/pages/index.test.ts`
+    - role form `name` field invalid argument
+    - permission assignment `permission_ids` invalid argument
+    - permission assignment `role.not_found` feedback
+- Validation results for the Phase 4 attempt:
+  - passed
+    - `git diff --check`
+    - `cd web && bun run test:run src/modules/user/pages/index.test.ts`
+    - `cd web && bun run test:run src/modules/rbac/pages/index.test.ts`
+    - route-surface `rg` consistency scans across touched `web` and topic-trace files
+  - blocked
+    - `cd web && bun run openapi:types:check`
+    - blocker detail:
+      - the generated `web/src/contracts/openapi/generated/schema.ts` is behind the Phase 3 OpenAPI change for
+        `POST /api/roles/{id}/permissions/assign`
+      - the generated diff adds the newly modeled `400` and `404` response shapes for that operation
+      - regenerating that generated file would be the correct repair path, but it is outside this delegated Phase 4
+        round's owned scope
+- Phase 4 status at this checkpoint:
+  - implementation evidence exists
+  - phase validation is not yet complete because the required generated-type check is red
+  - no Phase 4 commit was created in this round
+
+## 2026-05-24 Phase 4 validation unblock and closure
+
+- Resumed the blocked Phase 4 round within the same owned scope and used the repository generation entrypoint:
+  - `cd web && bun run openapi:types`
+  - no hand edits were made to `web/src/contracts/openapi/generated/schema.ts`
+- The regenerated TypeScript contract now matches the Phase 3 OpenAPI surface for
+  `POST /api/roles/{id}/permissions/assign`:
+  - includes the modeled `400` invalid-request response shape
+  - includes the modeled `404` role-not-found response shape
+- Revalidated the existing Phase 4 web implementation without broadening runtime ownership:
+  - passed
+    - `git diff --check`
+    - `git status --short`
+    - route-surface `rg` consistency scans across touched `web` and trace files
+    - `cd web && bun run openapi:types:check`
+    - `cd web && bun run test:run src/modules/user/pages/index.test.ts src/modules/rbac/pages/index.test.ts`
+    - `cd web && bun run check`
+- Phase 4 final conclusion:
+  - covered `user` and `rbac` write routes now consume structured field errors in module-local surfaces
+  - `request.ts` remains the transport truth
+  - backend envelope ownership remains in `httpx`
+  - generated OpenAPI web types are aligned with the covered write-route contract surface

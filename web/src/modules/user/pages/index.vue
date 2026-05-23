@@ -172,6 +172,7 @@
                 size="small"
                 theme="default"
                 variant="outline"
+                data-testid="user-edit"
                 @click="openUserDrawer('edit', row)"
               >
                 {{ t('user.userList.edit') }}
@@ -286,7 +287,7 @@
             })
           }}
         </p>
-        <t-form :data="resetPasswordForm" label-align="top">
+        <t-form ref="resetPasswordFormRef" :data="resetPasswordForm" :rules="resetPasswordFormRules" label-align="top">
           <t-form-item :label="t('user.userList.resetPasswordDialog.password')" name="password">
             <t-input
               v-model="resetPasswordForm.password"
@@ -459,7 +460,7 @@ import { createUser, deleteUser, getUsers, resetUserPassword, updateUser, update
 import { USER_PERMISSION_CODE } from '../contract/permissions';
 import type { UserStatus } from '../contract/status';
 import { USER_STATUS } from '../contract/status';
-import { resolveCreateUserFieldError } from '../error-adapter';
+import { resolveResetPasswordFieldError, resolveUserFormFieldError } from '../error-adapter';
 import { evaluateUserPasswordPolicy } from '../shared/password-policy';
 import type { CreateUserPayload, ResetUserPasswordPayload, UpdateUserPayload, UserListItem } from '../types/user';
 
@@ -492,6 +493,11 @@ type UserFormState = {
 type UserFormInstance = {
   clearValidate: (fields?: Array<keyof UserFormState>) => void;
   setValidateMessage: (message: FormValidateMessage<UserFormState>) => void;
+};
+
+type ResetPasswordFormInstance = {
+  clearValidate: (fields?: Array<'password'>) => void;
+  setValidateMessage: (message: FormValidateMessage<{ password: string }>) => void;
 };
 
 const INITIAL_USER_FORM: UserFormState = {
@@ -533,6 +539,7 @@ const passwordFieldError = ref('');
 const submittingUser = ref(false);
 const resetPasswordDialogVisible = ref(false);
 const resetPasswordTarget = ref<UserRow | null>(null);
+const resetPasswordFormRef = ref<ResetPasswordFormInstance | null>(null);
 const resetPasswordForm = ref({
   password: '',
 });
@@ -684,6 +691,10 @@ const userFormRules = computed<Record<keyof UserFormState, FormRule[]>>(() => ({
           },
         ]
       : [],
+}));
+
+const resetPasswordFormRules = computed<Record<'password', FormRule[]>>(() => ({
+  password: [{ required: true, message: t('user.userList.resetPasswordDialog.required'), type: 'error' }],
 }));
 
 const columns = computed<TdBaseTableProps['columns']>(() => {
@@ -914,6 +925,7 @@ function closeUserDrawer() {
   userDrawerTarget.value = null;
   passwordFieldError.value = '';
   userForm.value = { ...INITIAL_USER_FORM };
+  userFormRef.value?.clearValidate();
   submittingUser.value = false;
 }
 
@@ -944,6 +956,16 @@ function setUserFormFieldError(field: keyof UserFormState, message: string) {
 
 function clearUserFormFieldError(field: keyof UserFormState) {
   userFormRef.value?.clearValidate([field]);
+}
+
+function setResetPasswordFieldError(message: string) {
+  resetPasswordFormRef.value?.setValidateMessage({
+    password: [{ type: 'error', message }],
+  });
+}
+
+function clearResetPasswordFieldError() {
+  resetPasswordFormRef.value?.clearValidate(['password']);
 }
 
 async function syncCreatePasswordFeedback() {
@@ -998,14 +1020,16 @@ async function handleUserSubmit(ctx: SubmitContext) {
   } catch (error) {
     logger.error('failed to submit user form', error);
     if (isApiRequestError(error)) {
-      const errorMessage = localizedApiErrorMessage(error.messageKey, error.message) || t('user.userList.createFailed');
-      const createField = userDrawerMode.value === 'create' ? resolveCreateUserFieldError(error) : null;
+      const fallbackMessage =
+        userDrawerMode.value === 'create' ? t('user.userList.createFailed') : t('user.userList.editFailed');
+      const errorMessage = localizedApiErrorMessage(error.messageKey, error.message) || fallbackMessage;
+      const field = resolveUserFormFieldError(error, userDrawerMode.value);
 
-      if (createField) {
-        if (createField === 'password') {
+      if (field) {
+        if (field === 'password') {
           passwordFieldError.value = errorMessage;
         }
-        setUserFormFieldError(createField, errorMessage);
+        setUserFormFieldError(field, errorMessage);
         return;
       }
 
@@ -1024,6 +1048,7 @@ async function handleUserSubmit(ctx: SubmitContext) {
 function openResetPasswordDialog(user: UserRow) {
   resetPasswordTarget.value = user;
   resetPasswordForm.value.password = '';
+  clearResetPasswordFieldError();
   resetPasswordDialogVisible.value = true;
 }
 
@@ -1031,6 +1056,7 @@ function closeResetPasswordDialog() {
   resetPasswordDialogVisible.value = false;
   resetPasswordTarget.value = null;
   resetPasswordForm.value.password = '';
+  clearResetPasswordFieldError();
   submittingResetPassword.value = false;
 }
 
@@ -1043,6 +1069,7 @@ async function submitResetPassword() {
     return;
   }
 
+  clearResetPasswordFieldError();
   submittingResetPassword.value = true;
   try {
     const payload: ResetUserPasswordPayload = {
@@ -1053,6 +1080,20 @@ async function submitResetPassword() {
     closeResetPasswordDialog();
   } catch (error) {
     logger.error('failed to reset password', error);
+    if (isApiRequestError(error)) {
+      const errorMessage =
+        localizedApiErrorMessage(error.messageKey, error.message) || t('user.userList.resetPasswordFailed');
+      const field = resolveResetPasswordFieldError(error);
+
+      if (field === 'password') {
+        setResetPasswordFieldError(errorMessage);
+        return;
+      }
+
+      MessagePlugin.error(errorMessage);
+      return;
+    }
+
     MessagePlugin.error(t('user.userList.resetPasswordFailed'));
   } finally {
     submittingResetPassword.value = false;
@@ -1079,6 +1120,13 @@ async function toggleUserStatus(user: UserRow) {
     MessagePlugin.success(t('user.userList.statusUpdateSuccess'));
   } catch (error) {
     logger.error('failed to update status', error);
+    if (isApiRequestError(error)) {
+      MessagePlugin.error(
+        localizedApiErrorMessage(error.messageKey, error.message) || t('user.userList.statusUpdateFailed'),
+      );
+      return;
+    }
+
     MessagePlugin.error(t('user.userList.statusUpdateFailed'));
   }
 }
