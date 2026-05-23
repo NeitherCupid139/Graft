@@ -40,6 +40,18 @@ post:
           $ref: ../components/headers/request-id.yaml
       content:
         application/json:
+          examples:
+            invalidStatus:
+              summary: Unsupported status value
+              value:
+                success: false
+                code: COMMON_INVALID_ARGUMENT
+                message: 请求参数不合法
+                traceId: 6f5cb7e0-7d6d-4dc6-a32f-137ac9b01757
+                messageKey: common.invalid_argument
+                locale: zh-CN
+                data:
+                  field: status
           schema:
             $ref: ../components/schemas/error-response.yaml
     '401':
@@ -53,6 +65,16 @@ post:
           $ref: ../components/headers/request-id.yaml
       content:
         application/json:
+          examples:
+            userNotFound:
+              summary: Target user not found
+              value:
+                success: false
+                code: USER_NOT_FOUND
+                message: User not found
+                traceId: 6f5cb7e0-7d6d-4dc6-a32f-137ac9b01757
+                messageKey: user.not_found
+                locale: en-US
           schema:
             $ref: ../components/schemas/error-response.yaml
     '500':

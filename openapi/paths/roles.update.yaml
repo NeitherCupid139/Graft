@@ -41,6 +41,18 @@ post:
           $ref: ../components/headers/request-id.yaml
       content:
         application/json:
+          examples:
+            invalidArgument:
+              summary: Builtin role name is immutable
+              value:
+                success: false
+                code: COMMON_INVALID_ARGUMENT
+                message: 请求参数不合法
+                traceId: 9de85c93-9038-4d71-845e-ebd8342a6bfe
+                messageKey: common.invalid_argument
+                locale: zh-CN
+                data:
+                  field: name
           schema:
             $ref: ../components/schemas/error-response.yaml
     '401':
@@ -54,6 +66,16 @@ post:
           $ref: ../components/headers/request-id.yaml
       content:
         application/json:
+          examples:
+            roleNotFound:
+              summary: Target role not found
+              value:
+                success: false
+                code: ROLE_NOT_FOUND
+                message: Role not found
+                traceId: 9de85c93-9038-4d71-845e-ebd8342a6bfe
+                messageKey: role.not_found
+                locale: en-US
           schema:
             $ref: ../components/schemas/error-response.yaml
     '500':

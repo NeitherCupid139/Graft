@@ -40,6 +40,18 @@ post:
           $ref: ../components/headers/request-id.yaml
       content:
         application/json:
+          examples:
+            invalidArgument:
+              summary: Username conflict
+              value:
+                success: false
+                code: COMMON_INVALID_ARGUMENT
+                message: 请求参数不合法
+                traceId: 7a4fd424-2af6-4e71-9562-4d706bc6c0a8
+                messageKey: common.invalid_argument
+                locale: zh-CN
+                data:
+                  field: username
           schema:
             $ref: ../components/schemas/error-response.yaml
     '401':
@@ -53,6 +65,16 @@ post:
           $ref: ../components/headers/request-id.yaml
       content:
         application/json:
+          examples:
+            userNotFound:
+              summary: Target user not found
+              value:
+                success: false
+                code: USER_NOT_FOUND
+                message: User not found
+                traceId: 7a4fd424-2af6-4e71-9562-4d706bc6c0a8
+                messageKey: user.not_found
+                locale: en-US
           schema:
             $ref: ../components/schemas/error-response.yaml
     '500':

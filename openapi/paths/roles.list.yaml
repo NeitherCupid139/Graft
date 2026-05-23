@@ -58,6 +58,18 @@ post:
           $ref: ../components/headers/request-id.yaml
       content:
         application/json:
+          examples:
+            invalidArgument:
+              summary: Role name conflict
+              value:
+                success: false
+                code: COMMON_INVALID_ARGUMENT
+                message: 请求参数不合法
+                traceId: c74600e8-a3ae-4028-b4fc-f3573049c2ca
+                messageKey: common.invalid_argument
+                locale: zh-CN
+                data:
+                  field: name
           schema:
             $ref: ../components/schemas/error-response.yaml
     '401':

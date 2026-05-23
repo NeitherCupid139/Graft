@@ -65,3 +65,33 @@
 - Phase 2 conclusion:
   - the covered server-side write-error contract surface is aligned without broadening ownership or introducing new
     abstractions
+
+## 2026-05-24 Phase 3 OpenAPI alignment closure
+
+- Reconciled the stale Phase 1 reset-password audit note with the Phase 2 evidence:
+  - `POST /api/users/{id}/reset-password` already follows the request-contract field rule with `data.field=new_password`
+  - the remaining gap for that route was OpenAPI/web alignment, not backend runtime behavior
+- Updated covered OpenAPI write-route responses/examples to match the tested backend contracts:
+  - `POST /api/users/{id}/update`
+    - concrete `400` invalid-argument example for `data.field=username`
+    - concrete `404` `user.not_found` example
+  - `POST /api/users/{id}/status`
+    - concrete `400` invalid-argument example for `data.field=status`
+    - concrete `404` `user.not_found` example
+  - `POST /api/users/{id}/reset-password`
+    - concrete `400` examples for `AuthPasswordPolicyViolation` and `AuthPasswordReuseForbidden`
+    - both examples use `data.field=new_password`
+    - concrete `404` `user.not_found` example
+  - `POST /api/roles`
+    - concrete `400` invalid-argument example for `data.field=name`
+  - `POST /api/roles/{id}/update`
+    - concrete `400` invalid-argument example for `data.field=name`
+    - concrete `404` `role.not_found` example
+  - `POST /api/roles/{id}/permissions/assign`
+    - added missing `400` and `404` response entries
+    - concrete `400` invalid-argument example for `data.field=permission_ids`
+    - concrete `404` `role.not_found` example
+- Kept shared envelope semantics unchanged:
+  - `success`, `code`, `message`, `messageKey`, `locale`, `traceId`, `data`
+- Left `POST /api/auth/login` unchanged in Phase 3 because the currently modeled auth route does not decide the covered
+  write-route field-error convention and no shared-envelope mismatch was found during this phase

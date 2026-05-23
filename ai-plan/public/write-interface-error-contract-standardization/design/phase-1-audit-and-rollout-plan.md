@@ -40,7 +40,7 @@ Current concrete sample evidence:
 | `POST /api/users` | `aligned` | none for Phase 1 baseline | done |
 | `POST /api/users/{id}/update` | `partial` | server already emits `data.field` for `username` and `body`, but OpenAPI `400`/`404` only use generic `error-response`, and the user page only binds structured field errors during create mode | Phase 2, 3, 4 |
 | `POST /api/users/{id}/status` | `partial` | server already emits `data.field=status` or `data.field=id`, but OpenAPI has no concrete error examples and the user page still uses only generic toast handling | Phase 2, 3, 4 |
-| `POST /api/users/{id}/reset-password` | `partial` | server currently returns password-policy/reuse errors as `data.field=new_password`; this conflicts with the sample rule that field names must match the current request contract, and OpenAPI/web are still generic | Phase 2, 3, 4 |
+| `POST /api/users/{id}/reset-password` | `partial` | server already returns password-policy/reuse errors as `data.field=new_password`, which matches the current request contract; OpenAPI/web are still generic | Phase 3, 4 |
 | `POST /api/roles` | `partial` | RBAC server already emits `data.field=name`, but OpenAPI `400` is generic and the RBAC page has no structured field-error consumption path | Phase 2, 3, 4 |
 | `POST /api/roles/{id}/update` | `partial` | same as role create, plus `404` is still modeled generically | Phase 2, 3, 4 |
 | `POST /api/roles/{id}/permissions/assign` | `partial` | backend already uses `data.field=permission_ids` for invalid inputs, but OpenAPI currently lacks explicit write-error coverage for this route and the RBAC permission dialog still falls back to generic error handling | Phase 2, 3, 4 |
@@ -53,7 +53,7 @@ Current concrete sample evidence:
 - `server/plugins/user/route_errors.go`
   - already centralizes user write-route error mapping
   - update/status/create use request-field-oriented `data.field`
-  - reset-password still returns `new_password`, not the current request-contract field rule demonstrated by create-user
+  - reset-password already uses the request-contract field `new_password`; only OpenAPI/web still needed alignment
 - `server/plugins/rbac/route_errors.go`
   - already centralizes RBAC write-route error mapping
   - current stable field outputs are route-local and explicit: `name`, `permission_ids`, or the provided `invalidField`
@@ -97,7 +97,6 @@ Reason:
 - the repo has one accepted write-route sample, but the broader currently modeled write surface is still only partially
   aligned
 - at least one server route (`POST /api/users/{id}/reset-password`) still violates the accepted request-field naming
-  rule
 - OpenAPI examples/responses are not yet consistent across the covered rollout
 - frontend structured field-error consumption is still limited to create-user only
 
@@ -114,7 +113,6 @@ Required outcomes:
 
 - keep `httpx` as the only envelope writer
 - keep plugin-local route registration and handler ownership explicit
-- align `POST /api/users/{id}/reset-password` from `new_password` to the current request-contract field name
 - verify all covered user/RBAC write routes emit stable `data.field` values only where the route can actually act on a
   request field
 - add or tighten focused tests for the covered user and RBAC write routes
