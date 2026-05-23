@@ -92,9 +92,9 @@
         "unavailable": "-"
       },
       "unavailable": {
-        "create": "User creation is not available yet",
-        "edit": "User editing is not available yet",
-        "more": "Additional user actions are not available yet"
+        "create": "You do not have permission to create users",
+        "edit": "You do not have permission to edit this user",
+        "more": "More user actions require additional permissions"
       },
       "form": {
         "createTitle": "Create User",

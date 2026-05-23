@@ -92,9 +92,9 @@
         "unavailable": "-"
       },
       "unavailable": {
-        "create": "创建用户能力暂未开放",
-        "edit": "编辑用户能力暂未开放",
-        "more": "更多用户操作暂未开放"
+        "create": "无权创建用户",
+        "edit": "无权编辑该用户",
+        "more": "更多用户操作需要额外权限"
       },
       "form": {
         "createTitle": "创建用户",

@@ -440,6 +440,7 @@ import {
   ManagementToolbar,
 } from '@/shared/components/management';
 import { usePermissionStore } from '@/store';
+import { createLogger } from '@/utils/logger';
 
 import { assignUserRoles, getRoles, getUserRoleBindings } from '../api/user-roles';
 import { createUser, deleteUser, getUsers, resetUserPassword, updateUser, updateUserStatus } from '../api/users';
@@ -451,6 +452,8 @@ import type { CreateUserPayload, ResetUserPasswordPayload, UpdateUserPayload, Us
 defineOptions({
   name: 'UsersIndex',
 });
+
+const logger = createLogger('user.userList');
 
 type UserFilters = {
   keyword: string;
@@ -542,7 +545,6 @@ const canAssignUserRoles = computed(() => permissionStore.hasPermission(rbacPerm
 const canShowOperationColumn = computed(() =>
   permissionStore.hasAnyPermission([
     userPermissionCodes.UPDATE,
-    userPermissionCodes.CREATE,
     userPermissionCodes.DISABLE,
     rbacPermissionCodes.USER_ROLE_READ,
   ]),
@@ -733,7 +735,8 @@ async function fetchUsers() {
     }
   } catch (error) {
     users.value = [];
-    listError.value = error instanceof Error ? error.message : t('user.userList.loadFailed');
+    logger.error('failed to fetch users', error);
+    listError.value = t('user.userList.loadFailed');
     MessagePlugin.error(listError.value);
   } finally {
     loading.value = false;
@@ -899,12 +902,9 @@ async function handleUserSubmit(ctx: SubmitContext) {
     }
     closeUserDrawer();
   } catch (error) {
+    logger.error('failed to submit user form', error);
     MessagePlugin.error(
-      error instanceof Error
-        ? error.message
-        : userDrawerMode.value === 'create'
-          ? t('user.userList.createFailed')
-          : t('user.userList.editFailed'),
+      userDrawerMode.value === 'create' ? t('user.userList.createFailed') : t('user.userList.editFailed'),
     );
   } finally {
     submittingUser.value = false;
@@ -942,7 +942,8 @@ async function submitResetPassword() {
     MessagePlugin.success(t('user.userList.resetPasswordSuccess'));
     closeResetPasswordDialog();
   } catch (error) {
-    MessagePlugin.error(error instanceof Error ? error.message : t('user.userList.resetPasswordFailed'));
+    logger.error('failed to reset password', error);
+    MessagePlugin.error(t('user.userList.resetPasswordFailed'));
   } finally {
     submittingResetPassword.value = false;
   }
@@ -967,7 +968,8 @@ async function toggleUserStatus(user: UserRow) {
     users.value = users.value.map((item) => (item.id === updated.id ? { ...item, ...updated } : item));
     MessagePlugin.success(t('user.userList.statusUpdateSuccess'));
   } catch (error) {
-    MessagePlugin.error(error instanceof Error ? error.message : t('user.userList.statusUpdateFailed'));
+    logger.error('failed to update status', error);
+    MessagePlugin.error(t('user.userList.statusUpdateFailed'));
   }
 }
 
@@ -986,7 +988,8 @@ async function confirmDeleteUser(user: UserRow) {
     delete roleBindings.value[user.id];
     MessagePlugin.success(t('user.userList.deleteSuccess'));
   } catch (error) {
-    MessagePlugin.error(error instanceof Error ? error.message : t('user.userList.deleteFailed'));
+    logger.error('failed to delete user', error);
+    MessagePlugin.error(t('user.userList.deleteFailed'));
   }
 }
 
@@ -1033,7 +1036,8 @@ async function loadUserRoleSelection(user: UserRow, session: number) {
     await loadRoleCatalog();
   } catch (error) {
     if (isActiveDrawerSession(session)) {
-      roleLoadWarning.value = error instanceof Error ? error.message : t('user.userList.roleDialog.roleLoadFailed');
+      logger.error('failed to load role catalog', error);
+      roleLoadWarning.value = t('user.userList.roleDialog.roleLoadFailed');
     }
     return;
   }
@@ -1054,8 +1058,8 @@ async function loadUserRoleSelection(user: UserRow, session: number) {
     roleSelectionReady.value = true;
   } catch (error) {
     if (isActiveDrawerSession(session)) {
-      roleLoadWarning.value =
-        error instanceof Error ? error.message : t('user.userList.roleDialog.selectionLoadFailed');
+      logger.error('failed to load user role selection', error);
+      roleLoadWarning.value = t('user.userList.roleDialog.selectionLoadFailed');
     }
   } finally {
     if (isActiveDrawerSession(session)) {
@@ -1105,7 +1109,8 @@ async function submitUserRoleAssignment() {
     closeUserRoleDrawer();
   } catch (error) {
     if (isActiveDrawerSession(session)) {
-      MessagePlugin.error(error instanceof Error ? error.message : t('user.userList.assignFailed'));
+      logger.error('failed to assign user roles', error);
+      MessagePlugin.error(t('user.userList.assignFailed'));
     }
   } finally {
     if (drawerSession.value === session) {
@@ -1117,6 +1122,13 @@ async function submitUserRoleAssignment() {
 onMounted(() => {
   fetchUsers();
 });
+
+watch(
+  () => [filters.value.keyword, filters.value.status, filters.value.roleId] as const,
+  () => {
+    pagination.value.current = 1;
+  },
+);
 
 watch(
   () => [route.query.action, canCreateUsers.value, userDrawerVisible.value] as const,

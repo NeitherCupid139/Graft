@@ -136,6 +136,7 @@
                 {{ t('rbac.roleList.assignPermissions') }}
               </t-button>
               <t-button
+                v-if="canUpdateRoles"
                 size="small"
                 theme="default"
                 variant="outline"
@@ -437,6 +438,7 @@ import {
   ManagementToolbar,
 } from '@/shared/components/management';
 import { usePermissionStore } from '@/store';
+import { createLogger } from '@/utils/logger';
 
 import {
   assignRolePermissions,
@@ -453,6 +455,8 @@ import type { CreateRolePayload, PermissionListItem } from '../types/rbac';
 defineOptions({
   name: 'RolesIndex',
 });
+
+const logger = createLogger('rbac.roleList');
 
 type RoleDrawerMode = 'create' | 'detail' | 'update';
 
@@ -527,6 +531,7 @@ const pagination = ref({
 
 const permissionCodes = RBAC_PERMISSION_CODE;
 const canCreateRoles = computed(() => permissionStore.hasPermission(permissionCodes.ROLE_CREATE));
+const canUpdateRoles = computed(() => permissionStore.hasPermission(permissionCodes.ROLE_UPDATE));
 const canReadPermissions = computed(() => permissionStore.hasPermission(permissionCodes.PERMISSION_READ));
 const canAssignPermissions = computed(
   () => canReadPermissions.value && permissionStore.hasPermission(permissionCodes.ROLE_PERMISSION_ASSIGN),
@@ -738,7 +743,8 @@ async function fetchRolePageData() {
     }
   } catch (error) {
     roles.value = [];
-    listError.value = error instanceof Error ? error.message : t('rbac.roleList.loadFailed');
+    logger.error('failed to fetch role page data', error);
+    listError.value = t('rbac.roleList.loadFailed');
     MessagePlugin.error(listError.value);
   } finally {
     loading.value = false;
@@ -831,7 +837,7 @@ function openEditDrawer(role: RoleListItem) {
   roleForm.value = {
     name: role.name,
     display: role.display,
-    description: role.description ?? '',
+    description: resolveRoleRemark(role),
   };
   roleDrawerVisible.value = true;
 }
@@ -860,7 +866,7 @@ function openDetailDrawer(role: RoleListItem) {
   roleForm.value = {
     name: role.name,
     display: role.display,
-    description: role.description ?? '',
+    description: resolveRoleRemark(role),
   };
   roleDrawerVisible.value = true;
 }
@@ -1054,6 +1060,13 @@ function handleMoreAction(role: RoleListItem) {
 onMounted(() => {
   fetchRolePageData();
 });
+
+watch(
+  () => [filters.value.keyword, filters.value.type] as const,
+  () => {
+    pagination.value.current = 1;
+  },
+);
 
 watch(
   () => [route.query.action, canCreateRoles.value, roleDrawerVisible.value] as const,

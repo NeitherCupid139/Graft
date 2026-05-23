@@ -384,6 +384,17 @@ describe('RolePage', () => {
     expect(wrapper.text()).not.toContain('rbac.roleList.stats.totalRoles');
   });
 
+  it('hides the edit button when role.update is missing', async () => {
+    permissionState.grantedCodes = [RBAC_PERMISSION_CODE.PERMISSION_READ];
+    rbacApiMocks.getRoles.mockResolvedValue(createRoleListResponse());
+    rbacApiMocks.getPermissions.mockResolvedValue(createPermissionListResponse());
+
+    const wrapper = mountRolePage();
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="role-edit"]').exists()).toBe(false);
+  });
+
   it('submits the trimmed create payload', async () => {
     permissionState.grantedCodes = [RBAC_PERMISSION_CODE.ROLE_CREATE];
     rbacApiMocks.getRoles.mockResolvedValue(createRoleListResponse());

@@ -91,6 +91,55 @@ describe('transformBootstrapMenusToRoutes', () => {
     expect(routes[0]?.children?.[3]?.meta?.icon).toBe('lock-on');
   });
 
+  it('在新旧访问控制路径同时存在时按规范化路径去重', () => {
+    const routes = transformBootstrapMenusToRoutes([
+      {
+        code: 'access-control.root',
+        title_key: 'menu.access_control.title',
+        title: '访问控制',
+        path: '/access-control',
+        icon: 'secured',
+        permission: '',
+      },
+      {
+        code: 'user.list.legacy',
+        title_key: 'menu.user_list.title',
+        title: '用户管理',
+        path: '/users',
+        icon: 'usergroup',
+        permission: 'user.read',
+      },
+      {
+        code: 'user.list.current',
+        title_key: 'menu.access_control.users.title',
+        title: '用户管理',
+        path: '/access-control/users',
+        icon: 'usergroup',
+        permission: 'user.read',
+      },
+      {
+        code: 'role.list.legacy',
+        title_key: 'menu.role_list.title',
+        title: '角色管理',
+        path: '/roles',
+        icon: 'secured',
+        permission: 'role.read',
+      },
+      {
+        code: 'permission.list.current',
+        title_key: 'menu.access_control.permissions.title',
+        title: '权限管理',
+        path: '/access-control/permissions',
+        icon: 'lock-on',
+        permission: 'permission.read',
+      },
+    ]);
+
+    expect(routes).toHaveLength(1);
+    expect(routes[0]?.children?.map((child) => child.path)).toEqual(['overview', 'users', 'roles', 'permissions']);
+    expect(routes[0]?.children?.filter((child) => child.path === 'users')).toHaveLength(1);
+  });
+
   it('为监控模块合成显式父级导航并避免 index 面包屑段', () => {
     const routes = transformBootstrapMenusToRoutes([
       {

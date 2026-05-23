@@ -1,6 +1,6 @@
 <template>
   <section class="management-stats-grid" :class="`management-stats-grid--${layout}`">
-    <article v-for="item in items" :key="item.label" class="management-stats-grid__item">
+    <article v-for="(item, index) in items" :key="`${item.label}-${index}`" class="management-stats-grid__item">
       <div class="management-stats-grid__head">
         <span class="management-stats-grid__label">{{ item.label }}</span>
         <span v-if="item.tip" class="management-stats-grid__tip">{{ item.tip }}</span>

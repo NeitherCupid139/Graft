@@ -4,6 +4,7 @@ import { defineComponent, h } from 'vue';
 
 import { RBAC_PERMISSION_CODE } from '@/modules/rbac/contract/permissions';
 
+import { ACCESS_CONTROL_ROUTE_PATH } from '../../contract/bootstrap';
 import OverviewPage from './index.vue';
 
 const routerMocks = vi.hoisted(() => ({
@@ -136,7 +137,7 @@ describe('AccessControlOverviewPage', () => {
     await wrapper.get('[data-testid="access-control-quick-link-permissions"]').trigger('click');
 
     expect(routerMocks.push).toHaveBeenCalledWith({
-      path: '/access-control/permissions',
+      path: ACCESS_CONTROL_ROUTE_PATH.PERMISSIONS,
     });
   });
 

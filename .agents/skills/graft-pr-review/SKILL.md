@@ -47,7 +47,16 @@ Shortcut: `$graft-pr-review`
     - `stale`
     - `noise`
 11. If any finding is left as `noise` or `stale`, include the concrete local verification reason in the closeout. If a finding is `blocked`, explain the blocker and the next safe startup prompt instead of calling it ignored.
-12. If code is changed, run the smallest validation that satisfies `AGENTS.md`. Prefer `graft-validation-runner` when the correct validation scope is not obvious.
+12. Do not ignore any verified suggestion. If the repair grows large:
+    - prefer `$graft-multi-agent-batch` when the work splits into disjoint reviewable slices
+    - prefer `$graft-multi-agent-loop` when the work needs repeated bounded rounds
+    - if neither is justified yet, report the finding as `blocked` or `next-slice required` with the reason
+13. If any finding is reported as `noise` or AI misjudgment, explicitly record:
+    - which finding it was
+    - the concrete local verification reason
+    - why it was not adopted
+    - wording suitable for replying on the PR
+14. If code is changed, run the smallest validation that satisfies `AGENTS.md`. Prefer `graft-validation-runner` when the correct validation scope is not obvious.
 
 ## Commands
 
@@ -102,6 +111,8 @@ The script should produce:
   `$graft-multi-agent-batch`, `$graft-multi-agent-loop`, or an explicit blocked/next-slice handoff.
 - The only acceptable reasons to leave a verified finding unfixed in the final report are `stale`, `noise`, or a
   clearly stated execution blocker with a next safe step.
+- When a finding is left as `noise` or AI misjudgment, the closeout must name the exact suggestion and give a concrete
+  non-adoption reason that the user can reuse in the PR reply.
 
 ## Example Triggers
 

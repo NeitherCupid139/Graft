@@ -108,7 +108,15 @@ function normalizeAccessControlMenus(menus: BootstrapMenu[]): BootstrapMenu[] {
     });
   }
 
-  return [...synthesizedMenus, ...normalizedMenus].sort(compareAccessControlMenus);
+  const dedupedMenus = new Map<string, BootstrapMenu>();
+  [...synthesizedMenus, ...normalizedMenus].forEach((menu) => {
+    const normalizedPath = normalizePath(menu.path);
+    if (normalizedPath && !dedupedMenus.has(normalizedPath)) {
+      dedupedMenus.set(normalizedPath, menu);
+    }
+  });
+
+  return Array.from(dedupedMenus.values()).sort(compareAccessControlMenus);
 }
 
 function compareAccessControlMenus(left: BootstrapMenu, right: BootstrapMenu) {

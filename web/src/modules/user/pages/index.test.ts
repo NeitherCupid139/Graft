@@ -390,7 +390,7 @@ describe('UserPage', () => {
     await flushPromises();
 
     expect(roleApiMocks.getUserRoleBindings).toHaveBeenCalledWith(7);
-    expect(wrapper.text()).toContain('selection load failed');
+    expect(wrapper.text()).toContain('user.userList.roleDialog.selectionLoadFailed');
     expect(wrapper.get('[data-testid="role-checkbox-group"]').attributes('data-disabled')).toBe('true');
     expect(wrapper.get('[data-testid="user-role-save"]').attributes('disabled')).toBeDefined();
   });

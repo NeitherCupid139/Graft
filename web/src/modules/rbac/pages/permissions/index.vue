@@ -151,7 +151,7 @@
 </template>
 <script setup lang="ts">
 import { MessagePlugin, type TdBaseTableProps } from 'tdesign-vue-next';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import {
@@ -162,6 +162,7 @@ import {
   ManagementTablePagination,
   ManagementToolbar,
 } from '@/shared/components/management';
+import { createLogger } from '@/utils/logger';
 
 import { getPermissions } from '../../api/rbac';
 import type { PermissionListItem } from '../../types/rbac';
@@ -169,6 +170,8 @@ import type { PermissionListItem } from '../../types/rbac';
 defineOptions({
   name: 'PermissionIndex',
 });
+
+const logger = createLogger('rbac.permissionList');
 
 type PermissionFilters = {
   keyword: string;
@@ -253,7 +256,8 @@ async function fetchPermissions() {
     pagination.value.current = 1;
   } catch (error) {
     permissions.value = [];
-    listError.value = error instanceof Error ? error.message : t('rbac.permissionList.loadFailed');
+    logger.error('failed to fetch permissions', error);
+    listError.value = t('rbac.permissionList.loadFailed');
     MessagePlugin.error(listError.value);
   } finally {
     loading.value = false;
@@ -287,6 +291,13 @@ function formatTimestamp(value?: string | null) {
 onMounted(() => {
   fetchPermissions();
 });
+
+watch(
+  () => [filters.value.keyword, filters.value.category] as const,
+  () => {
+    pagination.value.current = 1;
+  },
+);
 </script>
 <style scoped lang="less">
 .permission-page {
