@@ -263,6 +263,18 @@ long-lived worktree/topic pair。
 
 如果切换后发现该方向仍反复争抢共享热点，应撤回为共享基线治理问题处理，而不是放任 dedicated pair 名义存在但实际持续混写。
 
+### 4.4 shared local resource 规则
+
+创建新的 dedicated 或临时 worktree 时，本地共享资源必须只有一套仓库真值：
+
+- worktree 初始化入口应统一走仓库 skill / helper，而不是每个贡献者维护一份私有脚本
+- 不要硬编码机器专属 `ROOT_DIR`、`REPO_DIR`、`WORKTREE_ROOT`
+- 共享本地资源清单应收口在仓库根一个 tracked manifest，并使用相对路径描述 source / target
+- `server/.env`、`web/.env.development`、`.run`、`.idea` 这类本地资源应优先通过相对 symlink 复用 canonical
+  repository root 中的一份本地文件，而不是在每个 worktree 里复制
+- optional 本地文件缺失时应显式告警，但不应因为缺少个人环境文件就阻断 worktree 创建
+- `.local` 之类只在某台机器上临时放过脚本的目录，不得继续作为仓库级 worktree 共享约定或第二真值
+
 ---
 
 ## 5. Tracking 与 Trace 的分工

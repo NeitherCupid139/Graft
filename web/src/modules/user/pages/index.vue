@@ -462,6 +462,8 @@ type UserFilters = {
 };
 
 type UserRow = UserListItem & {
+  // The current page still tolerates legacy read fields when the backend includes them.
+  email?: string | null;
   last_login_at?: string | null;
 };
 

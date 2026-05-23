@@ -450,7 +450,8 @@ import {
 } from '../api/rbac';
 import { RBAC_PERMISSION_CODE } from '../contract/permissions';
 import type { RoleListItem } from '../contract/role';
-import type { CreateRolePayload, PermissionListItem } from '../types/rbac';
+import type { PermissionListItem } from '../types/permission';
+import type { CreateRolePayload } from '../types/rbac';
 
 defineOptions({
   name: 'RolesIndex',
@@ -475,6 +476,10 @@ type PermissionGroup = {
   category: string;
   items: PermissionListItem[];
   title: string;
+};
+
+type RoleRemarkCompat = RoleListItem & {
+  remark?: string | null;
 };
 
 const DEFAULT_VISIBLE_COLUMNS = [
@@ -783,7 +788,7 @@ function countLabel(value: number | undefined, messageKey: string) {
   return t(messageKey, { count: value });
 }
 
-function resolveRoleRemark(role: RoleListItem) {
+function resolveRoleRemark(role: RoleRemarkCompat) {
   return role.remark ?? role.description ?? '';
 }
 

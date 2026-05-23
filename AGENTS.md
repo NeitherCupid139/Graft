@@ -212,9 +212,12 @@ Prefer the repository skills below when their trigger matches the task:
     must be listed explicitly in the task closeout with the concrete reason
 - `graft-plugin-scaffold`
   - use when adding a new `server` plugin or shaping a plugin before implementation
+- `graft-worktree-init`
+  - use when creating or rebuilding a local `Graft` git worktree and the setup should follow the repository-standard
+    shared local resource rules without hard-coded machine paths
 - `graft-commit`
   - use as the canonical scoped commit workflow when the current task slice is ready to commit, whether the trigger is
-    an explicit user request or a `graft-task-closeout` decision that the validated owned scope should be committed
+  an explicit user request or a `graft-task-closeout` decision that the validated owned scope should be committed
 - `graft-push`
   - use when the user explicitly wants the current branch pushed, or when a local push/commit chain is blocked and the
     agent needs to distinguish uncommitted scope, Husky hook failures, upstream ambiguity, or remote rejection before

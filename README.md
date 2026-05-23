@@ -169,10 +169,12 @@ gate, unless a narrowly documented temporary `nolint` is justified。new code mu
 ## 本地启动 `web`
 
 前端开发环境配置不再直接提交真实 `web/.env.development`，而是提交模板文件 `web/.env.example`，本地实际配置保持忽略状态。
+当仓库使用多个长期或临时 worktree 时，推荐只在 canonical repository root 维护一份本地 `web/.env.development`，
+其它 worktree 通过 `graft-worktree-init` 建立相对 symlink 复用，而不是各自复制一份。
 
 最小启动步骤：
 
-1. 复制 `web/.env.example` 为 `web/.env.development`
+1. 首次在 canonical repository root 复制 `web/.env.example` 为 `web/.env.development`
 2. 按本地后端地址调整 `VITE_API_TARGET`
 3. 进入 `web` 目录后执行 `bun run dev`
 
@@ -185,6 +187,40 @@ gate, unless a narrowly documented temporary `nolint` is justified。new code mu
 
 * `web/.env.development`、`web/.env.local` 与其它 `web/.env.*` 本地文件都应保持未跟踪状态。
 * `web/.env.example` 只作为共享模板，不应放入个人密钥或机器专属地址。
+
+## 创建新 worktree
+
+仓库提供 `graft-worktree-init` 作为 worktree 初始化的统一入口。它会：
+
+* 基于当前 git 环境自动探测 canonical `repo_dir`
+* 默认把 worktree 放到同级 `<repo-name>-wt/`
+* 按仓库根的 `.worktree-shared.json` 建立共享本地资源的相对 symlink
+* 自动补上 `web/.env.development` 的 symlink；若 canonical repo root 里不存在该文件，则只告警不失败
+* 清理 legacy `.local` 约定，不再依赖 `.local` 目录或硬编码机器路径
+
+当前共享本地资源真值是仓库根 `.worktree-shared.json`，而不是 `.local`。
+
+## 安装 Git Hooks
+
+本仓库的 Git hooks 真值是仓库根 `.husky/`，不是 `web/package.json` 里的 `prepare` 自动安装。
+
+初始化当前 clone 或 worktree 后，执行：
+
+```bash
+sh scripts/install-git-hooks.sh
+```
+
+自检命令：
+
+```bash
+git config --get core.hooksPath
+```
+
+期望输出：
+
+```text
+.husky
+```
 
 ## 前端验证 `web`
 
@@ -202,3 +238,4 @@ bun run check
 * 开发中间态可以执行更小的直接命令，但 README、skill 和 CI 只能复用这条入口或其显式执行切片，不应再定义第二套
   完成态规则。
 * 本地 contract governance changed-scan 默认在 `pre-commit` 阶段阻断；`pre-push` 不再重复执行该扫描，推送后的正式阻断由 CI 承担。
+* 需要显式复现本地 contract governance changed-scan 时，执行 `cd web && bun run contract:check:changed`。

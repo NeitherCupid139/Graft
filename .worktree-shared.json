@@ -1,0 +1,29 @@
+{
+  "links": [
+    {
+      "source": ".idea",
+      "target": ".idea",
+      "required": false
+    },
+    {
+      "source": ".run",
+      "target": ".run",
+      "required": false
+    },
+    {
+      "source": "server/.env",
+      "target": "server/.env",
+      "required": false
+    },
+    {
+      "source": "web/ai-libs",
+      "target": "web/ai-libs",
+      "required": false
+    },
+    {
+      "source": "web/.env.development",
+      "target": "web/.env.development",
+      "required": false
+    }
+  ]
+}
