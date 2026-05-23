@@ -13,3 +13,36 @@
 - Kept the mapping out of `httpx` and out of `request.ts`.
 - Added the matching OpenAPI `400` examples for invalid argument and password-policy violation.
 - Kept the follow-up conclusion unchanged: `oapi-codegen` is still deferred, and a future Go types-only spike is still blocked on broader write-interface hardening beyond this one sample.
+
+## 2026-05-24 Phase 1 audit for covered write-route rollout
+
+- Re-ran startup governance locally for this delegated round against root `AGENTS.md`, `.ai/environment/tools.ai.yaml`,
+  `server/AGENTS.md`, `web/AGENTS.md`, `ai-plan/public/README.md`, and the active recovery traces.
+- Audited the current covered rollout against the accepted `POST /api/users` sample and recorded the full matrix in
+  `ai-plan/public/write-interface-error-contract-standardization/design/phase-1-audit-and-rollout-plan.md`.
+- Confirmed the current Phase 1 status by route:
+  - `POST /api/users`
+    - aligned baseline
+  - `POST /api/users/{id}/update`
+    - partial: server field semantics exist, OpenAPI examples are generic, frontend update handling is still generic
+  - `POST /api/users/{id}/status`
+    - partial: server field semantics exist, OpenAPI examples are generic, frontend status handling is still generic
+  - `POST /api/users/{id}/reset-password`
+    - partial: server still emits `data.field=new_password`, which conflicts with the accepted request-field naming rule
+  - `POST /api/roles`
+    - partial: server field semantics exist, OpenAPI `400` is generic, frontend still uses generic error handling
+  - `POST /api/roles/{id}/update`
+    - partial: same gap pattern as role create, plus generic `404`
+  - `POST /api/roles/{id}/permissions/assign`
+    - partial: backend field semantics exist, OpenAPI write-error coverage is still incomplete, frontend still uses
+      generic error handling
+  - `POST /api/auth/login`
+    - modeled but deferred from the rollout because it does not currently decide the write-route `data.field`
+      convention
+- Recorded the honest current readiness verdict:
+  - `ready_for_oapi_codegen_types_only_spike: false`
+- Locked the remaining loop plan as:
+  - Phase 2: shared server-side field/data/error-contract alignment
+  - Phase 3: OpenAPI error responses/examples alignment
+  - Phase 4: web module-level structured field-error consumption alignment
+  - Phase 5: focused validation closure and final readiness verdict docs
