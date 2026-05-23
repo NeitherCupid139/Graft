@@ -56,6 +56,23 @@ class DefinitionContextTests(unittest.TestCase):
             )
         )
 
+    def test_web_module_permission_contract_is_canonical_definition_context(self) -> None:
+        """Module-owned permission contracts may define canonical permission literals."""
+        self.assertTrue(
+            MODULE.is_definition_context(
+                "web/src/modules/user/contract/permissions.ts",
+                "  READ: 'user.read',",
+                "user.read",
+            )
+        )
+        self.assertFalse(
+            MODULE.is_definition_context(
+                "web/src/modules/rbac/contract/permission-copy.ts",
+                "  [USER_PERMISSION_CODE.READ]: {",
+                "user.read",
+            )
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

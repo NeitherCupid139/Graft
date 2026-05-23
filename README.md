@@ -200,6 +200,28 @@ gate, unless a narrowly documented temporary `nolint` is justified。new code mu
 
 当前共享本地资源真值是仓库根 `.worktree-shared.json`，而不是 `.local`。
 
+## 安装 Git Hooks
+
+本仓库的 Git hooks 真值是仓库根 `.husky/`，不是 `web/package.json` 里的 `prepare` 自动安装。
+
+初始化当前 clone 或 worktree 后，执行：
+
+```bash
+sh scripts/install-git-hooks.sh
+```
+
+自检命令：
+
+```bash
+git config --get core.hooksPath
+```
+
+期望输出：
+
+```text
+.husky
+```
+
 ## 前端验证 `web`
 
 前端完成态统一通过一个脚本入口执行：
@@ -216,3 +238,4 @@ bun run check
 * 开发中间态可以执行更小的直接命令，但 README、skill 和 CI 只能复用这条入口或其显式执行切片，不应再定义第二套
   完成态规则。
 * 本地 contract governance changed-scan 默认在 `pre-commit` 阶段阻断；`pre-push` 不再重复执行该扫描，推送后的正式阻断由 CI 承担。
+* 需要显式复现本地 contract governance changed-scan 时，执行 `cd web && bun run contract:check:changed`。

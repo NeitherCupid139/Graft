@@ -33,4 +33,4 @@ if [ ! -f "$python_runner" ]; then
 fi
 
 cd "$repo_root"
-"$python_runner" "$scanner" --mode changed
+sh "$python_runner" "$scanner" --mode changed

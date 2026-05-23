@@ -9,6 +9,10 @@ export type PermissionCopyEntry = {
 };
 
 export const PERMISSION_COPY_BY_CODE: Record<string, PermissionCopyEntry> = {
+  [USER_PERMISSION_CODE.READ]: {
+    displayKey: 'rbac.permissionCatalog.userRead.display',
+    descriptionKey: 'rbac.permissionCatalog.userRead.description',
+  },
   [USER_PERMISSION_CODE.CREATE]: {
     displayKey: 'rbac.permissionCatalog.userCreate.display',
     descriptionKey: 'rbac.permissionCatalog.userCreate.description',
@@ -21,15 +25,11 @@ export const PERMISSION_COPY_BY_CODE: Record<string, PermissionCopyEntry> = {
     displayKey: 'rbac.permissionCatalog.userDisable.display',
     descriptionKey: 'rbac.permissionCatalog.userDisable.description',
   },
-  'user.read': {
-    displayKey: 'rbac.permissionCatalog.userRead.display',
-    descriptionKey: 'rbac.permissionCatalog.userRead.description',
-  },
-  'user.session.read': {
+  [USER_PERMISSION_CODE.SESSION_READ]: {
     displayKey: 'rbac.permissionCatalog.userSessionRead.display',
     descriptionKey: 'rbac.permissionCatalog.userSessionRead.description',
   },
-  'user.session.revoke': {
+  [USER_PERMISSION_CODE.SESSION_REVOKE]: {
     displayKey: 'rbac.permissionCatalog.userSessionRevoke.display',
     descriptionKey: 'rbac.permissionCatalog.userSessionRevoke.description',
   },
