@@ -31,3 +31,10 @@
 - Added a thin `rbac` module type alias layer that re-exports `PermissionListItem` and `PermissionListResponse` from `web/src/contracts/openapi/generated/schema.ts`.
 - Switched `web/src/modules/rbac/api/rbac.ts` and the two `rbac` permission-consuming pages to the module-local generated permission DTO aliases.
 - Kept `web/src/utils/request.ts`, request payload typings, `openapi/**`, and `web/src/contracts/openapi/generated/schema.ts` unchanged.
+- Closed the remaining Phase 2C validation blocker by regenerating `web/src/contracts/openapi/generated/schema.ts` from the current root spec so `openapi:types:check` and the full `bun run check` path agree on generated type freshness.
+- Expanded Phase 2C from the initial permission-list pilot to the full currently-covered frontend response DTO surface:
+  `auth/login`, `auth/refresh`, `auth/bootstrap`, `users`, `roles`, and `permissions`.
+- Replaced the handwritten auth/bootstrap response DTO definitions in `web/src/api/model/authModel.ts` with local aliases over generated OpenAPI schema components.
+- Replaced the handwritten user-list response DTO definitions in `web/src/modules/user/types/user.ts`, while keeping `email` and `last_login_at` as page-local compatibility fields only.
+- Replaced the handwritten role-list response DTO definitions in `web/src/modules/rbac/contract/role.ts`, while keeping `remark` fallback compatibility page-local instead of weakening the generated alias.
+- Fixed `web/package.json` `openapi:types:check` so the temporary generated file is formatted under repo-local `.tmp/` with the project Prettier config, avoiding false drift from `.prettierignore` on `/tmp/tmp*`.

@@ -57,12 +57,21 @@
 
 ## Phase 2C Notes
 
-- Phase 2C currently covers only the `GET /api/permissions` response DTO consumption pilot inside `web/src/modules/rbac/**`.
-- `rbac` now owns a thin module-local generated type alias layer so business API files and pages do not import `generated/schema.ts` directly.
-- The pilot consumes `components['schemas']['PermissionListItem']` and `components['schemas']['PermissionListResponse']` through that alias layer.
+- Phase 2C now covers the full currently-modeled frontend response DTO consumption surface for:
+  - `POST /api/auth/login`
+  - `POST /api/auth/refresh`
+  - `GET /api/auth/bootstrap`
+  - `GET /api/users`
+  - `GET /api/roles`
+  - `GET /api/permissions`
+- `auth`, `user`, and `rbac` each own thin local generated type alias layers so business API files, stores, and pages do not import `generated/schema.ts` directly.
+- The rollout consumes `components['schemas']` aliases for `LoginResponse`, `BootstrapResponse`, `UserListItem`, `UserListResponse`, `RoleListItem`, `RoleListResponse`, `PermissionListItem`, and `PermissionListResponse`.
 - `request.ts` remains the transport/runtime truth; this phase does not change envelope unwrap, auth refresh, locale propagation, or trace behavior.
 - Request payload types for role create, role update, and permission assignment remain handwritten in this phase.
-- Next recommended follow-up is evaluating the same pattern for `GET /api/roles` after this permission-list pilot stays stable under frontend validation.
+- User-list page compatibility for legacy read-only fields such as `email` and `last_login_at` stays page-local instead of weakening the generated list item alias.
+- Role-list page compatibility for legacy `remark` fallback stays page-local instead of weakening the generated role DTO alias.
+- During Phase 2C closeout, the tracked generated file `web/src/contracts/openapi/generated/schema.ts` was refreshed to match the current root spec, and `openapi:types:check` was fixed to format a repo-local temporary file instead of a `.prettierignore`-matched `/tmp` path.
+- Next recommended follow-up is extending the same approach from response DTO consumption into request payload governance only after the current OpenAPI coverage expands beyond the present read-focused endpoints.
 
 ## Phase 1.6 Notes
 

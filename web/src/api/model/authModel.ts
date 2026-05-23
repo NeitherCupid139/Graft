@@ -1,5 +1,6 @@
 import { API_CODE, type ApiCode, type ApiResponseCode } from '@/contracts/api/codes';
 import type { LocalizedTitle } from '@/contracts/i18n/locales';
+import type { components } from '@/contracts/openapi/generated/schema';
 
 export { API_CODE };
 export type { ApiCode, ApiResponseCode };
@@ -26,43 +27,13 @@ export interface ApiErrorEnvelope {
 
 export type ApiEnvelope<T> = ApiSuccessEnvelope<T> | ApiErrorEnvelope;
 
-export interface LoginUser {
-  id: number;
-  username: string;
-  display_name: string;
-}
+type AuthSchemas = components['schemas'];
 
-export interface LoginResponse {
-  access_token: string;
-  expires_at: string;
-  must_change_password: boolean;
-  user: LoginUser;
-}
-
-export interface BootstrapMenu {
-  code: string;
-  title_key?: string;
-  title: string;
-  path: string;
-  icon: string;
-  permission: string;
-}
-
-export interface BootstrapLocale {
-  current_locale: string;
-  default_locale: string;
-  fallback_locale: string;
-  supported_locales: string[];
-}
-
-export interface BootstrapResponse {
-  user: LoginUser;
-  must_change_password: boolean;
-  roles: string[];
-  permissions: string[];
-  menus: BootstrapMenu[];
-  locale: BootstrapLocale;
-}
+export type LoginUser = AuthSchemas['LoginUser'];
+export type LoginResponse = AuthSchemas['LoginResponse'];
+export type BootstrapMenu = AuthSchemas['BootstrapMenu'];
+export type BootstrapLocale = AuthSchemas['BootstrapLocale'];
+export type BootstrapResponse = AuthSchemas['BootstrapResponse'];
 
 export interface LoginPayload {
   username: string;

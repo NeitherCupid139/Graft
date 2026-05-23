@@ -478,6 +478,10 @@ type PermissionGroup = {
   title: string;
 };
 
+type RoleRemarkCompat = RoleListItem & {
+  remark?: string | null;
+};
+
 const DEFAULT_VISIBLE_COLUMNS = [
   'role',
   'builtin',
@@ -784,7 +788,7 @@ function countLabel(value: number | undefined, messageKey: string) {
   return t(messageKey, { count: value });
 }
 
-function resolveRoleRemark(role: RoleListItem) {
+function resolveRoleRemark(role: RoleRemarkCompat) {
   return role.remark ?? role.description ?? '';
 }
 
