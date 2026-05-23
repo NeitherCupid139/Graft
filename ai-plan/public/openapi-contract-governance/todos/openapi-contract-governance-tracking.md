@@ -6,6 +6,7 @@
 - Phase 2B minimal TypeScript generation wiring now lands generated OpenAPI types in `web/src/contracts/openapi/generated/schema.ts`.
 - Phase 3 generated TypeScript consumption is now complete for the currently modeled `auth`, `user`, and `rbac` web API surface through module-local alias layers.
 - Phase 3 lightweight client evaluation is closed with a "do not introduce `openapi-fetch` now" result; `web/src/utils/request.ts` remains the transport/runtime truth.
+- Phase 4 delayed Go-generation evaluation is now closed with a "do not introduce `oapi-codegen` now" result for the current rollout scope.
 - Root `openapi/` spec plus fragments now exist for the first covered endpoints.
 - Backend validation now has explicit OpenAPI validation wiring.
 - No OpenAPI-driven business behavior changes were introduced.
@@ -26,7 +27,7 @@
 - Phase 1.6: same-package lightweight reorganization of `server/plugins/user` and `server/plugins/rbac` route-layer files to reduce later OpenAPI DTO integration risk.
 - Phase 2: spec fragments and validation wiring.
 - Phase 3: generated TS consumption and optional lightweight client evaluation.
-- Phase 4: delayed Go generation evaluation.
+- Phase 4: delayed Go generation evaluation, now closed as deferred/no-go for the current rollout scope.
 
 ## Phase 2A Notes
 
@@ -145,6 +146,17 @@
   - `cd web && bun run openapi:types:check`
   - `cd web && bun run check`
   - `cd server && go run ./cmd/graft validate backend --stage openapi`
+
+## Phase 4 Notes
+
+- Phase 4 is now considered evaluated and closed as deferred/no-go for the current rollout scope; no Go generated-code wiring was introduced.
+- The current `server` boundary still keeps package-local handwritten HTTP request DTOs in `server/plugins/user/dto_http_request.go` and `server/plugins/rbac/dto_http_request.go`, so introducing generated Go models now would create a second DTO truth before the backend contract surface is broad enough to justify that extra layer.
+- `server/go.mod` does not currently depend on `oapi-codegen`, and the accepted backend validation chain only requires root-spec validation through `graft validate openapi` / `graft validate backend`; there is no existing repository entrypoint or ownership boundary for generated Go contract artifacts yet.
+- Letting `oapi-codegen` generate server interfaces now would conflict with the active design constraint that plugin route registration, lifecycle wiring, and handler ownership remain explicit and plugin-local rather than being pulled behind a generated interface layer.
+- The honest current recommendation is to stay on `spec-first + TS-first + explicit server DTOs` until a later slice can prove a narrower Go-generated benefit without weakening plugin boundaries or inventing unsupported runtime wiring.
+- Phase 4 validation evidence:
+  - `cd web && bun run check`
+  - `cd server && go run ./cmd/graft validate backend`
 
 ## Phase 1.6 Notes
 

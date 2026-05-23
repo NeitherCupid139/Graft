@@ -89,6 +89,7 @@
 - 改动范围：仅在 Auth/User/RBAC 稳定后，试点 `oapi-codegen` 生成 Go models 或 server interface。
 - 不做事项：Monitor 不先行。
 - 验收标准：若收益不明显可停留在 spec-first + TS-first。
+- 当前结论：现阶段关闭为 deferred/no-go，不引入 `oapi-codegen`。继续保持 `spec-first + TS-first + explicit server DTOs`，直到后续有更稳定的跨插件 Go contract 需求、明确的生成物归属，以及不会削弱插件显式路由/生命周期边界的验证入口。
 
 ## 8. 风险与规避
 
