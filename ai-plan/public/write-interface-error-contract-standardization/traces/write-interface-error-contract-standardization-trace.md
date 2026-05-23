@@ -46,3 +46,22 @@
   - Phase 3: OpenAPI error responses/examples alignment
   - Phase 4: web module-level structured field-error consumption alignment
   - Phase 5: focused validation closure and final readiness verdict docs
+
+## 2026-05-24 Phase 2 server-side alignment evidence closure
+
+- Re-checked the covered backend write routes against the actual request DTOs and route handlers before changing runtime
+  code.
+- Corrected the earlier Phase 1 audit note for `POST /api/users/{id}/reset-password`:
+  - the current request-contract field name is already `new_password`
+  - the existing backend `data.field=new_password` mapping is therefore aligned with the accepted rule that
+    `data.field` must use the current request-contract field name
+  - no `httpx` or plugin-runtime refactor was justified for this route in Phase 2
+- Added focused user-plugin route tests proving the covered reset-password error behavior:
+  - password-policy violation returns `AuthPasswordPolicyViolation` with `data.field=new_password`
+  - password-reuse rejection returns `AuthPasswordReuseForbidden` with `data.field=new_password`
+- Re-confirmed the covered RBAC write routes already have focused field-level error assertions for:
+  - role create/update name conflicts -> `data.field=name`
+  - role permission assignment invalid inputs -> `data.field=permission_ids`
+- Phase 2 conclusion:
+  - the covered server-side write-error contract surface is aligned without broadening ownership or introducing new
+    abstractions

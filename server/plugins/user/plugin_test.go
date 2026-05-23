@@ -1968,6 +1968,76 @@ func TestResetUserPasswordRouteUsesAtomicResetContract(t *testing.T) {
 	assertNilSuccessPayload(t, recorder)
 }
 
+func TestResetUserPasswordRouteReturnsPasswordPolicyViolationContract(t *testing.T) {
+	authRepo := &pluginTestAuthRepository{
+		resetPasswordAndRevoke: func(context.Context, store.ResetPasswordAndRevokeSessionsInput) error {
+			t.Fatal("expected reset password repository operation not to be called")
+			return nil
+		},
+	}
+	_, engine := newPluginTestContextWithPermissions(t, fixedUserRepository(testUser(8, "bob", "Bob"), testUser(9, "admin", "Admin")), authRepo, map[uint64][]rbacstore.Permission{
+		9: {
+			{Code: usercontract.UserReadPermission.String()},
+			{Code: usercontract.UserUpdatePermission.String()},
+		},
+	})
+
+	adminSession := seedRefreshSession(t, authRepo, 9, time.Now().UTC().Add(time.Hour))
+	request := newAuthorizedJSONRequestForSession(
+		t,
+		http.MethodPost,
+		usersRoutePath(usercontract.UserResetPasswordRoute, ":id", "8"),
+		9,
+		adminSession,
+		map[string]any{"new_password": "short"},
+	)
+	recorder := httptest.NewRecorder()
+	engine.ServeHTTP(recorder, request)
+
+	assertStatus(t, recorder, http.StatusBadRequest)
+	payload := decodeErrorResponse(t, recorder)
+	assertContractErrorPayload(t, payload, messagecontract.AuthPasswordPolicyViolation, "zh-CN")
+	assertErrorFieldDetail(t, payload, "new_password")
+	if payload.Code != errorcodecontract.AuthPasswordPolicyViolation.String() {
+		t.Fatalf("expected password policy code, got %#v", payload)
+	}
+}
+
+func TestResetUserPasswordRouteReturnsPasswordReuseForbiddenContract(t *testing.T) {
+	authRepo := &pluginTestAuthRepository{
+		resetPasswordAndRevoke: func(context.Context, store.ResetPasswordAndRevokeSessionsInput) error {
+			t.Fatal("expected reset password repository operation not to be called")
+			return nil
+		},
+	}
+	_, engine := newPluginTestContextWithPermissions(t, fixedUserRepository(testUser(8, "bob", "Bob"), testUser(9, "admin", "Admin")), authRepo, map[uint64][]rbacstore.Permission{
+		9: {
+			{Code: usercontract.UserReadPermission.String()},
+			{Code: usercontract.UserUpdatePermission.String()},
+		},
+	})
+
+	adminSession := seedRefreshSession(t, authRepo, 9, time.Now().UTC().Add(time.Hour))
+	request := newAuthorizedJSONRequestForSession(
+		t,
+		http.MethodPost,
+		usersRoutePath(usercontract.UserResetPasswordRoute, ":id", "8"),
+		9,
+		adminSession,
+		map[string]any{"new_password": defaultAdminPassword},
+	)
+	recorder := httptest.NewRecorder()
+	engine.ServeHTTP(recorder, request)
+
+	assertStatus(t, recorder, http.StatusBadRequest)
+	payload := decodeErrorResponse(t, recorder)
+	assertContractErrorPayload(t, payload, messagecontract.AuthPasswordReuseForbidden, "zh-CN")
+	assertErrorFieldDetail(t, payload, "new_password")
+	if payload.Code != errorcodecontract.AuthPasswordReuseForbidden.String() {
+		t.Fatalf("expected password reuse code, got %#v", payload)
+	}
+}
+
 func TestDeleteUserRouteRevokesSessionsAndReturnsNilPayload(t *testing.T) {
 	authRepo := &pluginTestAuthRepository{}
 	_, engine := newPluginTestContextWithPermissions(t, pluginTestUserRepository{
