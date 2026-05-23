@@ -218,12 +218,15 @@ def main() -> int:
     try:
         repo_dir = Path(args.repo_dir).expanduser().resolve() if args.repo_dir else resolve_git_repo(Path.cwd())
         manifest_path = repo_dir / ".worktree-shared.json"
-        if not manifest_path.exists():
+        if not manifest_path.is_file():
             raise WorktreeInitError(f"Manifest not found: {manifest_path}")
         ensure_branch_name(repo_dir, args.branch_name)
         worktree_root = infer_worktree_root(repo_dir, args.worktree_root)
         target_dir = (worktree_root / args.branch_name).resolve()
-        specs = load_manifest(manifest_path)
+        try:
+            specs = load_manifest(manifest_path)
+        except OSError as exc:
+            raise WorktreeInitError(f"Failed to read manifest: {manifest_path}: {exc}") from exc
         branch_exists = local_branch_exists(repo_dir, args.branch_name)
 
         print_plan(
