@@ -1,3 +1,4 @@
+import { readErrorField } from '@/modules/shared/error-field';
 import type { ApiRequestError } from '@/types/axios';
 
 export type RoleFormField = 'name' | 'display' | 'description';
@@ -14,7 +15,7 @@ const rolePermissionFieldMap: Record<string, RolePermissionField> = {
 };
 
 export function resolveRoleFormFieldError(error: ApiRequestError): RoleFormField | null {
-  const field = readField(error.responseData);
+  const field = readErrorField(error.responseData);
   if (!field) {
     return null;
   }
@@ -23,24 +24,10 @@ export function resolveRoleFormFieldError(error: ApiRequestError): RoleFormField
 }
 
 export function resolveRolePermissionFieldError(error: ApiRequestError): RolePermissionField | null {
-  const field = readField(error.responseData);
+  const field = readErrorField(error.responseData);
   if (!field) {
     return null;
   }
 
   return rolePermissionFieldMap[field] ?? null;
-}
-
-function readField(payload: unknown): string | null {
-  if (!payload || typeof payload !== 'object' || !('data' in payload)) {
-    return null;
-  }
-
-  const data = (payload as { data?: unknown }).data;
-  if (!data || typeof data !== 'object' || !('field' in data)) {
-    return null;
-  }
-
-  const field = (data as { field?: unknown }).field;
-  return typeof field === 'string' && field.trim() !== '' ? field : null;
 }

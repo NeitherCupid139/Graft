@@ -1,4 +1,5 @@
 import { API_CODE } from '@/contracts/api/codes';
+import { readErrorField } from '@/modules/shared/error-field';
 import type { ApiRequestError } from '@/types/axios';
 
 export type UserFormField = 'username' | 'display' | 'password';
@@ -22,7 +23,7 @@ const resetPasswordFieldMap: Record<string, ResetPasswordField> = {
 };
 
 export function resolveUserFormFieldError(error: ApiRequestError, mode: 'create' | 'edit'): UserFormField | null {
-  const field = readField(error.responseData);
+  const field = readErrorField(error.responseData);
   if (!field) {
     return mode === 'create' && error.code === API_CODE.AUTH_PASSWORD_POLICY_VIOLATION ? 'password' : null;
   }
@@ -31,7 +32,7 @@ export function resolveUserFormFieldError(error: ApiRequestError, mode: 'create'
 }
 
 export function resolveResetPasswordFieldError(error: ApiRequestError): ResetPasswordField | null {
-  const field = readField(error.responseData);
+  const field = readErrorField(error.responseData);
   if (!field) {
     return error.code === API_CODE.AUTH_PASSWORD_POLICY_VIOLATION ||
       error.code === API_CODE.AUTH_PASSWORD_REUSE_FORBIDDEN
@@ -40,18 +41,4 @@ export function resolveResetPasswordFieldError(error: ApiRequestError): ResetPas
   }
 
   return resetPasswordFieldMap[field] ?? null;
-}
-
-function readField(payload: unknown): string | null {
-  if (!payload || typeof payload !== 'object' || !('data' in payload)) {
-    return null;
-  }
-
-  const data = (payload as { data?: unknown }).data;
-  if (!data || typeof data !== 'object' || !('field' in data)) {
-    return null;
-  }
-
-  const field = (data as { field?: unknown }).field;
-  return typeof field === 'string' && field.trim() !== '' ? field : null;
 }
