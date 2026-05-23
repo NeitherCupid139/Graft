@@ -86,6 +86,12 @@
   - `cd server && go run ./cmd/graft validate backend --stage openapi`
   - `cd web && bun run openapi:types:check`
   - `cd web && bun run check`
+- Phase 2E closeout note:
+  - The previously introduced `web/package.json` `openapi:types:check` consistency fix remains correct in the current worktree.
+  - Revalidation confirmed no follow-up change is needed in `web/package.json` or `.prettierignore` for this closeout slice.
+  - Closeout validation evidence:
+    - `cd web && bun run openapi:types:check`
+    - `cd web && bun run check`
 
 ## `POST /api/users` Sample Notes
 

@@ -62,3 +62,6 @@
 - Started the next user write-path payload slice for `POST /api/users/{id}/update`, `POST /api/users/{id}/status`, and `POST /api/users/{id}/reset-password`.
 - Added root OpenAPI request schemas and path fragments for the user update, status update, and password reset write paths, keeping the existing server DTO shapes unchanged.
 - Switched `web/src/modules/user/types/user.ts` to thin generated aliases for `UpdateUserPayload`, `UpdateUserStatusPayload`, and `ResetUserPasswordPayload`.
+- Ran the Phase 2E user write payload rollout validation closeout for the `web` side.
+- Rechecked `web/package.json` `openapi:types:check` against the current worktree and confirmed the repo-local `.tmp/` plus project-Prettier alignment fix is already present; no additional `web/package.json` or `.prettierignore` change was required in this slice.
+- Validated the closeout state with `cd web && bun run openapi:types:check` and the full frontend entrypoint `cd web && bun run check`.
