@@ -8,6 +8,7 @@
 - Backend validation now has explicit OpenAPI validation wiring.
 - No OpenAPI-driven business behavior changes were introduced.
 - The audited Phase 2A spec now passes the actual `kin-openapi` validation path used by `graft validate openapi`.
+- The user write-path request payload rollout now has spec coverage for `POST /api/users/{id}/update`, `POST /api/users/{id}/status`, and `POST /api/users/{id}/reset-password`.
 
 ## Active Goals
 

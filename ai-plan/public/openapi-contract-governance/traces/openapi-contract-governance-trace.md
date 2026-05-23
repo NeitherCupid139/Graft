@@ -59,3 +59,6 @@
 - Replaced the handwritten `CreateRolePayload` and `UpdateRolePayload` in `web/src/modules/rbac/types/rbac.ts` with thin aliases over generated schema components.
 - Kept the role drawer's local form state in `web/src/modules/rbac/pages/index.vue` and moved the generated payload shaping to narrow submit-time mappers.
 - Validated the RBAC role write-path slice with `go run ./cmd/graft validate backend --stage openapi` and `bun run check`.
+- Started the next user write-path payload slice for `POST /api/users/{id}/update`, `POST /api/users/{id}/status`, and `POST /api/users/{id}/reset-password`.
+- Added root OpenAPI request schemas and path fragments for the user update, status update, and password reset write paths, keeping the existing server DTO shapes unchanged.
+- Switched `web/src/modules/user/types/user.ts` to thin generated aliases for `UpdateUserPayload`, `UpdateUserStatusPayload`, and `ResetUserPasswordPayload`.

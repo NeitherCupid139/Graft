@@ -13,16 +13,6 @@ export type UserListResponse = Omit<RawUserListResponse, 'items'> & {
 };
 
 export type CreateUserPayload = components['schemas']['CreateUserRequest'];
-
-export interface UpdateUserPayload {
-  username: string;
-  display: string;
-}
-
-export interface UpdateUserStatusPayload {
-  status: UserStatus;
-}
-
-export interface ResetUserPasswordPayload {
-  new_password: string;
-}
+export type UpdateUserPayload = components['schemas']['UpdateUserRequest'];
+export type UpdateUserStatusPayload = components['schemas']['UpdateUserStatusRequest'];
+export type ResetUserPasswordPayload = components['schemas']['ResetUserPasswordRequest'];

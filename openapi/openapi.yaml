@@ -28,6 +28,12 @@ paths:
     $ref: ./paths/auth.bootstrap.yaml
   /api/users:
     $ref: ./paths/users.yaml
+  /api/users/{id}/update:
+    $ref: ./paths/users.update.yaml
+  /api/users/{id}/status:
+    $ref: ./paths/users.status.yaml
+  /api/users/{id}/reset-password:
+    $ref: ./paths/users.reset-password.yaml
   /api/roles:
     $ref: ./paths/roles.list.yaml
   /api/roles/{id}/update:
@@ -52,6 +58,12 @@ components:
       $ref: ./components/schemas/login-response.yaml
     CreateUserRequest:
       $ref: ./components/schemas/create-user-request.yaml
+    UpdateUserRequest:
+      $ref: ./components/schemas/update-user-request.yaml
+    UpdateUserStatusRequest:
+      $ref: ./components/schemas/update-user-status-request.yaml
+    ResetUserPasswordRequest:
+      $ref: ./components/schemas/reset-user-password-request.yaml
     BootstrapMenu:
       $ref: ./components/schemas/bootstrap-menu.yaml
     BootstrapLocale:
