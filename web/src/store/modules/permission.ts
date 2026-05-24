@@ -3,7 +3,7 @@ import { defineStore } from 'pinia';
 import type { RouteRecordRaw } from 'vue-router';
 
 import { AUTH_ROUTE_PATH } from '@/modules/auth/contract/routes';
-import type { BootstrapResponse } from '@/modules/auth/types/auth';
+import type { BootstrapResponse } from '@/modules/auth/contract/types';
 import { store } from '@/store';
 import { transformBootstrapMenusToRoutes } from '@/utils/route/bootstrap';
 
