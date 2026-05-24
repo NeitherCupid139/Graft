@@ -3,6 +3,4 @@ allOf:
   - type: object
     properties:
       data:
-        type: object
-        nullable: true
-        additionalProperties: true
+        $ref: ./user-role-binding-response.yaml

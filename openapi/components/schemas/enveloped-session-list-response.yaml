@@ -3,6 +3,6 @@ allOf:
   - type: object
     properties:
       data:
-        type: object
-        nullable: true
-        additionalProperties: true
+        type: array
+        items:
+          $ref: ./session-summary.yaml
