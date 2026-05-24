@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { API_CODE } from '@/contracts/api/codes';
 import { STORAGE_KEY } from '@/contracts/storage/keys';
-import type { BootstrapResponse, LoginResponse } from '@/modules/auth/types/auth';
+import type { BootstrapResponse, LoginResponse } from '@/modules/auth/contract/types';
 
 const authApiMocks = vi.hoisted(() => ({
   getBootstrap: vi.fn<() => Promise<BootstrapResponse>>(),

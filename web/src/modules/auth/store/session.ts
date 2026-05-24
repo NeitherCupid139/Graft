@@ -5,7 +5,7 @@ import { normalizeLocale } from '@/contracts/i18n/locales';
 import { STORAGE_KEY } from '@/contracts/storage/keys';
 import { i18n, supportedLocales } from '@/locales';
 import { getBootstrap, login as loginApi, logout as logoutApi, refresh as refreshApi } from '@/modules/auth/api/auth';
-import type { BootstrapResponse, LoginResponse } from '@/modules/auth/types/auth';
+import type { BootstrapResponse, LoginResponse } from '@/modules/auth/contract/types';
 import { usePermissionStore } from '@/store/modules/permission';
 import type { ApiRequestError } from '@/types/axios';
 import { clearAccessToken, setAccessToken } from '@/utils/auth-state';

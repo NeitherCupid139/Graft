@@ -1,5 +1,6 @@
 // Package auth 定义认证与会话生命周期插件的长期边界。
 //
-// Phase 1 只建立最小插件骨架与 capability owner，不接管现有 user 插件里的
-// token、refresh session、cookie 或 `/auth/*` 运行时实现。
+// 当前阶段由 auth 插件承接 `/auth/*` 路由所有权，并作为认证与会话能力边界入口。
+// Register 负责声明认证路由与稳定 capability，后续职责迁移仍需通过插件契约与稳定接口逐步收口，
+// 而不是把 user 插件中的历史实现细节继续视为长期边界真相。
 package auth

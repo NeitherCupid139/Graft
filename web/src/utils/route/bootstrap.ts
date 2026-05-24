@@ -2,7 +2,7 @@ import type { RouteRecordRaw } from 'vue-router';
 
 import { getBootstrapRouteRegistration } from '@/modules';
 import { ACCESS_CONTROL_ROUTE_PATH } from '@/modules/access-control/contract/bootstrap';
-import type { BootstrapMenu } from '@/modules/auth/types/auth';
+import type { BootstrapMenu } from '@/modules/auth/contract/types';
 import { BLANK_LAYOUT, LAYOUT } from '@/utils/route/constant';
 import type { AppRouteMeta } from '@/utils/types';
 

@@ -6,7 +6,6 @@
 - Status: `active recovery entry`
 - Goal: run one isolated `oapi-codegen` Go types-only spike without changing backend runtime ownership, plugin lifecycle wiring, or frontend runtime/client truth.
 - Recovery source: new standalone topic after archiving two completed OpenAPI governance topics
-- Worktree: `/home/gewuyou/project/go/Graft-wt/feat/wt-oapi-codegen-types-only-spike`
 - Branch: `feat/wt-oapi-codegen-types-only-spike`
 
 ## Scope

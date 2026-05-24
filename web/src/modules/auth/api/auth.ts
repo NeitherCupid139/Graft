@@ -4,7 +4,7 @@ import type {
   CompleteRequiredPasswordChangePayload,
   LoginPayload,
   LoginResponse,
-} from '@/modules/auth/types/auth';
+} from '@/modules/auth/contract/types';
 import { request } from '@/utils/request';
 
 export function login(payload: LoginPayload) {

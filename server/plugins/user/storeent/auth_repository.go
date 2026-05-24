@@ -50,7 +50,7 @@ func (r *authRepository) GetUserCredentialByUsername(ctx context.Context, userna
 func (r *authRepository) SetPasswordHash(ctx context.Context, input userstore.SetPasswordHashInput) error {
 	id, err := toEntID(input.UserID)
 	if err != nil {
-		if err == userstore.ErrInvalidID {
+		if errors.Is(err, userstore.ErrInvalidID) {
 			return userstore.ErrUserNotFound
 		}
 		return err
@@ -79,7 +79,7 @@ func (r *authRepository) ChangePasswordAndRevokeOtherRefreshSessions(
 ) error {
 	userID, err := toEntID(input.UserID)
 	if err != nil {
-		if err == userstore.ErrInvalidID {
+		if errors.Is(err, userstore.ErrInvalidID) {
 			return userstore.ErrUserNotFound
 		}
 		return err
@@ -216,6 +216,9 @@ func (r *authRepository) RevokeRefreshSession(ctx context.Context, input usersto
 func (r *authRepository) RevokeRefreshSessionsByUserID(ctx context.Context, input userstore.RevokeRefreshSessionsByUserIDInput) error {
 	userID, err := toEntID(input.UserID)
 	if err != nil {
+		if errors.Is(err, userstore.ErrInvalidID) {
+			return userstore.ErrUserNotFound
+		}
 		return err
 	}
 

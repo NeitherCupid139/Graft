@@ -10,7 +10,7 @@ import { STORAGE_KEY } from '@/contracts/storage/keys';
 import { i18n } from '@/locales';
 import { AUTH_API_PATH } from '@/modules/auth/contract/paths';
 import { AUTH_ROUTE_PATH } from '@/modules/auth/contract/routes';
-import type { LoginResponse } from '@/modules/auth/types/auth';
+import type { LoginResponse } from '@/modules/auth/contract/types';
 import type { ApiRequestError, AxiosRequestConfigRetry, RequestOptions } from '@/types/axios';
 import { clearAccessToken, getAccessToken, setAccessToken } from '@/utils/auth-state';
 

@@ -226,10 +226,12 @@ func (s userService) CreateUser(
 	if s.users == nil {
 		return userstore.User{}, errors.New("user repository is unavailable")
 	}
-	if strings.TrimSpace(command.Username) == "" {
+	username := strings.TrimSpace(command.Username)
+	display := strings.TrimSpace(command.Display)
+	if username == "" {
 		return userstore.User{}, errInvalidUserPayload
 	}
-	if strings.TrimSpace(command.Display) == "" {
+	if display == "" {
 		return userstore.User{}, errInvalidUserPayload
 	}
 	if err := policy.ValidateNewPassword(command.Password); err != nil {
@@ -241,8 +243,8 @@ func (s userService) CreateUser(
 		return userstore.User{}, err
 	}
 	input := userstore.CreateUserInput{
-		Username:           command.Username,
-		Display:            command.Display,
+		Username:           username,
+		Display:            display,
 		Status:             normalizeManagedUserStatus(""),
 		PasswordHash:       hash,
 		MustChangePassword: true,
@@ -256,14 +258,16 @@ func (s userService) UpdateUser(ctx context.Context, command UpdateUserCommand) 
 	if s.users == nil {
 		return userstore.User{}, errors.New("user repository is unavailable")
 	}
-	if strings.TrimSpace(command.Username) == "" || strings.TrimSpace(command.Display) == "" {
+	username := strings.TrimSpace(command.Username)
+	display := strings.TrimSpace(command.Display)
+	if username == "" || display == "" {
 		return userstore.User{}, errInvalidUserPayload
 	}
 
 	return s.users.Update(ctx, userstore.UpdateUserInput{
 		ID:       command.ID,
-		Username: command.Username,
-		Display:  command.Display,
+		Username: username,
+		Display:  display,
 		ActorID:  command.ActorID,
 	})
 }

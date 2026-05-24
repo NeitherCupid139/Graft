@@ -27,14 +27,20 @@ export async function completeRestrictedPasswordChange(options: CompleteRestrict
   const normalizedRedirectPath = redirectPath
     ? (() => {
         try {
-          return new URL(redirectPath, window.location.origin).pathname;
+          const parsed = new URL(redirectPath, window.location.origin);
+          if (parsed.origin !== window.location.origin) {
+            return '';
+          }
+          return `${parsed.pathname}${parsed.search}${parsed.hash}`;
         } catch {
-          return redirectPath.split('?')[0].split('#')[0];
+          return redirectPath.startsWith('/') ? redirectPath : '';
         }
       })()
     : '';
   const nextPath =
-    normalizedRedirectPath === AUTH_ROUTE_PATH.RESTRICTED_SESSION || !redirectPath ? fallbackPath : redirectPath;
+    !normalizedRedirectPath || normalizedRedirectPath === AUTH_ROUTE_PATH.RESTRICTED_SESSION
+      ? fallbackPath
+      : normalizedRedirectPath;
 
   await options.replace(nextPath);
 }
