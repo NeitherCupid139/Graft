@@ -44,6 +44,7 @@ type Runtime struct {
 	database           *database.Resources
 	redis              *redis.Client
 	server             *httpx.Server
+	openapiDocs        *openAPIDocsAssets
 	eventBus           eventbus.Bus
 	services           *container.Container
 	menuRegistry       *menu.Registry
@@ -67,6 +68,49 @@ func NewRuntime() (*Runtime, error) {
 		return nil, fmt.Errorf("load config: %w", err)
 	}
 
+	runtime, err := newRuntimeCore(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := runtime.loadOptionalDocsAssets(); err != nil {
+		_ = runtime.closeCoreResources()
+		return nil, err
+	}
+
+	if err := runtime.registerCoreServices(); err != nil {
+		_ = runtime.closeCoreResources()
+		return nil, err
+	}
+
+	runtime.registerCoreRoutes(runtime.server.Engine())
+
+	orderedDescriptors, err := pluginregistry.OrderedDescriptors()
+	if err != nil {
+		_ = runtime.closeCoreResources()
+		return nil, fmt.Errorf("order runtime plugin descriptors: %w", err)
+	}
+	runtime.runtimeMetadata = plugin.NewRuntimeMetadata(orderedDescriptors)
+
+	plugins, err := pluginregistry.BuildPlugins(plugin.BuildContext{
+		Services: runtime.services,
+	})
+	if err != nil {
+		_ = runtime.closeCoreResources()
+		return nil, fmt.Errorf("build runtime plugins: %w", err)
+	}
+
+	for _, current := range plugins {
+		if err := runtime.pluginManager.RegisterPlugin(current); err != nil {
+			_ = runtime.closeCoreResources()
+			return nil, err
+		}
+	}
+
+	return runtime, nil
+}
+
+func newRuntimeCore(cfg *config.Config) (*Runtime, error) {
 	runtimeLogger, err := logger.New(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("create logger: %w", err)
@@ -85,60 +129,20 @@ func NewRuntime() (*Runtime, error) {
 		return nil, err
 	}
 
-	server := httpx.NewServer()
-	eventBus := eventbus.New(runtimeLogger)
-	services := container.New()
-	localizer := i18n.New(cfg.I18n)
-	menuRegistry := menu.NewRegistry()
-	permissionRegistry := permission.NewRegistry()
-	cronRegistry := cronx.NewRegistry()
-	pluginManager := plugin.NewManager()
-
-	runtime := &Runtime{
+	return &Runtime{
 		config:             cfg,
 		logger:             runtimeLogger,
-		i18n:               localizer,
+		i18n:               i18n.New(cfg.I18n),
 		database:           databaseResources,
 		redis:              redisClient,
-		server:             server,
-		eventBus:           eventBus,
-		services:           services,
-		menuRegistry:       menuRegistry,
-		permissionRegistry: permissionRegistry,
-		cronRegistry:       cronRegistry,
-		pluginManager:      pluginManager,
-	}
-
-	if err := runtime.registerCoreServices(); err != nil {
-		_ = runtime.closeCoreResources()
-		return nil, err
-	}
-
-	runtime.registerCoreRoutes(server.Engine())
-
-	orderedDescriptors, err := pluginregistry.OrderedDescriptors()
-	if err != nil {
-		_ = runtime.closeCoreResources()
-		return nil, fmt.Errorf("order runtime plugin descriptors: %w", err)
-	}
-	runtime.runtimeMetadata = plugin.NewRuntimeMetadata(orderedDescriptors)
-
-	plugins, err := pluginregistry.BuildPlugins(plugin.BuildContext{
-		Services: services,
-	})
-	if err != nil {
-		_ = runtime.closeCoreResources()
-		return nil, fmt.Errorf("build runtime plugins: %w", err)
-	}
-
-	for _, current := range plugins {
-		if err := runtime.pluginManager.RegisterPlugin(current); err != nil {
-			_ = runtime.closeCoreResources()
-			return nil, err
-		}
-	}
-
-	return runtime, nil
+		server:             httpx.NewServer(),
+		eventBus:           eventbus.New(runtimeLogger),
+		services:           container.New(),
+		menuRegistry:       menu.NewRegistry(),
+		permissionRegistry: permission.NewRegistry(),
+		cronRegistry:       cronx.NewRegistry(),
+		pluginManager:      plugin.NewManager(),
+	}, nil
 }
 
 // Run 先执行插件注册与启动，再启动 HTTP 服务。
@@ -209,6 +213,20 @@ func (r *Runtime) Run(runCtx context.Context) error {
 	return nil
 }
 
+func (r *Runtime) loadOptionalDocsAssets() error {
+	if r == nil || r.config == nil || !r.config.Docs.Enabled {
+		return nil
+	}
+
+	docsAssets, err := loadOpenAPIDocsAssets()
+	if err != nil {
+		return fmt.Errorf("load openapi docs assets: %w", err)
+	}
+
+	r.openapiDocs = docsAssets
+	return nil
+}
+
 func (r *Runtime) registerCoreRoutes(engine *gin.Engine) {
 	engine.GET("/healthz", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{
@@ -219,6 +237,25 @@ func (r *Runtime) registerCoreRoutes(engine *gin.Engine) {
 			"permissions":    len(r.permissionRegistry.Items()),
 			"jobs":           len(r.cronRegistry.Items()),
 		})
+	})
+
+	if r == nil || r.config == nil || !r.config.Docs.Enabled || r.openapiDocs == nil {
+		return
+	}
+
+	engine.GET(openapiJSONPath, func(ctx *gin.Context) {
+		ctx.Data(http.StatusOK, "application/json; charset=utf-8", r.openapiDocs.json)
+	})
+	engine.GET(openapiYAMLPath, func(ctx *gin.Context) {
+		ctx.Data(http.StatusOK, "application/yaml; charset=utf-8", r.openapiDocs.yaml)
+	})
+	engine.GET(openapiDocsPath, func(ctx *gin.Context) {
+		html, err := renderScalarDocsHTML(openapiJSONPath)
+		if err != nil {
+			ctx.String(http.StatusInternalServerError, "render docs page: %v", err)
+			return
+		}
+		ctx.Data(http.StatusOK, "text/html; charset=utf-8", html)
 	})
 }
 

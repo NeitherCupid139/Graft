@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -468,5 +469,77 @@ func TestRegisterCoreRoutesHealthzReportsRegistryCounts(t *testing.T) {
 	}
 	if payload.Menus != 2 || payload.Permissions != 1 || payload.Jobs != 3 {
 		t.Fatalf("expected registry counts 2/1/3, got %d/%d/%d", payload.Menus, payload.Permissions, payload.Jobs)
+	}
+}
+
+func TestRegisterCoreRoutesServesOpenAPIDocsWhenEnabled(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	docsAssets, err := loadOpenAPIDocsAssets()
+	if err != nil {
+		t.Fatalf("load openapi docs assets: %v", err)
+	}
+
+	runtime := &Runtime{
+		config:             &config.Config{Docs: config.DocsConfig{Enabled: true}},
+		i18n:               i18n.New(config.I18nConfig{DefaultLocale: "zh-CN", FallbackLocale: "en-US", SupportedLocales: []string{"zh-CN", "en-US"}}),
+		menuRegistry:       menu.NewRegistry(),
+		permissionRegistry: permission.NewRegistry(),
+		cronRegistry:       cronx.NewRegistry(),
+		openapiDocs:        docsAssets,
+	}
+
+	engine := gin.New()
+	runtime.registerCoreRoutes(engine)
+
+	testCases := []struct {
+		path        string
+		contentType string
+		contains    string
+	}{
+		{path: openapiJSONPath, contentType: "application/json; charset=utf-8", contains: "\"openapi\":\"3.1.0\""},
+		{path: openapiYAMLPath, contentType: "application/yaml; charset=utf-8", contains: "openapi: 3.1.0"},
+		{path: openapiDocsPath, contentType: "text/html; charset=utf-8", contains: `data-url="/openapi.json"`},
+	}
+
+	for _, testCase := range testCases {
+		recorder := httptest.NewRecorder()
+		request := httptest.NewRequest(http.MethodGet, testCase.path, nil)
+		engine.ServeHTTP(recorder, request)
+
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("%s: expected status %d, got %d", testCase.path, http.StatusOK, recorder.Code)
+		}
+		if contentType := recorder.Header().Get("Content-Type"); contentType != testCase.contentType {
+			t.Fatalf("%s: expected content type %q, got %q", testCase.path, testCase.contentType, contentType)
+		}
+		if !strings.Contains(recorder.Body.String(), testCase.contains) {
+			t.Fatalf("%s: expected body to contain %q", testCase.path, testCase.contains)
+		}
+	}
+}
+
+func TestRegisterCoreRoutesSkipsOpenAPIDocsWhenDisabled(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	runtime := &Runtime{
+		config:             &config.Config{Docs: config.DocsConfig{Enabled: false}},
+		i18n:               i18n.New(config.I18nConfig{DefaultLocale: "zh-CN", FallbackLocale: "en-US", SupportedLocales: []string{"zh-CN", "en-US"}}),
+		menuRegistry:       menu.NewRegistry(),
+		permissionRegistry: permission.NewRegistry(),
+		cronRegistry:       cronx.NewRegistry(),
+	}
+
+	engine := gin.New()
+	runtime.registerCoreRoutes(engine)
+
+	for _, path := range []string{openapiJSONPath, openapiYAMLPath, openapiDocsPath} {
+		recorder := httptest.NewRecorder()
+		request := httptest.NewRequest(http.MethodGet, path, nil)
+		engine.ServeHTTP(recorder, request)
+
+		if recorder.Code != http.StatusNotFound {
+			t.Fatalf("%s: expected status %d, got %d", path, http.StatusNotFound, recorder.Code)
+		}
 	}
 }
