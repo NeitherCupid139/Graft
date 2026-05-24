@@ -172,6 +172,11 @@
   - cross-plugin business ability
   - dev/reset hook
   - stable query/service contract
+- `auth`、`user`、`rbac`、`resource` 的治理边界固定为：
+  - `auth` 只拥有认证与会话生命周期，回答“你是谁”
+  - `user` 只拥有用户资料与用户管理能力，不等于 `auth`
+  - `rbac` 只拥有授权模型，回答“你能做什么”
+  - `resource` 只表达被保护对象概念边界，当前继续由 `rbac` 承载 resource/action/permission metadata
 - `user` 作为 `rbac` 的上游插件时，只暴露稳定用户能力：
   - 用户存在性检查
   - 用户基础身份查询
@@ -182,6 +187,8 @@
 - route contract 优先保持 `group path + route fragment` 真相，不要为同一语义并存多套 full path 常量
 - `permission code`、`event name`、`message key`、`header name`、`auth scheme`、共享状态枚举都属于高风险 contract
 - 新增或修改高风险 contract 时，必须明确 owner 与 lifecycle：`experimental` / `stable` / `deprecated` / `removed`
+- auth route contract 的 canonical owner 固定为 `server/plugins/auth/contract`；兼容期即使暂时仍由其它插件承载运行时实现，也不得把 owner 真相写回 `user`
+- 管理员按用户维度的 session 治理若继续暴露在 `/users/:id/sessions`，它也只是 `user` 的管理入口；session 持久化、token/cookie、rotation/revoke 真相仍归 `auth`
 - 兼容 alias 只能临时存在，不能演变成永久第二真相
 
 ## 7. DI 与运行时装配
