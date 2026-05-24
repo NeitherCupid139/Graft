@@ -146,6 +146,14 @@ func (p *Plugin) registerServices(ctx *plugin.Context) (registeredServices, erro
 	}); err != nil {
 		return registeredServices{}, err
 	}
+	if err := ctx.Services.RegisterSingleton((*pluginapi.AuthFlowService)(nil), func(_ container.Resolver) (any, error) {
+		return authFlowBridge{
+			auth:      authSvc,
+			bootstrap: bootstrapSvc,
+		}, nil
+	}); err != nil {
+		return registeredServices{}, err
+	}
 
 	return registeredServices{
 		user:      userSvc,

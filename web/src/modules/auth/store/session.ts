@@ -1,36 +1,37 @@
 import { defineStore } from 'pinia';
 
-import { getBootstrap, login as loginApi, logout as logoutApi, refresh as refreshApi } from '@/api/auth';
-import { API_CODE, type ApiResponseCode, type BootstrapResponse, type LoginResponse } from '@/api/model/authModel';
+import { API_CODE, type ApiResponseCode } from '@/contracts/api/codes';
 import { normalizeLocale } from '@/contracts/i18n/locales';
 import { STORAGE_KEY } from '@/contracts/storage/keys';
 import { i18n, supportedLocales } from '@/locales';
-import { usePermissionStore } from '@/store';
+import { getBootstrap, login as loginApi, logout as logoutApi, refresh as refreshApi } from '@/modules/auth/api/auth';
+import type { BootstrapResponse, LoginResponse } from '@/modules/auth/contract/types';
+import { usePermissionStore } from '@/store/modules/permission';
 import type { ApiRequestError } from '@/types/axios';
 import { clearAccessToken, setAccessToken } from '@/utils/auth-state';
 import { isApiRequestError, registerAuthSessionBridge } from '@/utils/request';
 import type { UserInfo } from '@/utils/types';
 
-const InitUserInfo: UserInfo = {
-  name: '', // 用户名，用于展示在页面右上角头像处
+const INIT_USER_INFO: UserInfo = {
+  name: '',
   username: '',
   roles: [],
   permissions: [],
 };
 
-type LoginFormSubmission = {
+export type LoginFormSubmission = {
   account: string;
   password: string;
 };
 
-export const useUserStore = defineStore('user', {
+export const useAuthSessionStore = defineStore('auth-session', {
   state: () => ({
     token: '',
     bootstrapLoaded: false,
     bootstrapSnapshot: null as BootstrapResponse | null,
     mustChangePassword: false,
     pendingRestrictedRedirect: '',
-    userInfo: { ...InitUserInfo },
+    userInfo: { ...INIT_USER_INFO },
   }),
   getters: {
     roles: (state) => {
@@ -78,8 +79,7 @@ export const useUserStore = defineStore('user', {
       if (!this.token) {
         throw createAuthStateError(401, API_CODE.AUTH_TOKEN_MISSING, 'Missing access token');
       }
-      // bootstrap 是前端恢复真实用户、权限、菜单和 locale 快照的唯一入口；
-      // 非 force 模式下优先复用已加载快照，避免每次导航都重复请求。
+
       if (this.bootstrapLoaded && this.bootstrapSnapshot && !force) {
         return this.bootstrapSnapshot;
       }
@@ -100,13 +100,10 @@ export const useUserStore = defineStore('user', {
       try {
         return await this.bootstrap();
       } catch (error) {
-        // 如果会话已在请求层失败路径中被清空，这里不要再发第二次 refresh。
         if (!isRefreshableAuthError(error) || !this.token) {
           throw error;
         }
 
-        // 当 access token 过期且 refresh cookie 仍有效时，先刷新 token 再强制
-        // 重新拉取 bootstrap，保持路由守卫只消费最新后端契约快照。
         await this.refreshToken();
         return this.bootstrap(true);
       }
@@ -118,7 +115,7 @@ export const useUserStore = defineStore('user', {
       this.bootstrapSnapshot = null;
       this.mustChangePassword = false;
       this.pendingRestrictedRedirect = '';
-      this.userInfo = { ...InitUserInfo };
+      this.userInfo = { ...INIT_USER_INFO };
     },
     setPendingRestrictedRedirect(path: string) {
       this.pendingRestrictedRedirect = path;
@@ -185,9 +182,9 @@ function createAuthStateError(status: number, code: ApiResponseCode, message: st
 
 registerAuthSessionBridge({
   applyLoginResponse(payload) {
-    useUserStore().applyLoginResponse(payload);
+    useAuthSessionStore().applyLoginResponse(payload);
   },
   handleAuthFailure() {
-    useUserStore().handleAuthFailure();
+    useAuthSessionStore().handleAuthFailure();
   },
 });

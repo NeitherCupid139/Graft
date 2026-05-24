@@ -88,14 +88,14 @@ import { MessagePlugin } from 'tdesign-vue-next';
 import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
-import { API_CODE } from '@/api/model/authModel';
-import { AUTH_ROUTE_PATH } from '@/contracts/auth/routes';
+import { API_CODE } from '@/contracts/api/codes';
 import { t } from '@/locales';
+import { AUTH_ROUTE_PATH } from '@/modules/auth/contract/routes';
+import { useAuthSessionStore } from '@/modules/auth/store';
 import { useCounter } from '@/shared/composables';
-import { useUserStore } from '@/store';
 import { isApiRequestError } from '@/utils/request';
 
-const userStore = useUserStore();
+const userStore = useAuthSessionStore();
 
 const INITIAL_DATA = {
   phone: '',

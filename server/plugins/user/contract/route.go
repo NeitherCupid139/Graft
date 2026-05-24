@@ -1,5 +1,7 @@
 package contract
 
+import authcontract "graft/server/plugins/auth/contract"
+
 // JoinRoute combines a route group path with a route fragment.
 func JoinRoute(group, fragment string) string {
 	return group + fragment
@@ -7,38 +9,38 @@ func JoinRoute(group, fragment string) string {
 
 //nolint:gosec // Canonical route fragments are API contracts, not credentials.
 const (
-	// AuthGroup identifies the user-plugin auth route group.
-	AuthGroup = "/auth"
+	// AuthGroup keeps the legacy compatibility alias for the canonical auth route group.
+	AuthGroup = authcontract.AuthGroup
 
-	// AuthLogin identifies the login endpoint route fragment.
-	AuthLogin = "/login"
+	// AuthLogin keeps the legacy compatibility alias for the canonical auth login route fragment.
+	AuthLogin = authcontract.AuthLogin
 
-	// AuthRefresh identifies the refresh endpoint route fragment.
-	AuthRefresh = "/refresh"
+	// AuthRefresh keeps the legacy compatibility alias for the canonical auth refresh route fragment.
+	AuthRefresh = authcontract.AuthRefresh
 
-	// AuthLogout identifies the logout endpoint route fragment.
-	AuthLogout = "/logout"
+	// AuthLogout keeps the legacy compatibility alias for the canonical auth logout route fragment.
+	AuthLogout = authcontract.AuthLogout
 
-	// AuthSessionsRevokeAll identifies the current-user revoke-all endpoint route fragment.
-	AuthSessionsRevokeAll = "/sessions/revoke-all"
+	// AuthSessionsRevokeAll keeps the legacy compatibility alias for the canonical revoke-all route fragment.
+	AuthSessionsRevokeAll = authcontract.AuthSessionsRevokeAll
 
-	// AuthSessionsRevokeOthers identifies the current-user revoke-others endpoint route fragment.
-	AuthSessionsRevokeOthers = "/sessions/revoke-others"
+	// AuthSessionsRevokeOthers keeps the legacy compatibility alias for the canonical revoke-others route fragment.
+	AuthSessionsRevokeOthers = authcontract.AuthSessionsRevokeOthers
 
-	// AuthSessions identifies the current-user session list endpoint route fragment.
-	AuthSessions = "/sessions"
+	// AuthSessions keeps the legacy compatibility alias for the canonical session-list route fragment.
+	AuthSessions = authcontract.AuthSessions
 
-	// AuthSessionRevoke identifies the current-user per-session revoke endpoint route fragment.
-	AuthSessionRevoke = "/sessions/:sessionID/revoke"
+	// AuthSessionRevoke keeps the legacy compatibility alias for the canonical per-session revoke route fragment.
+	AuthSessionRevoke = authcontract.AuthSessionRevoke
 
-	// AuthBootstrap identifies the bootstrap endpoint route fragment.
-	AuthBootstrap = "/bootstrap"
+	// AuthBootstrap keeps the legacy compatibility alias for the canonical bootstrap route fragment.
+	AuthBootstrap = authcontract.AuthBootstrap
 
-	// AuthChangePassword identifies the current-user password change endpoint route fragment.
-	AuthChangePassword = "/change-password"
+	// AuthChangePassword keeps the legacy compatibility alias for the canonical password-change route fragment.
+	AuthChangePassword = authcontract.AuthChangePassword
 
-	// AuthCompleteRequiredPasswordChange identifies the restricted-session password completion route fragment.
-	AuthCompleteRequiredPasswordChange = "/complete-required-password-change"
+	// AuthCompleteRequiredPasswordChange keeps the legacy compatibility alias for the canonical required-password-change route fragment.
+	AuthCompleteRequiredPasswordChange = authcontract.AuthCompleteRequiredPasswordChange
 
 	// UsersGroup identifies the user-management route group.
 	UsersGroup = "/users"

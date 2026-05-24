@@ -69,6 +69,7 @@ web/src/
 
 - `app/`
   - 壳层页面、异常页、认证页与应用装配入口
+  - 认证页长期实现真值必须收口到 `modules/auth`，`app/auth` 只允许保留壳层装配点或兼容薄包装
   - 不承载业务模块长期实现真值
 - `layouts/`
   - 后台壳布局、导航、面包屑、Footer、安全留白和壳层组件
@@ -93,7 +94,7 @@ web/src/
   - 不收纳页面局部表单状态
 - `api/`
   - 平台级 request/auth/session adapter
-  - 不放模块业务 API 真值
+  - 不放模块业务 API 真值；`auth` 模块迁移完成后，这里只保留平台 adapter 与桥接消费面
 - `style/`
   - 全局样式与壳层样式基线
 - `types/`

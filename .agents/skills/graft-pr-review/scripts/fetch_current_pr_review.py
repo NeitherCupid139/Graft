@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-Fetch the GitHub PR signals for the current Graft branch without relying on gh CLI.
+Fetch the GitHub PR signals for the current Graft branch.
 """
 
 from __future__ import annotations
 
 import argparse
 import html
+import io
 import json
 import os
 from pathlib import Path
@@ -17,6 +18,9 @@ import sys
 import urllib.parse
 import urllib.request
 from typing import Any
+import zipfile
+
+import yaml
 
 OWNER = "GeWuYou"
 REPO = "Graft"
@@ -25,6 +29,7 @@ GIT_ENVIRONMENT_KEY = "GRAFT_WINDOWS_GIT"
 GIT_DIR_ENVIRONMENT_KEY = "GRAFT_GIT_DIR"
 WORK_TREE_ENVIRONMENT_KEY = "GRAFT_WORK_TREE"
 GITHUB_TOKEN_ENVIRONMENT_KEYS = ("GRAFT_GITHUB_TOKEN", "GITHUB_TOKEN", "GH_TOKEN")
+GH_CLI_COMMAND = "gh"
 USER_AGENT = "codex-graft-pr-review"
 CODERABBIT_LOGIN = "coderabbitai[bot]"
 GREPTILE_LOGIN = "greptile-apps[bot]"
@@ -34,6 +39,22 @@ REVIEW_COMMENT_ADDRESSED_MARKER = "<!-- <review_comment_addressed> -->"
 VISIBLE_ADDRESSED_IN_COMMIT_PATTERN = re.compile(r"✅\s*Addressed in commit\s+[0-9a-f]{7,40}", re.I)
 DEFAULT_REQUEST_TIMEOUT_SECONDS = 60
 REQUEST_TIMEOUT_ENVIRONMENT_KEY = "GRAFT_PR_REVIEW_TIMEOUT_SECONDS"
+DEFAULT_LOG_TAIL_LINE_COUNT = 25
+WORKFLOW_VALIDATION_PATH = ".github/workflows/pull-request-validation.yml"
+WORKFLOW_COMMAND_PREFIXES = ("bun ", "go ", "python3 ", "python ", "sh ", "./", "bash ", "golangci-lint ")
+WORKFLOW_CONTROL_PREFIXES = (
+    "if ",
+    "then",
+    "else",
+    "elif ",
+    "fi",
+    "set ",
+    "echo ",
+    "scanner=",
+    "base_branch=",
+    "base_ref=",
+    "fetched_sha=",
+)
 SUPPORTED_AI_REVIEWERS = (
     {
         "slug": "coderabbit",
@@ -137,12 +158,23 @@ def resolve_git_invocation() -> list[str]:
 
 
 def resolve_github_token() -> str:
-    """Return the first configured GitHub token, if any."""
+    """Return the first configured GitHub token, falling back to gh auth state when available."""
     for environment_key in GITHUB_TOKEN_ENVIRONMENT_KEYS:
         token = os.environ.get(environment_key, "").strip()
         if token:
             return token
-    return ""
+    gh_command = shutil.which(GH_CLI_COMMAND)
+    if not gh_command:
+        return ""
+    process = subprocess.run(
+        [gh_command, "auth", "token"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if process.returncode != 0:
+        return ""
+    return process.stdout.strip()
 
 
 def build_github_request_headers(accept: str) -> dict[str, str]:
@@ -195,10 +227,35 @@ def open_url(url: str, accept: str) -> tuple[str, Any]:
         return response.read().decode("utf-8", "replace"), response.headers
 
 
+def open_binary_url(url: str, accept: str) -> tuple[bytes, Any]:
+    """Open a URL with proxy variables disabled and return raw bytes plus headers."""
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    request = urllib.request.Request(url, headers=build_github_request_headers(accept))
+    with opener.open(request, timeout=resolve_request_timeout_seconds()) as response:
+        return response.read(), response.headers
+
+
 def fetch_json(url: str) -> tuple[Any, Any]:
     """Fetch a JSON payload and its response headers from GitHub."""
     text, headers = open_url(url, accept="application/vnd.github+json")
     return json.loads(text), headers
+
+
+def post_json(url: str, payload: dict[str, Any]) -> tuple[Any, Any]:
+    """Send a JSON payload to GitHub and return the response JSON plus headers."""
+    data = json.dumps(payload).encode("utf-8")
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    request = urllib.request.Request(
+        url,
+        data=data,
+        headers={
+            **build_github_request_headers("application/vnd.github+json"),
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    with opener.open(request, timeout=resolve_request_timeout_seconds()) as response:
+        return json.loads(response.read().decode("utf-8", "replace")), response.headers
 
 
 def extract_next_link(headers: Any) -> str | None:
@@ -237,6 +294,7 @@ def fetch_pull_request_metadata(pr_number: int) -> dict[str, Any]:
         "title": payload["title"],
         "state": str(payload["state"]).upper(),
         "head_branch": payload["head"]["ref"],
+        "head_sha": payload["head"]["sha"],
         "base_branch": payload["base"]["ref"],
         "url": payload["html_url"],
     }
@@ -255,6 +313,294 @@ def resolve_pr_number(branch: str) -> int:
 
     latest_pull_request = max(matching_pull_requests, key=lambda item: item.get("updated_at", ""))
     return int(latest_pull_request["number"])
+
+
+def fetch_actions_job(job_id: int) -> dict[str, Any]:
+    """Fetch one GitHub Actions job payload."""
+    payload, _ = fetch_json(f"https://api.github.com/repos/{OWNER}/{REPO}/actions/jobs/{job_id}")
+    if not isinstance(payload, dict):
+        raise RuntimeError(f"Failed to fetch GitHub Actions job {job_id}.")
+    return payload
+
+
+def fetch_check_run_annotations(check_run_id: int) -> list[dict[str, Any]]:
+    """Fetch all annotations for one check run."""
+    annotations = fetch_paged_json(
+        f"https://api.github.com/repos/{OWNER}/{REPO}/check-runs/{check_run_id}/annotations?per_page=100"
+    )
+    return [
+        {
+            "path": annotation.get("path") or "",
+            "start_line": annotation.get("start_line"),
+            "end_line": annotation.get("end_line"),
+            "annotation_level": annotation.get("annotation_level") or "",
+            "message": annotation.get("message") or "",
+            "title": annotation.get("title") or "",
+            "raw_details": annotation.get("raw_details") or "",
+        }
+        for annotation in annotations
+    ]
+
+
+def load_workflow_job_specs() -> dict[str, dict[str, Any]]:
+    """Load the local PR validation workflow and key it by visible job name."""
+    workflow_path = Path(WORKFLOW_VALIDATION_PATH)
+    if not workflow_path.exists():
+        return {}
+
+    payload = yaml.safe_load(workflow_path.read_text(encoding="utf-8")) or {}
+    jobs = payload.get("jobs", {}) if isinstance(payload, dict) else {}
+    specs: dict[str, dict[str, Any]] = {}
+    if not isinstance(jobs, dict):
+        return specs
+
+    for job_id, job in jobs.items():
+        if not isinstance(job, dict):
+            continue
+        job_name = str(job.get("name") or job_id)
+        specs[job_name] = {
+            "job_id": job_id,
+            "working_directory": job.get("working-directory") or "",
+            "steps": job.get("steps") if isinstance(job.get("steps"), list) else [],
+        }
+    return specs
+
+
+def select_primary_run_command(run_script: str) -> str:
+    """Pick the most actionable local reproduction command from a workflow run block."""
+    stripped_lines = [line.strip() for line in run_script.splitlines() if line.strip()]
+    if not stripped_lines:
+        return ""
+
+    variable_values: dict[str, str] = {}
+    for line in stripped_lines:
+        assignment_match = re.fullmatch(r"([A-Za-z_][A-Za-z0-9_]*)=(.+)", line)
+        if assignment_match is not None:
+            variable_name = assignment_match.group(1)
+            variable_value = assignment_match.group(2).strip()
+            if (
+                (variable_value.startswith('"') and variable_value.endswith('"'))
+                or (variable_value.startswith("'") and variable_value.endswith("'"))
+            ):
+                variable_value = variable_value[1:-1]
+            variable_values[variable_name] = variable_value
+            continue
+        if line.startswith(WORKFLOW_CONTROL_PREFIXES):
+            continue
+        if line.startswith(WORKFLOW_COMMAND_PREFIXES):
+            command = line
+            for variable_name, variable_value in variable_values.items():
+                command = command.replace(f"${variable_name}", variable_value)
+                command = command.replace(f"${{{variable_name}}}", variable_value)
+            return command
+
+    if len(stripped_lines) == 1:
+        return stripped_lines[0]
+
+    escaped_script = run_script.strip().replace("'", "'\"'\"'")
+    return f"bash -lc '{escaped_script}'"
+
+
+def build_local_repro_command(job_name: str, failed_step_name: str) -> str:
+    """Build a local reproduction command from the repository workflow file."""
+    job_spec = load_workflow_job_specs().get(job_name)
+    if not job_spec:
+        return ""
+
+    steps = job_spec.get("steps", [])
+    selected_step: dict[str, Any] | None = None
+    for step in steps:
+        if not isinstance(step, dict):
+            continue
+        if str(step.get("name") or "") == failed_step_name and step.get("run"):
+            selected_step = step
+            break
+
+    if selected_step is None:
+        for step in steps:
+            if isinstance(step, dict) and step.get("run"):
+                selected_step = step
+                break
+
+    if selected_step is None:
+        return ""
+
+    command = select_primary_run_command(str(selected_step.get("run") or ""))
+    if not command:
+        return ""
+
+    working_directory = str(selected_step.get("working-directory") or job_spec.get("working_directory") or "").strip()
+    if working_directory:
+        return f"cd {working_directory} && {command}"
+    return command
+
+
+def extract_run_and_job_id(details_url: str) -> tuple[int | None, int | None]:
+    """Extract workflow run and job identifiers from a GitHub Actions details URL."""
+    match = re.search(r"/actions/runs/(?P<run_id>\d+)/job/(?P<job_id>\d+)", details_url)
+    if match is None:
+        return None, None
+    return int(match.group("run_id")), int(match.group("job_id"))
+
+
+def summarize_failed_step(job_payload: dict[str, Any]) -> dict[str, Any]:
+    """Return the first failed step from an Actions job payload."""
+    for step in job_payload.get("steps", []):
+        if not isinstance(step, dict):
+            continue
+        if step.get("conclusion") == "failure":
+            return {
+                "name": step.get("name") or "",
+                "number": step.get("number"),
+                "status": step.get("status") or "",
+                "conclusion": step.get("conclusion") or "",
+            }
+    return {}
+
+
+def extract_log_tail(log_zip_bytes: bytes, *, max_lines: int = DEFAULT_LOG_TAIL_LINE_COUNT) -> str:
+    """Extract a short tail from a downloaded GitHub Actions job-log archive."""
+    with zipfile.ZipFile(io.BytesIO(log_zip_bytes)) as archive:
+        text_chunks: list[str] = []
+        for name in archive.namelist():
+            if name.endswith("/"):
+                continue
+            with archive.open(name) as handle:
+                text_chunks.append(handle.read().decode("utf-8", "replace"))
+
+    combined = "\n".join(text_chunks)
+    meaningful_lines = [line.rstrip() for line in combined.splitlines() if line.strip()]
+    if not meaningful_lines:
+        return ""
+    return "\n".join(meaningful_lines[-max_lines:])
+
+
+def fetch_job_log_tail(job_id: int) -> str:
+    """Fetch and summarize the tail of a GitHub Actions job log archive."""
+    github_token = resolve_github_token()
+    if not github_token:
+        raise RuntimeError("A GitHub token is required to download Actions job logs.")
+
+    data, _ = open_binary_url(
+        f"https://api.github.com/repos/{OWNER}/{REPO}/actions/jobs/{job_id}/logs",
+        accept="application/vnd.github+json",
+    )
+    return extract_log_tail(data)
+
+
+def fetch_workflow_checks(head_sha: str) -> dict[str, Any]:
+    """Fetch live GitHub check-run state for the current PR head SHA."""
+    payload, _ = fetch_json(f"https://api.github.com/repos/{OWNER}/{REPO}/commits/{head_sha}/check-runs?per_page=100")
+    if not isinstance(payload, dict):
+        raise RuntimeError("Failed to fetch GitHub check runs.")
+
+    warnings: list[str] = []
+    all_checks: list[dict[str, Any]] = []
+    failed_checks: list[dict[str, Any]] = []
+    for check_run in payload.get("check_runs", []):
+        if not isinstance(check_run, dict):
+            continue
+
+        details_url = str(check_run.get("details_url") or check_run.get("html_url") or "")
+        run_id, job_id = extract_run_and_job_id(details_url)
+        normalized = {
+            "name": check_run.get("name") or "",
+            "status": check_run.get("status") or "",
+            "conclusion": check_run.get("conclusion") or "",
+            "app": check_run.get("app", {}).get("slug") or "",
+            "details_url": details_url,
+            "html_url": check_run.get("html_url") or details_url,
+            "run_id": run_id,
+            "job_id": job_id,
+            "failed_step": {},
+            "annotations": [],
+            "reason_source": "check-run",
+            "local_repro_command": "",
+            "log_tail": "",
+        }
+
+        if normalized["conclusion"] == "failure":
+            if check_run.get("id") is not None:
+                try:
+                    normalized["annotations"] = fetch_check_run_annotations(int(check_run["id"]))
+                except Exception as error:  # noqa: BLE001
+                    warnings.append(f"Check-run annotations could not be fetched for {normalized['name']}: {error}")
+
+            if job_id is not None:
+                try:
+                    job_payload = fetch_actions_job(job_id)
+                    normalized["failed_step"] = summarize_failed_step(job_payload)
+                    normalized["local_repro_command"] = build_local_repro_command(
+                        normalized["name"],
+                        str(normalized["failed_step"].get("name") or ""),
+                    )
+                    if normalized["failed_step"]:
+                        normalized["reason_source"] = "actions-job-step"
+                except Exception as error:  # noqa: BLE001
+                    warnings.append(f"Actions job details could not be fetched for {normalized['name']}: {error}")
+
+                if resolve_github_token():
+                    try:
+                        normalized["log_tail"] = fetch_job_log_tail(job_id)
+                        if normalized["log_tail"]:
+                            normalized["reason_source"] = "actions-job-log"
+                    except Exception as error:  # noqa: BLE001
+                        warnings.append(f"Actions logs could not be fetched for {normalized['name']}: {error}")
+
+            failed_checks.append(normalized)
+
+        all_checks.append(normalized)
+
+    return {
+        "head_sha": head_sha,
+        "all": all_checks,
+        "failed": failed_checks,
+        "warnings": warnings,
+    }
+
+
+def resolve_review_reply_body(args: argparse.Namespace) -> str:
+    """Resolve the desired review reply body from CLI arguments."""
+    if args.reply_body and args.reply_body_file:
+        raise RuntimeError("Use only one of --reply-body or --reply-body-file.")
+    if args.reply_body_file:
+        return Path(args.reply_body_file).read_text(encoding="utf-8").strip()
+    return str(args.reply_body or "").strip()
+
+
+def perform_review_reply(
+    pull_number: int, comment_id: int, reply_body: str, *, dry_run: bool = False
+) -> dict[str, Any]:
+    """Reply to a GitHub PR review comment, or preview the request in dry-run mode."""
+    if not resolve_github_token():
+        raise RuntimeError("A GitHub token is required to send PR review replies.")
+    if not reply_body:
+        raise RuntimeError("A non-empty reply body is required.")
+
+    request_payload = {"body": reply_body}
+    if dry_run:
+        return {
+            "dry_run": True,
+            "comment_id": comment_id,
+            "request_payload": request_payload,
+        }
+
+    payload, _ = post_json(
+        f"https://api.github.com/repos/{OWNER}/{REPO}/pulls/{pull_number}/comments/{comment_id}/replies",
+        request_payload,
+    )
+    if not isinstance(payload, dict):
+        raise RuntimeError("GitHub did not return a review reply payload.")
+
+    return {
+        "dry_run": False,
+        "comment_id": comment_id,
+        "reply_id": payload.get("id"),
+        "html_url": payload.get("html_url") or "",
+        "body": payload.get("body") or "",
+        "user": payload.get("user", {}).get("login") or "",
+        "request_payload": request_payload,
+    }
 
 
 def collapse_whitespace(text: str) -> str:
@@ -827,6 +1173,23 @@ def contains_visible_addressed_commit_text(body: str) -> bool:
     return bool(VISIBLE_ADDRESSED_IN_COMMIT_PATTERN.search(body))
 
 
+def classify_reply_state(thread: dict[str, Any]) -> str:
+    """Classify the human-vs-AI reply state for one review thread."""
+    latest_comment = thread.get("latest_comment", {})
+    replies = thread.get("replies", [])
+    has_human_reply = any(
+        str(reply.get("user") or "") not in SUPPORTED_AI_REVIEWER_LOGINS
+        for reply in replies
+    )
+    if not has_human_reply:
+        return "unreplied"
+    if thread.get("status") != "open":
+        return "resolved_after_reply"
+    if str(latest_comment.get("user") or "") in SUPPORTED_AI_REVIEWER_LOGINS:
+        return "contested"
+    return "pending_ai_followup"
+
+
 def build_latest_commit_review_threads(comments: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Group review comments into normalized latest-commit review threads."""
     comment_threads: dict[int, dict[str, Any]] = {}
@@ -866,6 +1229,7 @@ def build_latest_commit_review_threads(comments: list[dict[str, Any]]) -> list[d
         latest_comment = max(ordered_comments, key=lambda item: (item.get("updated_at") or "", item.get("created_at") or ""))
         thread["latest_comment"] = latest_comment
         thread["status"] = classify_review_thread_status(latest_comment)
+        thread["reply_state"] = classify_reply_state(thread)
         threads.append(thread)
 
     return sorted(threads, key=lambda item: (item["path"], item["line"] or 0, item["thread_id"]))
@@ -1051,6 +1415,7 @@ def build_result(pr_number: int, branch: str) -> dict[str, Any]:
     """Build the full review result payload for the selected PR."""
     warnings: list[str] = []
     pull_request_metadata = fetch_pull_request_metadata(pr_number)
+    workflow_checks: dict[str, Any] = {"head_sha": pull_request_metadata.get("head_sha") or "", "all": [], "failed": [], "warnings": []}
     issue_comments = fetch_issue_comments(pr_number)
     summary_block = select_latest_comment_body(
         issue_comments,
@@ -1078,6 +1443,12 @@ def build_result(pr_number: int, branch: str) -> dict[str, Any]:
         warnings.append("PR test-report block was not found in issue comments.")
     if not megalinter_block:
         warnings.append("MegaLinter report block was not found in issue comments.")
+
+    try:
+        workflow_checks = fetch_workflow_checks(str(pull_request_metadata.get("head_sha") or ""))
+        warnings.extend(workflow_checks.get("warnings", []))
+    except Exception as error:  # noqa: BLE001
+        warnings.append(f"Live workflow checks could not be fetched: {error}")
 
     latest_commit_review: dict[str, Any] = {}
     coderabbit_review: dict[str, Any] = {}
@@ -1140,10 +1511,12 @@ def build_result(pr_number: int, branch: str) -> dict[str, Any]:
             "title": pull_request_metadata["title"],
             "state": pull_request_metadata["state"],
             "head_branch": pull_request_metadata["head_branch"],
+            "head_sha": pull_request_metadata["head_sha"],
             "base_branch": pull_request_metadata["base_branch"],
             "url": pull_request_metadata["url"],
             "resolved_from_branch": branch,
         },
+        "workflow_checks": workflow_checks,
         "coderabbit_summary": {
             "failed_checks": parse_failed_checks(summary_block) if summary_block else [],
             "raw": summary_block,
@@ -1209,20 +1582,66 @@ def format_text(
     selected_sections = set(sections or DISPLAY_SECTION_CHOICES)
     normalized_path_filters = normalize_path_filters(path_filters)
     pr = result["pull_request"]
+    reply_action = result.get("reply_action", {})
+    if reply_action:
+        lines.append(
+            "Reply action: "
+            + (
+                f"dry-run for comment {reply_action.get('comment_id')}"
+                if reply_action.get("dry_run")
+                else f"posted to comment {reply_action.get('comment_id')}"
+            )
+        )
+        if reply_action.get("html_url"):
+            lines.append(f"Reply URL: {reply_action['html_url']}")
+        lines.append("")
     if "pr" in selected_sections:
         lines.append(f"PR #{pr['number']}: {pr['title']}")
         lines.append(f"State: {pr['state']}")
         lines.append(f"Branch: {pr['head_branch']} -> {pr['base_branch']}")
+        lines.append(f"Head SHA: {pr.get('head_sha', '')}")
         lines.append(f"URL: {pr['url']}")
 
-    failed_checks = result["coderabbit_summary"].get("failed_checks", [])
+    workflow_checks = result.get("workflow_checks", {})
+    failed_checks = workflow_checks.get("failed", [])
+    fallback_failed_checks = result["coderabbit_summary"].get("failed_checks", [])
     if "failed-checks" in selected_sections:
         lines.append("")
         lines.append(f"Failed checks: {len(failed_checks)}")
         for check in failed_checks:
-            lines.append(f"- {check['name']}: {check['status']}")
-            lines.append(f"  Explanation: {truncate_text(check['explanation'], max_description_length)}")
-            lines.append(f"  Resolution: {truncate_text(check['resolution'], max_description_length)}")
+            lines.append(
+                f"- {check['name']}: status={check['status']} conclusion={check['conclusion']}"
+            )
+            if check.get("failed_step", {}).get("name"):
+                lines.append(
+                    "  Failed step: "
+                    f"{check['failed_step']['name']} (#{check['failed_step'].get('number')})"
+                )
+            if check.get("annotations"):
+                annotation = check["annotations"][0]
+                lines.append(
+                    "  Annotation: "
+                    f"{truncate_text(annotation.get('message') or annotation.get('title') or '', max_description_length)}"
+                )
+                if annotation.get("path"):
+                    lines.append(
+                        f"  Location: {annotation['path']}:{annotation.get('start_line') or ''}".rstrip(":")
+                    )
+            if check.get("log_tail"):
+                lines.append(
+                    "  Log tail: "
+                    f"{truncate_text(check['log_tail'].replace(chr(10), ' | '), max_description_length)}"
+                )
+            if check.get("local_repro_command"):
+                lines.append(f"  Local repro: {truncate_text(check['local_repro_command'], max_description_length)}")
+            if check.get("details_url"):
+                lines.append(f"  Details: {check['details_url']}")
+        if not failed_checks and fallback_failed_checks:
+            lines.append("  Live checks returned no failures; falling back to CodeRabbit summary block.")
+            for check in fallback_failed_checks:
+                lines.append(f"- {check['name']}: {check['status']}")
+                lines.append(f"  Explanation: {truncate_text(check['explanation'], max_description_length)}")
+                lines.append(f"  Resolution: {truncate_text(check['resolution'], max_description_length)}")
 
     coderabbit_comments = result.get("coderabbit_comments", {})
     review_feedback = result.get("coderabbit_review", {})
@@ -1302,6 +1721,7 @@ def format_text(
             latest_comment = thread["latest_comment"]
             lines.append(f"- {thread['path']}:{thread['line']}")
             lines.append(f"  Root by {root_comment['user']}: {truncate_text(root_comment['body'], max_description_length)}")
+            lines.append(f"  Reply state: {thread.get('reply_state', 'unreplied')}")
             if latest_comment["id"] != root_comment["id"]:
                 lines.append(
                     f"  Latest by {latest_comment['user']}: {truncate_text(latest_comment['body'], max_description_length)}"
@@ -1325,6 +1745,7 @@ def format_text(
             latest_comment = thread["latest_comment"]
             lines.append(f"- {thread['path']}:{thread['line']}")
             lines.append(f"  Root by {root_comment['user']}: {truncate_text(root_comment['body'], max_description_length)}")
+            lines.append(f"  Reply state: {thread.get('reply_state', 'unreplied')}")
             if latest_comment["id"] != root_comment["id"]:
                 lines.append(
                     f"  Latest by {latest_comment['user']}: {truncate_text(latest_comment['body'], max_description_length)}"
@@ -1422,6 +1843,14 @@ def parse_args() -> argparse.Namespace:
         default=400,
         help="Truncate long text bodies in text output to this many characters.",
     )
+    parser.add_argument("--reply-comment-id", type=int, help="Reply to a specific PR review comment id.")
+    parser.add_argument("--reply-body", help="Reply body text to send to GitHub.")
+    parser.add_argument("--reply-body-file", help="Read the reply body from a UTF-8 text file.")
+    parser.add_argument(
+        "--reply-dry-run",
+        action="store_true",
+        help="Validate and print the reply payload without sending it to GitHub.",
+    )
     return parser.parse_args()
 
 
@@ -1436,6 +1865,14 @@ def main() -> None:
         pr_number = resolve_pr_number(branch)
 
     result = build_result(pr_number, branch)
+    if args.reply_comment_id is not None:
+        reply_body = resolve_review_reply_body(args)
+        result["reply_action"] = perform_review_reply(
+            result["pull_request"]["number"],
+            args.reply_comment_id,
+            reply_body,
+            dry_run=args.reply_dry_run,
+        )
     json_output_path: str | None = None
     if args.json_output:
         json_output_path = write_json_output(result, args.json_output)

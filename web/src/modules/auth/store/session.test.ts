@@ -1,8 +1,9 @@
 import { createPinia, setActivePinia } from 'pinia';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { API_CODE, type BootstrapResponse, type LoginResponse } from '@/api/model/authModel';
+import { API_CODE } from '@/contracts/api/codes';
 import { STORAGE_KEY } from '@/contracts/storage/keys';
+import type { BootstrapResponse, LoginResponse } from '@/modules/auth/contract/types';
 
 const authApiMocks = vi.hoisted(() => ({
   getBootstrap: vi.fn<() => Promise<BootstrapResponse>>(),
@@ -19,14 +20,14 @@ const { mockPermissionStore } = vi.hoisted(() => ({
   },
 }));
 
-vi.mock('@/api/auth', () => authApiMocks);
-vi.mock('@/store', () => ({
+vi.mock('@/modules/auth/api/auth', () => authApiMocks);
+vi.mock('@/store/modules/permission', () => ({
   usePermissionStore: () => mockPermissionStore,
 }));
 
-async function loadUserStore() {
+async function loadAuthSessionStore() {
   vi.resetModules();
-  return import('./user');
+  return import('./session');
 }
 
 function createApiRequestError(status: number, code: string, message = code) {
@@ -77,7 +78,7 @@ function createRefreshPayload(token = 'fresh-token'): LoginResponse {
   };
 }
 
-describe('useUserStore.ensureBootstrap', () => {
+describe('useAuthSessionStore.ensureBootstrap', () => {
   beforeEach(() => {
     authApiMocks.getBootstrap.mockReset();
     authApiMocks.login.mockReset();
@@ -95,8 +96,8 @@ describe('useUserStore.ensureBootstrap', () => {
   });
 
   it('refreshes once and retries bootstrap only when the first bootstrap fails with AUTH_TOKEN_EXPIRED', async () => {
-    const { useUserStore } = await loadUserStore();
-    const store = useUserStore();
+    const { useAuthSessionStore } = await loadAuthSessionStore();
+    const store = useAuthSessionStore();
 
     store.token = 'stale-token';
     authApiMocks.getBootstrap
@@ -113,8 +114,8 @@ describe('useUserStore.ensureBootstrap', () => {
   });
 
   it('does not refresh when bootstrap fails with a non-refreshable auth error', async () => {
-    const { useUserStore } = await loadUserStore();
-    const store = useUserStore();
+    const { useAuthSessionStore } = await loadAuthSessionStore();
+    const store = useAuthSessionStore();
 
     store.token = 'stale-token';
     authApiMocks.getBootstrap.mockRejectedValueOnce(createApiRequestError(401, API_CODE.AUTH_TOKEN_INVALID));
@@ -129,8 +130,8 @@ describe('useUserStore.ensureBootstrap', () => {
   });
 
   it('does not retry refresh when bootstrap already cleared the session token', async () => {
-    const { useUserStore } = await loadUserStore();
-    const store = useUserStore();
+    const { useAuthSessionStore } = await loadAuthSessionStore();
+    const store = useAuthSessionStore();
 
     store.token = 'stale-token';
     authApiMocks.getBootstrap.mockImplementationOnce(async () => {
@@ -148,8 +149,8 @@ describe('useUserStore.ensureBootstrap', () => {
   });
 
   it('loads the restricted bootstrap snapshot after login when the backend returns it', async () => {
-    const { useUserStore } = await loadUserStore();
-    const store = useUserStore();
+    const { useAuthSessionStore } = await loadAuthSessionStore();
+    const store = useAuthSessionStore();
 
     authApiMocks.login.mockResolvedValue({
       ...createRefreshPayload('restricted-token'),
@@ -169,8 +170,8 @@ describe('useUserStore.ensureBootstrap', () => {
   });
 
   it('surfaces AUTH_FORBIDDEN from bootstrap instead of treating it as a normal restricted-session path', async () => {
-    const { useUserStore } = await loadUserStore();
-    const store = useUserStore();
+    const { useAuthSessionStore } = await loadAuthSessionStore();
+    const store = useAuthSessionStore();
 
     store.token = 'restricted-token';
     authApiMocks.getBootstrap.mockRejectedValueOnce(createApiRequestError(403, API_CODE.AUTH_FORBIDDEN));
@@ -185,7 +186,7 @@ describe('useUserStore.ensureBootstrap', () => {
   });
 });
 
-describe('useUserStore password change state', () => {
+describe('useAuthSessionStore password change state', () => {
   beforeEach(() => {
     authApiMocks.getBootstrap.mockReset();
     authApiMocks.login.mockReset();
@@ -199,8 +200,8 @@ describe('useUserStore password change state', () => {
   });
 
   it('tracks must_change_password from login and bootstrap responses', async () => {
-    const { useUserStore } = await loadUserStore();
-    const store = useUserStore();
+    const { useAuthSessionStore } = await loadAuthSessionStore();
+    const store = useAuthSessionStore();
 
     store.applyLoginResponse({
       ...createRefreshPayload('login-token'),
@@ -218,8 +219,8 @@ describe('useUserStore password change state', () => {
   });
 
   it('persists the canonical locale from bootstrap snapshots', async () => {
-    const { useUserStore } = await loadUserStore();
-    const store = useUserStore();
+    const { useAuthSessionStore } = await loadAuthSessionStore();
+    const store = useAuthSessionStore();
 
     store.applyBootstrap({
       ...createBootstrapPayload(),
@@ -235,8 +236,8 @@ describe('useUserStore password change state', () => {
   });
 
   it('clears must_change_password when the session is cleared', async () => {
-    const { useUserStore } = await loadUserStore();
-    const store = useUserStore();
+    const { useAuthSessionStore } = await loadAuthSessionStore();
+    const store = useAuthSessionStore();
 
     store.applyBootstrap({
       ...createBootstrapPayload(),
@@ -251,8 +252,8 @@ describe('useUserStore password change state', () => {
   });
 
   it('stores and consumes the pending restricted redirect once', async () => {
-    const { useUserStore } = await loadUserStore();
-    const store = useUserStore();
+    const { useAuthSessionStore } = await loadAuthSessionStore();
+    const store = useAuthSessionStore();
 
     store.setPendingRestrictedRedirect('/users?tab=active');
 

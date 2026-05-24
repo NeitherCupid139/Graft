@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { API_CODE } from '@/api/model/authModel';
+import { API_CODE } from '@/contracts/api/codes';
 import { HTTP_HEADER } from '@/contracts/api/headers';
 import { MESSAGE_KEY } from '@/contracts/api/messages';
-import { AUTH_API_PATH } from '@/contracts/auth/paths';
 import { STORAGE_KEY } from '@/contracts/storage/keys';
+import { AUTH_API_PATH } from '@/modules/auth/contract/paths';
 
 type MockConfig = Record<string, any>;
 type MockResponse = {

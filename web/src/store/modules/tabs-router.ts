@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 
-import { AUTH_ROUTE_NAME } from '@/contracts/auth/routes';
 import { LOCALE } from '@/contracts/i18n/locales';
+import { AUTH_ROUTE_NAME } from '@/modules/auth/contract/routes';
 import type { TRouterInfo, TTabRouterType } from '@/utils/types';
 
 const homeRoute: Array<TRouterInfo> = [

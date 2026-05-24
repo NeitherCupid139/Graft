@@ -6,7 +6,7 @@
 import { computed, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 
-import { AUTH_ROUTE_PATH } from '@/contracts/auth/routes';
+import { AUTH_ROUTE_PATH } from '@/modules/auth/contract/routes';
 import { useSettingStore } from '@/store';
 
 import ThemeWorkbenchDock from './components/theme-workbench/ThemeWorkbenchDock.vue';

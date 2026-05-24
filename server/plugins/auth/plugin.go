@@ -1,0 +1,80 @@
+package auth
+
+import (
+	"context"
+	"errors"
+	"fmt"
+
+	"graft/server/internal/plugin"
+	"graft/server/internal/pluginapi"
+)
+
+// Plugin 是 auth 插件的认证与会话生命周期运行时入口。
+type Plugin struct{}
+
+// NewPlugin 创建 auth 插件最小骨架实例。
+func NewPlugin() *Plugin {
+	return &Plugin{}
+}
+
+// Name 返回插件稳定标识。
+func (p *Plugin) Name() string {
+	return pluginID
+}
+
+// Version 返回当前插件版本。
+func (p *Plugin) Version() string {
+	return pluginVersion
+}
+
+// DependsOn 返回当前插件依赖列表。
+func (p *Plugin) DependsOn() []string {
+	return []string{"user"}
+}
+
+// Register 声明 auth 插件拥有的 `/auth/*` 运行时路由。
+func (p *Plugin) Register(ctx *plugin.Context) error {
+	authService, err := resolveService[pluginapi.AuthService](ctx, (*pluginapi.AuthService)(nil), "auth service")
+	if err != nil {
+		return err
+	}
+	authFlow, err := resolveService[pluginapi.AuthFlowService](ctx, (*pluginapi.AuthFlowService)(nil), "auth flow service")
+	if err != nil {
+		return err
+	}
+
+	return registerAuthRoutes(ctx, p.Name(), authService, authFlow)
+}
+
+// Boot 当前没有额外运行时行为需要启动。
+func (p *Plugin) Boot(_ *plugin.Context) error {
+	return nil
+}
+
+// Shutdown 当前没有额外资源需要释放。
+func (p *Plugin) Shutdown(_ *plugin.Context) error {
+	return nil
+}
+
+func resolveService[T any](ctx *plugin.Context, key any, label string) (T, error) {
+	var zero T
+	if ctx == nil || ctx.Services == nil {
+		return zero, errors.New("plugin services are unavailable")
+	}
+
+	resolved, err := ctx.Services.Resolve(key)
+	if err != nil {
+		return zero, fmt.Errorf("resolve %s: %w", label, err)
+	}
+
+	service, ok := resolved.(T)
+	if !ok {
+		return zero, fmt.Errorf("resolve %s: unexpected type %T", label, resolved)
+	}
+
+	return service, nil
+}
+
+func currentRequestAuth(ctx context.Context) (pluginapi.RequestAuthContext, bool) {
+	return pluginapi.RequestAuthContextFromContext(ctx)
+}

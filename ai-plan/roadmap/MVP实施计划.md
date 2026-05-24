@@ -14,7 +14,7 @@
 
 * 平台可以稳定启动
 * 插件可以注册并按依赖顺序运行
-* `user + rbac + audit + scheduler` 形成最小后端闭环
+* `auth + user + rbac + audit + scheduler` 形成最小后端闭环
 * 前端可以接通真实登录、刷新、当前用户、菜单、路由、权限链路
 * 插件式扩展路径已经稳定，且没有为了赶功能而破坏边界
 
@@ -26,7 +26,8 @@
 
 * 核心运行时与显式 CLI
 * 轻量 DI / 服务注册
-* `user` 插件最小认证能力
+* `auth` 插件最小认证与会话生命周期能力
+* `user` 插件最小用户资料与用户管理能力
 * `rbac` 插件最小授权能力
 * 最小进程内 `event bus`
 * 审计日志最小版
@@ -291,7 +292,7 @@
 * `event bus` 最小实现与 runtime 注入
 * `audit` 最小实现
 * `scheduler` 最小实现
-* `user + rbac + audit + scheduler` 在同一 runtime 内形成最小闭环
+* `auth + user + rbac + audit + scheduler` 在同一 runtime 内形成最小闭环
 * 前端真实登录、刷新、当前用户、菜单、路由、权限链路接通
 * starter 壳层完成与真实后端契约一致的基础收敛
 

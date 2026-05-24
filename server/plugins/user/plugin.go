@@ -13,6 +13,7 @@ import (
 	messagecontract "graft/server/internal/contract/message"
 	"graft/server/internal/plugin"
 	"graft/server/internal/pluginapi"
+	authcontract "graft/server/plugins/auth/contract"
 	usercontract "graft/server/plugins/user/contract"
 	userstore "graft/server/plugins/user/store"
 )
@@ -72,9 +73,12 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 	}
 	p.routeAuthorizer = newDeferredAuthorizer()
 	guards := newRouteGuards(ctx.I18n, services.auth, p.routeAuthorizer)
-	if err := registerAuthRoutes(ctx, p.Name(), services.auth, services.bootstrap, &guards); err != nil {
-		return err
-	}
+	authGroup := ctx.Router.Group(authcontract.AuthGroup)
+	guards.restrictedSession = newRestrictedSessionGuard(
+		ctx.I18n,
+		services.auth,
+		authGroup.BasePath(),
+	)
 	if err := registerUserRoutes(ctx, p.Name(), services.user, services.auth, guards); err != nil {
 		return err
 	}
@@ -217,47 +221,61 @@ func (s userService) CreateUser(
 	ctx context.Context,
 	passwords passwordHasher,
 	policy passwordPolicy,
-	input userstore.CreateUserInput,
+	command CreateUserCommand,
 ) (userstore.User, error) {
 	if s.users == nil {
 		return userstore.User{}, errors.New("user repository is unavailable")
 	}
-	if strings.TrimSpace(input.Username) == "" {
+	username := strings.TrimSpace(command.Username)
+	display := strings.TrimSpace(command.Display)
+	if username == "" {
 		return userstore.User{}, errInvalidUserPayload
 	}
-	if strings.TrimSpace(input.Display) == "" {
+	if display == "" {
 		return userstore.User{}, errInvalidUserPayload
 	}
-	if err := policy.ValidateNewPassword(input.PasswordHash); err != nil {
+	if err := policy.ValidateNewPassword(command.Password); err != nil {
 		return userstore.User{}, err
 	}
 
-	hash, err := passwords.Hash(input.PasswordHash)
+	hash, err := passwords.Hash(command.Password)
 	if err != nil {
 		return userstore.User{}, err
 	}
-	input.PasswordHash = hash
-	input.Status = normalizeManagedUserStatus(input.Status)
-	input.MustChangePassword = true
+	input := userstore.CreateUserInput{
+		Username:           username,
+		Display:            display,
+		Status:             normalizeManagedUserStatus(""),
+		PasswordHash:       hash,
+		MustChangePassword: true,
+		ActorID:            command.ActorID,
+	}
 
 	return s.users.Create(ctx, input)
 }
 
-func (s userService) UpdateUser(ctx context.Context, input userstore.UpdateUserInput) (userstore.User, error) {
+func (s userService) UpdateUser(ctx context.Context, command UpdateUserCommand) (userstore.User, error) {
 	if s.users == nil {
 		return userstore.User{}, errors.New("user repository is unavailable")
 	}
-	if strings.TrimSpace(input.Username) == "" || strings.TrimSpace(input.Display) == "" {
+	username := strings.TrimSpace(command.Username)
+	display := strings.TrimSpace(command.Display)
+	if username == "" || display == "" {
 		return userstore.User{}, errInvalidUserPayload
 	}
 
-	return s.users.Update(ctx, input)
+	return s.users.Update(ctx, userstore.UpdateUserInput{
+		ID:       command.ID,
+		Username: username,
+		Display:  display,
+		ActorID:  command.ActorID,
+	})
 }
 
 func (s userService) SetUserStatus(
 	ctx context.Context,
 	authRepo userstore.AuthRepository,
-	input userstore.SetUserStatusInput,
+	command UpdateUserStatusCommand,
 ) (userstore.User, error) {
 	if s.users == nil {
 		return userstore.User{}, errors.New("user repository is unavailable")
@@ -266,14 +284,19 @@ func (s userService) SetUserStatus(
 		return userstore.User{}, errors.New("auth repository is unavailable")
 	}
 
-	status := normalizeExplicitManagedUserStatus(input.Status)
+	status := normalizeExplicitManagedUserStatus(command.Status)
 	if status == "" {
 		return userstore.User{}, errInvalidUserStatus
 	}
-	if status == usercontract.UserStatusDisabled && requestActorOwnsUser(ctx, input.ID) {
+	if status == usercontract.UserStatusDisabled && requestActorOwnsUser(ctx, command.ID) {
 		return userstore.User{}, errCannotDisableOwnUser
 	}
-	input.Status = status
+
+	input := userstore.SetUserStatusInput{
+		ID:      command.ID,
+		Status:  status,
+		ActorID: command.ActorID,
+	}
 
 	updated, err := s.users.SetStatus(ctx, input)
 	if err != nil {

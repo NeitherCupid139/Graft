@@ -1,8 +1,7 @@
-package user
+package auth
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"strings"
 
@@ -12,11 +11,11 @@ import (
 	messagecontract "graft/server/internal/contract/message"
 	"graft/server/internal/httpx"
 	"graft/server/internal/pluginapi"
-	usercontract "graft/server/plugins/user/contract"
+	authcontract "graft/server/plugins/auth/contract"
 )
 
 func (r authRouteRegistrar) registerLoginRoutes(authGroup *gin.RouterGroup) {
-	authGroup.POST(usercontract.AuthLogin, func(ginCtx *gin.Context) {
+	authGroup.POST(authcontract.AuthLogin, func(ginCtx *gin.Context) {
 		var request loginRequest
 		if err := ginCtx.ShouldBindJSON(&request); err != nil {
 			writeInvalidArgumentField(ginCtx, r.ctx.I18n, "body")
@@ -32,92 +31,82 @@ func (r authRouteRegistrar) registerLoginRoutes(authGroup *gin.RouterGroup) {
 			return
 		}
 
-		result, err := r.authSvc.LoginWithRefresh(ginCtx.Request.Context(), normalizedUsername, request.Password)
+		result, err := r.authFlow.StartLogin(ginCtx.Request.Context(), normalizedUsername, request.Password)
 		if err != nil {
 			r.runtime().writeAuthRouteError(ginCtx, "login failed", err)
 			return
 		}
 
-		r.authSvc.cookies.writeRefreshCookie(ginCtx, result.RefreshToken, result.RefreshExpiry)
-		httpx.WriteSuccess(ginCtx, http.StatusOK, loginResponse{
-			AccessToken:        result.AccessToken,
-			ExpiresAt:          result.AccessExpiry,
-			MustChangePassword: result.MustChangePassword,
-			User:               result.User,
-		})
+		r.cookies.WriteRefreshCookie(ginCtx, result.RefreshToken, result.RefreshExpiry)
+		httpx.WriteSuccess(ginCtx, http.StatusOK, toLoginResponse(result))
 	})
-	authGroup.POST(usercontract.AuthRefresh, func(ginCtx *gin.Context) {
-		refreshToken, err := r.authSvc.cookies.readRefreshCookie(ginCtx)
+	authGroup.POST(authcontract.AuthRefresh, func(ginCtx *gin.Context) {
+		refreshToken, err := r.cookies.ReadRefreshCookie(ginCtx)
 		if err != nil {
-			writeLocalizedContractError(ginCtx, r.ctx.I18n, http.StatusUnauthorized, messagecontract.AuthTokenMissing, nil)
+			writeLocalizedContractError(ginCtx, r.ctx.I18n, http.StatusUnauthorized, messagecontract.AuthTokenMissing.String(), nil)
 			return
 		}
 
-		result, err := r.authSvc.RefreshWithRotation(ginCtx.Request.Context(), refreshToken)
+		result, err := r.authFlow.RefreshSession(ginCtx.Request.Context(), refreshToken)
 		if err != nil {
 			r.runtime().writeAuthRouteError(ginCtx, "refresh session failed", err)
 			return
 		}
 
-		r.authSvc.cookies.writeRefreshCookie(ginCtx, result.RefreshToken, result.RefreshExpiry)
-		httpx.WriteSuccess(ginCtx, http.StatusOK, loginResponse{
-			AccessToken:        result.AccessToken,
-			ExpiresAt:          result.AccessExpiry,
-			MustChangePassword: result.MustChangePassword,
-			User:               result.User,
-		})
+		r.cookies.WriteRefreshCookie(ginCtx, result.RefreshToken, result.RefreshExpiry)
+		httpx.WriteSuccess(ginCtx, http.StatusOK, toLoginResponse(result))
 	})
-	authGroup.POST(usercontract.AuthLogout, func(ginCtx *gin.Context) {
-		refreshToken, err := r.authSvc.cookies.readRefreshCookie(ginCtx)
+	authGroup.POST(authcontract.AuthLogout, func(ginCtx *gin.Context) {
+		refreshToken, err := r.cookies.ReadRefreshCookie(ginCtx)
 		if err != nil {
-			writeLocalizedContractError(ginCtx, r.ctx.I18n, http.StatusUnauthorized, messagecontract.AuthTokenMissing, nil)
+			writeLocalizedContractError(ginCtx, r.ctx.I18n, http.StatusUnauthorized, messagecontract.AuthTokenMissing.String(), nil)
 			return
 		}
 
-		if err := r.authSvc.LogoutCurrentSession(ginCtx.Request.Context(), refreshToken); err != nil {
+		if err := r.authFlow.LogoutCurrentSession(ginCtx.Request.Context(), refreshToken); err != nil {
 			r.runtime().writeAuthRouteError(ginCtx, "logout session failed", err)
 			return
 		}
 
-		r.authSvc.cookies.clearRefreshCookie(ginCtx)
+		r.cookies.ClearRefreshCookie(ginCtx)
 		httpx.WriteSuccess[any](ginCtx, http.StatusOK, nil)
 	})
 }
 
 func (r authRouteRegistrar) registerCurrentUserSessionRoutes(authGroup *gin.RouterGroup) {
-	authGroup.POST(usercontract.AuthSessionsRevokeAll, r.guards.authenticated, r.guards.restrictedSession, func(ginCtx *gin.Context) {
-		if err := r.authSvc.RevokeAllCurrentUserSessions(ginCtx.Request.Context()); err != nil {
+	authGroup.POST(authcontract.AuthSessionsRevokeAll, r.guards.authenticated, r.guards.restrictedSession, func(ginCtx *gin.Context) {
+		if err := r.authFlow.RevokeAllCurrentUserSessions(ginCtx.Request.Context()); err != nil {
 			r.runtime().writeAuthRouteError(ginCtx, "revoke all refresh sessions failed", err)
 			return
 		}
 
-		r.authSvc.cookies.clearRefreshCookie(ginCtx)
+		r.cookies.ClearRefreshCookie(ginCtx)
 		httpx.WriteSuccess[any](ginCtx, http.StatusOK, nil)
 	})
-	authGroup.POST(usercontract.AuthSessionsRevokeOthers, r.guards.authenticated, r.guards.restrictedSession, func(ginCtx *gin.Context) {
-		if err := r.authSvc.RevokeOtherCurrentUserSessions(ginCtx.Request.Context()); err != nil {
+	authGroup.POST(authcontract.AuthSessionsRevokeOthers, r.guards.authenticated, r.guards.restrictedSession, func(ginCtx *gin.Context) {
+		if err := r.authFlow.RevokeOtherCurrentUserSessions(ginCtx.Request.Context()); err != nil {
 			r.runtime().writeAuthRouteError(ginCtx, "revoke other user refresh sessions failed", err)
 			return
 		}
 
 		httpx.WriteSuccess[any](ginCtx, http.StatusOK, nil)
 	})
-	authGroup.GET(usercontract.AuthSessions, r.guards.authenticated, r.guards.restrictedSession, func(ginCtx *gin.Context) {
-		listOptions, err := parseSessionListOptions(ginCtx.Query("limit"))
+	authGroup.GET(authcontract.AuthSessions, r.guards.authenticated, r.guards.restrictedSession, func(ginCtx *gin.Context) {
+		limit, err := parseSessionListLimit(ginCtx.Query("limit"))
 		if err != nil {
 			writeInvalidArgumentField(ginCtx, r.ctx.I18n, "limit")
 			return
 		}
 
-		sessions, err := r.authSvc.ListCurrentUserSessions(ginCtx.Request.Context(), listOptions)
+		sessions, err := r.authFlow.ListCurrentUserSessions(ginCtx.Request.Context(), limit)
 		if err != nil {
 			r.runtime().writeAuthRouteError(ginCtx, "list current user refresh sessions failed", err)
 			return
 		}
 
-		httpx.WriteSuccess(ginCtx, http.StatusOK, sessions)
+		httpx.WriteSuccess(ginCtx, http.StatusOK, toSessionSummaries(sessions))
 	})
-	authGroup.POST(usercontract.AuthSessionRevoke, r.guards.authenticated, r.guards.restrictedSession, func(ginCtx *gin.Context) {
+	authGroup.POST(authcontract.AuthSessionRevoke, r.guards.authenticated, r.guards.restrictedSession, func(ginCtx *gin.Context) {
 		sessionID, ok := readSessionIDParam(ginCtx, r.ctx.I18n)
 		if !ok {
 			return
@@ -126,12 +115,12 @@ func (r authRouteRegistrar) registerCurrentUserSessionRoutes(authGroup *gin.Rout
 		handleSessionRevocation(
 			ginCtx,
 			func(ctx context.Context) error {
-				return r.authSvc.RevokeCurrentUserSession(ctx, sessionID)
+				return r.authFlow.RevokeCurrentUserSession(ctx, sessionID)
 			},
 			func(err error) {
 				r.runtime().writeAuthRouteError(ginCtx, "revoke current user refresh session failed", err, zap.String("sessionID", sessionID))
 			},
-			r.authSvc,
+			r.cookies,
 			func(claims *pluginapi.AccessTokenClaims) bool {
 				return claims.SessionID == sessionID
 			},
@@ -146,28 +135,19 @@ func (r authRouteRegistrar) registerBootstrapAndPasswordRoutes(authGroup *gin.Ro
 }
 
 func (r authRouteRegistrar) registerBootstrapRoute(authGroup *gin.RouterGroup) {
-	authGroup.GET(usercontract.AuthBootstrap, r.guards.authenticated, r.guards.restrictedSession, func(ginCtx *gin.Context) {
-		payload, err := r.bootstrapSvc.Read(ginCtx.Request.Context(), ginCtx.Request)
+	authGroup.GET(authcontract.AuthBootstrap, r.guards.authenticated, r.guards.restrictedSession, func(ginCtx *gin.Context) {
+		payload, err := r.authFlow.ReadBootstrapPayload(ginCtx.Request.Context(), ginCtx.Request)
 		if err != nil {
-			if errors.Is(err, pluginapi.ErrUnauthenticated) {
-				writeLocalizedContractError(ginCtx, r.ctx.I18n, http.StatusUnauthorized, messagecontract.AuthTokenMissing, nil)
-				return
-			}
-
-			r.runtime().logger.Error("read bootstrap payload failed",
-				zap.String("plugin", r.pluginName),
-				zap.Error(err),
-			)
-			writeLocalizedContractError(ginCtx, r.ctx.I18n, http.StatusInternalServerError, messagecontract.CommonInternalError, nil)
+			r.runtime().writeAuthRouteError(ginCtx, "read bootstrap payload failed", err)
 			return
 		}
 
-		httpx.WriteSuccess(ginCtx, http.StatusOK, payload)
+		httpx.WriteSuccess(ginCtx, http.StatusOK, toBootstrapResponse(payload))
 	})
 }
 
 func (r authRouteRegistrar) registerChangePasswordRoute(authGroup *gin.RouterGroup) {
-	authGroup.POST(usercontract.AuthChangePassword, r.guards.authenticated, r.guards.restrictedSession, func(ginCtx *gin.Context) {
+	authGroup.POST(authcontract.AuthChangePassword, r.guards.authenticated, r.guards.restrictedSession, func(ginCtx *gin.Context) {
 		var request changePasswordRequest
 		if err := ginCtx.ShouldBindJSON(&request); err != nil {
 			writeInvalidArgumentField(ginCtx, r.ctx.I18n, "body")
@@ -182,7 +162,7 @@ func (r authRouteRegistrar) registerChangePasswordRoute(authGroup *gin.RouterGro
 			return
 		}
 
-		if err := r.authSvc.ChangeCurrentUserPassword(ginCtx.Request.Context(), request.CurrentPassword, request.NewPassword); err != nil {
+		if err := r.authFlow.ChangeCurrentUserPassword(ginCtx.Request.Context(), request.CurrentPassword, request.NewPassword); err != nil {
 			r.runtime().writeAuthRouteError(ginCtx, "change current user password failed", err)
 			return
 		}
@@ -192,7 +172,7 @@ func (r authRouteRegistrar) registerChangePasswordRoute(authGroup *gin.RouterGro
 }
 
 func (r authRouteRegistrar) registerCompleteRequiredPasswordChangeRoute(authGroup *gin.RouterGroup) {
-	authGroup.POST(usercontract.AuthCompleteRequiredPasswordChange, r.guards.authenticated, r.guards.requiredPasswordChange, func(ginCtx *gin.Context) {
+	authGroup.POST(authcontract.AuthCompleteRequiredPasswordChange, r.guards.authenticated, r.guards.requiredPasswordChange, func(ginCtx *gin.Context) {
 		var request completeRequiredPasswordChangeRequest
 		if err := ginCtx.ShouldBindJSON(&request); err != nil {
 			writeInvalidArgumentField(ginCtx, r.ctx.I18n, "body")
@@ -203,7 +183,7 @@ func (r authRouteRegistrar) registerCompleteRequiredPasswordChangeRoute(authGrou
 			return
 		}
 
-		if err := r.authSvc.CompleteRequiredPasswordChange(ginCtx.Request.Context(), request.NewPassword); err != nil {
+		if err := r.authFlow.CompleteRequiredPasswordChange(ginCtx.Request.Context(), request.NewPassword); err != nil {
 			r.runtime().writeAuthRouteError(ginCtx, "complete required password change failed", err)
 			return
 		}
@@ -216,7 +196,7 @@ func handleSessionRevocation(
 	ginCtx *gin.Context,
 	revoke func(context.Context) error,
 	writeRouteError func(error),
-	authSvc *authService,
+	cookies CookieManager,
 	shouldClearCookie func(*pluginapi.AccessTokenClaims) bool,
 ) {
 	if err := revoke(ginCtx.Request.Context()); err != nil {
@@ -224,6 +204,6 @@ func handleSessionRevocation(
 		return
 	}
 
-	clearRefreshCookieWhen(ginCtx, authSvc, shouldClearCookie)
+	clearRefreshCookieWhen(ginCtx, cookies, shouldClearCookie)
 	httpx.WriteSuccess[any](ginCtx, http.StatusOK, nil)
 }

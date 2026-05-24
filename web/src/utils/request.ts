@@ -1,20 +1,16 @@
 import type { AxiosError, AxiosResponse } from 'axios';
 import axios from 'axios';
 
-import {
-  API_CODE,
-  type ApiEnvelope,
-  type ApiErrorEnvelope,
-  type ApiResponseCode,
-  type LoginResponse,
-} from '@/api/model/authModel';
+import { API_CODE, type ApiResponseCode } from '@/contracts/api/codes';
+import type { ApiEnvelope, ApiErrorEnvelope } from '@/contracts/api/envelope';
 import { AUTH_SCHEME, HTTP_HEADER } from '@/contracts/api/headers';
 import { MESSAGE_KEY } from '@/contracts/api/messages';
-import { AUTH_API_PATH } from '@/contracts/auth/paths';
-import { AUTH_ROUTE_PATH } from '@/contracts/auth/routes';
 import { getDefaultLocale, normalizeLocale } from '@/contracts/i18n/locales';
 import { STORAGE_KEY } from '@/contracts/storage/keys';
 import { i18n } from '@/locales';
+import { AUTH_API_PATH } from '@/modules/auth/contract/paths';
+import { AUTH_ROUTE_PATH } from '@/modules/auth/contract/routes';
+import type { LoginResponse } from '@/modules/auth/contract/types';
 import type { ApiRequestError, AxiosRequestConfigRetry, RequestOptions } from '@/types/axios';
 import { clearAccessToken, getAccessToken, setAccessToken } from '@/utils/auth-state';
 

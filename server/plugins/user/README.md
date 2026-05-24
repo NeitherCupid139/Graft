@@ -2,7 +2,7 @@
 
 ## 用途
 
-`server/plugins/user` 是当前 MVP 路径中的用户示例插件，用来证明“登录 + 菜单 + 权限 + 路由 + 公共服务”这条插件扩展路径可以端到端接通。
+`server/plugins/user` 是当前 MVP 路径中的用户插件，用来承载用户资料、用户管理与面向其它插件的稳定用户能力；认证与会话生命周期不再视为 `user` 的长期 ownership。
 
 ## 职责边界
 
@@ -10,11 +10,10 @@
 
 * 注册用户读取能力所需的权限与菜单
 * 在 `Register` 阶段向统一 `server/internal/i18n` facade 注册插件内建菜单标题 message，并通过 bootstrap 菜单快照暴露 `title_key + title fallback`
-* 提供最小 `/auth/login`、`/auth/refresh`、`/auth/bootstrap`、`/auth/change-password`、`/auth/complete-required-password-change`、当前 refresh session 的 `/auth/logout`、支持显式 `limit` 约束的当前用户 `/auth/sessions`、`/auth/sessions/:sessionID/revoke`、`/auth/sessions/revoke-all` 与 `/auth/sessions/revoke-others` 自助可见性/撤销入口，以及管理员按用户 ID 的 `/users/:id/sessions`、`/users/:id/sessions/:sessionID/revoke` 和 `/users/:id/sessions/revoke-all` 会话治理入口，并把 refresh session、cookie 与 revoke/rotation 逻辑留在插件内
-* 暴露 `pluginapi.UserService`
-* 暴露最小 `pluginapi.AuthService`，把 access token 解析结果收敛为稳定请求主体，并在受保护请求上追加最小 session 存活校验
-* 提供受权限保护的示例用户路由
-* 负责默认管理员初始化与首次登录强制改密所需的最小认证治理闭环
+* 暴露 `pluginapi.UserService` 与后续 `auth` 所需的稳定用户身份能力
+* 提供受权限保护的用户资料与用户管理路由
+* 负责默认管理员对应的用户记录与用户资料存在性，但不再长期拥有 token/session/cookie/login 运行时闭环
+* 如保留管理员按用户维度的 `/users/:id/sessions` 会话治理入口，它只能作为调用 `auth` capability 的管理入口，不直接持有 auth 持久化
 
 这个模块不负责：
 
@@ -26,15 +25,13 @@
 ## 主要入口
 
 * `doc.go`：插件用途说明
-* `plugin.go`：插件生命周期、服务注册与示例路由
-* `login.go`：最小用户名/密码认证应用层、bootstrap 返回面与首次改密状态透传
-* `change_password.go`：当前用户自助改密、首次强制改密、默认密码禁用与首次改密状态清除
-* `session.go`：refresh token、cookie、支持显式 limit 裁剪的当前有效 session 摘要、当前/指定 session 定向 revoke、当前用户批量 revoke / 保留当前会话清退其它会话、管理员批量 revoke、session 轮换与 request-auth 最小 session hardening
+* `plugin.go`：插件生命周期、服务注册与用户管理路由
+* 认证相关实现当前只保留为 `auth` 插件消费的过渡 bridge；`/auth/*` 路由注册已迁入 `server/plugins/auth`
 
 ## 关键依赖
 
 * 依赖 `plugin.Context` 提供的菜单、权限、路由、服务与存储能力
-* 登录链路内部只消费 `store.Auth()` 与 `store.Users()` 提供的稳定 DTO 边界
+* `user` 只暴露稳定用户身份与用户管理能力；auth 迁移完成后，登录链路通过 `pluginapi.UserAuthIdentityService` 一类稳定 capability 消费用户身份真相
 * 对外通过 `server/internal/pluginapi` 暴露跨插件可消费的稳定接口
 
 ## 当前认证治理约束
@@ -52,4 +49,4 @@
 
 ## 维护提示
 
-后续如果用户能力继续扩展，应优先保持对外接口稳定，并把业务实现细节留在插件内部，不要把 repository、ORM 句柄、refresh session 细节或临时路由约束泄漏到跨插件边界。
+后续如果用户能力继续扩展，应优先保持对外接口稳定，并把业务实现细节留在插件内部；token、session、cookie、refresh session 与 `/auth/*` 路由真相应持续向 `auth` 收口，不要再把这些认证生命周期细节重新泄漏回 `user` 或其它插件。

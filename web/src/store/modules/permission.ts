@@ -2,8 +2,8 @@ import cloneDeep from 'lodash/cloneDeep';
 import { defineStore } from 'pinia';
 import type { RouteRecordRaw } from 'vue-router';
 
-import type { BootstrapResponse } from '@/api/model/authModel';
-import { AUTH_ROUTE_PATH } from '@/contracts/auth/routes';
+import { AUTH_ROUTE_PATH } from '@/modules/auth/contract/routes';
+import type { BootstrapResponse } from '@/modules/auth/contract/types';
 import { store } from '@/store';
 import { transformBootstrapMenusToRoutes } from '@/utils/route/bootstrap';
 

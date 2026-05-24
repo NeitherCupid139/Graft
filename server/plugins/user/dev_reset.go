@@ -24,7 +24,7 @@ func NewAuthRepositoryForReset(sqlDB *sql.DB) (AuthRepositoryForReset, error) {
 
 	authRepo, err := storeRuntime.NewAuthRepository()
 	if err != nil {
-		return nil, fmt.Errorf("build user auth storeent repository: %w", err)
+		return nil, fmt.Errorf("build user auth repository: %w", err)
 	}
 
 	return authRepo, nil

@@ -35,7 +35,7 @@ func NewDescriptor() plugin.Descriptor {
 			}
 			authRepo, err := storeRuntime.NewAuthRepository()
 			if err != nil {
-				return nil, fmt.Errorf("build user auth storeent repository: %w", err)
+				return nil, fmt.Errorf("build user auth repository: %w", err)
 			}
 
 			return NewPlugin(userRepo, authRepo), nil

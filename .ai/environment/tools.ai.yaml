@@ -18,6 +18,7 @@ capabilities:
   npm: true
   bun: true
   docker: true
+  gh: true
   fast_search: true
   json_cli: true
   server_scaffolded: true
@@ -35,6 +36,10 @@ tool_selection:
     preferred: "bash"
     fallback: "sh"
     use_for: "Repository shell scripts and command execution."
+  github_cli:
+    preferred: "gh"
+    fallback: "environment token"
+    use_for: "GitHub API authentication and PR-related local automation."
   scripting:
     preferred: "python3"
     fallback: "bash"
@@ -65,6 +70,7 @@ preferences:
 rules:
   - "Use rg instead of grep for repository search when rg is available."
   - "Use jq for JSON inspection; fall back to python3 if jq is unavailable."
+  - "Prefer gh-authenticated access for GitHub PR automation when gh is installed and logged in."
   - "Prefer python3 over complex bash for non-trivial scripting when python3 is available."
   - "Prefer bun for web installs when web/bun.lock exists; otherwise fall back to npm."
   - "Do not assume server build or test commands are available when server/go.mod is missing."
