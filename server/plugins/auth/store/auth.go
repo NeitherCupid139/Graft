@@ -1,3 +1,4 @@
+// Package store defines auth-owned credential and refresh-session persistence contracts.
 package store
 
 import (

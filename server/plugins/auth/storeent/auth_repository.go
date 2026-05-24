@@ -1,3 +1,4 @@
+// Package storeent provides the Ent-backed auth-owned persistence implementation.
 package storeent
 
 import (

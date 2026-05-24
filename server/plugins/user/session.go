@@ -77,16 +77,8 @@ func newAuthCookieManager(auth config.AuthConfig) authCookieManager {
 	return authCookieManager{inner: authruntime.NewCookieManager(auth)}
 }
 
-func (m authCookieManager) writeRefreshCookie(ctx *gin.Context, token string, expiresAt time.Time) {
-	m.inner.WriteRefreshCookie(ctx, token, expiresAt)
-}
-
 func (m authCookieManager) clearRefreshCookie(ctx *gin.Context) {
 	m.inner.ClearRefreshCookie(ctx)
-}
-
-func (m authCookieManager) readRefreshCookie(ctx *gin.Context) (string, error) {
-	return m.inner.ReadRefreshCookie(ctx)
 }
 
 func (m *refreshTokenManager) Issue(subject refreshTokenSubject) (string, time.Time, error) {

@@ -1,0 +1,48 @@
+package auth
+
+import (
+	"github.com/gin-gonic/gin"
+
+	"graft/server/internal/httpx"
+	"graft/server/internal/plugin"
+	"graft/server/internal/pluginapi"
+	authcontract "graft/server/plugins/auth/contract"
+)
+
+type routeGuards struct {
+	authenticated          gin.HandlerFunc
+	requiredPasswordChange gin.HandlerFunc
+	restrictedSession      gin.HandlerFunc
+}
+
+type authRouteRegistrar struct {
+	ctx        *plugin.Context
+	pluginName string
+	authFlow   pluginapi.AuthFlowService
+	cookies    CookieManager
+	guards     routeGuards
+}
+
+func registerAuthRoutes(
+	ctx *plugin.Context,
+	pluginName string,
+	authService pluginapi.AuthService,
+	authFlow pluginapi.AuthFlowService,
+) error {
+	authGroup := ctx.Router.Group(authcontract.AuthGroup)
+	guards := newRouteGuards(ctx, authService, authFlow, authGroup.BasePath())
+
+	registrar := authRouteRegistrar{
+		ctx:        ctx,
+		pluginName: pluginName,
+		authFlow:   authFlow,
+		cookies:    NewCookieManager(ctx.Config.Auth),
+		guards:     guards,
+	}
+	authGroup.Use(httpx.RequestIDMiddleware())
+	registrar.registerLoginRoutes(authGroup)
+	registrar.registerCurrentUserSessionRoutes(authGroup)
+	registrar.registerBootstrapAndPasswordRoutes(authGroup)
+
+	return nil
+}

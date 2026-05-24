@@ -22,14 +22,6 @@ type routeRuntime struct {
 	pluginName string
 }
 
-func (r authRouteRegistrar) runtime() routeRuntime {
-	return routeRuntime{
-		localizer:  r.ctx.I18n,
-		logger:     r.ctx.Logger,
-		pluginName: r.pluginName,
-	}
-}
-
 func (r userRouteRegistrar) runtime() routeRuntime {
 	return routeRuntime{
 		localizer:  r.ctx.I18n,

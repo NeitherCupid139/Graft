@@ -16,40 +16,53 @@ import (
 )
 
 var (
+	// ErrTokenSigningKeyRequired indicates that no signing key is configured.
 	ErrTokenSigningKeyRequired = errors.New("token signing key is required")
-	ErrSessionIDRequired       = errors.New("session id is required")
-	ErrTokenIDRequired         = errors.New("token id is required")
-	ErrInvalidAccessToken      = errors.New("invalid access token")
-	ErrExpiredAccessToken      = errors.New("expired access token")
-	ErrRefreshTokenRequired    = errors.New("refresh token is required")
-	ErrInvalidRefreshToken     = errors.New("invalid refresh token")
-	ErrExpiredRefreshToken     = errors.New("expired refresh token")
+	// ErrSessionIDRequired indicates that a session identifier is required.
+	ErrSessionIDRequired = errors.New("session id is required")
+	// ErrTokenIDRequired indicates that a token identifier is required.
+	ErrTokenIDRequired = errors.New("token id is required")
+	// ErrInvalidAccessToken indicates that the access token is malformed or invalid.
+	ErrInvalidAccessToken = errors.New("invalid access token")
+	// ErrExpiredAccessToken indicates that the access token has expired.
+	ErrExpiredAccessToken = errors.New("expired access token")
+	// ErrRefreshTokenRequired indicates that a refresh token is required.
+	ErrRefreshTokenRequired = errors.New("refresh token is required")
+	// ErrInvalidRefreshToken indicates that the refresh token is malformed or invalid.
+	ErrInvalidRefreshToken = errors.New("invalid refresh token")
+	// ErrExpiredRefreshToken indicates that the refresh token has expired.
+	ErrExpiredRefreshToken = errors.New("expired refresh token")
 )
 
+// AccessTokenSubject is the minimal subject used to issue one access token.
 type AccessTokenSubject struct {
 	UserID       uint64
 	SessionID    string
 	TokenVersion int
 }
 
+// RefreshTokenSubject is the minimal subject used to issue one refresh token.
 type RefreshTokenSubject struct {
 	UserID    uint64
 	SessionID string
 	TokenID   string
 }
 
+// AccessTokenManager issues and parses auth-owned access tokens.
 type AccessTokenManager struct {
 	secret []byte
 	ttl    time.Duration
 	now    func() time.Time
 }
 
+// RefreshTokenManager issues and parses auth-owned refresh tokens.
 type RefreshTokenManager struct {
 	secret []byte
 	ttl    time.Duration
 	now    func() time.Time
 }
 
+// CookieManager owns refresh-cookie read and write semantics.
 type CookieManager struct {
 	name     string
 	path     string
@@ -69,6 +82,7 @@ type refreshTokenJWTClaims struct {
 	jwt.RegisteredClaims
 }
 
+// NewAccessTokenManager builds the auth-owned access-token manager.
 func NewAccessTokenManager(auth config.AuthConfig) (*AccessTokenManager, error) {
 	secret := strings.TrimSpace(auth.SigningKey)
 	if secret == "" {
@@ -88,6 +102,7 @@ func NewAccessTokenManager(auth config.AuthConfig) (*AccessTokenManager, error) 
 	}, nil
 }
 
+// NewRefreshTokenManager builds the auth-owned refresh-token manager.
 func NewRefreshTokenManager(auth config.AuthConfig) (*RefreshTokenManager, error) {
 	secret := strings.TrimSpace(auth.SigningKey)
 	if secret == "" {
@@ -107,6 +122,7 @@ func NewRefreshTokenManager(auth config.AuthConfig) (*RefreshTokenManager, error
 	}, nil
 }
 
+// NewCookieManager builds the auth-owned refresh-cookie manager.
 func NewCookieManager(auth config.AuthConfig) CookieManager {
 	return CookieManager{
 		name:     auth.RefreshCookieName,
@@ -116,6 +132,7 @@ func NewCookieManager(auth config.AuthConfig) CookieManager {
 	}
 }
 
+// Issue signs one access token for the provided subject.
 func (m *AccessTokenManager) Issue(subject AccessTokenSubject) (string, pluginapi.AccessTokenClaims, error) {
 	if subject.UserID == 0 {
 		return "", pluginapi.AccessTokenClaims{}, fmt.Errorf("user id is required")
@@ -150,6 +167,7 @@ func (m *AccessTokenManager) Issue(subject AccessTokenSubject) (string, pluginap
 	}, nil
 }
 
+// Parse validates one access token and returns stable claims.
 func (m *AccessTokenManager) Parse(token string) (*pluginapi.AccessTokenClaims, error) {
 	claims := &accessTokenJWTClaims{}
 	parser := jwt.NewParser(
@@ -189,6 +207,7 @@ func (m *AccessTokenManager) Parse(token string) (*pluginapi.AccessTokenClaims, 
 	}, nil
 }
 
+// Issue signs one refresh token for the provided subject.
 func (m *RefreshTokenManager) Issue(subject RefreshTokenSubject) (string, time.Time, error) {
 	if subject.UserID == 0 {
 		return "", time.Time{}, errors.New("user id is required")
@@ -220,6 +239,7 @@ func (m *RefreshTokenManager) Issue(subject RefreshTokenSubject) (string, time.T
 	return signed, expiresAt, nil
 }
 
+// Parse validates one refresh token and returns the stable subject.
 func (m *RefreshTokenManager) Parse(token string) (*RefreshTokenSubject, error) {
 	token = strings.TrimSpace(token)
 	if token == "" {
@@ -262,6 +282,7 @@ func (m *RefreshTokenManager) Parse(token string) (*RefreshTokenSubject, error) 
 	}, nil
 }
 
+// WriteRefreshCookie writes the current refresh token cookie.
 func (m CookieManager) WriteRefreshCookie(ctx *gin.Context, token string, expiresAt time.Time) {
 	if ctx == nil {
 		return
@@ -279,6 +300,7 @@ func (m CookieManager) WriteRefreshCookie(ctx *gin.Context, token string, expire
 	)
 }
 
+// ClearRefreshCookie clears the current refresh token cookie.
 func (m CookieManager) ClearRefreshCookie(ctx *gin.Context) {
 	if ctx == nil {
 		return
@@ -296,6 +318,7 @@ func (m CookieManager) ClearRefreshCookie(ctx *gin.Context) {
 	)
 }
 
+// ReadRefreshCookie reads the current refresh token cookie.
 func (m CookieManager) ReadRefreshCookie(ctx *gin.Context) (string, error) {
 	if ctx == nil {
 		return "", ErrRefreshTokenRequired

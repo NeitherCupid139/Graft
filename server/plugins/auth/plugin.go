@@ -1,11 +1,15 @@
 package auth
 
-import "graft/server/internal/plugin"
+import (
+	"context"
+	"errors"
+	"fmt"
 
-// Plugin 是 auth 插件的 Phase 1 生命周期骨架。
-//
-// 本阶段只声明稳定插件身份与未来依赖顺序，不引入 token/session/cookie
-// 或 `/auth/*` 运行时行为，避免提前把 Phase 2/3 混入当前切片。
+	"graft/server/internal/plugin"
+	"graft/server/internal/pluginapi"
+)
+
+// Plugin 是 auth 插件的认证与会话生命周期运行时入口。
 type Plugin struct{}
 
 // NewPlugin 创建 auth 插件最小骨架实例。
@@ -28,9 +32,18 @@ func (p *Plugin) DependsOn() []string {
 	return []string{"user"}
 }
 
-// Register 当前阶段不注册运行时能力；后续 Phase 2/3 再显式接入 auth capability 与路由。
-func (p *Plugin) Register(_ *plugin.Context) error {
-	return nil
+// Register 声明 auth 插件拥有的 `/auth/*` 运行时路由。
+func (p *Plugin) Register(ctx *plugin.Context) error {
+	authService, err := resolveService[pluginapi.AuthService](ctx, (*pluginapi.AuthService)(nil), "auth service")
+	if err != nil {
+		return err
+	}
+	authFlow, err := resolveService[pluginapi.AuthFlowService](ctx, (*pluginapi.AuthFlowService)(nil), "auth flow service")
+	if err != nil {
+		return err
+	}
+
+	return registerAuthRoutes(ctx, p.Name(), authService, authFlow)
 }
 
 // Boot 当前没有额外运行时行为需要启动。
@@ -41,4 +54,27 @@ func (p *Plugin) Boot(_ *plugin.Context) error {
 // Shutdown 当前没有额外资源需要释放。
 func (p *Plugin) Shutdown(_ *plugin.Context) error {
 	return nil
+}
+
+func resolveService[T any](ctx *plugin.Context, key any, label string) (T, error) {
+	var zero T
+	if ctx == nil || ctx.Services == nil {
+		return zero, errors.New("plugin services are unavailable")
+	}
+
+	resolved, err := ctx.Services.Resolve(key)
+	if err != nil {
+		return zero, fmt.Errorf("resolve %s: %w", label, err)
+	}
+
+	service, ok := resolved.(T)
+	if !ok {
+		return zero, fmt.Errorf("resolve %s: unexpected type %T", label, resolved)
+	}
+
+	return service, nil
+}
+
+func currentRequestAuth(ctx context.Context) (pluginapi.RequestAuthContext, bool) {
+	return pluginapi.RequestAuthContextFromContext(ctx)
 }

@@ -17,7 +17,6 @@ import (
 var (
 	errTokenSigningKeyRequired = authruntime.ErrTokenSigningKeyRequired
 	errSessionIDRequired       = authruntime.ErrSessionIDRequired
-	errTokenIDRequired         = authruntime.ErrTokenIDRequired
 	errInvalidAccessToken      = authruntime.ErrInvalidAccessToken
 	errExpiredAccessToken      = authruntime.ErrExpiredAccessToken
 )

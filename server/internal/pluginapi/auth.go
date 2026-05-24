@@ -3,6 +3,7 @@ package pluginapi
 import (
 	"context"
 	"errors"
+	"net/http"
 	"time"
 )
 
@@ -80,6 +81,51 @@ type AuthSessionRevokeResult struct {
 	Revoked bool
 }
 
+// AuthRefreshResult 描述 auth 路由返回的稳定登录/刷新结果。
+type AuthRefreshResult struct {
+	AccessToken        string
+	AccessExpiry       time.Time
+	RefreshToken       string
+	RefreshExpiry      time.Time
+	MustChangePassword bool
+	User               CurrentUser
+}
+
+// AuthBootstrapMenuItem 描述 bootstrap 响应中的单个菜单快照。
+type AuthBootstrapMenuItem struct {
+	Code       string
+	Title      string
+	TitleKey   string
+	Path       string
+	Icon       string
+	Permission string
+}
+
+// AuthBootstrapLocaleSnapshot 描述 bootstrap 响应中的 locale 快照。
+type AuthBootstrapLocaleSnapshot struct {
+	CurrentLocale    string
+	DefaultLocale    string
+	FallbackLocale   string
+	SupportedLocales []string
+}
+
+// AuthBootstrapPayload 描述 `/auth/bootstrap` 返回的稳定载荷。
+type AuthBootstrapPayload struct {
+	User               CurrentUser
+	MustChangePassword bool
+	Roles              []string
+	Permissions        []string
+	Menus              []AuthBootstrapMenuItem
+	Locale             AuthBootstrapLocaleSnapshot
+}
+
+// AuthRouteError 描述 auth 路由需要返回的稳定错误契约。
+type AuthRouteError struct {
+	Status     int
+	MessageKey string
+	Data       map[string]any
+}
+
 // WithRequestAuthContext 返回带有稳定请求鉴权上下文的派生 context。
 //
 // 该辅助函数让 core 中间件、认证服务和业务插件可以沿 `context.Context`
@@ -122,6 +168,25 @@ type AuthSessionService interface {
 		userID uint64,
 		currentSessionID string,
 	) (AuthSessionRevokeResult, error)
+}
+
+// AuthFlowService 暴露 `/auth/*` 路由需要的稳定认证闭环能力。
+//
+// auth 插件拥有这些路由的 HTTP 运行时注册，但在迁移过渡期允许通过该
+// capability 复用 user 插件内尚未迁出的实现细节。
+type AuthFlowService interface {
+	StartLogin(ctx context.Context, username string, password string) (AuthRefreshResult, error)
+	RefreshSession(ctx context.Context, refreshToken string) (AuthRefreshResult, error)
+	LogoutCurrentSession(ctx context.Context, refreshToken string) error
+	RevokeAllCurrentUserSessions(ctx context.Context) error
+	RevokeOtherCurrentUserSessions(ctx context.Context) error
+	ListCurrentUserSessions(ctx context.Context, limit int) ([]AuthSessionSummary, error)
+	RevokeCurrentUserSession(ctx context.Context, sessionID string) error
+	ReadBootstrapPayload(ctx context.Context, request *http.Request) (AuthBootstrapPayload, error)
+	ChangeCurrentUserPassword(ctx context.Context, currentPassword string, newPassword string) error
+	CompleteRequiredPasswordChange(ctx context.Context, newPassword string) error
+	IsRestrictedPasswordChangeSession(ctx context.Context) (bool, error)
+	RouteError(err error) AuthRouteError
 }
 
 // UserAuthIdentityService 暴露 auth 插件可依赖的稳定用户身份能力。

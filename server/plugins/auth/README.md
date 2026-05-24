@@ -5,7 +5,8 @@
 `server/plugins/auth` 是认证与会话生命周期插件的长期归属边界。
 
 Phase 2 起，这个目录开始接管 token、refresh session、cookie 与 auth-owned
-store/storeent/runtime helper；`/auth/*` 路由仍在后续 Phase 3 迁移。
+store/storeent/runtime helper；Phase 3 进一步接管 `/auth/*` 路由注册与 HTTP
+运行时所有权。
 
 ## 职责边界
 
@@ -29,8 +30,9 @@ store/storeent/runtime helper；`/auth/*` 路由仍在后续 Phase 3 迁移。
 
 * `doc.go`：插件边界说明
 * `descriptor.go`：compile-time descriptor 骨架
-* `plugin.go`：最小生命周期骨架
+* `plugin.go`：auth 路由生命周期入口
 * `runtime.go`：token 与 refresh cookie runtime helper
+* `route_*.go`：`/auth/*` 路由与受限会话 guard
 * `store/`：auth-owned credential/session store contract
 * `storeent/`：auth-owned Ent-backed persistence
 * `contract/`：`/auth/*` 契约 owner 占位
@@ -38,7 +40,6 @@ store/storeent/runtime helper；`/auth/*` 路由仍在后续 Phase 3 迁移。
 
 后续迁移顺序固定为：
 
-1. Phase 3：迁移 `/auth/*` 路由
-2. Phase 4+：前端 `modules/auth` 收口与兼容清理
+1. Phase 4+：前端 `modules/auth` 收口与兼容清理
 
 兼容期内，`server/plugins/user/store/auth.go` 与 `user` 侧 token helper 只保留薄桥接。

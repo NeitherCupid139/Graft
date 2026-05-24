@@ -13,6 +13,7 @@ import (
 	messagecontract "graft/server/internal/contract/message"
 	"graft/server/internal/plugin"
 	"graft/server/internal/pluginapi"
+	authcontract "graft/server/plugins/auth/contract"
 	usercontract "graft/server/plugins/user/contract"
 	userstore "graft/server/plugins/user/store"
 )
@@ -72,9 +73,12 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 	}
 	p.routeAuthorizer = newDeferredAuthorizer()
 	guards := newRouteGuards(ctx.I18n, services.auth, p.routeAuthorizer)
-	if err := registerAuthRoutes(ctx, p.Name(), services.auth, services.bootstrap, &guards); err != nil {
-		return err
-	}
+	authGroup := ctx.Router.Group(authcontract.AuthGroup)
+	guards.restrictedSession = newRestrictedSessionGuard(
+		ctx.I18n,
+		services.auth,
+		authGroup.BasePath(),
+	)
 	if err := registerUserRoutes(ctx, p.Name(), services.user, services.auth, guards); err != nil {
 		return err
 	}

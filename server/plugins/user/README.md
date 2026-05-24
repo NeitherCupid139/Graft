@@ -25,10 +25,8 @@
 ## 主要入口
 
 * `doc.go`：插件用途说明
-* `plugin.go`：插件生命周期、服务注册与示例路由
-* `doc.go`：插件用途说明
 * `plugin.go`：插件生命周期、服务注册与用户管理路由
-* 仍留在本插件内的认证相关入口属于迁移过渡面；Phase 1~3 会把 login、change-password、session、`/auth/*` 路由与相关 store 迁入 `server/plugins/auth`
+* 认证相关实现当前只保留为 `auth` 插件消费的过渡 bridge；`/auth/*` 路由注册已迁入 `server/plugins/auth`
 
 ## 关键依赖
 

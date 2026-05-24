@@ -36,6 +36,7 @@ import (
 	"graft/server/internal/permission"
 	"graft/server/internal/plugin"
 	"graft/server/internal/pluginapi"
+	authplugin "graft/server/plugins/auth"
 	"graft/server/plugins/rbac"
 	rbacstore "graft/server/plugins/rbac/store"
 	usercontract "graft/server/plugins/user/contract"
@@ -599,6 +600,10 @@ func newPluginTestContextWithLoggerAndPermissions(
 	if err := pluginInstance.Register(ctx); err != nil {
 		t.Fatalf("register plugin: %v", err)
 	}
+	authPlugin := authplugin.NewPlugin()
+	if err := authPlugin.Register(ctx); err != nil {
+		t.Fatalf("register auth plugin: %v", err)
+	}
 	if err := rbac.NewPlugin(pluginTestRBACRepository{
 		roles: map[uint64][]rbacstore.Role{
 			7: {{ID: 1, Name: "admin", Display: "管理员"}},
@@ -611,6 +616,9 @@ func newPluginTestContextWithLoggerAndPermissions(
 	}
 	if err := pluginInstance.Boot(ctx); err != nil {
 		t.Fatalf("boot plugin: %v", err)
+	}
+	if err := authPlugin.Boot(ctx); err != nil {
+		t.Fatalf("boot auth plugin: %v", err)
 	}
 
 	return ctx, engine
