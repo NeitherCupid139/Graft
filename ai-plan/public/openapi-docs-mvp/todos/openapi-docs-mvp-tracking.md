@@ -27,3 +27,4 @@
 - prod 下的更细粒度访问控制
 - docs 页面可见文案与国际化
 - 是否在后续接入 `web` 菜单
+- `/openapi.json` bundled artifact stale gate

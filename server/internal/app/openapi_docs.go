@@ -13,10 +13,11 @@ import (
 )
 
 const (
-	openapiRootSpecRelativePath = "openapi/openapi.yaml"
-	openapiJSONPath             = "/openapi.json"
-	openapiYAMLPath             = "/openapi.yaml"
-	openapiDocsPath             = "/docs"
+	openapiRootSpecRelativePath   = "openapi/openapi.yaml"
+	openapiBundleSpecRelativePath = "openapi/dist/openapi.bundle.json"
+	openapiJSONPath               = "/openapi.json"
+	openapiYAMLPath               = "/openapi.yaml"
+	openapiDocsPath               = "/docs"
 )
 
 var scalarDocsPageTemplate = template.Must(template.New("scalar-docs").Parse(`<!doctype html>
@@ -56,17 +57,30 @@ func loadOpenAPIDocsAssets() (*openAPIDocsAssets, error) {
 	loader := openapi3.NewLoader()
 	loader.IsExternalRefsAllowed = true
 
-	document, err := loader.LoadFromDataWithPath(yamlContent, &url.URL{Path: filepath.ToSlash(rootSpecPath)})
+	rootDocument, err := loader.LoadFromDataWithPath(yamlContent, &url.URL{Path: filepath.ToSlash(rootSpecPath)})
 	if err != nil {
 		return nil, fmt.Errorf("load openapi spec %q: %w", rootSpecPath, err)
 	}
-	if err := document.Validate(loader.Context); err != nil {
+	if err := rootDocument.Validate(loader.Context); err != nil {
 		return nil, fmt.Errorf("validate openapi spec %q: %w", rootSpecPath, err)
 	}
 
-	jsonContent, err := document.MarshalJSON()
+	bundleSpecPath := filepath.Join(repositoryRoot, filepath.FromSlash(openapiBundleSpecRelativePath))
+	// #nosec G304 -- bundleSpecPath is constrained to the repository-owned bundled openapi spec under the resolved repo root.
+	jsonContent, err := os.ReadFile(bundleSpecPath)
 	if err != nil {
-		return nil, fmt.Errorf("marshal openapi spec %q as json: %w", rootSpecPath, err)
+		return nil, fmt.Errorf("read bundled openapi spec %q: %w", bundleSpecPath, err)
+	}
+
+	bundleDocument, err := loader.LoadFromData(jsonContent)
+	if err != nil {
+		return nil, fmt.Errorf("load bundled openapi spec %q: %w", bundleSpecPath, err)
+	}
+	if err := bundleDocument.Validate(loader.Context); err != nil {
+		return nil, fmt.Errorf("validate bundled openapi spec %q: %w", bundleSpecPath, err)
+	}
+	if bytes.Contains(jsonContent, []byte("./paths/")) || bytes.Contains(jsonContent, []byte("./components/")) {
+		return nil, fmt.Errorf("bundled openapi spec %q still contains external file refs", bundleSpecPath)
 	}
 
 	return &openAPIDocsAssets{

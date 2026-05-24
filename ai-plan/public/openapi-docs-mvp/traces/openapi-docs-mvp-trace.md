@@ -16,6 +16,13 @@
 - `web` 壳层在 GitHub 按钮旁增加了文档按钮，登录页头部也同步补齐。
 - GitHub 链接已从 starter 仓库替换为 `https://github.com/GeWuYou/Graft`。
 
+## 2026-05-24 Follow-up
+
+- 确认 MVP 首版 `/openapi.json` 实际暴露的是 unbundled root spec，而不是 Scalar 可直接消费的 bundled 文档。
+- 根文档保留了 `./paths/**` 与 `./components/**` 外部 `$ref`，导致 `/docs` 只能显示 tags / models，无法展开具体 operation。
+- follow-up 修复把 `/openapi.json` 改为读取 `openapi/dist/openapi.bundle.json`，同时保留 `/openapi.yaml` 作为源文档入口。
+- 后续仍需补充 bundle stale gate，防止 checked-in artifact 漂移。
+
 ## Validation Intent
 
 - `git diff --check`

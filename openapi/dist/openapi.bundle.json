@@ -1,0 +1,2095 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Graft Server API",
+    "version": "0.1.0-phase-2a",
+    "description": "Phase 2A establishes the first minimal OpenAPI spec and validation loop for the\nexisting server runtime without changing business behavior, response envelope\nsemantics, or auth/session transport ownership.\n"
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "health"
+    },
+    {
+      "name": "auth"
+    },
+    {
+      "name": "users"
+    },
+    {
+      "name": "rbac"
+    }
+  ],
+  "paths": {
+    "/healthz": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Probe runtime health",
+        "operationId": "getHealthz",
+        "security": [],
+        "description": "Returns the plain runtime health payload registered in `server/internal/app/runtime.go`.\nThis endpoint is intentionally not wrapped in the standard API envelope.\n",
+        "responses": {
+          "200": {
+            "description": "Runtime health snapshot.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/health-response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Login with username and password",
+        "operationId": "postAuthLogin",
+        "security": [],
+        "description": "Authenticates the caller, writes the refresh cookie, and returns the existing success envelope.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/locale-header"
+          },
+          {
+            "$ref": "#/components/parameters/request-id-header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/login-request"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login succeeded.",
+            "headers": {
+              "Set-Cookie": {
+                "description": "Writes the HTTP-only refresh cookie. Cookie name, path, secure flag, and SameSite\nbehavior follow the current server auth config.\n",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/enveloped-login-response"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/internal-server-error"
+          }
+        }
+      }
+    },
+    "/api/auth/refresh": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Rotate refresh session and issue a new access token",
+        "operationId": "postAuthRefresh",
+        "description": "Reads the configured refresh cookie, validates the current refresh session, rotates it,\nand returns the existing success envelope.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/locale-header"
+          },
+          {
+            "$ref": "#/components/parameters/request-id-header"
+          }
+        ],
+        "security": [
+          {
+            "refreshCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Refresh succeeded.",
+            "headers": {
+              "Set-Cookie": {
+                "description": "Writes the rotated HTTP-only refresh cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/enveloped-login-response"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/internal-server-error"
+          }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Logout current refresh session",
+        "operationId": "postAuthLogout",
+        "description": "Revokes the current refresh session referenced by the refresh cookie and clears that cookie.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/locale-header"
+          },
+          {
+            "$ref": "#/components/parameters/request-id-header"
+          }
+        ],
+        "security": [
+          {
+            "refreshCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Logout succeeded.",
+            "headers": {
+              "Set-Cookie": {
+                "description": "Clears the HTTP-only refresh cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/enveloped-empty-response"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/internal-server-error"
+          }
+        }
+      }
+    },
+    "/api/auth/bootstrap": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Read current authenticated bootstrap payload",
+        "operationId": "getAuthBootstrap",
+        "description": "Returns the authenticated bootstrap payload used by the admin shell after login.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/locale-header"
+          },
+          {
+            "$ref": "#/components/parameters/request-id-header"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bootstrap payload.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/enveloped-bootstrap-response"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/internal-server-error"
+          }
+        }
+      }
+    },
+    "/api/users": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "summary": "List users",
+        "operationId": "getUsers",
+        "description": "Returns the existing user list payload without changing business behavior.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/locale-header"
+          },
+          {
+            "$ref": "#/components/parameters/request-id-header"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User list.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/enveloped-user-list-response"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/internal-server-error"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Create user",
+        "operationId": "postUsers",
+        "description": "Creates a managed backend user and returns the existing success envelope. The current password policy requires at least\n12 characters and both letters and digits.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/locale-header"
+          },
+          {
+            "$ref": "#/components/parameters/request-id-header"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/create-user-request"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User created.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/enveloped-user-item-response"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request or password policy violation.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "examples": {
+                  "invalidArgument": {
+                    "summary": "Invalid argument",
+                    "value": {
+                      "success": false,
+                      "code": "COMMON_INVALID_ARGUMENT",
+                      "message": "请求参数不合法",
+                      "traceId": "6f1f05e4-4ffc-4cac-b218-e4602c37f81c",
+                      "messageKey": "common.invalid_argument",
+                      "locale": "zh-CN",
+                      "data": {
+                        "field": "username"
+                      }
+                    }
+                  },
+                  "passwordPolicyViolation": {
+                    "summary": "Password policy violation",
+                    "value": {
+                      "success": false,
+                      "code": "AUTH_PASSWORD_POLICY_VIOLATION",
+                      "message": "新密码不符合安全要求",
+                      "traceId": "6f1f05e4-4ffc-4cac-b218-e4602c37f81c",
+                      "messageKey": "auth.password_policy_violation",
+                      "locale": "zh-CN",
+                      "data": {
+                        "field": "password"
+                      }
+                    }
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/internal-server-error"
+          }
+        }
+      }
+    },
+    "/api/users/{id}/update": {
+      "post": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Update user",
+        "operationId": "postUserUpdate",
+        "description": "Updates the managed user profile fields that the existing backend route already accepts.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/locale-header"
+          },
+          {
+            "$ref": "#/components/parameters/request-id-header"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Target user id.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/update-user-request"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User updated.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/enveloped-user-item-response"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request payload.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "examples": {
+                  "invalidArgument": {
+                    "summary": "Username conflict",
+                    "value": {
+                      "success": false,
+                      "code": "COMMON_INVALID_ARGUMENT",
+                      "message": "请求参数不合法",
+                      "traceId": "7a4fd424-2af6-4e71-9562-4d706bc6c0a8",
+                      "messageKey": "common.invalid_argument",
+                      "locale": "zh-CN",
+                      "data": {
+                        "field": "username"
+                      }
+                    }
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/forbidden"
+          },
+          "404": {
+            "description": "User not found.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "examples": {
+                  "userNotFound": {
+                    "summary": "Target user not found",
+                    "value": {
+                      "success": false,
+                      "code": "USER_NOT_FOUND",
+                      "message": "User not found",
+                      "traceId": "7a4fd424-2af6-4e71-9562-4d706bc6c0a8",
+                      "messageKey": "user.not_found",
+                      "locale": "en-US"
+                    }
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/internal-server-error"
+          }
+        }
+      }
+    },
+    "/api/users/{id}/status": {
+      "post": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Update user status",
+        "operationId": "postUserStatus",
+        "description": "Updates the managed user status with the existing backend enable/disable semantics.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/locale-header"
+          },
+          {
+            "$ref": "#/components/parameters/request-id-header"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Target user id.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/update-user-status-request"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User status updated.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/enveloped-user-item-response"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request payload.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "examples": {
+                  "invalidStatus": {
+                    "summary": "Unsupported status value",
+                    "value": {
+                      "success": false,
+                      "code": "COMMON_INVALID_ARGUMENT",
+                      "message": "请求参数不合法",
+                      "traceId": "6f5cb7e0-7d6d-4dc6-a32f-137ac9b01757",
+                      "messageKey": "common.invalid_argument",
+                      "locale": "zh-CN",
+                      "data": {
+                        "field": "status"
+                      }
+                    }
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/forbidden"
+          },
+          "404": {
+            "description": "User not found.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "examples": {
+                  "userNotFound": {
+                    "summary": "Target user not found",
+                    "value": {
+                      "success": false,
+                      "code": "USER_NOT_FOUND",
+                      "message": "User not found",
+                      "traceId": "6f5cb7e0-7d6d-4dc6-a32f-137ac9b01757",
+                      "messageKey": "user.not_found",
+                      "locale": "en-US"
+                    }
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/internal-server-error"
+          }
+        }
+      }
+    },
+    "/api/users/{id}/reset-password": {
+      "post": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Reset user password",
+        "operationId": "postUserResetPassword",
+        "description": "Resets the managed user password using the existing backend reset semantics.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/locale-header"
+          },
+          {
+            "$ref": "#/components/parameters/request-id-header"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Target user id.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/reset-user-password-request"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password reset.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/enveloped-empty-response"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request or password policy violation.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "examples": {
+                  "passwordPolicyViolation": {
+                    "summary": "Password policy violation",
+                    "value": {
+                      "success": false,
+                      "code": "AUTH_PASSWORD_POLICY_VIOLATION",
+                      "message": "新密码不符合安全要求",
+                      "traceId": "5b61d01d-c1bb-45f3-93a6-605ec0a63563",
+                      "messageKey": "auth.password_policy_violation",
+                      "locale": "zh-CN",
+                      "data": {
+                        "field": "new_password"
+                      }
+                    }
+                  },
+                  "passwordReuseForbidden": {
+                    "summary": "Password reuse forbidden",
+                    "value": {
+                      "success": false,
+                      "code": "AUTH_PASSWORD_REUSE_FORBIDDEN",
+                      "message": "新密码不能重复使用默认密码或当前密码",
+                      "traceId": "5b61d01d-c1bb-45f3-93a6-605ec0a63563",
+                      "messageKey": "auth.password_reuse_forbidden",
+                      "locale": "zh-CN",
+                      "data": {
+                        "field": "new_password"
+                      }
+                    }
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/forbidden"
+          },
+          "404": {
+            "description": "User not found.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "examples": {
+                  "userNotFound": {
+                    "summary": "Target user not found",
+                    "value": {
+                      "success": false,
+                      "code": "USER_NOT_FOUND",
+                      "message": "User not found",
+                      "traceId": "5b61d01d-c1bb-45f3-93a6-605ec0a63563",
+                      "messageKey": "user.not_found",
+                      "locale": "en-US"
+                    }
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/internal-server-error"
+          }
+        }
+      }
+    },
+    "/api/roles": {
+      "get": {
+        "tags": [
+          "rbac"
+        ],
+        "summary": "List roles",
+        "operationId": "getRoles",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/locale-header"
+          },
+          {
+            "$ref": "#/components/parameters/request-id-header"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Role list.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/enveloped-role-list-response"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/internal-server-error"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "rbac"
+        ],
+        "summary": "Create role",
+        "operationId": "postRoles",
+        "description": "Creates a role with the existing backend normalization behavior for `name`,\n`display`, and optional `description`.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/locale-header"
+          },
+          {
+            "$ref": "#/components/parameters/request-id-header"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/create-role-request"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Role created.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/enveloped-role-item-response"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request payload.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "examples": {
+                  "invalidArgument": {
+                    "summary": "Role name conflict",
+                    "value": {
+                      "success": false,
+                      "code": "COMMON_INVALID_ARGUMENT",
+                      "message": "请求参数不合法",
+                      "traceId": "c74600e8-a3ae-4028-b4fc-f3573049c2ca",
+                      "messageKey": "common.invalid_argument",
+                      "locale": "zh-CN",
+                      "data": {
+                        "field": "name"
+                      }
+                    }
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/internal-server-error"
+          }
+        }
+      }
+    },
+    "/api/roles/{id}/update": {
+      "post": {
+        "tags": [
+          "rbac"
+        ],
+        "summary": "Update role",
+        "operationId": "postRoleUpdate",
+        "description": "Updates a role with the existing backend normalization behavior for `name`,\n`display`, and optional `description`.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/locale-header"
+          },
+          {
+            "$ref": "#/components/parameters/request-id-header"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Target role id.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/update-role-request"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Role updated.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/enveloped-role-item-response"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request payload.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "examples": {
+                  "invalidArgument": {
+                    "summary": "Builtin role name is immutable",
+                    "value": {
+                      "success": false,
+                      "code": "COMMON_INVALID_ARGUMENT",
+                      "message": "请求参数不合法",
+                      "traceId": "9de85c93-9038-4d71-845e-ebd8342a6bfe",
+                      "messageKey": "common.invalid_argument",
+                      "locale": "zh-CN",
+                      "data": {
+                        "field": "name"
+                      }
+                    }
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/forbidden"
+          },
+          "404": {
+            "description": "Role not found.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "examples": {
+                  "roleNotFound": {
+                    "summary": "Target role not found",
+                    "value": {
+                      "success": false,
+                      "code": "ROLE_NOT_FOUND",
+                      "message": "Role not found",
+                      "traceId": "9de85c93-9038-4d71-845e-ebd8342a6bfe",
+                      "messageKey": "role.not_found",
+                      "locale": "en-US"
+                    }
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/internal-server-error"
+          }
+        }
+      }
+    },
+    "/api/roles/{id}/permissions/assign": {
+      "post": {
+        "tags": [
+          "rbac"
+        ],
+        "summary": "Replace role permissions",
+        "operationId": "postRolePermissionAssign",
+        "description": "Replaces the role's permission bindings with the provided stable permission id set\nand preserves the existing replace semantics for `permission_ids`.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/locale-header"
+          },
+          {
+            "$ref": "#/components/parameters/request-id-header"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Target role id.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/replace-role-permissions-request"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Role permissions replaced.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/enveloped-empty-response"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request payload.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "examples": {
+                  "invalidPermissionIDs": {
+                    "summary": "Unknown permission id set",
+                    "value": {
+                      "success": false,
+                      "code": "COMMON_INVALID_ARGUMENT",
+                      "message": "请求参数不合法",
+                      "traceId": "281b7a2d-3ea2-44fa-84dc-a5521fe0301a",
+                      "messageKey": "common.invalid_argument",
+                      "locale": "zh-CN",
+                      "data": {
+                        "field": "permission_ids"
+                      }
+                    }
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/forbidden"
+          },
+          "404": {
+            "description": "Role not found.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "examples": {
+                  "roleNotFound": {
+                    "summary": "Target role not found",
+                    "value": {
+                      "success": false,
+                      "code": "ROLE_NOT_FOUND",
+                      "message": "Role not found",
+                      "traceId": "281b7a2d-3ea2-44fa-84dc-a5521fe0301a",
+                      "messageKey": "role.not_found",
+                      "locale": "en-US"
+                    }
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/internal-server-error"
+          }
+        }
+      }
+    },
+    "/api/permissions": {
+      "get": {
+        "tags": [
+          "rbac"
+        ],
+        "summary": "List permissions",
+        "operationId": "getPermissions",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/locale-header"
+          },
+          {
+            "$ref": "#/components/parameters/request-id-header"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Permission list.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/enveloped-permission-list-response"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/internal-server-error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ApiEnvelope": {
+        "$ref": "#/components/schemas/api-envelope"
+      },
+      "ErrorResponse": {
+        "$ref": "#/components/schemas/error-response"
+      },
+      "HealthResponse": {
+        "$ref": "#/components/schemas/health-response"
+      },
+      "LoginRequest": {
+        "$ref": "#/components/schemas/login-request"
+      },
+      "LoginUser": {
+        "$ref": "#/components/schemas/login-user"
+      },
+      "LoginResponse": {
+        "$ref": "#/components/schemas/login-response"
+      },
+      "CreateUserRequest": {
+        "$ref": "#/components/schemas/create-user-request"
+      },
+      "UpdateUserRequest": {
+        "$ref": "#/components/schemas/update-user-request"
+      },
+      "UpdateUserStatusRequest": {
+        "$ref": "#/components/schemas/update-user-status-request"
+      },
+      "ResetUserPasswordRequest": {
+        "$ref": "#/components/schemas/reset-user-password-request"
+      },
+      "BootstrapMenu": {
+        "$ref": "#/components/schemas/bootstrap-menu"
+      },
+      "BootstrapLocale": {
+        "$ref": "#/components/schemas/bootstrap-locale"
+      },
+      "BootstrapResponse": {
+        "$ref": "#/components/schemas/bootstrap-response"
+      },
+      "UserListItem": {
+        "$ref": "#/components/schemas/user-list-item"
+      },
+      "UserListResponse": {
+        "$ref": "#/components/schemas/user-list-response"
+      },
+      "EnvelopedUserItemResponse": {
+        "$ref": "#/components/schemas/enveloped-user-item-response"
+      },
+      "RoleListItem": {
+        "$ref": "#/components/schemas/role-list-item"
+      },
+      "RoleListResponse": {
+        "$ref": "#/components/schemas/role-list-response"
+      },
+      "CreateRoleRequest": {
+        "$ref": "#/components/schemas/create-role-request"
+      },
+      "UpdateRoleRequest": {
+        "$ref": "#/components/schemas/update-role-request"
+      },
+      "EnvelopedRoleItemResponse": {
+        "$ref": "#/components/schemas/enveloped-role-item-response"
+      },
+      "ReplaceRolePermissionsRequest": {
+        "$ref": "#/components/schemas/replace-role-permissions-request"
+      },
+      "PermissionListItem": {
+        "$ref": "#/components/schemas/permission-list-item"
+      },
+      "PermissionListResponse": {
+        "$ref": "#/components/schemas/permission-list-response"
+      },
+      "health-response": {
+        "type": "object",
+        "required": [
+          "status",
+          "defaultLocale",
+          "fallbackLocale",
+          "menus",
+          "permissions",
+          "jobs"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok"
+            ]
+          },
+          "defaultLocale": {
+            "type": "string"
+          },
+          "fallbackLocale": {
+            "type": "string"
+          },
+          "menus": {
+            "type": "integer"
+          },
+          "permissions": {
+            "type": "integer"
+          },
+          "jobs": {
+            "type": "integer"
+          }
+        }
+      },
+      "login-request": {
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          }
+        }
+      },
+      "api-envelope": {
+        "type": "object",
+        "required": [
+          "success",
+          "code",
+          "message",
+          "traceId",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "code": {
+            "type": "string",
+            "description": "Existing canonical response code."
+          },
+          "message": {
+            "type": "string"
+          },
+          "messageKey": {
+            "type": "string",
+            "description": "Present on localized error flows and omitted on normal success."
+          },
+          "locale": {
+            "type": "string",
+            "description": "Present on localized error flows and omitted on normal success."
+          },
+          "traceId": {
+            "type": "string",
+            "description": "Mirrors the request id contract used by the current runtime."
+          },
+          "data": {}
+        }
+      },
+      "login-user": {
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "display_name"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "username": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          }
+        }
+      },
+      "login-response": {
+        "type": "object",
+        "required": [
+          "access_token",
+          "expires_at",
+          "must_change_password",
+          "user"
+        ],
+        "properties": {
+          "access_token": {
+            "type": "string"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "must_change_password": {
+            "type": "boolean"
+          },
+          "user": {
+            "$ref": "#/components/schemas/login-user"
+          }
+        }
+      },
+      "enveloped-login-response": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/api-envelope"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/login-response"
+              }
+            }
+          }
+        ]
+      },
+      "error-response": {
+        "type": "object",
+        "required": [
+          "success",
+          "code",
+          "message",
+          "traceId"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "code": {
+            "type": "string",
+            "description": "Existing canonical error response code."
+          },
+          "message": {
+            "type": "string"
+          },
+          "messageKey": {
+            "type": "string"
+          },
+          "locale": {
+            "type": "string"
+          },
+          "traceId": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Optional structured error details preserved from the current runtime."
+          }
+        }
+      },
+      "enveloped-empty-response": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/api-envelope"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "enum": [
+                  null
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "bootstrap-menu": {
+        "type": "object",
+        "required": [
+          "code",
+          "title",
+          "path",
+          "icon",
+          "permission"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "title_key": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "icon": {
+            "type": "string"
+          },
+          "permission": {
+            "type": "string"
+          }
+        }
+      },
+      "bootstrap-locale": {
+        "type": "object",
+        "required": [
+          "current_locale",
+          "default_locale",
+          "fallback_locale",
+          "supported_locales"
+        ],
+        "properties": {
+          "current_locale": {
+            "type": "string"
+          },
+          "default_locale": {
+            "type": "string"
+          },
+          "fallback_locale": {
+            "type": "string"
+          },
+          "supported_locales": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "bootstrap-response": {
+        "type": "object",
+        "required": [
+          "user",
+          "must_change_password",
+          "roles",
+          "permissions",
+          "menus",
+          "locale"
+        ],
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/login-user"
+          },
+          "must_change_password": {
+            "type": "boolean"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "menus": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/bootstrap-menu"
+            }
+          },
+          "locale": {
+            "$ref": "#/components/schemas/bootstrap-locale"
+          }
+        }
+      },
+      "enveloped-bootstrap-response": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/api-envelope"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/bootstrap-response"
+              }
+            }
+          }
+        ]
+      },
+      "user-list-item": {
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "display",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "username": {
+            "type": "string"
+          },
+          "display": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        }
+      },
+      "user-list-response": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/user-list-item"
+            }
+          }
+        }
+      },
+      "enveloped-user-list-response": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/api-envelope"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/user-list-response"
+              }
+            }
+          }
+        ]
+      },
+      "create-user-request": {
+        "type": "object",
+        "required": [
+          "username",
+          "display",
+          "password"
+        ],
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "display": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 12,
+            "pattern": "^(.*[A-Za-z].*\\d.*|.*\\d.*[A-Za-z].*)$",
+            "description": "Initial password. The current server policy requires at least 12 characters and both letters and digits."
+          }
+        }
+      },
+      "enveloped-user-item-response": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/api-envelope"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/user-list-item"
+              }
+            }
+          }
+        ]
+      },
+      "update-user-request": {
+        "type": "object",
+        "required": [
+          "username",
+          "display"
+        ],
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "display": {
+            "type": "string"
+          }
+        }
+      },
+      "update-user-status-request": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "enabled",
+              "disabled"
+            ]
+          }
+        }
+      },
+      "reset-user-password-request": {
+        "type": "object",
+        "required": [
+          "new_password"
+        ],
+        "properties": {
+          "new_password": {
+            "type": "string",
+            "minLength": 12,
+            "pattern": "^(.*[A-Za-z].*\\d.*|.*\\d.*[A-Za-z].*)$"
+          }
+        }
+      },
+      "role-list-item": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "display",
+          "builtin",
+          "updated_at",
+          "permission_count",
+          "user_count"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "name": {
+            "type": "string"
+          },
+          "display": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "builtin": {
+            "type": "boolean"
+          },
+          "updated_at": {
+            "type": "string"
+          },
+          "permission_count": {
+            "type": "integer"
+          },
+          "user_count": {
+            "type": "integer"
+          }
+        }
+      },
+      "role-list-response": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/role-list-item"
+            }
+          }
+        }
+      },
+      "enveloped-role-list-response": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/api-envelope"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/role-list-response"
+              }
+            }
+          }
+        ]
+      },
+      "create-role-request": {
+        "type": "object",
+        "required": [
+          "name",
+          "display"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Stable role name. The server trims surrounding whitespace and rejects an empty result."
+          },
+          "display": {
+            "type": "string",
+            "description": "User-facing role display name. The server trims surrounding whitespace and rejects an empty result."
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "description": "Optional role description. The server trims surrounding whitespace and normalizes empty strings to null."
+          }
+        }
+      },
+      "enveloped-role-item-response": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/api-envelope"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/role-list-item"
+              }
+            }
+          }
+        ]
+      },
+      "update-role-request": {
+        "type": "object",
+        "required": [
+          "name",
+          "display"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Stable role name. The server trims surrounding whitespace and rejects an empty result."
+          },
+          "display": {
+            "type": "string",
+            "description": "User-facing role display name. The server trims surrounding whitespace and rejects an empty result."
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "description": "Optional role description. The server trims surrounding whitespace and normalizes empty strings to null."
+          }
+        }
+      },
+      "replace-role-permissions-request": {
+        "type": "object",
+        "required": [
+          "permission_ids"
+        ],
+        "properties": {
+          "permission_ids": {
+            "type": "array",
+            "description": "Replaces the role's permission bindings with the provided stable permission id set.\n",
+            "items": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        }
+      },
+      "permission-list-item": {
+        "type": "object",
+        "required": [
+          "id",
+          "code",
+          "display",
+          "category",
+          "created_at",
+          "updated_at",
+          "role_binding_count"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "code": {
+            "type": "string"
+          },
+          "display": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          },
+          "role_binding_count": {
+            "type": "integer"
+          }
+        }
+      },
+      "permission-list-response": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/permission-list-item"
+            }
+          }
+        }
+      },
+      "enveloped-permission-list-response": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/api-envelope"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/permission-list-response"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Existing access-token authentication via the `Authorization: Bearer <token>` header.\n"
+      },
+      "refreshCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "graft_refresh_token",
+        "description": "Documents the refresh cookie transport used by auth refresh/logout flows. The runtime may\noverride the cookie name from auth config; this spec keeps the current default name as the\ndocumented baseline.\n"
+      }
+    },
+    "parameters": {
+      "locale-header": {
+        "name": "X-Graft-Locale",
+        "in": "header",
+        "required": false,
+        "description": "Explicit locale override header already supported by the runtime.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "request-id-header": {
+        "name": "X-Request-Id",
+        "in": "header",
+        "required": false,
+        "description": "Optional caller-supplied request id. If omitted, the runtime generates one and echoes it\nthrough the response header and envelope traceId field.\n",
+        "schema": {
+          "type": "string"
+        }
+      }
+    },
+    "headers": {
+      "request-id": {
+        "description": "Stable request identifier echoed by the runtime.",
+        "schema": {
+          "type": "string"
+        }
+      }
+    },
+    "responses": {
+      "unauthorized": {
+        "description": "Unauthorized request under existing error envelope semantics.",
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/request-id"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/error-response"
+            }
+          }
+        }
+      },
+      "internal-server-error": {
+        "description": "Internal server error under existing error envelope semantics.",
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/request-id"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/error-response"
+            }
+          }
+        }
+      },
+      "forbidden": {
+        "description": "Forbidden request under existing error envelope semantics.",
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/request-id"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/error-response"
+            }
+          }
+        }
+      }
+    }
+  }
+}

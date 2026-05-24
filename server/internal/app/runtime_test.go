@@ -492,31 +492,9 @@ func TestRegisterCoreRoutesServesOpenAPIDocsWhenEnabled(t *testing.T) {
 	engine := gin.New()
 	runtime.registerCoreRoutes(engine)
 
-	testCases := []struct {
-		path        string
-		contentType string
-		contains    string
-	}{
-		{path: openapiJSONPath, contentType: "application/json; charset=utf-8", contains: "\"openapi\":\"3.1.0\""},
-		{path: openapiYAMLPath, contentType: "application/yaml; charset=utf-8", contains: "openapi: 3.1.0"},
-		{path: openapiDocsPath, contentType: "text/html; charset=utf-8", contains: `data-url="/openapi.json"`},
-	}
-
-	for _, testCase := range testCases {
-		recorder := httptest.NewRecorder()
-		request := httptest.NewRequest(http.MethodGet, testCase.path, nil)
-		engine.ServeHTTP(recorder, request)
-
-		if recorder.Code != http.StatusOK {
-			t.Fatalf("%s: expected status %d, got %d", testCase.path, http.StatusOK, recorder.Code)
-		}
-		if contentType := recorder.Header().Get("Content-Type"); contentType != testCase.contentType {
-			t.Fatalf("%s: expected content type %q, got %q", testCase.path, testCase.contentType, contentType)
-		}
-		if !strings.Contains(recorder.Body.String(), testCase.contains) {
-			t.Fatalf("%s: expected body to contain %q", testCase.path, testCase.contains)
-		}
-	}
+	assertOpenAPIJSONResponse(t, engine)
+	assertOpenAPIYAMLResponse(t, engine)
+	assertDocsHTMLResponse(t, engine)
 }
 
 func TestRegisterCoreRoutesSkipsOpenAPIDocsWhenDisabled(t *testing.T) {
@@ -542,4 +520,79 @@ func TestRegisterCoreRoutesSkipsOpenAPIDocsWhenDisabled(t *testing.T) {
 			t.Fatalf("%s: expected status %d, got %d", path, http.StatusNotFound, recorder.Code)
 		}
 	}
+}
+
+func assertOpenAPIJSONResponse(t *testing.T, engine *gin.Engine) {
+	t.Helper()
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, openapiJSONPath, nil)
+	engine.ServeHTTP(recorder, request)
+
+	assertResponseStatusAndType(t, recorder, openapiJSONPath, http.StatusOK, "application/json; charset=utf-8")
+
+	jsonBody := recorder.Body.String()
+	for _, unexpected := range []string{"./paths/", "./components/"} {
+		if strings.Contains(jsonBody, unexpected) {
+			t.Fatalf("%s: expected bundled json to omit external ref fragment %q", openapiJSONPath, unexpected)
+		}
+	}
+
+	var document map[string]any
+	if err := json.Unmarshal(recorder.Body.Bytes(), &document); err != nil {
+		t.Fatalf("%s: decode response: %v", openapiJSONPath, err)
+	}
+
+	paths := mustDecodeJSONObject(t, document["paths"], "paths")
+	loginPath := mustDecodeJSONObject(t, paths["/api/auth/login"], "/api/auth/login")
+	if _, ok := loginPath["post"]; !ok {
+		t.Fatalf("%s: expected bundled json to expose POST /api/auth/login", openapiJSONPath)
+	}
+}
+
+func assertOpenAPIYAMLResponse(t *testing.T, engine *gin.Engine) {
+	t.Helper()
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, openapiYAMLPath, nil)
+	engine.ServeHTTP(recorder, request)
+
+	assertResponseStatusAndType(t, recorder, openapiYAMLPath, http.StatusOK, "application/yaml; charset=utf-8")
+	if !strings.Contains(recorder.Body.String(), "openapi: 3.1.0") {
+		t.Fatalf("%s: expected body to contain root spec marker", openapiYAMLPath)
+	}
+}
+
+func assertDocsHTMLResponse(t *testing.T, engine *gin.Engine) {
+	t.Helper()
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, openapiDocsPath, nil)
+	engine.ServeHTTP(recorder, request)
+
+	assertResponseStatusAndType(t, recorder, openapiDocsPath, http.StatusOK, "text/html; charset=utf-8")
+	if !strings.Contains(recorder.Body.String(), `data-url="/openapi.json"`) {
+		t.Fatalf("%s: expected body to contain Scalar spec url", openapiDocsPath)
+	}
+}
+
+func assertResponseStatusAndType(t *testing.T, recorder *httptest.ResponseRecorder, path string, status int, contentType string) {
+	t.Helper()
+
+	if recorder.Code != status {
+		t.Fatalf("%s: expected status %d, got %d", path, status, recorder.Code)
+	}
+	if actual := recorder.Header().Get("Content-Type"); actual != contentType {
+		t.Fatalf("%s: expected content type %q, got %q", path, contentType, actual)
+	}
+}
+
+func mustDecodeJSONObject(t *testing.T, value any, name string) map[string]any {
+	t.Helper()
+
+	object, ok := value.(map[string]any)
+	if !ok {
+		t.Fatalf("expected %s to decode as object", name)
+	}
+	return object
 }
