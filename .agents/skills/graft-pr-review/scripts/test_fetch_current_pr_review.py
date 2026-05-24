@@ -8,6 +8,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import subprocess
 import sys
 import unittest
 from unittest import mock
@@ -247,7 +248,7 @@ class GithubRequestHeaderTests(unittest.TestCase):
             os.environ,
             {"GRAFT_GITHUB_TOKEN": "", "GITHUB_TOKEN": "", "GH_TOKEN": ""},
             clear=False,
-        ):
+        ), mock.patch.object(MODULE.shutil, "which", return_value=None):
             self.assertEqual(
                 MODULE.build_github_request_headers("application/vnd.github+json"),
                 {
@@ -255,6 +256,54 @@ class GithubRequestHeaderTests(unittest.TestCase):
                     "User-Agent": MODULE.USER_AGENT,
                 },
             )
+
+    def test_resolve_github_token_falls_back_to_gh_auth_token(self) -> None:
+        """When env vars are empty, gh auth token should become the fallback source."""
+        with mock.patch.dict(
+            os.environ,
+            {"GRAFT_GITHUB_TOKEN": "", "GITHUB_TOKEN": "", "GH_TOKEN": ""},
+            clear=False,
+        ), mock.patch.object(
+            MODULE.shutil,
+            "which",
+            side_effect=lambda name: "/usr/bin/gh" if name == MODULE.GH_CLI_COMMAND else None,
+        ), mock.patch.object(
+            MODULE.subprocess,
+            "run",
+            return_value=subprocess.CompletedProcess(
+                args=["gh", "auth", "token"],
+                returncode=0,
+                stdout="gho_from_gh\n",
+                stderr="",
+            ),
+        ):
+            self.assertEqual(MODULE.resolve_github_token(), "gho_from_gh")
+
+
+class WorkflowCommandTests(unittest.TestCase):
+    """Cover local reproduction command extraction from workflow run blocks."""
+
+    def test_select_primary_run_command_prefers_substantive_validation_command(self) -> None:
+        """Control-flow setup lines should not hide the real validation command."""
+        run_script = """
+scanner="scripts/magic_value/check_magic_values.py"
+if [ ! -f "$scanner" ]; then
+  echo "skip"
+  exit 0
+fi
+python3 "$scanner" --mode ci --output-json /tmp/contract-governance-ci.json
+"""
+
+        self.assertEqual(
+            MODULE.select_primary_run_command(run_script),
+            'python3 "scripts/magic_value/check_magic_values.py" --mode ci --output-json /tmp/contract-governance-ci.json',
+        )
+
+    def test_build_local_repro_command_uses_workflow_step_and_working_directory(self) -> None:
+        """The helper should derive a local repro command from the repository workflow."""
+        command = MODULE.build_local_repro_command("Web Check", "Run unified web validation entrypoint")
+
+        self.assertEqual(command, "cd web && bun run check")
 
 
 class ReviewThreadStatusTests(unittest.TestCase):
@@ -286,6 +335,40 @@ class ReviewThreadStatusTests(unittest.TestCase):
         }
 
         self.assertEqual(MODULE.classify_review_thread_status(latest_comment), "unknown")
+
+
+class ReplyStateTests(unittest.TestCase):
+    """Cover reply-state classification for AI-review threads."""
+
+    def test_classify_reply_state_marks_pending_after_human_reply(self) -> None:
+        """A human reply on an open thread should wait for the AI's next reaction."""
+        thread = {
+            "status": "open",
+            "latest_comment": {"user": "developer"},
+            "replies": [{"user": "developer"}],
+        }
+
+        self.assertEqual(MODULE.classify_reply_state(thread), "pending_ai_followup")
+
+    def test_classify_reply_state_marks_contested_when_ai_replies_again(self) -> None:
+        """A reopened disagreement should surface as contested for human follow-up."""
+        thread = {
+            "status": "open",
+            "latest_comment": {"user": MODULE.CODERABBIT_LOGIN},
+            "replies": [{"user": "developer"}, {"user": MODULE.CODERABBIT_LOGIN}],
+        }
+
+        self.assertEqual(MODULE.classify_reply_state(thread), "contested")
+
+    def test_classify_reply_state_marks_resolved_when_thread_is_closed_after_reply(self) -> None:
+        """A replied thread that is no longer open should be treated as resolved."""
+        thread = {
+            "status": "addressed",
+            "latest_comment": {"user": "developer"},
+            "replies": [{"user": "developer"}],
+        }
+
+        self.assertEqual(MODULE.classify_reply_state(thread), "resolved_after_reply")
 
 
 class BuildAllOpenReviewThreadsTests(unittest.TestCase):
@@ -390,6 +473,97 @@ class FetchLatestCommitReviewTests(unittest.TestCase):
         self.assertEqual(result["all_open_thread_counts_by_user"][MODULE.GREPTILE_LOGIN], 1)
 
 
+class WorkflowChecksTests(unittest.TestCase):
+    """Cover live GitHub checks, actions job details, and log fallback handling."""
+
+    def test_fetch_workflow_checks_includes_failed_step_and_repro_command(self) -> None:
+        """Failed checks should expose step-level root cause data and a local repro command."""
+        payload = {
+            "check_runs": [
+                {
+                    "id": 101,
+                    "name": "Web Check",
+                    "status": "completed",
+                    "conclusion": "failure",
+                    "app": {"slug": "github-actions"},
+                    "details_url": "https://github.com/GeWuYou/Graft/actions/runs/1/job/2",
+                    "html_url": "https://github.com/GeWuYou/Graft/actions/runs/1/job/2",
+                }
+            ]
+        }
+        job_payload = {
+            "steps": [
+                {"name": "Install dependencies", "number": 4, "status": "completed", "conclusion": "success"},
+                {
+                    "name": "Run unified web validation entrypoint",
+                    "number": 5,
+                    "status": "completed",
+                    "conclusion": "failure",
+                },
+            ]
+        }
+        annotations = [{"path": "web/src/foo.ts", "start_line": 12, "message": "type error"}]
+
+        with mock.patch.object(MODULE, "fetch_json", return_value=(payload, {})), mock.patch.object(
+            MODULE,
+            "fetch_check_run_annotations",
+            return_value=annotations,
+        ), mock.patch.object(
+            MODULE,
+            "fetch_actions_job",
+            return_value=job_payload,
+        ), mock.patch.object(
+            MODULE,
+            "build_local_repro_command",
+            return_value="cd web && bun run check",
+        ), mock.patch.object(MODULE, "resolve_github_token", return_value=""):
+            result = MODULE.fetch_workflow_checks("abc123")
+
+        self.assertEqual(result["head_sha"], "abc123")
+        self.assertEqual(len(result["failed"]), 1)
+        self.assertEqual(result["failed"][0]["failed_step"]["name"], "Run unified web validation entrypoint")
+        self.assertEqual(result["failed"][0]["local_repro_command"], "cd web && bun run check")
+        self.assertEqual(result["failed"][0]["annotations"][0]["message"], "type error")
+
+    def test_fetch_workflow_checks_warns_when_log_download_fails(self) -> None:
+        """403-style log failures should degrade into warnings instead of breaking the result."""
+        payload = {
+            "check_runs": [
+                {
+                    "id": 101,
+                    "name": "Contract Governance Check",
+                    "status": "completed",
+                    "conclusion": "failure",
+                    "app": {"slug": "github-actions"},
+                    "details_url": "https://github.com/GeWuYou/Graft/actions/runs/1/job/2",
+                    "html_url": "https://github.com/GeWuYou/Graft/actions/runs/1/job/2",
+                }
+            ]
+        }
+
+        with mock.patch.object(MODULE, "fetch_json", return_value=(payload, {})), mock.patch.object(
+            MODULE,
+            "fetch_check_run_annotations",
+            return_value=[],
+        ), mock.patch.object(
+            MODULE,
+            "fetch_actions_job",
+            return_value={"steps": []},
+        ), mock.patch.object(
+            MODULE,
+            "build_local_repro_command",
+            return_value='python3 "scripts/magic_value/check_magic_values.py" --mode ci --output-json /tmp/contract-governance-ci.json',
+        ), mock.patch.object(MODULE, "resolve_github_token", return_value="repo-token"), mock.patch.object(
+            MODULE,
+            "fetch_job_log_tail",
+            side_effect=RuntimeError("HTTP Error 403: Forbidden"),
+        ):
+            result = MODULE.fetch_workflow_checks("abc123")
+
+        self.assertEqual(len(result["failed"]), 1)
+        self.assertIn("Actions logs could not be fetched", result["warnings"][0])
+
+
 class SelectLatestCoderabbitGroupedReviewTests(unittest.TestCase):
     """Prefer the latest CodeRabbit review that preserves grouped comment sections."""
 
@@ -453,10 +627,15 @@ Use a fixed tag.
                 "title": "Test PR",
                 "state": "OPEN",
                 "head_branch": "feat/test",
+                "head_sha": "abc123",
                 "base_branch": "main",
                 "url": "https://example.com/pr/1",
             },
         ), mock.patch.object(MODULE, "fetch_issue_comments", return_value=[]), mock.patch.object(
+            MODULE,
+            "fetch_workflow_checks",
+            return_value={"head_sha": "abc123", "all": [], "failed": [], "warnings": []},
+        ), mock.patch.object(
             MODULE,
             "fetch_latest_commit_review",
             return_value=latest_commit_review,
@@ -467,6 +646,38 @@ Use a fixed tag.
             "CodeRabbit actionable comments block was not found in issue comments.",
             result["parse_warnings"],
         )
+
+    def test_build_result_prefers_live_workflow_failures_over_missing_coderabbit_failed_checks(self) -> None:
+        """Live GitHub checks should populate failed checks even when CodeRabbit has no summary block."""
+        with mock.patch.object(
+            MODULE,
+            "fetch_pull_request_metadata",
+            return_value={
+                "number": 34,
+                "title": "PR",
+                "state": "OPEN",
+                "head_branch": "feat/test",
+                "head_sha": "abc123",
+                "base_branch": "main",
+                "url": "https://example.com/pr/34",
+            },
+        ), mock.patch.object(MODULE, "fetch_issue_comments", return_value=[]), mock.patch.object(
+            MODULE,
+            "fetch_workflow_checks",
+            return_value={
+                "head_sha": "abc123",
+                "all": [],
+                "failed": [{"name": "Web Check", "status": "completed", "conclusion": "failure"}],
+                "warnings": [],
+            },
+        ), mock.patch.object(
+            MODULE,
+            "fetch_latest_commit_review",
+            return_value={"threads": [], "latest_reviews_by_user": {}, "open_thread_counts_by_user": {}, "all_open_thread_counts_by_user": {}},
+        ):
+            result = MODULE.build_result(34, "feat/test")
+
+        self.assertEqual(result["workflow_checks"]["failed"][0]["name"], "Web Check")
 
 
 class MainOutputTests(unittest.TestCase):
@@ -482,6 +693,10 @@ class MainOutputTests(unittest.TestCase):
             section=None,
             path=None,
             max_description_length=400,
+            reply_comment_id=None,
+            reply_body=None,
+            reply_body_file=None,
+            reply_dry_run=False,
         )
         result = {"pull_request": {"number": 1}, "parse_warnings": []}
 
@@ -498,6 +713,28 @@ class MainOutputTests(unittest.TestCase):
 
         write_json_output.assert_called_once_with(result, "/tmp/pr-review.json")
         print_mock.assert_called_once_with(json.dumps(result, ensure_ascii=False, indent=2))
+
+
+class ReviewReplyTests(unittest.TestCase):
+    """Cover reply CLI safety and dry-run behavior."""
+
+    def test_perform_review_reply_requires_token(self) -> None:
+        """Replying without a configured GitHub token should fail closed."""
+        with mock.patch.object(MODULE, "resolve_github_token", return_value=""):
+            with self.assertRaisesRegex(RuntimeError, "GitHub token"):
+                MODULE.perform_review_reply(123, "noise")
+
+    def test_perform_review_reply_supports_dry_run(self) -> None:
+        """Dry-run reply mode should return the payload without calling GitHub."""
+        with mock.patch.object(MODULE, "resolve_github_token", return_value="repo-token"), mock.patch.object(
+            MODULE,
+            "post_json",
+        ) as post_json:
+            result = MODULE.perform_review_reply(123, "noise", dry_run=True)
+
+        post_json.assert_not_called()
+        self.assertTrue(result["dry_run"])
+        self.assertEqual(result["request_payload"]["body"], "noise")
 
 
 if __name__ == "__main__":

@@ -80,6 +80,11 @@ project_tools:
     version: "Docker version 29.2.1, build a5c7197"
     path: "/usr/bin/docker"
     purpose: "Optional container runtime for local services or future automation."
+  gh:
+    installed: true
+    version: "gh version 2.92.0 (2026-04-28)"
+    path: "/usr/bin/gh"
+    purpose: "GitHub CLI for authenticated PR automation and future environment bootstrap scripts."
 
 python_packages:
   requests:
