@@ -1,7 +1,7 @@
 import type { RouteRecordRaw } from 'vue-router';
 import { createRouter, createWebHistory } from 'vue-router';
 
-import { AUTH_ROUTE_NAME, AUTH_ROUTE_PATH } from '@/contracts/auth/routes';
+import { AUTH_ROUTE_NAME, AUTH_ROUTE_PATH } from '@/modules/auth/contract/routes';
 import { BLANK_LAYOUT, PAGE_NOT_FOUND_ROUTE } from '@/utils/route/constant';
 
 const env = import.meta.env.MODE || 'development';

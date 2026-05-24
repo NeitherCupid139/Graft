@@ -4,7 +4,7 @@ import NProgress from 'nprogress';
 import { MessagePlugin } from 'tdesign-vue-next';
 import type { Router, RouteRecordRaw } from 'vue-router';
 
-import { AUTH_ROUTE_NAME, AUTH_ROUTE_PATH } from '@/contracts/auth/routes';
+import { AUTH_ROUTE_NAME, AUTH_ROUTE_PATH } from '@/modules/auth/contract/routes';
 import router from '@/router';
 import { getPermissionStore, useUserStore } from '@/store';
 import { isRootEntryPath, resolveRuntimeHomePath, RUNTIME_ENTRY_FALLBACK_PATH } from '@/utils/route';

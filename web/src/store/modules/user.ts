@@ -1,10 +1,11 @@
 import { defineStore } from 'pinia';
 
-import { getBootstrap, login as loginApi, logout as logoutApi, refresh as refreshApi } from '@/api/auth';
-import { API_CODE, type ApiResponseCode, type BootstrapResponse, type LoginResponse } from '@/api/model/authModel';
+import { API_CODE, type ApiResponseCode } from '@/api/model/authModel';
 import { normalizeLocale } from '@/contracts/i18n/locales';
 import { STORAGE_KEY } from '@/contracts/storage/keys';
 import { i18n, supportedLocales } from '@/locales';
+import { getBootstrap, login as loginApi, logout as logoutApi, refresh as refreshApi } from '@/modules/auth/api/auth';
+import type { BootstrapResponse, LoginResponse } from '@/modules/auth/types/auth';
 import { usePermissionStore } from '@/store';
 import type { ApiRequestError } from '@/types/axios';
 import { clearAccessToken, setAccessToken } from '@/utils/auth-state';

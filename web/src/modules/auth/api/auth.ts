@@ -1,10 +1,10 @@
+import { AUTH_API_PATH } from '@/modules/auth/contract/paths';
 import type {
   BootstrapResponse,
   CompleteRequiredPasswordChangePayload,
   LoginPayload,
   LoginResponse,
-} from '@/api/model/authModel';
-import { AUTH_API_PATH } from '@/contracts/auth/paths';
+} from '@/modules/auth/types/auth';
 import { request } from '@/utils/request';
 
 export function login(payload: LoginPayload) {

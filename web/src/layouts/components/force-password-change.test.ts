@@ -6,7 +6,7 @@ const authApiMocks = vi.hoisted(() => ({
   completeRequiredPasswordChange: vi.fn<() => Promise<void>>(),
 }));
 
-vi.mock('@/api/auth', () => ({
+vi.mock('@/modules/auth/api/auth', () => ({
   completeRequiredPasswordChange: authApiMocks.completeRequiredPasswordChange,
 }));
 

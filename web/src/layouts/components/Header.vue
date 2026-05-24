@@ -69,8 +69,8 @@ import { useRouter } from 'vue-router';
 
 import LogoFull from '@/assets/assets-logo-full.svg?component';
 import { prefix } from '@/config/global';
-import { AUTH_ROUTE_PATH } from '@/contracts/auth/routes';
 import { t } from '@/locales';
+import { AUTH_ROUTE_PATH } from '@/modules/auth/contract/routes';
 import { USER_ROUTE_PATH } from '@/modules/user/contract/paths';
 import { getActive } from '@/router';
 import LanguageSwitcher from '@/shared/components/LanguageSwitcher.vue';

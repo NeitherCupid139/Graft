@@ -1,7 +1,7 @@
 import type { RouteRecordRaw } from 'vue-router';
 
-import { completeRequiredPasswordChange } from '@/api/auth';
-import { AUTH_ROUTE_PATH } from '@/contracts/auth/routes';
+import { completeRequiredPasswordChange } from '@/modules/auth/api/auth';
+import { AUTH_ROUTE_PATH } from '@/modules/auth/contract/routes';
 import { resolveRuntimeHomePath } from '@/utils/route';
 
 type CompleteRestrictedPasswordChangeOptions = {

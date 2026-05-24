@@ -1,8 +1,8 @@
 import type { RouteRecordRaw } from 'vue-router';
 
-import type { BootstrapMenu } from '@/api/model/authModel';
 import { getBootstrapRouteRegistration } from '@/modules';
 import { ACCESS_CONTROL_ROUTE_PATH } from '@/modules/access-control/contract/bootstrap';
+import type { BootstrapMenu } from '@/modules/auth/types/auth';
 import { BLANK_LAYOUT, LAYOUT } from '@/utils/route/constant';
 import type { AppRouteMeta } from '@/utils/types';
 

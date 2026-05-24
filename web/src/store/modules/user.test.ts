@@ -1,8 +1,9 @@
 import { createPinia, setActivePinia } from 'pinia';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { API_CODE, type BootstrapResponse, type LoginResponse } from '@/api/model/authModel';
+import { API_CODE } from '@/api/model/authModel';
 import { STORAGE_KEY } from '@/contracts/storage/keys';
+import type { BootstrapResponse, LoginResponse } from '@/modules/auth/types/auth';
 
 const authApiMocks = vi.hoisted(() => ({
   getBootstrap: vi.fn<() => Promise<BootstrapResponse>>(),
@@ -19,7 +20,7 @@ const { mockPermissionStore } = vi.hoisted(() => ({
   },
 }));
 
-vi.mock('@/api/auth', () => authApiMocks);
+vi.mock('@/modules/auth/api/auth', () => authApiMocks);
 vi.mock('@/store', () => ({
   usePermissionStore: () => mockPermissionStore,
 }));
