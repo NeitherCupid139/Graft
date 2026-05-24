@@ -73,3 +73,31 @@
   - OpenAPI 3.1 support warning remains a material caveat
   - current generated request naming and package shape are not yet evidence for replacing handwritten runtime DTOs
 - Decide in the next bounded slice whether to stop at a documented no-go/defer result or add deeper comparison-only evaluation under the same isolated boundary.
+
+## Current Narrow Sample Chain
+
+- Keep the current primary sample chain narrow:
+  - `generated request body -> handler thin binding/thin validation -> mapper -> command/service`
+- The retained comparison-only sample set stays limited to:
+  - `POST /api/users`
+  - `POST /api/users/{id}/update`
+  - `POST /api/users/{id}/status`
+- Do not widen the primary sample chain with runtime routes that still bind handwritten DTOs even when generated request body types exist in `server/internal/contract/openapi/generated/**`.
+
+## Auth Write Interface Classification Conclusion
+
+- `POST /auth/login` does not join the current generated request body primary sample chain:
+  - generated types exist (`PostAuthLoginJSONBody` / `PostAuthLoginJSONRequestBody`)
+  - runtime still binds handwritten `loginRequest`
+  - the handler performs route-local normalization and explicit empty-field validation before service entry
+- `POST /auth/change-password` does not join the current generated request body primary sample chain:
+  - runtime still binds handwritten `changePasswordRequest`
+  - the route and service semantics remain heavier than the current thin-route sample definition
+- `POST /auth/complete-required-password-change` is only a possible future candidate for a separate handwritten-DTO pure-write subgroup:
+  - runtime still binds handwritten `completeRequiredPasswordChangeRequest`
+  - the current generated output does not expose a matching generated request body
+  - this topic does not create that subgroup in the current slice
+- `POST /api/users/{id}/reset-password` likewise stays outside the current primary sample chain:
+  - runtime still binds handwritten `resetUserPasswordRequest`
+  - keeping a generated alias/test for it inside the isolated spike would blur the current narrow classification
+- If follow-up work is needed, open a separate secondary classification for handwritten-DTO pure-write routes instead of broadening the current primary chain.
