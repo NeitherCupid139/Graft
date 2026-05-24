@@ -435,6 +435,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 
+import { localizedApiErrorMessage } from '@/modules/shared/localized-api-error';
 import {
   ManagementEmptyState,
   ManagementPageContent,
@@ -920,17 +921,6 @@ function closeRoleDrawer() {
   submittingRole.value = false;
 }
 
-function localizedApiErrorMessage(messageKey?: string, fallback?: string | null) {
-  if (messageKey) {
-    const translated = t(messageKey);
-    if (translated !== messageKey) {
-      return translated;
-    }
-  }
-
-  return fallback?.trim() || '';
-}
-
 function setRoleFormFieldError(field: keyof RoleFormState, message: string) {
   roleFormRef.value?.setValidateMessage({
     [field]: [{ type: 'error', message }],
@@ -959,7 +949,8 @@ async function handleRoleSubmit(ctx: SubmitContext) {
   } catch (error) {
     logger.error('failed to submit role form', error);
     if (isApiRequestError(error)) {
-      const errorMessage = localizedApiErrorMessage(error.messageKey, error.message) || t('rbac.roleList.submitFailed');
+      const errorMessage =
+        localizedApiErrorMessage(t, error.messageKey, error.message) || t('rbac.roleList.submitFailed');
       const field = resolveRoleFormFieldError(error);
       if (field) {
         setRoleFormFieldError(field, errorMessage);
@@ -1112,7 +1103,7 @@ async function submitPermissionAssignment() {
     if (isActivePermissionDrawerSession(session)) {
       if (isApiRequestError(error)) {
         const errorMessage =
-          localizedApiErrorMessage(error.messageKey, error.message) || t('rbac.roleList.assignFailed');
+          localizedApiErrorMessage(t, error.messageKey, error.message) || t('rbac.roleList.assignFailed');
         const field = resolveRolePermissionFieldError(error);
 
         if (field === 'permission_ids' || error.status === 404) {

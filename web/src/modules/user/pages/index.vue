@@ -443,6 +443,7 @@ import { useRoute, useRouter } from 'vue-router';
 
 import { RBAC_PERMISSION_CODE } from '@/modules/rbac/contract/permissions';
 import type { RoleListItem } from '@/modules/rbac/contract/role';
+import { localizedApiErrorMessage } from '@/modules/shared/localized-api-error';
 import {
   ManagementEmptyState,
   ManagementPageContent,
@@ -937,17 +938,6 @@ function resolveCreatePasswordError(password: string, requireValue: boolean) {
   return evaluateUserPasswordPolicy(password).meetsMinimum ? '' : t('user.userList.form.passwordPolicy.error');
 }
 
-function localizedApiErrorMessage(messageKey?: string, fallback?: string | null) {
-  if (messageKey) {
-    const translated = t(messageKey);
-    if (translated !== messageKey) {
-      return translated;
-    }
-  }
-
-  return fallback?.trim() || '';
-}
-
 function setUserFormFieldError(field: keyof UserFormState, message: string) {
   userFormRef.value?.setValidateMessage({
     [field]: [{ type: 'error', message }],
@@ -1022,7 +1012,7 @@ async function handleUserSubmit(ctx: SubmitContext) {
     if (isApiRequestError(error)) {
       const fallbackMessage =
         userDrawerMode.value === 'create' ? t('user.userList.createFailed') : t('user.userList.editFailed');
-      const errorMessage = localizedApiErrorMessage(error.messageKey, error.message) || fallbackMessage;
+      const errorMessage = localizedApiErrorMessage(t, error.messageKey, error.message) || fallbackMessage;
       const field = resolveUserFormFieldError(error, userDrawerMode.value);
 
       if (field) {
@@ -1082,7 +1072,7 @@ async function submitResetPassword() {
     logger.error('failed to reset password', error);
     if (isApiRequestError(error)) {
       const errorMessage =
-        localizedApiErrorMessage(error.messageKey, error.message) || t('user.userList.resetPasswordFailed');
+        localizedApiErrorMessage(t, error.messageKey, error.message) || t('user.userList.resetPasswordFailed');
       const field = resolveResetPasswordFieldError(error);
 
       if (field === 'password') {
@@ -1122,7 +1112,7 @@ async function toggleUserStatus(user: UserRow) {
     logger.error('failed to update status', error);
     if (isApiRequestError(error)) {
       MessagePlugin.error(
-        localizedApiErrorMessage(error.messageKey, error.message) || t('user.userList.statusUpdateFailed'),
+        localizedApiErrorMessage(t, error.messageKey, error.message) || t('user.userList.statusUpdateFailed'),
       );
       return;
     }

@@ -9,5 +9,5 @@ export function readErrorField(payload: unknown): string | null {
   }
 
   const field = (data as { field?: unknown }).field;
-  return typeof field === 'string' && field.trim() !== '' ? field : null;
+  return typeof field === 'string' && field.trim() !== '' ? field.trim() : null;
 }
