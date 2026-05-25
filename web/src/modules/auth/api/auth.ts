@@ -17,6 +17,7 @@ type LogoutPath = (typeof AUTH_API_PATH)['LOGOUT'];
 type ChangePasswordPath = (typeof AUTH_API_PATH)['CHANGE_PASSWORD'];
 type CompleteRequiredPasswordChangePath = (typeof AUTH_API_PATH)['COMPLETE_REQUIRED_PASSWORD_CHANGE'];
 type SessionsPath = (typeof AUTH_API_PATH)['SESSIONS'];
+type SessionRevokeTemplatePath = (typeof AUTH_API_PATH)['SESSION_REVOKE_TEMPLATE'];
 type SessionsRevokeAllPath = (typeof AUTH_API_PATH)['SESSIONS_REVOKE_ALL'];
 type SessionsRevokeOthersPath = (typeof AUTH_API_PATH)['SESSIONS_REVOKE_OTHERS'];
 type PostAuthLoginOperation = paths[LoginPath]['post'];
@@ -28,7 +29,7 @@ type PostAuthCompleteRequiredPasswordChangeOperation = paths[CompleteRequiredPas
 type GetAuthSessionsOperation = paths[SessionsPath]['get'];
 type PostAuthSessionsRevokeAllOperation = paths[SessionsRevokeAllPath]['post'];
 type PostAuthSessionsRevokeOthersOperation = paths[SessionsRevokeOthersPath]['post'];
-type PostAuthSessionRevokeOperation = paths['/api/auth/sessions/{sessionID}/revoke']['post'];
+type PostAuthSessionRevokeOperation = paths[SessionRevokeTemplatePath]['post'];
 type PostAuthSessionRevokePathParams = NonNullable<PostAuthSessionRevokeOperation['parameters']['path']>;
 type PostAuthLoginResponse = PostAuthLoginOperation['responses']['200']['content']['application/json'];
 type GetAuthBootstrapResponse = GetAuthBootstrapOperation['responses']['200']['content']['application/json'];
@@ -127,5 +128,5 @@ export function getBootstrap() {
 }
 
 function buildSessionRevokePath(sessionID: PostAuthSessionRevokePathParams['sessionID']) {
-  return `/api/auth/sessions/${encodeURIComponent(sessionID)}/revoke`;
+  return AUTH_API_PATH.SESSION_REVOKE_TEMPLATE.replace('{sessionID}', encodeURIComponent(sessionID));
 }
