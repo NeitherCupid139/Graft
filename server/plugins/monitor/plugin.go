@@ -26,6 +26,8 @@ import (
 
 	"graft/server/internal/config"
 	"graft/server/internal/container"
+	"graft/server/internal/contract/httpheader"
+	monitoropenapi "graft/server/internal/contract/openapi/monitor"
 	messagecontract "graft/server/internal/contract/message"
 	"graft/server/internal/httpx"
 	"graft/server/internal/i18n"
@@ -69,6 +71,14 @@ type Plugin struct {
 	samplerMu     sync.Mutex
 	samplerCancel context.CancelFunc
 	samplerDone   chan struct{}
+}
+
+var _ monitoropenapi.ServerInterface = (*monitorServerHandler)(nil)
+
+type monitorServerHandler struct {
+	ctx        *plugin.Context
+	instance   *Plugin
+	pluginName string
 }
 
 type serverStatusResponse struct {
@@ -400,25 +410,62 @@ func registerMonitorRoutes(
 	group.GET(
 		monitorcontract.ServerStatusRoute,
 		httpx.RequirePermission(ctx.I18n, authService, authorizer, monitorcontract.ServerStatusReadPermission.String()),
-		newServerStatusHandler(ctx, instance, pluginName),
+		newServerStatusHandler(&monitorServerHandler{
+			ctx:        ctx,
+			instance:   instance,
+			pluginName: pluginName,
+		}),
 	)
 }
 
-func newServerStatusHandler(ctx *plugin.Context, instance *Plugin, pluginName string) gin.HandlerFunc {
+func newServerStatusHandler(handler *monitorServerHandler) gin.HandlerFunc {
 	return func(ginCtx *gin.Context) {
-		trendRange := parseTrendRange(ginCtx.Query(monitorcontract.TrendRangeQueryKey))
-		payload, err := buildServerStatusResponse(ginCtx.Request.Context(), ctx, instance, trendRange)
+		params, err := bindGeneratedMonitorParams(ginCtx)
 		if err != nil {
-			ctx.Logger.Error("build monitor server status failed",
-				zap.String("plugin", pluginName),
-				zap.Error(err),
+			httpx.AbortLocalizedError(ginCtx, handler.ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument.String(), nil)
+			return
+		}
+
+		handler.GetMonitorServerStatus(params)
+		trendRange := parseGeneratedTrendRange(params.TrendRange)
+		payload, buildErr := buildServerStatusResponse(ginCtx.Request.Context(), handler.ctx, handler.instance, trendRange)
+		if buildErr != nil {
+			handler.ctx.Logger.Error("build monitor server status failed",
+				zap.String("plugin", handler.pluginName),
+				zap.Error(buildErr),
 			)
-			httpx.AbortLocalizedError(ginCtx, ctx.I18n, http.StatusInternalServerError, messagecontract.CommonInternalError.String(), nil)
+			httpx.AbortLocalizedError(ginCtx, handler.ctx.I18n, http.StatusInternalServerError, messagecontract.CommonInternalError.String(), nil)
 			return
 		}
 
 		httpx.WriteSuccess(ginCtx, http.StatusOK, payload)
 	}
+}
+
+func (h *monitorServerHandler) GetMonitorServerStatus(params monitoropenapi.GetMonitorServerStatusParams) {
+	_ = params
+}
+
+func bindGeneratedMonitorParams(ginCtx *gin.Context) (monitoropenapi.GetMonitorServerStatusParams, error) {
+	params := monitoropenapi.GetMonitorServerStatusParams{}
+
+	if raw := strings.TrimSpace(ginCtx.Query(monitorcontract.TrendRangeQueryKey)); raw != "" {
+		value := monitoropenapi.GetMonitorServerStatusParamsTrendRange(raw)
+		if !value.Valid() {
+			return params, fmt.Errorf("invalid trend_range: %s", raw)
+		}
+		params.TrendRange = &value
+	}
+
+	if raw := strings.TrimSpace(ginCtx.GetHeader(httpx.RequestIDHeader)); raw != "" {
+		params.XRequestId = &raw
+	}
+
+	if raw := strings.TrimSpace(ginCtx.GetHeader(string(httpheader.Locale))); raw != "" {
+		params.XGraftLocale = &raw
+	}
+
+	return params, nil
 }
 
 func buildServerStatusResponse(
@@ -1030,6 +1077,14 @@ func parseTrendRange(raw string) monitorcontract.TrendRange {
 	default:
 		return monitorcontract.TrendRange10Minutes
 	}
+}
+
+func parseGeneratedTrendRange(raw *monitoropenapi.GetMonitorServerStatusParamsTrendRange) monitorcontract.TrendRange {
+	if raw == nil {
+		return monitorcontract.TrendRange10Minutes
+	}
+
+	return parseTrendRange(string(*raw))
 }
 
 func logTrendWarning(instance *Plugin, pluginCtx *plugin.Context, message string, err error) {

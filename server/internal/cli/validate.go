@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"context"
 	"errors"
 	"fmt"
@@ -621,7 +623,12 @@ func matchBackendModuleRoot(dir string) (string, bool, error) {
 // 某些运行环境会把默认的 `$HOME/.cache` 设为只读；这里把 `go` 与
 // `golangci-lint` 的缓存统一导向系统临时目录，避免统一质量链受宿主缓存策略影响。
 func buildBackendCommandEnv() ([]string, error) {
-	cacheRoot := filepath.Join(os.TempDir(), defaultBackendCacheRoot)
+	moduleRoot, err := resolveBackendModuleRoot()
+	if err != nil {
+		return nil, fmt.Errorf("resolve backend module root for cache env: %w", err)
+	}
+
+	cacheRoot := filepath.Join(os.TempDir(), defaultBackendCacheRoot, backendCacheNamespace(moduleRoot))
 	goCacheDir := filepath.Join(cacheRoot, "go-build")
 	xdgCacheDir := filepath.Join(cacheRoot, "xdg")
 	golangciCacheDir := filepath.Join(cacheRoot, "golangci-lint")
@@ -639,6 +646,11 @@ func buildBackendCommandEnv() ([]string, error) {
 		"GOLANGCI_LINT_CACHE="+golangciCacheDir,
 	)
 	return env, nil
+}
+
+func backendCacheNamespace(moduleRoot string) string {
+	sum := sha256.Sum256([]byte(moduleRoot))
+	return hex.EncodeToString(sum[:8])
 }
 
 // runValidateSmoke 执行最小运行时 smoke 验证闭环。
