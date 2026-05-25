@@ -12,6 +12,8 @@ every public artifact.
     - `ai-plan/public/openapi-governance-closeout-audit/traces/openapi-governance-closeout-audit.md`
     - `ai-plan/public/oapi-codegen-types-only-spike/todos/oapi-codegen-types-only-spike-tracking.md`
     - `ai-plan/public/oapi-codegen-types-only-spike/traces/oapi-codegen-types-only-spike-trace.md`
+    - `ai-plan/public/oapi-generated-server-client-governance-spike/README.md`
+    - `ai-plan/public/oapi-generated-server-client-governance-spike/traces/oapi-generated-server-client-governance-spike-trace.md`
   - Operating rule:
     - future HTTP feature work follows `feature-delivery-with-contract-first-rule`
     - do not reopen a broad OpenAPI / `oapi-codegen` governance topic unless contract governance itself changes

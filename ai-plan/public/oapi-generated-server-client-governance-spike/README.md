@@ -7,7 +7,7 @@ This topic owns the `monitor/server-status` pilot for generated server/client go
 - Topic: `oapi-generated-server-client-governance-spike`
 - Task class: `cross-boundary`
 - Branch: `feat/oapi-generated-server-client-governance-spike`
-- Current recommendation: `implement_monitor_server_and_client_spike`
+- Current recommendation: `phase4_review_complete_recommend_freshness_gate_before_any_rollout`
 
 ## Scope
 
@@ -47,3 +47,196 @@ This topic owns the `monitor/server-status` pilot for generated server/client go
 - `cd web && bun run check`
 - `cd server && go run ./cmd/graft validate backend`
 - `scripts/run_python.sh scripts/magic_value/check_magic_values.py --mode ci`
+
+
+## Phase 4 Review
+
+### Verdict
+
+The `monitor/server-status` generated governance spike is a `partial success`.
+
+- `success` would require a closed freshness/drift loop for both backend and frontend generated artifacts.
+- `failed` would require boundary takeover or unacceptable glue complexity, which did not happen here.
+- The actual result sits in the middle:
+  - the boundary shape stayed explicit and locally governable
+  - the frontend gained meaningful typed-governance value
+  - the backend gained a narrower compile-time constraint than the frontend
+  - freshness gating is still incomplete, so the spike is not yet a promotion-ready pattern
+
+### Evidence
+
+#### Backend generated server adapter
+
+- The backend generated layer is intentionally narrow:
+  - [`server/internal/contract/openapi/monitor/types.go`](/home/gewuyou/project/go/Graft-wt/feat/oapi-generated-server-client-governance-spike/server/internal/contract/openapi/monitor/types.go:1)
+  - [`server/internal/contract/openapi/monitor/zz_generated.types.go`](/home/gewuyou/project/go/Graft-wt/feat/oapi-generated-server-client-governance-spike/server/internal/contract/openapi/monitor/zz_generated.types.go:1)
+- It constrains:
+  - the handler method shape `GetMonitorServerStatus(params)`
+  - generated enum/query/header parameter values such as `trend_range`, `X-Graft-Locale`, and `X-Request-Id`
+- It does not take over:
+  - route registration
+  - Gin middleware ownership
+  - `httpx` response envelope ownership
+  - localized error handling
+  - plugin lifecycle wiring
+- The plugin still owns explicit runtime integration:
+  - [`server/plugins/monitor/plugin.go`](/home/gewuyou/project/go/Graft-wt/feat/oapi-generated-server-client-governance-spike/server/plugins/monitor/plugin.go:401)
+  - [`server/plugins/monitor/plugin.go`](/home/gewuyou/project/go/Graft-wt/feat/oapi-generated-server-client-governance-spike/server/plugins/monitor/plugin.go:408)
+  - [`server/plugins/monitor/plugin.go`](/home/gewuyou/project/go/Graft-wt/feat/oapi-generated-server-client-governance-spike/server/plugins/monitor/plugin.go:425)
+  - [`server/plugins/monitor/plugin.go`](/home/gewuyou/project/go/Graft-wt/feat/oapi-generated-server-client-governance-spike/server/plugins/monitor/plugin.go:441)
+- Phase 4 answer:
+  - the backend handler boundary is constrained, but only partially
+  - this is compile-time parameter/interface governance, not generated runtime routing governance
+
+#### Backend boundary preservation
+
+- Plugin registry and route ownership stayed in the plugin:
+  - `ctx.Router.Group(monitorcontract.MonitorGroup)` remains the entrypoint
+- Gin middleware stayed intact:
+  - `httpx.RequestIDMiddleware()`
+  - `httpx.RequirePermission(...)`
+- Existing runtime envelope and error behavior stayed intact:
+  - `httpx.AbortLocalizedError(...)`
+  - `httpx.WriteSuccess(...)`
+- Request-id and locale semantics stayed aligned with the spec rather than being replaced by a second runtime path:
+  - [`openapi/paths/monitor.server-status.yaml`](/home/gewuyou/project/go/Graft-wt/feat/oapi-generated-server-client-governance-spike/openapi/paths/monitor.server-status.yaml:1)
+  - [`server/plugins/monitor/plugin.go`](/home/gewuyou/project/go/Graft-wt/feat/oapi-generated-server-client-governance-spike/server/plugins/monitor/plugin.go:449)
+- Root router takeover did not happen.
+
+#### Frontend typed adapter
+
+- The module API now binds directly to generated operation types while still going through `request.ts`:
+  - [`web/src/modules/monitor/api/server-status.ts`](/home/gewuyou/project/go/Graft-wt/feat/oapi-generated-server-client-governance-spike/web/src/modules/monitor/api/server-status.ts:1)
+- The module response types are now thin aliases from generated schemas:
+  - [`web/src/modules/monitor/types/server-status.ts`](/home/gewuyou/project/go/Graft-wt/feat/oapi-generated-server-client-governance-spike/web/src/modules/monitor/types/server-status.ts:1)
+- The runtime transport owner did not change:
+  - [`web/src/utils/request.ts`](/home/gewuyou/project/go/Graft-wt/feat/oapi-generated-server-client-governance-spike/web/src/utils/request.ts:1)
+- Pages still consume module API and module-owned types instead of importing generated client/runtime code directly:
+  - [`web/src/modules/monitor/pages/overview/index.vue`](/home/gewuyou/project/go/Graft-wt/feat/oapi-generated-server-client-governance-spike/web/src/modules/monitor/pages/overview/index.vue:379)
+  - [`web/src/modules/monitor/shared/server-status-snapshot.ts`](/home/gewuyou/project/go/Graft-wt/feat/oapi-generated-server-client-governance-spike/web/src/modules/monitor/shared/server-status-snapshot.ts:4)
+- There is explicit regression coverage for the `request.ts` transport truth:
+  - [`web/src/modules/monitor/api/server-status.test.ts`](/home/gewuyou/project/go/Graft-wt/feat/oapi-generated-server-client-governance-spike/web/src/modules/monitor/api/server-status.test.ts:15)
+- Phase 4 answer:
+  - this spike materially reduces handwritten monitor path/query/DTO drift
+  - the frontend benefit is real and larger than the backend benefit
+
+#### Glue code cost
+
+- Backend glue cost is moderate:
+  - generated package
+  - one explicit param binder
+  - one compile-time interface assertion
+  - generated-file lint exclusions
+- Frontend glue cost is low:
+  - generated operation typing in one module API
+  - thin schema aliases in one module type file
+- Net judgment:
+  - frontend glue cost is clearly lower than its governance gain
+  - backend glue cost is acceptable for a pilot, but not yet strong enough to justify immediate rollout by itself
+
+#### Lint exclusion and backend cache namespace patch
+
+- Generated-file lint exclusions stayed minimal and local to the monitor generated file:
+  - [`server/.golangci.yml`](/home/gewuyou/project/go/Graft-wt/feat/oapi-generated-server-client-governance-spike/server/.golangci.yml:1)
+  - [`server/.golangci.test.yml`](/home/gewuyou/project/go/Graft-wt/feat/oapi-generated-server-client-governance-spike/server/.golangci.test.yml:1)
+- The backend validate cache patch is also minimal:
+  - [`server/internal/cli/validate.go`](/home/gewuyou/project/go/Graft-wt/feat/oapi-generated-server-client-governance-spike/server/internal/cli/validate.go:623)
+- Phase 4 judgment:
+  - the lint exclusion is small enough
+  - the cache namespace patch is a reasonable governance patch for a worktree-heavy repository
+  - it belongs to this topic because it preserves backend validation stability for the new generated-contract slice without redefining validation truth
+
+### Costs And Gaps
+
+- The backend generated adapter does not enforce response-envelope shape at the handler boundary because `httpx` still owns the real success/error envelope.
+- The backend adapter still relies on handwritten Gin-to-generated parameter binding.
+- The OpenAPI `3.1.x` warning from `oapi-codegen` remains a real rollout risk even though it did not block the pilot.
+- The biggest unresolved governance gap is freshness:
+  - frontend has `bun run openapi:types:check`
+  - backend does not yet have an equivalent blocking freshness gate for `server/internal/contract/openapi/monitor/zz_generated.types.go`
+
+### Recommendation
+
+Primary recommendation: `2. 先补 generated freshness/check gate`
+
+- Do not expand this pattern to another interface before freshness/drift detection exists for both sides.
+- Keep the current monitor pilot in place as an accepted bounded experiment.
+- Do not switch to generated runtime clients or strict/generated server runtime as part of the next slice.
+- If rollout resumes after freshness gating lands, the next candidate should be:
+  - another low-risk read-only interface with existing `httpx` envelope stability and low middleware novelty
+  - `GET /api/permissions` is the best current candidate because it is read-only, has simpler query semantics than `monitor/server-status`, and avoids auth/session lifecycle coupling
+- If rollout does not resume, archive this spike as:
+  - accepted partial-success monitor pilot
+  - no further expansion without a new dedicated design topic before `auth/user/rbac`
+
+## Next-Session Startup Prompt
+
+```text
+使用 $graft-multi-agent-loop。
+
+governance source: root AGENTS.md
+task class: docs/automation
+recovery source:
+  - current repository state
+  - ai-plan/public/oapi-generated-server-client-governance-spike/README.md
+  - ai-plan/public/oapi-generated-server-client-governance-spike/traces/oapi-generated-server-client-governance-spike-trace.md
+  - ai-plan/public/README.md
+branch / worktree:
+  - feat/oapi-generated-server-client-governance-spike
+owned scope:
+  - ai-plan/public/oapi-generated-server-client-governance-spike/**
+  - ai-plan/public/README.md if topic status changes
+  - docs/traces/todos only
+  - validation/check tooling directly required for generated freshness gating only if a new topic explicitly broadens scope
+forbidden scope:
+  - 不修改 server 业务实现
+  - 不修改 web 业务实现
+  - 不修改 OpenAPI spec 语义
+  - 不扩大 generated runtime 覆盖面
+objective:
+  - 为 monitor generated server/client pilot 设计并收口最小 generated freshness/check gate
+  - 明确 backend generated Go artifact 与 frontend generated TS schema 的 blocking/non-blocking gate 位置
+  - 判断该 gate 应该落在 docs/automation 还是单独的新治理 topic
+validation:
+  - git diff --check
+  - git status --short
+```
+
+## Machine-Readable Closeout
+
+```json
+{
+  "closeout_status": "partial_success",
+  "continue": false,
+  "next_prompt": "use_graft_multi_agent_loop_for_generated_freshness_gate_design",
+  "stop_reason": "Phase 4 docs-only governance review completed. The monitor pilot kept repository boundaries intact and delivered frontend typed-governance value, but generated artifact freshness gating is still incomplete.",
+  "validation": {
+    "status": "docs_only",
+    "commands": [
+      "git diff --check",
+      "git status --short"
+    ],
+    "not_run": [
+      "cd server && go run ./cmd/graft validate backend",
+      "cd web && bun run openapi:types:check",
+      "cd web && bun run check",
+      "scripts/run_python.sh scripts/magic_value/check_magic_values.py --mode ci"
+    ],
+    "reason": "This review changes only governance docs. No server, web, OpenAPI, or generated artifact files were modified."
+  },
+  "recommendation": {
+    "selected_option": 2,
+    "label": "first_add_generated_freshness_gate",
+    "pilot_verdict": "partial_success",
+    "promote_now": false
+  },
+  "evidence": {
+    "backend_generated_server_adapter": "partial_benefit",
+    "frontend_request_ts_compatible_typed_adapter": "clear_benefit",
+    "backend_validate_cache_namespace_patch": "reasonable_topic_local_governance_patch",
+    "generated_artifact_freshness_gate_needed": true
+  },
+  "scope_expanded": false,
+  "risk_level": "medium"
+}
+```
