@@ -490,3 +490,24 @@ validation:
   - passed: `cd server && go run ./cmd/graft validate backend`
   - passed: `cd web && bun run check`
   - passed: `git diff --check`
+
+## 2026-05-25 stricter RBAC response-boundary closure
+
+- Tightened the backend HTTP response boundary under the stricter semantic-DTO standard instead of relying on file deletion:
+  - removed the remaining handwritten RBAC response payload types from `server/plugins/rbac/mapper_http.go`
+  - `GET /api/roles` now returns `generated.RoleListResponse`
+  - `GET /api/permissions` now returns `generated.PermissionListResponse`
+  - `GET /api/roles/{id}/permissions` now returns `generated.RolePermissionBindingResponse`
+  - `GET /api/users/{id}/roles` now returns `generated.UserRoleBindingResponse`
+  - role create/update success payloads now return `generated.RoleListItem`
+- Kept runtime ownership unchanged:
+  - Gin/httpx route registration, error handling, and success envelope ownership remain in the RBAC plugin
+  - service/store/domain behavior did not move under OpenAPI ownership
+- Recorded the generator limitation precisely:
+  - the generated outer list response models still expose anonymous item structs with generated field names such as `Id`
+  - because of that limitation, list payload assembly now uses generated-shaped anonymous items rather than local named DTO wrappers
+  - local revive suppressions are intentionally scoped to those anonymous generated-shaped item declarations only
+- Validation results for this stricter slice:
+  - passed: `git diff --check`
+  - passed: `cd server && go test ./plugins/rbac`
+  - passed: `cd server && go run ./cmd/graft validate backend`

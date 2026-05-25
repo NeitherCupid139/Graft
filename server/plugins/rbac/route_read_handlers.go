@@ -11,6 +11,7 @@ import (
 
 	httpheader "graft/server/internal/contract/httpheader"
 	messagecontract "graft/server/internal/contract/message"
+	generated "graft/server/internal/contract/openapi/generated"
 	rbacopenapi "graft/server/internal/contract/openapi/rbac"
 	"graft/server/internal/httpx"
 	"graft/server/internal/plugin"
@@ -29,12 +30,12 @@ func handleListRoles(
 		ctx,
 		pluginName,
 		"list roles failed",
-		func(ginCtx *gin.Context) (roleListResponse, error) {
+		func(ginCtx *gin.Context) (generated.RoleListResponse, error) {
 			handler.GetRoles(bindGeneratedRoleParams(ginCtx))
 
 			roles, err := reader.ListRoles(ginCtx.Request.Context())
 			if err != nil {
-				return roleListResponse{}, err
+				return generated.RoleListResponse{}, err
 			}
 
 			return toRoleListResponse(roles), nil
@@ -50,17 +51,17 @@ func handleListRolePermissionBindings(
 ) gin.HandlerFunc {
 	handler := rbacReadGeneratedHandler{}
 
-	return handleStableIDResponse(stableIDResponseHandlerConfig[rolePermissionBindingResponse]{
+	return handleStableIDResponse(stableIDResponseHandlerConfig[generated.RolePermissionBindingResponse]{
 		ctx:        ctx,
 		pluginName: pluginName,
 		logMessage: "list role permission bindings failed",
 		bindGenerated: func(ginCtx *gin.Context, targetID uint64) {
 			handler.GetRolePermissions(targetID, bindGeneratedRolePermissionParams(ginCtx))
 		},
-		read: func(requestCtx context.Context, targetID uint64) (rolePermissionBindingResponse, error) {
+		read: func(requestCtx context.Context, targetID uint64) (generated.RolePermissionBindingResponse, error) {
 			bindings, err := reader.ListRolePermissionBindings(requestCtx, targetID)
 			if err != nil {
-				return rolePermissionBindingResponse{}, err
+				return generated.RolePermissionBindingResponse{}, err
 			}
 			return toRolePermissionBindingResponse(bindings), nil
 		},
@@ -156,17 +157,17 @@ func handleListUserRoleBindings(
 ) gin.HandlerFunc {
 	handler := rbacUserRoleGeneratedHandler{}
 
-	return handleStableIDResponse(stableIDResponseHandlerConfig[userRoleBindingResponse]{
+	return handleStableIDResponse(stableIDResponseHandlerConfig[generated.UserRoleBindingResponse]{
 		ctx:        ctx,
 		pluginName: pluginName,
 		logMessage: "list user-role bindings failed",
 		bindGenerated: func(ginCtx *gin.Context, targetID uint64) {
 			handler.GetUserRoles(targetID, bindGeneratedUserRoleReadParams(ginCtx))
 		},
-		read: func(requestCtx context.Context, targetID uint64) (userRoleBindingResponse, error) {
+		read: func(requestCtx context.Context, targetID uint64) (generated.UserRoleBindingResponse, error) {
 			roleIDs, err := reader.ListRoleIDsByUserID(requestCtx, targetID)
 			if err != nil {
-				return userRoleBindingResponse{}, err
+				return generated.UserRoleBindingResponse{}, err
 			}
 			return toUserRoleBindingResponse(roleIDs), nil
 		},
