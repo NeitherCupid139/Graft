@@ -28,6 +28,7 @@ import (
 	errorcodecontract "graft/server/internal/contract/errorcode"
 	httpheadercontract "graft/server/internal/contract/httpheader"
 	messagecontract "graft/server/internal/contract/message"
+	generated "graft/server/internal/contract/openapi/generated"
 	useropenapi "graft/server/internal/contract/openapi/user"
 	"graft/server/internal/cronx"
 	"graft/server/internal/httpx"
@@ -938,6 +939,26 @@ func assertSessionsAbsent(t *testing.T, payload []sessionSummary, sessionIDs ...
 	}
 }
 
+func assertGeneratedSessionSummary(t *testing.T, item generated.SessionSummary, sessionID string, current bool) {
+	t.Helper()
+
+	if item.SessionId != sessionID || item.Current != current {
+		t.Fatalf("expected generated session %s current=%v, got %#v", sessionID, current, item)
+	}
+}
+
+func assertGeneratedSessionsAbsent(t *testing.T, payload []generated.SessionSummary, sessionIDs ...string) {
+	t.Helper()
+
+	for _, item := range payload {
+		for _, sessionID := range sessionIDs {
+			if item.SessionId == sessionID {
+				t.Fatalf("expected filtered generated sessions to be absent, got %#v", payload)
+			}
+		}
+	}
+}
+
 func firstCookie(t *testing.T, cookies []*http.Cookie) *http.Cookie {
 	t.Helper()
 
@@ -1291,21 +1312,21 @@ func assertNoCookieMutation(t *testing.T, cookies []*http.Cookie) {
 	}
 }
 
-func assertActiveSessions(t *testing.T, payload []sessionSummary, expected ...sessionSummary) {
+func assertGeneratedActiveSessions(t *testing.T, payload []generated.SessionSummary, expected ...generated.SessionSummary) {
 	t.Helper()
 
 	if len(payload) != len(expected) {
-		t.Fatalf("expected %d active sessions, got %#v", len(expected), payload)
+		t.Fatalf("expected %d generated active sessions, got %#v", len(expected), payload)
 	}
 
 	for i, item := range expected {
-		assertSessionSummary(t, payload[i], item.SessionID, item.Current)
+		assertGeneratedSessionSummary(t, payload[i], item.SessionId, item.Current)
 	}
 }
 
-func assertSessionsFiltered(t *testing.T, payload []sessionSummary, sessionIDs ...string) {
+func assertGeneratedSessionsFiltered(t *testing.T, payload []generated.SessionSummary, sessionIDs ...string) {
 	t.Helper()
-	assertSessionsAbsent(t, payload, sessionIDs...)
+	assertGeneratedSessionsAbsent(t, payload, sessionIDs...)
 }
 
 func loginAliceEngine(t *testing.T, passwordHash string) (*pluginTestAuthRepository, *gin.Engine) {
@@ -1432,8 +1453,8 @@ func TestUserRouteReturnsNotFoundContract(t *testing.T) {
 }
 
 // TestUserRouteReturnsSummary 验证用户查询成功时会返回跨插件稳定 DTO，而不
-// 直接泄漏仓储层内部结构。
-func TestUserRouteReturnsSummary(t *testing.T) {
+// 直接把生成后的 HTTP 契约模型作为边界输出，而不是复用跨插件摘要 DTO。
+func TestUserRouteReturnsGeneratedUserListItem(t *testing.T) {
 	authRepo := &pluginTestAuthRepository{}
 	_, engine := newPluginTestContext(t, pluginTestUserRepository{
 		getByID: func(context.Context, uint64) (store.User, error) {
@@ -1441,6 +1462,7 @@ func TestUserRouteReturnsSummary(t *testing.T) {
 				ID:        7,
 				Username:  "alice",
 				Display:   "Alice",
+				Status:    usercontract.UserStatusEnabled,
 				CreatedAt: time.Now(),
 				UpdatedAt: time.Now(),
 			}, nil
@@ -1454,9 +1476,12 @@ func TestUserRouteReturnsSummary(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
 	}
 
-	payload := decodeSuccessData[pluginapi.UserSummary](t, recorder)
-	if payload.ID != 7 || payload.Username != "alice" || payload.Display != "Alice" {
-		t.Fatalf("expected stable user summary payload, got %#v", payload)
+	payload := decodeSuccessData[userListItem](t, recorder)
+	if payload.Id != 7 || payload.Username != "alice" || payload.Display != "Alice" {
+		t.Fatalf("expected generated user detail payload, got %#v", payload)
+	}
+	if payload.Status != usercontract.UserStatusEnabled {
+		t.Fatalf("expected generated user status, got %#v", payload)
 	}
 }
 
@@ -2961,12 +2986,12 @@ func TestAdminListUserSessionsRouteReturnsActiveSessions(t *testing.T) {
 	engine.ServeHTTP(recorder, request)
 
 	assertStatus(t, recorder, http.StatusOK)
-	payload := decodeSuccessData[[]sessionSummary](t, recorder)
-	assertActiveSessions(t, payload,
-		sessionSummary{SessionID: targetNewerSession, Current: false},
-		sessionSummary{SessionID: targetCurrentSession, Current: false},
+	payload := decodeSuccessData[[]generated.SessionSummary](t, recorder)
+	assertGeneratedActiveSessions(t, payload,
+		generated.SessionSummary{SessionId: targetNewerSession, Current: false},
+		generated.SessionSummary{SessionId: targetCurrentSession, Current: false},
 	)
-	assertSessionsFiltered(t, payload, targetExpiredSession, adminSession, otherUserSession)
+	assertGeneratedSessionsFiltered(t, payload, targetExpiredSession, adminSession, otherUserSession)
 }
 
 // TestAdminListUserSessionsRouteAppliesLimit 验证管理员读取入口同样支持最小显式
@@ -2990,12 +3015,12 @@ func TestAdminListUserSessionsRouteAppliesLimit(t *testing.T) {
 	engine.ServeHTTP(recorder, request)
 
 	assertStatus(t, recorder, http.StatusOK)
-	payload := decodeSuccessData[[]sessionSummary](t, recorder)
-	assertActiveSessions(t, payload,
-		sessionSummary{SessionID: newestSessionID, Current: false},
-		sessionSummary{SessionID: middleSessionID, Current: false},
+	payload := decodeSuccessData[[]generated.SessionSummary](t, recorder)
+	assertGeneratedActiveSessions(t, payload,
+		generated.SessionSummary{SessionId: newestSessionID, Current: false},
+		generated.SessionSummary{SessionId: middleSessionID, Current: false},
 	)
-	assertSessionsFiltered(t, payload, oldestSessionID, adminSessionID)
+	assertGeneratedSessionsFiltered(t, payload, oldestSessionID, adminSessionID)
 }
 
 // TestAdminListUserSessionsRouteRejectsInvalidLimit 验证管理员会话读取入口会拒绝非法

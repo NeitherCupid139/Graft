@@ -42,13 +42,13 @@ func (r userRouteRegistrar) registerUserReadRoutes(group *gin.RouterGroup) {
 		}
 		userReadGeneratedHandler{}.GetUserByID(rawID, bindGeneratedUserDetailParams(ginCtx))
 
-		summary, err := r.userSvc.GetUserByID(ginCtx.Request.Context(), rawID)
+		record, err := r.userSvc.users.GetByID(ginCtx.Request.Context(), rawID)
 		if err != nil {
 			r.runtime().writeUserLookupError(ginCtx, rawID, "get user by id failed", err)
 			return
 		}
 
-		httpx.WriteSuccess(ginCtx, http.StatusOK, summary)
+		httpx.WriteSuccess(ginCtx, http.StatusOK, toUserListItem(record))
 	})
 }
 

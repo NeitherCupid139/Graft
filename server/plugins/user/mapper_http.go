@@ -76,6 +76,20 @@ func toUserListItem(user userstore.User) userListItem {
 	}
 }
 
+func toGeneratedSessionSummaries(items []sessionSummary) []generated.SessionSummary {
+	summaries := make([]generated.SessionSummary, 0, len(items))
+	for _, item := range items {
+		summaries = append(summaries, generated.SessionSummary{
+			SessionId: item.SessionID,
+			CreatedAt: item.CreatedAt,
+			ExpiresAt: item.ExpiresAt,
+			Current:   item.Current,
+		})
+	}
+
+	return summaries
+}
+
 func mustConvertGeneratedUserID(id uint64) int64 {
 	if id > math.MaxInt64 {
 		panic("user generated response user id exceeds int64")

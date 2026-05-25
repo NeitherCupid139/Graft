@@ -43,7 +43,7 @@ func (r userRouteRegistrar) registerAdminSessionReadRoute(group *gin.RouterGroup
 			return
 		}
 
-		httpx.WriteSuccess(ginCtx, http.StatusOK, sessions)
+		httpx.WriteSuccess(ginCtx, http.StatusOK, toGeneratedSessionSummaries(sessions))
 	})
 }
 

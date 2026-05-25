@@ -58,6 +58,17 @@ that followed.
     - `remaining_interfaces = []`
   - topic recommendation remains:
     - `archive_topic`
+- Post-migration bridge inventory closeout:
+  - the follow-up bridge inventory audit found two user-plugin response-boundary drifts after the generated rollout:
+    - `GET /api/users/{id}` still wrote a plugin-local summary DTO
+    - `GET /api/users/{id}/sessions` still wrote a plugin-local session DTO slice
+  - both drifts are now closed inside the user plugin boundary:
+    - the detail route returns the generated user item model
+    - the admin session route returns generated session summaries
+  - retained mappers stay limited to `internal/domain/runtime -> generated` adapters
+  - generated runtime ownership still does not take over Gin route registration, `httpx` envelopes, or plugin lifecycle
+  - topic recommendation is now safe to treat as confirmed:
+    - `archive_topic`
 
 ## Scope
 

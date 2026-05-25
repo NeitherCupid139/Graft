@@ -258,6 +258,28 @@ validation:
 ## 2026-05-25 Phase 6 guarded progressive migration batch 10
 
 - Resolved the blocked Batch 2 auth sessions migration without broadening scope.
+
+## 2026-05-25 bridge inventory closeout for user read responses
+
+- Followed the bridge inventory audit instead of reopening schema or generator work.
+- Confirmed the only remaining blocking drifts inside this topic were:
+  - `GET /api/users/{id}` returning a plugin-local `pluginapi.UserSummary` as HTTP response truth
+  - `GET /api/users/{id}/sessions` returning plugin-local `[]sessionSummary` as HTTP response truth
+- Closed `GET /api/users/{id}` at the handler boundary:
+  - read the full plugin-local `store.User` record
+  - converted it through the existing generated user-item mapper before `httpx.WriteSuccess`
+  - kept generated models out of service/domain internals
+- Closed `GET /api/users/{id}/sessions` at the handler boundary:
+  - kept session runtime and revoke logic unchanged
+  - converted plugin-local session summaries into generated `SessionSummary` values before `httpx.WriteSuccess`
+- Kept the retained mappers narrow and legitimate:
+  - `userstore.User -> generated.UserListItem`
+  - `sessionSummary -> generated.SessionSummary`
+- Confirmed this slice still does not promote generated runtime takeover:
+  - Gin route registration remains plugin-owned
+  - `httpx` remains the envelope owner
+  - generated code still constrains request/response contract types rather than runtime routing ownership
+- With these two user response drifts closed, the topic no longer has a known `suspicious_boundary_drift` blocker and can be archived after the validated commit lands.
 - This round only touched these four current-user session interfaces:
   - `GET /api/auth/sessions`
   - `POST /api/auth/sessions/revoke-all`
