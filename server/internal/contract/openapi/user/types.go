@@ -3,7 +3,7 @@ package useropenapi
 // ReadServerInterface is the minimal generated handler contract for guarded user read migration.
 type ReadServerInterface interface {
 	GetUsers(params GetUsersParams)
-	GetUserById(id uint64, params GetUserByIdParams)
+	GetUserByID(id uint64, params GetUserByIdParams)
 }
 
 // WriteServerInterface is the minimal generated handler contract for guarded user write migration.

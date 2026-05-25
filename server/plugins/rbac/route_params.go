@@ -13,9 +13,9 @@ import (
 )
 
 type replaceStableIDsHandlerConfig struct {
-	invalidField string
-	readIDs      func(ginCtx *gin.Context) ([]uint64, error)
-	write        func(ctx context.Context, targetID uint64, ids []uint64) error
+	invalidField         string
+	readAndBindGenerated func(ginCtx *gin.Context, targetID uint64) ([]uint64, error)
+	write                func(ctx context.Context, targetID uint64, ids []uint64) error
 }
 
 func normalizeCreateRoleInput(request rbacopenapi.PostRolesJSONRequestBody) (rbacstore.CreateRoleInput, bool) {

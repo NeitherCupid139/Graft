@@ -40,7 +40,7 @@ func (r userRouteRegistrar) registerUserReadRoutes(group *gin.RouterGroup) {
 		if !ok {
 			return
 		}
-		userReadGeneratedHandler{}.GetUserById(rawID, bindGeneratedUserDetailParams(ginCtx))
+		userReadGeneratedHandler{}.GetUserByID(rawID, bindGeneratedUserDetailParams(ginCtx))
 
 		summary, err := r.userSvc.GetUserByID(ginCtx.Request.Context(), rawID)
 		if err != nil {
@@ -59,7 +59,7 @@ func (h userReadGeneratedHandler) GetUsers(params useropenapi.GetUsersParams) {
 	_ = params
 }
 
-func (h userReadGeneratedHandler) GetUserById(id uint64, params useropenapi.GetUserByIdParams) {
+func (h userReadGeneratedHandler) GetUserByID(id uint64, params useropenapi.GetUserByIdParams) {
 	_ = h
 	_ = id
 	_ = params

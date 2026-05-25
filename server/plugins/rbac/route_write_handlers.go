@@ -1,6 +1,7 @@
 package rbac
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
@@ -120,42 +121,6 @@ func handleUpdateRoleRoute(
 	httpx.WriteSuccess(ginCtx, http.StatusOK, toRoleListItem(role))
 }
 
-func handleReplaceStableIDsRoute(
-	ginCtx *gin.Context,
-	ctx *plugin.Context,
-	pluginName string,
-	config replaceStableIDsHandlerConfig,
-) {
-	targetID, err := parseManagementID(ginCtx.Param("id"))
-	if err != nil {
-		writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
-			"field": "id",
-		})
-		return
-	}
-
-	ids, err := config.readIDs(ginCtx)
-	if err != nil {
-		writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
-			"field": "body",
-		})
-		return
-	}
-	if ids == nil || hasInvalidStableIDs(ids) {
-		writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
-			"field": config.invalidField,
-		})
-		return
-	}
-
-	if err := config.write(ginCtx.Request.Context(), targetID, ids); err != nil {
-		writeRBACManagementError(ginCtx, ctx.I18n, ctx.Logger, pluginName, err, config.invalidField)
-		return
-	}
-
-	httpx.WriteSuccess[any](ginCtx, http.StatusOK, nil)
-}
-
 type rbacWriteGeneratedHandler struct {
 }
 
@@ -225,52 +190,63 @@ func bindGeneratedRolePermissionAssignParams(ginCtx *gin.Context) rbacopenapi.Po
 	}
 }
 
+//nolint:dupl // Generated-operation wrappers intentionally stay parallel while request handling is shared below.
 func handleAssignRolePermissionsRoute(
 	ginCtx *gin.Context,
 	ctx *plugin.Context,
 	pluginName string,
 	writer writeManagementService,
 ) {
-	targetID, err := parseManagementID(ginCtx.Param("id"))
-	if err != nil {
-		writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
-			"field": "id",
-		})
-		return
-	}
-
-	body, ids, err := readGeneratedRolePermissionAssignRequest(ginCtx)
-	if err != nil {
-		writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
-			"field": "body",
-		})
-		return
-	}
-	if ids == nil || hasInvalidStableIDs(ids) {
-		writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
-			"field": "permission_ids",
-		})
-		return
-	}
-
-	rbacWriteGeneratedHandler{}.PostRolePermissionAssign(targetID, bindGeneratedRolePermissionAssignParams(ginCtx), body)
-
-	if err := writer.ReplacePermissionsForRole(ginCtx.Request.Context(), rbacstore.ReplacePermissionsForRoleInput{
-		RoleID:        targetID,
-		PermissionIDs: ids,
-	}); err != nil {
-		writeRBACManagementError(ginCtx, ctx.I18n, ctx.Logger, pluginName, err, "permission_ids")
-		return
-	}
-
-	httpx.WriteSuccess[any](ginCtx, http.StatusOK, nil)
+	handleReplaceStableIDsRoute(ginCtx, ctx, pluginName, replaceStableIDsHandlerConfig{
+		invalidField: "permission_ids",
+		readAndBindGenerated: func(ginCtx *gin.Context, targetID uint64) ([]uint64, error) {
+			body, ids, err := readGeneratedRolePermissionAssignRequest(ginCtx)
+			if err != nil {
+				return nil, err
+			}
+			rbacWriteGeneratedHandler{}.PostRolePermissionAssign(targetID, bindGeneratedRolePermissionAssignParams(ginCtx), body)
+			return ids, nil
+		},
+		write: func(ctx context.Context, targetID uint64, ids []uint64) error {
+			return writer.ReplacePermissionsForRole(ctx, rbacstore.ReplacePermissionsForRoleInput{
+				RoleID:        targetID,
+				PermissionIDs: ids,
+			})
+		},
+	})
 }
 
+//nolint:dupl // Generated-operation wrappers intentionally stay parallel while request handling is shared below.
 func handleAssignUserRolesRoute(
 	ginCtx *gin.Context,
 	ctx *plugin.Context,
 	pluginName string,
 	writer writeManagementService,
+) {
+	handleReplaceStableIDsRoute(ginCtx, ctx, pluginName, replaceStableIDsHandlerConfig{
+		invalidField: "role_ids",
+		readAndBindGenerated: func(ginCtx *gin.Context, targetID uint64) ([]uint64, error) {
+			body, ids, err := readGeneratedUserRoleAssignRequest(ginCtx)
+			if err != nil {
+				return nil, err
+			}
+			rbacWriteGeneratedHandler{}.PostUserRolesAssign(targetID, bindGeneratedUserRoleAssignParams(ginCtx), body)
+			return ids, nil
+		},
+		write: func(ctx context.Context, targetID uint64, ids []uint64) error {
+			return writer.ReplaceRolesForUser(ctx, rbacstore.ReplaceRolesForUserInput{
+				UserID:  targetID,
+				RoleIDs: ids,
+			})
+		},
+	})
+}
+
+func handleReplaceStableIDsRoute(
+	ginCtx *gin.Context,
+	ctx *plugin.Context,
+	pluginName string,
+	config replaceStableIDsHandlerConfig,
 ) {
 	targetID, err := parseManagementID(ginCtx.Param("id"))
 	if err != nil {
@@ -280,7 +256,7 @@ func handleAssignUserRolesRoute(
 		return
 	}
 
-	body, ids, err := readGeneratedUserRoleAssignRequest(ginCtx)
+	ids, err := config.readAndBindGenerated(ginCtx, targetID)
 	if err != nil {
 		writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
 			"field": "body",
@@ -289,18 +265,13 @@ func handleAssignUserRolesRoute(
 	}
 	if ids == nil || hasInvalidStableIDs(ids) {
 		writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
-			"field": "role_ids",
+			"field": config.invalidField,
 		})
 		return
 	}
 
-	rbacWriteGeneratedHandler{}.PostUserRolesAssign(targetID, bindGeneratedUserRoleAssignParams(ginCtx), body)
-
-	if err := writer.ReplaceRolesForUser(ginCtx.Request.Context(), rbacstore.ReplaceRolesForUserInput{
-		UserID:  targetID,
-		RoleIDs: ids,
-	}); err != nil {
-		writeRBACManagementError(ginCtx, ctx.I18n, ctx.Logger, pluginName, err, "role_ids")
+	if err := config.write(ginCtx.Request.Context(), targetID, ids); err != nil {
+		writeRBACManagementError(ginCtx, ctx.I18n, ctx.Logger, pluginName, err, config.invalidField)
 		return
 	}
 

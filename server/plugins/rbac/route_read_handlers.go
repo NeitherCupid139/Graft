@@ -42,6 +42,7 @@ func handleListRoles(
 	)
 }
 
+//nolint:dupl // Generated-operation wrappers intentionally stay parallel while read behavior is shared below.
 func handleListRolePermissionBindings(
 	ctx *plugin.Context,
 	pluginName string,
@@ -49,35 +50,23 @@ func handleListRolePermissionBindings(
 ) gin.HandlerFunc {
 	handler := rbacReadGeneratedHandler{}
 
-	return func(ginCtx *gin.Context) {
-		targetID, err := parseManagementID(ginCtx.Param("id"))
-		if err != nil {
-			writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
-				"field": "id",
-			})
-			return
-		}
-
-		handler.GetRolePermissions(targetID, bindGeneratedRolePermissionParams(ginCtx))
-
-		bindings, err := reader.ListRolePermissionBindings(ginCtx.Request.Context(), targetID)
-		if err != nil {
-			if errors.Is(err, rbacstore.ErrRoleNotFound) {
-				writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusNotFound, messagecontract.RoleNotFound, nil)
-				return
+	return handleStableIDResponse(stableIDResponseHandlerConfig[rolePermissionBindingResponse]{
+		ctx:        ctx,
+		pluginName: pluginName,
+		logMessage: "list role permission bindings failed",
+		bindGenerated: func(ginCtx *gin.Context, targetID uint64) {
+			handler.GetRolePermissions(targetID, bindGeneratedRolePermissionParams(ginCtx))
+		},
+		read: func(requestCtx context.Context, targetID uint64) (rolePermissionBindingResponse, error) {
+			bindings, err := reader.ListRolePermissionBindings(requestCtx, targetID)
+			if err != nil {
+				return rolePermissionBindingResponse{}, err
 			}
-
-			ctx.Logger.Error("list role permission bindings failed",
-				zap.String("plugin", pluginName),
-				zap.Uint64("targetId", targetID),
-				zap.Error(err),
-			)
-			httpx.AbortLocalizedError(ginCtx, ctx.I18n, http.StatusInternalServerError, messagecontract.CommonInternalError.String(), nil)
-			return
-		}
-
-		httpx.WriteSuccess(ginCtx, http.StatusOK, toRolePermissionBindingResponse(bindings))
-	}
+			return toRolePermissionBindingResponse(bindings), nil
+		},
+		isNotFound:  func(err error) bool { return errors.Is(err, rbacstore.ErrRoleNotFound) },
+		notFoundKey: messagecontract.RoleNotFound,
+	})
 }
 
 func handleListPermissions(
@@ -159,6 +148,7 @@ func bindGeneratedReadHeaders(ginCtx *gin.Context) (locale *string, requestID *s
 	return locale, requestID
 }
 
+//nolint:dupl // Generated-operation wrappers intentionally stay parallel while read behavior is shared below.
 func handleListUserRoleBindings(
 	ctx *plugin.Context,
 	pluginName string,
@@ -166,35 +156,23 @@ func handleListUserRoleBindings(
 ) gin.HandlerFunc {
 	handler := rbacUserRoleGeneratedHandler{}
 
-	return func(ginCtx *gin.Context) {
-		targetID, err := parseManagementID(ginCtx.Param("id"))
-		if err != nil {
-			writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
-				"field": "id",
-			})
-			return
-		}
-
-		handler.GetUserRoles(targetID, bindGeneratedUserRoleReadParams(ginCtx))
-
-		roleIDs, err := reader.ListRoleIDsByUserID(ginCtx.Request.Context(), targetID)
-		if err != nil {
-			if errors.Is(err, pluginapi.ErrUserNotFound) {
-				writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusNotFound, messagecontract.UserNotFound, nil)
-				return
+	return handleStableIDResponse(stableIDResponseHandlerConfig[userRoleBindingResponse]{
+		ctx:        ctx,
+		pluginName: pluginName,
+		logMessage: "list user-role bindings failed",
+		bindGenerated: func(ginCtx *gin.Context, targetID uint64) {
+			handler.GetUserRoles(targetID, bindGeneratedUserRoleReadParams(ginCtx))
+		},
+		read: func(requestCtx context.Context, targetID uint64) (userRoleBindingResponse, error) {
+			roleIDs, err := reader.ListRoleIDsByUserID(requestCtx, targetID)
+			if err != nil {
+				return userRoleBindingResponse{}, err
 			}
-
-			ctx.Logger.Error("list user-role bindings failed",
-				zap.String("plugin", pluginName),
-				zap.Uint64("targetId", targetID),
-				zap.Error(err),
-			)
-			httpx.AbortLocalizedError(ginCtx, ctx.I18n, http.StatusInternalServerError, messagecontract.CommonInternalError.String(), nil)
-			return
-		}
-
-		httpx.WriteSuccess(ginCtx, http.StatusOK, toUserRoleBindingResponse(roleIDs))
-	}
+			return toUserRoleBindingResponse(roleIDs), nil
+		},
+		isNotFound:  func(err error) bool { return errors.Is(err, pluginapi.ErrUserNotFound) },
+		notFoundKey: messagecontract.UserNotFound,
+	})
 }
 
 type rbacUserRoleGeneratedHandler struct {
@@ -233,36 +211,38 @@ func bindGeneratedUserRoleAssignParams(ginCtx *gin.Context) rbacopenapi.PostUser
 	}
 }
 
-func handleStableIDResponse[T any](
-	ctx *plugin.Context,
-	pluginName string,
-	logMessage string,
-	read func(requestCtx context.Context, targetID uint64) (T, error),
-	isNotFound func(error) bool,
-	notFoundKey messagecontract.Key,
-) gin.HandlerFunc {
+type stableIDResponseHandlerConfig[T any] struct {
+	ctx           *plugin.Context
+	pluginName    string
+	logMessage    string
+	bindGenerated func(ginCtx *gin.Context, targetID uint64)
+	read          func(requestCtx context.Context, targetID uint64) (T, error)
+	isNotFound    func(error) bool
+	notFoundKey   messagecontract.Key
+}
+
+func handleStableIDResponse[T any](config stableIDResponseHandlerConfig[T]) gin.HandlerFunc {
 	return func(ginCtx *gin.Context) {
-		targetID, err := parseManagementID(ginCtx.Param("id"))
-		if err != nil {
-			writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
-				"field": "id",
-			})
+		targetID, ok := readManagementTargetID(ginCtx, config.ctx)
+		if !ok {
 			return
 		}
 
-		payload, err := read(ginCtx.Request.Context(), targetID)
+		config.bindGenerated(ginCtx, targetID)
+
+		payload, err := config.read(ginCtx.Request.Context(), targetID)
 		if err != nil {
-			if isNotFound(err) {
-				writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusNotFound, notFoundKey, nil)
+			if config.isNotFound(err) {
+				writeLocalizedContractError(ginCtx, config.ctx.I18n, http.StatusNotFound, config.notFoundKey, nil)
 				return
 			}
 
-			ctx.Logger.Error(logMessage,
-				zap.String("plugin", pluginName),
+			config.ctx.Logger.Error(config.logMessage,
+				zap.String("plugin", config.pluginName),
 				zap.Uint64("targetId", targetID),
 				zap.Error(err),
 			)
-			httpx.AbortLocalizedError(ginCtx, ctx.I18n, http.StatusInternalServerError, messagecontract.CommonInternalError.String(), nil)
+			httpx.AbortLocalizedError(ginCtx, config.ctx.I18n, http.StatusInternalServerError, messagecontract.CommonInternalError.String(), nil)
 			return
 		}
 
@@ -289,4 +269,16 @@ func newManagementListHandler[T any](
 
 		httpx.WriteSuccess(ginCtx, http.StatusOK, payload)
 	}
+}
+
+func readManagementTargetID(ginCtx *gin.Context, ctx *plugin.Context) (uint64, bool) {
+	targetID, err := parseManagementID(ginCtx.Param("id"))
+	if err != nil {
+		writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
+			"field": "id",
+		})
+		return 0, false
+	}
+
+	return targetID, true
 }
