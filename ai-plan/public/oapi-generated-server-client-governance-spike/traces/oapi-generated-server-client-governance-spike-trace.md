@@ -310,6 +310,40 @@ validation:
   - committed: `a28ea34`
   - title: `feat(auth): migrate session endpoints to generated contracts`
 
+## 2026-05-25 boundary adapter closure follow-up
+
+- Reframed the topic goal explicitly as:
+  - `OpenAPI-generated boundary adapter closure with explicit runtime bridge`
+  - not `generated runtime full takeover`
+- Confirmed the accepted runtime split stays unchanged:
+  - frontend `request.ts` remains the only HTTP runtime truth
+  - backend `Gin` / `httpx` / plugin runtime remain the only backend runtime truth
+  - OpenAPI-generated types only constrain cross-boundary adapter shapes
+- Tightened frontend adapter closure without expanding endpoint scope:
+  - removed remaining direct OpenAPI path literal type bridges in:
+    - `web/src/modules/user/api/users.ts`
+    - `web/src/modules/user/api/user-roles.ts`
+    - `web/src/modules/rbac/api/rbac.ts`
+  - promoted template-path truth into module contract constants in:
+    - `web/src/modules/user/contract/paths.ts`
+    - `web/src/modules/rbac/contract/paths.ts`
+  - kept all module adapters `request.ts`-compatible and did not introduce a second transport
+- Tightened backend response-boundary closure only where the generated shape fit the current explicit runtime bridge:
+  - `server/plugins/auth/dto_http.go` now reuses generated-derived bootstrap menu and locale leaf types
+  - kept `login/bootstrap/session` outer response wrappers explicit so existing plugin/runtime tests and bridge semantics remain stable
+  - intentionally did not force generated anonymous outer structs into `user` / `rbac` response wrappers because that would expand scope into broad mapper/test rewrites rather than boundary closure
+- Validation for this follow-up slice:
+  - passed: `git diff --check`
+  - passed: `cd web && bun run typecheck`
+  - passed: `cd web && bun run test:run -- src/modules/auth/api/auth.test.ts src/modules/user/api/users.test.ts src/modules/user/api/user-roles.test.ts src/modules/rbac/api/rbac.test.ts src/modules/user/api/user-sessions.test.ts src/modules/monitor/api/server-status.test.ts`
+  - passed: `cd server && go test ./plugins/auth ./plugins/user ./plugins/rbac`
+  - passed: `python3 scripts/openapi_generated_freshness_check.py --target backend-auth-session --mode check`
+  - passed: `python3 scripts/openapi_generated_freshness_check.py --target backend-user-write --mode check`
+  - passed: `python3 scripts/openapi_generated_freshness_check.py --target backend-rbac-management --mode check`
+  - passed: `cd web && bun run openapi:types:check`
+- Remaining non-blocking gap after this slice:
+  - backend response wrappers are now only partially generated-derived because some generated outer response structs use anonymous nested members and generated pointer semantics that would otherwise force broad, non-boundary-scoped bridge/test rewrites
+
 ## 2026-05-25 Phase 6 guarded progressive migration batch 11
 
 - Completed the final auth generated-contract migration batch without broadening scope.

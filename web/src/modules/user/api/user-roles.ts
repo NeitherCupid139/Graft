@@ -4,8 +4,8 @@ import type { RoleListResponse, UserRoleBindingResponse } from '@/modules/rbac/c
 import { request } from '@/utils/request';
 
 type RolesPath = (typeof RBAC_API_PATH)['ROLES'];
-type UserRolesPath = '/api/users/{id}/roles';
-type UserRolesAssignPath = '/api/users/{id}/roles/assign';
+type UserRolesPath = (typeof RBAC_API_PATH)['USER_ROLES_TEMPLATE'];
+type UserRolesAssignPath = (typeof RBAC_API_PATH)['USER_ROLE_ASSIGN_TEMPLATE'];
 type GetRolesOperation = paths[RolesPath]['get'];
 type GetUserRolesOperation = paths[UserRolesPath]['get'];
 type PostUserRolesAssignOperation = paths[UserRolesAssignPath]['post'];

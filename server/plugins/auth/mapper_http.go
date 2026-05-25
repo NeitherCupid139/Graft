@@ -21,7 +21,7 @@ func toBootstrapResponse(payload pluginapi.AuthBootstrapPayload) bootstrapRespon
 		menus = append(menus, bootstrapMenuResponse{
 			Code:       item.Code,
 			Title:      item.Title,
-			TitleKey:   item.TitleKey,
+			TitleKey:   optionalStringPointer(item.TitleKey),
 			Path:       item.Path,
 			Icon:       item.Icon,
 			Permission: item.Permission,
@@ -45,6 +45,13 @@ func toBootstrapResponse(payload pluginapi.AuthBootstrapPayload) bootstrapRespon
 			SupportedLocales: append([]string(nil), payload.Locale.SupportedLocales...),
 		},
 	}
+}
+
+func optionalStringPointer(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
 }
 
 func toSessionSummaries(items []pluginapi.AuthSessionSummary) []sessionSummary {

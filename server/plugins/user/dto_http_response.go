@@ -45,7 +45,6 @@ type bootstrapLocaleSnapshot struct {
 	FallbackLocale   string   `json:"fallback_locale"`
 	SupportedLocales []string `json:"supported_locales"`
 }
-
 type sessionSummary struct {
 	SessionID string    `json:"session_id"`
 	CreatedAt time.Time `json:"created_at"`

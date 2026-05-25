@@ -13,13 +13,13 @@ import type {
 
 type PermissionsPath = (typeof RBAC_API_PATH)['PERMISSIONS'];
 type RolesPath = (typeof RBAC_API_PATH)['ROLES'];
-type RolePermissionsPath = '/api/roles/{id}/permissions';
-type RolePermissionAssignPath = '/api/roles/{id}/permissions/assign';
+type RolePermissionsPath = (typeof RBAC_API_PATH)['ROLE_PERMISSIONS_TEMPLATE'];
+type RolePermissionAssignPath = (typeof RBAC_API_PATH)['ROLE_PERMISSION_ASSIGN_TEMPLATE'];
 type GetPermissionsOperation = paths[PermissionsPath]['get'];
 type GetRolesOperation = paths[RolesPath]['get'];
 type GetRolePermissionsOperation = paths[RolePermissionsPath]['get'];
 type PostRolesOperation = paths[RolesPath]['post'];
-type PostRoleUpdateOperation = paths['/api/roles/{id}/update']['post'];
+type PostRoleUpdateOperation = paths[(typeof RBAC_API_PATH)['ROLE_UPDATE_TEMPLATE']]['post'];
 type PostRolePermissionAssignOperation = paths[RolePermissionAssignPath]['post'];
 type GetPermissionsEnvelope = GetPermissionsOperation['responses'][200]['content']['application/json'];
 type GetRolesEnvelope = GetRolesOperation['responses'][200]['content']['application/json'];

@@ -1,6 +1,10 @@
 package auth
 
-import "time"
+import (
+	"time"
+
+	generated "graft/server/internal/contract/openapi/generated"
+)
 
 type loginUserResponse struct {
 	ID          uint64 `json:"id"`
@@ -24,22 +28,8 @@ type bootstrapResponse struct {
 	Locale             bootstrapLocaleSnapshot `json:"locale"`
 }
 
-type bootstrapMenuResponse struct {
-	Code       string `json:"code"`
-	Title      string `json:"title"`
-	TitleKey   string `json:"title_key,omitempty"`
-	Path       string `json:"path"`
-	Icon       string `json:"icon"`
-	Permission string `json:"permission"`
-}
-
-type bootstrapLocaleSnapshot struct {
-	CurrentLocale    string   `json:"current_locale"`
-	DefaultLocale    string   `json:"default_locale"`
-	FallbackLocale   string   `json:"fallback_locale"`
-	SupportedLocales []string `json:"supported_locales"`
-}
-
+type bootstrapMenuResponse = generated.BootstrapMenu
+type bootstrapLocaleSnapshot = generated.BootstrapLocale
 type sessionSummary struct {
 	SessionID string    `json:"session_id"`
 	CreatedAt time.Time `json:"created_at"`

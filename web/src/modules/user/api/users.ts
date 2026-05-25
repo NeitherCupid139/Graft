@@ -12,11 +12,11 @@ import type {
 } from '../types/user';
 
 type UsersPath = (typeof USER_API_PATH)['USERS'];
-type GetUserByIdPath = '/api/users/{id}';
-type PostUserUpdatePath = '/api/users/{id}/update';
-type PostUserStatusPath = '/api/users/{id}/status';
-type PostUserResetPasswordPath = '/api/users/{id}/reset-password';
-type PostUserDeletePath = '/api/users/{id}/delete';
+type GetUserByIdPath = (typeof USER_API_PATH)['USER_BY_ID_TEMPLATE'];
+type PostUserUpdatePath = (typeof USER_API_PATH)['USER_UPDATE_TEMPLATE'];
+type PostUserStatusPath = (typeof USER_API_PATH)['USER_STATUS_TEMPLATE'];
+type PostUserResetPasswordPath = (typeof USER_API_PATH)['USER_RESET_PASSWORD_TEMPLATE'];
+type PostUserDeletePath = (typeof USER_API_PATH)['USER_DELETE_TEMPLATE'];
 type GetUsersOperation = paths[UsersPath]['get'];
 type GetUserByIdOperation = paths[GetUserByIdPath]['get'];
 type PostUsersOperation = paths[UsersPath]['post'];
