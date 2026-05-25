@@ -7,7 +7,7 @@ This topic owns the `monitor/server-status` pilot for generated server/client go
 - Topic: `oapi-generated-server-client-governance-spike`
 - Task class: `cross-boundary`
 - Branch: `feat/oapi-generated-server-client-governance-spike`
-- Current recommendation: `phase4_review_complete_recommend_freshness_gate_before_any_rollout`
+- Current recommendation: `phase5_freshness_gate_complete_monitor_pilot_ready_for_guarded_followup`
 
 ## Scope
 
@@ -43,6 +43,7 @@ This topic owns the `monitor/server-status` pilot for generated server/client go
 ## Validation Expectation
 
 - `git diff --check`
+- `python3 scripts/openapi_generated_freshness_check.py --target backend-monitor --mode check`
 - `cd web && bun run openapi:types:check`
 - `cd web && bun run check`
 - `cd server && go run ./cmd/graft validate backend`
@@ -151,15 +152,15 @@ The `monitor/server-status` generated governance spike is a `partial success`.
 - The backend generated adapter does not enforce response-envelope shape at the handler boundary because `httpx` still owns the real success/error envelope.
 - The backend adapter still relies on handwritten Gin-to-generated parameter binding.
 - The OpenAPI `3.1.x` warning from `oapi-codegen` remains a real rollout risk even though it did not block the pilot.
-- The biggest unresolved governance gap is freshness:
-  - frontend has `bun run openapi:types:check`
-  - backend does not yet have an equivalent blocking freshness gate for `server/internal/contract/openapi/monitor/zz_generated.types.go`
+- The previous largest governance gap was freshness:
+  - frontend already had `bun run openapi:types:check`
+  - backend now has an equivalent blocking freshness gate for `server/internal/contract/openapi/monitor/zz_generated.types.go`
 
 ### Recommendation
 
-Primary recommendation: `2. 先补 generated freshness/check gate`
+Primary recommendation: `3. 在 freshness gate 保持稳定后再考虑下一批渐进迁移`
 
-- Do not expand this pattern to another interface before freshness/drift detection exists for both sides.
+- Do not expand this pattern to another interface unless both freshness gates stay stable in normal validation.
 - Keep the current monitor pilot in place as an accepted bounded experiment.
 - Do not switch to generated runtime clients or strict/generated server runtime as part of the next slice.
 - If rollout resumes after freshness gating lands, the next candidate should be:
@@ -240,3 +241,51 @@ validation:
   "risk_level": "medium"
 }
 ```
+
+
+## Phase 5 Freshness Gate
+
+### Verdict
+
+The monitor pilot now has a minimal freshness gate on both sides.
+
+- frontend freshness continues to use `bun run openapi:types:check`
+- backend freshness is now checked by regenerating the monitor-only Go artifact to a temp file and diffing it against
+  `server/internal/contract/openapi/monitor/zz_generated.types.go`
+- `graft validate backend` now includes that backend freshness gate through the existing `openapi` stage instead of
+  inventing a second backend validation entrypoint
+
+### Review Answers
+
+- `当前 web openapi:types:check 是否已经能证明 frontend generated schema freshness？`
+  - Yes. It regenerates the schema into a temp file, formats it, and compares it to the tracked generated file.
+- `backend monitor generated contract 是否已有等价 freshness check？`
+  - It does now. `python3 scripts/openapi_generated_freshness_check.py --target backend-monitor --mode check` is the
+    backend equivalent for the monitor-only generated Go artifact.
+- `如果没有，应该新增 server 侧 check，还是统一新增 scripts/openapi generated freshness check？`
+  - A repository-owned script is the smallest fit. It keeps generator logic near repo governance and is reused by the
+    backend validate flow without changing generated artifacts.
+- `这个 freshness gate 应该挂在 cd server && go run ./cmd/graft validate backend 里，还是作为独立命令被 CI/主流程调用？`
+  - Both, with one source of truth. The explicit script remains runnable on its own, and `graft validate backend`
+    calls it from the existing `openapi` stage.
+- `generated file lint exclusion 是否仍然只作用于 generated artifacts？`
+  - Yes. This slice does not broaden lint exclusions beyond the existing generated-file scope.
+- `是否能在不新增依赖的前提下完成 freshness check？`
+  - Yes. The backend check uses existing `python3` and `oapi-codegen`.
+- `如果需要新增依赖，是否必须停止并升级为单独决策？`
+  - No new dependency was needed. If a future broader gate requires one, that should be a separate decision.
+
+### Progressive Migration Preconditions
+
+- keep the backend and frontend freshness gates green in local and CI validation
+- keep generated files pure outputs; only specs or generator flags may change them
+- keep runtime ownership explicit: no generated Gin router takeover and no `request.ts` replacement
+- keep rollout limited to low-risk read-only interfaces until another slice proves the cost remains proportionate
+
+### Recommended Next Batches
+
+1. `GET /api/permissions`
+2. `GET /api/users`
+3. `GET /api/roles`
+
+Do not start auth/session lifecycle routes or write-heavy endpoints before those read-only slices prove stable.

@@ -72,3 +72,16 @@ validation:
   - git diff --check
   - git status --short
 ```
+
+
+## 2026-05-25 Phase 5 freshness gate
+
+- Added `scripts/openapi_generated_freshness_check.py` as the repository-owned backend generated freshness gate.
+- Kept the gate in `check` mode by default:
+  - regenerate monitor-only generated Go output to a temp file
+  - diff against `server/internal/contract/openapi/monitor/zz_generated.types.go`
+  - fail if the tracked generated artifact is stale or manually edited
+- Added explicit `--mode fix` support, but did not mix regeneration into normal validation behavior.
+- Wired backend freshness into `cd server && go run ./cmd/graft validate backend` through the existing `openapi` stage.
+- Confirmed frontend freshness remains owned by `cd web && bun run openapi:types:check`; this slice does not replace it.
+- Kept the scope monitor-only and did not broaden generated runtime coverage or endpoint migration.

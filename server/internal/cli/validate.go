@@ -1,9 +1,9 @@
 package cli
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -73,6 +73,7 @@ var backendGoTestRunner = runBackendGoTest
 var backendGoBuildRunner = runBackendGoBuild
 var backendSmokeRunner = runValidateSmoke
 var backendOpenAPIRunner = runValidateOpenAPI
+var backendOpenAPIFreshnessRunner = runValidateOpenAPIFreshness
 var backendCommandRunner = runBackendCommand
 var backendGitOutputRunner = runBackendGitOutput
 
@@ -270,6 +271,25 @@ func runValidateOpenAPI(_ *cobra.Command, specPath string) error {
 	}
 	if err := document.Validate(loader.Context); err != nil {
 		return fmt.Errorf("validate openapi spec %q: %w", rootSpec, err)
+	}
+
+	if err := backendOpenAPIFreshnessRunner(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func runValidateOpenAPIFreshness() error {
+	repoRoot, err := resolveRepositoryRoot()
+	if err != nil {
+		return fmt.Errorf("resolve repository root for generated freshness validation: %w", err)
+	}
+
+	scriptPath := filepath.Join(repoRoot, "scripts", "openapi_generated_freshness_check.py")
+	cmd := &cobra.Command{}
+	if err := backendCommandRunner(cmd, "python3", scriptPath, "--target", "backend-monitor", "--mode", "check"); err != nil {
+		return fmt.Errorf("run backend generated freshness check: %w", err)
 	}
 
 	return nil
