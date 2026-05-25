@@ -73,6 +73,18 @@ that followed.
   - generated runtime ownership still does not take over Gin route registration, `httpx` envelopes, or plugin lifecycle
   - topic recommendation is now safe to treat as confirmed:
     - `archive_topic`
+- Backend DTO boundary governance closeout:
+  - current backend verdict is treated as:
+    - `CLEAN_WITH_ALLOWED_INTERNAL_MODELS`
+  - blocking regressions are now defined as:
+    - stale manual request DTO declared in `server/plugins/**/dto_http*.go`
+    - stale manual response DTO declared in `server/plugins/**/dto_http*.go`
+    - new manual `*Request` / `*Response` / `*Payload` / `*DTO` / `*Params` types declared directly inside handler/api/route boundary files
+    - generated runtime takeover markers such as `RegisterHandlers`, `NewStrictHandler`, or wrapper-based Gin replacement
+  - allowlisted internal bridge models remain explicit:
+    - `server/plugins/user/bootstrap.go`
+    - `server/plugins/user/session.go`
+  - backend validate now runs `scripts/openapi_generated_backend_boundary_audit.py` after generated freshness checks
 
 ## Scope
 
@@ -123,6 +135,7 @@ that followed.
 - `git diff --check`
 - `python3 scripts/openapi_generated_freshness_check.py --target backend-monitor --mode check`
 - `python3 scripts/openapi_generated_freshness_check.py --target backend-health --mode check`
+- `python3 scripts/openapi_generated_backend_boundary_audit.py`
 - `cd web && bun run openapi:types:check`
 - `cd web && bun run check`
 - `cd server && go run ./cmd/graft validate backend`

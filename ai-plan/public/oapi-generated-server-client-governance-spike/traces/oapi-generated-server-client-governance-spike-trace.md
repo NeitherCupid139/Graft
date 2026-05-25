@@ -1,5 +1,22 @@
 # OAPI Generated Server/Client Governance Spike Trace
 
+## 2026-05-25 backend DTO boundary governance closeout
+
+- Audited the backend OpenAPI generated boundary without broadening scope beyond governance:
+  - confirmed the migrated auth, user, rbac, and monitor handlers still bind generated request / params types
+  - confirmed response mappers still emit generated schema models
+  - confirmed `httpx` still owns envelope and localized error behavior
+  - confirmed no generated runtime takeover markers such as `RegisterHandlers` or `NewStrictHandler`
+- Added `scripts/openapi_generated_backend_boundary_audit.py` as a blocking backend regression gate.
+- Scoped the new gate to low-false-positive backend rules only:
+  - block new manual HTTP DTO declarations under `server/plugins/**/dto_http*.go`
+  - block new manual `*Request` / `*Response` / `*Payload` / `*DTO` / `*Params` type declarations inside handler/api/route files
+  - allow explicit internal bridge models in `server/plugins/user/bootstrap.go` and `server/plugins/user/session.go`
+  - keep generated runtime takeover detection separate from freshness checks
+- Wired the new audit into `cd server && go run ./cmd/graft validate backend` through the existing `openapi` stage.
+- Current backend DTO boundary verdict after the audit:
+  - `CLEAN_WITH_ALLOWED_INTERNAL_MODELS`
+
 ## 2026-05-25 implementation spike
 
 - Renamed the worktree topic branch from `feat/wt-oapi-codegen-types-only-spike` to `feat/oapi-generated-server-client-governance-spike`.
