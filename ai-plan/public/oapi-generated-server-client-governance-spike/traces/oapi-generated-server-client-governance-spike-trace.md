@@ -349,4 +349,5 @@ validation:
   - passed: `git diff --check`
   - passed: `git status --short` before commit showed only Batch 3 owned scope
 - Commit status:
-  - pending final scoped commit at this trace checkpoint
+  - committed: `38a287f`
+  - title: `feat(auth): migrate password flows to generated contracts`

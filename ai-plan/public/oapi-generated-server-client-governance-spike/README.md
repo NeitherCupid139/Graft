@@ -29,9 +29,11 @@ This topic owns the `monitor/server-status` pilot for generated server/client go
     - `server/plugins/auth/**` still owns route registration, validation, service commands, and `httpx` envelopes
     - `web/src/modules/auth/api/auth.ts` still owns module adapters over `request.ts`
 - Batch 3 status:
-  - completed in the current worktree and limited to:
+  - completed and committed:
     - `POST /api/auth/change-password`
     - `POST /api/auth/complete-required-password-change`
+  - commit:
+    - `38a287f`
   - generated/backend/frontend boundaries stay explicit:
     - `server/plugins/auth/**` still owns route registration, validation, service commands, and `httpx` envelopes
     - `web/src/modules/auth/api/auth.ts` still owns module adapters over `request.ts`
