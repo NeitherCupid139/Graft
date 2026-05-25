@@ -20,6 +20,24 @@ func TestGetAuthBootstrapHeadersRemainOptional(t *testing.T) {
 	}
 }
 
+func TestPostAuthRefreshHeadersRemainOptional(t *testing.T) {
+	t.Parallel()
+
+	var params PostAuthRefreshParams
+	if params.XGraftLocale != nil || params.XRequestId != nil {
+		t.Fatalf("expected zero-value generated params to keep optional headers nil, got %#v", params)
+	}
+}
+
+func TestPostAuthLogoutHeadersRemainOptional(t *testing.T) {
+	t.Parallel()
+
+	var params PostAuthLogoutParams
+	if params.XGraftLocale != nil || params.XRequestId != nil {
+		t.Fatalf("expected zero-value generated params to keep optional headers nil, got %#v", params)
+	}
+}
+
 func TestPostAuthLoginRequestBodyRequiresConcreteFieldsOnly(t *testing.T) {
 	t.Parallel()
 

@@ -44,7 +44,7 @@ USER_WRITE_ARGS = [
 ]
 AUTH_ARGS = [
     "--include-operation-ids",
-    "postAuthLogin,getAuthBootstrap",
+    "postAuthLogin,postAuthRefresh,postAuthLogout,getAuthBootstrap",
     "--generate",
     "types",
     "--package",

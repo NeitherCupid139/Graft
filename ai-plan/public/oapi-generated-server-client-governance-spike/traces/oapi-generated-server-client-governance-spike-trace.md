@@ -232,3 +232,25 @@ validation:
     `BootstrapResponse` alias
 - Confirmed backend freshness coverage already exists under `backend-auth-session`; this slice did not require spec or
   generated artifact changes.
+
+## 2026-05-25 Phase 6 guarded progressive migration batch 9
+
+- Expanded the existing auth generated artifact at `server/internal/contract/openapi/auth/zz_generated.auth.go` to cover:
+  - `postAuthRefresh`
+  - `postAuthLogout`
+- Kept the auth plugin as the runtime owner of:
+  - explicit `/api/auth/refresh` and `/api/auth/logout` route registration
+  - refresh-cookie read/write/clear behavior
+  - `httpx` success/error envelope behavior
+  - refresh/logout service invocation and validation behavior
+- Bound the backend generated layer only to:
+  - header/security semantics for `POST /api/auth/refresh`
+  - header/security semantics for `POST /api/auth/logout`
+  - compile-time handler interface conformance via `authopenapi.ServerInterface`
+- Updated `web/src/modules/auth/api/auth.ts` so `refresh()` and `logout()` now bind to generated OpenAPI operation
+  response types while still calling `request.ts`.
+- Kept the module API boundary explicit:
+  - `refresh()` continues to expose login-response data semantics
+  - `logout()` absorbs the generated empty envelope and still resolves as `Promise<void>`
+- Extended backend freshness validation under the existing `backend-auth-session` target without introducing a second
+  auth generated artifact.

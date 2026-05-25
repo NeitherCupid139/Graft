@@ -44,6 +44,8 @@ func (r authRouteRegistrar) registerLoginRoutes(authGroup *gin.RouterGroup) {
 		httpx.WriteSuccess(ginCtx, http.StatusOK, toLoginResponse(result))
 	})
 	authGroup.POST(authcontract.AuthRefresh, func(ginCtx *gin.Context) {
+		authGeneratedHandler{}.PostAuthRefresh(bindGeneratedAuthRefreshParams(ginCtx))
+
 		refreshToken, err := r.cookies.ReadRefreshCookie(ginCtx)
 		if err != nil {
 			writeLocalizedContractError(ginCtx, r.ctx.I18n, http.StatusUnauthorized, messagecontract.AuthTokenMissing.String(), nil)
@@ -60,6 +62,8 @@ func (r authRouteRegistrar) registerLoginRoutes(authGroup *gin.RouterGroup) {
 		httpx.WriteSuccess(ginCtx, http.StatusOK, toLoginResponse(result))
 	})
 	authGroup.POST(authcontract.AuthLogout, func(ginCtx *gin.Context) {
+		authGeneratedHandler{}.PostAuthLogout(bindGeneratedAuthLogoutParams(ginCtx))
+
 		refreshToken, err := r.cookies.ReadRefreshCookie(ginCtx)
 		if err != nil {
 			writeLocalizedContractError(ginCtx, r.ctx.I18n, http.StatusUnauthorized, messagecontract.AuthTokenMissing.String(), nil)
@@ -224,6 +228,16 @@ func (h authGeneratedHandler) PostAuthLogin(
 	_ = body
 }
 
+func (h authGeneratedHandler) PostAuthRefresh(params authopenapi.PostAuthRefreshParams) {
+	_ = h
+	_ = params
+}
+
+func (h authGeneratedHandler) PostAuthLogout(params authopenapi.PostAuthLogoutParams) {
+	_ = h
+	_ = params
+}
+
 func (h authGeneratedHandler) GetAuthBootstrap(params authopenapi.GetAuthBootstrapParams) {
 	_ = h
 	_ = params
@@ -240,6 +254,22 @@ func bindGeneratedAuthLoginParams(ginCtx *gin.Context) authopenapi.PostAuthLogin
 func bindGeneratedAuthBootstrapParams(ginCtx *gin.Context) authopenapi.GetAuthBootstrapParams {
 	locale, requestID := bindGeneratedAuthHeaders(ginCtx)
 	return authopenapi.GetAuthBootstrapParams{
+		XGraftLocale: locale,
+		XRequestId:   requestID,
+	}
+}
+
+func bindGeneratedAuthRefreshParams(ginCtx *gin.Context) authopenapi.PostAuthRefreshParams {
+	locale, requestID := bindGeneratedAuthHeaders(ginCtx)
+	return authopenapi.PostAuthRefreshParams{
+		XGraftLocale: locale,
+		XRequestId:   requestID,
+	}
+}
+
+func bindGeneratedAuthLogoutParams(ginCtx *gin.Context) authopenapi.PostAuthLogoutParams {
+	locale, requestID := bindGeneratedAuthHeaders(ginCtx)
+	return authopenapi.PostAuthLogoutParams{
 		XGraftLocale: locale,
 		XRequestId:   requestID,
 	}

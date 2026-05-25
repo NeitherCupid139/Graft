@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { request } from '@/utils/request';
 
 import { AUTH_API_PATH } from '../contract/paths';
-import { getBootstrap, login } from './auth';
+import { getBootstrap, login, logout, refresh } from './auth';
 
 vi.mock('@/utils/request', () => ({
   request: {
@@ -34,6 +34,28 @@ describe('auth api', () => {
 
     expect(requestGet).toHaveBeenCalledWith({
       url: AUTH_API_PATH.BOOTSTRAP,
+    });
+  });
+
+  it('calls the canonical refresh path through request.ts', async () => {
+    const requestPost = vi.mocked(request.post);
+    requestPost.mockResolvedValueOnce({ access_token: 'rotated-token' } as never);
+
+    await refresh();
+
+    expect(requestPost).toHaveBeenCalledWith({
+      url: AUTH_API_PATH.REFRESH,
+    });
+  });
+
+  it('absorbs the logout envelope at the module api boundary', async () => {
+    const requestPost = vi.mocked(request.post);
+    requestPost.mockResolvedValueOnce(undefined as never);
+
+    await expect(logout()).resolves.toBeUndefined();
+
+    expect(requestPost).toHaveBeenCalledWith({
+      url: AUTH_API_PATH.LOGOUT,
     });
   });
 });

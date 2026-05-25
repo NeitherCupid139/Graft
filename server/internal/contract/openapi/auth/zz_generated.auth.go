@@ -4,7 +4,8 @@
 package authopenapi
 
 const (
-	BearerAuthScopes bearerAuthContextKey = "bearerAuth.Scopes"
+	BearerAuthScopes    bearerAuthContextKey    = "bearerAuth.Scopes"
+	RefreshCookieScopes refreshCookieContextKey = "refreshCookie.Scopes"
 )
 
 // Defines values for GetAuthBootstrap401JSONResponseBodySuccess.
@@ -69,13 +70,88 @@ func (e PostAuthLogin401JSONResponseBodySuccess) Valid() bool {
 
 // Defines values for PostAuthLogin500JSONResponseBodySuccess.
 const (
-	False PostAuthLogin500JSONResponseBodySuccess = false
+	PostAuthLogin500JSONResponseBodySuccessFalse PostAuthLogin500JSONResponseBodySuccess = false
 )
 
 // Valid indicates whether the value is a known member of the PostAuthLogin500JSONResponseBodySuccess enum.
 func (e PostAuthLogin500JSONResponseBodySuccess) Valid() bool {
 	switch e {
-	case False:
+	case PostAuthLogin500JSONResponseBodySuccessFalse:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PostAuthLogout401JSONResponseBodySuccess.
+const (
+	PostAuthLogout401JSONResponseBodySuccessFalse PostAuthLogout401JSONResponseBodySuccess = false
+)
+
+// Valid indicates whether the value is a known member of the PostAuthLogout401JSONResponseBodySuccess enum.
+func (e PostAuthLogout401JSONResponseBodySuccess) Valid() bool {
+	switch e {
+	case PostAuthLogout401JSONResponseBodySuccessFalse:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PostAuthLogout500JSONResponseBodySuccess.
+const (
+	PostAuthLogout500JSONResponseBodySuccessFalse PostAuthLogout500JSONResponseBodySuccess = false
+)
+
+// Valid indicates whether the value is a known member of the PostAuthLogout500JSONResponseBodySuccess enum.
+func (e PostAuthLogout500JSONResponseBodySuccess) Valid() bool {
+	switch e {
+	case PostAuthLogout500JSONResponseBodySuccessFalse:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PostAuthRefresh401JSONResponseBodySuccess.
+const (
+	PostAuthRefresh401JSONResponseBodySuccessFalse PostAuthRefresh401JSONResponseBodySuccess = false
+)
+
+// Valid indicates whether the value is a known member of the PostAuthRefresh401JSONResponseBodySuccess enum.
+func (e PostAuthRefresh401JSONResponseBodySuccess) Valid() bool {
+	switch e {
+	case PostAuthRefresh401JSONResponseBodySuccessFalse:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PostAuthRefresh403JSONResponseBodySuccess.
+const (
+	PostAuthRefresh403JSONResponseBodySuccessFalse PostAuthRefresh403JSONResponseBodySuccess = false
+)
+
+// Valid indicates whether the value is a known member of the PostAuthRefresh403JSONResponseBodySuccess enum.
+func (e PostAuthRefresh403JSONResponseBodySuccess) Valid() bool {
+	switch e {
+	case PostAuthRefresh403JSONResponseBodySuccessFalse:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PostAuthRefresh500JSONResponseBodySuccess.
+const (
+	PostAuthRefresh500JSONResponseBodySuccessFalse PostAuthRefresh500JSONResponseBodySuccess = false
+)
+
+// Valid indicates whether the value is a known member of the PostAuthRefresh500JSONResponseBodySuccess enum.
+func (e PostAuthRefresh500JSONResponseBodySuccess) Valid() bool {
+	switch e {
+	case PostAuthRefresh500JSONResponseBodySuccessFalse:
 		return true
 	default:
 		return false
@@ -128,6 +204,41 @@ type PostAuthLogin401JSONResponseBodySuccess bool
 
 // PostAuthLogin500JSONResponseBodySuccess defines parameters for PostAuthLogin.
 type PostAuthLogin500JSONResponseBodySuccess bool
+
+// PostAuthLogoutParams defines parameters for PostAuthLogout.
+type PostAuthLogoutParams struct {
+	// XGraftLocale Explicit locale override header already supported by the runtime.
+	XGraftLocale *string `json:"X-Graft-Locale,omitempty"`
+
+	// XRequestId Optional caller-supplied request id. If omitted, the runtime generates one and echoes it
+	// through the response header and envelope traceId field.
+	XRequestId *string `json:"X-Request-Id,omitempty"`
+}
+
+// PostAuthLogout401JSONResponseBodySuccess defines parameters for PostAuthLogout.
+type PostAuthLogout401JSONResponseBodySuccess bool
+
+// PostAuthLogout500JSONResponseBodySuccess defines parameters for PostAuthLogout.
+type PostAuthLogout500JSONResponseBodySuccess bool
+
+// PostAuthRefreshParams defines parameters for PostAuthRefresh.
+type PostAuthRefreshParams struct {
+	// XGraftLocale Explicit locale override header already supported by the runtime.
+	XGraftLocale *string `json:"X-Graft-Locale,omitempty"`
+
+	// XRequestId Optional caller-supplied request id. If omitted, the runtime generates one and echoes it
+	// through the response header and envelope traceId field.
+	XRequestId *string `json:"X-Request-Id,omitempty"`
+}
+
+// PostAuthRefresh401JSONResponseBodySuccess defines parameters for PostAuthRefresh.
+type PostAuthRefresh401JSONResponseBodySuccess bool
+
+// PostAuthRefresh403JSONResponseBodySuccess defines parameters for PostAuthRefresh.
+type PostAuthRefresh403JSONResponseBodySuccess bool
+
+// PostAuthRefresh500JSONResponseBodySuccess defines parameters for PostAuthRefresh.
+type PostAuthRefresh500JSONResponseBodySuccess bool
 
 // PostAuthLoginJSONRequestBody defines body for PostAuthLogin for application/json ContentType.
 type PostAuthLoginJSONRequestBody PostAuthLoginJSONBody

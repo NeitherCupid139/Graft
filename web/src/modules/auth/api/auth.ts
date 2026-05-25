@@ -10,12 +10,20 @@ import { request } from '@/utils/request';
 
 type LoginPath = (typeof AUTH_API_PATH)['LOGIN'];
 type BootstrapPath = (typeof AUTH_API_PATH)['BOOTSTRAP'];
+type RefreshPath = (typeof AUTH_API_PATH)['REFRESH'];
+type LogoutPath = (typeof AUTH_API_PATH)['LOGOUT'];
 type PostAuthLoginOperation = paths[LoginPath]['post'];
 type GetAuthBootstrapOperation = paths[BootstrapPath]['get'];
+type PostAuthRefreshOperation = paths[RefreshPath]['post'];
+type PostAuthLogoutOperation = paths[LogoutPath]['post'];
 type PostAuthLoginResponse = PostAuthLoginOperation['responses']['200']['content']['application/json'];
 type GetAuthBootstrapResponse = GetAuthBootstrapOperation['responses']['200']['content']['application/json'];
+type PostAuthRefreshResponse = PostAuthRefreshOperation['responses']['200']['content']['application/json'];
+type PostAuthLogoutResponse = PostAuthLogoutOperation['responses']['200']['content']['application/json'];
 type PostAuthLoginResponseData = NonNullable<PostAuthLoginResponse['data']>;
 type GetAuthBootstrapResponseData = NonNullable<GetAuthBootstrapResponse['data']>;
+type PostAuthRefreshResponseData = NonNullable<PostAuthRefreshResponse['data']>;
+type PostAuthLogoutResponseData = PostAuthLogoutResponse['data'];
 
 // Keep generated request/response typing at the module API boundary; callers still own form-local state.
 export function login(payload: LoginPayload) {
@@ -26,13 +34,13 @@ export function login(payload: LoginPayload) {
 }
 
 export function refresh() {
-  return request.post<LoginResponse>({
+  return request.post<LoginResponse & PostAuthRefreshResponseData>({
     url: AUTH_API_PATH.REFRESH,
   });
 }
 
-export function logout() {
-  return request.post<void>({
+export async function logout(): Promise<void> {
+  await request.post<PostAuthLogoutResponseData>({
     url: AUTH_API_PATH.LOGOUT,
   });
 }
