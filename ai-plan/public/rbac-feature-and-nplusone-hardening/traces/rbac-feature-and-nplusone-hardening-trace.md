@@ -1,5 +1,17 @@
 # RBAC Feature And N+1 Hardening Trace
 
+## 2026-05-26 RBAC management closeout alignment
+
+- Re-ran the final `cross-boundary` startup preflight under root `AGENTS.md`, confirmed the recovery index had no active topic entry, and treated this artifact as the RBAC line's stale recovery truth that needed correction.
+- Audited the implemented role lifecycle path end to end:
+  - backend already enforces `custom + disabled + no remaining user/permission bindings` before `POST /api/roles/{id}/delete`
+  - frontend role page had status and delete actions wired, but delete feedback still collapsed into a generic failure path and did not expose the lifecycle rule before sending the write
+- Closed one real remaining gap on the frontend:
+  - `web/src/modules/rbac/pages/index.vue` now shows current role status plus delete lifecycle guidance in the detail drawer
+  - delete attempts are blocked client-side when the row is still enabled or still has bindings, with a direct warning instead of a doomed write request
+  - status/delete write failures now reuse localized API message fallback instead of only generic hard-coded toasts
+- Updated RBAC truth documents so they no longer claim role detail, permission detail, role status/delete, or batch user-role semantics are missing after `9c5af80`, `2c313d4`, and `229f6fc`.
+
 ## 2026-05-26 user-list role summary N+1 removed
 
 - Extended `GET /api/users` list items with minimal embedded `roles` summaries instead of keeping role summaries as a row-level follow-up read.

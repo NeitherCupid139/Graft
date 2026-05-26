@@ -223,6 +223,14 @@
         <div v-if="roleDrawerRole?.builtin" class="inline-warning">
           <span>{{ t('rbac.roleList.form.builtinNotice') }}</span>
         </div>
+        <div
+          v-if="roleDrawerMode === 'detail' && roleDrawerRole"
+          class="inline-warning"
+          data-testid="role-lifecycle-summary"
+        >
+          <span>{{ t('rbac.roleList.lifecycle.statusLabel') }}: {{ roleStatusLabel(roleDrawerRole) }}</span>
+          <span>{{ roleDeleteLifecycleHint(roleDrawerRole) }}</span>
+        </div>
 
         <t-form ref="roleFormRef" :data="roleForm" :rules="roleFormRules" label-align="top" @submit="handleRoleSubmit">
           <t-form-item :label="t('rbac.roleList.form.name')" name="name">
@@ -889,6 +897,27 @@ function isRoleEnabled(role: RoleStatusCompat) {
   return true;
 }
 
+function roleStatusLabel(role: RoleStatusCompat) {
+  return isRoleEnabled(role) ? t('rbac.roleList.lifecycle.statusEnabled') : t('rbac.roleList.lifecycle.statusDisabled');
+}
+
+function roleHasDeleteBlockingBindings(role: RoleStatusCompat) {
+  return Number(role.permission_count ?? 0) > 0 || Number(role.user_count ?? 0) > 0;
+}
+
+function roleDeleteLifecycleHint(role: RoleStatusCompat) {
+  if (role.builtin) {
+    return t('rbac.roleList.moreBuiltinHint');
+  }
+  if (isRoleEnabled(role)) {
+    return t('rbac.roleList.lifecycle.deleteNeedsDisable');
+  }
+  if (roleHasDeleteBlockingBindings(role)) {
+    return t('rbac.roleList.lifecycle.deleteNeedsBindingsCleared');
+  }
+  return t('rbac.roleList.lifecycle.deleteReady');
+}
+
 function roleRemark(role: RoleListItem) {
   const remark = resolveRoleRemark(role).trim();
   return remark || '-';
@@ -1275,12 +1304,23 @@ async function toggleRoleStatus(role: RoleStatusCompat) {
     );
   } catch (error) {
     logger.error('failed to update role status', error);
-    MessagePlugin.error(t('rbac.roleList.statusUpdateFailed'));
+    if (isApiRequestError(error)) {
+      MessagePlugin.error(
+        localizedApiErrorMessage(t, error.messageKey, error.message) || t('rbac.roleList.statusUpdateFailed'),
+      );
+      return;
+    }
+
+    MessagePlugin.error(error instanceof Error ? error.message : t('rbac.roleList.statusUpdateFailed'));
   }
 }
 
-async function removeRole(role: RoleListItem) {
+async function removeRole(role: RoleStatusCompat) {
   if (!canDeleteRoles.value || role.builtin) {
+    return;
+  }
+  if (isRoleEnabled(role) || roleHasDeleteBlockingBindings(role)) {
+    MessagePlugin.warning(roleDeleteLifecycleHint(role));
     return;
   }
 
@@ -1290,7 +1330,14 @@ async function removeRole(role: RoleListItem) {
     MessagePlugin.success(t('rbac.roleList.deleteSuccess'));
   } catch (error) {
     logger.error('failed to delete role', error);
-    MessagePlugin.error(t('rbac.roleList.deleteFailed'));
+    if (isApiRequestError(error)) {
+      MessagePlugin.error(
+        localizedApiErrorMessage(t, error.messageKey, error.message) || t('rbac.roleList.deleteFailed'),
+      );
+      return;
+    }
+
+    MessagePlugin.error(error instanceof Error ? error.message : t('rbac.roleList.deleteFailed'));
   }
 }
 

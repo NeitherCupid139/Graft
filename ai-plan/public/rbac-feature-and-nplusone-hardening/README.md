@@ -13,21 +13,16 @@
   - `web/src/app/bootstrap/route-guards.ts`
   - `web/src/utils/route/bootstrap.ts`
 - 当前后端 RBAC 已经具备最小管理能力：
-  - `Role` 列表、创建、更新
-  - `Permission` 列表
-  - `RolePermission` 读/写
-  - `UserRole` 读/写（现状是 replace 语义，不是增量 assign/remove）
+  - `Role` 列表、详情、创建、更新、启停、删除
+  - `Permission` 列表、详情
+  - `RolePermission` 读/写（`replace` / `add` / `remove`）
+  - `UserRole` 读/写（单用户与批量 `replace` / `add` / `remove`）
   - 当前登录用户权限判定
   - bootstrap 菜单与权限消费链路
 - 当前仍缺少完整 RBAC 管理面：
-  - `Role detail`
-  - `Role delete`
-  - `Role status/enable/disable`
-  - `Permission detail`
   - `Permission search/filter` 后端接口
   - `Permission create/update/delete`
-  - `UserRole` 增量 assign/remove 独立接口
-  - `UserRole` 批量操作
+  - 角色删除生命周期的更强前端引导与审计视图
 - 当前已修复的首要 N+1 风险是前端用户列表角色摘要；列表不再逐条调用 `GET /api/users/{id}/roles`，而是消费 `GET /api/users` 返回的最小 `roles` 摘要。
 
 ## RBAC 功能覆盖矩阵
@@ -37,7 +32,7 @@
 | 维度 | 现状 | 证据 | 说明 |
 | --- | --- | --- | --- |
 | list | 已有 | `server/plugins/rbac/read_service.go` `ListPermissions`；`server/plugins/rbac/route_read_handlers.go` `handleListPermissions`；`openapi/paths/permissions.list.yaml`；`web/src/modules/rbac/api/rbac.ts` `getPermissions`；`web/src/modules/rbac/pages/permissions/index.vue` | 后端/前端/OpenAPI 全链路已接通 |
-| detail | 缺失 | 未发现 `/api/permissions/{id}` path；`openapi/openapi.yaml` 只挂 `permissions.list` | 当前页面也没有权限详情页 |
+| detail | 已有 | `server/plugins/rbac/route_read_handlers.go` `handleGetPermission`；`openapi/paths/permissions.detail.yaml`；`web/src/modules/rbac/api/rbac.ts` `getPermissionDetail`；`web/src/modules/rbac/pages/permissions/index.vue` | 权限页已接入详情抽屉与失败回退 |
 | search/filter | 后端缺失，前端本地过滤 | `permissions.list.yaml` 无 query 参数；`web/src/modules/rbac/pages/permissions/index.vue` 在前端 `computed` 里按 keyword/category 过滤 | 现状是全量拉取再本地筛选 |
 | create | 不应在当前 MVP 默认存在 | `web/src/modules/rbac/pages/permissions/index.vue` 明确 `readonlyNotice` / `readonlyDescription`；`server/plugins/rbac/route_registration.go` 只注册 `PermissionReadPermission` | 当前权限元数据以注册中心/插件声明为 canonical source，不应先做后台 CRUD |
 | update | 不应在当前 MVP 默认存在 | 同上 | 否则会与插件声明式权限真值冲突 |
@@ -48,11 +43,11 @@
 | 维度 | 现状 | 证据 | 说明 |
 | --- | --- | --- | --- |
 | list | 已有 | `ListRoles` / `handleListRoles` / `openapi/paths/roles.list.yaml` / `web/src/modules/rbac/pages/index.vue` | 已接通 |
-| detail | 缺失 | 无 `/api/roles/{id}` read path；角色页“详情”按钮实际复用列表行数据开抽屉，不走详情接口 | 只是前端本地 detail view，不是 role detail API |
+| detail | 已有 | `managementReader.GetRole`；`handleGetRole`；`openapi/paths/roles.detail.yaml`；`web/src/modules/rbac/api/rbac.ts` `getRoleDetail` | 角色页详情抽屉优先消费 detail 接口，失败时回退列表快照 |
 | create | 已有 | `managementWriter.CreateRole`；`handleCreateRoleRoute`；`roles.list.yaml` `post`；`web/src/modules/rbac/api/rbac.ts` `createRole` | 已接通 |
 | update | 已有 | `managementWriter.UpdateRole`；`handleUpdateRoleRoute`；`openapi/paths/roles.update.yaml`；`web/src/modules/rbac/api/rbac.ts` `updateRole` | 路径采用 `/api/roles/{id}/update` |
-| delete | 缺失 | 未发现 role delete route/path/ui | 属于真实缺口 |
-| status/enable/disable | 缺失 | schema / openapi / page 均未见 role status 语义 | 需先判断是否真的需要；当前角色只有 `builtin`，没有 enable/disable |
+| delete | 已有 | `managementWriter.SoftDeleteRole`；`handleDeleteRoleRoute`；`openapi/paths/roles.delete.yaml`；`web/src/modules/rbac/api/rbac.ts` `deleteRole` | 后端要求“custom + disabled + 无绑定”才能删除；前端现已在提交前提示该生命周期规则 |
+| status/enable/disable | 已有 | `managementWriter.SetRoleStatus`；`handleUpdateRoleStatusRoute`；`openapi/paths/roles.status.yaml`；`web/src/modules/rbac/api/rbac.ts` `updateRoleStatus` | 角色页已接通启用/停用操作，删除链路依赖该状态真值 |
 | role permissions read | 已有 | `ListRolePermissionBindings`；`handleListRolePermissionBindings`；`openapi/paths/roles.permissions.yaml`；`getRolePermissionBindings` | 返回的是 `permission_ids` 快照 |
 | role permissions write | 已有 | `ReplacePermissionsForRole`；`handleAssignRolePermissionsRoute`；`openapi/paths/roles.assign-permissions.yaml`；`assignRolePermissions` | 现状是 replace，不是增量 add/remove |
 
@@ -61,10 +56,10 @@
 | 维度 | 现状 | 证据 | 说明 |
 | --- | --- | --- | --- |
 | 用户拥有的角色 | 已有 | `ListRoleIDsByUserID`；`handleListUserRoleBindings`；`openapi/paths/users.roles.yaml`；`web/src/modules/user/api/user-roles.ts` `getUserRoleBindings` | 返回 `role_ids` 快照 |
-| 给用户分配角色 | 部分已有 | `ReplaceRolesForUser`；`handleAssignUserRolesRoute`；`openapi/paths/users.roles.assign.yaml`；`assignUserRoles` | UI 叫 assign，但实际语义是 replace 全量角色集 |
-| 移除用户角色 | 缺失独立接口 | 未发现 `DELETE /users/{id}/roles/{roleId}` 或 remove 接口 | 当前只能通过 replace 去掉某个 role |
-| 替换用户角色 | 已有 | 同上 | 当前 canonical write 语义 |
-| 批量操作 | 缺失 | 用户页 batch bar 全部 disabled；无 OpenAPI path | 属于真实缺口，但不一定是下一批首要项 |
+| 给用户分配角色 | 已有 | `AddRolesToUser` / `ReplaceRolesForUser`；对应 route handler 与 OpenAPI path；`web/src/modules/user/pages/index.vue` | 前端已显式区分 `replace/add/remove` 语义 |
+| 移除用户角色 | 已有 | `RemoveRolesFromUser`；对应 route handler 与 OpenAPI path；`web/src/modules/user/pages/index.vue` | 当前有独立 remove 语义 |
+| 替换用户角色 | 已有 | 同上 | 继续保留为完整快照替换 |
+| 批量操作 | 已有 | 批量 `users.roles.(replace|add|remove)` path；`web/src/modules/user/pages/index.vue` | 前端批量抽屉已补语义提示，尤其覆盖空 `replace` 的清空风险 |
 
 ### 权限菜单 / bootstrap
 
@@ -86,10 +81,10 @@
 | List permissions | `GET` | `/api/permissions` | `handleListPermissions` | `getPermissions`；权限页；角色页权限目录 | 已有 |
 | Read user roles | `GET` | `/api/users/{id}/roles` | `handleListUserRoleBindings` | `getUserRoleBindings`；用户列表摘要；用户角色抽屉 | 已有 |
 | Replace user roles | `POST` | `/api/users/{id}/roles/assign` | `handleAssignUserRolesRoute` | `assignUserRoles`；用户角色抽屉 | 已有 |
-| Role detail | - | - | 未实现 | 未消费 | 缺失 |
-| Role delete | - | - | 未实现 | 未消费 | 缺失 |
-| Role status | - | - | 未实现 | 未消费 | 缺失 |
-| Permission detail | - | - | 未实现 | 未消费 | 缺失 |
+| Get role detail | `GET` | `/api/roles/{id}` | `handleGetRole` | `getRoleDetail`；角色页详情抽屉 | 已有 |
+| Update role status | `POST` | `/api/roles/{id}/status` | `handleUpdateRoleStatusRoute` | `updateRoleStatus`；角色页更多操作 | 已有 |
+| Delete role | `POST` | `/api/roles/{id}/delete` | `handleDeleteRoleRoute` | `deleteRole`；角色页更多操作 | 已有 |
+| Get permission detail | `GET` | `/api/permissions/{id}` | `handleGetPermission` | `getPermissionDetail`；权限页详情抽屉 | 已有 |
 | Permission write | - | - | 未实现 | 未消费 | 按当前治理不应优先存在 |
 | User role add/remove delta | - | - | 未实现 | 未消费 | 缺失 |
 | User role bulk | - | - | 未实现 | 未消费 | 缺失 |
@@ -102,19 +97,26 @@
 | `/api/roles` | `postRoles` | 创建角色 | 已覆盖 |
 | `/api/roles/{id}/update` | `postRoleUpdate` | 更新角色 | 已覆盖 |
 | `/api/roles/{id}/permissions` | `getRolePermissions` | 读取角色权限快照 | 已覆盖 |
-| `/api/roles/{id}/permissions/assign` | `postRolePermissionAssign` | 替换角色权限 | 已覆盖 |
+| `/api/roles/{id}` | `getRole` | 角色详情 | 已覆盖 |
+| `/api/roles/{id}/status` | `postRoleStatus` | 更新角色状态 | 已覆盖 |
+| `/api/roles/{id}/delete` | `postRoleDelete` | 删除角色 | 已覆盖 |
+| `/api/roles/{id}/permissions/replace` | `postRolePermissionsReplace` | 替换角色权限 | 已覆盖 |
+| `/api/roles/{id}/permissions/add` | `postRolePermissionsAdd` | 追加角色权限 | 已覆盖 |
+| `/api/roles/{id}/permissions/remove` | `postRolePermissionsRemove` | 移除角色权限 | 已覆盖 |
 | `/api/permissions` | `getPermissions` | 权限列表 | 已覆盖 |
+| `/api/permissions/{id}` | `getPermission` | 权限详情 | 已覆盖 |
 | `/api/users/{id}/roles` | `getUserRoles` | 读取用户角色快照 | 已覆盖 |
-| `/api/users/{id}/roles/assign` | `postUserRolesAssign` | 替换用户角色 | 已覆盖 |
+| `/api/users/{id}/roles/replace` | `postUserRolesReplace` | 替换用户角色 | 已覆盖 |
+| `/api/users/{id}/roles/add` | `postUserRolesAdd` | 追加用户角色 | 已覆盖 |
+| `/api/users/{id}/roles/remove` | `postUserRolesRemove` | 移除用户角色 | 已覆盖 |
+| `/api/users/roles/replace` | `postUsersRolesReplace` | 批量替换用户角色 | 已覆盖 |
+| `/api/users/roles/add` | `postUsersRolesAdd` | 批量追加用户角色 | 已覆盖 |
+| `/api/users/roles/remove` | `postUsersRolesRemove` | 批量移除用户角色 | 已覆盖 |
 
 OpenAPI 缺口：
 
-- 未覆盖 `GET /api/roles/{id}`
-- 未覆盖 `DELETE /api/roles/{id}`
-- 未覆盖 role status 相关 path
-- 未覆盖 `GET /api/permissions/{id}`
 - 未覆盖 permission write path
-- 未覆盖 user-role 增量 add/remove / bulk path
+- 未覆盖权限搜索/过滤 query contract
 
 ## generated type consumption 覆盖矩阵
 
@@ -157,7 +159,8 @@ OpenAPI 缺口：
 | 前端面 | 页面 / 文件 | API 调用 | 状态 |
 | --- | --- | --- | --- |
 | 角色管理页 | `web/src/modules/rbac/pages/index.vue` | `getRoles` / `getPermissions` / `getRolePermissionBindings` / `createRole` / `updateRole` / `assignRolePermissions` | 已有 |
-| 权限管理页 | `web/src/modules/rbac/pages/permissions/index.vue` | `getPermissions` | 已有，只读 |
+| 角色状态/删除反馈 | `web/src/modules/rbac/pages/index.vue` | `updateRoleStatus` / `deleteRole` | 已有；详情抽屉与删除前提示会直接暴露 lifecycle 规则 |
+| 权限管理页 | `web/src/modules/rbac/pages/permissions/index.vue` | `getPermissions` / `getPermissionDetail` | 已有，只读详情 |
 | 用户管理页角色摘要 | `web/src/modules/user/pages/index.vue` | 消费 `getUsers` 返回的 `roles` 摘要；抽屉仍单次调用 `getUserRoleBindings` | 已修复列表级 N+1 |
 | 用户角色分配抽屉 | `web/src/modules/user/pages/index.vue` | `getRoles` / `getUserRoleBindings` / `assignUserRoles` | 已有 |
 | RBAC 动态路由注册 | `web/src/modules/rbac/bootstrap-routes.ts` | 消费 bootstrap 路径 | 已有 |
@@ -166,12 +169,8 @@ OpenAPI 缺口：
 
 前端缺口：
 
-- 没有角色详情专用页/接口，当前只是列表页抽屉 detail mode
-- 没有角色删除 UI
-- 没有角色状态 UI
-- 没有权限详情页
 - 没有权限写操作 UI，且按当前治理不应先补
-- 用户页批量角色操作 UI 只是 disabled 占位
+- 角色删除前只有最小提示，仍缺少更强的跨页审计视图
 
 ## N+1 风险矩阵
 

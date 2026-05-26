@@ -44,6 +44,14 @@
       "userCount": "{count} 位用户",
       "moreBuiltinHint": "内置角色不支持删除，请通过详情查看限制说明",
       "moreCustomHint": "更多角色操作暂未开放",
+      "lifecycle": {
+        "statusLabel": "当前状态",
+        "statusEnabled": "启用中",
+        "statusDisabled": "已停用",
+        "deleteReady": "这个自定义角色已经满足删除生命周期要求。",
+        "deleteNeedsDisable": "删除前需要先停用这个自定义角色。",
+        "deleteNeedsBindingsCleared": "删除前需要先移除这个角色的用户绑定和权限绑定。"
+      },
       "moreActions": {
         "enable": "启用角色",
         "disable": "停用角色",

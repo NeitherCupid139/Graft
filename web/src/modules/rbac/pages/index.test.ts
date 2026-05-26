@@ -97,6 +97,29 @@ const passthroughStub = defineComponent({
   },
 });
 
+const dropdownStub = defineComponent({
+  name: 'TDropdownStub',
+  props: {
+    options: {
+      type: Array,
+      default: () => [],
+    },
+  },
+  emits: ['click'],
+  setup(props, { emit, slots }) {
+    return () =>
+      h(
+        'div',
+        {
+          'data-testid': 'dropdown',
+          'data-options': JSON.stringify(props.options),
+          onClick: () => emit('click', { value: 'noop' }),
+        },
+        slots.default?.(),
+      );
+  },
+});
+
 const buttonStub = defineComponent({
   name: 'TButtonStub',
   props: {
@@ -374,6 +397,7 @@ function createRoleListResponse() {
         display: 'Editor',
         description: 'Editor role',
         builtin: false,
+        status: 'enabled',
         updated_at: '2026-05-18T00:00:00Z',
         permission_count: 2,
         user_count: 1,
@@ -417,7 +441,7 @@ function mountRolePage() {
         't-button': buttonStub,
         't-checkbox': checkboxStub,
         't-checkbox-group': checkboxGroupStub,
-        't-dropdown': passthroughStub,
+        't-dropdown': dropdownStub,
         't-drawer': drawerStub,
         't-empty': passthroughStub,
         't-form': formStub,
@@ -632,6 +656,88 @@ describe('RolePage', () => {
     });
     expect(rbacApiMocks.replaceRolePermissions).not.toHaveBeenCalled();
     expect(rbacApiMocks.addRolePermissions).not.toHaveBeenCalled();
+  });
+
+  it('shows lifecycle guidance in the detail drawer for role delete semantics', async () => {
+    permissionState.grantedCodes = [RBAC_PERMISSION_CODE.PERMISSION_READ];
+    rbacApiMocks.getRoles.mockResolvedValue(createRoleListResponse());
+    rbacApiMocks.getPermissions.mockResolvedValue(createPermissionListResponse());
+    rbacApiMocks.getRoleDetail.mockResolvedValue({
+      id: 2,
+      name: 'editor',
+      display: 'Editor',
+      description: 'Editor role',
+      builtin: false,
+      status: 'enabled',
+      updated_at: '2026-05-18T00:00:00Z',
+      created_at: '2026-05-17T00:00:00Z',
+      permission_count: 2,
+      user_count: 1,
+    });
+
+    const wrapper = mountRolePage();
+    await flushPromises();
+
+    await wrapper.get('[data-testid="role-detail"]').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.get('[data-testid="role-lifecycle-summary"]').text()).toContain(
+      'rbac.roleList.lifecycle.statusLabel',
+    );
+    expect(wrapper.get('[data-testid="role-lifecycle-summary"]').text()).toContain(
+      'rbac.roleList.lifecycle.statusEnabled',
+    );
+    expect(wrapper.get('[data-testid="role-lifecycle-summary"]').text()).toContain(
+      'rbac.roleList.lifecycle.deleteNeedsDisable',
+    );
+  });
+
+  it('blocks delete when the role is still enabled', async () => {
+    permissionState.grantedCodes = [RBAC_PERMISSION_CODE.ROLE_DELETE];
+    rbacApiMocks.getRoles.mockResolvedValue({
+      items: [
+        {
+          ...createRoleListResponse().items[0],
+          permission_count: 0,
+          user_count: 0,
+          status: 'enabled',
+        },
+      ],
+    });
+    rbacApiMocks.getPermissions.mockResolvedValue({ items: [] });
+
+    const wrapper = mountRolePage();
+    await flushPromises();
+
+    wrapper.getComponent(dropdownStub).vm.$emit('click', { value: 'delete' });
+    await flushPromises();
+
+    expect(rbacApiMocks.deleteRole).not.toHaveBeenCalled();
+    expect(messageMocks.warning).toHaveBeenCalledWith('rbac.roleList.lifecycle.deleteNeedsDisable');
+  });
+
+  it('blocks delete when the disabled role still has bindings', async () => {
+    permissionState.grantedCodes = [RBAC_PERMISSION_CODE.ROLE_DELETE];
+    rbacApiMocks.getRoles.mockResolvedValue({
+      items: [
+        {
+          ...createRoleListResponse().items[0],
+          permission_count: 1,
+          user_count: 0,
+          status: 'disabled',
+        },
+      ],
+    });
+    rbacApiMocks.getPermissions.mockResolvedValue({ items: [] });
+
+    const wrapper = mountRolePage();
+    await flushPromises();
+
+    wrapper.getComponent(dropdownStub).vm.$emit('click', { value: 'delete' });
+    await flushPromises();
+
+    expect(rbacApiMocks.deleteRole).not.toHaveBeenCalled();
+    expect(messageMocks.warning).toHaveBeenCalledWith('rbac.roleList.lifecycle.deleteNeedsBindingsCleared');
   });
 
   it('keeps permission assignment errors local when the backend rejects permission_ids', async () => {

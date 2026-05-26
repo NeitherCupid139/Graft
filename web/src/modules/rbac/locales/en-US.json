@@ -44,6 +44,14 @@
       "userCount": "{count} users",
       "moreBuiltinHint": "Builtin roles cannot be deleted. Open details for the restrictions.",
       "moreCustomHint": "Additional role actions are not available yet",
+      "lifecycle": {
+        "statusLabel": "Current status",
+        "statusEnabled": "Enabled",
+        "statusDisabled": "Disabled",
+        "deleteReady": "This custom role now satisfies the delete lifecycle rules.",
+        "deleteNeedsDisable": "Disable this custom role before deleting it.",
+        "deleteNeedsBindingsCleared": "Remove all user and permission bindings before deleting this role."
+      },
       "moreActions": {
         "enable": "Enable Role",
         "disable": "Disable Role",
