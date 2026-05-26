@@ -982,6 +982,63 @@ describe('UserPage', () => {
     expect(wrapper.find('[data-testid="user-role-drawer"]').exists()).toBe(false);
   });
 
+  it('shows batch role mutation semantics for replace, add, and remove modes', async () => {
+    permissionState.grantedCodes = [RBAC_PERMISSION_CODE.USER_ROLE_READ, RBAC_PERMISSION_CODE.USER_ROLE_ASSIGN];
+    userApiMocks.getUsers.mockResolvedValue({
+      items: [
+        {
+          id: 7,
+          username: 'alice',
+          display: 'Alice',
+          status: 'enabled',
+          roles: [],
+          created_at: '2026-05-17T00:00:00Z',
+          updated_at: '2026-05-17T00:00:00Z',
+        },
+        {
+          id: 8,
+          username: 'bob',
+          display: 'Bob',
+          status: 'enabled',
+          roles: [],
+          created_at: '2026-05-17T00:00:00Z',
+          updated_at: '2026-05-17T00:00:00Z',
+        },
+      ],
+    });
+    roleApiMocks.getRoles.mockResolvedValue(createRoleListResponse());
+
+    const wrapper = mountUserPage();
+    await flushPromises();
+
+    await wrapper.getComponent(UserPage).vm.handleSelectChange?.([7, 8]);
+    await flushPromises();
+    await wrapper.get('[data-testid="user-batch-manage-roles"]').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.get('[data-testid="batch-role-operation-hint"]').text()).toContain(
+      'user.userList.roleDialog.batchOperationHint.replaceEmpty',
+    );
+
+    updateRoleSelection(wrapper, [2]);
+    await flushPromises();
+    expect(wrapper.get('[data-testid="batch-role-operation-hint"]').text()).toContain(
+      'user.userList.roleDialog.batchOperationHint.replace',
+    );
+
+    await setRoleMutationMode(wrapper, 'add');
+    await flushPromises();
+    expect(wrapper.get('[data-testid="batch-role-operation-hint"]').text()).toContain(
+      'user.userList.roleDialog.batchOperationHint.add',
+    );
+
+    await setRoleMutationMode(wrapper, 'remove');
+    await flushPromises();
+    expect(wrapper.get('[data-testid="batch-role-operation-hint"]').text()).toContain(
+      'user.userList.roleDialog.batchOperationHint.remove',
+    );
+  });
+
   it('renders the table empty state and clears filters from the empty action area', async () => {
     userApiMocks.getUsers.mockResolvedValue({ items: [] });
     roleApiMocks.getRoles.mockResolvedValue({ items: [] });

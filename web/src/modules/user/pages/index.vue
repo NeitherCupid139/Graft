@@ -368,6 +368,9 @@
               }}</span>
             </div>
           </div>
+          <p v-if="roleDialogMode === 'batch'" class="table-head__description" data-testid="batch-role-operation-hint">
+            {{ batchRoleOperationHint }}
+          </p>
         </div>
 
         <section v-if="roleDialogMode === 'single'" class="drawer-section">
@@ -663,6 +666,27 @@ const roleMutationOptions = computed(() => [
   { label: t('user.userList.roleActions.add'), value: 'add' },
   { label: t('user.userList.roleActions.remove'), value: 'remove' },
 ]);
+const batchRoleOperationHint = computed(() => {
+  if (roleDialogMode.value !== 'batch') {
+    return '';
+  }
+
+  if (roleMutationMode.value === 'add') {
+    return t('user.userList.roleDialog.batchOperationHint.add');
+  }
+
+  if (roleMutationMode.value === 'remove') {
+    return t('user.userList.roleDialog.batchOperationHint.remove');
+  }
+
+  if (selectedRoleIds.value.length === 0) {
+    return t('user.userList.roleDialog.batchOperationHint.replaceEmpty', {
+      count: selectedBatchUserIds.value.length,
+    });
+  }
+
+  return t('user.userList.roleDialog.batchOperationHint.replace');
+});
 
 const columnSettingOptions = computed(() => [
   { label: t('user.userList.columns.user'), value: 'user' },

@@ -156,6 +156,12 @@
         "empty": "No roles available",
         "roleLoadFailed": "Failed to load role definitions",
         "selectionLoadFailed": "Failed to load the current role snapshot. Retry before saving.",
+        "batchOperationHint": {
+          "replace": "Replace overwrites each selected user's roles with the checked roles.",
+          "replaceEmpty": "No roles selected. Saving replace will clear all roles for the selected users.",
+          "add": "Add only appends the checked roles. Existing roles on selected users stay unchanged.",
+          "remove": "Remove only detaches the checked roles. Other roles on selected users stay unchanged."
+        },
         "submitBlocked": "Role changes are temporarily unavailable. Retry after refreshing the latest role data.",
         "retry": "Retry",
         "cancel": "Cancel",
