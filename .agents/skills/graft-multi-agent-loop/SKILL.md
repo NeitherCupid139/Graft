@@ -61,18 +61,20 @@ Typical triggers:
    - parse the closeout JSON and track remaining budget
    - decide whether to accept, retry, continue, or stop
    - do not edit repo-tracked implementation files for the active round
+   - treat the round as a simple state machine: `running -> checkpoint_requested -> checkpoint_received ->
+     waiting_for_final_closeout -> completed | retry_pending | blocked`
 5. Treat `timeout != stalled`:
    - exceeding one wait window or one soft timeout is not enough on its own to declare the worker stalled
    - absence of visible `git diff` or repo-tracked file changes is not, by itself, evidence of no progress; design, read-only dependency mapping, validation setup, or edit preparation may still be active
    - before any checkpoint request, first distinguish:
      - `no visible diff yet`
-     - `no tool activity`
-     - `no worker output`
+     - `no new visible output evidence`
      - `closeout not started`
-   - if the worker still shows recent tool activity, recent output, or other signs that an edit wave is about to start, keep waiting instead of interrupting
+   - when the current tool surface does not expose a direct activity query, do not rewrite "cannot observe tool activity" into "no tool activity"
+   - if the worker still shows recent visible output or other signs that an edit wave is about to start, keep waiting instead of interrupting
    - stalled judgment requires all of the following:
      - the round has exceeded soft timeout
-     - there has been prolonged lack of output or tool activity
+     - there has been prolonged lack of new visible output evidence
      - the worker has not reached closeout
      - a checkpoint request still fails to return a usable health response
 6. Use bounded checkpoint requests instead of ad-hoc remote control:
@@ -90,19 +92,25 @@ Typical triggers:
      - `changed_files`
      - `last_validation`
      - `next_action`
-     - `can_continue`
-     - `estimated_remaining_minutes`
-     - `eta_confidence`
-     - `risks_or_blockers`
+      - `can_continue`
+      - `estimated_remaining_minutes`
+      - `eta_confidence`
+      - `risks_or_blockers`
+   - a checkpoint response must begin with `Checkpoint status:`, must not include `Next-session startup prompt:`, and
+     must not append the final closeout JSON block
 7. After a usable checkpoint, set the next wait window from ETA without breaking the total round budget:
    - `eta_confidence=high`: wait `estimated_remaining_minutes`, capped by `max_grace_window`
    - `eta_confidence=medium`: wait `min(estimated_remaining_minutes, default_grace_window)`
    - `eta_confidence=low`: wait only `short_grace_window`, then checkpoint again or move to retry/block
    - ETA is advisory only; it must not justify exceeding the round's remaining runtime budget
    - if the checkpoint reports the worker is in an active pre-write or early-write phase and `can_continue=true`, treat that as positive health evidence; prefer another wait window over retry escalation
-   - after any usable checkpoint with `can_continue=true`, explicitly resume waiting for the same worker's final closeout; do not close, replace, or mark the round malformed merely because the most recent message was a checkpoint
+   - after any usable checkpoint with `can_continue=true`, explicitly continue the same worker round and resume waiting
+     for that worker's final closeout; if the worker was closed by the interrupt handling path, reopen it first, then
+     send a resume message that preserves the same goal, scope, and budget before the next wait window
+   - do not close, replace, or mark the round malformed merely because the most recent message was a checkpoint
    - before classifying a round as missing closeout, perform at least one post-checkpoint `wait_agent` window sized from ETA or the default grace rule above
    - if a worker later emits a valid final closeout after a prior checkpoint, accept that final closeout as the round result rather than freezing the earlier checkpoint as terminal state
+   - incomplete checkpoint content alone is not retry justification; first use the post-checkpoint grace rule unless the worker explicitly cannot continue
 8. Let the main agent decide whether to continue based on:
    - closeout JSON
    - the presence or absence of `Next-session startup prompt:`
@@ -112,7 +120,7 @@ Typical triggers:
    - remaining budget
 9. If a delegated worker round stalls, omits closeout, or returns contradictory closeout:
    - degrade worker reliability when ETA repeatedly misses, there is no substantive progress, or no closeout arrives
-   - do not classify a round as stalled while the latest evidence still shows active tool use, active output, or a credible near-term next action
+   - do not classify a round as stalled while the latest evidence still shows recent visible output or a credible near-term next action
    - if the worker gives no response, a malformed final closeout after the post-checkpoint grace handling above, `can_continue=false`, or exhausts checkpoint budget,
      enter `retry_once_then_blocked`
    - retry the same bounded round once with a fresh worker subagent
