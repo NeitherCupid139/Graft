@@ -150,12 +150,23 @@
         "batchSummary": "{count} selected users",
         "roleSummary": "{count} roles loaded",
         "noAssignedRoles": "No roles assigned",
+        "selectionCount": "{selected} / {total} roles selected",
+        "modeSummary": "Mode: {mode}",
+        "modeValue": {
+          "replace": "Overwrite Current Roles",
+          "add": "Append Selected Roles",
+          "remove": "Remove Selected Roles"
+        },
+        "addSelectionCount": "{count} roles will be added",
+        "removeSelectionCount": "{count} roles will be removed",
+        "replaceSelectionCount": "{count} roles will be kept after overwrite",
         "builtinYes": "Builtin",
         "builtinNo": "Custom",
         "emptyDescription": "No description",
         "empty": "No roles available",
         "roleLoadFailed": "Failed to load role definitions",
         "selectionLoadFailed": "Failed to load the current role snapshot. Retry before saving.",
+        "unsavedChangesConfirm": "Role assignment changes have not been saved. Discard them?",
         "batchOperationHint": {
           "replace": "Replace overwrites each selected user's roles with the checked roles.",
           "replaceEmpty": "No roles selected. Saving replace will clear all roles for the selected users.",

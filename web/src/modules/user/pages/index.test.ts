@@ -30,6 +30,8 @@ const messageMocks = vi.hoisted(() => ({
   warning: vi.fn(),
 }));
 
+const confirmMock = vi.hoisted(() => vi.fn(() => true));
+
 const permissionState = vi.hoisted(() => ({
   grantedCodes: [] as string[],
 }));
@@ -86,6 +88,8 @@ vi.mock('tdesign-vue-next', () => ({
     warning: messageMocks.warning,
   },
 }));
+
+vi.stubGlobal('confirm', confirmMock);
 
 const passthroughStub = defineComponent({
   name: 'PassthroughStub',
@@ -391,6 +395,10 @@ const tableStub = defineComponent({
 const drawerStub = defineComponent({
   name: 'TDrawerStub',
   props: {
+    footer: {
+      type: [Boolean, Object, String, null],
+      default: undefined,
+    },
     header: {
       type: String,
       default: '',
@@ -402,7 +410,17 @@ const drawerStub = defineComponent({
   },
   setup(props, { slots }) {
     return () =>
-      props.visible ? h('section', { 'data-testid': 'drawer', 'data-header': props.header }, slots.default?.()) : null;
+      props.visible
+        ? h(
+            'section',
+            {
+              'data-testid': 'drawer',
+              'data-footer': String(props.footer),
+              'data-header': props.header,
+            },
+            slots.default?.(),
+          )
+        : null;
   },
 });
 
@@ -573,6 +591,8 @@ function setRoleMutationMode(wrapper: ReturnType<typeof mountUserPage>, mode: 'r
 describe('UserPage', () => {
   beforeEach(() => {
     permissionState.grantedCodes = [];
+    confirmMock.mockReset();
+    confirmMock.mockReturnValue(true);
     userApiMocks.createUser.mockReset();
     userApiMocks.deleteUser.mockReset();
     userApiMocks.getUsers.mockReset();
@@ -604,6 +624,43 @@ describe('UserPage', () => {
     expect(wrapper.text()).not.toContain('user.userList.assignRoles');
     expect(wrapper.text()).not.toContain('user.userList.stats.totalUsers');
     expect(wrapper.text()).not.toContain('user.userList.stats.recentCreated');
+  });
+
+  it('disables the drawer default footer for user role assignment', async () => {
+    permissionState.grantedCodes = [RBAC_PERMISSION_CODE.USER_ROLE_READ, RBAC_PERMISSION_CODE.USER_ROLE_ASSIGN];
+    userApiMocks.getUsers.mockResolvedValue(createUserListResponse());
+    roleApiMocks.getRoles.mockResolvedValue(createRoleListResponse());
+    roleApiMocks.getUserRoleBindings.mockResolvedValue({ role_ids: [1] });
+
+    const wrapper = mountUserPage();
+    await flushPromises();
+
+    await wrapper.get('[data-testid="user-manage-roles"]').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.get('[data-testid="drawer"]').attributes('data-footer')).toBe('false');
+  });
+
+  it('prompts before closing the user role drawer with unsaved changes', async () => {
+    permissionState.grantedCodes = [RBAC_PERMISSION_CODE.USER_ROLE_READ, RBAC_PERMISSION_CODE.USER_ROLE_ASSIGN];
+    userApiMocks.getUsers.mockResolvedValue(createUserListResponse());
+    roleApiMocks.getRoles.mockResolvedValue(createRoleListResponse());
+    roleApiMocks.getUserRoleBindings.mockResolvedValue({ role_ids: [1] });
+    confirmMock.mockReturnValueOnce(false);
+
+    const wrapper = mountUserPage();
+    await flushPromises();
+
+    await wrapper.get('[data-testid="user-manage-roles"]').trigger('click');
+    await flushPromises();
+    updateRoleSelection(wrapper, [1, 2]);
+    await flushPromises();
+
+    await wrapper.get('[data-testid="user-role-cancel"]').trigger('click');
+    await flushPromises();
+
+    expect(confirmMock).toHaveBeenCalledWith('user.userList.roleDialog.unsavedChangesConfirm');
+    expect(wrapper.find('[data-testid="user-role-drawer"]').exists()).toBe(true);
   });
 
   it('renders the create action when the current session has user.create permission', async () => {
@@ -847,10 +904,12 @@ describe('UserPage', () => {
 
     await wrapper.get('[data-testid="user-manage-roles"]').trigger('click');
     await flushPromises();
+    updateRoleSelection(wrapper, [1]);
+    await flushPromises();
     await wrapper.get('[data-testid="user-role-save"]').trigger('click');
     await flushPromises();
 
-    expect(roleApiMocks.mutateUserRoles).toHaveBeenCalledWith(7, 'replace', { role_ids: [2] });
+    expect(roleApiMocks.mutateUserRoles).toHaveBeenCalledWith(7, 'replace', { role_ids: [1] });
     expect(messageMocks.success).toHaveBeenCalledWith('user.userList.roleUpdateSuccess');
     expect(wrapper.find('[data-testid="user-role-drawer"]').exists()).toBe(false);
   });

@@ -108,8 +108,15 @@
         "selectionLoadFailed": "当前角色权限加载失败，请重试后再保存",
         "selectionUnavailable": "当前角色权限快照异常，已阻止覆盖保存",
         "selectionCount": "已选择 {selected} / {total} 项权限",
+        "modeSummary": "当前模式：{mode}",
+        "modeValue": {
+          "replace": "覆盖当前权限",
+          "add": "追加选中权限",
+          "remove": "移除选中权限"
+        },
         "addSelectionCount": "本次将追加 {count} 项权限",
         "removeSelectionCount": "本次将移除 {count} 项权限",
+        "unsavedChangesConfirm": "当前权限变更尚未保存，确认取消吗？",
         "summary": {
           "assigned": "当前已拥有"
         },

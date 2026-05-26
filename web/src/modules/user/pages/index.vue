@@ -306,83 +306,89 @@
         roleDialogMode === 'batch' ? t('user.userList.roleDialog.batchTitle') : t('user.userList.roleDialog.title')
       "
       size="760px"
-      @close="closeUserRoleDrawer"
+      @close="requestCloseUserRoleDrawer"
     >
-      <div class="assignment-panel" data-testid="user-role-drawer">
-        <assignment-header
-          :avatar-text="userAssignmentAvatar"
-          :badges="userAssignmentBadges"
-          :description="userAssignmentDescription"
-          :eyebrow="t('user.userList.roleDialog.headerEyebrow')"
-          :stats="userAssignmentStats"
-          :subtitle="userAssignmentSubtitle"
-          :title="userAssignmentTitle"
-        />
-
-        <assignment-toolbar
-          v-model:mode-value="roleMutationMode"
-          v-model:search-value="roleSearchKeyword"
-          :disabled="submittingRoles || loadingRoleDialogData || !canAssignUserRoles"
-          :mode-label="t('user.userList.roleDialog.saveStrategyLabel')"
-          :mode-options="roleMutationOptions"
-          :search-placeholder="t('user.userList.roleDialog.searchPlaceholder')"
-        />
-
-        <assignment-summary
-          :hint="userAssignmentHint"
-          :hint-test-id="roleDialogMode === 'batch' ? 'batch-role-operation-hint' : ''"
-          :items="userAssignmentSummaryItems"
-          :warning="roleLoadWarning"
-          :warning-action-label="roleLoadWarning ? t('user.userList.roleDialog.retry') : ''"
-          :warning-action-loading="loadingRoleDialogData"
-          @warning-action="retryUserRoleDrawerLoad"
-        />
-
-        <assignment-grid
-          :empty="filteredAssignableRoles.length === 0 && !roleCatalogLoading"
-          :empty-description="t('user.userList.roleDialog.empty')"
-        >
-          <t-checkbox-group
-            v-model="selectedRoleIds"
-            class="sr-only"
-            :disabled="loadingRoleDialogData || !roleSelectionReady || !canAssignUserRoles"
-            data-testid="role-checkbox-group"
+      <template #header>
+        <div class="assignment-panel assignment-panel--compact" data-testid="user-role-drawer">
+          <assignment-header
+            :avatar-text="userAssignmentAvatar"
+            :badges="userAssignmentBadges"
+            :description="userAssignmentDescription"
+            :eyebrow="t('user.userList.roleDialog.headerEyebrow')"
+            :stats="userAssignmentStats"
+            :subtitle="userAssignmentSubtitle"
+            :title="userAssignmentTitle"
           />
-          <div class="assignment-card-grid">
-            <assignment-card
-              v-for="role in filteredAssignableRoles"
-              :key="role.id"
-              :assigned="currentRoleIds.includes(role.id)"
-              :assigned-label="t('user.userList.roleDialog.assignedBadge')"
-              :code="role.name"
-              :description="role.description || t('user.userList.roleDialog.emptyDescription')"
-              :disabled="loadingRoleDialogData || !roleSelectionReady || !canAssignUserRoles"
-              :selected="selectedRoleIds.includes(role.id)"
-              :tags="[
-                {
-                  label: role.builtin
-                    ? t('user.userList.roleDialog.builtinYes')
-                    : t('user.userList.roleDialog.builtinNo'),
-                  theme: role.builtin ? 'warning' : 'default',
-                },
-              ]"
-              :title="role.display"
-              @toggle="toggleUserRoleSelection(role.id)"
-            />
-          </div>
-        </assignment-grid>
 
+          <assignment-toolbar
+            v-model:mode-value="roleMutationMode"
+            v-model:search-value="roleSearchKeyword"
+            :disabled="submittingRoles || loadingRoleDialogData || !canAssignUserRoles"
+            :mode-label="t('user.userList.roleDialog.saveStrategyLabel')"
+            :mode-options="roleMutationOptions"
+            :search-placeholder="t('user.userList.roleDialog.searchPlaceholder')"
+          />
+
+          <assignment-summary
+            :hint="userAssignmentHint"
+            :hint-test-id="roleDialogMode === 'batch' ? 'batch-role-operation-hint' : ''"
+            :items="userAssignmentSummaryItems"
+            :warning="roleLoadWarning"
+            :warning-action-label="roleLoadWarning ? t('user.userList.roleDialog.retry') : ''"
+            :warning-action-loading="loadingRoleDialogData"
+            @warning-action="retryUserRoleDrawerLoad"
+          />
+        </div>
+      </template>
+
+      <assignment-grid
+        :empty="filteredAssignableRoles.length === 0 && !roleCatalogLoading"
+        :empty-description="t('user.userList.roleDialog.empty')"
+      >
+        <t-checkbox-group
+          v-model="selectedRoleIds"
+          class="sr-only"
+          :disabled="loadingRoleDialogData || !roleSelectionReady || !canAssignUserRoles"
+          data-testid="role-checkbox-group"
+        />
+        <div class="assignment-card-grid permission-card-grid">
+          <assignment-card
+            v-for="role in filteredAssignableRoles"
+            :key="role.id"
+            :assigned="currentRoleIds.includes(role.id)"
+            :assigned-label="t('user.userList.roleDialog.assignedBadge')"
+            :code="role.name"
+            :description="role.description || t('user.userList.roleDialog.emptyDescription')"
+            :disabled="loadingRoleDialogData || !roleSelectionReady || !canAssignUserRoles"
+            :selected="selectedRoleIds.includes(role.id)"
+            :tags="[
+              {
+                label: role.builtin
+                  ? t('user.userList.roleDialog.builtinYes')
+                  : t('user.userList.roleDialog.builtinNo'),
+                theme: role.builtin ? 'warning' : 'default',
+              },
+            ]"
+            :title="role.display"
+            @toggle="toggleUserRoleSelection(role.id)"
+          />
+        </div>
+      </assignment-grid>
+
+      <template #footer>
         <assignment-footer
           :cancel-label="t('user.userList.roleDialog.cancel')"
+          cancel-test-id="user-role-cancel"
           :confirm-disabled="!canSubmitRoleAssignment"
           :confirm-label="t('user.userList.roleDialog.confirm')"
           :confirm-loading="submittingRoles"
+          :details="userAssignmentFooterDetails"
           confirm-test-id="user-role-save"
           :summary="userAssignmentFooterSummary"
-          @cancel="closeUserRoleDrawer"
+          @cancel="requestCloseUserRoleDrawer"
           @confirm="submitUserRoleAssignment"
         />
-      </div>
+      </template>
     </assignment-drawer>
 
     <t-drawer
@@ -576,10 +582,34 @@ const roleMutationPayload = computed(() => {
     role_ids: [...selectedRoleIds.value].sort((left, right) => left - right),
   };
 });
+const hasUserRoleSelectionChanges = computed(() => {
+  if (!canAssignUserRoles.value || !roleSelectionReady.value) {
+    return false;
+  }
+
+  if (roleDialogMode.value === 'batch') {
+    return roleMutationPayload.value.role_ids.length > 0;
+  }
+
+  if (selectedUser.value === null) {
+    return false;
+  }
+
+  switch (roleMutationMode.value) {
+    case 'replace':
+      return !arePermissionIDsEqual(currentRoleIds.value, selectedRoleIds.value);
+    case 'add':
+      return selectedRoleIds.value.some((id) => !currentRoleIds.value.includes(id));
+    case 'remove':
+      return selectedRoleIds.value.some((id) => currentRoleIds.value.includes(id));
+    default:
+      return false;
+  }
+});
 const canSubmitRoleAssignment = computed(
   () =>
     canAssignUserRoles.value &&
-    roleSelectionReady.value &&
+    hasUserRoleSelectionChanges.value &&
     (roleDialogMode.value === 'batch' ? selectedRowKeys.value.length > 0 : selectedUser.value !== null) &&
     (roleMutationMode.value === 'replace' || roleMutationPayload.value.role_ids.length > 0),
 );
@@ -762,13 +792,64 @@ const userAssignmentHint = computed(() =>
         total: roles.value.length,
       }),
 );
+const userRoleAddedCount = computed(() => {
+  const current = new Set(currentRoleIds.value);
+  return selectedRoleIds.value.filter((id) => !current.has(id)).length;
+});
+const userRoleRemovedCount = computed(() => {
+  const selected = new Set(selectedRoleIds.value);
+  return currentRoleIds.value.filter((id) => !selected.has(id)).length;
+});
 const userAssignmentFooterSummary = computed(() =>
-  t('user.userList.roleDialog.footerSummary', {
-    assigned: currentRoleIds.value.length,
+  t('user.userList.roleDialog.selectionCount', {
     selected: selectedRoleIds.value.length,
     total: roles.value.length,
   }),
 );
+const userAssignmentFooterDetails = computed(() => {
+  const details = [
+    t('user.userList.roleDialog.modeSummary', {
+      mode: t(`user.userList.roleDialog.modeValue.${roleMutationMode.value}`),
+    }),
+  ];
+
+  if (roleDialogMode.value === 'batch') {
+    details.push(
+      t(`user.userList.roleDialog.${roleMutationMode.value}SelectionCount`, {
+        count: roleMutationPayload.value.role_ids.length,
+      }),
+    );
+    return details;
+  }
+
+  if (roleMutationMode.value === 'replace') {
+    if (userRoleAddedCount.value > 0) {
+      details.push(
+        t('user.userList.roleDialog.addSelectionCount', {
+          count: userRoleAddedCount.value,
+        }),
+      );
+    }
+
+    if (userRoleRemovedCount.value > 0) {
+      details.push(
+        t('user.userList.roleDialog.removeSelectionCount', {
+          count: userRoleRemovedCount.value,
+        }),
+      );
+    }
+
+    return details;
+  }
+
+  details.push(
+    t(`user.userList.roleDialog.${roleMutationMode.value}SelectionCount`, {
+      count: roleMutationPayload.value.role_ids.length,
+    }),
+  );
+
+  return details;
+});
 
 const userRowMoreOptions = (user: UserRow) => [
   {
@@ -1229,6 +1310,16 @@ function handleSelectChange(value: Array<string | number>) {
   selectedRowKeys.value = value;
 }
 
+function arePermissionIDsEqual(left: number[], right: number[]) {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  const sortedLeft = [...left].sort((a, b) => a - b);
+  const sortedRight = [...right].sort((a, b) => a - b);
+  return sortedLeft.every((id, index) => id === sortedRight[index]);
+}
+
 function closeUserRoleDrawer() {
   drawerSession.value += 1;
   userRoleDrawerVisible.value = false;
@@ -1241,6 +1332,22 @@ function closeUserRoleDrawer() {
   roleSelectionReady.value = false;
   roleLoadWarning.value = '';
   submittingRoles.value = false;
+}
+
+function requestCloseUserRoleDrawer() {
+  if (submittingRoles.value) {
+    return;
+  }
+
+  if (!hasUserRoleSelectionChanges.value) {
+    closeUserRoleDrawer();
+    return;
+  }
+
+  const confirmed = window.confirm(t('user.userList.roleDialog.unsavedChangesConfirm'));
+  if (confirmed) {
+    closeUserRoleDrawer();
+  }
 }
 
 function isActiveDrawerSession(session: number) {

@@ -25,6 +25,8 @@ const messageMocks = vi.hoisted(() => ({
   warning: vi.fn(),
 }));
 
+const confirmMock = vi.hoisted(() => vi.fn(() => true));
+
 const permissionState = vi.hoisted(() => ({
   grantedCodes: [] as string[],
 }));
@@ -85,6 +87,8 @@ vi.mock('tdesign-vue-next', () => ({
     warning: messageMocks.warning,
   },
 }));
+
+vi.stubGlobal('confirm', confirmMock);
 
 const passthroughStub = defineComponent({
   name: 'PassthroughStub',
@@ -252,6 +256,10 @@ const tableStub = defineComponent({
 const drawerStub = defineComponent({
   name: 'TDrawerStub',
   props: {
+    footer: {
+      type: [Boolean, Object, String, null],
+      default: undefined,
+    },
     header: {
       type: String,
       default: '',
@@ -263,7 +271,17 @@ const drawerStub = defineComponent({
   },
   setup(props, { slots }) {
     return () =>
-      props.visible ? h('section', { 'data-testid': 'drawer', 'data-header': props.header }, slots.default?.()) : null;
+      props.visible
+        ? h(
+            'section',
+            {
+              'data-testid': 'drawer',
+              'data-footer': String(props.footer),
+              'data-header': props.header,
+            },
+            slots.default?.(),
+          )
+        : null;
   },
 });
 
@@ -494,6 +512,8 @@ function setPermissionMutationMode(wrapper: ReturnType<typeof mountRolePage>, mo
 describe('RolePage', () => {
   beforeEach(() => {
     permissionState.grantedCodes = [];
+    confirmMock.mockReset();
+    confirmMock.mockReturnValue(true);
     rbacApiMocks.addRolePermissions.mockReset();
     rbacApiMocks.createRole.mockReset();
     rbacApiMocks.deleteRole.mockReset();
@@ -658,6 +678,43 @@ describe('RolePage', () => {
     await flushPromises();
 
     expect(wrapper.get('[data-testid="permission-drawer-save"]').attributes('disabled')).toBeDefined();
+  });
+
+  it('disables the drawer default footer for permission assignment', async () => {
+    permissionState.grantedCodes = [RBAC_PERMISSION_CODE.PERMISSION_READ, RBAC_PERMISSION_CODE.ROLE_PERMISSION_MANAGE];
+    rbacApiMocks.getRoles.mockResolvedValue(createRoleListResponse());
+    rbacApiMocks.getPermissions.mockResolvedValue(createPermissionListResponse());
+    rbacApiMocks.getRolePermissionBindings.mockResolvedValue({ permission_ids: [1] });
+
+    const wrapper = mountRolePage();
+    await flushPromises();
+
+    await wrapper.get('[data-testid="role-assign-permissions"]').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.get('[data-testid="drawer"]').attributes('data-footer')).toBe('false');
+  });
+
+  it('prompts before closing the permission drawer with unsaved changes', async () => {
+    permissionState.grantedCodes = [RBAC_PERMISSION_CODE.PERMISSION_READ, RBAC_PERMISSION_CODE.ROLE_PERMISSION_MANAGE];
+    rbacApiMocks.getRoles.mockResolvedValue(createRoleListResponse());
+    rbacApiMocks.getPermissions.mockResolvedValue(createPermissionListResponse());
+    rbacApiMocks.getRolePermissionBindings.mockResolvedValue({ permission_ids: [1] });
+    confirmMock.mockReturnValueOnce(false);
+
+    const wrapper = mountRolePage();
+    await flushPromises();
+
+    await wrapper.get('[data-testid="role-assign-permissions"]').trigger('click');
+    await flushPromises();
+    updatePermissionSelection(wrapper, [1, 2]);
+    await flushPromises();
+
+    await wrapper.get('[data-testid="permission-drawer-cancel"]').trigger('click');
+    await flushPromises();
+
+    expect(confirmMock).toHaveBeenCalledWith('rbac.roleList.permissionDialog.unsavedChangesConfirm');
+    expect(wrapper.find('[data-testid="permission-drawer"]').exists()).toBe(true);
   });
 
   it('submits only newly selected permissions in add mode', async () => {

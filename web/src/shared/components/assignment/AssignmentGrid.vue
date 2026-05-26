@@ -15,5 +15,6 @@ defineProps<{
   display: flex;
   flex-direction: column;
   gap: var(--td-comp-margin-l);
+  width: 100%;
 }
 </style>
