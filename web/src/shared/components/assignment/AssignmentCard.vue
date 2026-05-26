@@ -1,20 +1,17 @@
 <template>
-  <label
+  <button
     class="assignment-card"
     :class="{
       'assignment-card--assigned': assigned,
       'assignment-card--disabled': disabled,
       'assignment-card--selected': selected,
     }"
+    :aria-checked="selected"
+    :disabled="disabled"
+    role="checkbox"
+    type="button"
+    @click="emit('toggle')"
   >
-    <input
-      class="assignment-card__input"
-      type="checkbox"
-      :checked="selected"
-      :disabled="disabled"
-      @change="emit('toggle')"
-    />
-
     <div class="assignment-card__surface">
       <div class="assignment-card__top">
         <div class="assignment-card__state">
@@ -42,7 +39,7 @@
         <span class="assignment-card__description">{{ description }}</span>
       </div>
     </div>
-  </label>
+  </button>
 </template>
 <script setup lang="ts">
 type CardTag = {
@@ -87,13 +84,13 @@ const emit = defineEmits<{
 }
 
 .assignment-card {
+  appearance: none;
+  background: transparent;
+  border: 0;
   cursor: pointer;
-}
-
-.assignment-card__input {
-  opacity: 0;
-  pointer-events: none;
-  position: absolute;
+  padding: 0;
+  text-align: left;
+  width: 100%;
 }
 
 .assignment-card__surface {
@@ -124,6 +121,16 @@ const emit = defineEmits<{
 
 .assignment-card--disabled {
   cursor: not-allowed;
+}
+
+.assignment-card:focus {
+  outline: none;
+}
+
+.assignment-card:focus-visible .assignment-card__surface {
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--td-brand-color) 18%, transparent),
+    var(--td-shadow-1);
 }
 
 .assignment-card--disabled .assignment-card__surface {
