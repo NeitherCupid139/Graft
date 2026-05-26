@@ -67,8 +67,9 @@ type Permission struct {
 
 // RoleFilter 描述角色列表读取支持的局部过滤条件。
 type RoleFilter struct {
-	Status string
-	Query  string
+	Status  string
+	Query   string
+	Builtin *bool
 }
 
 // PermissionFilter 描述权限列表读取支持的局部过滤条件。

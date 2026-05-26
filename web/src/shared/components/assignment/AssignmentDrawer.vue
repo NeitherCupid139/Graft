@@ -44,12 +44,10 @@ const emit = defineEmits<{
 const bodyRef = ref<HTMLDivElement | null>(null);
 
 function handleVisibleChange(value: boolean) {
-  if (value) {
-    emit('update:visible', true);
-    return;
+  emit('update:visible', value);
+  if (!value) {
+    emit('close');
   }
-
-  emit('close');
 }
 
 watch(

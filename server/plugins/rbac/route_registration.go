@@ -16,6 +16,7 @@ type managementGuards struct {
 	permissionRead       gin.HandlerFunc
 	roleCreate           gin.HandlerFunc
 	roleUpdate           gin.HandlerFunc
+	roleStatus           gin.HandlerFunc
 	roleDelete           gin.HandlerFunc
 	rolePermissionAssign gin.HandlerFunc
 	userRoleRead         gin.HandlerFunc
@@ -78,6 +79,20 @@ func rbacPermissionItems(pluginName string) []permission.Item {
 			Code:        rbaccontract.RoleUpdatePermission.String(),
 			Name:        "Update Roles",
 			Description: "Allows updating role-management data.",
+			Category:    "api",
+			Plugin:      pluginName,
+		},
+		{
+			Code:        rbaccontract.RoleStatusUpdatePermission.String(),
+			Name:        "Update Role Status",
+			Description: "Allows changing role lifecycle status.",
+			Category:    "api",
+			Plugin:      pluginName,
+		},
+		{
+			Code:        rbaccontract.RoleDeletePermission.String(),
+			Name:        "Delete Roles",
+			Description: "Allows deleting disabled roles without bindings.",
 			Category:    "api",
 			Plugin:      pluginName,
 		},

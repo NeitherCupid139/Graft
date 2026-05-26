@@ -95,7 +95,10 @@ func (r testRBACRepository) SetRoleStatus(ctx context.Context, input store.SetRo
 	if r.setRoleStatus != nil {
 		return r.setRoleStatus(ctx, input)
 	}
-	role, _ := r.GetRoleByID(ctx, input.ID)
+	role, err := r.GetRoleByID(ctx, input.ID)
+	if err != nil {
+		return store.Role{}, err
+	}
 	role.Status = input.Status
 	return role, nil
 }
@@ -383,8 +386,8 @@ func TestRegisterRegistersReadManagementContracts(t *testing.T) {
 	ctx, _ := newPluginTestContext(t, testRBACRepository{})
 
 	items := ctx.PermissionRegistry.Items()
-	if len(items) != 7 {
-		t.Fatalf("expected 7 registered permissions, got %d", len(items))
+	if len(items) != 9 {
+		t.Fatalf("expected 9 registered permissions, got %d", len(items))
 	}
 	assertRegisteredPermissionCodes(t, items)
 	for _, item := range items {
@@ -428,6 +431,8 @@ func assertRegisteredPermissionCodes(t *testing.T, items []permission.Item) {
 		rbaccontract.RoleReadPermission.String(),
 		rbaccontract.RoleCreatePermission.String(),
 		rbaccontract.RoleUpdatePermission.String(),
+		rbaccontract.RoleStatusUpdatePermission.String(),
+		rbaccontract.RoleDeletePermission.String(),
 		rbaccontract.RolePermissionAssignPermission.String(),
 		rbaccontract.PermissionReadPermission.String(),
 		rbaccontract.UserRoleReadPermission.String(),
@@ -474,6 +479,63 @@ func TestRoleRoutesListRoles(t *testing.T) {
 	}
 	if payload.Data.Items[0].Builtin != true || payload.Data.Items[0].Name != "admin" {
 		t.Fatalf("unexpected role item: %#v", payload.Data.Items[0])
+	}
+}
+
+func TestRoleRoutesListRolesPropagatesBuiltinFilter(t *testing.T) {
+	captured := store.RoleFilter{}
+	repo := testRBACRepository{
+		listRolesFn: func(_ context.Context, filter store.RoleFilter) ([]store.Role, error) {
+			captured = filter
+			return []store.Role{}, nil
+		},
+		permissionsByUser: []store.Permission{{Code: rbaccontract.RoleReadPermission.String()}},
+	}
+	_, engine := newPluginTestContext(t, repo)
+
+	recorder := httptest.NewRecorder()
+	engine.ServeHTTP(recorder, newAuthorizedRequest("/api/roles?builtin=true"))
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", recorder.Code)
+	}
+	if captured.Builtin == nil || !*captured.Builtin {
+		t.Fatalf("expected builtin filter to propagate, got %#v", captured)
+	}
+}
+
+func TestRoleRoutesListRolesRejectInvalidQueryValues(t *testing.T) {
+	repo := testRBACRepository{
+		permissionsByUser: []store.Permission{{Code: rbaccontract.RoleReadPermission.String()}},
+	}
+	_, engine := newPluginTestContext(t, repo)
+
+	cases := []struct {
+		name  string
+		path  string
+		field string
+	}{
+		{name: "status", path: "/api/roles?status=archived", field: "status"},
+		{name: "builtin", path: "/api/roles?builtin=maybe", field: "builtin"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			engine.ServeHTTP(recorder, newAuthorizedRequest(tc.path))
+
+			if recorder.Code != http.StatusBadRequest {
+				t.Fatalf("expected status 400, got %d", recorder.Code)
+			}
+
+			var payload httpx.ErrorResponse
+			if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
+				t.Fatalf("decode response: %v", err)
+			}
+			if payload.MessageKey != messagecontract.CommonInvalidArgument.String() || payload.Details["field"] != tc.field {
+				t.Fatalf("unexpected invalid-query payload: %#v", payload)
+			}
+		})
 	}
 }
 
@@ -821,6 +883,52 @@ func TestRolePermissionAssignRouteMapsDeletedPermissionIDsToInvalidArgument(t *t
 	}
 	if payload.MessageKey != messagecontract.CommonInvalidArgument.String() || payload.Details["field"] != "permission_ids" {
 		t.Fatalf("unexpected deleted-permission payload: %#v", payload)
+	}
+}
+
+func TestRoleStatusRouteRequiresDedicatedStatusPermission(t *testing.T) {
+	repo := testRBACRepository{
+		permissionsByUser: []store.Permission{{Code: rbaccontract.RoleUpdatePermission.String()}},
+	}
+	_, engine := newPluginTestContext(t, repo)
+
+	recorder := httptest.NewRecorder()
+	engine.ServeHTTP(recorder, newAuthorizedJSONRequest(http.MethodPost, "/api/roles/1/status", map[string]any{
+		"status": "disabled",
+	}))
+
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("expected status 403, got %d", recorder.Code)
+	}
+
+	var payload httpx.ErrorResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if payload.Details["permission"] != rbaccontract.RoleStatusUpdatePermission.String() {
+		t.Fatalf("unexpected denied permission detail: %#v", payload)
+	}
+}
+
+func TestRoleDeleteRouteRequiresDedicatedDeletePermission(t *testing.T) {
+	repo := testRBACRepository{
+		permissionsByUser: []store.Permission{{Code: rbaccontract.RoleUpdatePermission.String()}},
+	}
+	_, engine := newPluginTestContext(t, repo)
+
+	recorder := httptest.NewRecorder()
+	engine.ServeHTTP(recorder, newAuthorizedJSONRequest(http.MethodPost, "/api/roles/1/delete", nil))
+
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("expected status 403, got %d", recorder.Code)
+	}
+
+	var payload httpx.ErrorResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if payload.Details["permission"] != rbaccontract.RoleDeletePermission.String() {
+		t.Fatalf("unexpected denied permission detail: %#v", payload)
 	}
 }
 

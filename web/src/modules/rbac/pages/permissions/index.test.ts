@@ -397,7 +397,8 @@ describe('PermissionPage', () => {
     expect(wrapper.findAll('[data-testid="drawer"]')).toHaveLength(1);
     expect(wrapper.text()).toContain('Localized permission description');
     expect(wrapper.text()).toContain('3');
-    expect(wrapper.text()).toContain('May 24, 2026, 6:00 PM');
+    expect(wrapper.text()).toContain('May 24, 2026');
+    expect(wrapper.text()).not.toContain('2026-05-24T10:00:00Z');
   });
 
   it('keeps the drawer open with fallback snapshot when detail loading fails', async () => {

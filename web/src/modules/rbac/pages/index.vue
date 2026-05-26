@@ -557,6 +557,8 @@ const canOpenPermissionDrawer = computed(() => canReadPermissions.value && permi
 const canShowOperationColumn = computed(() =>
   permissionStore.hasAnyPermission([
     permissionCodes.ROLE_UPDATE,
+    permissionCodes.ROLE_DELETE,
+    permissionCodes.ROLE_STATUS_UPDATE,
     permissionCodes.PERMISSION_READ,
     permissionCodes.ROLE_PERMISSION_MANAGE,
   ]),

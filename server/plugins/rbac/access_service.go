@@ -3,7 +3,6 @@ package rbac
 import (
 	"context"
 	"errors"
-	"maps"
 	"slices"
 	"strings"
 
@@ -82,7 +81,7 @@ func (s accessService) ListRoleSummariesByUserIDs(
 		}
 	}
 
-	return maps.Clone(summaries), nil
+	return summaries, nil
 }
 
 var _ pluginapi.RBACAccessService = accessService{}

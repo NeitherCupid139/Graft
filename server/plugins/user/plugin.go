@@ -233,7 +233,11 @@ func (s userService) ListUserRoleSummaries(ctx context.Context, userIDs []uint64
 		return nil, errors.New("rbac access service is unavailable")
 	}
 
-	return s.rbac.ListRoleSummariesByUserIDs(ctx, userIDs)
+	summaries, err := s.rbac.ListRoleSummariesByUserIDs(ctx, userIDs)
+	if err != nil {
+		return nil, fmt.Errorf("list user role summaries: %w", err)
+	}
+	return summaries, nil
 }
 
 func (s userService) CreateUser(

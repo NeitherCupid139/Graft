@@ -142,6 +142,35 @@ func TestLoadReadsServerDotenvFromNestedPackageDir(t *testing.T) {
 	assertEqual(t, "jwt secret from nested server/.env", cfg.Auth.JWTSecret, "nested-server-dotenv-jwt-secret")
 }
 
+// TestLoadStopsDotenvSearchAtWorkspaceBoundary 验证向上查找不会越过首个项目边界读取外层 .env。
+func TestLoadStopsDotenvSearchAtWorkspaceBoundary(t *testing.T) {
+	restoreEnv := clearGraftEnv(t)
+	t.Cleanup(restoreEnv)
+
+	outer := t.TempDir()
+	projectRoot := filepath.Join(outer, "project")
+	nestedDir := filepath.Join(projectRoot, "server", "cmd", "graft")
+	if err := os.MkdirAll(nestedDir, 0o750); err != nil {
+		t.Fatalf("create nested package directory: %v", err)
+	}
+	chdir(t, nestedDir)
+
+	if err := os.WriteFile(filepath.Join(outer, ".env"), []byte("GRAFT_APP_NAME=outer-dotenv\n"), 0o600); err != nil {
+		t.Fatalf("write outer .env: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(projectRoot, "server", ".env"), []byte("GRAFT_APP_NAME=project-server-dotenv\n"), 0o600); err != nil {
+		t.Fatalf("write project server .env: %v", err)
+	}
+	t.Setenv("GRAFT_AUTH_JWT_SECRET", "workspace-boundary-secret")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	assertEqual(t, "app name from workspace server/.env", cfg.App.Name, "project-server-dotenv")
+}
+
 // TestLoadKeepsRealEnvironmentBeforeDotenv 验证真实环境变量优先于 .env 中的默认值。
 func TestLoadKeepsRealEnvironmentBeforeDotenv(t *testing.T) {
 	restoreEnv := clearGraftEnv(t)

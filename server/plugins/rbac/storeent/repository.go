@@ -678,6 +678,10 @@ func (r *repository) ListRoles(ctx context.Context, filter rbacstore.RoleFilter)
 		args = append(args, "%"+query+"%", "%"+query+"%")
 		where = append(where, fmt.Sprintf("(name ILIKE $%d OR display ILIKE $%d)", len(args)-1, len(args)))
 	}
+	if filter.Builtin != nil {
+		args = append(args, *filter.Builtin)
+		where = append(where, fmt.Sprintf("builtin = $%d", len(args)))
+	}
 	return queryAndScanRows(
 		ctx,
 		r.db,

@@ -368,7 +368,7 @@ func findDotenvPath() (string, error) {
 		return "", fmt.Errorf("resolve working directory: %w", err)
 	}
 
-	for _, dir := range walkToRoot(workingDir) {
+	for _, dir := range dotenvSearchDirs(workingDir) {
 		for _, candidate := range []string{
 			filepath.Join(dir, ".env"),
 			filepath.Join(dir, "server", ".env"),
@@ -384,7 +384,7 @@ func findDotenvPath() (string, error) {
 	return "", nil
 }
 
-func walkToRoot(start string) []string {
+func dotenvSearchDirs(start string) []string {
 	if strings.TrimSpace(start) == "" {
 		return nil
 	}
@@ -393,12 +393,36 @@ func walkToRoot(start string) []string {
 	current := filepath.Clean(start)
 	for {
 		dirs = append(dirs, current)
+
+		if isDotenvSearchBoundary(current) {
+			return dirs
+		}
+
 		parent := filepath.Dir(current)
 		if parent == current {
 			return dirs
 		}
 		current = parent
 	}
+}
+
+func isDotenvSearchBoundary(dir string) bool {
+	if filepath.Base(dir) == "server" {
+		return true
+	}
+
+	for _, marker := range []string{".git", "server"} {
+		info, err := os.Stat(filepath.Join(dir, marker))
+		if err != nil {
+			continue
+		}
+		if marker == "server" && !info.IsDir() {
+			continue
+		}
+		return true
+	}
+
+	return false
 }
 
 func setDefaults(reader *viper.Viper) {

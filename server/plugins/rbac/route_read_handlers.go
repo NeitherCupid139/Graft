@@ -31,7 +31,13 @@ func handleListRoles(
 		pluginName,
 		"list roles failed",
 		func(ginCtx *gin.Context) (generated.RoleListResponse, error) {
-			params := bindGeneratedRoleParams(ginCtx)
+			params, invalidField := bindGeneratedRoleParams(ginCtx)
+			if invalidField != "" {
+				writeLocalizedContractError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{
+					"field": invalidField,
+				})
+				return generated.RoleListResponse{}, nil
+			}
 			handler.GetRoles(params)
 
 			filter := rbacstore.RoleFilter{}
@@ -40,6 +46,9 @@ func handleListRoles(
 			}
 			if params.Status != nil {
 				filter.Status = string(*params.Status)
+			}
+			if params.Builtin != nil {
+				filter.Builtin = params.Builtin
 			}
 
 			roles, err := reader.ListRoles(ginCtx.Request.Context(), filter)
@@ -176,7 +185,7 @@ func bindGeneratedPermissionDetailParams(ginCtx *gin.Context) rbacopenapi.GetPer
 	}
 }
 
-func bindGeneratedRoleParams(ginCtx *gin.Context) rbacopenapi.GetRolesParams {
+func bindGeneratedRoleParams(ginCtx *gin.Context) (rbacopenapi.GetRolesParams, string) {
 	locale, requestID := bindGeneratedReadHeaders(ginCtx)
 	params := rbacopenapi.GetRolesParams{
 		XGraftLocale: locale,
@@ -187,6 +196,9 @@ func bindGeneratedRoleParams(ginCtx *gin.Context) rbacopenapi.GetRolesParams {
 	}
 	if raw := strings.TrimSpace(ginCtx.Query("status")); raw != "" {
 		status := rbacopenapi.GetRolesParamsStatus(raw)
+		if !status.Valid() {
+			return params, "status"
+		}
 		params.Status = &status
 	}
 	if raw := strings.TrimSpace(ginCtx.Query("builtin")); raw != "" {
@@ -197,9 +209,11 @@ func bindGeneratedRoleParams(ginCtx *gin.Context) rbacopenapi.GetRolesParams {
 		case "false", "0":
 			value := false
 			params.Builtin = &value
+		default:
+			return params, "builtin"
 		}
 	}
-	return params
+	return params, ""
 }
 
 func bindGeneratedRoleDetailParams(ginCtx *gin.Context) rbacopenapi.GetRoleParams {
@@ -394,6 +408,9 @@ func newManagementListHandler[T any](
 ) gin.HandlerFunc {
 	return func(ginCtx *gin.Context) {
 		payload, err := read(ginCtx)
+		if ginCtx.Writer.Written() {
+			return
+		}
 		if err != nil {
 			ctx.Logger.Error(logMessage,
 				zap.String("plugin", pluginName),

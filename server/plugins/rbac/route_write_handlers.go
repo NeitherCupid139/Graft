@@ -30,7 +30,7 @@ func registerRoleWriteRoutes(
 		handleUpdateRoleRoute(ginCtx, ctx, pluginName, writer)
 	})
 
-	group.POST(rbaccontract.RoleStatusRoute, guards.roleUpdate, func(ginCtx *gin.Context) { handleUpdateRoleStatusRoute(ginCtx, ctx, pluginName, writer) })
+	group.POST(rbaccontract.RoleStatusRoute, guards.roleStatus, func(ginCtx *gin.Context) { handleUpdateRoleStatusRoute(ginCtx, ctx, pluginName, writer) })
 	group.POST(rbaccontract.RoleDeleteRoute, guards.roleDelete, func(ginCtx *gin.Context) { handleDeleteRoleRoute(ginCtx, ctx, pluginName, writer) })
 	group.POST(rbaccontract.RolePermissionReplaceRoute, guards.rolePermissionAssign, func(ginCtx *gin.Context) { handleReplaceRolePermissionsRoute(ginCtx, ctx, pluginName, writer) })
 	group.POST(rbaccontract.RolePermissionAddRoute, guards.rolePermissionAssign, func(ginCtx *gin.Context) { handleAddRolePermissionsRoute(ginCtx, ctx, pluginName, writer) })
