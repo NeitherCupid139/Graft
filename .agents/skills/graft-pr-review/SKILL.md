@@ -79,26 +79,32 @@ the skill may reuse that token automatically instead of requiring a second manua
     - use `--reply-comment-id <id>` plus `--reply-body` or `--reply-body-file`
     - if the reply body is still being drafted, use `--reply-dry-run` first
     - do not wait in the same run for the AI to answer back; a later `graft-pr-review` run should classify the thread as `resolved_after_reply`, `pending_ai_followup`, or `contested`
-15. At task closeout, list every verified finding and its disposition:
+15. When a verified AI finding is fixed locally but the PR thread is still open, reply on that thread after the fixing commit exists:
+    - state that the finding has been fixed
+    - include the fixing commit SHA or short SHA
+    - name the touched file or location when useful
+    - do not wait in the same run for the AI reviewer to auto-close the thread
+    - in later `$graft-pr-review` runs, if the thread is still open and the latest follow-up is from the AI reviewer, classify it as `contested` and either reply once more with the newer fixing commit or request human review
+16. At task closeout, list every verified finding and its disposition:
     - `fixed`
     - `delegated`
     - `blocked`
     - `stale`
     - `noise`
-16. If any finding is left as `noise` or `stale`, include the concrete local verification reason in the closeout. If a finding is `blocked`, explain the blocker and the next safe startup prompt instead of calling it ignored.
-17. Do not ignore any verified suggestion. If the repair grows large:
+17. If any finding is left as `noise` or `stale`, include the concrete local verification reason in the closeout. If a finding is `blocked`, explain the blocker and the next safe startup prompt instead of calling it ignored.
+18. Do not ignore any verified suggestion. If the repair grows large:
    - prefer `$graft-multi-agent-batch` when the work splits into disjoint reviewable slices
    - prefer `$graft-multi-agent-loop` when the work needs to be repeated in bounded rounds
    - if neither is justified yet, report the finding as `blocked` or `next-slice required` with the reason
    - never collapse a still-valid large suggestion into a stale/noise label just to end the thread quickly
-18. If any finding is reported as `noise` or AI misjudgment, explicitly record:
+19. If any finding is reported as `noise` or AI misjudgment, explicitly record:
     - which finding it was
     - the concrete local verification reason
     - why it was not adopted
     - wording suitable for replying on the PR
-19. If a replied AI thread stays open and the latest follow-up comment comes from the AI reviewer again, mark that thread
+20. If a replied AI thread stays open and the latest follow-up comment comes from the AI reviewer again, mark that thread
     `contested` and carry both sides' reasoning into the final summary for human judgment.
-20. If code is changed, run the smallest validation that satisfies `AGENTS.md`. Prefer `graft-validation-runner` when the correct validation scope is not obvious.
+21. If code is changed, run the smallest validation that satisfies `AGENTS.md`. Prefer `graft-validation-runner` when the correct validation scope is not obvious.
 
 ## Commands
 
@@ -117,6 +123,8 @@ the skill may reuse that token automatically instead of requiring a second manua
   - `python3 .agents/skills/graft-pr-review/scripts/fetch_current_pr_review.py --pr 1 --reply-comment-id 1234567890 --reply-body "本地已核对，当前 HEAD 上该建议不成立，原因是 ..."`
 - Preview a reply payload without sending it:
   - `python3 .agents/skills/graft-pr-review/scripts/fetch_current_pr_review.py --pr 1 --reply-comment-id 1234567890 --reply-body-file /tmp/reply.txt --reply-dry-run`
+- Reply after fixing a finding in a commit:
+  - `python3 .agents/skills/graft-pr-review/scripts/fetch_current_pr_review.py --pr 1 --reply-comment-id 1234567890 --reply-fixed-commit abc1234 --reply-fixed-path server/plugins/auth/route_errors.go`
 - Inspect only a high-signal section:
   - `python3 .agents/skills/graft-pr-review/scripts/fetch_current_pr_review.py --pr 1 --section open-threads`
 - Inspect grouped CodeRabbit severity comments from the latest review body:
@@ -146,6 +154,7 @@ The script should produce:
 - Human review closeout that records each verified finding as `fixed`, `delegated`, `blocked`, `stale`, or `noise`
 - Exhaustive coverage confirmation that no latest-review finding section was left unclassified
 - Thread reply state for replied AI findings: `unreplied`, `pending_ai_followup`, `resolved_after_reply`, or `contested`
+- Guidance and CLI support for replying to fixed-but-still-open AI threads with the fixing commit SHA
 - Explicit reasons for every `stale` or `noise` finding, instead of silently omitting it from the reported outcome
 
 ## Recovery Rules
@@ -168,6 +177,8 @@ The script should produce:
   states for this skill.
 - When a finding is left as `noise` or AI misjudgment, the closeout must name the exact suggestion and give a concrete
   non-adoption reason that the user can reuse in the PR reply.
+- When a finding was fixed but the AI thread did not auto-close, reply once with the fixing commit SHA and location, then
+  leave the thread alone until a later `graft-pr-review` run shows either resolution or a fresh AI follow-up.
 - If the agent has already replied to an AI finding and a later run still sees the thread open with a fresh AI counterargument, mark that thread `contested` and leave the final decision to a human reviewer instead of auto-closing it.
 
 ## Example Triggers
