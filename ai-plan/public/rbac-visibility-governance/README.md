@@ -35,6 +35,7 @@ This topic exists to strengthen the current closure path rather than expand RBAC
 - Frontend already builds dynamic routes from bootstrap menus and uses bootstrap permissions for visibility decisions.
 - Backend already performs request-time permission-code authorization on protected APIs.
 - Resource is not a first-class persisted object in the current RBAC implementation and should remain out of scope for this topic.
+- A low-cost observability slice is feasible only as a read-only session snapshot built from existing bootstrap and mounted-route state; a stable "missing permission reason" contract does not exist yet beyond guarded API `403` denial detail.
 
 ## Scope
 
@@ -59,6 +60,16 @@ This topic exists to strengthen the current closure path rather than expand RBAC
 3. Critical button-level permission visibility coverage.
 4. Backend API guard consistency audit and targeted fixes.
 5. Capability snapshot observability design, and low-cost implementation only if clearly justified.
+
+## Batch 5 Design Conclusion
+
+- The repository should not add a new backend observability contract in this topic.
+- If a future slice wants a capability snapshot, keep it frontend-only and read-only:
+  - current user, roles, permissions, and visible menus can come directly from the existing bootstrap snapshot
+  - dynamic routes can come from the already mounted runtime route tree in the permission store/router bootstrap path
+  - denied permission evidence can only be shown when a guarded API actually returns `403` with the existing denied `permission` detail
+- The repository should not promise a generalized "missing permission reason" for hidden menus, hidden routes, or hidden buttons in this topic because that would require a new canonical reason model across backend guards, bootstrap filtering, and frontend-only `v-permission` decisions.
+- Therefore Batch 5 closes as design-only with no implementation recommendation for the current owned scope.
 
 ## Batch Guardrails
 

@@ -75,13 +75,13 @@
 2. Batch 2: canonical bootstrap menu and route alignment. Status: completed.
 3. Batch 3: critical element permission coverage. Status: completed.
 4. Batch 4: backend permission-guard consistency audit. Status: completed.
-5. Batch 5: capability snapshot observability design. Status: next.
+5. Batch 5: capability snapshot observability design. Status: completed.
 
 ## Immediate Next Step
 
-- Execute Batch 5 under `graft-multi-agent-loop`.
-- Design a low-cost capability snapshot observability slice only if it can stay within Option A and avoid RBAC scope expansion.
-- Keep the next round read-first on current backend/frontend snapshot surfaces before proposing instrumentation.
+- Batch 5 concluded that this topic should stop at design.
+- Do not add a capability-snapshot implementation in the current topic unless a new bounded slice explicitly accepts a frontend-only debug page without new backend contracts.
+- Prefer topic archive-readiness review or handoff rather than another observability implementation round.
 
 ## Batch 1 Findings Summary
 
@@ -147,3 +147,19 @@
   - the existing README wording is therefore descriptive rather than evidence of an unguarded management route
 - No real missing permission registry declaration, missing route guard, or naming drift requiring code changes was found in the audited scope.
 - This batch therefore closes as audit-only with no server or web implementation edits.
+
+## Batch 5 Decision Record
+
+- Executed the capability-snapshot observability assessment as a read-first delegated round under Option A only.
+- Confirmed the current repository already exposes enough positive session-state inputs for a read-only snapshot without new backend work:
+  - current user, roles, permissions, and locale come from the existing auth/bootstrap payload
+  - visible menus come from the bootstrap menu snapshot already filtered by backend-granted permission codes
+  - dynamic routes are already derived from that bootstrap menu snapshot and mounted through the existing router bootstrap path
+- Confirmed the missing piece is not data transport but denial semantics:
+  - backend guarded APIs currently return stable `403` denial payloads with the denied `permission` detail
+  - hidden menus, hidden routes, and hidden elements do not have a shared canonical "reason" contract; they are suppressed by bootstrap filtering or frontend `v-permission` checks rather than surfaced as an explanatory API
+- Determined that adding a generalized "missing permission reason" view would expand scope into new cross-boundary contract design and therefore is not a clearly low-cost implementation for this topic.
+- Recommendation:
+  - stop at design for this topic
+  - if a future slice still wants observability, constrain it to a frontend-only debug page that labels most hidden-state explanation as unavailable unless sourced from an actual `403` response
+- This batch therefore closes as doc-only with no server or web implementation edits.

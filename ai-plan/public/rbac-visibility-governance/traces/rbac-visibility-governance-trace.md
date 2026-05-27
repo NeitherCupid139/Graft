@@ -152,3 +152,30 @@
   - the user-plugin restricted-session guard only applies to `/users/**` management routes
   - no missing backend guard or permission registry item was found from that path
 - The round therefore produced no implementation changes; it closes as an audit-only confirmation that no real backend guard gap is present in the current owned scope.
+
+## 2026-05-27 Batch 5 assessed capability snapshot observability and stopped at design
+
+- Executed Batch 5 as a read-first delegated worker round under `graft-multi-agent-loop`.
+- Kept the round inside the declared recovery/doc scope and Option A only.
+- Re-checked the current positive-capability data sources:
+  - `server/plugins/user/bootstrap.go` already returns the current user, role names, permission codes, and permission-filtered bootstrap menus
+  - `web/src/modules/auth/store/session.ts` already stores the bootstrap payload as the current session snapshot
+  - `web/src/store/modules/permission.ts` already derives visible permission state and dynamic routes from that bootstrap snapshot
+  - `web/src/app/bootstrap/route-guards.ts` already mounts and clears the runtime route tree from the same snapshot path
+- Re-checked the current denied-capability evidence path:
+  - `server/internal/httpx.RequirePermission` already emits stable `403` denied responses with the denied `permission` code in the response detail
+  - that denied detail only exists when a protected API is actually called and rejected
+- Concluded that a read-only frontend snapshot page is technically possible without new backend code for:
+  - current user
+  - roles
+  - permissions
+  - visible menus
+  - mounted dynamic routes
+- Concluded that a stable "missing permission reason" view is not currently low-cost or in-scope:
+  - bootstrap-filtered menus never produce a denial reason payload
+  - frontend `v-permission` hiding also does not produce a canonical explanatory reason contract
+  - adding one would require a new cross-boundary observability/denial model, not a tiny follow-up
+- Accepted the bounded recommendation to stop at design for this topic and document the future-only shape:
+  - if observability is revisited later, keep it frontend-only, read-only, and explicitly label hidden-state reasons as unavailable unless sourced from an actual guarded `403` response
+- Revalidated the doc-only change with:
+  - `git diff --check`
