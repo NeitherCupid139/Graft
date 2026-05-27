@@ -20,3 +20,23 @@
   - no migration of menu canonical truth from registry/bootstrap into database-owned CRUD
   - no reverse-parsed persisted resource model from permission codes
 - Set the first planned delegated round to a read-only baseline audit of the current visibility chain.
+
+## 2026-05-27 Batch 1 baseline audit mapped the current visibility chain
+
+- Executed Batch 1 as a read-only delegated round under `graft-multi-agent-loop`.
+- The delegated round stayed within owned scope and made no file edits.
+- Confirmed the current closure path is already implemented end to end:
+  - permission declaration and stable permission-code contracts on `server`
+  - request-time API guard through `server/internal/httpx.RequirePermission`
+  - permission-filtered bootstrap menus in `server/plugins/user/bootstrap.go`
+  - bootstrap snapshot recovery and dynamic route mounting in `web/src/app/bootstrap/route-guards.ts`
+  - bootstrap-menu-driven async route construction in `web/src/store/modules/permission.ts`
+  - localized menu title resolution and layout navigation rendering in `web/src/utils/route/**` and `web/src/layouts/**`
+  - button-level element visibility via existing `v-permission` infrastructure and page-local computed capability flags
+- Confirmed the primary governance drift is now concentrated in frontend compatibility logic rather than backend API authorization:
+  - `web` still normalizes legacy `/users`, `/roles`, `/permissions` paths into `/access-control/*`
+  - `web` still synthesizes access-control hierarchy nodes that the backend does not declare explicitly
+  - `web` still rewrites legacy `title_key` values into access-control-specific keys
+  - critical RBAC/user button visibility is not yet standardized on `v-permission`
+  - one frontend permission-name alias still maps two semantic names to the same backend permission code
+- Accepted the delegated recommendation that Batch 2 should focus on canonical bootstrap menu and dynamic route alignment under Option A only.
