@@ -62,7 +62,7 @@
 ## Batch Plan
 
 1. Batch 0: topic initialization and permission-code map. Status: completed.
-2. Batch 1: canonical permission-code alignment. Status: pending.
+2. Batch 1: canonical permission-code alignment. Status: completed.
 3. Batch 2: regression audit. Status: pending.
 4. Batch 3: archive-ready closeout. Status: pending.
 
@@ -95,6 +95,18 @@
 - keep behavior equivalent:
   - authorized users still see and use the same RBAC/user actions
   - unauthorized users remain hidden or guarded exactly as before
+
+## Batch 1 Result
+
+- replaced owned-scope `RBAC_PERMISSION_CODE.ROLE_PERMISSION_MANAGE` references with
+  `RBAC_PERMISSION_CODE.ROLE_PERMISSION_ASSIGN`
+- removed the alias definition from `web/src/modules/rbac/contract/permissions.ts`
+- updated RBAC page permission guards without changing the underlying canonical permission value
+- updated directly affected RBAC page tests to grant `ROLE_PERMISSION_ASSIGN`
+- acceptance status:
+  - no remaining `ROLE_PERMISSION_MANAGE` usage in owned frontend runtime scope
+  - no duplicate symbolic naming remains for `role.permission.assign` in owned frontend contract definitions
+  - visibility behavior remains equivalent because the canonical value is unchanged
 
 ## Required Validation
 

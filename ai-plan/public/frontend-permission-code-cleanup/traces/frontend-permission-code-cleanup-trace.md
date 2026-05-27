@@ -48,3 +48,29 @@
 - Kept `ai-plan/public/README.md` unchanged in Batch 0.
   - Basis: this round only initializes topic-local recovery material and the provided batch contract did not require a
     recovery-index mutation at initialization time.
+
+## 2026-05-27 Batch 1 aligned frontend permission codes with canonical naming
+
+- Reused the inherited startup receipt under root `AGENTS.md` for a `web` round inside `graft-multi-agent-loop`.
+- Did not use `graft-multi-agent-batch`.
+  - Reason: the round was a single bounded implementation slice inside one owned frontend module area.
+- Used `graft-task-closeout` style acceptance logic for owned-scope validation and commit eligibility.
+- Updated owned-scope RBAC permission usage:
+  - `web/src/modules/rbac/contract/permissions.ts`
+    - removed `ROLE_PERMISSION_MANAGE`
+  - `web/src/modules/rbac/pages/index.vue`
+    - switched assign-permission `v-permission` check to `ROLE_PERMISSION_ASSIGN`
+    - switched `canAssignPermissions` guard to `ROLE_PERMISSION_ASSIGN`
+    - switched `canShowOperationColumn` permission set to `ROLE_PERMISSION_ASSIGN`
+  - `web/src/modules/rbac/pages/index.test.ts`
+    - replaced granted-code fixtures that referenced the removed alias
+- Kept permission behavior unchanged:
+  - the old alias and the canonical symbol both resolved to `role.permission.assign`
+  - replacing the symbolic name did not change the underlying permission value tested by `hasPermission`,
+    `hasAnyPermission`, or `v-permission`
+- Batch 1 validations to run:
+  - `cd web && bun run check`
+  - `git diff --check`
+- Batch 1 closeout target:
+  - create scoped commit `fix(frontend-permission-cleanup): align permission codes with canonical naming` only if both
+    validations pass

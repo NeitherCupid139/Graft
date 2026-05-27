@@ -131,7 +131,7 @@
                 {{ t('rbac.roleList.detail') }}
               </t-button>
               <t-button
-                v-permission="{ allOf: [permissionCodes.PERMISSION_READ, permissionCodes.ROLE_PERMISSION_MANAGE] }"
+                v-permission="{ allOf: [permissionCodes.PERMISSION_READ, permissionCodes.ROLE_PERMISSION_ASSIGN] }"
                 size="small"
                 theme="default"
                 variant="outline"
@@ -556,7 +556,7 @@ const canDeleteRoles = computed(() => permissionStore.hasPermission(permissionCo
 const canToggleRoleStatus = computed(() => permissionStore.hasPermission(permissionCodes.ROLE_STATUS_UPDATE));
 const canReadPermissions = computed(() => permissionStore.hasPermission(permissionCodes.PERMISSION_READ));
 const canAssignPermissions = computed(
-  () => canReadPermissions.value && permissionStore.hasPermission(permissionCodes.ROLE_PERMISSION_MANAGE),
+  () => canReadPermissions.value && permissionStore.hasPermission(permissionCodes.ROLE_PERMISSION_ASSIGN),
 );
 const canOpenPermissionDrawer = computed(() => canReadPermissions.value && permissions.value.length > 0);
 const canShowOperationColumn = computed(() =>
@@ -565,7 +565,7 @@ const canShowOperationColumn = computed(() =>
     permissionCodes.ROLE_DELETE,
     permissionCodes.ROLE_STATUS_UPDATE,
     permissionCodes.PERMISSION_READ,
-    permissionCodes.ROLE_PERMISSION_MANAGE,
+    permissionCodes.ROLE_PERMISSION_ASSIGN,
   ]),
 );
 const hasPermissionSelectionChanges = computed(() => {
