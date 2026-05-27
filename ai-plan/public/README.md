@@ -17,14 +17,16 @@ every public artifact.
     - current RBAC backend implementation
     - current RBAC frontend implementation
   - Current batch:
-    - `batch-1-backend-permission-menu-api-guard-audit`
-  - Next batch after accepted Batch 0 closeout:
     - `batch-2-frontend-permission-route-action-audit`
+  - Next batch after accepted Batch 2 closeout:
+    - `batch-3-cross-boundary-contract-consistency-audit`
   - Topic directory:
     - `ai-plan/public/backend-rbac-contract-audit`
   - Recovery notes:
     - Batch 0 is docs-only and establishes the first RBAC contract audit inventory.
     - Batch 1 is docs-only and records the backend permission, menu, API, and guard closure audit.
+    - Batch 2 records the frontend permission, route, and action audit, including one minimal owned-scope visibility
+      fix for permission-only disabled RBAC row actions.
     - Later batches should keep backend, frontend, and cross-boundary consistency audit slices separate instead of
       widening into runtime redesign.
 

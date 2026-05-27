@@ -25,7 +25,7 @@
     - `web/src/store/modules/permission.ts`
     - `web/src/utils/route/**`
 - Forbidden scope:
-  - runtime code changes
+  - broad runtime redesign or out-of-scope runtime changes
   - database schema / migrations
   - unrelated plugin code
   - OpenAPI/generated contract mutation without a recorded blocking mismatch
@@ -62,12 +62,14 @@
 - Batch 0 recorded the initial audit inventory and draft matrix for backend and frontend RBAC contract surfaces.
 - Batch 1 completed the backend-only permission/menu/API/guard audit without changing runtime code.
 - Batch 1 confirmed the current backend owned scope does not need a low-risk runtime fix.
+- Batch 2 completed the frontend permission/route/action audit and applied one bounded RBAC page visibility fix inside
+  owned frontend scope.
 
 ## Batch Plan
 
 1. Batch 0: topic initialization and audit inventory. Status: completed.
 2. Batch 1: backend permission/menu/API/guard audit. Status: completed.
-3. Batch 2: frontend permission/route/action audit. Status: pending.
+3. Batch 2: frontend permission/route/action audit. Status: completed.
 4. Batch 3: cross-boundary consistency audit. Status: pending.
 5. Batch 4: MVP-stable decision and archive closeout. Status: pending.
 
@@ -108,17 +110,21 @@
 
 ## Immediate Next Step
 
-- Execute `batch-2-frontend-permission-route-action-audit`.
+- Execute `batch-3-cross-boundary-contract-consistency-audit`.
 - Focus:
-  - audit frontend route registrations, page-level `v-permission` usage, and local runtime action guards against the
-    backend permission closure confirmed in Batch 1
-  - separate true frontend drift from already-accepted cross-plugin or shell-owned menu ownership splits
+  - verify the remaining cross-boundary closure between backend menu owners, frontend bootstrap route owners, and page
+    entrypoints under `/access-control/**`
+  - confirm shared path and permission semantics stay consistent across backend contracts, bootstrap snapshots, and
+    frontend API or route usage
 
 ## Required Validation
 
 - Batch 0:
   - `git diff --check`
 - Batch 1:
+  - `git diff --check`
+- Batch 2:
+  - `cd web && bun run check`
   - `git diff --check`
 - Later cross-boundary implementation batches:
   - required commands depend on whether runtime code changes occur
@@ -129,6 +135,8 @@
   - `docs(rbac-contract-audit): initialize audit topic`
 - Batch 1:
   - `docs(rbac-contract-audit): record backend guard audit`
+- Batch 2:
+  - `fix(rbac-contract-audit): align frontend permission usage`
 
 ## Batch 1 Findings
 
@@ -155,3 +163,23 @@
 - no low-risk backend runtime gap was proven in owned scope
 - current registries still do not enforce uniqueness or menu-permission reference validity at runtime; tests and
   contract discipline remain the current safeguard
+
+## Batch 2 Findings
+
+- owned frontend permission constants converge on canonical backend-owned permission codes across:
+  - `web/src/modules/rbac/contract/permissions.ts`
+  - `web/src/modules/user/contract/permissions.ts`
+- owned frontend bootstrap route registrations now have confirmed menu owners for all Batch 2 paths:
+  - `/access-control/overview` -> frontend `access-control` module route registration, backend RBAC menu owner
+  - `/access-control/users` -> frontend `user` module route registration, backend user plugin menu owner
+  - `/access-control/roles` -> frontend `rbac` module route registration, backend RBAC menu owner
+  - `/access-control/permissions` -> frontend `rbac` module route registration, backend RBAC menu owner
+- owned RBAC and user pages use expected permission closure:
+  - role page create/edit actions use `role.create` / `role.update`
+  - role permission assignment entry requires `permission.read` + `role.permission.assign`
+  - user page role-management entry requires `user.role.read` + `user.role.assign`
+  - user page create/edit/more actions map to `user.create` / `user.update` / `user.disable`
+- no obvious frontend-visible but backend-always-forbidden drift remains in owned scope after the Batch 2 fix
+- one proven low-risk owned-scope drift was corrected:
+  - RBAC role-row `More` dropdown no longer exposes permission-missing actions as disabled entries
+  - builtin/lifecycle disabled semantics remain intact because they encode business state, not permission absence

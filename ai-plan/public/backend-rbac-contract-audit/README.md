@@ -316,3 +316,55 @@ Owned page-level permission usage observed in current scope:
 - That limitation is a governance note for later contract-hardening work, not a Batch 1 fix:
   - current registries append declarations without duplicate or cross-reference validation
   - current owned tests snapshot the intended permission and menu closure
+
+## Batch 2 Frontend Audit
+
+### Frontend Audit Matrix
+
+| Surface | Frontend canonical code | Backend canonical owner | Route / menu visibility | Page / action usage | Runtime guard usage | Expected backend API guard | Batch 2 conclusion |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| access-control overview | none | backend menu in `server/plugins/rbac`, frontend route in `web/src/modules/access-control` | backend bootstrap menu `/access-control/overview` maps to `AccessControlOverview` page | shell overview only, no owned RBAC action surface in this batch | none in owned page scope | none | Batch 0 missing-page question is closed; frontend page registration exists in adjacent owned module |
+| user management page | `user.read` | `server/plugins/user/contract/permission.go` | `/access-control/users` route registration matches user plugin menu owner and `user.read` menu permission | create button uses `user.create`; edit uses `user.update`; role actions require all-of `user.role.read + user.role.assign`; more menu uses `user.disable` / `user.update` | privileged handlers re-check create, edit, disable, and manage-roles before opening dialogs or mutating | list/read guarded by user plugin; role read/write guarded by RBAC plugin | route/menu/action closure is aligned |
+| role management page | `role.read` | `server/plugins/rbac/contract/permission.go` | `/access-control/roles` route registration matches RBAC menu owner and `role.read` menu permission | create button uses `role.create`; edit uses `role.update`; assign-permissions uses all-of `permission.read + role.permission.assign`; row more menu now hides permission-missing actions | permission drawer submit gated by `canAssignPermissions`; destructive/status handlers still re-check runtime permission plus lifecycle | role list/read uses `role.read`; permission snapshot uses `permission.read`; permission write uses `role.permission.assign`; status/delete use dedicated write guards | one low-risk drift fixed: permission-only disabled row actions now hide instead of rendering disabled |
+| permission management page | `permission.read` | `server/plugins/rbac/contract/permission.go` | `/access-control/permissions` route registration matches RBAC menu owner and `permission.read` menu permission | read-only page only exposes refresh, filters, detail drawer; no write affordance | no extra page-local permission wrapper found | permission list/detail guarded by `permission.read` | closure is aligned |
+| user-role snapshot and mutation | `user.role.read`, `user.role.assign` | `server/plugins/rbac/contract/permission.go` | no direct menu; surfaced from user page row and batch actions | both single-user and batch role-management entries require all-of read+assign | `canManageUserRoles()` plus `ensureUserPermission(...)` re-check before dialog open and submit | snapshot `GET /api/users/:id/roles` uses `user.role.read`; all write routes use `user.role.assign` | no visible-but-forbidden drift found |
+| role-permission snapshot and mutation | `permission.read`, `role.permission.assign` | `server/plugins/rbac/contract/permission.go` | no direct menu; surfaced from role page assign-permissions action | entry requires all-of permission read + assign | page re-checks `canAssignPermissions` before submit; snapshot load falls back to warning when unavailable | snapshot `GET /api/roles/:id/permissions` uses `permission.read`; write routes use `role.permission.assign` | intentional read/write split is preserved in frontend |
+
+### Batch 2 Evidence-Backed Answers
+
+- All owned frontend permission constants in current scope resolve to canonical backend owners:
+  - `web/src/modules/rbac/contract/permissions.ts` maps to `server/plugins/rbac/contract/permission.go`
+  - `web/src/modules/user/contract/permissions.ts` maps to `server/plugins/user/contract/permission.go`
+- No leftover historical alias or duplicate naming drift remains in owned scope:
+  - the historical RBAC frontend alias cleanup remains intact; no `ROLE_PERMISSION_MANAGE`-style alias was reintroduced
+  - user-role action gates consistently reuse `userRoleManagePermissionCodes = [user.role.read, user.role.assign]`
+- Route visibility and menu semantics stay aligned in owned scope:
+  - `web/src/utils/route/bootstrap.ts` only mounts routes backed by bootstrap menu paths and local registrations
+  - `/access-control/users` is now confirmed to be backend-owned by `server/plugins/user/plugin_registration.go`
+  - `/access-control/overview` is now confirmed to be frontend-owned by `web/src/modules/access-control/bootstrap-routes.ts`
+- RBAC page buttons and actions use the expected visibility semantics:
+  - create/edit entrypoints are hidden via `v-permission`
+  - permission assignment entrypoint requires both read and assign permissions
+  - Batch 2 removed one residual permission-only disabled pattern from the role row `More` dropdown
+- User page RBAC-related operations match backend guards:
+  - role-management entrypoints require both `user.role.read` and `user.role.assign`
+  - local submit/open handlers still re-check the same combined permission before mutating
+- No obvious frontend-visible but backend-always-forbidden drift was found in owned scope after the role-row fix.
+- No obvious owned-scope backend permission exists without a frontend entry where this batch would expect one:
+  - `user.session.read` and `user.session.revoke` stay outside this page scope and are not treated as omissions here
+  - RBAC read/write management permissions present the expected page or action entrypoints in current scope
+- No page-local computed wrappers were found that merely restate canonical permission codes without adding behavior:
+  - remaining computed helpers such as `canAssignPermissions()` and `canManageUserRoles()` express multi-permission or
+    lifecycle-aware behavior rather than duplicating a single canonical check pointlessly
+
+### Batch 2 Conclusions
+
+- Frontend route, menu, and action permission usage is largely closed against the current backend canonical registry.
+- Batch 2 proved and fixed one low-risk owned-scope drift:
+  - `web/src/modules/rbac/pages/index.vue` no longer renders RBAC row `More` dropdown entries that are disabled only
+    because the viewer lacks the required permission
+  - business-state disabled behavior remains intact for builtin roles and delete lifecycle constraints
+- The remaining consistency questions are now narrowed for Batch 3:
+  - verify the full cross-boundary closure across `access-control` shell routes, user plugin menus, RBAC plugin menus,
+    and bootstrap ordering
+  - confirm no shared contract drift remains between frontend API paths, menu paths, and backend route/menu owners

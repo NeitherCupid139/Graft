@@ -151,7 +151,10 @@
               >
                 {{ t('rbac.roleList.edit') }}
               </t-button>
-              <t-tooltip v-if="row.builtin" :content="t('rbac.roleList.builtinHint')">
+              <t-tooltip
+                v-if="row.builtin && roleRowMoreOptions(row).length > 0"
+                :content="t('rbac.roleList.builtinHint')"
+              >
                 <t-dropdown
                   :options="roleRowMoreOptions(row)"
                   trigger="click"
@@ -163,7 +166,7 @@
                 </t-dropdown>
               </t-tooltip>
               <t-dropdown
-                v-else
+                v-else-if="roleRowMoreOptions(row).length > 0"
                 :options="roleRowMoreOptions(row)"
                 trigger="click"
                 @click="(payload) => handleRoleMoreAction(payload, row)"
@@ -702,18 +705,27 @@ const pagedRoles = computed(() => {
   return filteredRoles.value.slice(start, start + pagination.value.pageSize);
 });
 
-const roleRowMoreOptions = (role: RoleStatusCompat) => [
-  {
-    content: isRoleEnabled(role) ? t('rbac.roleList.moreActions.disable') : t('rbac.roleList.moreActions.enable'),
-    disabled: role.builtin || !canToggleRoleStatus.value,
-    value: 'toggle-status',
-  },
-  {
-    content: t('rbac.roleList.moreActions.delete'),
-    disabled: role.builtin || !canDeleteRoles.value,
-    value: 'delete',
-  },
-];
+const roleRowMoreOptions = (role: RoleStatusCompat) => {
+  const options: Array<{ content: string; disabled?: boolean; value: string }> = [];
+
+  if (canToggleRoleStatus.value) {
+    options.push({
+      content: isRoleEnabled(role) ? t('rbac.roleList.moreActions.disable') : t('rbac.roleList.moreActions.enable'),
+      disabled: role.builtin,
+      value: 'toggle-status',
+    });
+  }
+
+  if (canDeleteRoles.value) {
+    options.push({
+      content: t('rbac.roleList.moreActions.delete'),
+      disabled: role.builtin,
+      value: 'delete',
+    });
+  }
+
+  return options;
+};
 
 const roleFormRules = computed<Record<keyof RoleFormState, FormRule[]>>(() => ({
   name: [{ required: true, message: t('rbac.roleList.form.required.name'), type: 'error' }],

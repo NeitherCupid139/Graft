@@ -105,3 +105,68 @@
 - Did not find a clear low-risk backend runtime gap in owned scope, so no runtime or test code was changed.
 - Updated the topic README and tracking docs to carry the Batch 1 backend audit matrix and conclusions forward to
   Batch 2.
+
+## 2026-05-27 Batch 2 completed the frontend permission, route, and action audit
+
+- Reused the inherited startup context under root `AGENTS.md` for the `cross-boundary` Batch 2 worker round.
+- Re-read the required startup and recovery sources for the current round:
+  - `AGENTS.md`
+  - `server/AGENTS.md`
+  - `web/AGENTS.md`
+  - `.ai/environment/tools.ai.yaml`
+  - `ai-plan/public/README.md`
+  - `ai-plan/public/backend-rbac-contract-audit/README.md`
+  - `ai-plan/public/backend-rbac-contract-audit/todos/backend-rbac-contract-audit-tracking.md`
+  - `ai-plan/public/backend-rbac-contract-audit/traces/backend-rbac-contract-audit-trace.md`
+  - `ai-plan/design/契约治理与魔法值治理规范.md`
+  - `ai-plan/design/AI任务追踪与恢复设计.md`
+  - `ai-plan/design/前端架构设计.md`
+  - `ai-plan/design/前端视觉设计规范.md`
+  - `ai-plan/design/TDesign-MCP-辅助开发规范.md`
+- Confirmed the worktree was clean before Batch 2 writes.
+- Audited the owned frontend permission and route surfaces in detail:
+  - `web/src/modules/rbac/contract/permissions.ts`
+  - `web/src/modules/user/contract/permissions.ts`
+  - `web/src/store/modules/permission.ts`
+  - `web/src/utils/route/bootstrap.ts`
+  - `web/src/utils/route/bootstrap.test.ts`
+  - `web/src/modules/rbac/bootstrap-routes.ts`
+  - `web/src/modules/rbac/contract/bootstrap.ts`
+  - `web/src/modules/user/bootstrap-routes.ts`
+  - `web/src/modules/user/contract/paths.ts`
+  - `web/src/modules/rbac/pages/index.vue`
+  - `web/src/modules/rbac/pages/permissions/index.vue`
+  - `web/src/modules/user/pages/index.vue`
+- Read adjacent consistency context without widening write scope:
+  - `web/src/modules/access-control/contract/bootstrap.ts`
+  - `web/src/modules/access-control/bootstrap-routes.ts`
+  - `web/src/modules/access-control/index.ts`
+  - `server/plugins/rbac/contract/permission.go`
+  - `server/plugins/user/contract/permission.go`
+  - `server/plugins/user/plugin_registration.go`
+  - `server/plugins/user/bootstrap.go`
+- Confirmed these frontend closure properties from code plus tests:
+  - all owned frontend permission constants map to canonical backend-owned wire-format codes
+  - `/access-control/users`, `/access-control/roles`, and `/access-control/permissions` all have aligned backend menu
+    owners and frontend bootstrap route registrations
+  - the previously open `/access-control/overview` question is closed by the `access-control` module registration
+  - role-permission and user-role action entrypoints require the same multi-permission combinations as the backend
+    read/write guard split
+  - user page privileged handlers keep runtime permission re-checks before opening dialogs or mutating state
+- Ran TDesign MCP preflight because the owned frontend fix touches a `Dropdown` usage surface:
+  - framework: `vue-next`
+  - components: `Dropdown`
+  - docs checked: `get_component_docs`
+  - fallback: none
+- Found one clear low-risk owned-scope frontend drift:
+  - `web/src/modules/rbac/pages/index.vue` rendered RBAC row `More` dropdown items as disabled when the viewer lacked
+    `role.status.update` or `role.delete`
+  - this violated the already-governed frontend rule that permission-missing actions should be hidden rather than shown
+    as permission-only disabled affordances
+- Applied the smallest fix in owned scope:
+  - changed `roleRowMoreOptions(...)` to emit only permission-authorized actions
+  - kept `builtin` lifecycle-driven disabled behavior intact for authorized users
+  - hid the `More` dropdown button entirely when no authorized row action remains
+  - added a focused page test proving permission-missing `More` actions no longer render
+- Updated topic docs and recovery metadata to carry the Batch 2 audit matrix, findings, and next-step pointer into
+  Batch 3.
