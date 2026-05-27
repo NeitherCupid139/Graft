@@ -50,7 +50,7 @@ func (p *Plugin) Version() string {
 
 // DependsOn 返回当前插件依赖列表。
 func (p *Plugin) DependsOn() []string {
-	return []string{"user", "rbac"}
+	return append([]string(nil), pluginDependencies...)
 }
 
 // Register 挂载 HTTP 自动审计、受权查询路由与 event bus 主动审计接线。
