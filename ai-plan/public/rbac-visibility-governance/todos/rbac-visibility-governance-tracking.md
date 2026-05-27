@@ -58,20 +58,28 @@
   - legacy `title_key` rewriting
   - inconsistent button-level visibility conventions
   - one frontend permission-name alias for the same backend code
+- Batch 2 canonical path alignment completed.
+- Canonical access-control bootstrap truth is now:
+  - `/access-control`
+  - `/access-control/overview`
+  - `/access-control/users`
+  - `/access-control/roles`
+  - `/access-control/permissions`
+- Legacy `/users`, `/roles`, `/permissions` compatibility handling has been removed from the frontend bootstrap route adapter.
 
 ## Batch Plan
 
 1. Batch 1: baseline audit and visibility chain map. Status: completed.
-2. Batch 2: canonical bootstrap menu and route alignment. Status: next.
-3. Batch 3: critical element permission coverage.
+2. Batch 2: canonical bootstrap menu and route alignment. Status: completed.
+3. Batch 3: critical element permission coverage. Status: next.
 4. Batch 4: backend permission-guard consistency audit.
 5. Batch 5: capability snapshot observability design.
 
 ## Immediate Next Step
 
-- Execute Batch 2 under `graft-multi-agent-loop`.
-- Remove compatibility-heavy frontend bootstrap normalization where current backend contracts are already canonical.
-- Keep the scope limited to menu path/title_key/hierarchy alignment under Option A only.
+- Execute Batch 3 under `graft-multi-agent-loop`.
+- Standardize critical button-level permission visibility on the current canonical permission semantics.
+- Keep the slice limited to `web` user/rbac/access-control surfaces unless a directly related guard drift is discovered.
 
 ## Batch 1 Findings Summary
 
@@ -87,3 +95,20 @@
   - `web` still rewrites historical `title_key` values into access-control keys
   - `v-permission` exists, but critical RBAC/user surfaces still depend mostly on per-page computed booleans
   - `web/src/modules/rbac/contract/permissions.ts` still keeps a semantic alias for the same backend permission code
+
+## Batch 2 Decision Record
+
+- Breaking migration allowed and applied.
+- Deleted legacy compatibility paths:
+  - `/users`
+  - `/roles`
+  - `/permissions`
+- Deleted frontend bootstrap normalize / rewrite / fallback logic for:
+  - legacy access-control paths
+  - historical access-control `title_key` rewrites
+- Preferred backend registry/bootstrap truth over frontend compatibility transforms.
+- Backend now emits canonical access-control bootstrap menus in stable order, including explicit `/access-control` root.
+- Validation completed for Batch 2:
+  - `cd web && bun run check`
+  - `cd server && go test ./plugins/rbac ./plugins/user`
+  - `git diff --check`

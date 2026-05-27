@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"slices"
 	"strings"
 
 	"graft/server/internal/config"
@@ -170,7 +171,62 @@ func filterBootstrapMenus(registry *menu.Registry, granted map[string]struct{}) 
 		})
 	}
 
+	slices.SortStableFunc(menus, compareBootstrapMenus)
+
 	return menus
+}
+
+func compareBootstrapMenus(left, right bootstrapMenuResponse) int {
+	leftPath := strings.TrimSpace(left.Path)
+	rightPath := strings.TrimSpace(right.Path)
+
+	leftOrder, leftManaged := accessControlBootstrapOrder(leftPath)
+	rightOrder, rightManaged := accessControlBootstrapOrder(rightPath)
+	if leftManaged && rightManaged {
+		return leftOrder - rightOrder
+	}
+	if leftManaged {
+		return -1
+	}
+	if rightManaged {
+		return 1
+	}
+
+	leftDepth := bootstrapPathDepth(leftPath)
+	rightDepth := bootstrapPathDepth(rightPath)
+	if leftDepth != rightDepth {
+		return leftDepth - rightDepth
+	}
+	if leftPath != rightPath {
+		return strings.Compare(leftPath, rightPath)
+	}
+
+	return strings.Compare(left.Code, right.Code)
+}
+
+func accessControlBootstrapOrder(path string) (int, bool) {
+	switch path {
+	case "/access-control":
+		return 0, true
+	case "/access-control/overview":
+		return 1, true
+	case "/access-control/users":
+		return 2, true
+	case "/access-control/roles":
+		return 3, true
+	case "/access-control/permissions":
+		return 4, true
+	default:
+		return 0, false
+	}
+}
+
+func bootstrapPathDepth(path string) int {
+	if path == "" {
+		return 0
+	}
+
+	return strings.Count(strings.Trim(path, "/"), "/") + 1
 }
 
 func (r bootstrapReader) localeSnapshot(request *http.Request) bootstrapLocaleSnapshot {

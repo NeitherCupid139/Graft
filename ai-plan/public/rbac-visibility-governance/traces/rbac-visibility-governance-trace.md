@@ -40,3 +40,25 @@
   - critical RBAC/user button visibility is not yet standardized on `v-permission`
   - one frontend permission-name alias still maps two semantic names to the same backend permission code
 - Accepted the delegated recommendation that Batch 2 should focus on canonical bootstrap menu and dynamic route alignment under Option A only.
+
+## 2026-05-27 Batch 2 aligned bootstrap menus and dynamic routes to canonical access-control paths
+
+- Executed Batch 2 as a delegated worker round under `graft-multi-agent-loop`.
+- Accepted the worker-owned breaking migration decision already authorized for this topic:
+  - keep only `/access-control/users`, `/access-control/roles`, `/access-control/permissions`
+  - remove frontend compatibility for `/users`, `/roles`, `/permissions`
+  - remove frontend historical access-control `title_key` rewrite compatibility
+- Tightened backend bootstrap truth instead of preserving frontend adapter magic:
+  - RBAC menu registration now declares explicit `/access-control` root with localized `menu.access_control.title`
+  - RBAC bootstrap-related icon metadata is now declared canonically in the backend menu registry path
+  - bootstrap menu responses are now emitted in stable access-control-first order
+- Simplified frontend route transformation:
+  - removed legacy access-control path normalization
+  - removed historical title-key rewrite compatibility
+  - removed legacy path constants from the access-control bootstrap contract
+- Revalidated the owned-scope implementation directly:
+  - `cd web && bun run check`
+  - `cd server && go test ./plugins/rbac ./plugins/user`
+  - `git diff --check`
+- All above validation passed.
+- The next governance drift is now button-level permission visibility standardization rather than route/menu path truth.
