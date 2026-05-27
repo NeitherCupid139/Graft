@@ -34,11 +34,11 @@
 
 ## Batch State
 
-- Current batch: `Batch 0 - Exploration and worktree/topic setup`
+- Current batch: `Batch 2 - Backend API, permission, menu, OpenAPI contract`
 - Completed batches:
-  - none
-- Pending batches:
+  - `Batch 0 - Exploration and worktree/topic setup`
   - `Batch 1 - Backend audit domain design and schema`
+- Pending batches:
   - `Batch 2 - Backend API, permission, menu, OpenAPI contract`
   - `Batch 3 - Backend recording integration for user and RBAC actions`
   - `Batch 4 - Frontend audit module and page`
@@ -121,4 +121,38 @@
 
 ## Immediate Next Step
 
-- Finish Batch 0 validation and create the docs-only setup commit before any runtime implementation batch starts.
+- Start Batch 2 on top of the completed backend domain baseline:
+  - add guarded audit read API and plugin-owned route registration
+  - define audit permission/menu/OpenAPI contract without touching web yet
+  - reuse the new service `List(ctx, query)` shape instead of adding a parallel query model
+
+## Batch 1 Snapshot
+
+- Extended the audit persistence contract and plugin-owned SQL repository from request-only fields to a richer audit
+  domain:
+  - actor user id / username / display name
+  - action
+  - resource type / id / name
+  - success result
+  - request id
+  - ip / user agent
+  - message
+  - JSON metadata
+  - created at
+- Added `internal/audit` service-layer support for:
+  - `Record(ctx, input)` with normalization and sensitive-data redaction
+  - `List(ctx, query)` with bounded pagination/filter normalization
+- Preserved non-blocking audit semantics on both paths:
+  - request middleware still logs write failures without breaking the request
+  - active event subscription now swallows malformed payload / write failures after logging
+- Added plugin-owned migration `202605270001_audit_log_domain_upgrade.sql` and refreshed `plugins/audit/migrations/atlas.sum`.
+- Added bounded tests for:
+  - service sanitization and pagination normalization
+  - SQL repository create/list behavior and filters
+  - plugin non-blocking active-audit failure behavior
+
+## Batch 1 Validation
+
+- `cd server && go test ./...`
+- `cd server && go run ./cmd/graft validate backend`
+- `git diff --check`

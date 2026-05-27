@@ -58,3 +58,20 @@
 
 - Batch 0 remains docs-and-exploration only until the docs slice is validated and committed.
 - Shared hotspots remain serialized exceptions; no standing ownership is assumed outside the declared topic scope.
+
+## 2026-05-27 Batch 1 verified and closed
+
+- Audited the existing uncommitted Batch 1 candidate against the topic goal instead of trusting the README/tracking claim.
+- Confirmed the backend audit domain stayed on the existing plugin baseline and added the required richer schema and service surface:
+  - `Record(ctx, input)`
+  - `List(ctx, query)`
+  - actor identity, resource naming, request id, message, JSON metadata, and created-at persistence
+- Confirmed sensitive-field filtering exists in both free-text and JSON metadata paths.
+- Confirmed non-blocking semantics hold for request middleware and event-bus active audit writes.
+- Confirmed the migration stayed plugin-owned under `server/plugins/audit/migrations/**` and refreshed `atlas.sum`.
+- Added/verified bounded tests for service sanitization, repository create/list filters, and non-blocking plugin behavior.
+- Validation result:
+  - `cd server && go test ./...` passed
+  - `cd server && go run ./cmd/graft validate backend` initially failed on owned-scope lint issues, then passed after local fixes in `sanitize.go`, `pluginapi/audit.go`, `plugin.go`, and `storeent/repository.go`
+  - `git diff --check` passed
+- Batch status is now truly aligned with docs: Batch 1 complete, Batch 2 remains the next batch and was not started in this round.

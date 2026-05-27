@@ -2,6 +2,7 @@ package audit
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -29,22 +30,38 @@ type memoryAuditRepository struct {
 
 func (r *memoryAuditRepository) CreateAuditLog(_ context.Context, input store.CreateAuditLogInput) (store.AuditLog, error) {
 	record := store.AuditLog{
-		ID:            uint64(len(r.items) + 1),
-		OperatorID:    input.OperatorID,
-		OperatorName:  input.OperatorName,
-		Action:        input.Action,
-		ResourceType:  input.ResourceType,
-		ResourceID:    input.ResourceID,
-		RequestMethod: input.RequestMethod,
-		RequestPath:   input.RequestPath,
-		IP:            input.IP,
-		UserAgent:     input.UserAgent,
-		Success:       input.Success,
-		ErrorMessage:  input.ErrorMessage,
-		CreatedAt:     input.CreatedAt,
+		ID:               uint64(len(r.items) + 1),
+		ActorUserID:      input.ActorUserID,
+		ActorUsername:    input.ActorUsername,
+		ActorDisplayName: input.ActorDisplayName,
+		Action:           input.Action,
+		ResourceType:     input.ResourceType,
+		ResourceID:       input.ResourceID,
+		ResourceName:     input.ResourceName,
+		Success:          input.Success,
+		RequestID:        input.RequestID,
+		IP:               input.IP,
+		UserAgent:        input.UserAgent,
+		Message:          input.Message,
+		Metadata:         input.Metadata,
+		CreatedAt:        input.CreatedAt,
 	}
 	r.items = append(r.items, record)
 	return record, nil
+}
+
+func (r *memoryAuditRepository) ListAuditLogs(_ context.Context, _ store.ListAuditLogsQuery) (store.ListAuditLogsResult, error) {
+	return store.ListAuditLogsResult{Items: append([]store.AuditLog(nil), r.items...), Total: len(r.items)}, nil
+}
+
+type failingAuditRepository struct{}
+
+func (failingAuditRepository) CreateAuditLog(context.Context, store.CreateAuditLogInput) (store.AuditLog, error) {
+	return store.AuditLog{}, errors.New("write failed")
+}
+
+func (failingAuditRepository) ListAuditLogs(context.Context, store.ListAuditLogsQuery) (store.ListAuditLogsResult, error) {
+	return store.ListAuditLogsResult{}, nil
 }
 
 type stubAuthService struct {
@@ -136,7 +153,16 @@ func TestRequestAuditMiddlewareCapturesAuthenticatedRequest(t *testing.T) {
 	}
 
 	record := repo.items[0]
-	assertAuditRecord(t, record, "Alice", "GET /api/users/:id", "users", "42")
+	assertAuditRecord(t, record, expectedAuditRecord{
+		username:     "alice",
+		displayName:  "Alice",
+		action:       "GET /api/users/:id",
+		resourceType: "users",
+		resourceID:   "42",
+	})
+	if record.RequestID == "" {
+		t.Fatal("expected request id to be recorded")
+	}
 }
 
 // TestRequestAuditMiddlewareCapturesLocalizedErrorKey 验证失败请求会把统一错误
@@ -162,30 +188,38 @@ func TestRequestAuditMiddlewareCapturesLocalizedErrorKey(t *testing.T) {
 	if repo.items[0].Success {
 		t.Fatal("expected failed request audit record")
 	}
-	if repo.items[0].ErrorMessage != "common.invalid_argument" {
-		t.Fatalf("expected stable error message key, got %q", repo.items[0].ErrorMessage)
+	if repo.items[0].Message != "common.invalid_argument" {
+		t.Fatalf("expected stable error message key, got %q", repo.items[0].Message)
 	}
 }
 
-func assertAuditRecord(t *testing.T, record store.AuditLog, operatorName string, action string, resourceType string, resourceID string) {
+type expectedAuditRecord struct {
+	username     string
+	displayName  string
+	action       string
+	resourceType string
+	resourceID   string
+}
+
+func assertAuditRecord(t *testing.T, record store.AuditLog, expected expectedAuditRecord) {
 	t.Helper()
 
-	if record.OperatorID == nil || *record.OperatorID != 7 {
-		t.Fatalf("expected operator id 7, got %#v", record.OperatorID)
+	if record.ActorUserID == nil || *record.ActorUserID != 7 {
+		t.Fatalf("expected actor id 7, got %#v", record.ActorUserID)
 	}
-	if record.OperatorName != operatorName {
-		t.Fatalf("expected operator name %s, got %q", operatorName, record.OperatorName)
+	if record.ActorUsername != expected.username || record.ActorDisplayName != expected.displayName {
+		t.Fatalf("expected actor identity %s/%s, got %#v", expected.username, expected.displayName, record)
 	}
-	if record.Action != action {
+	if record.Action != expected.action {
 		t.Fatalf("expected stable action, got %q", record.Action)
 	}
-	if record.ResourceType != resourceType {
-		t.Fatalf("expected resource type %s, got %q", resourceType, record.ResourceType)
+	if record.ResourceType != expected.resourceType {
+		t.Fatalf("expected resource type %s, got %q", expected.resourceType, record.ResourceType)
 	}
-	if record.ResourceID != resourceID {
-		t.Fatalf("expected resource id %s, got %q", resourceID, record.ResourceID)
+	if record.ResourceID != expected.resourceID {
+		t.Fatalf("expected resource id %s, got %q", expected.resourceID, record.ResourceID)
 	}
-	if !record.Success || record.ErrorMessage != "" {
+	if !record.Success || record.Message != "" {
 		t.Fatalf("expected successful audit record, got %#v", record)
 	}
 }
@@ -215,8 +249,8 @@ func TestRegisterSubscribesActiveAuditEvents(t *testing.T) {
 	if repo.items[0].Action != "user.password.reset" {
 		t.Fatalf("expected active audit action to be preserved, got %q", repo.items[0].Action)
 	}
-	if repo.items[0].OperatorID == nil || *repo.items[0].OperatorID != 9 {
-		t.Fatalf("expected operator id 9, got %#v", repo.items[0].OperatorID)
+	if repo.items[0].ActorUserID == nil || *repo.items[0].ActorUserID != 9 {
+		t.Fatalf("expected actor id 9, got %#v", repo.items[0].ActorUserID)
 	}
 }
 
@@ -243,5 +277,27 @@ func TestRegisterSubscribesActiveAuditEventPointers(t *testing.T) {
 	}
 	if repo.items[0].Action != "user.profile.update" {
 		t.Fatalf("expected pointer payload action to be preserved, got %q", repo.items[0].Action)
+	}
+}
+
+func TestRegisterSwallowsActiveAuditWriteErrors(t *testing.T) {
+	ctx, _, bus := newPluginTestContext(t, failingAuditRepository{})
+
+	if err := ctx.EventBus.Subscribe("noop", func(context.Context, eventbus.Event) error { return nil }); err != nil {
+		t.Fatalf("subscribe noop: %v", err)
+	}
+
+	err := bus.Publish(context.Background(), eventbus.Event{
+		Name: pluginapi.AuditRecordEventName,
+		Payload: pluginapi.AuditEvent{
+			Operator:     &pluginapi.CurrentUser{ID: 10, Username: "carol"},
+			Action:       "user.profile.update",
+			ResourceType: "user",
+			ResourceID:   "10",
+			Success:      true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected active audit failure to be swallowed, got %v", err)
 	}
 }

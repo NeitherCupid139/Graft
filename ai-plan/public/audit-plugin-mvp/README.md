@@ -17,16 +17,13 @@
 
 ## Current Recovery Point
 
-- Batch 0 is active.
-- The dedicated audit worktree/branch pair has been created from the clean RBAC implementation baseline and startup
-  preflight was rerun in the new worktree.
-- Current focus is exploration before implementation:
-  - plugin descriptor and registry pattern
-  - Ent and Atlas migration pattern
-  - OpenAPI and generated contract flow
-  - httpx envelope and auth context pattern
-  - frontend module/bootstrap/route/permission pattern
-  - user/rbac write-path integration points for future audit recording
+- Batch 1 is complete.
+- The audit plugin backend domain now carries richer persisted fields for actor identity, resource naming, request id,
+  message, and JSON metadata while keeping the existing plugin boundary intact.
+- Current focus moves to Batch 2:
+  - expose read/query capability through backend API and permission/menu/OpenAPI wiring
+  - keep the new query model aligned with existing HTTP envelope and route registration patterns
+  - avoid widening into user/rbac write-path integration before the API contract exists
 
 ## Owned Scope
 
