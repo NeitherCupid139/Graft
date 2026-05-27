@@ -37,15 +37,15 @@
 
 ## Batch State
 
-- Current batch: `Batch 5 - Cross-boundary integration and regression`
+- Current batch: `Batch 6 - Archive-ready closeout`
 - Completed batches:
   - `Batch 0 - Exploration and worktree/topic setup`
   - `Batch 1 - Backend audit domain design and schema`
   - `Batch 2 - Backend API, permission, menu, OpenAPI contract`
   - `Batch 3 - Backend recording integration for user and RBAC actions`
   - `Batch 4 - Frontend audit module and page`
-- Pending batches:
   - `Batch 5 - Cross-boundary integration and regression`
+- Pending batches:
   - `Batch 6 - Archive-ready closeout`
 
 ## Batch 0 Checklist
@@ -71,8 +71,8 @@
 
 - The current repository already contains a minimal audit plugin and historical audit-related migrations, so MVP work
   is additive and corrective rather than greenfield.
-- Batch 4 now closes only the frontend read surface; Batch 5 still needs end-to-end regression confirmation across
-  bootstrap menus, permission visibility, generated schema consumption, and runtime route recovery.
+- Batch 5 closed the current MVP integration path through validation and targeted regression checks, but Batch 6 still
+  needs final archive-ready review of topic docs and any remaining governance notes.
 - Request-level fallback and broader auth/session/request-context redesign remain intentionally out of scope.
 
 ## Exploration Snapshot
@@ -109,12 +109,10 @@
 
 ## Immediate Next Step
 
-- Start Batch 5 on top of the validated Batch 4 frontend baseline:
-  - run bounded cross-boundary integration and regression across backend bootstrap/menu/permission data and the new
-    audit web module
-  - verify `/audit/logs` dynamic route recovery, `audit.read` visibility gating, and generated contract consumption stay
-    aligned end to end
-  - keep Batch 5 on regression and integration only instead of widening feature scope
+- Start Batch 6 on top of the validated Batch 5 integration baseline:
+  - run archive-ready closeout for the full audit plugin MVP topic
+  - confirm recovery docs, validations, and owned-scope commits are sufficient for archive or identify any final
+    bounded closeout-only gap
 
 ## Batch 1 Snapshot
 
@@ -239,3 +237,27 @@
   - final `bun run check` passed after wiring the audit permission contract into visible page actions, reducing
     page-local duplication to satisfy `jscpd`, and stubbing TDesign/directive dependencies in the page smoke test
   - no backend contract, menu, or permission semantics were changed during retry closeout
+
+## Batch 5 Snapshot
+
+- Ran bounded cross-boundary integration and regression over the full settled audit MVP slice without widening feature
+  scope.
+- Reconfirmed the backend-to-frontend closure points stay aligned:
+  - backend plugin registration still publishes canonical `audit.read`
+  - backend bootstrap menu still exposes `/audit/logs` with `menu.audit.logs.title`
+  - guarded backend read route remains `/api/audit/logs`
+  - frontend bootstrap route recovery still mounts `/audit/logs` through the module registration path
+  - frontend audit page still consumes generated OpenAPI DTOs and the shared request-envelope adapter
+- Reused and verified existing bounded regression tests as closure proof:
+  - `server/plugins/audit/plugin_test.go` read-surface coverage
+  - `web/src/utils/route/bootstrap.test.ts` bootstrap recovery coverage for `/audit/logs`
+  - `web/src/modules/audit/bootstrap-routes.test.ts` module registration identity coverage
+  - `web/src/modules/audit/pages/index.test.ts` generated-contract-backed page render smoke coverage
+- No bounded regression fix was required; the worktree stayed code-clean outside recovery-doc updates.
+
+## Batch 5 Validation
+
+- `cd server && go test ./...`
+- `cd server && go run ./cmd/graft validate backend`
+- `cd web && bun run check`
+- `git diff --check`

@@ -17,20 +17,26 @@
 
 ## Current Recovery Point
 
-- Batch 4 is complete.
-- The web runtime now includes a dedicated `web/src/modules/audit/**` module that mounts the settled `/audit/logs`
-  bootstrap page and consumes the guarded `/api/audit/logs` read contract.
-- The audit page stays read-only, follows the existing `modules/index.ts + bootstrap-routes.ts + dynamic routes +
-  permission store` path, and does not introduce a second route, permission, or API-client truth.
-- Frontend generated OpenAPI schema is now refreshed so the audit module consumes checked-in generated audit DTOs rather
-  than page-local request/response aliases.
-- Batch 4 closeout is now backed by completed frontend validation:
+- Batch 5 is complete.
+- Cross-boundary integration and regression confirmed the settled audit MVP closure without widening scope:
+  - backend plugin registration still exposes canonical `audit.read` permission, `/audit/logs` menu path, and guarded
+    `/api/audit/logs` read route
+  - web bootstrap recovery still mounts `/audit/logs` through `modules/index.ts + bootstrap-routes.ts + dynamic routes
+    + permission store`
+  - the audit module continues to consume checked-in generated OpenAPI DTOs and the existing request-envelope adapter
+    rather than page-local API types
+- Existing bounded tests now act as the regression proof set for the closure points:
+  - backend audit plugin read-surface coverage for permission, menu, and guarded route registration
+  - frontend bootstrap-route recovery coverage for `/audit/logs`
+  - frontend audit page smoke coverage for generated-contract-backed list rendering
+- Batch 5 validation passed without requiring owned-scope regression fixes:
+  - `cd server && go test ./...`
+  - `cd server && go run ./cmd/graft validate backend`
   - `cd web && bun run check`
   - `git diff --check`
-- Current focus moves to Batch 5:
-  - run bounded cross-boundary integration and regression over the full audit MVP slice
-  - verify backend menu/permission/bootstrap data and web route visibility close cleanly together
-  - keep Batch 5 on regression and integration only instead of widening feature scope
+- Current focus moves to Batch 6:
+  - run archive-ready closeout for the topic
+  - decide whether any final archive docs or governance notes are still required before archiving
 
 ## Owned Scope
 

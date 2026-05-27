@@ -185,3 +185,30 @@
   - `git diff --check` passed
 - Batch status is now truly aligned with docs: Batch 4 complete and validated, next batch is Batch 5 cross-boundary
   integration and regression.
+
+## 2026-05-28 Batch 5 closed cross-boundary integration and regression
+
+- Re-established startup governance from root `AGENTS.md`, `server/AGENTS.md`, `web/AGENTS.md`, and the audit topic
+  recovery docs before running regression.
+- Confirmed the worktree baseline matched the expected Batch 4 closeout state:
+  - `HEAD` stayed at `35a1e07`
+  - `git status --short` was clean before Batch 5 work
+- Audited the settled backend and frontend closure path instead of reopening implementation:
+  - backend audit plugin still registers canonical `audit.read`, `/audit/logs`, and the guarded `/api/audit/logs`
+    surface
+  - frontend bootstrap route recovery still resolves `/audit/logs` through module registration and permission-store
+    route mounting
+  - frontend audit API adapter still consumes generated OpenAPI DTOs through the canonical request-envelope path
+- Reconfirmed the regression-proof tests already cover the required closure points:
+  - backend read-surface coverage in `server/plugins/audit/plugin_test.go`
+  - bootstrap menu -> route recovery coverage in `web/src/utils/route/bootstrap.test.ts`
+  - module bootstrap identity coverage in `web/src/modules/audit/bootstrap-routes.test.ts`
+  - audit page generated-contract render smoke coverage in `web/src/modules/audit/pages/index.test.ts`
+- Validation result:
+  - `cd server && go test ./...` passed
+  - `cd server && go run ./cmd/graft validate backend` passed
+  - `cd web && bun run check` passed
+  - `git diff --check` passed
+- No bounded integration defect was discovered, so no owned-scope runtime code fix was required in Batch 5.
+- Batch status is now truly aligned with docs: Batch 5 complete and validated, next batch is Batch 6 archive-ready
+  closeout.
