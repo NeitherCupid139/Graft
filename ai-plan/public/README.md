@@ -6,7 +6,26 @@ every public artifact.
 
 ## Active Topic
 
-- None.
+- `backend-rbac-contract-audit`
+  - Status: `active`
+  - Task class: `cross-boundary`
+  - Branch: `feat/wt-rbac-further-development`
+  - Recovery source:
+    - archived `rbac-visibility-governance`
+    - archived `user-page-permission-governance`
+    - archived `frontend-permission-code-cleanup`
+    - current RBAC backend implementation
+    - current RBAC frontend implementation
+  - Current batch:
+    - `batch-0-topic-initialization-and-audit-inventory`
+  - Next batch after accepted Batch 0 closeout:
+    - `batch-1-backend-permission-menu-api-guard-audit`
+  - Topic directory:
+    - `ai-plan/public/backend-rbac-contract-audit`
+  - Recovery notes:
+    - Batch 0 is docs-only and establishes the first RBAC contract audit inventory.
+    - Later batches should keep backend, frontend, and cross-boundary consistency audit slices separate instead of
+      widening into runtime redesign.
 
 ## Archived Topics
 
