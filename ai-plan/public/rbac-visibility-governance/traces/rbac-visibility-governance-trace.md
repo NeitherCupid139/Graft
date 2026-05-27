@@ -179,3 +179,15 @@
   - if observability is revisited later, keep it frontend-only, read-only, and explicitly label hidden-state reasons as unavailable unless sourced from an actual guarded `403` response
 - Revalidated the doc-only change with:
   - `git diff --check`
+
+## 2026-05-27 topic archived
+
+- Removed `rbac-visibility-governance` from the active recovery index in `ai-plan/public/README.md`.
+- Archived the topic after the full Option A loop reached archive-ready with no remaining blocking gaps in owned scope.
+- Froze the baseline governance outcome:
+  - keep menu truth in registry/bootstrap rather than CRUD
+  - keep resource out of persisted first-class scope
+  - keep permission-driven visibility aligned across bootstrap menus, dynamic routes, owned element visibility, and backend API guards
+- Kept future observability work explicitly non-blocking:
+  - frontend-only read-only capability snapshot remains optional
+  - generalized hidden-state denial reasons remain out of scope until a canonical cross-boundary model exists

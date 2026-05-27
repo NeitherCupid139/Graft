@@ -6,45 +6,25 @@ every public artifact.
 
 ## Active Topic
 
-- `rbac-visibility-governance`
-  - Status: `active`
-  - Recovery source:
-    - `ai-plan/public/rbac-visibility-governance/README.md`
-    - `ai-plan/public/rbac-visibility-governance/todos/rbac-visibility-governance-tracking.md`
-    - `ai-plan/public/rbac-visibility-governance/traces/rbac-visibility-governance-trace.md`
-    - current RBAC implementation on branch `feat/wt-rbac-further-development`
-  - Goal: govern the existing RBAC visibility chain end to end without expanding into menu CRUD or resource CRUD.
-  - Worktree: `/home/gewuyou/project/go/Graft-wt/feat/wt-rbac-further-development`
-  - Branch: `feat/wt-rbac-further-development`
-  - Owned scope:
-    - `ai-plan/public/rbac-visibility-governance/**`
-    - `ai-plan/public/README.md`
-    - `server/plugins/rbac/**`
-    - `server/internal/permission/**`
-    - `server/internal/menu/**`
-    - `server/internal/httpx/**`
-    - `server/plugins/user/bootstrap.go`
-    - `web/src/store/modules/permission.ts`
-    - `web/src/utils/route/**`
-    - `web/src/app/bootstrap/**`
-    - `web/src/modules/rbac/**`
-    - `web/src/modules/access-control/**`
-    - bounded OpenAPI/generated contract files only if required
-  - Current phase:
-    - initialize governance topic
-    - audit the current `permission -> bootstrap menus -> dynamic routes -> element visibility -> API guard` chain
-  - Guardrails:
-    - do not add menu CRUD
-    - do not add resource CRUD
-    - do not add a resource table
-    - do not move menu canonical truth from registry/bootstrap into database-owned CRUD
-  - Next-session prompt:
-    - `governance source: root AGENTS.md`
-    - `task class: cross-boundary`
-    - `recovery source: ai-plan/public/README.md + ai-plan/public/rbac-visibility-governance/README.md + ai-plan/public/rbac-visibility-governance/todos/rbac-visibility-governance-tracking.md + ai-plan/public/rbac-visibility-governance/traces/rbac-visibility-governance-trace.md + current RBAC implementation`
-    - `owned scope: ai-plan/public/rbac-visibility-governance/** + ai-plan/public/README.md + server/plugins/rbac/** + server/internal/permission/** + server/internal/menu/** + server/internal/httpx/** + server/plugins/user/bootstrap.go + web/src/store/modules/permission.ts + web/src/utils/route/** + web/src/app/bootstrap/** + web/src/modules/rbac/** + web/src/modules/access-control/** + bounded OpenAPI/generated contract files only if required`
+- None.
 
 ## Archived Topics
+
+- `rbac-visibility-governance`
+  - Status: `archived`
+  - Recovery status: no continuation required; do not restore this topic into the active recovery path.
+  - Archive reason: the RBAC visibility governance loop completed all planned batches and reached a stable Option A baseline without requiring menu CRUD, resource CRUD, or new backend observability contracts.
+  - Final result: the repository now has a governed `permission -> bootstrap menus -> dynamic routes -> element visibility -> API guard` closure path with canonical `/access-control/*` routing, owned-scope `v-permission` coverage improvements, verified backend guard consistency, and a documented decision to keep capability snapshot observability design-only for now.
+  - Follow-up status: `superseded`
+  - Superseded by:
+    - operating rule `feature-delivery-with-existing-rbac-visibility-chain`
+  - Archived topic directory:
+    - `ai-plan/public/rbac-visibility-governance`
+  - Archive notes:
+    - future RBAC work should extend the existing visibility chain through ordinary feature or contract slices rather than reopening broad governance
+    - any future capability snapshot should stay frontend-only and read-only unless a new bounded slice explicitly introduces a justified cross-boundary observability contract
+    - generalized hidden-state `missing permission reason` semantics remain intentionally out of scope until a canonical denial-reason model is designed
+  - Next-session prompt: `No next-session prompt required.`
 
 - `localization-governance`
   - Status: `archived`

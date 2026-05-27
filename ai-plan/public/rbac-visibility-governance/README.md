@@ -3,7 +3,7 @@
 ## Status
 
 - Topic: `rbac-visibility-governance`
-- Status: `active`
+- Status: `archived`
 - Worktree: `/home/gewuyou/project/go/Graft-wt/feat/wt-rbac-further-development`
 - Branch: `feat/wt-rbac-further-development`
 - Task class: `cross-boundary`
@@ -77,3 +77,22 @@ This topic exists to strengthen the current closure path rather than expand RBAC
 - Keep validation honest and minimal for each batch.
 - Do not widen into generalized RBAC redesign.
 - Preserve OpenAPI generated contract as the API typing source of truth.
+
+## Final Archive Record
+
+- Status: `archived`
+- Archive reason: the topic completed its full Option A loop and left no blocking gaps inside the owned scope.
+- Final result:
+  - canonical access-control paths are now limited to `/access-control`, `/access-control/overview`, `/access-control/users`, `/access-control/roles`, and `/access-control/permissions`
+  - frontend route/menu compatibility drift for legacy `/users`, `/roles`, `/permissions` and historical `title_key` rewrites was removed
+  - owned RBAC/access-control critical actions now use the canonical `v-permission` visibility path
+  - backend permission guard coverage across RBAC and bootstrap-adjacent management routes was verified as already consistent
+  - capability snapshot observability remains design-only, with no new backend contract added
+- Final validation summary:
+  - `cd web && bun run check`
+  - `cd server && go run ./cmd/graft validate backend`
+  - `git diff --check`
+- Follow-up status: `superseded`
+- Superseded by:
+  - operating rule `feature-delivery-with-existing-rbac-visibility-chain`
+- Next-session prompt: `No continuation required.`

@@ -3,8 +3,9 @@
 ## Topic
 
 - Topic: `rbac-visibility-governance`
-- Status: `active`
+- Status: `archived`
 - Goal: strengthen the existing RBAC visibility closure path without introducing menu CRUD or resource CRUD.
+- Recovery source: closed after the full Option A governance loop reached archive-ready state
 - Worktree: `/home/gewuyou/project/go/Graft-wt/feat/wt-rbac-further-development`
 - Branch: `feat/wt-rbac-further-development`
 
@@ -79,9 +80,8 @@
 
 ## Immediate Next Step
 
-- Batch 5 concluded that this topic should stop at design.
-- Do not add a capability-snapshot implementation in the current topic unless a new bounded slice explicitly accepts a frontend-only debug page without new backend contracts.
-- Prefer topic archive-readiness review or handoff rather than another observability implementation round.
+- No continuation required inside this topic.
+- Future RBAC work should proceed as ordinary feature or contract slices rather than reopening broad visibility governance by default.
 
 ## Batch 1 Findings Summary
 
@@ -163,3 +163,27 @@
   - stop at design for this topic
   - if a future slice still wants observability, constrain it to a frontend-only debug page that labels most hidden-state explanation as unavailable unless sourced from an actual `403` response
 - This batch therefore closes as doc-only with no server or web implementation edits.
+
+## Current Status
+
+- Status: `archived`
+- Blocking gaps: none in the verified owned scope after completing Batches 1 through 5.
+
+## Final Archive Record
+
+- Status: `archived`
+- Archive reason: the topic completed the planned Option A loop and reached archive-ready with no remaining blocking governance work in scope.
+- Final result:
+  - permission, bootstrap menus, dynamic routes, element visibility, and API guard ownership are aligned on the existing chain
+  - legacy access-control path and title compatibility drift was removed
+  - owned-scope RBAC/access-control button visibility was standardized on `v-permission`
+  - backend guard coverage was verified without needing new permission or route changes
+  - capability snapshot observability was explicitly limited to design-only for now
+- Final validation summary:
+  - `cd web && bun run check`
+  - `cd server && go run ./cmd/graft validate backend`
+  - `git diff --check`
+- Follow-up status: `superseded`
+- Superseded by:
+  - operating rule `feature-delivery-with-existing-rbac-visibility-chain`
+- Next-session prompt: `No continuation required.`
