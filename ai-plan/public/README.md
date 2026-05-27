@@ -10,6 +10,24 @@ every public artifact.
 
 ## Archived Topics
 
+- `user-page-permission-governance`
+  - Status: `archived`
+  - Recovery status: no continuation required; do not restore this topic into the active recovery path.
+  - Archive reason: the user-management page permission-governance loop completed all planned batches and removed the
+    remaining page-local permission drift without widening into backend, contract, or global UI changes.
+  - Final result: user-management action visibility now follows the existing `permission -> v-permission -> runtime
+    guard` closure path; permission-only visible-disabled dropdown semantics were removed from the page; privileged
+    handlers retain local runtime guards; business-state disabled behavior remains intact.
+  - Follow-up status: `follow-up-needed`
+  - Archived topic directory:
+    - `ai-plan/public/user-page-permission-governance`
+  - Archive notes:
+    - future frontend permission-code cleanup can remove the `ROLE_PERMISSION_MANAGE` alias if the RBAC module adopts a
+      clearer canonical name without changing backend permission values
+    - if future user-management behavior needs a permission not expressible by current backend codes, open a separate
+      RBAC contract topic instead of reopening this frontend-only governance loop
+  - Next-session prompt: `No continuation required.`
+
 - `rbac-visibility-governance`
   - Status: `archived`
   - Recovery status: no continuation required; do not restore this topic into the active recovery path.

@@ -3,7 +3,7 @@
 ## Topic
 
 - Topic: `user-page-permission-governance`
-- Status: `active`
+- Status: `archived`
 - Goal: converge the user-management page onto the existing centralized frontend permission visibility and runtime
   guard model without changing backend contracts or business behavior.
 - Recovery source:
@@ -69,7 +69,7 @@
 1. Batch 0: topic initialization and current-state map. Status: completed.
 2. Batch 1: user page permission implementation. Status: completed.
 3. Batch 2: regression audit and consistency check. Status: completed.
-4. Batch 3: archive-ready closeout. Status: pending.
+4. Batch 3: archive-ready closeout. Status: completed.
 
 ## Batch 0 Findings Summary
 
@@ -105,11 +105,7 @@
 
 ## Immediate Next Step
 
-- Batch 3 should perform archive-ready closeout:
-  - rerun final validation/status checks
-  - update `ai-plan/public/README.md` per topic archive convention
-  - write final archive record and remaining risks
-  - create the archive docs commit
+- None. The topic is archived.
 
 ## Validation
 
@@ -126,3 +122,22 @@
 - A scoped commit remains possible, but the outer loop should decide whether to:
   - keep Batch 0/1 together in one owned commit, or
   - preserve batch readability and leave commit creation to a later closeout step
+
+## Final Archive Summary
+
+- Archive status:
+  - `archived`
+- Archive-ready reason:
+  - Batch 0 established the topic docs and current-state map.
+  - Batch 1 aligned the user page with canonical `v-permission` visibility and local runtime guards.
+  - Batch 2 confirmed no same-pattern permission drift remained in the owned `user` scope.
+  - Batch 3 completed recovery-index and topic-doc closeout with final validation.
+- Final validations:
+  - `git status --short`
+  - `git branch --show-current`
+  - `cd web && bun run check`
+  - `git diff --check`
+- Remaining risks:
+  - `ROLE_PERMISSION_MANAGE` alias cleanup remains a separate future frontend topic.
+  - any missing backend permission code discovered by future user-management work remains a separate RBAC contract
+    topic, not part of this closed frontend slice.

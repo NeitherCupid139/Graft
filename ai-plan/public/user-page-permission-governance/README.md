@@ -3,7 +3,7 @@
 ## Status
 
 - Topic: `user-page-permission-governance`
-- Status: `active`
+- Status: `archived`
 - Worktree: `/home/gewuyou/project/go/Graft-wt/feat/wt-rbac-further-development`
 - Branch: `feat/wt-rbac-further-development`
 - Task class: `web`
@@ -119,3 +119,28 @@ management business flows.
 2. Batch 1: user page permission implementation.
 3. Batch 2: regression audit and consistency check.
 4. Batch 3: archive-ready closeout.
+
+## Final Archive Record
+
+- Status: `archived`
+- Archive reason: the topic completed its planned frontend-only convergence loop and removed the remaining
+  user-management page permission drift without requiring backend, OpenAPI, or permission-code changes.
+- Final result:
+  - `web/src/modules/user/pages/index.vue` now uses the canonical permission path for user action visibility:
+    `bootstrap permissions -> permission store -> v-permission visibility -> runtime action guard`
+  - header, empty-state, row, and batch action entry points no longer depend on page-local permission computed wrappers
+  - permission-only visible-disabled semantics were removed from the user-page dropdown and batch role-assignment entry
+    points
+  - disabled state remains only for business/loading constraints instead of missing-permission presentation
+  - privileged user actions retain local runtime guard checks so template visibility is not the only protection layer
+- Final validation summary:
+  - `git status --short`
+  - `git branch --show-current`
+  - `cd web && bun run check`
+  - `git diff --check`
+- Remaining risks:
+  - `ROLE_PERMISSION_MANAGE` remains a frontend alias of `role.permission.assign` in the RBAC module and should be
+    handled by a future frontend permission-code cleanup topic rather than reopened here
+  - if a future user-management capability needs a backend permission code that does not already exist, that gap should
+    be handled by a separate RBAC contract topic
+- Next-session prompt: `No continuation required.`

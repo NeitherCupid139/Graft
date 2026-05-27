@@ -156,3 +156,28 @@
 - Validation passed:
   - `cd web && bun run check`
   - `git diff --check`
+
+## 2026-05-27 Batch 3 archived the topic
+
+- Reused the inherited startup receipt under root `AGENTS.md` for the Batch 3 `web` round.
+- Kept the round docs-only inside owned scope:
+  - `ai-plan/public/README.md`
+  - `ai-plan/public/user-page-permission-governance/README.md`
+  - `ai-plan/public/user-page-permission-governance/todos/user-page-permission-governance-tracking.md`
+  - `ai-plan/public/user-page-permission-governance/traces/user-page-permission-governance-trace.md`
+- Rechecked repository and topic recovery context before archive closeout:
+  - `web/AGENTS.md`
+  - `ai-plan/public/README.md`
+  - `ai-plan/public/user-page-permission-governance/**`
+  - `ai-plan/public/rbac-visibility-governance/README.md`
+- Recorded the topic in `ai-plan/public/README.md` under `Archived Topics` instead of inventing an active-topic history.
+- Marked the topic status as `archived` and added final archive records to the topic README and tracking doc.
+- Recorded remaining follow-up risks without widening scope:
+  - `ROLE_PERMISSION_MANAGE` still exists as a frontend alias for `role.permission.assign`; leave cleanup to a future
+    frontend permission-code topic
+  - any future missing backend permission code for user management should open a separate RBAC contract topic
+- Final validation/status checks for archive closeout:
+  - `git status --short`
+  - `git branch --show-current`
+  - `cd web && bun run check`
+  - `git diff --check`
