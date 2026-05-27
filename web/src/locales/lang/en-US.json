@@ -252,6 +252,8 @@
         "wechatLogin": "Login with WeChat",
         "accountLogin": "Login with Account",
         "phoneLogin": "Login with Mobile Phone",
+        "loginExpired": "Login state expired. Sign in again.",
+        "loginFailed": "Login failed. Try again.",
         "loginSuccess": "Login successful",
         "countdown": "Resend after {count} seconds",
         "input": {

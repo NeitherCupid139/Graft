@@ -6,7 +6,15 @@ every public artifact.
 
 ## Active Topic
 
-- None.
+- `localization-governance`
+  - Status: `active`
+  - Worktree: `/home/gewuyou/project/go/Graft-wt/feat/wt-localization-governance`
+  - Branch: `feat/wt-localization-governance`
+  - Recovery source: `parent topic = none`
+  - Scope: cross-boundary localization governance covering `server`, `web`, and `openapi` contract policy.
+  - Recovery docs:
+    - `ai-plan/public/localization-governance/todos/localization-governance-tracking.md`
+    - `ai-plan/public/localization-governance/traces/localization-governance-trace.md`
 
 ## Archived Topics
 

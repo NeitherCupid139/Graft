@@ -252,6 +252,8 @@
         "wechatLogin": "使用微信扫一扫登录",
         "accountLogin": "使用账号登录",
         "phoneLogin": "使用手机号登录",
+        "loginExpired": "登录状态已失效，请重新登录",
+        "loginFailed": "登录失败，请重试",
         "loginSuccess": "登录成功",
         "countdown": "{count}秒后可重发",
         "input": {
