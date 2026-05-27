@@ -66,20 +66,22 @@
   - `/access-control/roles`
   - `/access-control/permissions`
 - Legacy `/users`, `/roles`, `/permissions` compatibility handling has been removed from the frontend bootstrap route adapter.
+- Batch 3 critical element permission coverage completed on owned RBAC/access-control surfaces.
+- Critical RBAC/access-control actions now use the canonical `v-permission` visibility path.
 
 ## Batch Plan
 
 1. Batch 1: baseline audit and visibility chain map. Status: completed.
 2. Batch 2: canonical bootstrap menu and route alignment. Status: completed.
-3. Batch 3: critical element permission coverage. Status: next.
-4. Batch 4: backend permission-guard consistency audit.
+3. Batch 3: critical element permission coverage. Status: completed.
+4. Batch 4: backend permission-guard consistency audit. Status: next.
 5. Batch 5: capability snapshot observability design.
 
 ## Immediate Next Step
 
-- Execute Batch 3 under `graft-multi-agent-loop`.
-- Standardize critical button-level permission visibility on the current canonical permission semantics.
-- Keep the slice limited to `web` user/rbac/access-control surfaces unless a directly related guard drift is discovered.
+- Execute Batch 4 under `graft-multi-agent-loop`.
+- Audit backend API guard consistency across RBAC and bootstrap-adjacent management surfaces.
+- Fix only real permission-code gaps or drift; do not refactor the authorization framework.
 
 ## Batch 1 Findings Summary
 
@@ -111,4 +113,16 @@
 - Validation completed for Batch 2:
   - `cd web && bun run check`
   - `cd server && go test ./plugins/rbac ./plugins/user`
+  - `git diff --check`
+
+## Batch 3 Decision Record
+
+- Standardized owned RBAC/access-control surfaces onto the existing `v-permission` directive for dangerous or privileged actions.
+- Tightened access-control overview behavior so it no longer calls protected read APIs when the current session lacks the corresponding read permission.
+- Kept the round inside owned `web` scope; no server code changed.
+- Explicit remaining drift after Batch 3:
+  - `web/src/modules/user/pages/index.vue` still uses page-local permission booleans and dropdown disable states for some dangerous actions
+  - `RBAC_PERMISSION_CODE.ROLE_PERMISSION_MANAGE` remains a frontend alias of `role.permission.assign`
+- Validation completed for Batch 3:
+  - `cd web && bun run check`
   - `git diff --check`

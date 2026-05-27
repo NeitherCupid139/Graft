@@ -13,7 +13,12 @@
           >
             {{ t('rbac.roleList.refresh') }}
           </t-button>
-          <t-button v-if="canCreateRoles" theme="primary" data-testid="role-create" @click="openCreateDrawer">
+          <t-button
+            v-permission="permissionCodes.ROLE_CREATE"
+            theme="primary"
+            data-testid="role-create"
+            @click="openCreateDrawer"
+          >
             {{ t('rbac.roleList.create') }}
           </t-button>
         </template>
@@ -126,6 +131,7 @@
                 {{ t('rbac.roleList.detail') }}
               </t-button>
               <t-button
+                v-permission="{ allOf: [permissionCodes.PERMISSION_READ, permissionCodes.ROLE_PERMISSION_MANAGE] }"
                 size="small"
                 theme="default"
                 variant="outline"
@@ -136,7 +142,7 @@
                 {{ t('rbac.roleList.assignPermissions') }}
               </t-button>
               <t-button
-                v-if="canUpdateRoles"
+                v-permission="permissionCodes.ROLE_UPDATE"
                 size="small"
                 theme="default"
                 variant="outline"
@@ -184,7 +190,7 @@
                       {{ t('rbac.roleList.toolbar.clearFilters') }}
                     </t-button>
                     <t-button
-                      v-if="canCreateRoles"
+                      v-permission="permissionCodes.ROLE_CREATE"
                       theme="primary"
                       data-testid="role-empty-create"
                       @click="openCreateDrawer"
@@ -546,7 +552,6 @@ const pagination = ref({
 
 const permissionCodes = RBAC_PERMISSION_CODE;
 const canCreateRoles = computed(() => permissionStore.hasPermission(permissionCodes.ROLE_CREATE));
-const canUpdateRoles = computed(() => permissionStore.hasPermission(permissionCodes.ROLE_UPDATE));
 const canDeleteRoles = computed(() => permissionStore.hasPermission(permissionCodes.ROLE_DELETE));
 const canToggleRoleStatus = computed(() => permissionStore.hasPermission(permissionCodes.ROLE_STATUS_UPDATE));
 const canReadPermissions = computed(() => permissionStore.hasPermission(permissionCodes.PERMISSION_READ));

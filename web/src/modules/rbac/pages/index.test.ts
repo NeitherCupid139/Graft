@@ -470,7 +470,28 @@ function mountRolePage() {
     global: {
       directives: {
         permission: {
-          mounted() {},
+          mounted(el, binding) {
+            const value = binding.value;
+            let allowed = true;
+
+            if (typeof value === 'string') {
+              allowed = permissionState.grantedCodes.includes(value);
+            } else if (Array.isArray(value)) {
+              allowed = value.every((code: string) => permissionState.grantedCodes.includes(code));
+            } else if (value && typeof value === 'object') {
+              const allOf = Array.isArray(value.allOf) ? value.allOf : [];
+              const anyOf = Array.isArray(value.anyOf) ? value.anyOf : [];
+              const matchesAll =
+                allOf.length === 0 || allOf.every((code: string) => permissionState.grantedCodes.includes(code));
+              const matchesAny =
+                anyOf.length === 0 || anyOf.some((code: string) => permissionState.grantedCodes.includes(code));
+              allowed = matchesAll && matchesAny;
+            }
+
+            if (!allowed) {
+              el.remove();
+            }
+          },
         },
       },
       stubs: {
@@ -558,6 +579,29 @@ describe('RolePage', () => {
     await flushPromises();
 
     expect(wrapper.find('[data-testid="role-edit"]').exists()).toBe(false);
+  });
+
+  it('hides the create action when role.create is missing', async () => {
+    permissionState.grantedCodes = [RBAC_PERMISSION_CODE.PERMISSION_READ];
+    rbacApiMocks.getRoles.mockResolvedValue(createRoleListResponse());
+    rbacApiMocks.getPermissions.mockResolvedValue(createPermissionListResponse());
+
+    const wrapper = mountRolePage();
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="role-create"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="role-empty-create"]').exists()).toBe(false);
+  });
+
+  it('hides the assign-permissions action when role.permission.assign is missing', async () => {
+    permissionState.grantedCodes = [RBAC_PERMISSION_CODE.PERMISSION_READ];
+    rbacApiMocks.getRoles.mockResolvedValue(createRoleListResponse());
+    rbacApiMocks.getPermissions.mockResolvedValue(createPermissionListResponse());
+
+    const wrapper = mountRolePage();
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="role-assign-permissions"]').exists()).toBe(false);
   });
 
   it('submits the trimmed create payload', async () => {

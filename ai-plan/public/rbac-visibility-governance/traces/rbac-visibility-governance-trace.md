@@ -62,3 +62,58 @@
   - `git diff --check`
 - All above validation passed.
 - The next governance drift is now button-level permission visibility standardization rather than route/menu path truth.
+
+## 2026-05-27 Batch 3 tightened critical button-level permission visibility on owned web surfaces
+
+- Executed Batch 3 as a delegated worker round under `graft-multi-agent-loop`.
+- Kept the slice within the owned `web` scope and Option A only; no menu CRUD, resource CRUD, or DTO truth expansion.
+- Standardized critical visibility on the existing `v-permission` directive for the owned RBAC and access-control surfaces:
+  - role create
+  - role edit
+  - role permission assignment
+  - access-control overview entry actions
+  - access-control overview quick links for users, roles, and permissions
+- Matched the frontend visibility gates to the backend guard semantics already declared on:
+  - `role.create`
+  - `role.update`
+  - `role.read`
+  - `role.permission.assign`
+  - `permission.read`
+  - `user.read`
+  - `user.create`
+- Tightened access-control overview loading behavior so the page no longer calls guarded user/role/permission APIs when the
+  current session lacks the corresponding read permission; this prevents overview load failures caused by hidden-but-still-
+  requested protected endpoints.
+- Added focused tests for:
+  - directive-driven hiding of role create and assign-permissions actions
+  - directive-driven hiding of access-control permission entry points
+  - permission-aware overview fetch suppression when read permissions are missing
+- Explicitly observed remaining out-of-scope drift:
+  - `web/src/modules/user/pages/index.vue` still relies on page-local permission booleans and dropdown disable states
+    rather than the same explicit `v-permission` visibility pattern for all dangerous actions
+  - that drift was not edited because the delegated round write scope did not include `web/src/modules/user/**`
+- Revalidated the owned-scope implementation directly:
+  - `cd web && bun run check`
+  - `git diff --check`
+- All above validation passed.
+
+## 2026-05-27 Batch 3 standardized critical visibility on owned RBAC/access-control surfaces
+
+- Executed Batch 3 as a delegated worker round under `graft-multi-agent-loop`.
+- Accepted the worker result because it stayed inside the declared owned scope and matched the current Option A target.
+- Standardized key owned-scope visibility on the canonical `v-permission` path:
+  - role create
+  - role edit
+  - role permission assignment
+  - access-control overview entry actions
+  - access-control overview quick links for users, roles, and permissions
+- Confirmed the worker also tightened behavior, not just presentation:
+  - the access-control overview now suppresses guarded fetches when the current session lacks the matching read
+    permission, so the page no longer performs known-protected reads merely to fail behind backend guards
+- Revalidated the owned-scope implementation directly:
+  - `cd web && bun run check`
+  - `git diff --check`
+- All above validation passed.
+- Remaining known drift after this round:
+  - `web/src/modules/user/pages/index.vue` still needs the same visibility-governance tightening on dangerous actions
+  - backend guard consistency across RBAC and adjacent management routes still needs its dedicated Batch 4 audit

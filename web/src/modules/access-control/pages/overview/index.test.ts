@@ -82,6 +82,22 @@ const buttonStub = defineComponent({
 function mountOverview() {
   return mount(OverviewPage, {
     global: {
+      directives: {
+        permission: {
+          mounted(el, binding) {
+            const value = binding.value;
+            const allowed =
+              typeof value === 'string'
+                ? permissionStoreMocks.hasPermission(value)
+                : Array.isArray(value)
+                  ? value.every((code) => permissionStoreMocks.hasPermission(code))
+                  : true;
+            if (!allowed) {
+              el.remove();
+            }
+          },
+        },
+      },
       stubs: {
         'management-empty-state': passthroughStub,
         'management-page-content': passthroughStub,
@@ -149,5 +165,17 @@ describe('AccessControlOverviewPage', () => {
 
     expect(wrapper.text()).not.toContain('accessControl.overview.actions.viewPermissions');
     expect(wrapper.find('[data-testid="access-control-quick-link-permissions"]').exists()).toBe(false);
+  });
+
+  it('does not call guarded overview APIs when the matching read permission is missing', async () => {
+    permissionStoreMocks.hasPermission.mockImplementation(() => false);
+
+    mountOverview();
+    await flushPromises();
+
+    expect(userApiMocks.getUsers).not.toHaveBeenCalled();
+    expect(userRoleApiMocks.getRoles).not.toHaveBeenCalled();
+    expect(rbacApiMocks.getPermissions).not.toHaveBeenCalled();
+    expect(userRoleApiMocks.getUserRoleBindings).not.toHaveBeenCalled();
   });
 });
