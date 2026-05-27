@@ -1,0 +1,116 @@
+# Frontend Permission Code Cleanup Tracking
+
+## Topic
+
+- Topic: `frontend-permission-code-cleanup`
+- Status: `active`
+- Goal: unify frontend RBAC permission-code naming with canonical backend permission values while preserving current
+  visibility behavior.
+- Recovery source:
+  - `ai-plan/public/README.md`
+  - archived `rbac-visibility-governance`
+  - archived `user-page-permission-governance`
+  - current RBAC frontend implementation
+- Worktree: `/home/gewuyou/project/go/Graft-wt/feat/wt-rbac-further-development`
+- Branch: `feat/wt-rbac-further-development`
+- Loop mode: `topic-completion-loop`
+
+## Scope
+
+- Owned scope:
+  - `ai-plan/public/frontend-permission-code-cleanup/**`
+  - `ai-plan/public/README.md`
+  - `web/src/modules/rbac/**`
+  - `web/src/modules/user/**`
+  - `web/src/store/modules/permission.ts`
+  - `web/src/constants/**`
+  - `web/src/types/**`
+  - bounded tests/types only if directly required
+- Forbidden scope:
+  - `server/**`
+  - OpenAPI/generated contracts
+  - backend permission registry / seed / migration / auth contract
+  - unrelated refactor/reformat
+  - UI redesign
+  - route architecture rewrite
+
+## Repository Truth
+
+- `AGENTS.md`
+- `web/AGENTS.md`
+- `ai-plan/design/前端架构设计.md`
+- `ai-plan/design/契约治理与魔法值治理规范.md`
+- `ai-plan/design/AI任务追踪与恢复设计.md`
+
+## Governance Guardrails
+
+- Frontend permission-code cleanup only.
+- No backend permission change.
+- No new alias compatibility layer.
+- No visibility-behavior change.
+- If canonical/frontend mismatch requires backend action, stop as blocked instead of widening scope.
+
+## Current Recovery Point
+
+- Batch 0 initialized the topic docs.
+- Batch 0 confirmed the current owned-scope canonical permission-code map.
+- Batch 0 identified `RBAC_PERMISSION_CODE.ROLE_PERMISSION_MANAGE` as the only confirmed historical alias drift in the
+  active owned permission contracts.
+- Batch 0 confirmed the alias currently resolves to the canonical backend value `role.permission.assign`.
+- Batch 0 did not modify runtime behavior.
+
+## Batch Plan
+
+1. Batch 0: topic initialization and permission-code map. Status: completed.
+2. Batch 1: canonical permission-code alignment. Status: pending.
+3. Batch 2: regression audit. Status: pending.
+4. Batch 3: archive-ready closeout. Status: pending.
+
+## Batch 0 Findings
+
+- canonical RBAC contract currently exposes both:
+  - `ROLE_PERMISSION_ASSIGN`
+  - `ROLE_PERMISSION_MANAGE`
+- both names resolve to the same backend canonical value:
+  - `role.permission.assign`
+- owned-scope alias usage found in active pages:
+  - `web/src/modules/rbac/pages/index.vue`
+    - `v-permission` all-of check for assign-permissions button
+    - `canAssignPermissions` computed guard
+    - `canShowOperationColumn` computed guard
+- current user-page permission usage already references canonical names for role assignment:
+  - `USER_ROLE_READ`
+  - `USER_ROLE_ASSIGN`
+- current frontend permission helper contract remains canonical and unchanged:
+  - `permissionStore.hasPermission`
+  - `permissionStore.hasAnyPermission`
+  - `permissionStore.hasAllPermissions`
+  - `v-permission`
+
+## Batch 1 Entry Conditions
+
+- replace all owned-scope alias usage with `ROLE_PERMISSION_ASSIGN`
+- delete the alias definition once no owned-scope reference remains
+- remove alias-only wrapper logic if found during implementation
+- keep behavior equivalent:
+  - authorized users still see and use the same RBAC/user actions
+  - unauthorized users remain hidden or guarded exactly as before
+
+## Required Validation
+
+- Batch 0:
+  - `git diff --check`
+- Batch 1 and later:
+  - `cd web && bun run check`
+  - `git diff --check`
+
+## Commit Plan
+
+- Batch 0:
+  - `docs(frontend-permission-cleanup): initialize governance topic`
+- Batch 1:
+  - `fix(frontend-permission-cleanup): align permission codes with canonical naming`
+- Batch 2:
+  - `docs(frontend-permission-cleanup): record regression audit`
+- Batch 3:
+  - `docs(frontend-permission-cleanup): archive governance topic`
