@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 const (
@@ -34,11 +35,11 @@ type Server struct {
 
 // NewServer 创建 MVP 运行时使用的最小 Gin 服务外壳。
 //
-// 返回的服务默认挂载 Gin 日志与恢复中间件，便于 core 和插件在统一入口
-// 上继续注册路由。
-func NewServer() *Server {
+// 返回的服务默认挂载全局 request-id、中台统一 access log 与恢复中间件，
+// 便于 core 和插件在统一入口上继续注册路由。
+func NewServer(logger *zap.Logger) *Server {
 	engine := gin.New()
-	engine.Use(gin.Logger(), gin.Recovery())
+	engine.Use(RequestIDMiddleware(), newAccessLogMiddleware(logger), gin.Recovery())
 	return &Server{engine: engine}
 }
 

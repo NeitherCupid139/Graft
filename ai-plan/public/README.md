@@ -12,9 +12,37 @@ Overlay note:
 
 ## Active Topics
 
-- none
+- `request-correlation-access-logging`
+  - Status: `active`
+  - Task class: `server`
+  - Recovery status: active implementation topic for Phase 1 logging-governance follow-up.
+  - Goal: implement global request correlation and structured access logging while preserving `zap` as the backend
+    application logger baseline.
+  - Recovery docs:
+    - `ai-plan/public/request-correlation-access-logging/README.md`
+    - `ai-plan/public/request-correlation-access-logging/todos/request-correlation-access-logging-tracking.md`
+    - `ai-plan/public/request-correlation-access-logging/traces/request-correlation-access-logging-trace.md`
 
 ## Archived Topics
+
+- `logging-governance`
+  - Status: `archived`
+  - Recovery status: no continuation required; do not resume this topic as an active loop.
+  - Archive reason: the read-only cross-boundary logging governance loop completed the planned server inventory,
+    frontend inventory, and Batch 3 architecture assessment without widening into runtime refactor work.
+  - Final result: the topic records the current zap-based backend baseline, the remaining access/request-id/frontend
+    error-capture gaps, and a recommended split between `AppLogger`, `AccessLogger`, `AuditRecorder`, security events,
+    and a future `MetricsEmitter`.
+  - Follow-up status: `new-topic-only`
+  - Archived topic directory:
+    - `ai-plan/public/logging-governance`
+  - Archive notes:
+    - any implementation follow-up should open a new bounded topic instead of reopening this design-only loop
+    - preserve `zap` as the backend logging baseline unless future evidence justifies a change
+    - keep `audit-plugin-mvp` archived and separate from logging implementation follow-up
+    - OpenTelemetry, remote frontend telemetry, and request-log productization remain future scope, not archive
+      blockers
+  - Next-session prompt: `Re-run startup preflight from root AGENTS.md. Treat logging-governance as archived design evidence and open a new bounded implementation topic if logging changes are needed.`
 
 - `audit-plugin-mvp`
   - Status: `archived`
@@ -173,3 +201,21 @@ Overlay note:
     start as a new topic instead of resuming this worktree as an active recovery entry
   - Hotspot policy: no standing feature ownership; only archived recovery docs under `ai-plan/public/audit-plugin-mvp/**`
     remain as historical evidence
+- Worktree: `feat/wt-audit-plugin-mvp`
+  - Branch: `feat/logging-governance`
+  - Active topic: none
+  - Archived topic history: `logging-governance`
+  - Role: retained design-only worktree state for the archived logging governance assessment; any implementation
+    follow-up must start as a new bounded topic instead of resuming this archived loop
+  - Hotspot policy:
+    - no standing feature ownership; archived governance evidence remains under `ai-plan/public/logging-governance/**`
+      and the temporary assessment output under `temp/logging-governance-assessment.md`
+- Worktree: `feat/wt-audit-plugin-mvp`
+  - Branch: `feat/request-correlation-access-logging`
+  - Active topic: `request-correlation-access-logging`
+  - Archived topic history: `logging-governance`
+  - Role: bounded backend implementation worktree for Phase 1 logging-governance follow-up covering global request
+    correlation and structured access logging
+  - Hotspot policy:
+    - active topic owns `ai-plan/public/request-correlation-access-logging/**`
+    - archived governance evidence remains under `ai-plan/public/logging-governance/**`
