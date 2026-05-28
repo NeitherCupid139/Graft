@@ -6,9 +6,6 @@
         <template #actions>
           <t-space size="small">
             <t-tag theme="primary" variant="light-outline">{{ t('audit.overview.contractTag') }}</t-tag>
-            <t-button theme="default" variant="outline" @click="refreshDashboard">
-              {{ t('audit.overview.refresh') }}
-            </t-button>
           </t-space>
         </template>
       </management-page-header>
@@ -59,7 +56,7 @@
   </div>
 </template>
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import { ManagementPageContent, ManagementPageHeader } from '@/shared/components/management';
@@ -69,9 +66,8 @@ defineOptions({
 });
 
 const { t } = useI18n();
-const refreshToken = ref(0);
 
-const summaryCards = [
+const summaryCards = computed(() => [
   {
     key: 'today',
     title: t('audit.overview.cards.today.title'),
@@ -104,9 +100,9 @@ const summaryCards = [
     unit: 'ms',
     meta: t('audit.overview.cards.latency.meta'),
   },
-];
+]);
 
-const recentEvents = [
+const recentEvents = computed(() => [
   {
     id: '1',
     title: t('audit.overview.timeline.items.roleExport.title'),
@@ -125,9 +121,9 @@ const recentEvents = [
     description: t('audit.overview.timeline.items.permissionReplace.description'),
     success: true,
   },
-];
+]);
 
-const focusSurfaces = [
+const focusSurfaces = computed(() => [
   {
     key: 'rbac',
     title: t('audit.overview.surfaces.rbac.title'),
@@ -149,9 +145,9 @@ const focusSurfaces = [
     value: t('audit.overview.surfaces.plugins.value'),
     tone: 'primary' as const,
   },
-];
+]);
 
-const guidanceItems = [
+const guidanceItems = computed(() => [
   {
     title: t('audit.overview.guidance.items.scope.title'),
     description: t('audit.overview.guidance.items.scope.description'),
@@ -164,11 +160,7 @@ const guidanceItems = [
     title: t('audit.overview.guidance.items.next.title'),
     description: t('audit.overview.guidance.items.next.description'),
   },
-];
-
-function refreshDashboard() {
-  refreshToken.value += 1;
-}
+]);
 </script>
 <style scoped lang="less">
 .audit-overview {

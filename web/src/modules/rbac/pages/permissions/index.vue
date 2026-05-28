@@ -307,6 +307,7 @@ const columnSettingOptions = computed(() => [
   { label: t('rbac.permissionList.columns.roleCount'), value: 'role_count' },
   { label: t('rbac.permissionList.columns.createdAt'), value: 'created_at' },
   { label: t('rbac.permissionList.columns.updatedAt'), value: 'updated_at' },
+  { label: t('rbac.permissionList.columns.operation'), value: 'operation' },
 ]);
 
 const filteredPermissions = computed(() => permissions.value);

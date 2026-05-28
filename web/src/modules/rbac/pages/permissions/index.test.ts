@@ -2,6 +2,8 @@ import { flushPromises, mount } from '@vue/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineComponent, h } from 'vue';
 
+import { formatCompactDateTime } from '@/shared/components/management';
+
 import PermissionPage from './index.vue';
 
 const i18nMessages: Record<string, string> = {
@@ -431,7 +433,7 @@ describe('PermissionPage', () => {
     expect(wrapper.findAll('[data-testid="drawer"]')).toHaveLength(1);
     expect(wrapper.text()).toContain('Localized permission description');
     expect(wrapper.text()).toContain('3');
-    expect(wrapper.text()).toContain('2026-05-24 18:00');
+    expect(wrapper.text()).toContain(formatCompactDateTime('2026-05-24T10:00:00Z'));
     expect(wrapper.text()).not.toContain('2026-05-24T10:00:00Z');
   });
 
