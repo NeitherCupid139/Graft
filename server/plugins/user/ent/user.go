@@ -12,34 +12,34 @@ import (
 	"entgo.io/ent/dialect/sql"
 )
 
-// User is the model entity for the User schema.
+// 用户基础信息表（用户插件）
 type User struct {
 	config `json:"-"`
 	// ID of the ent.
 	ID int `json:"id,omitempty"`
-	// Username holds the value of the "username" field.
+	// 用户名，用于登录和唯一标识
 	Username string `json:"username,omitempty"`
-	// Display holds the value of the "display" field.
+	// 显示名称，用于后台展示
 	Display string `json:"display,omitempty"`
-	// Status holds the value of the "status" field.
+	// 状态：enabled 启用，disabled 禁用
 	Status string `json:"status,omitempty"`
-	// PasswordHash holds the value of the "password_hash" field.
+	// 密码哈希值
 	PasswordHash *string `json:"-"`
-	// MustChangePassword holds the value of the "must_change_password" field.
+	// 是否必须在下次登录后修改密码
 	MustChangePassword bool `json:"must_change_password,omitempty"`
-	// PasswordChangedAt holds the value of the "password_changed_at" field.
+	// 最近一次修改密码时间
 	PasswordChangedAt *time.Time `json:"password_changed_at,omitempty"`
-	// CreatedAt holds the value of the "created_at" field.
+	// 创建时间
 	CreatedAt time.Time `json:"created_at,omitempty"`
-	// CreatedBy holds the value of the "created_by" field.
+	// 创建人用户 ID，0 表示系统
 	CreatedBy uint64 `json:"created_by,omitempty"`
-	// UpdatedAt holds the value of the "updated_at" field.
+	// 更新时间
 	UpdatedAt time.Time `json:"updated_at,omitempty"`
-	// UpdatedBy holds the value of the "updated_by" field.
+	// 最后更新人用户 ID，0 表示系统
 	UpdatedBy uint64 `json:"updated_by,omitempty"`
-	// DeletedAt holds the value of the "deleted_at" field.
+	// 软删除时间戳，0 表示未删除
 	DeletedAt int64 `json:"deleted_at,omitempty"`
-	// DeletedBy holds the value of the "deleted_by" field.
+	// 删除人用户 ID，0 表示未删除
 	DeletedBy uint64 `json:"deleted_by,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the UserQuery when eager-loading is set.

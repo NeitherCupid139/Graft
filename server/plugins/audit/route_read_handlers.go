@@ -16,13 +16,16 @@ import (
 	auditopenapi "graft/server/internal/contract/openapi/audit"
 	"graft/server/internal/httpx"
 	"graft/server/internal/plugin"
+	auditstore "graft/server/plugins/audit/store"
 )
 
 type auditReader interface {
 	List(ctx context.Context, query auditcore.ListQuery) (auditcore.ListResult, error)
+	Overview(ctx context.Context, window auditstore.OverviewWindow) (auditcore.OverviewResult, error)
 }
 
 type auditListResult = auditcore.ListResult
+type auditOverviewResult = auditcore.OverviewResult
 
 type auditGuard struct {
 	read gin.HandlerFunc
@@ -72,6 +75,44 @@ func handleListAuditLogs(
 	}
 }
 
+func handleReadAuditOverview(
+	ctx *plugin.Context,
+	pluginName string,
+	reader auditReader,
+) gin.HandlerFunc {
+	logger := zap.NewNop()
+	if ctx != nil && ctx.Logger != nil {
+		logger = ctx.Logger
+	}
+
+	return func(ginCtx *gin.Context) {
+		params := bindGeneratedAuditOverviewParams(ginCtx)
+		window := normalizeOverviewWindow(params.Window)
+
+		result, err := reader.Overview(ginCtx, window)
+		if err != nil {
+			logger.Error("read audit overview failed",
+				zap.String("plugin", pluginName),
+				zap.Error(err),
+			)
+			httpx.AbortLocalizedError(ginCtx, ctx.I18n, http.StatusInternalServerError, messagecontract.CommonInternalError.String(), nil)
+			return
+		}
+
+		payload, mapErr := toAuditOverviewResponse(result)
+		if mapErr != nil {
+			logger.Error("map audit overview response failed",
+				zap.String("plugin", pluginName),
+				zap.Error(mapErr),
+			)
+			httpx.AbortLocalizedError(ginCtx, ctx.I18n, http.StatusInternalServerError, messagecontract.CommonInternalError.String(), nil)
+			return
+		}
+
+		httpx.WriteSuccess(ginCtx, http.StatusOK, payload)
+	}
+}
+
 type auditReadGeneratedHandler struct{}
 
 func (h auditReadGeneratedHandler) GetAuditLogs(params auditopenapi.GetAuditLogsParams) {
@@ -92,6 +133,9 @@ func bindGeneratedAuditListParams(
 		return params, query, field
 	}
 	bindAuditStringFilters(ginCtx, &params, &query)
+	if field := bindAuditEnumFilters(ginCtx, &params, &query); field != "" {
+		return params, query, field
+	}
 	if field := bindAuditSuccessFilter(ginCtx, &params, &query); field != "" {
 		return params, query, field
 	}
@@ -156,6 +200,30 @@ func bindAuditStringFilters(ginCtx *gin.Context, params *auditopenapi.GetAuditLo
 	bindAuditStringFilter(ginCtx, "resource_id", &params.ResourceId, &query.ResourceID)
 	bindAuditStringFilter(ginCtx, "resource_name", &params.ResourceName, &query.ResourceName)
 	bindAuditStringFilter(ginCtx, "request_id", &params.RequestId, &query.RequestID)
+}
+
+func bindAuditEnumFilters(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParams, query *auditcore.ListQuery) string {
+	if raw := strings.ToUpper(strings.TrimSpace(ginCtx.Query("result"))); raw != "" {
+		switch auditstore.AuditResult(raw) {
+		case auditstore.AuditResultSuccess, auditstore.AuditResultFailed, auditstore.AuditResultDenied, auditstore.AuditResultError:
+		default:
+			return "result"
+		}
+		value := auditopenapi.GetAuditLogsParamsResult(raw)
+		params.Result = &value
+		query.Result = auditstore.AuditResult(raw)
+	}
+	if raw := strings.ToUpper(strings.TrimSpace(ginCtx.Query("risk_level"))); raw != "" {
+		switch auditstore.AuditRiskLevel(raw) {
+		case auditstore.AuditRiskLevelLow, auditstore.AuditRiskLevelMedium, auditstore.AuditRiskLevelHigh, auditstore.AuditRiskLevelCritical:
+		default:
+			return "risk_level"
+		}
+		value := auditopenapi.GetAuditLogsParamsRiskLevel(raw)
+		params.RiskLevel = &value
+		query.RiskLevel = auditstore.AuditRiskLevel(raw)
+	}
+	return ""
 }
 
 func bindAuditStringFilter(ginCtx *gin.Context, key string, targetParam **string, targetQuery *string) {
@@ -262,4 +330,35 @@ func bindGeneratedAuditReadHeaders(ginCtx *gin.Context) (locale *string, request
 	}
 
 	return locale, requestID
+}
+
+func bindGeneratedAuditOverviewParams(ginCtx *gin.Context) auditopenapi.GetAuditOverviewParams {
+	locale, requestID := bindGeneratedAuditReadHeaders(ginCtx)
+	params := auditopenapi.GetAuditOverviewParams{
+		XGraftLocale: locale,
+		XRequestId:   requestID,
+	}
+
+	if raw := strings.TrimSpace(ginCtx.Query("window")); raw != "" {
+		value := auditopenapi.GetAuditOverviewParamsWindow(raw)
+		if value.Valid() {
+			params.Window = &value
+		}
+	}
+
+	return params
+}
+
+func normalizeOverviewWindow(value *auditopenapi.GetAuditOverviewParamsWindow) auditstore.OverviewWindow {
+	if value == nil {
+		return auditstore.OverviewWindow24Hours
+	}
+	switch strings.TrimSpace(string(*value)) {
+	case string(auditstore.OverviewWindow7Days):
+		return auditstore.OverviewWindow7Days
+	case string(auditstore.OverviewWindow30Days):
+		return auditstore.OverviewWindow30Days
+	default:
+		return auditstore.OverviewWindow24Hours
+	}
 }

@@ -785,6 +785,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/audit/overview': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Read audit overview
+     * @description Returns real aggregated audit-overview data for the selected window.
+     */
+    get: operations['getAuditOverview'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/monitor/server-status': {
     parameters: {
       query?: never;
@@ -851,6 +871,10 @@ export interface components {
     AuditLogListItem: components['schemas']['audit-log-list-item'];
     AuditLogListResponse: components['schemas']['audit-log-list-response'];
     EnvelopedAuditLogListResponse: components['schemas']['enveloped-audit-log-list-response'];
+    AuditOverviewItem: components['schemas']['audit-overview-item'];
+    AuditOverviewSummary: components['schemas']['audit-overview-summary'];
+    AuditOverviewResponse: components['schemas']['audit-overview-response'];
+    EnvelopedAuditOverviewResponse: components['schemas']['enveloped-audit-overview-response'];
     ServerStatusDependency: components['schemas']['server-status-dependency'];
     ServerStatusPlugin: components['schemas']['server-status-plugin'];
     ServerStatusServer: components['schemas']['server-status-server'];
@@ -1168,9 +1192,20 @@ export interface components {
       resource_id?: string;
       resource_name?: string;
       success: boolean;
+      /** @enum {string} */
+      result?: 'SUCCESS' | 'FAILED' | 'DENIED' | 'ERROR';
+      /** @enum {string} */
+      risk_level?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+      target_type?: string;
+      target_label?: string;
       request_id: string;
+      trace_id?: string;
+      session_id?: string;
       ip: string;
       user_agent: string;
+      request_method?: string;
+      request_path?: string;
+      status_code?: number;
       message: string;
       metadata: {
         [key: string]: unknown;
@@ -1186,6 +1221,45 @@ export interface components {
     };
     'enveloped-audit-log-list-response': components['schemas']['api-envelope'] & {
       data?: components['schemas']['audit-log-list-response'];
+    };
+    'audit-overview-summary': {
+      total_logs: number;
+      failed_operations: number;
+      high_risk_events: number;
+      sensitive_operations: number;
+    };
+    'audit-overview-item': {
+      /** Format: int64 */
+      id: number;
+      /** Format: int64 */
+      actor_user_id?: number | null;
+      actor_username?: string;
+      actor_display_name?: string;
+      action: string;
+      resource_type?: string;
+      resource_id?: string;
+      resource_name?: string;
+      success: boolean;
+      request_id: string;
+      message: string;
+      metadata: {
+        [key: string]: unknown;
+      };
+      /** Format: date-time */
+      created_at: string;
+    };
+    'audit-overview-response': {
+      /** @enum {string} */
+      window: '24h' | '7d' | '30d';
+      summary: components['schemas']['audit-overview-summary'];
+      failed_auth: components['schemas']['audit-overview-item'][];
+      permission_denied: components['schemas']['audit-overview-item'][];
+      sensitive_operations: components['schemas']['audit-overview-item'][];
+    };
+    'enveloped-audit-overview-response': {
+      /** @enum {boolean} */
+      success: true;
+      data: components['schemas']['audit-overview-response'];
     };
     /**
      * @example {
@@ -3554,6 +3628,8 @@ export interface operations {
         resource_id?: string;
         resource_name?: string;
         request_id?: string;
+        result?: 'SUCCESS' | 'FAILED' | 'DENIED' | 'ERROR';
+        risk_level?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
         success?: boolean;
         created_from?: string;
         created_to?: string;
@@ -3590,6 +3666,40 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['error-response'];
+        };
+      };
+      401: components['responses']['unauthorized'];
+      403: components['responses']['forbidden'];
+      500: components['responses']['internal-server-error'];
+    };
+  };
+  getAuditOverview: {
+    parameters: {
+      query?: {
+        window?: '24h' | '7d' | '30d';
+      };
+      header?: {
+        /** @description Explicit locale override header already supported by the runtime. */
+        'X-Graft-Locale'?: components['parameters']['locale-header'];
+        /**
+         * @description Optional caller-supplied request id. If omitted, the runtime generates one and echoes it
+         *     through the response header and envelope traceId field.
+         */
+        'X-Request-Id'?: components['parameters']['request-id-header'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Audit overview snapshot. */
+      200: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['enveloped-audit-overview-response'];
         };
       };
       401: components['responses']['unauthorized'];
