@@ -306,6 +306,7 @@ const { t, locale } = useI18n();
 
 const loading = ref(false);
 const listError = ref('');
+const latestRequestSeq = ref(0);
 const rows = ref<AuditLogListItem[]>([]);
 const total = ref(0);
 const createdRange = ref<string[]>([]);
@@ -391,21 +392,30 @@ function toQuery(): AuditLogQuery {
 }
 
 async function fetchAuditLogs() {
+  const requestSeq = ++latestRequestSeq.value;
   loading.value = true;
   listError.value = '';
 
   try {
     const response = await getAuditLogs(toQuery());
+    if (requestSeq !== latestRequestSeq.value) {
+      return;
+    }
     rows.value = response.items;
     total.value = response.total;
   } catch (error) {
+    if (requestSeq !== latestRequestSeq.value) {
+      return;
+    }
     rows.value = [];
     total.value = 0;
     logger.error('failed to fetch audit logs', error);
     listError.value = resolveLocalizedErrorMessage(t, error, t('audit.logList.loadFailed'));
     MessagePlugin.error(listError.value);
   } finally {
-    loading.value = false;
+    if (requestSeq === latestRequestSeq.value) {
+      loading.value = false;
+    }
   }
 }
 

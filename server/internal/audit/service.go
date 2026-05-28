@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -158,7 +159,7 @@ func sanitizeMetadata(input any) (json.RawMessage, error) {
 
 	payload, err := normalizeMetadataValue(input)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("normalize metadata value: %w", err)
 	}
 
 	sanitized := sanitizeMetadataValue(payload)
@@ -168,7 +169,7 @@ func sanitizeMetadata(input any) (json.RawMessage, error) {
 
 	encoded, err := json.Marshal(sanitized)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("marshal metadata value: %w", err)
 	}
 
 	return json.RawMessage(encoded), nil
@@ -182,7 +183,7 @@ func normalizeMetadataValue(input any) (any, error) {
 		}
 		var decoded any
 		if err := json.Unmarshal(typed, &decoded); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("unmarshal metadata raw message: %w", err)
 		}
 		return decoded, nil
 	case []byte:
@@ -191,17 +192,17 @@ func normalizeMetadataValue(input any) (any, error) {
 		}
 		var decoded any
 		if err := json.Unmarshal(typed, &decoded); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("unmarshal metadata bytes: %w", err)
 		}
 		return decoded, nil
 	default:
 		encoded, err := json.Marshal(typed)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("marshal metadata input: %w", err)
 		}
 		var decoded any
 		if err := json.Unmarshal(encoded, &decoded); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("unmarshal metadata payload: %w", err)
 		}
 		return decoded, nil
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -164,5 +165,25 @@ func TestRepositoryListAuditLogsAppliesFilters(t *testing.T) {
 	}
 	if result.Items[0].RequestID != "req-keep" || !result.Items[0].Success {
 		t.Fatalf("unexpected filtered record %#v", result.Items[0])
+	}
+}
+
+func TestRepositoryListAuditLogsRejectsInvalidPagination(t *testing.T) {
+	db := openTestDB(t)
+	repo, err := NewRepository(db)
+	if err != nil {
+		t.Fatalf("new repository: %v", err)
+	}
+
+	ctx := context.Background()
+
+	_, err = repo.ListAuditLogs(ctx, auditstore.ListAuditLogsQuery{Limit: 0, Offset: 0})
+	if err == nil || !strings.Contains(err.Error(), "invalid limit") {
+		t.Fatalf("expected invalid limit error, got %v", err)
+	}
+
+	_, err = repo.ListAuditLogs(ctx, auditstore.ListAuditLogsQuery{Limit: 10, Offset: -1})
+	if err == nil || !strings.Contains(err.Error(), "invalid offset") {
+		t.Fatalf("expected invalid offset error, got %v", err)
 	}
 }

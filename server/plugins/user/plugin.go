@@ -555,11 +555,11 @@ func currentRequestID(ctx context.Context) string {
 }
 
 func withAuditRequestID(ctx context.Context, requestID string) context.Context {
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	if strings.TrimSpace(requestID) == "" {
 		return ctx
+	}
+	if ctx == nil {
+		return nil
 	}
 	return context.WithValue(ctx, auditRequestIDContextKey{}, strings.TrimSpace(requestID))
 }

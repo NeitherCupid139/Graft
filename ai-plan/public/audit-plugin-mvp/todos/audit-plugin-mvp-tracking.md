@@ -7,13 +7,13 @@
 - Goal: establish and close the audit plugin MVP through bounded cross-boundary batches.
 - Recovery source:
   - `ai-plan/public/README.md`
-  - archived `backend-rbac-contract-audit` topic
+  - archived `ai-plan/public/archive/backend-rbac-contract-audit` topic
   - current plugin registry implementation
   - current user plugin implementation
   - current rbac plugin implementation
   - current OpenAPI/generated contract workflow
   - current web module/bootstrap/route implementation
-- Worktree: `/home/gewuyou/project/go/Graft-wt/feat/wt-audit-plugin-mvp`
+- Worktree: `feat/wt-audit-plugin-mvp`
 - Branch: `feat/wt-audit-plugin-mvp`
 
 ## Scope
@@ -34,7 +34,7 @@
   - `ai-plan/public/audit-plugin-mvp/README.md`
   - `ai-plan/public/audit-plugin-mvp/todos/audit-plugin-mvp-tracking.md`
   - `ai-plan/public/audit-plugin-mvp/traces/audit-plugin-mvp-trace.md`
-  - archived `backend-rbac-contract-audit`
+  - archived `ai-plan/public/archive/backend-rbac-contract-audit`
   - current plugin/OpenAPI/web bootstrap implementation
 - Loop mode: `topic-completion-loop`
 

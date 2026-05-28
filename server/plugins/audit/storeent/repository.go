@@ -101,6 +101,12 @@ func (r *repository) ListAuditLogs(ctx context.Context, query auditstore.ListAud
 	if r == nil || r.db == nil {
 		return auditstore.ListAuditLogsResult{}, errors.New("audit repository is unavailable")
 	}
+	if query.Limit <= 0 {
+		return auditstore.ListAuditLogsResult{}, fmt.Errorf("list audit logs: invalid limit %d", query.Limit)
+	}
+	if query.Offset < 0 {
+		return auditstore.ListAuditLogsResult{}, fmt.Errorf("list audit logs: invalid offset %d", query.Offset)
+	}
 
 	whereSQL, args := buildAuditLogFilters(query)
 

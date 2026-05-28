@@ -18,9 +18,9 @@
   - current RBAC frontend implementation
 - Confirmed the worktree was clean before Batch 0 writes.
 - Created the new topic document set:
-  - `ai-plan/public/backend-rbac-contract-audit/README.md`
-  - `ai-plan/public/backend-rbac-contract-audit/todos/backend-rbac-contract-audit-tracking.md`
-  - `ai-plan/public/backend-rbac-contract-audit/traces/backend-rbac-contract-audit-trace.md`
+  - `ai-plan/public/archive/backend-rbac-contract-audit/README.md`
+  - `ai-plan/public/archive/backend-rbac-contract-audit/todos/backend-rbac-contract-audit-tracking.md`
+  - `ai-plan/public/archive/backend-rbac-contract-audit/traces/backend-rbac-contract-audit-trace.md`
 - Updated `ai-plan/public/README.md` to register `backend-rbac-contract-audit` as the active recovery topic for the
   current branch/worktree.
 - Audited the owned backend RBAC contract surfaces:
@@ -66,9 +66,9 @@
   - `web/AGENTS.md`
   - `.ai/environment/tools.ai.yaml`
   - `ai-plan/public/README.md`
-  - `ai-plan/public/backend-rbac-contract-audit/README.md`
-  - `ai-plan/public/backend-rbac-contract-audit/todos/backend-rbac-contract-audit-tracking.md`
-  - `ai-plan/public/backend-rbac-contract-audit/traces/backend-rbac-contract-audit-trace.md`
+  - `ai-plan/public/archive/backend-rbac-contract-audit/README.md`
+  - `ai-plan/public/archive/backend-rbac-contract-audit/todos/backend-rbac-contract-audit-tracking.md`
+  - `ai-plan/public/archive/backend-rbac-contract-audit/traces/backend-rbac-contract-audit-trace.md`
   - `ai-plan/design/契约治理与魔法值治理规范.md`
   - `ai-plan/design/AI任务追踪与恢复设计.md`
 - Confirmed the worktree was clean before Batch 1 writes.
@@ -115,9 +115,9 @@
   - `web/AGENTS.md`
   - `.ai/environment/tools.ai.yaml`
   - `ai-plan/public/README.md`
-  - `ai-plan/public/backend-rbac-contract-audit/README.md`
-  - `ai-plan/public/backend-rbac-contract-audit/todos/backend-rbac-contract-audit-tracking.md`
-  - `ai-plan/public/backend-rbac-contract-audit/traces/backend-rbac-contract-audit-trace.md`
+  - `ai-plan/public/archive/backend-rbac-contract-audit/README.md`
+  - `ai-plan/public/archive/backend-rbac-contract-audit/todos/backend-rbac-contract-audit-tracking.md`
+  - `ai-plan/public/archive/backend-rbac-contract-audit/traces/backend-rbac-contract-audit-trace.md`
   - `ai-plan/design/契约治理与魔法值治理规范.md`
   - `ai-plan/design/AI任务追踪与恢复设计.md`
   - `ai-plan/design/前端架构设计.md`
@@ -180,9 +180,9 @@
   - `web/AGENTS.md`
   - `.ai/environment/tools.ai.yaml`
   - `ai-plan/public/README.md`
-  - `ai-plan/public/backend-rbac-contract-audit/README.md`
-  - `ai-plan/public/backend-rbac-contract-audit/todos/backend-rbac-contract-audit-tracking.md`
-  - `ai-plan/public/backend-rbac-contract-audit/traces/backend-rbac-contract-audit-trace.md`
+  - `ai-plan/public/archive/backend-rbac-contract-audit/README.md`
+  - `ai-plan/public/archive/backend-rbac-contract-audit/todos/backend-rbac-contract-audit-tracking.md`
+  - `ai-plan/public/archive/backend-rbac-contract-audit/traces/backend-rbac-contract-audit-trace.md`
   - `ai-plan/design/契约治理与魔法值治理规范.md`
   - `ai-plan/design/AI任务追踪与恢复设计.md`
 - Confirmed the worktree was clean before Batch 3 writes.
@@ -225,9 +225,9 @@
   - updated `server/plugins/rbac/README.md` to match current `replace | add | remove` contracts
 - Updated:
   - `ai-plan/public/README.md`
-  - `ai-plan/public/backend-rbac-contract-audit/README.md`
-  - `ai-plan/public/backend-rbac-contract-audit/todos/backend-rbac-contract-audit-tracking.md`
-  - `ai-plan/public/backend-rbac-contract-audit/traces/backend-rbac-contract-audit-trace.md`
+  - `ai-plan/public/archive/backend-rbac-contract-audit/README.md`
+  - `ai-plan/public/archive/backend-rbac-contract-audit/todos/backend-rbac-contract-audit-tracking.md`
+  - `ai-plan/public/archive/backend-rbac-contract-audit/traces/backend-rbac-contract-audit-trace.md`
 - Kept Batch 3 effectively docs-only for validation purposes:
   - relied on prior Batch 1 backend validation and Batch 2 web validation for unchanged runtime code
   - ran `git diff --check` for the current owned docs changes
@@ -242,9 +242,9 @@
   - `web/AGENTS.md`
   - `.ai/environment/tools.ai.yaml`
   - `ai-plan/public/README.md`
-  - `ai-plan/public/backend-rbac-contract-audit/README.md`
-  - `ai-plan/public/backend-rbac-contract-audit/todos/backend-rbac-contract-audit-tracking.md`
-  - `ai-plan/public/backend-rbac-contract-audit/traces/backend-rbac-contract-audit-trace.md`
+  - `ai-plan/public/archive/backend-rbac-contract-audit/README.md`
+  - `ai-plan/public/archive/backend-rbac-contract-audit/todos/backend-rbac-contract-audit-tracking.md`
+  - `ai-plan/public/archive/backend-rbac-contract-audit/traces/backend-rbac-contract-audit-trace.md`
   - `ai-plan/design/契约治理与魔法值治理规范.md`
   - `ai-plan/design/AI任务追踪与恢复设计.md`
 - Confirmed the worktree was clean before Batch 4 archive writes.
@@ -259,9 +259,9 @@
     instead of runtime duplicate/reference enforcement
 - Updated archive and recovery materials:
   - `ai-plan/public/README.md`
-  - `ai-plan/public/backend-rbac-contract-audit/README.md`
-  - `ai-plan/public/backend-rbac-contract-audit/todos/backend-rbac-contract-audit-tracking.md`
-  - `ai-plan/public/backend-rbac-contract-audit/traces/backend-rbac-contract-audit-trace.md`
+  - `ai-plan/public/archive/backend-rbac-contract-audit/README.md`
+  - `ai-plan/public/archive/backend-rbac-contract-audit/todos/backend-rbac-contract-audit-tracking.md`
+  - `ai-plan/public/archive/backend-rbac-contract-audit/traces/backend-rbac-contract-audit-trace.md`
 - Recorded the follow-up policy explicitly:
   - no proactive RBAC feature expansion remains in this topic line
   - later work is bugfix-only unless a new topic is opened

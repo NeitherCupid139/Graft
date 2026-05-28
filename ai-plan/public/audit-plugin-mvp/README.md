@@ -5,7 +5,7 @@
 - Topic: `audit-plugin-mvp`
 - Status: `active`
 - Loop mode: `topic-completion-loop`
-- Worktree: `/home/gewuyou/project/go/Graft-wt/feat/wt-audit-plugin-mvp`
+- Worktree: `feat/wt-audit-plugin-mvp`
 - Branch: `feat/wt-audit-plugin-mvp`
 
 ## Goal

@@ -12,16 +12,16 @@ Overlay note:
 
 ## Active Topics
 
-- `audit-plugin-mvp`
+  - `audit-plugin-mvp`
   - Purpose: hold the dedicated recovery entry for the audit plugin MVP loop spanning `server` and `web`, starting
     from exploration and then closing through bounded implementation batches.
   - Tracking: `ai-plan/public/audit-plugin-mvp/todos/audit-plugin-mvp-tracking.md`
   - Trace: `ai-plan/public/audit-plugin-mvp/traces/audit-plugin-mvp-trace.md`
-  - Recovery note: this topic now runs from dedicated worktree
-    `/home/gewuyou/project/go/Graft-wt/feat/wt-audit-plugin-mvp` on branch `feat/wt-audit-plugin-mvp`; standing
-    ownership is centered on `server/plugins/audit/**` and `web/src/modules/audit/**`, while shared-hotspot touches
-    remain serialized exceptions. This owned scope guides default responsibility, not canonical authority; if future
-    audit drift is traced to upstream authority, escalate and repair there rather than adding downstream compatibility.
+  - Recovery note: this topic now runs from the dedicated `feat/wt-audit-plugin-mvp` worktree on branch
+    `feat/wt-audit-plugin-mvp`; standing ownership is centered on `server/plugins/audit/**` and
+    `web/src/modules/audit/**`, while shared-hotspot touches remain serialized exceptions. This owned scope guides
+    default responsibility, not canonical authority; if future audit drift is traced to upstream authority, escalate
+    and repair there rather than adding downstream compatibility.
 
 ## Archived Topics
 
@@ -36,7 +36,7 @@ Overlay note:
     remain aligned for the audited `/access-control/*`, role-permission, and user-role surfaces.
   - Follow-up status: `bugfix-only`
   - Archived topic directory:
-    - `ai-plan/public/backend-rbac-contract-audit`
+    - `ai-plan/public/archive/backend-rbac-contract-audit`
   - Archive notes:
     - RBAC no longer takes proactive feature expansion in this topic line; later work should be bugfix-only unless a
       new topic is opened
@@ -153,7 +153,7 @@ Overlay note:
     startup prompt naming an active topic instead of assuming root carries feature state
   - Hotspot policy: shared hotspots such as `ai-plan/public/README.md` remain serialized governance slices and do not
     grant standing feature ownership to the root worktree
-- Worktree: `/home/gewuyou/project/go/Graft-wt/feat/wt-audit-plugin-mvp`
+- Worktree: `feat/wt-audit-plugin-mvp`
   - Branch: `feat/wt-audit-plugin-mvp`
   - Active topic: `audit-plugin-mvp`
   - Role: dedicated audit plugin MVP worktree and recovery entry for slices centered on `server/plugins/audit/**` and

@@ -319,11 +319,11 @@ func (w managementWriter) ReplaceRolesForUser(ctx context.Context, input rbacsto
 }
 
 func (w managementWriter) AddRolesToUser(ctx context.Context, input rbacstore.AddRolesToUserInput) error {
-	user, err := w.users.GetUserByID(ctx, input.UserID)
-	if err != nil {
+	if err := w.ensureRoleMutationPreconditions(ctx, []uint64{input.UserID}, input.RoleIDs); err != nil {
 		return err
 	}
-	if err := w.ensureRoleMutationPreconditions(ctx, []uint64{input.UserID}, input.RoleIDs); err != nil {
+	user, err := w.users.GetUserByID(ctx, input.UserID)
+	if err != nil {
 		return err
 	}
 	if err := w.rbac.AddRolesToUser(ctx, input); err != nil {
@@ -347,11 +347,11 @@ func (w managementWriter) AddRolesToUser(ctx context.Context, input rbacstore.Ad
 }
 
 func (w managementWriter) RemoveRolesFromUser(ctx context.Context, input rbacstore.RemoveRolesFromUserInput) error {
-	user, err := w.users.GetUserByID(ctx, input.UserID)
-	if err != nil {
+	if err := w.ensureRoleMutationPreconditions(ctx, []uint64{input.UserID}, input.RoleIDs); err != nil {
 		return err
 	}
-	if err := w.ensureRoleMutationPreconditions(ctx, []uint64{input.UserID}, input.RoleIDs); err != nil {
+	user, err := w.users.GetUserByID(ctx, input.UserID)
+	if err != nil {
 		return err
 	}
 	if err := w.ensureActorCanRemoveRoles(ctx, input.UserID, input.RoleIDs); err != nil {
@@ -568,11 +568,11 @@ func currentRBACRequestID(ctx context.Context) string {
 }
 
 func withRBACAuditRequestID(ctx context.Context, requestID string) context.Context {
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	if strings.TrimSpace(requestID) == "" {
 		return ctx
+	}
+	if ctx == nil {
+		return nil
 	}
 	return context.WithValue(ctx, auditRequestIDContextKey{}, strings.TrimSpace(requestID))
 }

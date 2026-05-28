@@ -34,6 +34,10 @@ func handleListAuditLogs(
 	reader auditReader,
 ) gin.HandlerFunc {
 	handler := auditReadGeneratedHandler{}
+	logger := zap.NewNop()
+	if ctx != nil && ctx.Logger != nil {
+		logger = ctx.Logger
+	}
 
 	return func(ginCtx *gin.Context) {
 		params, query, invalidField := bindGeneratedAuditListParams(ginCtx)
@@ -47,7 +51,7 @@ func handleListAuditLogs(
 
 		result, err := reader.List(ginCtx, query)
 		if err != nil {
-			ctx.Logger.Error("list audit logs failed",
+			logger.Error("list audit logs failed",
 				zap.String("plugin", pluginName),
 				zap.Error(err),
 			)
@@ -57,7 +61,7 @@ func handleListAuditLogs(
 
 		payload, mapErr := toAuditLogListResponse(result)
 		if mapErr != nil {
-			ctx.Logger.Error("map audit logs response failed",
+			logger.Error("map audit logs response failed",
 				zap.String("plugin", pluginName),
 				zap.Error(mapErr),
 			)

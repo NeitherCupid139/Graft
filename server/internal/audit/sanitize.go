@@ -11,7 +11,7 @@ const splitPairParts = 2
 
 var sensitiveFreeTextPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)(authorization\s*:\s*bearer\s+)\S+`),
-	regexp.MustCompile(`(?i)(cookie\s*:\s*)[^;]+`),
+	regexp.MustCompile(`(?i)(cookie\s*:\s*)[^\r\n]+`),
 	regexp.MustCompile(`(?i)(\"?(?:password|passwd|pwd|token|secret|authorization|cookie|set-cookie|access_token|refresh_token|client_secret|api_key)\"?\s*[:=]\s*)\"?[^",;\s]+\"?`),
 }
 

@@ -21,7 +21,7 @@
 - Task class: `cross-boundary`
 - Recovery source:
   - `ai-plan/public/README.md`
-  - archived `backend-rbac-contract-audit`
+  - archived `ai-plan/public/archive/backend-rbac-contract-audit`
   - current plugin registry implementation
   - current user plugin implementation
   - current rbac plugin implementation

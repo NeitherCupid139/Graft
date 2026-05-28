@@ -34,7 +34,7 @@ inventory, and drafts the first audit matrix.
 
 ## Scope
 
-- `ai-plan/public/backend-rbac-contract-audit/**`
+- `ai-plan/public/archive/backend-rbac-contract-audit/**`
 - `ai-plan/public/README.md`
 - read-only audit of:
   - `server/plugins/rbac/**`

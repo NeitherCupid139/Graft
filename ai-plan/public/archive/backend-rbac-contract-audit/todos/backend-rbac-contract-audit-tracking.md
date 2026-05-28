@@ -13,7 +13,7 @@
 ## Scope
 
 - Owned scope:
-  - `ai-plan/public/backend-rbac-contract-audit/**`
+  - `ai-plan/public/archive/backend-rbac-contract-audit/**`
   - `ai-plan/public/README.md`
   - read-only audit of:
     - `server/plugins/rbac/**`
@@ -55,9 +55,9 @@
 
 - Batch 0 completed topic initialization.
 - Batch 0 created:
-  - `ai-plan/public/backend-rbac-contract-audit/README.md`
-  - `ai-plan/public/backend-rbac-contract-audit/todos/backend-rbac-contract-audit-tracking.md`
-  - `ai-plan/public/backend-rbac-contract-audit/traces/backend-rbac-contract-audit-trace.md`
+  - `ai-plan/public/archive/backend-rbac-contract-audit/README.md`
+  - `ai-plan/public/archive/backend-rbac-contract-audit/todos/backend-rbac-contract-audit-tracking.md`
+  - `ai-plan/public/archive/backend-rbac-contract-audit/traces/backend-rbac-contract-audit-trace.md`
 - Batch 0 updated `ai-plan/public/README.md` to register this topic as the active recovery entry.
 - Batch 0 recorded the initial audit inventory and draft matrix for backend and frontend RBAC contract surfaces.
 - Batch 1 completed the backend-only permission/menu/API/guard audit without changing runtime code.

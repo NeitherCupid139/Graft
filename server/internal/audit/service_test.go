@@ -92,6 +92,30 @@ func TestServiceRecordSanitizesSensitiveFields(t *testing.T) {
 	}
 }
 
+func TestServiceRecordRedactsAllCookiePairs(t *testing.T) {
+	repo := &stubAuditRepository{}
+	service, err := NewService(repo)
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	_, err = service.Record(context.Background(), RecordInput{
+		Action:   "audit.test",
+		Metadata: map[string]any{"free_text_log": "cookie: a=1; b=2"},
+	})
+	if err != nil {
+		t.Fatalf("record audit log: %v", err)
+	}
+
+	var metadata map[string]any
+	if err := json.Unmarshal(repo.createdInput.Metadata, &metadata); err != nil {
+		t.Fatalf("unmarshal metadata: %v", err)
+	}
+	if metadata["free_text_log"] != "cookie: [REDACTED]" {
+		t.Fatalf("expected all cookie pairs to be redacted, got %#v", metadata["free_text_log"])
+	}
+}
+
 func TestServiceRecordRejectsMissingAction(t *testing.T) {
 	repo := &stubAuditRepository{}
 	service, err := NewService(repo)
