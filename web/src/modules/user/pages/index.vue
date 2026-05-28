@@ -165,6 +165,7 @@
             <table-action-menu
               :actions="userRowActions(row)"
               :more-label="t('user.userList.more')"
+              more-label-fallback="更多"
               @action="(action) => handleUserRowAction(action, row)"
             />
           </template>
@@ -867,11 +868,12 @@ const userAssignmentFooterDetails = computed(() => {
 });
 
 const userRowMoreOptions = (user: UserRow) => {
-  const options: Array<{ content: string; value: string }> = [];
+  const options: Array<{ content: string; fallbackLabel: string; value: string }> = [];
 
   if (permissionStore.hasPermission(userPermissionCodes.UPDATE)) {
     options.push({
       content: t('user.userList.edit'),
+      fallbackLabel: '编辑',
       value: 'edit',
     });
   }
@@ -882,6 +884,7 @@ const userRowMoreOptions = (user: UserRow) => {
         normalizeUserStatus(user.status) === USER_STATUS.DISABLED
           ? t('user.userList.moreActions.enable')
           : t('user.userList.moreActions.disable'),
+      fallbackLabel: normalizeUserStatus(user.status) === USER_STATUS.DISABLED ? '启用用户' : '禁用用户',
       value: 'toggle-status',
     });
   }
@@ -889,6 +892,7 @@ const userRowMoreOptions = (user: UserRow) => {
   if (permissionStore.hasPermission(userPermissionCodes.UPDATE)) {
     options.push({
       content: t('user.userList.moreActions.resetPassword'),
+      fallbackLabel: '重置密码',
       value: 'reset-password',
     });
   }
@@ -896,6 +900,7 @@ const userRowMoreOptions = (user: UserRow) => {
   if (permissionStore.hasPermission(userPermissionCodes.DISABLE)) {
     options.push({
       content: t('user.userList.moreActions.delete'),
+      fallbackLabel: '删除用户',
       value: 'delete',
     });
   }
@@ -945,21 +950,21 @@ const columns = computed<TdBaseTableProps['columns']>(() => {
       align: 'center' as const,
     },
     createTextColumn(t('user.userList.columns.user'), 'user', {
-      minWidth: 320,
+      width: 320,
       fixed: 'left',
     }),
-    createStatusColumn(t('user.userList.columns.status'), 'status', 100),
+    createStatusColumn(t('user.userList.columns.status'), 'status', 96),
     createTextColumn(t('user.userList.columns.roles'), 'roles', {
       align: 'center',
-      width: 140,
+      width: 148,
     }),
-    createTimeColumn(t('user.userList.columns.lastLoginAt'), 'last_login_at', 172),
-    createTimeColumn(t('user.userList.columns.createdAt'), 'created_at', 172),
-    createTimeColumn(t('user.userList.columns.updatedAt'), 'updated_at', 172),
+    createTimeColumn(t('user.userList.columns.lastLoginAt'), 'last_login_at', 152),
+    createTimeColumn(t('user.userList.columns.createdAt'), 'created_at', 160),
+    createTimeColumn(t('user.userList.columns.updatedAt'), 'updated_at', 160),
   ];
 
   const allColumns = hasVisibleUserOperationActions()
-    ? [...baseColumns, createActionColumn(t('components.commonTable.operation'), 148)]
+    ? [...baseColumns, createActionColumn(t('components.commonTable.operation'), 160)]
     : baseColumns;
 
   return buildVisibleColumns(allColumns, visibleColumnKeys.value) as TdBaseTableProps['columns'];
@@ -1061,7 +1066,8 @@ function hasVisibleUserOperationActions() {
 }
 
 function userRowActions(user: UserRow) {
-  const actions: Array<{ disabled?: boolean; label: string; testId?: string; value: string }> = [];
+  const actions: Array<{ disabled?: boolean; fallbackLabel?: string; label: string; testId?: string; value: string }> =
+    [];
 
   if (canManageUserRoles()) {
     actions.push({
@@ -1072,7 +1078,8 @@ function userRowActions(user: UserRow) {
   }
 
   actions.push({
-    label: t('user.userList.detail'),
+    fallbackLabel: '详情',
+    label: t('components.commonTable.detail'),
     testId: 'user-detail',
     value: 'detail',
   });
@@ -1080,6 +1087,7 @@ function userRowActions(user: UserRow) {
   userRowMoreOptions(user).forEach((option) => {
     actions.push({
       disabled: false,
+      fallbackLabel: option.fallbackLabel,
       label: option.content,
       testId: option.value === 'edit' ? 'user-edit' : undefined,
       value: option.value,

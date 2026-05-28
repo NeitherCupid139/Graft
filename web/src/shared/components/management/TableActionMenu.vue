@@ -13,7 +13,7 @@
     </t-button>
     <t-dropdown v-if="menuOptions.length > 0" :options="menuOptions" trigger="click" @click="handleMenuClick">
       <t-button size="small" theme="default" variant="outline">
-        {{ moreLabel }}
+        {{ resolvedMoreLabel }}
       </t-button>
     </t-dropdown>
   </div>
@@ -23,6 +23,7 @@ import { computed } from 'vue';
 
 type ActionOption = {
   disabled?: boolean;
+  fallbackLabel?: string;
   label: string;
   testId?: string;
   value: string;
@@ -32,9 +33,11 @@ const props = withDefaults(
   defineProps<{
     actions: ActionOption[];
     moreLabel?: string;
+    moreLabelFallback?: string;
   }>(),
   {
     moreLabel: 'More',
+    moreLabelFallback: 'More',
   },
 );
 
@@ -42,10 +45,31 @@ const emit = defineEmits<{
   action: [value: string];
 }>();
 
-const primaryAction = computed(() => props.actions[0] ?? null);
+const I18N_KEY_PATTERN = /^[a-z][\w-]*(\.[A-Za-z0-9_-]+)+$/;
+
+function resolveLabel(label: string, fallbackLabel?: string) {
+  if (!label || I18N_KEY_PATTERN.test(label)) {
+    return fallbackLabel ?? label;
+  }
+
+  return label;
+}
+
+const resolvedMoreLabel = computed(() => resolveLabel(props.moreLabel, props.moreLabelFallback));
+const primaryAction = computed(() => {
+  const action = props.actions[0];
+  if (!action) {
+    return null;
+  }
+
+  return {
+    ...action,
+    label: resolveLabel(action.label, action.fallbackLabel),
+  };
+});
 const menuOptions = computed(() =>
   props.actions.slice(1).map((action) => ({
-    content: action.label,
+    content: resolveLabel(action.label, action.fallbackLabel),
     disabled: action.disabled,
     testId: action.testId,
     value: action.value,
@@ -53,8 +77,10 @@ const menuOptions = computed(() =>
 );
 
 function handlePrimaryClick() {
-  if (!primaryAction.value?.disabled) {
-    emit('action', primaryAction.value.value);
+  const action = primaryAction.value;
+
+  if (action && !action.disabled) {
+    emit('action', action.value);
   }
 }
 

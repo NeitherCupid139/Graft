@@ -110,12 +110,14 @@
             <table-action-menu
               :actions="[
                 {
+                  fallbackLabel: '详情',
                   label: t('rbac.permissionList.detail'),
                   testId: 'permission-detail',
                   value: 'detail',
                 },
               ]"
               :more-label="t('rbac.permissionList.more')"
+              more-label-fallback="更多"
               @action="() => openDetailDrawer(row)"
             />
           </template>
@@ -319,20 +321,20 @@ const visibleColumns = computed<TdBaseTableProps['columns']>(() => {
 
   const allColumns: TdBaseTableProps['columns'] = [
     createTextColumn(t('rbac.permissionList.columns.permission'), 'permission', {
-      minWidth: 320,
+      width: 340,
       fixed: 'left',
     }),
-    createStatusColumn(t('rbac.permissionList.columns.module'), 'category', 108),
+    createStatusColumn(t('rbac.permissionList.columns.module'), 'category', 100),
     createTextColumn(t('rbac.permissionList.columns.code'), 'code', {
       width: 240,
     }),
     createTextColumn(t('rbac.permissionList.columns.description'), 'description', {
-      minWidth: 200,
+      width: 220,
     }),
     createCountColumn(t('rbac.permissionList.columns.roleCount'), 'role_count', 120),
-    createTimeColumn(t('rbac.permissionList.columns.createdAt'), 'created_at', 172),
-    createTimeColumn(t('rbac.permissionList.columns.updatedAt'), 'updated_at', 172),
-    createActionColumn(t('rbac.permissionList.columns.operation'), 108),
+    createTimeColumn(t('rbac.permissionList.columns.createdAt'), 'created_at', 160),
+    createTimeColumn(t('rbac.permissionList.columns.updatedAt'), 'updated_at', 160),
+    createActionColumn(t('rbac.permissionList.columns.operation'), 112),
   ];
 
   return buildVisibleColumns(allColumns, visibleColumnKeys.value);

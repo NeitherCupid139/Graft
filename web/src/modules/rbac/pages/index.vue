@@ -123,6 +123,7 @@
             <table-action-menu
               :actions="roleRowActions(row)"
               :more-label="t('rbac.roleList.more')"
+              more-label-fallback="更多"
               @action="(action) => handleRoleRowAction(action, row)"
             />
           </template>
@@ -656,16 +657,18 @@ const pagedRoles = computed(() => {
 });
 
 const roleRowMoreOptions = (role: RoleStatusCompat) => {
-  const options: Array<{ content: string; disabled?: boolean; value: string }> = [];
+  const options: Array<{ content: string; disabled?: boolean; fallbackLabel: string; value: string }> = [];
 
   options.push({
     content: t('rbac.roleList.detail'),
+    fallbackLabel: '详情',
     value: 'detail',
   });
 
   if (permissionStore.hasPermission(permissionCodes.ROLE_UPDATE)) {
     options.push({
       content: t('rbac.roleList.edit'),
+      fallbackLabel: '编辑',
       value: 'edit',
     });
   }
@@ -674,6 +677,7 @@ const roleRowMoreOptions = (role: RoleStatusCompat) => {
     options.push({
       content: isRoleEnabled(role) ? t('rbac.roleList.moreActions.disable') : t('rbac.roleList.moreActions.enable'),
       disabled: role.builtin,
+      fallbackLabel: isRoleEnabled(role) ? '停用角色' : '启用角色',
       value: 'toggle-status',
     });
   }
@@ -682,6 +686,7 @@ const roleRowMoreOptions = (role: RoleStatusCompat) => {
     options.push({
       content: t('rbac.roleList.moreActions.delete'),
       disabled: role.builtin,
+      fallbackLabel: '删除角色',
       value: 'delete',
     });
   }
@@ -705,6 +710,7 @@ function roleRowActions(role: RoleListItem) {
     ...actions,
     ...roleRowMoreOptions(role).map((option) => ({
       disabled: option.disabled,
+      fallbackLabel: option.fallbackLabel,
       label: option.content,
       testId: option.value === 'detail' ? 'role-detail' : option.value === 'edit' ? 'role-edit' : undefined,
       value: option.value,
@@ -797,19 +803,19 @@ const columns = computed<TdBaseTableProps['columns']>(() => {
 
   const allColumns: TdBaseTableProps['columns'] = [
     createTextColumn(t('rbac.roleList.columns.role'), 'role', {
-      minWidth: 320,
+      width: 336,
     }),
-    createStatusColumn(t('rbac.roleList.columns.type'), 'builtin', 108),
-    createCountColumn(t('rbac.roleList.columns.permissionCount'), 'permission_count', 120),
-    createCountColumn(t('rbac.roleList.columns.userCount'), 'user_count', 120),
+    createStatusColumn(t('rbac.roleList.columns.type'), 'builtin', 100),
+    createCountColumn(t('rbac.roleList.columns.permissionCount'), 'permission_count', 112),
+    createCountColumn(t('rbac.roleList.columns.userCount'), 'user_count', 112),
     createTextColumn(t('rbac.roleList.columns.remark'), 'remark', {
-      minWidth: 180,
+      width: 220,
     }),
-    createTimeColumn(t('rbac.roleList.columns.updatedAt'), 'updated_at', 172),
+    createTimeColumn(t('rbac.roleList.columns.updatedAt'), 'updated_at', 160),
   ];
 
   if (canShowOperationColumn.value) {
-    allColumns.push(createActionColumn(t('components.commonTable.operation'), 148));
+    allColumns.push(createActionColumn(t('components.commonTable.operation'), 160));
   }
 
   return buildVisibleColumns(allColumns, visibleColumnKeys.value);
