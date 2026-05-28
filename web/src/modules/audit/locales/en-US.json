@@ -6,6 +6,9 @@
       "summary": "{count} logs shown",
       "tableHint": "This page is a read-only audit view and helps narrow investigations by key fields.",
       "refresh": "Refresh",
+      "detail": "Details",
+      "more": "More",
+      "detailTitle": "Audit Details",
       "retry": "Retry",
       "clearFilters": "Clear Filters",
       "footerTotal": "{count} audit logs total",
@@ -45,6 +48,20 @@
       "resource": {
         "unknown": "Unnamed resource"
       },
+      "detailSections": {
+        "basic": "Basic Info",
+        "request": "Request Info",
+        "metadata": "Metadata"
+      },
+      "detailFields": {
+        "requestId": "Request ID",
+        "ip": "IP",
+        "userAgent": "User-Agent",
+        "message": "Message"
+      },
+      "copyMetadata": "Copy Metadata",
+      "copyMetadataSuccess": "Metadata copied",
+      "copyMetadataFailed": "Failed to copy metadata",
       "context": {
         "ip": "IP",
         "userAgent": "Client",

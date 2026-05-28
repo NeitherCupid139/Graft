@@ -36,12 +36,6 @@
             class="toolbar__select"
             :placeholder="t('audit.logList.filters.resourceNamePlaceholder')"
           />
-          <t-input
-            v-model="filters.request_id"
-            clearable
-            class="toolbar__select"
-            :placeholder="t('audit.logList.filters.requestIdPlaceholder')"
-          />
           <t-select
             v-model="filters.successValue"
             clearable
@@ -113,14 +107,14 @@
           :columns="columns"
           :loading="loading"
           table-layout="fixed"
-          table-content-width="100%"
+          :table-content-width="tableContentWidth"
           cell-empty-content="-"
           hover
         >
           <template #action="{ row }">
             <div class="action-cell">
-              <strong class="action-cell__primary">{{ row.action }}</strong>
-              <span class="action-cell__secondary">{{ row.resource_type }}</span>
+              <strong class="action-cell__primary">{{ auditActionTitle(row) }}</strong>
+              <span class="action-cell__secondary">{{ row.resource_type || '-' }}</span>
             </div>
           </template>
 
@@ -134,7 +128,7 @@
           <template #resource="{ row }">
             <div class="stack-cell">
               <strong>{{ resourceLabel(row) }}</strong>
-              <span class="stack-cell__secondary">{{ row.resource_id || '-' }}</span>
+              <span class="stack-cell__secondary">{{ resourceSecondaryLabel(row) }}</span>
             </div>
           </template>
 
@@ -144,28 +138,22 @@
             </t-tag>
           </template>
 
-          <template #request_id="{ row }">
-            <span class="request-id">{{ row.request_id }}</span>
-          </template>
-
           <template #created_at="{ row }">
             <span>{{ formatTimestamp(row.created_at) }}</span>
           </template>
 
-          <template #context="{ row }">
-            <div class="context-cell">
-              <div v-if="row.ip" class="context-line">{{ t('audit.logList.context.ip') }}: {{ row.ip }}</div>
-              <div v-if="row.user_agent" class="context-line">
-                {{ t('audit.logList.context.userAgent') }}: {{ row.user_agent }}
-              </div>
-              <div v-if="row.message" class="context-line">
-                {{ t('audit.logList.context.message') }}: {{ row.message }}
-              </div>
-              <div v-if="metadataLabel(row.metadata)" class="context-line">
-                {{ t('audit.logList.context.metadata') }}: {{ metadataLabel(row.metadata) }}
-              </div>
-              <span v-if="!hasContext(row)" class="stack-cell__secondary">{{ t('audit.logList.context.none') }}</span>
-            </div>
+          <template #operation="{ row }">
+            <table-action-menu
+              :actions="[
+                {
+                  label: t('audit.logList.detail'),
+                  testId: 'audit-detail',
+                  value: 'detail',
+                },
+              ]"
+              :more-label="t('audit.logList.more')"
+              @action="() => openDetailDrawer(row)"
+            />
           </template>
 
           <template #empty>
@@ -202,6 +190,76 @@
         </template>
       </management-table-card>
     </management-page-content>
+
+    <t-drawer
+      v-model:visible="detailDrawerVisible"
+      :header="t('audit.logList.detailTitle')"
+      size="560px"
+      placement="right"
+      destroy-on-close
+    >
+      <div v-if="detailRecord" class="drawer-panel audit-detail-panel">
+        <div class="detail-section">
+          <h4 class="detail-section__title">{{ t('audit.logList.detailSections.basic') }}</h4>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="detail-item__label">{{ t('audit.logList.columns.action') }}</span>
+              <span class="detail-item__value">{{ auditActionTitle(detailRecord) }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-item__label">{{ t('audit.logList.columns.result') }}</span>
+              <span class="detail-item__value">
+                {{ detailRecord.success ? t('audit.logList.result.success') : t('audit.logList.result.failed') }}
+              </span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-item__label">{{ t('audit.logList.columns.createdAt') }}</span>
+              <span class="detail-item__value">{{ formatTimestamp(detailRecord.created_at) }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-item__label">{{ t('audit.logList.columns.actor') }}</span>
+              <span class="detail-item__value">{{ actorLabel(detailRecord) }}</span>
+            </div>
+            <div class="detail-item detail-item--full">
+              <span class="detail-item__label">{{ t('audit.logList.columns.resource') }}</span>
+              <span class="detail-item__value">{{ resourceDetailLabel(detailRecord) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <h4 class="detail-section__title">{{ t('audit.logList.detailSections.request') }}</h4>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="detail-item__label">{{ t('audit.logList.detailFields.requestId') }}</span>
+              <span class="detail-item__value detail-item__value--mono">{{ detailRecord.request_id || '-' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-item__label">{{ t('audit.logList.detailFields.ip') }}</span>
+              <span class="detail-item__value">{{ detailRecord.ip || '-' }}</span>
+            </div>
+            <div class="detail-item detail-item--full">
+              <span class="detail-item__label">{{ t('audit.logList.detailFields.userAgent') }}</span>
+              <span class="detail-item__value">{{ detailRecord.user_agent || '-' }}</span>
+            </div>
+            <div class="detail-item detail-item--full">
+              <span class="detail-item__label">{{ t('audit.logList.detailFields.message') }}</span>
+              <span class="detail-item__value">{{ detailRecord.message || '-' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <div class="detail-section__header">
+            <h4 class="detail-section__title">{{ t('audit.logList.detailSections.metadata') }}</h4>
+            <t-button theme="default" variant="text" size="small" @click="copyMetadata(detailRecord)">
+              {{ t('audit.logList.copyMetadata') }}
+            </t-button>
+          </div>
+          <pre class="detail-code">{{ metadataDetail(detailRecord.metadata) }}</pre>
+        </div>
+      </div>
+    </t-drawer>
   </div>
 </template>
 <script setup lang="ts">
@@ -211,12 +269,20 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import { resolveLocalizedErrorMessage } from '@/modules/shared/localized-api-error';
-import { ManagementEmptyState, ManagementPageContent } from '@/shared/components/management';
 import {
+  calculateTableContentWidth,
+  createActionColumn,
+  createStatusColumn,
+  createTextColumn,
+  createTimeColumn,
+  formatCompactDateTime,
+  ManagementEmptyState,
+  ManagementPageContent,
   ManagementPageHeader,
   ManagementTableCard,
   ManagementTablePagination,
   ManagementToolbar,
+  TableActionMenu,
 } from '@/shared/components/management';
 import { createLogger } from '@/utils/logger';
 
@@ -232,7 +298,6 @@ type AuditFilterState = {
   action: string;
   resource_type: string;
   resource_name: string;
-  request_id: string;
   successValue: '' | 'true' | 'false';
 };
 
@@ -244,11 +309,12 @@ const listError = ref('');
 const rows = ref<AuditLogListItem[]>([]);
 const total = ref(0);
 const createdRange = ref<string[]>([]);
+const detailDrawerVisible = ref(false);
+const detailRecord = ref<AuditLogListItem | null>(null);
 const filters = ref<AuditFilterState>({
   action: '',
   resource_type: '',
   resource_name: '',
-  request_id: '',
   successValue: '',
 });
 const pagination = ref({
@@ -267,7 +333,6 @@ const hasActiveFilters = computed(() => {
     filters.value.action.trim() ||
     filters.value.resource_type.trim() ||
     filters.value.resource_name.trim() ||
-    filters.value.request_id.trim() ||
     filters.value.successValue ||
     createdRange.value.length,
   );
@@ -277,15 +342,23 @@ const columns = computed<TdBaseTableProps['columns']>(() => {
   void locale.value;
 
   return [
-    { title: t('audit.logList.columns.action'), colKey: 'action', minWidth: 180, fixed: 'left' },
-    { title: t('audit.logList.columns.actor'), colKey: 'actor', minWidth: 220 },
-    { title: t('audit.logList.columns.resource'), colKey: 'resource', minWidth: 220 },
-    { title: t('audit.logList.columns.result'), colKey: 'result', width: 120 },
-    { title: t('audit.logList.columns.requestId'), colKey: 'request_id', minWidth: 200 },
-    { title: t('audit.logList.columns.createdAt'), colKey: 'created_at', width: 180 },
-    { title: t('audit.logList.columns.context'), colKey: 'context', minWidth: 360 },
+    createTextColumn(t('audit.logList.columns.action'), 'action', {
+      fixed: 'left',
+      minWidth: 360,
+    }),
+    createTextColumn(t('audit.logList.columns.actor'), 'actor', {
+      width: 200,
+    }),
+    createTextColumn(t('audit.logList.columns.resource'), 'resource', {
+      width: 240,
+    }),
+    createStatusColumn(t('audit.logList.columns.result'), 'result', 100),
+    createTimeColumn(t('audit.logList.columns.createdAt'), 'created_at', 180),
+    createActionColumn(t('components.commonTable.operation'), 108),
   ];
 });
+
+const tableContentWidth = computed(() => calculateTableContentWidth(columns.value));
 
 function toQuery(): AuditLogQuery {
   const query: AuditLogQuery = {
@@ -301,9 +374,6 @@ function toQuery(): AuditLogQuery {
   }
   if (filters.value.resource_name.trim()) {
     query.resource_name = filters.value.resource_name.trim();
-  }
-  if (filters.value.request_id.trim()) {
-    query.request_id = filters.value.request_id.trim();
   }
   if (filters.value.successValue === 'true') {
     query.success = true;
@@ -344,7 +414,6 @@ function resetFilters() {
     action: '',
     resource_type: '',
     resource_name: '',
-    request_id: '',
     successValue: '',
   };
   createdRange.value = [];
@@ -359,56 +428,61 @@ function actorLabel(row: AuditLogListItem) {
   return row.actor_display_name || row.actor_username || t('audit.logList.actor.anonymous');
 }
 
+function auditActionTitle(row: AuditLogListItem) {
+  return row.action || row.request_id;
+}
+
 function resourceLabel(row: AuditLogListItem) {
   return row.resource_name || t('audit.logList.resource.unknown');
 }
 
-function metadataLabel(metadata: AuditLogListItem['metadata']) {
-  if (!metadata || typeof metadata !== 'object') {
-    return '';
-  }
-
-  const entries = Object.entries(metadata).slice(0, 3);
-  if (entries.length === 0) {
-    return '';
-  }
-
-  return entries
-    .map(([key, value]) => `${key}=${typeof value === 'string' ? value : JSON.stringify(value)}`)
-    .join(', ');
+function resourceSecondaryLabel(row: AuditLogListItem) {
+  return row.resource_id ? `${row.resource_type || '-'} / ${row.resource_id}` : row.resource_type || '-';
 }
 
-function hasContext(row: AuditLogListItem) {
-  return Boolean(row.ip || row.user_agent || row.message || metadataLabel(row.metadata));
+function resourceDetailLabel(row: AuditLogListItem) {
+  const detailParts = [resourceLabel(row)];
+
+  if (row.resource_type) {
+    detailParts.push(row.resource_type);
+  }
+  if (row.resource_id) {
+    detailParts.push(row.resource_id);
+  }
+
+  return detailParts.join(' / ');
 }
 
-function formatTimestamp(value?: string | null) {
-  if (!value) {
+function metadataDetail(metadata: AuditLogListItem['metadata']) {
+  if (!metadata || typeof metadata !== 'object' || Object.keys(metadata).length === 0) {
     return '-';
   }
 
-  const parsedAt = Date.parse(value);
-  if (Number.isNaN(parsedAt)) {
-    return value;
+  return JSON.stringify(metadata, null, 2);
+}
+
+async function copyMetadata(row: AuditLogListItem) {
+  try {
+    await navigator.clipboard.writeText(metadataDetail(row.metadata));
+    MessagePlugin.success(t('audit.logList.copyMetadataSuccess'));
+  } catch (error) {
+    logger.error('failed to copy audit metadata', error);
+    MessagePlugin.error(t('audit.logList.copyMetadataFailed'));
   }
+}
 
-  const languageTag = locale.value.startsWith('zh') ? 'zh-CN' : 'en-US';
-  const formatter = new Intl.DateTimeFormat(languageTag, {
-    dateStyle: resolveAuditDateStyle(languageTag),
-    timeStyle: 'short',
-  });
+function openDetailDrawer(row: AuditLogListItem) {
+  detailRecord.value = row;
+  detailDrawerVisible.value = true;
+}
 
-  return formatter.format(new Date(parsedAt));
+function formatTimestamp(value?: string | null) {
+  return formatCompactDateTime(value);
 }
 
 function toISOStringOrRaw(value: string) {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toISOString();
-}
-
-function resolveAuditDateStyle(languageTag: 'zh-CN' | 'en-US'): 'medium' {
-  void languageTag;
-  return 'medium';
 }
 
 onMounted(() => {
@@ -421,7 +495,6 @@ watch(
       filters.value.action,
       filters.value.resource_type,
       filters.value.resource_name,
-      filters.value.request_id,
       filters.value.successValue,
       createdRange.value[0],
       createdRange.value[1],
@@ -472,7 +545,7 @@ watch(
 
 .action-cell,
 .stack-cell,
-.context-cell {
+.detail-item {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -486,22 +559,68 @@ watch(
 
 .action-cell__secondary,
 .stack-cell__secondary,
-.context-line,
-.request-id {
+.detail-item__label {
   color: var(--td-text-color-secondary);
   font: var(--td-font-body-small);
 }
 
-.request-id {
-  display: inline-block;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.detail-item__value {
+  color: var(--td-text-color-primary);
+  font: var(--td-font-body-medium);
+}
+
+.detail-item__value--mono,
+.detail-code {
+  font-family: var(--td-font-family-medium);
+}
+
+.audit-detail-panel,
+.detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.detail-section__header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.detail-section__title {
+  color: var(--td-text-color-primary);
+  font: var(--td-font-title-small);
+  margin: 0;
+}
+
+.detail-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.detail-item--full {
+  grid-column: 1 / -1;
+}
+
+.detail-code {
+  background: var(--td-bg-color-page);
+  border: 1px solid var(--td-component-stroke);
+  border-radius: var(--td-radius-medium);
+  margin: 0;
+  max-height: 240px;
+  overflow: auto;
+  padding: 12px;
+  white-space: pre-wrap;
 }
 
 @media (width <= 768px) {
   .toolbar__date {
     min-width: 100%;
+  }
+
+  .detail-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

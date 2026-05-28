@@ -6,6 +6,9 @@
       "summary": "已显示 {count} 条日志",
       "tableHint": "当前页面为只读审计视图，支持按关键字段收敛排查范围。",
       "refresh": "刷新",
+      "detail": "详情",
+      "more": "更多",
+      "detailTitle": "审计详情",
       "retry": "重试",
       "clearFilters": "清空筛选",
       "footerTotal": "共 {count} 条审计日志",
@@ -45,6 +48,20 @@
       "resource": {
         "unknown": "未命名资源"
       },
+      "detailSections": {
+        "basic": "基本信息",
+        "request": "请求信息",
+        "metadata": "元数据"
+      },
+      "detailFields": {
+        "requestId": "请求 ID",
+        "ip": "IP",
+        "userAgent": "User-Agent",
+        "message": "消息"
+      },
+      "copyMetadata": "复制元数据",
+      "copyMetadataSuccess": "元数据已复制",
+      "copyMetadataFailed": "复制元数据失败",
       "context": {
         "ip": "IP",
         "userAgent": "客户端",

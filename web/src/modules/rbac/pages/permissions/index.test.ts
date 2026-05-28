@@ -173,6 +173,39 @@ const drawerStub = defineComponent({
   },
 });
 
+const dropdownStub = defineComponent({
+  name: 'TDropdownStub',
+  props: {
+    options: {
+      type: Array,
+      default: () => [],
+    },
+  },
+  emits: ['click'],
+  setup(props, { emit, slots }) {
+    return () =>
+      h('div', [
+        slots.default?.(),
+        ...(props.options as Array<{ value: string; content: string; disabled?: boolean }>).map((option) =>
+          h(
+            'button',
+            {
+              type: 'button',
+              disabled: Boolean(option.disabled),
+              'data-testid': `dropdown-option-${option.value}`,
+              onClick: () => {
+                if (!option.disabled) {
+                  emit('click', { value: option.value });
+                }
+              },
+            },
+            option.content,
+          ),
+        ),
+      ]);
+  },
+});
+
 function mountPermissionPage() {
   return mount(PermissionPage, {
     global: {
@@ -180,6 +213,7 @@ function mountPermissionPage() {
         't-button': buttonStub,
         't-checkbox': passthroughStub,
         't-checkbox-group': passthroughStub,
+        't-dropdown': dropdownStub,
         't-drawer': drawerStub,
         't-empty': passthroughStub,
         't-input': inputStub,
@@ -397,7 +431,7 @@ describe('PermissionPage', () => {
     expect(wrapper.findAll('[data-testid="drawer"]')).toHaveLength(1);
     expect(wrapper.text()).toContain('Localized permission description');
     expect(wrapper.text()).toContain('3');
-    expect(wrapper.text()).toContain('May 24, 2026');
+    expect(wrapper.text()).toContain('2026-05-24 18:00');
     expect(wrapper.text()).not.toContain('2026-05-24T10:00:00Z');
   });
 

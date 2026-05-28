@@ -75,6 +75,8 @@
           :data="pagedPermissions"
           :columns="visibleColumns"
           :loading="loading"
+          table-layout="fixed"
+          :table-content-width="tableContentWidth"
           cell-empty-content="-"
         >
           <template #permission="{ row }">
@@ -105,17 +107,17 @@
           </template>
 
           <template #operation="{ row }">
-            <div class="table-actions">
-              <t-button
-                size="small"
-                theme="default"
-                variant="outline"
-                data-testid="permission-detail"
-                @click="openDetailDrawer(row)"
-              >
-                {{ t('rbac.permissionList.detail') }}
-              </t-button>
-            </div>
+            <table-action-menu
+              :actions="[
+                {
+                  label: t('rbac.permissionList.detail'),
+                  testId: 'permission-detail',
+                  value: 'detail',
+                },
+              ]"
+              :more-label="t('rbac.permissionList.more')"
+              @action="() => openDetailDrawer(row)"
+            />
           </template>
 
           <template #empty>
@@ -232,12 +234,21 @@ import { useI18n } from 'vue-i18n';
 
 import { resolveLocalizedErrorMessage } from '@/modules/shared/localized-api-error';
 import {
+  buildVisibleColumns,
+  calculateTableContentWidth,
+  createActionColumn,
+  createCountColumn,
+  createStatusColumn,
+  createTextColumn,
+  createTimeColumn,
+  formatCompactDateTime,
   ManagementEmptyState,
   ManagementPageContent,
   ManagementPageHeader,
   ManagementTableCard,
   ManagementTablePagination,
   ManagementToolbar,
+  TableActionMenu,
 } from '@/shared/components/management';
 import { createLogger } from '@/utils/logger';
 
@@ -268,7 +279,7 @@ const filters = ref<PermissionFilterState>({
   category: '',
 });
 const columnDrawerVisible = ref(false);
-const visibleColumnKeys = ref(['permission', 'category', 'code', 'description', 'role_count', 'updated_at']);
+const visibleColumnKeys = ref(['permission', 'category', 'code', 'role_count', 'updated_at', 'operation']);
 const detailDrawerVisible = ref(false);
 const detailDrawerPermission = ref<PermissionListItem | null>(null);
 const detailRecord = ref<PermissionDetailResponse | null>(null);
@@ -307,19 +318,27 @@ const visibleColumns = computed<TdBaseTableProps['columns']>(() => {
   void locale.value;
 
   const allColumns: TdBaseTableProps['columns'] = [
-    { title: t('rbac.permissionList.columns.permission'), colKey: 'permission', minWidth: 320, fixed: 'left' },
-    { title: t('rbac.permissionList.columns.module'), colKey: 'category', width: 160 },
-    { title: t('rbac.permissionList.columns.code'), colKey: 'code', minWidth: 240 },
-    { title: t('rbac.permissionList.columns.description'), colKey: 'description', minWidth: 260 },
-    { title: t('rbac.permissionList.columns.roleCount'), colKey: 'role_count', width: 120 },
-    { title: t('rbac.permissionList.columns.createdAt'), colKey: 'created_at', width: 196 },
-    { title: t('rbac.permissionList.columns.updatedAt'), colKey: 'updated_at', width: 196 },
-    { title: t('rbac.permissionList.columns.operation'), colKey: 'operation', width: 120, fixed: 'right' },
+    createTextColumn(t('rbac.permissionList.columns.permission'), 'permission', {
+      minWidth: 320,
+      fixed: 'left',
+    }),
+    createStatusColumn(t('rbac.permissionList.columns.module'), 'category', 108),
+    createTextColumn(t('rbac.permissionList.columns.code'), 'code', {
+      width: 240,
+    }),
+    createTextColumn(t('rbac.permissionList.columns.description'), 'description', {
+      minWidth: 200,
+    }),
+    createCountColumn(t('rbac.permissionList.columns.roleCount'), 'role_count', 120),
+    createTimeColumn(t('rbac.permissionList.columns.createdAt'), 'created_at', 172),
+    createTimeColumn(t('rbac.permissionList.columns.updatedAt'), 'updated_at', 172),
+    createActionColumn(t('rbac.permissionList.columns.operation'), 108),
   ];
 
-  const visibleKeys = new Set(visibleColumnKeys.value);
-  return allColumns.filter((column) => visibleKeys.has(String(column.colKey)));
+  return buildVisibleColumns(allColumns, visibleColumnKeys.value);
 });
+
+const tableContentWidth = computed(() => calculateTableContentWidth(visibleColumns.value));
 
 async function fetchPermissions() {
   loading.value = true;
@@ -396,19 +415,7 @@ async function retryDetail() {
 }
 
 function formatTimestamp(value?: string | null) {
-  if (!value) {
-    return '-';
-  }
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat(locale.value === 'zh-CN' ? 'zh-CN' : 'en-US', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(date);
+  return formatCompactDateTime(value);
 }
 
 onMounted(() => {

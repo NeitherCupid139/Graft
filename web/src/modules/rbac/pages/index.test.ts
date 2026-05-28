@@ -937,8 +937,9 @@ describe('RolePage', () => {
     const wrapper = mountRolePage();
     await flushPromises();
 
-    expect(wrapper.find('[data-testid="dropdown"]').exists()).toBe(false);
-    expect(wrapper.find('[data-testid="role-edit"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="dropdown"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="role-edit"]').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('rbac.roleList.moreActions.delete');
   });
 
   it('blocks delete when the disabled role still has bindings', async () => {

@@ -151,13 +151,32 @@ const tableStub = defineComponent({
             slots.actor?.({ row }),
             slots.resource?.({ row }),
             slots.result?.({ row }),
-            slots.request_id?.({ row }),
             slots.created_at?.({ row }),
-            slots.context?.({ row }),
+            slots.operation?.({ row }),
           ]),
         ),
       );
     };
+  },
+});
+
+const drawerStub = defineComponent({
+  name: 'TDrawerStub',
+  props: {
+    visible: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  setup(props, { slots }) {
+    return () => (props.visible ? h('section', { 'data-testid': 'audit-drawer' }, slots.default?.()) : null);
+  },
+});
+
+const dropdownStub = defineComponent({
+  name: 'TDropdownStub',
+  setup(_, { slots }) {
+    return () => h('div', slots.default?.());
   },
 });
 
@@ -172,6 +191,14 @@ const i18n = createI18n({
             title: 'Audit Logs',
           },
         },
+        access_control: {
+          title: 'Access Control',
+        },
+      },
+      components: {
+        commonTable: {
+          operation: 'Operation',
+        },
       },
       audit: {
         logList: {
@@ -180,6 +207,9 @@ const i18n = createI18n({
           summary: '{count} logs shown',
           tableHint: 'Table hint',
           refresh: 'Refresh',
+          detail: 'Details',
+          more: 'More',
+          detailTitle: 'Audit Details',
           retry: 'Retry',
           clearFilters: 'Clear Filters',
           footerTotal: '{count} audit logs total',
@@ -219,6 +249,20 @@ const i18n = createI18n({
           resource: {
             unknown: 'Unknown',
           },
+          detailSections: {
+            basic: 'Basic Info',
+            request: 'Request Info',
+            metadata: 'Metadata',
+          },
+          detailFields: {
+            requestId: 'Request ID',
+            ip: 'IP',
+            userAgent: 'User-Agent',
+            message: 'Message',
+          },
+          copyMetadata: 'Copy Metadata',
+          copyMetadataSuccess: 'Metadata copied',
+          copyMetadataFailed: 'Failed to copy metadata',
           context: {
             ip: 'IP',
             userAgent: 'Client',
@@ -253,6 +297,8 @@ describe('AuditPage', () => {
           't-date-range-picker': dateRangePickerStub,
           't-empty': passthroughStub,
           't-input': inputStub,
+          't-drawer': drawerStub,
+          't-dropdown': dropdownStub,
           't-pagination': passthroughStub,
           't-select': selectStub,
           't-table': tableStub,
@@ -267,6 +313,8 @@ describe('AuditPage', () => {
     expect(wrapper.text()).toContain('user.create');
     expect(wrapper.text()).toContain('Admin');
     expect(wrapper.text()).toContain('Alice');
+    await wrapper.get('[data-testid="audit-detail"]').trigger('click');
+    await flushPromises();
     expect(wrapper.text()).toContain('req-1');
   });
 });

@@ -87,7 +87,7 @@
           :columns="visibleColumns"
           :loading="loading"
           table-layout="fixed"
-          table-content-width="100%"
+          :table-content-width="tableContentWidth"
           cell-empty-content="-"
         >
           <template #role="{ row }">
@@ -120,62 +120,11 @@
           </template>
 
           <template #operation="{ row }">
-            <div class="table-actions">
-              <t-button
-                size="small"
-                theme="default"
-                variant="outline"
-                data-testid="role-detail"
-                @click="openDetailDrawer(row)"
-              >
-                {{ t('rbac.roleList.detail') }}
-              </t-button>
-              <t-button
-                v-permission="{ allOf: [permissionCodes.PERMISSION_READ, permissionCodes.ROLE_PERMISSION_ASSIGN] }"
-                size="small"
-                theme="default"
-                variant="outline"
-                data-testid="role-assign-permissions"
-                :disabled="!canOpenPermissionDrawer"
-                @click="openPermissionDrawer(row)"
-              >
-                {{ t('rbac.roleList.assignPermissions') }}
-              </t-button>
-              <t-button
-                v-permission="permissionCodes.ROLE_UPDATE"
-                size="small"
-                theme="default"
-                variant="outline"
-                data-testid="role-edit"
-                @click="openEditDrawer(row)"
-              >
-                {{ t('rbac.roleList.edit') }}
-              </t-button>
-              <t-tooltip
-                v-if="row.builtin && roleRowMoreOptions(row).length > 0"
-                :content="t('rbac.roleList.builtinHint')"
-              >
-                <t-dropdown
-                  :options="roleRowMoreOptions(row)"
-                  trigger="click"
-                  @click="(payload) => handleRoleMoreAction(payload, row)"
-                >
-                  <t-button size="small" theme="default" variant="outline">
-                    {{ t('rbac.roleList.more') }}
-                  </t-button>
-                </t-dropdown>
-              </t-tooltip>
-              <t-dropdown
-                v-else-if="roleRowMoreOptions(row).length > 0"
-                :options="roleRowMoreOptions(row)"
-                trigger="click"
-                @click="(payload) => handleRoleMoreAction(payload, row)"
-              >
-                <t-button size="small" theme="default" variant="outline">
-                  {{ t('rbac.roleList.more') }}
-                </t-button>
-              </t-dropdown>
-            </div>
+            <table-action-menu
+              :actions="roleRowActions(row)"
+              :more-label="t('rbac.roleList.more')"
+              @action="(action) => handleRoleRowAction(action, row)"
+            />
           </template>
 
           <template #empty>
@@ -419,12 +368,21 @@ import {
   AssignmentToolbar,
 } from '@/shared/components/assignment';
 import {
+  buildVisibleColumns,
+  calculateTableContentWidth,
+  createActionColumn,
+  createCountColumn,
+  createStatusColumn,
+  createTextColumn,
+  createTimeColumn,
+  formatCompactDateTime,
   ManagementEmptyState,
   ManagementPageContent,
   ManagementPageHeader,
   ManagementTableCard,
   ManagementTablePagination,
   ManagementToolbar,
+  TableActionMenu,
 } from '@/shared/components/management';
 import { useAssignmentSelection } from '@/shared/composables';
 import { usePermissionStore } from '@/store';
@@ -499,15 +457,7 @@ type RoleStatusCompat = RoleListItem & {
   deleted_at?: string | null;
 };
 
-const DEFAULT_VISIBLE_COLUMNS = [
-  'role',
-  'builtin',
-  'permission_count',
-  'user_count',
-  'remark',
-  'updated_at',
-  'operation',
-];
+const DEFAULT_VISIBLE_COLUMNS = ['role', 'builtin', 'permission_count', 'user_count', 'updated_at', 'operation'];
 
 const INITIAL_ROLE_FORM: RoleFormState = {
   description: '',
@@ -708,6 +658,18 @@ const pagedRoles = computed(() => {
 const roleRowMoreOptions = (role: RoleStatusCompat) => {
   const options: Array<{ content: string; disabled?: boolean; value: string }> = [];
 
+  options.push({
+    content: t('rbac.roleList.detail'),
+    value: 'detail',
+  });
+
+  if (permissionStore.hasPermission(permissionCodes.ROLE_UPDATE)) {
+    options.push({
+      content: t('rbac.roleList.edit'),
+      value: 'edit',
+    });
+  }
+
   if (canToggleRoleStatus.value) {
     options.push({
       content: isRoleEnabled(role) ? t('rbac.roleList.moreActions.disable') : t('rbac.roleList.moreActions.enable'),
@@ -726,6 +688,29 @@ const roleRowMoreOptions = (role: RoleStatusCompat) => {
 
   return options;
 };
+
+function roleRowActions(role: RoleListItem) {
+  const actions: Array<{ disabled?: boolean; label: string; testId?: string; value: string }> = [];
+
+  if (canAssignPermissions.value) {
+    actions.push({
+      disabled: !canOpenPermissionDrawer.value,
+      label: t('rbac.roleList.assignPermissions'),
+      testId: 'role-assign-permissions',
+      value: 'assign-permissions',
+    });
+  }
+
+  return [
+    ...actions,
+    ...roleRowMoreOptions(role).map((option) => ({
+      disabled: option.disabled,
+      label: option.content,
+      testId: option.value === 'detail' ? 'role-detail' : option.value === 'edit' ? 'role-edit' : undefined,
+      value: option.value,
+    })),
+  ];
+}
 
 const roleFormRules = computed<Record<keyof RoleFormState, FormRule[]>>(() => ({
   name: [{ required: true, message: t('rbac.roleList.form.required.name'), type: 'error' }],
@@ -811,52 +796,23 @@ const columns = computed<TdBaseTableProps['columns']>(() => {
   void locale.value;
 
   const allColumns: TdBaseTableProps['columns'] = [
-    {
-      title: t('rbac.roleList.columns.role'),
-      colKey: 'role',
-      minWidth: 220,
-      ellipsis: true,
-    },
-    {
-      title: t('rbac.roleList.columns.type'),
-      colKey: 'builtin',
-      width: 100,
-    },
-    {
-      title: t('rbac.roleList.columns.permissionCount'),
-      colKey: 'permission_count',
-      width: 100,
-    },
-    {
-      title: t('rbac.roleList.columns.userCount'),
-      colKey: 'user_count',
-      width: 100,
-    },
-    {
-      title: t('rbac.roleList.columns.remark'),
-      colKey: 'remark',
-      minWidth: 220,
-      ellipsis: true,
-    },
-    {
-      title: t('rbac.roleList.columns.updatedAt'),
-      colKey: 'updated_at',
-      width: 180,
-    },
+    createTextColumn(t('rbac.roleList.columns.role'), 'role', {
+      minWidth: 320,
+    }),
+    createStatusColumn(t('rbac.roleList.columns.type'), 'builtin', 108),
+    createCountColumn(t('rbac.roleList.columns.permissionCount'), 'permission_count', 120),
+    createCountColumn(t('rbac.roleList.columns.userCount'), 'user_count', 120),
+    createTextColumn(t('rbac.roleList.columns.remark'), 'remark', {
+      minWidth: 180,
+    }),
+    createTimeColumn(t('rbac.roleList.columns.updatedAt'), 'updated_at', 172),
   ];
 
   if (canShowOperationColumn.value) {
-    allColumns.push({
-      title: t('components.commonTable.operation'),
-      colKey: 'operation',
-      width: 260,
-      align: 'right',
-      fixed: 'right',
-    });
+    allColumns.push(createActionColumn(t('components.commonTable.operation'), 148));
   }
 
-  const visibleKeys = new Set(visibleColumnKeys.value);
-  return allColumns.filter((column) => visibleKeys.has(String(column.colKey)));
+  return buildVisibleColumns(allColumns, visibleColumnKeys.value);
 });
 
 const visibleColumns = computed(() => {
@@ -866,6 +822,8 @@ const visibleColumns = computed(() => {
 
   return (columns.value ?? []).filter((column) => column?.colKey !== 'operation');
 });
+
+const tableContentWidth = computed(() => calculateTableContentWidth(visibleColumns.value));
 
 async function fetchRolePageData() {
   loading.value = true;
@@ -915,19 +873,7 @@ function resetFilters() {
 }
 
 function formatTimestamp(value?: string | null) {
-  if (!value) {
-    return '-';
-  }
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat(locale.value, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(date);
+  return formatCompactDateTime(value);
 }
 
 function countLabel(value: number | undefined, messageKey: string) {
@@ -1102,7 +1048,21 @@ function handleRoleMoreAction(
     return;
   }
 
+  if (action === 'detail') {
+    void openDetailDrawer(role);
+    return;
+  }
+
   void handleMoreAction(role);
+}
+
+function handleRoleRowAction(action: string, role: RoleListItem) {
+  if (action === 'assign-permissions') {
+    void openPermissionDrawer(role);
+    return;
+  }
+
+  handleRoleMoreAction({ value: action }, role);
 }
 
 async function openDetailDrawer(role: RoleListItem) {
