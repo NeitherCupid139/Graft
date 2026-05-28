@@ -230,3 +230,63 @@
   - no `server/internal/**` runtime implementation changed
   - no `server/plugins/**` business implementation changed
   - no schema or migration implementation changed
+
+## 2026-05-28 Batch 6 backend audit policy boundary convergence closed
+
+- Took over an in-progress backend slice that still had stale topic docs claiming Batch 5 was final.
+- Confirmed the Batch 6 authority repair stayed inside the settled audit backend scope:
+  - plugin-owned `audit_policy_rules` seed migration
+  - evaluator-based audit include and exclude decisions
+  - candidate-based convergence for request, auth, and authorization-originated audit events
+- Confirmed the key behavioral closure points for this batch:
+  - ordinary requests such as `/healthz`, monitor polling, bootstrap loads, and audit overview reads no longer define
+    the default audit dataset through hardcoded request-path skips
+  - login success, login failure, permission denial, RBAC changes, and sensitive user actions still remain eligible for
+    audit logging through policy evaluation
+  - audit overview semantics now stay scoped to `Audit Log` rather than mixed request noise
+- Validation result for Batch 6:
+  - `cd server && go test ./plugins/audit/... ./internal/audit/... ./internal/httpx/...` passed
+  - `cd server && go run ./cmd/graft validate backend` passed
+- Batch status advanced truthfully: Batch 6 complete, next batch is frontend semantics alignment rather than archive
+  closeout.
+
+## 2026-05-28 Batch 7 frontend audit semantics alignment closed
+
+- Limited the frontend slice to visible semantics and tests; no new audit-policy management UI was introduced.
+- Confirmed the web audit surfaces now describe security audit events rather than mixed service logs:
+  - overview and log-page copy now clarifies policy-filtered security-event scope
+  - visible notes explicitly exclude `healthz`, monitor polling, and bootstrap noise from the audit dataset
+  - drawer field language now converges on `审计目标` / `目标对象` / `操作对象`
+- Validation result for Batch 7:
+  - `cd web && bun run test:run src/modules/audit/pages/overview/index.test.ts src/modules/audit/pages/logs/index.test.ts`
+    passed
+  - `cd web && bun run check` passed
+- Batch status advanced truthfully: Batch 7 complete, next batch is topic closeout and archive-readiness.
+
+## 2026-05-28 Batch 8 archive-ready closeout completed
+
+- Re-ran startup governance for the final docs-only round from:
+  - `AGENTS.md`
+  - `server/AGENTS.md`
+  - `web/AGENTS.md`
+  - `.ai/environment/tools.ai.yaml`
+  - `ai-plan/public/README.md`
+  - `ai-plan/public/audit-plugin-mvp/README.md`
+  - `ai-plan/public/audit-plugin-mvp/todos/audit-plugin-mvp-tracking.md`
+  - `ai-plan/public/audit-plugin-mvp/traces/audit-plugin-mvp-trace.md`
+- Audited the topic recovery docs against the actual extended batch history instead of trusting the stale Batch 5/6
+  closeout wording.
+- Updated the recovery materials in place:
+  - `ai-plan/public/README.md`
+  - `ai-plan/public/audit-plugin-mvp/README.md`
+  - `ai-plan/public/audit-plugin-mvp/todos/audit-plugin-mvp-tracking.md`
+  - `ai-plan/public/audit-plugin-mvp/traces/audit-plugin-mvp-trace.md`
+- Chose the terminal result as `archive-ready` because:
+  - Batch 6 backend policy-governed audit boundary repair is validated
+  - Batch 7 frontend semantics convergence is validated
+  - no further owned-scope runtime fix was required just to make the closeout truthful
+- Recorded the follow-up policy explicitly:
+  - request-log and system-log product work belongs to future topics
+  - audit-policy UI belongs to a future topic if needed
+  - regex rule engines, condition-expression evaluation, SOC workflows, and risk analytics remain out of scope
+- This topic is now archived in place and no longer belongs in the active recovery list.

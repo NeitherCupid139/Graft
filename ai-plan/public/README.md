@@ -12,18 +12,30 @@ Overlay note:
 
 ## Active Topics
 
-  - `audit-plugin-mvp`
-  - Purpose: hold the dedicated recovery entry for the audit plugin MVP loop spanning `server` and `web`, starting
-    from exploration and then closing through bounded implementation batches.
-  - Tracking: `ai-plan/public/audit-plugin-mvp/todos/audit-plugin-mvp-tracking.md`
-  - Trace: `ai-plan/public/audit-plugin-mvp/traces/audit-plugin-mvp-trace.md`
-  - Recovery note: this topic now runs from the dedicated `feat/wt-audit-plugin-mvp` worktree on branch
-    `feat/wt-audit-plugin-mvp`; standing ownership is centered on `server/plugins/audit/**` and
-    `web/src/modules/audit/**`, while shared-hotspot touches remain serialized exceptions. This owned scope guides
-    default responsibility, not canonical authority; if future audit drift is traced to upstream authority, escalate
-    and repair there rather than adding downstream compatibility.
+- none
 
 ## Archived Topics
+
+- `audit-plugin-mvp`
+  - Status: `archived`
+  - Recovery status: no continuation required; do not restore this topic into the active recovery path.
+  - Archive reason: the dedicated audit plugin MVP loop completed its planned backend and frontend batches, recorded
+    the Batch 6 and Batch 7 validation evidence, and reached archive-ready closeout without widening into request-log
+    products, system-log products, or SOC-style security capabilities.
+  - Final result: the topic accepted `Access Log / Request Log -> Audit Policy -> Audit Log` as the MVP model; normal
+    request traffic no longer defines the audit dataset by default; persisted audit policy rules now own default
+    include/exclude behavior; the frontend audit overview and log copy now describe policy-filtered security audit
+    events instead of generic traffic noise.
+  - Follow-up status: `future-topic-only`
+  - Archived topic directory:
+    - `ai-plan/public/audit-plugin-mvp`
+  - Archive notes:
+    - future request-log or system-log product work should open separate topics instead of reviving this archived audit
+      MVP line
+    - future audit-policy UI should open a new bounded topic if the repository needs operator-facing rule management
+    - regex rule engines, dynamic expressions, risk analytics, geo/IP profiling, and SOC workflows remain intentionally
+      out of scope for this archive line
+  - Next-session prompt: `Re-run startup preflight from root AGENTS.md. If follow-up is needed, open a new topic instead of resuming audit-plugin-mvp.`
 
 - `backend-rbac-contract-audit`
   - Status: `archived`
@@ -155,9 +167,9 @@ Overlay note:
     grant standing feature ownership to the root worktree
 - Worktree: `feat/wt-audit-plugin-mvp`
   - Branch: `feat/wt-audit-plugin-mvp`
-  - Active topic: `audit-plugin-mvp`
-  - Role: dedicated audit plugin MVP worktree and recovery entry for slices centered on `server/plugins/audit/**` and
-    `web/src/modules/audit/**`
-  - Hotspot policy: no standing shared-hotspot ownership; current serialized exception is limited to public recovery
-    docs at `ai-plan/public/README.md` and `ai-plan/public/audit-plugin-mvp/**` while the topic baseline is being
-    established
+  - Active topic: none
+  - Archived topic history: `audit-plugin-mvp`
+  - Role: retained historical worktree for the archived audit plugin MVP recovery materials; future audit follow-up must
+    start as a new topic instead of resuming this worktree as an active recovery entry
+  - Hotspot policy: no standing feature ownership; only archived recovery docs under `ai-plan/public/audit-plugin-mvp/**`
+    remain as historical evidence
