@@ -368,7 +368,6 @@ import * as echarts from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
 import { DataBaseIcon, InfoCircleIcon, LinkIcon } from 'tdesign-icons-vue-next';
 import type { SelectProps } from 'tdesign-vue-next';
-import { MessagePlugin } from 'tdesign-vue-next';
 import type { Component } from 'vue';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -954,7 +953,6 @@ async function fetchServerStatus(options: { manual?: boolean } = {}) {
 
     if (options.manual || previousFailures === 0) {
       const message = resolveLocalizedErrorMessage(t, error, t('monitor.serverStatus.loadFailed'));
-      MessagePlugin.error(message);
       openCorrelationErrorNotification({
         router,
         title: t('audit.correlation.errorTitle'),
