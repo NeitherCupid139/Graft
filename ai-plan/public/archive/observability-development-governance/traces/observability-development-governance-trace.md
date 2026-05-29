@@ -83,3 +83,63 @@
 - Phase A, Phase B, and Phase C all completed in the required order.
 - Current branch remains `feat/observability-development-governance`.
 - This topic now serves as archive-ready evidence for future observability or audit UX follow-up.
+
+## 2026-05-29 Post-Phase-C P2 follow-up accepted bounded contract direction
+
+- Re-ran startup preflight from root `AGENTS.md` for a new delegated round with:
+  - governance source: `root AGENTS.md`
+  - task class: `cross-boundary`
+  - recovery source: `parent topic`
+- Re-read:
+  - `web/AGENTS.md`
+  - `server/AGENTS.md`
+  - `ai-plan/public/README.md`
+  - this topic's `README`, tracking, and trace files
+  - `ai-plan/design/前端架构设计.md`
+  - `ai-plan/design/契约治理与魔法值治理规范.md`
+  - `ai-plan/design/TDesign-MCP-辅助开发规范.md`
+- Confirmed this work is a bounded follow-up after Phase C, not a reopening of the original three-phase governance loop.
+- Confirmed current backend authority status:
+  - `summary.high_risk_events` already exists and remains the canonical high-risk summary count
+  - grouped risk analytics, trend series, and a dedicated security timeline do not yet exist as backend/OpenAPI contracts
+  - backend `AuditSource` authority already exists in `server/plugins/audit/store/**` but is not yet exposed as a first-class read/query contract
+- Accepted the smallest canonical extension shape for the follow-up:
+  - add `risk_groups`, `trend`, and `security_timeline` to `/audit/overview`
+  - add first-class `source` query semantics to `/audit/logs`
+- Explicitly preserved non-goals:
+  - no fake frontend analytics
+  - no general metrics or observability rollout
+  - no shell/layout redesign
+  - no broad audit-platform redesign
+- Validation expectation for this decision-only batch:
+  - `git diff --check`
+
+## 2026-05-29 Post-Phase-C P2 follow-up completed implementation and closeout
+
+- Re-ran startup preflight from root `AGENTS.md` for the terminal cross-boundary closeout round.
+- Verified the implemented slice stayed within the accepted authority chain:
+  - `server/plugins/audit/**` and `server/internal/audit/**` own the read-model additions
+  - `openapi/**` owns the shared contract update
+  - `web/src/modules/audit/**` consumes the canonical fields without deriving frontend-only analytics
+- Confirmed the bounded implementation result:
+  - `/audit/overview` exposes `risk_groups`, `trend`, and `security_timeline`
+  - `/audit/logs` exposes first-class `source` query semantics
+  - the audit overview and logs pages consume those canonical fields while preserving the existing shell/layout
+- Confirmed the follow-up remained bounded:
+  - no general observability or metrics rollout
+  - no shell redesign
+  - no fake summary/trend/timeline data
+- Validation evidence accepted for the implemented slice:
+  - `cd server && go test ./internal/httpx ./internal/audit ./internal/logger ./cmd/graft ./plugins/user/... ./plugins/rbac/... ./plugins/audit/...`
+  - `cd web && bun run check`
+  - `git diff --check`
+- Closeout decision:
+  - `audit-console-analytics-p2` is archive-ready
+  - this follow-up is now part of `observability-development-governance` archive-ready evidence
+  - future audit analytics work must open a new bounded topic instead of extending this closed follow-up
+
+## 2026-05-29 Topic archive move completed
+
+- Moved the completed topic recovery materials from `ai-plan/public/observability-development-governance/**` to `ai-plan/public/archive/observability-development-governance/**`.
+- Updated the public recovery index so this topic no longer appears under active topics.
+- Recorded this topic as archived historical evidence for future observability, metrics-governance, or audit-console follow-up topics only.

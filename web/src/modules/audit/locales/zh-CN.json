@@ -54,13 +54,20 @@
         "failedAuth": "最近认证失败事件",
         "permissionDenied": "最近权限拒绝事件",
         "sensitiveOps": "最近敏感操作事件",
+        "trend": "风险趋势",
+        "securityTimeline": "安全事件时间线",
         "shortcuts": "快捷入口",
         "riskWatch": "最近风险"
       },
-      "futureRiskWatch": {
-        "title": "风险摘要与趋势仍待后续 Phase",
-        "description": "当前概览只展示真实审计聚合结果。高风险摘要、趋势图和安全时间线将在后续 topic 中补齐。",
-        "tag": "Future"
+      "riskGroups": {
+        "criticalSecurity": "严重安全异常",
+        "highRiskOperations": "高风险操作聚集",
+        "authFailures": "认证失败聚集",
+        "permissionDenials": "权限拒绝聚集",
+        "meta": "当前窗口共 {count} 条"
+      },
+      "trend": {
+        "pointMeta": "总量 {total} / 高风险 {highRisk} / 安全事件 {security}"
       },
       "stats": {
         "totalLogs": {
@@ -225,6 +232,7 @@
         "keywordPlaceholder": "关键字搜索：操作、请求 ID、审计目标、操作对象",
         "actorPlaceholder": "操作者",
         "actionPlaceholder": "操作类型",
+        "sourcePlaceholder": "事件类型",
         "datePlaceholder": "时间范围",
         "resourcePlaceholder": "审计目标 / 目标对象 / 操作对象",
         "resourceIdPlaceholder": "资源 ID",
@@ -236,6 +244,7 @@
       },
       "filterOptions": {
         "allActions": "全部操作",
+        "allSource": "全部事件类型",
         "auth": "认证",
         "role": "角色",
         "permission": "权限",

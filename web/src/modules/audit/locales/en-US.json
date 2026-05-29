@@ -54,13 +54,20 @@
         "failedAuth": "Recent Authentication Failures",
         "permissionDenied": "Recent Permission Denials",
         "sensitiveOps": "Recent Sensitive Audit Events",
+        "trend": "Risk Trend",
+        "securityTimeline": "Security Event Timeline",
         "shortcuts": "Quick Links",
         "riskWatch": "Recent Risk"
       },
-      "futureRiskWatch": {
-        "title": "Risk summary and trend remain a later phase",
-        "description": "This overview only shows real audit aggregates today. High-risk summaries, trends, and security timelines stay in a future topic.",
-        "tag": "Future"
+      "riskGroups": {
+        "criticalSecurity": "Critical Security Failures",
+        "highRiskOperations": "High-Risk Operations",
+        "authFailures": "Authentication Failures",
+        "permissionDenials": "Permission Denials",
+        "meta": "{count} events in the current window"
+      },
+      "trend": {
+        "pointMeta": "Total {total} / High risk {highRisk} / Security {security}"
       },
       "stats": {
         "totalLogs": {
@@ -225,6 +232,7 @@
         "keywordPlaceholder": "Keyword: action, request ID, audit target, operated object",
         "actorPlaceholder": "Actor",
         "actionPlaceholder": "Action type",
+        "sourcePlaceholder": "Event type",
         "datePlaceholder": "Time range",
         "resourcePlaceholder": "Audit Target / Target Object / Operated Object",
         "resourceIdPlaceholder": "Resource ID",
@@ -236,6 +244,7 @@
       },
       "filterOptions": {
         "allActions": "All actions",
+        "allSource": "All event types",
         "auth": "Authentication",
         "role": "Role",
         "permission": "Permission",

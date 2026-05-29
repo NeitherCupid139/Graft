@@ -106,17 +106,7 @@ const pagination = ref({
   pageSize: 10,
 });
 const filters = ref<AuditClientFilterState>({
-  keyword: '',
-  actor: '',
-  action: '',
-  createdRange: [],
-  resource: '',
-  resourceId: '',
-  result: 'all',
-  riskLevel: 'all',
-  session: '',
-  requestId: '',
-  traceId: '',
+  ...createDefaultFilters(),
 });
 
 const presetViews = computed(() => [
@@ -157,6 +147,9 @@ function buildQuery(): AuditLogQuery {
 
   if (filters.value.action) {
     query.action = filters.value.action;
+  }
+  if (filters.value.source) {
+    query.source = filters.value.source as AuditLogQuery['source'];
   }
   if (filters.value.resource) {
     query.resource_type = filters.value.resource;
@@ -220,44 +213,10 @@ async function fetchAuditLogs() {
 
 function applyPreset(preset: PresetKey) {
   activePreset.value = preset;
-
-  if (preset === 'all') {
-    filters.value.action = '';
-    filters.value.result = 'all';
-    filters.value.resource = '';
-    filters.value.resourceId = '';
-    filters.value.riskLevel = 'all';
-  } else if (preset === 'today-anomalies') {
-    filters.value.action = '';
-    filters.value.result = 'ERROR';
-    filters.value.resource = '';
-    filters.value.resourceId = '';
-    filters.value.riskLevel = 'HIGH';
-  } else if (preset === 'permission-denied') {
-    filters.value.action = '';
-    filters.value.result = 'DENIED';
-    filters.value.resource = '';
-    filters.value.resourceId = '';
-    filters.value.riskLevel = 'CRITICAL';
-  } else if (preset === 'auth-failed') {
-    filters.value.action = '';
-    filters.value.result = 'FAILED';
-    filters.value.resource = 'auth';
-    filters.value.resourceId = '';
-    filters.value.riskLevel = 'HIGH';
-  } else if (preset === 'sensitive-ops') {
-    filters.value.action = '';
-    filters.value.result = 'all';
-    filters.value.resource = '';
-    filters.value.resourceId = '';
-    filters.value.riskLevel = 'HIGH';
-  } else if (preset === 'high-risk') {
-    filters.value.action = '';
-    filters.value.result = 'all';
-    filters.value.resource = '';
-    filters.value.resourceId = '';
-    filters.value.riskLevel = 'CRITICAL';
-  }
+  filters.value = {
+    ...createDefaultFilters(),
+    ...presetFilterOverrides(preset),
+  };
 
   pagination.value.current = 1;
   syncRouteQuery();
@@ -270,10 +229,19 @@ function handleSearch() {
 }
 
 function resetFilters() {
-  filters.value = {
+  filters.value = createDefaultFilters();
+  activePreset.value = 'all';
+  pagination.value.current = 1;
+  syncRouteQuery();
+  fetchAuditLogs();
+}
+
+function createDefaultFilters(): AuditClientFilterState {
+  return {
     keyword: '',
     actor: '',
     action: '',
+    source: '',
     createdRange: [],
     resource: '',
     resourceId: '',
@@ -283,10 +251,23 @@ function resetFilters() {
     requestId: '',
     traceId: '',
   };
-  activePreset.value = 'all';
-  pagination.value.current = 1;
-  syncRouteQuery();
-  fetchAuditLogs();
+}
+
+function presetFilterOverrides(preset: PresetKey): Partial<AuditClientFilterState> {
+  switch (preset) {
+    case 'today-anomalies':
+      return { source: 'SECURITY_EVENT', result: 'ERROR', riskLevel: 'HIGH' };
+    case 'permission-denied':
+      return { source: 'SECURITY_EVENT', result: 'DENIED', riskLevel: 'CRITICAL' };
+    case 'auth-failed':
+      return { source: 'REQUEST', result: 'FAILED', resource: 'auth', riskLevel: 'HIGH' };
+    case 'sensitive-ops':
+      return { riskLevel: 'HIGH' };
+    case 'high-risk':
+      return { source: 'SECURITY_EVENT', riskLevel: 'CRITICAL' };
+    default:
+      return {};
+  }
 }
 
 function openDetailDrawer(row: AuditLogListItem) {
@@ -324,6 +305,7 @@ function applyRouteFilters() {
     keyword: firstQueryValue(route.query.keyword),
     actor: firstQueryValue(route.query.actor),
     action: firstQueryValue(route.query.action),
+    source: firstQueryValue(route.query.source),
     createdRange: [],
     resource: firstQueryValue(route.query.resourceType),
     resourceId: firstQueryValue(route.query.resourceId),
@@ -361,6 +343,9 @@ function syncRouteQuery() {
   }
   if (filters.value.action) {
     query.action = filters.value.action;
+  }
+  if (filters.value.source) {
+    query.source = filters.value.source;
   }
   if (filters.value.resource) {
     query.resourceType = filters.value.resource;

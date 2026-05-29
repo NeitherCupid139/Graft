@@ -31,6 +31,12 @@ get:
       required: false
       schema:
         type: string
+    - name: source
+      in: query
+      required: false
+      schema:
+        type: string
+        enum: [REQUEST, SECURITY_EVENT, DOMAIN_EVENT]
     - name: resource_type
       in: query
       required: false

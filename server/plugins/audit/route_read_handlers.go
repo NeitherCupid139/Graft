@@ -203,6 +203,16 @@ func bindAuditStringFilters(ginCtx *gin.Context, params *auditopenapi.GetAuditLo
 }
 
 func bindAuditEnumFilters(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParams, query *auditcore.ListQuery) string {
+	if raw := strings.ToUpper(strings.TrimSpace(ginCtx.Query("source"))); raw != "" {
+		switch auditstore.AuditSource(raw) {
+		case auditstore.AuditSourceRequest, auditstore.AuditSourceSecurityEvent, auditstore.AuditSourceDomainEvent:
+		default:
+			return "source"
+		}
+		value := auditopenapi.GetAuditLogsParamsSource(raw)
+		params.Source = &value
+		query.Source = auditstore.AuditSource(raw)
+	}
 	if raw := strings.ToUpper(strings.TrimSpace(ginCtx.Query("result"))); raw != "" {
 		switch auditstore.AuditResult(raw) {
 		case auditstore.AuditResultSuccess, auditstore.AuditResultFailed, auditstore.AuditResultDenied, auditstore.AuditResultError:

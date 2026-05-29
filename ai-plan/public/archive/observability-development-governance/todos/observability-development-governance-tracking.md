@@ -3,7 +3,7 @@
 ## Topic
 
 - Topic: `observability-development-governance`
-- Status: `archive-ready`
+- Status: `archived`
 - Goal:
   - define the backend development standard for app log / audit / security event / metric placeholder
   - inventory and roll out bounded compliance fixes against current code
@@ -33,7 +33,7 @@
 
 - Owned scope:
   - `ai-plan/design/日志治理开发规范.md`
-  - `ai-plan/public/observability-development-governance/**`
+  - `ai-plan/public/archive/observability-development-governance/**`
   - `ai-plan/public/README.md`
   - later Phase B/Phase C bounded files only after inventory
 - Forbidden scope:
@@ -163,3 +163,113 @@
 - Topic status moved to `archive-ready` after Phase A, Phase B, and Phase C all reached acceptance.
 - No further batch remains inside the approved three-phase loop.
 - Any follow-up on metrics governance, deeper audit UX, or broader observability productization must open a new bounded topic.
+
+## P2 Follow-Up Startup Receipt
+
+- Date: `2026-05-29`
+- Follow-up: `audit-console-analytics-p2`
+- Governance source: `root AGENTS.md`
+- Task class: `cross-boundary`
+- Recovery source: `parent topic`
+- Authority summary:
+  - `server/plugins/audit/store/**` and `server/internal/audit/**` own the read-model semantics for audit analytics
+  - `openapi/**` owns the shared API contract consumed by `web`
+  - `web/src/modules/audit/**` remains a downstream presentation layer and must not infer analytics from paged list data
+
+## P2 Follow-Up Scope
+
+- Trigger:
+  - Phase C intentionally stopped after governance UX and removed fake overview risk-watch runtime content.
+  - P2 now covers only the missing real analytics needed by the audit overview console.
+- Owned implementation scope for the follow-up:
+  - `server/internal/audit/**`
+  - `server/plugins/audit/**`
+  - `openapi/**`
+  - `web/src/modules/audit/**`
+- Explicit non-goals:
+  - general observability dashboards
+  - metrics/tracing rollout
+  - compatibility shim that derives analytics from frontend log pages
+  - broad audit-console IA or shell changes
+
+## P2 Follow-Up Contract Decision
+
+- `high-risk event summary`
+  - no new field accepted
+  - canonical count remains `summary.high_risk_events` on `/audit/overview`
+- `/audit/overview` accepted additions:
+  - `risk_groups`
+    - bounded grouped summary owned by backend audit authority
+    - shape: array of group objects with stable `key`, display `label_key`, `count`, and `risk_level`
+    - initial groups stay bounded to operator-facing audit categories instead of arbitrary user-defined aggregations
+  - `trend`
+    - bounded server-computed time series owned by backend audit authority
+    - shape: object with `bucket_unit`, `bucket_size`, and ordered `points`
+    - each point carries `bucket_start`, `bucket_end`, `total`, `failed`, `high_risk`, and `security_events`
+    - bucket plan is derived from the existing `window` query rather than a new free-form range parameter
+  - `security_timeline`
+    - bounded recent-event collection owned by backend audit authority
+    - shape: array of timeline items with `id`, `created_at`, `source`, `risk_level`, `action`, `result`, `request_id`, and optional actor/resource labels
+    - this collection is for recent security-relevant events, not a second paginated log endpoint
+- `/audit/logs` accepted addition:
+  - `source`
+    - first-class query filter
+    - backed by the existing backend `AuditSource` authority values
+    - initial enum remains bounded to `REQUEST`, `SECURITY_EVENT`, and `DOMAIN_EVENT`
+- Query/governance note:
+  - no update to `ai-plan/design/契约治理与魔法值治理规范.md` is required in this batch because the governance model is unchanged; this round only records the accepted canonical owner and the smallest new contract fields under existing authority-first rules.
+
+## Expected Batch 3 Implementation Scope
+
+- Backend:
+  - extend audit store/service/repository read DTOs for `risk_groups`, `trend`, `security_timeline`, and log-list `source` query
+  - implement the smallest SQL/repository aggregation needed for the accepted overview fields
+  - surface the new fields through audit HTTP mappers and read handlers
+- OpenAPI:
+  - add the new `/audit/overview` schemas
+  - add `/audit/logs` `source` query parameter and list-item/timeline enums as needed
+- Frontend:
+  - consume the canonical overview additions in the existing overview page layout
+  - keep current shell and page structure stable
+- Deferred beyond batch 3:
+  - custom analytics drill-down
+  - configurable trend windows
+  - additional backend filtering not required by the accepted fields
+
+## P2 Follow-Up Implementation Result
+
+- Implemented backend authority additions:
+  - `/audit/overview` now returns `risk_groups`, `trend`, and `security_timeline`
+  - `/audit/logs` now accepts first-class `source` query filtering
+- Implemented consumer updates:
+  - `web/src/modules/audit/pages/overview/index.vue` renders backend-owned grouped risk analytics, trend bars, and the security timeline inside the existing page structure
+  - `web/src/modules/audit/pages/logs/index.vue` and `AuditFilters.vue` now consume the canonical `source` query/filter semantics
+- Preserved intentionally:
+  - existing shell/layout and page IA
+  - existing `summary.high_risk_events` as the canonical high-risk count
+  - no frontend-derived fallback analytics
+  - no metrics/tracing or broader observability rollout
+
+## P2 Follow-Up Validation
+
+- Passed:
+  - `cd server && go test ./internal/httpx ./internal/audit ./internal/logger ./cmd/graft ./plugins/user/... ./plugins/rbac/... ./plugins/audit/...`
+  - `cd web && bun run check`
+  - `git diff --check`
+
+## P2 Follow-Up Closeout Decision
+
+- Follow-up status moved to `archive-ready`.
+- No remaining batch stays in scope for `audit-console-analytics-p2`.
+- Any later audit-console analytics expansion must open a new bounded topic instead of reusing this closed follow-up.
+
+## Final Status
+
+- Result: `archived`
+- Commit eligibility:
+  - owned scope is clear
+  - validation is complete for directly changed code
+  - this archive move only closes the already accepted topic and follow-up evidence
+- Archive notes:
+  - future `metrics-governance` work must open a separate bounded topic
+  - further audit-console analytics work must start as a new bounded topic instead of extending this archived line

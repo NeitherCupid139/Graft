@@ -93,6 +93,20 @@
         </governance-section>
 
         <div class="audit-overview__stack">
+          <governance-section :title="t('audit.overview.sections.riskWatch')">
+            <div class="audit-overview__watch-list">
+              <article v-for="group in riskGroups" :key="group.key" class="audit-overview__watch-item">
+                <div>
+                  <strong>{{ t(group.label_key) }}</strong>
+                  <p>{{ t('audit.overview.riskGroups.meta', { count: group.count }) }}</p>
+                </div>
+                <t-tag :theme="riskTheme(group.risk_level)" variant="light-outline" size="small">
+                  {{ t(`audit.common.risk.${group.risk_level}`) }}
+                </t-tag>
+              </article>
+            </div>
+          </governance-section>
+
           <governance-section :title="t('audit.overview.sections.shortcuts')">
             <div class="audit-overview__shortcut-list">
               <button
@@ -107,21 +121,56 @@
               </button>
             </div>
           </governance-section>
-
-          <governance-section :title="t('audit.overview.sections.riskWatch')">
-            <div class="audit-overview__watch-list">
-              <article class="audit-overview__watch-item">
-                <div>
-                  <strong>{{ t('audit.overview.futureRiskWatch.title') }}</strong>
-                  <p>{{ t('audit.overview.futureRiskWatch.description') }}</p>
-                </div>
-                <t-tag theme="default" variant="light-outline" size="small">
-                  {{ t('audit.overview.futureRiskWatch.tag') }}
-                </t-tag>
-              </article>
-            </div>
-          </governance-section>
         </div>
+      </section>
+
+      <section class="audit-overview__grid audit-overview__grid--bottom">
+        <governance-section :title="t('audit.overview.sections.trend')">
+          <div class="audit-overview__trend">
+            <div v-for="point in trendPoints" :key="point.key" class="audit-overview__trend-point">
+              <div class="audit-overview__trend-bars">
+                <div
+                  class="audit-overview__trend-bar audit-overview__trend-bar--total"
+                  :style="{ height: point.totalHeight }"
+                />
+                <div
+                  class="audit-overview__trend-bar audit-overview__trend-bar--risk"
+                  :style="{ height: point.highRiskHeight }"
+                />
+                <div
+                  class="audit-overview__trend-bar audit-overview__trend-bar--security"
+                  :style="{ height: point.securityHeight }"
+                />
+              </div>
+              <strong>{{ point.label }}</strong>
+              <span>{{ t('audit.overview.trend.pointMeta', point.meta) }}</span>
+            </div>
+          </div>
+        </governance-section>
+
+        <governance-section :title="t('audit.overview.sections.securityTimeline')">
+          <t-timeline class="audit-overview__timeline" mode="same">
+            <t-timeline-item
+              v-for="item in securityTimeline"
+              :key="item.id"
+              :label="formatTime(item.created_at)"
+              :dot-color="timelineDotColor(item.risk_level)"
+            >
+              <div class="audit-overview__timeline-item">
+                <strong>{{ item.action }}</strong>
+                <p>{{ item.resource_name || item.resource_type || t('audit.common.unknownResource') }}</p>
+                <div class="audit-overview__timeline-meta">
+                  <t-tag :theme="riskTheme(item.risk_level)" variant="light-outline" size="small">
+                    {{ t(`audit.common.risk.${item.risk_level}`) }}
+                  </t-tag>
+                  <t-tag theme="default" variant="light-outline" size="small">
+                    {{ t(`audit.common.source.${item.source}`) }}
+                  </t-tag>
+                </div>
+              </div>
+            </t-timeline-item>
+          </t-timeline>
+        </governance-section>
       </section>
     </governance-dashboard-shell>
   </div>
@@ -202,6 +251,26 @@ const sensitiveItems = computed(() =>
   toOverviewCards(overview.value?.sensitive_operations, t('audit.overview.itemResult.sensitive')),
 );
 
+const riskGroups = computed(() => overview.value?.risk_groups ?? []);
+const securityTimeline = computed(() => overview.value?.security_timeline ?? []);
+const trendPoints = computed(() => {
+  const points = overview.value?.trend?.points ?? [];
+  const maxTotal = Math.max(...points.map((point) => point.total), 1);
+
+  return points.map((point) => ({
+    key: `${point.bucket_start}-${point.bucket_end}`,
+    label: formatBucketLabel(point.bucket_start),
+    totalHeight: `${Math.max((point.total / maxTotal) * 100, 8)}%`,
+    highRiskHeight: `${Math.max((point.high_risk / maxTotal) * 100, point.high_risk > 0 ? 8 : 0)}%`,
+    securityHeight: `${Math.max((point.security_events / maxTotal) * 100, point.security_events > 0 ? 8 : 0)}%`,
+    meta: {
+      total: point.total,
+      highRisk: point.high_risk,
+      security: point.security_events,
+    },
+  }));
+});
+
 const shortcuts = computed(() => [
   {
     key: 'failed',
@@ -259,6 +328,46 @@ function toOverviewCards(items: AuditOverviewItem[] | undefined, result: string)
   }));
 }
 
+function riskTheme(level?: string) {
+  if (level === 'CRITICAL') {
+    return 'danger';
+  }
+  if (level === 'HIGH') {
+    return 'warning';
+  }
+  if (level === 'MEDIUM') {
+    return 'primary';
+  }
+  return 'default';
+}
+
+function timelineDotColor(level?: string) {
+  if (level === 'CRITICAL') {
+    return 'var(--td-error-color)';
+  }
+  if (level === 'HIGH') {
+    return 'var(--td-warning-color)';
+  }
+  if (level === 'MEDIUM') {
+    return 'var(--td-brand-color)';
+  }
+  return 'var(--td-text-color-placeholder)';
+}
+
+function formatBucketLabel(value?: string) {
+  if (!value) {
+    return '-';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  if (overview.value?.trend?.bucket_unit === 'day') {
+    return new Intl.DateTimeFormat('zh-CN', { month: '2-digit', day: '2-digit' }).format(date);
+  }
+  return new Intl.DateTimeFormat('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit' }).format(date);
+}
+
 function formatTime(value?: string) {
   if (!value) {
     return '-';
@@ -304,7 +413,8 @@ onMounted(() => {
 
 .audit-overview__stack,
 .audit-overview__list,
-.audit-overview__watch-list {
+.audit-overview__watch-list,
+.audit-overview__timeline {
   gap: 16px;
 }
 
@@ -340,6 +450,62 @@ onMounted(() => {
   cursor: pointer;
   text-align: left;
   width: 100%;
+}
+
+.audit-overview__trend {
+  align-items: end;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(48px, 1fr));
+  min-height: 240px;
+}
+
+.audit-overview__trend-point {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.audit-overview__trend-bars {
+  align-items: end;
+  display: flex;
+  gap: 4px;
+  height: 160px;
+}
+
+.audit-overview__trend-bar {
+  border-radius: 999px 999px 0 0;
+  min-height: 0;
+  width: 10px;
+}
+
+.audit-overview__trend-bar--total {
+  background: color-mix(in srgb, var(--td-brand-color) 35%, white);
+}
+
+.audit-overview__trend-bar--risk {
+  background: var(--td-warning-color);
+}
+
+.audit-overview__trend-bar--security {
+  background: var(--td-error-color);
+}
+
+.audit-overview__timeline-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.audit-overview__timeline-item p {
+  color: var(--td-text-color-secondary);
+  margin: 0;
+}
+
+.audit-overview__timeline-meta {
+  display: flex;
+  gap: 8px;
 }
 
 @media (width <= 1280px) {

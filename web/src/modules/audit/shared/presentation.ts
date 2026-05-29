@@ -10,6 +10,7 @@ export type AuditClientFilterState = {
   keyword: string;
   actor: string;
   action: string;
+  source: string;
   createdRange: string[];
   resource: string;
   resourceId: string;
@@ -97,7 +98,7 @@ function sourceForRecord(row: AuditLogListItem): AuditSourceValue {
 }
 
 export function sourceLabel(row: AuditLogListItem, t: Translate) {
-  return t(`audit.common.source.${sourceForRecord(row)}`);
+  return t(`audit.common.source.${row.source || sourceForRecord(row)}`);
 }
 
 export function metadataLookup(row: AuditLogListItem, key: string) {
@@ -209,6 +210,7 @@ export function matchesAuditRow(row: AuditLogListItem, filters: AuditClientFilte
   const keyword = filters.keyword.trim().toLowerCase();
   const actor = filters.actor.trim().toLowerCase();
   const action = filters.action.trim().toLowerCase();
+  const source = filters.source.trim().toUpperCase();
   const resource = filters.resource.trim().toLowerCase();
   const resourceId = filters.resourceId.trim().toLowerCase();
   const session = filters.session.trim().toLowerCase();
@@ -240,6 +242,10 @@ export function matchesAuditRow(row: AuditLogListItem, filters: AuditClientFilte
   }
 
   if (action && !includesText(row.action, action)) {
+    return false;
+  }
+
+  if (source && (row.source || sourceForRecord(row)) !== source) {
     return false;
   }
 

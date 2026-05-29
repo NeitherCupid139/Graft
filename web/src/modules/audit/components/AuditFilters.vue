@@ -37,6 +37,14 @@
           />
         </div>
         <div v-if="advancedVisible" class="audit-filters__row">
+          <t-select
+            :model-value="modelValue.source"
+            class="audit-filters__input"
+            clearable
+            :options="sourceOptions"
+            :placeholder="t('audit.logList.filters.sourcePlaceholder')"
+            @update:model-value="updateField('source', $event)"
+          />
           <t-input
             :model-value="modelValue.resource"
             class="audit-filters__input"
@@ -138,6 +146,13 @@ const actionOptions = computed(() => [
   { label: t('audit.logList.filterOptions.role'), value: 'role' },
   { label: t('audit.logList.filterOptions.permission'), value: 'permission' },
   { label: t('audit.logList.filterOptions.session'), value: 'session' },
+]);
+
+const sourceOptions = computed(() => [
+  { label: t('audit.logList.filterOptions.allSource'), value: '' },
+  { label: t('audit.common.source.REQUEST'), value: 'REQUEST' },
+  { label: t('audit.common.source.SECURITY_EVENT'), value: 'SECURITY_EVENT' },
+  { label: t('audit.common.source.DOMAIN_EVENT'), value: 'DOMAIN_EVENT' },
 ]);
 
 const resultOptions = computed(() => [
