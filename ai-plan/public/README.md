@@ -18,14 +18,15 @@ Overlay note:
 
 - `audit-monitor-phase-b-integration`
   - Status: `archived`
-  - Recovery status: completed the bounded Phase B authority-discovery and design loop; no active continuation remains until an implementation slice is opened.
+  - Recovery status: completed the bounded Phase B authority-discovery, design, and final maturity-review loop; Phase B is closed and no active continuation remains until a new bounded topic is opened.
   - Archive reason: the truthful next step was an authority-first integration design, not a fake frontend correlation layer or an observability-platform rollout.
   - Final result:
     - identified `audit` and `monitor` canonical authorities plus the required upstream authority repairs
     - defined a bounded `monitor resource -> evidence link -> audit context` integration model
     - defined a dedicated security timeline drilldown workflow based on an audit-owned incident read model
     - produced contract, backend, frontend, and UX gap analysis plus a B1/B2/B3 roadmap
-    - recommended Phase B1 as the first implementation slice so monitor anomaly semantics move into backend/OpenAPI before incident-page expansion
+    - confirmed Phase B1, Phase B2, and Phase B3 as complete design evidence inside the archive closeout
+    - recommended governance enforcement as the next bounded observability topic, with Phase B1 still the first implementation slice if runtime integration is later approved
   - Follow-up status: `new-topic-only`
   - Archived topic directory:
     - `ai-plan/public/archive/audit-monitor-phase-b-integration`
@@ -33,7 +34,7 @@ Overlay note:
     - do not introduce OpenTelemetry, Prometheus, Grafana, tracing, or log-platform scope under this topic
     - repair canonical authority first: monitor anomaly semantics and audit evidence context must move upstream before UI drilldown expansion
     - related monitor context remains bounded by current short-retention monitor authority unless a future topic widens it explicitly
-  - Next-session prompt: `Re-run startup preflight from root AGENTS.md. Treat audit-monitor-phase-b-integration as archived design evidence and open a new bounded implementation topic only if Phase B1 authority repair is being started.`
+  - Next-session prompt: `Re-run startup preflight from root AGENTS.md. Treat audit-monitor-phase-b-integration as archived design evidence and Phase B as closed. Open a new bounded topic for governance enforcement first, or open a bounded implementation topic only if Phase B1 authority repair is being started.`
 
 - `observability-development-governance`
   - Status: `archived`

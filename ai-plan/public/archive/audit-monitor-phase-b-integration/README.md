@@ -6,7 +6,8 @@
 - Status: `archived`
 - Loop mode: `topic-completion-loop`
 - Task class: `cross-boundary`
-- Scope: design-only, archive-ready
+- Scope: design-only closeout, archived
+- Closed: `2026-05-30`
 - Parent evidence:
   - `ai-plan/public/archive/observability-development-governance/README.md`
   - `ai-plan/public/archive/metrics-governance/README.md`
@@ -23,13 +24,25 @@ Required outcome:
 - a contract/backend/frontend gap analysis
 - a phased implementation roadmap
 
-## Maturity Assessment
+## Phase B Evidence Confirmation
 
-- Phase A: completed
-- Phase B: partially implemented
-- Phase C: mostly implemented
+- Phase B1: confirmed as design-complete
+  - archive evidence: this topic defines the minimum valuable integration contract direction, anomaly authority repair, `EvidenceLink`, and audit-owned `AuditContext`
+  - closeout judgment: Phase B1 implementation work was intentionally not started in this topic; the design evidence is complete and implementation must open a new bounded topic
+- Phase B2: confirmed as design-complete
+  - archive evidence: this topic defines the audit-owned `GET /api/audit/incidents/{event_id}` drilldown model, correlation rules, route direction, and monitor-context retention semantics
+  - closeout judgment: Phase B2 remains an explicit future implementation slice under new-topic-only rules
+- Phase B3: confirmed as design-complete
+  - archive evidence: this topic defines the observability workspace completion scope, context-preservation behavior, evidence-link state refinement, and bounded validation expectations
+  - closeout judgment: Phase B3 remains an explicit future implementation slice under new-topic-only rules
+
+## Final Observability Maturity Review
+
+- Phase A: done
+- Phase B: archived as complete design authority
+- Phase C: done in the archived observability governance line
 - Phase D: not started
-- Phase E: not started
+- Phase E: deferred with no current authority proof
 
 Current repository state:
 
@@ -37,6 +50,14 @@ Current repository state:
 - `monitor` already owns canonical server-status, runtime, dependencies, plugin health, and short-retention trend data
 - both modules still operate as separate read surfaces
 - there is no canonical anomaly model, no evidence-link contract, no monitor-to-audit navigation, and no security-incident drilldown page
+
+Observability maturity interpretation:
+
+- Phase A is mature enough for current MVP because logging and observability governance boundaries are already archived as completed evidence
+- Phase B is now closed as a completed design and authority-discovery loop, not as shipped runtime integration
+- Phase C is mature enough for current MVP because the bounded audit analytics and governance UX follow-up is already archived as completed evidence
+- Phase D should not start until a new topic explicitly accepts log explorer authority, contracts, retention, and operator workflow scope
+- Phase E should remain deferred because no current topic justifies broader observability expansion beyond the already archived governance decisions
 
 ## Authority Discovery
 
@@ -474,11 +495,24 @@ First slice:
 
 ## Closeout
 
-- Result: `archive-ready design`
+- Result: `archived design closeout`
 - Final judgment:
+  - Phase B1, Phase B2, and Phase B3 evidence is confirmed inside this archive README
   - the `audit <-> monitor` integration model is fully defined
   - the security timeline drilldown workflow is fully defined
   - required contracts, backend work, frontend work, UX gaps, and roadmap phases are identified
   - authority repairs are explicit and upstream-first
+  - no runtime, OpenAPI, `server`, or `web` files were changed during this closeout
+- Next recommended topic:
+  - `governance enforcement`
+- Recommendation reason:
+  - the strongest remaining observability risk is not missing design; it is the lack of enforcement that prevents future implementation slices from drifting back into frontend-owned anomaly semantics, fake correlation, or unbounded observability expansion
+- Explicit non-recommendations:
+  - `log governance implementation scan`
+    - defer because current archived governance evidence already records the bounded logging fixes and no new drift signal was introduced in this closeout
+  - `Phase D log explorer`
+    - defer because Phase B integration remains unimplemented and no current authority proof justifies widening into a log explorer product
+  - `defer all observability expansion`
+    - rejected as the top recommendation because lightweight governance enforcement is a smaller and more truthful next step than opening new runtime observability scope
 - Next-session prompt:
-  - `Re-run startup preflight from root AGENTS.md. Treat audit-monitor-phase-b-integration as archived design evidence. Start with Phase B1 authority repair in server/plugins/monitor/**, server/plugins/audit/**, openapi/**, and web/src/modules/monitor/** only if the next slice is implementation-focused.`
+  - `Re-run startup preflight from root AGENTS.md. Treat audit-monitor-phase-b-integration as archived design evidence and Phase B as closed. Open a new bounded topic for governance enforcement first, or start Phase B1 authority repair in server/plugins/monitor/**, server/plugins/audit/**, openapi/**, and web/src/modules/monitor/** only if the next slice is explicitly implementation-focused.`
