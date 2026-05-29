@@ -1258,7 +1258,7 @@ async function handleUserSubmit(ctx: SubmitContext) {
       };
       const created = await createUser(payload);
       users.value = [{ ...created, roles: [] as UserRoleSummary[] }, ...users.value];
-      MessagePlugin.success(formatHintedMessage(t, t('user.userList.createSuccess')));
+      MessagePlugin.success(formatHintedMessage(t('user.userList.createSuccess')));
     } else if (userDrawerTarget.value) {
       const payload: UpdateUserPayload = {
         username: userForm.value.username.trim(),
@@ -1268,7 +1268,7 @@ async function handleUserSubmit(ctx: SubmitContext) {
       users.value = users.value.map((item) =>
         item.id === updated.id ? { ...item, ...updated, roles: item.roles } : item,
       );
-      MessagePlugin.success(formatHintedMessage(t, t('user.userList.editSuccess')));
+      MessagePlugin.success(formatHintedMessage(t('user.userList.editSuccess')));
     }
     closeUserDrawer();
   } catch (error) {
@@ -1301,7 +1301,6 @@ async function handleUserSubmit(ctx: SubmitContext) {
 
     MessagePlugin.error(
       formatHintedMessage(
-        t,
         userDrawerMode.value === 'create' ? t('user.userList.createFailed') : t('user.userList.editFailed'),
       ),
     );
@@ -1350,7 +1349,7 @@ async function submitResetPassword() {
       new_password: resetPasswordForm.value.password,
     };
     await resetUserPassword(resetPasswordTarget.value.id, payload);
-    MessagePlugin.success(formatHintedMessage(t, t('user.userList.resetPasswordSuccess')));
+    MessagePlugin.success(formatHintedMessage(t('user.userList.resetPasswordSuccess')));
     closeResetPasswordDialog();
   } catch (error) {
     logger.error('failed to reset password', error);
@@ -1416,7 +1415,7 @@ async function toggleUserStatus(user: UserRow) {
   try {
     const updated = await updateUserStatus(user.id, { status: nextStatus });
     users.value = users.value.map((item) => (item.id === updated.id ? { ...item, ...updated } : item));
-    MessagePlugin.success(formatHintedMessage(t, t('user.userList.statusUpdateSuccess')));
+    MessagePlugin.success(formatHintedMessage(t('user.userList.statusUpdateSuccess')));
   } catch (error) {
     logger.error('failed to update status', error);
     if (isApiRequestError(error)) {
@@ -1432,7 +1431,7 @@ async function toggleUserStatus(user: UserRow) {
       return;
     }
 
-    MessagePlugin.error(formatHintedMessage(t, t('user.userList.statusUpdateFailed')));
+    MessagePlugin.error(formatHintedMessage(t('user.userList.statusUpdateFailed')));
   }
 }
 
@@ -1457,7 +1456,7 @@ async function confirmDeleteUser(user: UserRow) {
     await deleteUser(user.id);
     users.value = users.value.filter((item) => item.id !== user.id);
     selectedRowKeys.value = selectedRowKeys.value.filter((item) => item !== user.id);
-    MessagePlugin.success(formatHintedMessage(t, t('user.userList.deleteSuccess')));
+    MessagePlugin.success(formatHintedMessage(t('user.userList.deleteSuccess')));
   } catch (error) {
     logger.error('failed to delete user', error);
     const message = resolveErrorMessageWithCorrelation(t, error, t('user.userList.deleteFailed'));
@@ -1709,12 +1708,12 @@ async function submitUserRoleAssignment() {
       users.value = users.value.map((item) =>
         targetIds.has(item.id) ? { ...item, roles: applyRoleMutation(item.roles) } : item,
       );
-      MessagePlugin.success(formatHintedMessage(t, t('user.userList.batchRoleUpdateSuccess')));
+      MessagePlugin.success(formatHintedMessage(t('user.userList.batchRoleUpdateSuccess')));
     } else {
       users.value = users.value.map((item) =>
         item.id === selectedUser.value?.id ? { ...item, roles: applyRoleMutation(item.roles) } : item,
       );
-      MessagePlugin.success(formatHintedMessage(t, t('user.userList.roleUpdateSuccess')));
+      MessagePlugin.success(formatHintedMessage(t('user.userList.roleUpdateSuccess')));
     }
     closeUserRoleDrawer();
   } catch (error) {

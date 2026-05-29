@@ -31,7 +31,7 @@ describe('correlation message helpers', () => {
       traceId: 'req-success',
     });
 
-    expect(formatHintedMessage(t, 'Saved successfully')).toBe('Saved successfully');
+    expect(formatHintedMessage('Saved successfully')).toBe('Saved successfully');
   });
 
   it('does not append correlation info to 4xx api errors', () => {

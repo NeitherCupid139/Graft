@@ -52,13 +52,7 @@ export function describeCorrelationId(translate: Translate, value: string) {
   return translate('audit.correlation.idLabel', { id: value });
 }
 
-export function formatHintedMessage(
-  translate: Translate,
-  baseMessage: string,
-  snapshot?: Partial<CorrelationSnapshot>,
-) {
-  void translate;
-  void snapshot;
+export function formatHintedMessage(baseMessage: string) {
   return baseMessage.trim();
 }
 

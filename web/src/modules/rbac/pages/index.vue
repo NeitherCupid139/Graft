@@ -519,6 +519,7 @@ const canAssignPermissions = computed(
 const canOpenPermissionDrawer = computed(() => canReadPermissions.value && permissions.value.length > 0);
 const canShowOperationColumn = computed(() =>
   permissionStore.hasAnyPermission([
+    AUDIT_PERMISSION_CODE.READ,
     permissionCodes.ROLE_UPDATE,
     permissionCodes.ROLE_DELETE,
     permissionCodes.ROLE_STATUS_UPDATE,
@@ -1133,12 +1134,12 @@ async function handleRoleSubmit(ctx: SubmitContext) {
     if (roleDrawerMode.value === 'create') {
       const created = await createRole(toCreateRolePayload(roleForm.value));
       roles.value = [...roles.value, created].sort((left, right) => left.id - right.id);
-      MessagePlugin.success(formatHintedMessage(t, t('rbac.roleList.createSuccess')));
+      MessagePlugin.success(formatHintedMessage(t('rbac.roleList.createSuccess')));
     } else if (roleDrawerRole.value) {
       const updated = await updateRole(roleDrawerRole.value.id, toUpdateRolePayload(roleForm.value));
       roles.value = roles.value.map((item) => (item.id === updated.id ? updated : item));
       roleDrawerRole.value = updated;
-      MessagePlugin.success(formatHintedMessage(t, t('rbac.roleList.updateSuccess')));
+      MessagePlugin.success(formatHintedMessage(t('rbac.roleList.updateSuccess')));
     }
 
     closeRoleDrawer();
@@ -1349,7 +1350,7 @@ async function submitPermissionAssignment() {
       return;
     }
 
-    MessagePlugin.success(formatHintedMessage(t, t('rbac.roleList.assignSuccess')));
+    MessagePlugin.success(formatHintedMessage(t('rbac.roleList.assignSuccess')));
     closePermissionDrawer();
     await fetchRolePageData();
   } catch (error) {
@@ -1407,7 +1408,6 @@ async function toggleRoleStatus(role: RoleStatusCompat) {
     roles.value = roles.value.map((item) => (item.id === updated.id ? updated : item));
     MessagePlugin.success(
       formatHintedMessage(
-        t,
         isRoleEnabled(updated) ? t('rbac.roleList.statusEnabledSuccess') : t('rbac.roleList.statusDisabledSuccess'),
       ),
     );
@@ -1442,7 +1442,7 @@ async function removeRole(role: RoleStatusCompat) {
   try {
     await deleteRole(role.id);
     roles.value = roles.value.filter((item) => item.id !== role.id);
-    MessagePlugin.success(formatHintedMessage(t, t('rbac.roleList.deleteSuccess')));
+    MessagePlugin.success(formatHintedMessage(t('rbac.roleList.deleteSuccess')));
   } catch (error) {
     logger.error('failed to delete role', error);
     if (isApiRequestError(error)) {

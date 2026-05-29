@@ -694,7 +694,7 @@ describe('MonitorPage', () => {
     const overviewChartOptions = chartMocks.setOption.mock.calls.map((call) => call[0]) as Array<{
       color?: string[];
     }>;
-    expect(overviewChartOptions.some((option) => option.color?.includes('#2F6BFF'))).toBe(true);
+    expect(overviewChartOptions.some((option) => option.color?.includes('#0052D9'))).toBe(true);
     expect(overviewChartOptions.some((option) => option.color?.includes('#00A870'))).toBe(true);
 
     const loadCardText = metricCardText(wrapper, 'load');
