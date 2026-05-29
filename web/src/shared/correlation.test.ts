@@ -59,6 +59,6 @@ describe('correlation message helpers', () => {
       isApiRequestError: true as const,
     });
 
-    expect(resolveErrorMessageWithCorrelation(t, error, 'Fallback')).toBe('Server exploded Request ID: trace-500');
+    expect(resolveErrorMessageWithCorrelation(t, error, 'Fallback')).toBe('Server exploded Trace ID: trace-500');
   });
 });

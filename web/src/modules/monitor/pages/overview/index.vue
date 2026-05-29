@@ -375,8 +375,8 @@ import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 
 import type { TChartColor } from '@/config/color';
+import { openCorrelationErrorNotification, requestIdFromError } from '@/modules/audit/shared/correlation-actions';
 import { resolveLocalizedErrorMessage } from '@/modules/shared/localized-api-error';
-import { openCorrelationErrorNotification, requestIdFromError } from '@/shared/correlation-actions';
 import { useSettingStore } from '@/store';
 
 import { getServerStatus } from '../../api/server-status';

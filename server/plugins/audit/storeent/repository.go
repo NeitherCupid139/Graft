@@ -26,6 +26,15 @@ const overviewRiskGroupLimit = 4
 const overviewTrendPointLimit = 12
 const overviewSecurityTimelineLimit = 6
 const httpStatusForbidden = 403
+const overviewTrendDayStep = "1 day"
+const overviewTrendThreeDayStep = "3 day"
+const overviewTrendTwoHourStep = "2 hour"
+const overviewTrendDayBucketSize = 1
+const overviewTrendThreeDayBucketSize = 3
+const overviewTrendTwoHourBucketSize = 2
+const overviewTrendOneDayDuration = 24 * time.Hour
+const overviewTrendThreeDayDuration = 72 * time.Hour
+const overviewTrendTwoHourDuration = 2 * time.Hour
 
 var sensitiveAuditActionKeywords = []string{"delete", "reset", "grant", "assign", "revoke", "remove", "replace", "update_role", "update_permission"}
 
@@ -646,6 +655,7 @@ func overviewWindowStart(now time.Time, window auditstore.OverviewWindow) time.T
 	}
 }
 
+//nolint:gosec // Query text is assembled from fixed SQL fragments; all dynamic values stay parameterized.
 var overviewRiskGroupsSQL = `
 SELECT key, label_key, risk_level, count
 FROM (
@@ -778,6 +788,7 @@ func (r *repository) readOverviewTrend(
 	now time.Time,
 ) (auditstore.OverviewTrend, error) {
 	bucketUnit, bucketSize, step := overviewTrendConfig(window)
+	//nolint:gosec // step comes from overviewTrendConfig and is limited to fixed internal interval literals.
 	seriesSQL := fmt.Sprintf(`
 SELECT
 	bucket_start,
@@ -832,6 +843,40 @@ ORDER BY bucket_start ASC
 	}, nil
 }
 
+func buildOverviewTrendPoints(startedAt time.Time, now time.Time, stepDuration time.Duration) []auditstore.OverviewTrendPoint {
+	points := make([]auditstore.OverviewTrendPoint, 0, overviewTrendPointLimit)
+	for bucketStart := startedAt; bucketStart.Before(now); bucketStart = bucketStart.Add(stepDuration) {
+		bucketEnd := bucketStart.Add(stepDuration)
+		if bucketEnd.After(now) {
+			bucketEnd = now
+		}
+		points = append(points, auditstore.OverviewTrendPoint{
+			BucketStart: bucketStart,
+			BucketEnd:   bucketEnd,
+		})
+	}
+
+	return points
+}
+
+func applyOverviewTrendRecord(points []auditstore.OverviewTrendPoint, record auditstore.AuditLog, startedAt time.Time, stepDuration time.Duration) {
+	index := int(record.CreatedAt.Sub(startedAt) / stepDuration)
+	if index < 0 || index >= len(points) {
+		return
+	}
+
+	points[index].Total++
+	if !record.Success {
+		points[index].Failed++
+	}
+	if record.RiskLevel == auditstore.AuditRiskLevelHigh || record.RiskLevel == auditstore.AuditRiskLevelCritical {
+		points[index].HighRisk++
+	}
+	if record.Source == auditstore.AuditSourceSecurityEvent {
+		points[index].SecurityEvents++
+	}
+}
+
 func (r *repository) readOverviewTrendFallback(
 	ctx context.Context,
 	startedAt time.Time,
@@ -865,18 +910,8 @@ ORDER BY created_at ASC, id ASC
 		_ = rows.Close()
 	}()
 
-	points := make([]auditstore.OverviewTrendPoint, 0, overviewTrendPointLimit)
 	stepDuration := parseOverviewTrendStep(step)
-	for bucketStart := startedAt; bucketStart.Before(now); bucketStart = bucketStart.Add(stepDuration) {
-		bucketEnd := bucketStart.Add(stepDuration)
-		if bucketEnd.After(now) {
-			bucketEnd = now
-		}
-		points = append(points, auditstore.OverviewTrendPoint{
-			BucketStart: bucketStart,
-			BucketEnd:   bucketEnd,
-		})
-	}
+	points := buildOverviewTrendPoints(startedAt, now, stepDuration)
 
 	for rows.Next() {
 		record, scanErr := scanAuditTrendRecord(rows)
@@ -884,21 +919,7 @@ ORDER BY created_at ASC, id ASC
 			return auditstore.OverviewTrend{}, scanErr
 		}
 		enrichAuditLog(&record)
-
-		index := int(record.CreatedAt.Sub(startedAt) / stepDuration)
-		if index < 0 || index >= len(points) {
-			continue
-		}
-		points[index].Total++
-		if !record.Success {
-			points[index].Failed++
-		}
-		if record.RiskLevel == auditstore.AuditRiskLevelHigh || record.RiskLevel == auditstore.AuditRiskLevelCritical {
-			points[index].HighRisk++
-		}
-		if record.Source == auditstore.AuditSourceSecurityEvent {
-			points[index].SecurityEvents++
-		}
+		applyOverviewTrendRecord(points, record, startedAt, stepDuration)
 	}
 	if err := rows.Err(); err != nil {
 		return auditstore.OverviewTrend{}, fmt.Errorf("iterate audit overview trend: %w", err)
@@ -913,12 +934,12 @@ ORDER BY created_at ASC, id ASC
 
 func parseOverviewTrendStep(step string) time.Duration {
 	switch step {
-	case "1 day":
-		return 24 * time.Hour
-	case "3 day":
-		return 72 * time.Hour
+	case overviewTrendDayStep:
+		return overviewTrendOneDayDuration
+	case overviewTrendThreeDayStep:
+		return overviewTrendThreeDayDuration
 	default:
-		return 2 * time.Hour
+		return overviewTrendTwoHourDuration
 	}
 }
 
@@ -952,11 +973,11 @@ func scanAuditTrendRecord(scanner interface {
 func overviewTrendConfig(window auditstore.OverviewWindow) (string, int, string) {
 	switch window {
 	case auditstore.OverviewWindow7Days:
-		return "day", 1, "1 day"
+		return "day", overviewTrendDayBucketSize, overviewTrendDayStep
 	case auditstore.OverviewWindow30Days:
-		return "day", 3, "3 day"
+		return "day", overviewTrendThreeDayBucketSize, overviewTrendThreeDayStep
 	default:
-		return "hour", 2, "2 hour"
+		return "hour", overviewTrendTwoHourBucketSize, overviewTrendTwoHourStep
 	}
 }
 

@@ -360,6 +360,7 @@ import { useRoute, useRouter } from 'vue-router';
 
 import { buildAuditResourceLocation } from '@/modules/audit/contract/deep-link';
 import { AUDIT_PERMISSION_CODE } from '@/modules/audit/contract/permissions';
+import { openCorrelationErrorNotification, requestIdFromError } from '@/modules/audit/shared/correlation-actions';
 import { localizedApiErrorMessage, resolveLocalizedErrorMessage } from '@/modules/shared/localized-api-error';
 import {
   AssignmentCard,
@@ -389,7 +390,6 @@ import {
 } from '@/shared/components/management';
 import { useAssignmentSelection } from '@/shared/composables';
 import { formatHintedMessage, resolveErrorMessageWithCorrelation } from '@/shared/correlation';
-import { openCorrelationErrorNotification, requestIdFromError } from '@/shared/correlation-actions';
 import { usePermissionStore } from '@/store';
 import { createLogger } from '@/utils/logger';
 import { isApiRequestError } from '@/utils/request';

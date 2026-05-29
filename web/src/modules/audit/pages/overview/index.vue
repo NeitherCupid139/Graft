@@ -200,10 +200,10 @@ import { useRouter } from 'vue-router';
 import { buildAuditLogsLocation, buildAuditRequestLocation } from '@/modules/audit/contract/deep-link';
 import type { AuditPresetKey } from '@/modules/audit/contract/presets';
 import { resolveAuditPresetKey } from '@/modules/audit/contract/presets';
+import { openCorrelationErrorNotification, requestIdFromError } from '@/modules/audit/shared/correlation-actions';
 import { resolveLocalizedErrorMessage } from '@/modules/shared/localized-api-error';
 import { GovernanceDashboardShell, GovernanceSection, GovernanceSummaryCard } from '@/shared/components/governance';
 import { ManagementEmptyState } from '@/shared/components/management';
-import { openCorrelationErrorNotification, requestIdFromError } from '@/shared/correlation-actions';
 import { createLogger } from '@/utils/logger';
 
 import { getAuditOverview } from '../../api/audit';

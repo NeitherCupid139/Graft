@@ -242,6 +242,7 @@ import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 
 import { buildAuditLogsLocation } from '@/modules/audit/contract/deep-link';
+import { openCorrelationErrorNotification, requestIdFromError } from '@/modules/audit/shared/correlation-actions';
 import { resolveLocalizedErrorMessage } from '@/modules/shared/localized-api-error';
 import {
   buildVisibleColumns,
@@ -261,7 +262,6 @@ import {
   TableActionMenu,
 } from '@/shared/components/management';
 import { resolveErrorMessageWithCorrelation } from '@/shared/correlation';
-import { openCorrelationErrorNotification, requestIdFromError } from '@/shared/correlation-actions';
 import { createLogger } from '@/utils/logger';
 
 import { getPermissionDetail, getPermissions } from '../../api/rbac';

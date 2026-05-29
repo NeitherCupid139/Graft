@@ -94,7 +94,6 @@ export function resolveErrorMessageWithCorrelation(
     translate,
     isApiRequestError(error)
       ? {
-          requestId: error.traceId,
           traceId: error.traceId,
         }
       : fallbackCorrelation,

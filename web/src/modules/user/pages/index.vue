@@ -449,6 +449,8 @@ import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 
 import { buildAuditResourceLocation } from '@/modules/audit/contract/deep-link';
+import { AUDIT_PERMISSION_CODE } from '@/modules/audit/contract/permissions';
+import { openCorrelationErrorNotification, requestIdFromError } from '@/modules/audit/shared/correlation-actions';
 import { RBAC_PERMISSION_CODE } from '@/modules/rbac/contract/permissions';
 import { localizedApiErrorMessage } from '@/modules/shared/localized-api-error';
 import {
@@ -478,7 +480,6 @@ import {
 } from '@/shared/components/management';
 import { useAssignmentSelection } from '@/shared/composables';
 import { formatHintedMessage, resolveErrorMessageWithCorrelation } from '@/shared/correlation';
-import { openCorrelationErrorNotification, requestIdFromError } from '@/shared/correlation-actions';
 import { usePermissionStore } from '@/store';
 import { createLogger } from '@/utils/logger';
 import { isApiRequestError } from '@/utils/request';
@@ -593,6 +594,7 @@ const pagination = ref({
 });
 
 const userPermissionCodes = USER_PERMISSION_CODE;
+const auditPermissionCodes = AUDIT_PERMISSION_CODE;
 const rbacPermissionCodes = RBAC_PERMISSION_CODE;
 const userRoleManagePermissionCodes = [rbacPermissionCodes.USER_ROLE_READ, rbacPermissionCodes.USER_ROLE_ASSIGN];
 const loadingRoleDialogData = computed(() => roleCatalogLoading.value || loadingRoleSelection.value);
@@ -1063,6 +1065,7 @@ function canManageUserRoles() {
 function hasVisibleUserOperationActions() {
   return (
     canManageUserRoles() ||
+    permissionStore.hasPermission(auditPermissionCodes.READ) ||
     permissionStore.hasPermission(userPermissionCodes.UPDATE) ||
     permissionStore.hasPermission(userPermissionCodes.DISABLE)
   );
@@ -1087,7 +1090,7 @@ function userRowActions(user: UserRow) {
     value: 'detail',
   });
 
-  if (permissionStore.hasPermission('audit.read')) {
+  if (permissionStore.hasPermission(auditPermissionCodes.READ)) {
     actions.push({
       fallbackLabel: '查看审计',
       label: t('user.userList.viewAudit'),
