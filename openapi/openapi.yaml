@@ -190,6 +190,12 @@ components:
       $ref: ./components/schemas/audit-overview-item.yaml
     AuditOverviewSummary:
       $ref: ./components/schemas/audit-overview-summary.yaml
+    AuditEvidenceContext:
+      $ref: ./components/schemas/audit-evidence-context.yaml
+    EvidenceLinkTimeWindow:
+      $ref: ./components/schemas/evidence-link-time-window.yaml
+    EvidenceLink:
+      $ref: ./components/schemas/evidence-link.yaml
     AuditOverviewResponse:
       $ref: ./components/schemas/audit-overview-response.yaml
     EnvelopedAuditOverviewResponse:
@@ -214,6 +220,8 @@ components:
       $ref: ./components/schemas/server-status-trend-point.yaml
     ServerStatusTrend:
       $ref: ./components/schemas/server-status-trend.yaml
+    ServerStatusAnomaly:
+      $ref: ./components/schemas/server-status-anomaly.yaml
     ServerStatusResponse:
       $ref: ./components/schemas/server-status-response.yaml
     EnvelopedServerStatusResponse:

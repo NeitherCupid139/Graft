@@ -1,6 +1,10 @@
 import type { LocationQuery, LocationQueryValue } from 'vue-router';
 
+import type { components } from '@/contracts/openapi/generated/schema';
+
 import { AUDIT_ROUTE_PATH } from './paths';
+
+type AuditEvidenceContext = components['schemas']['AuditEvidenceContext'];
 
 export type AuditLogsRouteQuery = Partial<{
   preset: string;
@@ -76,5 +80,21 @@ export function buildAuditResourceLocation(resourceType: string, resourceId: str
 export function buildAuditRequestLocation(requestId: string) {
   return buildAuditLogsLocation({
     requestId,
+  });
+}
+
+export function buildAuditEvidenceLocation(context: AuditEvidenceContext) {
+  return buildAuditLogsLocation({
+    action: context.action,
+    actionPrefix: context.action_prefix,
+    source: context.source,
+    resourceType: context.resource_type,
+    resourceId: context.resource_id,
+    resourceName: context.resource_name,
+    requestId: context.request_id,
+    result: context.result,
+    riskLevel: context.risk_level,
+    createdFrom: context.created_from,
+    createdTo: context.created_to,
   });
 }

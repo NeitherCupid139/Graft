@@ -20,6 +20,10 @@ const correlationActionMocks = vi.hoisted(() => ({
   requestIdFromError: vi.fn(() => ''),
 }));
 
+const routerMocks = vi.hoisted(() => ({
+  push: vi.fn(),
+}));
+
 const chartMocks = vi.hoisted(() => {
   const setOption = vi.fn();
   const resize = vi.fn();
@@ -115,6 +119,11 @@ const translations = vi.hoisted(
     'monitor.serverStatus.dependencyCardTitle': 'Dependency Status',
     'monitor.serverStatus.runtimeStatusTitle': 'Runtime status',
     'monitor.serverStatus.runtimeStatusSubtitle': 'Summary of service, dependencies, and sampling status',
+    'monitor.serverStatus.anomaliesTitle': 'Active anomalies',
+    'monitor.serverStatus.anomalySeverityWarning': 'Warning',
+    'monitor.serverStatus.anomalySeverityCritical': 'Critical',
+    'monitor.serverStatus.openAuditEvidence': 'Open audit evidence',
+    'monitor.serverStatus.auditEvidenceUnavailable': 'Audit evidence is unavailable for this anomaly.',
     'monitor.serverStatus.runtimeStatusDependenciesTitle': 'Dependencies',
     'monitor.serverStatus.runtimeStatusProcessTitle': 'Process summary',
     'monitor.serverStatus.runtimeStatusSamplingTitle': 'Sampling status',
@@ -298,6 +307,10 @@ vi.mock('@/modules/audit/shared/correlation-actions', () => ({
   requestIdFromError: correlationActionMocks.requestIdFromError,
 }));
 
+vi.mock('vue-router', () => ({
+  useRouter: () => routerMocks,
+}));
+
 vi.mock('echarts/core', async () => {
   const actual = await vi.importActual<typeof import('echarts/core')>('echarts/core');
   return {
@@ -461,7 +474,7 @@ const tableStub = defineComponent({
 
 function createServerStatusResponse() {
   return {
-    status: 'healthy',
+    status: 'degraded',
     observed_at: '2026-05-20T09:00:00Z',
     server: {
       version: 'dev',
@@ -569,6 +582,34 @@ function createServerStatusResponse() {
         missing_dependencies: ['audit'],
       },
     ],
+    anomalies: [
+      {
+        anomaly_key: 'resource_cpu_pressure',
+        scope_kind: 'resource',
+        scope_ref: 'runtime.cpu',
+        severity: 'warning',
+        status: 'active',
+        observed_at: '2026-05-20T09:00:00Z',
+        summary: 'CPU usage reached 84.2% in the current monitor window.',
+        evidence_links: [
+          {
+            target_kind: 'audit_context',
+            link_state: 'available',
+            title: 'Review related audit activity',
+            reason: 'Check audit records from the same bounded monitor window.',
+            time_window: {
+              created_from: '2026-05-20T08:50:00Z',
+              created_to: '2026-05-20T09:00:00Z',
+            },
+            audit_context: {
+              source: 'SECURITY_EVENT',
+              created_from: '2026-05-20T08:50:00Z',
+              created_to: '2026-05-20T09:00:00Z',
+            },
+          },
+        ],
+      },
+    ],
   };
 }
 
@@ -643,6 +684,7 @@ describe('MonitorPage', () => {
     correlationActionMocks.openCorrelationErrorNotification.mockReset();
     correlationActionMocks.requestIdFromError.mockReset();
     correlationActionMocks.requestIdFromError.mockReturnValue('');
+    routerMocks.push.mockReset();
     chartMocks.init.mockClear();
     chartMocks.setOption.mockClear();
     chartMocks.resize.mockClear();
@@ -689,6 +731,8 @@ describe('MonitorPage', () => {
     expect(wrapper.text()).toContain('Trend window');
     expect(wrapper.text()).toContain('Refresh now');
     expect(wrapper.text()).toContain('Pause auto refresh');
+    expect(wrapper.text()).toContain('Active anomalies');
+    expect(wrapper.text()).toContain('Open audit evidence');
     expect(wrapper.text()).toContain('Load');
     expect(wrapper.text()).toContain('CPU');
     expect(wrapper.text()).toContain('Memory');
@@ -726,7 +770,7 @@ describe('MonitorPage', () => {
     expect(cpuCardText).toContain('Normal');
     expect(cpuCardText).toContain('21%');
     expect(cpuCardText).toContain('8 cores · latest sample');
-    expect(cpuCardText).toContain('CPU usage is within the normal range');
+    expect(cpuCardText).toContain('CPU usage reached 84.2% in the current monitor window.');
     expect(cpuCardText).not.toContain('1m load');
 
     expect(memoryCardText).toContain('Sufficient');
@@ -745,7 +789,10 @@ describe('MonitorPage', () => {
     expect(diskCardText).not.toContain('Root partition ·');
     expect(diskCardText).not.toContain('/ 11.8 GB / 59.9 GB');
 
-    expect(wrapper.findAll('[data-status-sidebar-group]')).toHaveLength(3);
+    expect(wrapper.findAll('[data-status-sidebar-group]')).toHaveLength(4);
+    expect(sidebarGroupText(wrapper, 'anomalies')).toContain('Active anomalies');
+    expect(sidebarGroupText(wrapper, 'anomalies')).toContain('CPU usage reached 84.2% in the current monitor window.');
+    expect(sidebarGroupText(wrapper, 'anomalies')).toContain('Open audit evidence');
     expect(sidebarGroupText(wrapper, 'dependencies')).toContain('Dependencies');
     expect(sidebarGroupText(wrapper, 'dependencies')).toContain('PostgreSQL');
     expect(sidebarGroupText(wrapper, 'dependencies')).toContain('Healthy');
@@ -837,6 +884,25 @@ describe('MonitorPage', () => {
     expect(allOverviewText).toContain('Heap');
     expect(allOverviewText).toContain('Runtime Sys');
     expect(allOverviewText).toContain('Goroutines');
+  });
+
+  it('opens audit logs from backend-owned anomaly evidence context', async () => {
+    monitorApiMocks.getServerStatus.mockResolvedValue(createServerStatusResponse());
+
+    const wrapper = mountMonitorPage();
+    await flushPromises();
+    await nextTick();
+
+    await wrapper.get('[data-anomaly-key="resource_cpu_pressure"] button').trigger('click');
+
+    expect(routerMocks.push).toHaveBeenCalledWith({
+      path: '/audit/logs',
+      query: {
+        source: 'SECURITY_EVENT',
+        createdFrom: '2026-05-20T08:50:00Z',
+        createdTo: '2026-05-20T09:00:00Z',
+      },
+    });
   });
 
   it('renders no chart when fewer than two samples are available', async () => {

@@ -4657,6 +4657,34 @@
                               "rbac"
                             ]
                           }
+                        ],
+                        "anomalies": [
+                          {
+                            "anomaly_key": "resource_cpu_pressure",
+                            "scope_kind": "resource",
+                            "scope_ref": "runtime.cpu",
+                            "severity": "warning",
+                            "status": "active",
+                            "observed_at": "2026-05-24T08:05:00Z",
+                            "summary": "CPU usage is elevated for the current monitor window.",
+                            "evidence_links": [
+                              {
+                                "target_kind": "audit_context",
+                                "link_state": "available",
+                                "title": "Review audit activity around this CPU spike",
+                                "reason": "Security or administrative activity in the same window may explain the current CPU pressure.",
+                                "time_window": {
+                                  "created_from": "2026-05-24T07:55:00Z",
+                                  "created_to": "2026-05-24T08:05:00Z"
+                                },
+                                "audit_context": {
+                                  "source": "SECURITY_EVENT",
+                                  "created_from": "2026-05-24T07:55:00Z",
+                                  "created_to": "2026-05-24T08:05:00Z"
+                                }
+                              }
+                            ]
+                          }
                         ]
                       }
                     }
@@ -4812,6 +4840,15 @@
       "AuditOverviewSummary": {
         "$ref": "#/components/schemas/audit-overview-summary"
       },
+      "AuditEvidenceContext": {
+        "$ref": "#/components/schemas/audit-evidence-context"
+      },
+      "EvidenceLinkTimeWindow": {
+        "$ref": "#/components/schemas/evidence-link-time-window"
+      },
+      "EvidenceLink": {
+        "$ref": "#/components/schemas/evidence-link"
+      },
       "AuditOverviewResponse": {
         "$ref": "#/components/schemas/audit-overview-response"
       },
@@ -4847,6 +4884,9 @@
       },
       "ServerStatusTrend": {
         "$ref": "#/components/schemas/server-status-trend"
+      },
+      "ServerStatusAnomaly": {
+        "$ref": "#/components/schemas/server-status-anomaly"
       },
       "ServerStatusResponse": {
         "$ref": "#/components/schemas/server-status-response"
@@ -6784,6 +6824,197 @@
           "missing_dependencies": []
         }
       },
+      "evidence-link-time-window": {
+        "type": "object",
+        "required": [
+          "created_from",
+          "created_to"
+        ],
+        "properties": {
+          "created_from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_to": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "audit-evidence-context": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_prefix": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "REQUEST",
+              "SECURITY_EVENT",
+              "DOMAIN_EVENT"
+            ]
+          },
+          "resource_type": {
+            "type": "string"
+          },
+          "resource_id": {
+            "type": "string"
+          },
+          "resource_name": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "SUCCESS",
+              "FAILED",
+              "DENIED",
+              "ERROR"
+            ]
+          },
+          "risk_level": {
+            "type": "string",
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH",
+              "CRITICAL"
+            ]
+          },
+          "created_from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_to": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "evidence-link": {
+        "type": "object",
+        "required": [
+          "target_kind",
+          "link_state",
+          "title"
+        ],
+        "properties": {
+          "target_kind": {
+            "type": "string",
+            "enum": [
+              "audit_context",
+              "audit_incident"
+            ]
+          },
+          "link_state": {
+            "type": "string",
+            "enum": [
+              "available",
+              "empty",
+              "unsupported",
+              "unavailable"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "time_window": {
+            "$ref": "#/components/schemas/evidence-link-time-window"
+          },
+          "audit_context": {
+            "$ref": "#/components/schemas/audit-evidence-context"
+          },
+          "incident_seed": {
+            "type": "object",
+            "required": [
+              "event_id"
+            ],
+            "properties": {
+              "event_id": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          }
+        }
+      },
+      "server-status-anomaly": {
+        "type": "object",
+        "required": [
+          "anomaly_key",
+          "scope_kind",
+          "scope_ref",
+          "severity",
+          "status",
+          "observed_at",
+          "summary",
+          "evidence_links"
+        ],
+        "properties": {
+          "anomaly_key": {
+            "type": "string",
+            "enum": [
+              "dependency_status_degraded",
+              "dependency_status_unknown",
+              "plugin_dependency_missing",
+              "resource_cpu_pressure",
+              "resource_memory_pressure",
+              "resource_disk_pressure",
+              "runtime_goroutine_pressure",
+              "runtime_heap_pressure",
+              "system_load_pressure"
+            ]
+          },
+          "scope_kind": {
+            "type": "string",
+            "enum": [
+              "dependency",
+              "plugin",
+              "runtime",
+              "resource"
+            ]
+          },
+          "scope_ref": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "warning",
+              "critical"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active"
+            ]
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "evidence_links": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/evidence-link"
+            }
+          }
+        }
+      },
       "server-status-response": {
         "type": "object",
         "required": [
@@ -6794,7 +7025,8 @@
           "dependencies",
           "summary",
           "trend",
-          "plugins"
+          "plugins",
+          "anomalies"
         ],
         "properties": {
           "status": {
@@ -6823,6 +7055,12 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/server-status-plugin"
+            }
+          },
+          "anomalies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/server-status-anomaly"
             }
           }
         }

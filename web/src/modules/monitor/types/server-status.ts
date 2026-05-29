@@ -8,4 +8,6 @@ export type ServerStatusDependencies = components['schemas']['ServerStatusDepend
 export type ServerStatusSummary = components['schemas']['ServerStatusSummary'];
 export type ServerStatusTrendPoint = components['schemas']['ServerStatusTrendPoint'];
 export type ServerStatusTrend = components['schemas']['ServerStatusTrend'];
+export type ServerStatusAnomaly = components['schemas']['ServerStatusAnomaly'];
+export type EvidenceLink = components['schemas']['EvidenceLink'];
 export type ServerStatusResponse = components['schemas']['ServerStatusResponse'];

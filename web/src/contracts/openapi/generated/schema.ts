@@ -873,6 +873,9 @@ export interface components {
     EnvelopedAuditLogListResponse: components['schemas']['enveloped-audit-log-list-response'];
     AuditOverviewItem: components['schemas']['audit-overview-item'];
     AuditOverviewSummary: components['schemas']['audit-overview-summary'];
+    AuditEvidenceContext: components['schemas']['audit-evidence-context'];
+    EvidenceLinkTimeWindow: components['schemas']['evidence-link-time-window'];
+    EvidenceLink: components['schemas']['evidence-link'];
     AuditOverviewResponse: components['schemas']['audit-overview-response'];
     EnvelopedAuditOverviewResponse: components['schemas']['enveloped-audit-overview-response'];
     ServerStatusDependency: components['schemas']['server-status-dependency'];
@@ -885,6 +888,7 @@ export interface components {
     ServerStatusSummary: components['schemas']['server-status-summary'];
     ServerStatusTrendPoint: components['schemas']['server-status-trend-point'];
     ServerStatusTrend: components['schemas']['server-status-trend'];
+    ServerStatusAnomaly: components['schemas']['server-status-anomaly'];
     ServerStatusResponse: components['schemas']['server-status-response'];
     EnvelopedServerStatusResponse: components['schemas']['enveloped-server-status-response'];
     'health-response': {
@@ -1541,6 +1545,68 @@ export interface components {
       depends_on: string[];
       missing_dependencies?: string[];
     };
+    'evidence-link-time-window': {
+      /** Format: date-time */
+      created_from: string;
+      /** Format: date-time */
+      created_to: string;
+    };
+    'audit-evidence-context': {
+      action?: string;
+      action_prefix?: string;
+      /** @enum {string} */
+      source?: 'REQUEST' | 'SECURITY_EVENT' | 'DOMAIN_EVENT';
+      resource_type?: string;
+      resource_id?: string;
+      resource_name?: string;
+      request_id?: string;
+      /** @enum {string} */
+      result?: 'SUCCESS' | 'FAILED' | 'DENIED' | 'ERROR';
+      /** @enum {string} */
+      risk_level?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+      /** Format: date-time */
+      created_from?: string;
+      /** Format: date-time */
+      created_to?: string;
+    };
+    'evidence-link': {
+      /** @enum {string} */
+      target_kind: 'audit_context' | 'audit_incident';
+      /** @enum {string} */
+      link_state: 'available' | 'empty' | 'unsupported' | 'unavailable';
+      title: string;
+      reason?: string;
+      time_window?: components['schemas']['evidence-link-time-window'];
+      audit_context?: components['schemas']['audit-evidence-context'];
+      incident_seed?: {
+        /** Format: int64 */
+        event_id: number;
+      };
+    };
+    'server-status-anomaly': {
+      /** @enum {string} */
+      anomaly_key:
+        | 'dependency_status_degraded'
+        | 'dependency_status_unknown'
+        | 'plugin_dependency_missing'
+        | 'resource_cpu_pressure'
+        | 'resource_memory_pressure'
+        | 'resource_disk_pressure'
+        | 'runtime_goroutine_pressure'
+        | 'runtime_heap_pressure'
+        | 'system_load_pressure';
+      /** @enum {string} */
+      scope_kind: 'dependency' | 'plugin' | 'runtime' | 'resource';
+      scope_ref: string;
+      /** @enum {string} */
+      severity: 'warning' | 'critical';
+      /** @enum {string} */
+      status: 'active';
+      /** Format: date-time */
+      observed_at: string;
+      summary: string;
+      evidence_links: components['schemas']['evidence-link'][];
+    };
     'server-status-response': {
       status: string;
       /** Format: date-time */
@@ -1551,6 +1617,7 @@ export interface components {
       summary: components['schemas']['server-status-summary'];
       trend: components['schemas']['server-status-trend'];
       plugins: components['schemas']['server-status-plugin'][];
+      anomalies: components['schemas']['server-status-anomaly'][];
     };
     'enveloped-server-status-response': components['schemas']['api-envelope'] & {
       data?: components['schemas']['server-status-response'];

@@ -28,6 +28,213 @@ func (e GetMonitorServerStatusParamsTrendRange) Valid() bool {
 	}
 }
 
+// Defines values for GetMonitorServerStatus200JSONResponseBodyDataAnomaliesAnomalyKey.
+const (
+	DependencyStatusDegraded GetMonitorServerStatus200JSONResponseBodyDataAnomaliesAnomalyKey = "dependency_status_degraded"
+	DependencyStatusUnknown  GetMonitorServerStatus200JSONResponseBodyDataAnomaliesAnomalyKey = "dependency_status_unknown"
+	PluginDependencyMissing  GetMonitorServerStatus200JSONResponseBodyDataAnomaliesAnomalyKey = "plugin_dependency_missing"
+	ResourceCpuPressure      GetMonitorServerStatus200JSONResponseBodyDataAnomaliesAnomalyKey = "resource_cpu_pressure"
+	ResourceDiskPressure     GetMonitorServerStatus200JSONResponseBodyDataAnomaliesAnomalyKey = "resource_disk_pressure"
+	ResourceMemoryPressure   GetMonitorServerStatus200JSONResponseBodyDataAnomaliesAnomalyKey = "resource_memory_pressure"
+	RuntimeGoroutinePressure GetMonitorServerStatus200JSONResponseBodyDataAnomaliesAnomalyKey = "runtime_goroutine_pressure"
+	RuntimeHeapPressure      GetMonitorServerStatus200JSONResponseBodyDataAnomaliesAnomalyKey = "runtime_heap_pressure"
+	SystemLoadPressure       GetMonitorServerStatus200JSONResponseBodyDataAnomaliesAnomalyKey = "system_load_pressure"
+)
+
+// Valid indicates whether the value is a known member of the GetMonitorServerStatus200JSONResponseBodyDataAnomaliesAnomalyKey enum.
+func (e GetMonitorServerStatus200JSONResponseBodyDataAnomaliesAnomalyKey) Valid() bool {
+	switch e {
+	case DependencyStatusDegraded:
+		return true
+	case DependencyStatusUnknown:
+		return true
+	case PluginDependencyMissing:
+		return true
+	case ResourceCpuPressure:
+		return true
+	case ResourceDiskPressure:
+		return true
+	case ResourceMemoryPressure:
+		return true
+	case RuntimeGoroutinePressure:
+		return true
+	case RuntimeHeapPressure:
+		return true
+	case SystemLoadPressure:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksAuditContextResult.
+const (
+	DENIED  GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksAuditContextResult = "DENIED"
+	ERROR   GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksAuditContextResult = "ERROR"
+	FAILED  GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksAuditContextResult = "FAILED"
+	SUCCESS GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksAuditContextResult = "SUCCESS"
+)
+
+// Valid indicates whether the value is a known member of the GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksAuditContextResult enum.
+func (e GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksAuditContextResult) Valid() bool {
+	switch e {
+	case DENIED:
+		return true
+	case ERROR:
+		return true
+	case FAILED:
+		return true
+	case SUCCESS:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksAuditContextRiskLevel.
+const (
+	CRITICAL GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksAuditContextRiskLevel = "CRITICAL"
+	HIGH     GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksAuditContextRiskLevel = "HIGH"
+	LOW      GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksAuditContextRiskLevel = "LOW"
+	MEDIUM   GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksAuditContextRiskLevel = "MEDIUM"
+)
+
+// Valid indicates whether the value is a known member of the GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksAuditContextRiskLevel enum.
+func (e GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksAuditContextRiskLevel) Valid() bool {
+	switch e {
+	case CRITICAL:
+		return true
+	case HIGH:
+		return true
+	case LOW:
+		return true
+	case MEDIUM:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksAuditContextSource.
+const (
+	DOMAINEVENT   GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksAuditContextSource = "DOMAIN_EVENT"
+	REQUEST       GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksAuditContextSource = "REQUEST"
+	SECURITYEVENT GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksAuditContextSource = "SECURITY_EVENT"
+)
+
+// Valid indicates whether the value is a known member of the GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksAuditContextSource enum.
+func (e GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksAuditContextSource) Valid() bool {
+	switch e {
+	case DOMAINEVENT:
+		return true
+	case REQUEST:
+		return true
+	case SECURITYEVENT:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksLinkState.
+const (
+	Available   GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksLinkState = "available"
+	Empty       GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksLinkState = "empty"
+	Unavailable GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksLinkState = "unavailable"
+	Unsupported GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksLinkState = "unsupported"
+)
+
+// Valid indicates whether the value is a known member of the GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksLinkState enum.
+func (e GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksLinkState) Valid() bool {
+	switch e {
+	case Available:
+		return true
+	case Empty:
+		return true
+	case Unavailable:
+		return true
+	case Unsupported:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksTargetKind.
+const (
+	AuditContext  GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksTargetKind = "audit_context"
+	AuditIncident GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksTargetKind = "audit_incident"
+)
+
+// Valid indicates whether the value is a known member of the GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksTargetKind enum.
+func (e GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksTargetKind) Valid() bool {
+	switch e {
+	case AuditContext:
+		return true
+	case AuditIncident:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetMonitorServerStatus200JSONResponseBodyDataAnomaliesScopeKind.
+const (
+	Dependency GetMonitorServerStatus200JSONResponseBodyDataAnomaliesScopeKind = "dependency"
+	Plugin     GetMonitorServerStatus200JSONResponseBodyDataAnomaliesScopeKind = "plugin"
+	Resource   GetMonitorServerStatus200JSONResponseBodyDataAnomaliesScopeKind = "resource"
+	Runtime    GetMonitorServerStatus200JSONResponseBodyDataAnomaliesScopeKind = "runtime"
+)
+
+// Valid indicates whether the value is a known member of the GetMonitorServerStatus200JSONResponseBodyDataAnomaliesScopeKind enum.
+func (e GetMonitorServerStatus200JSONResponseBodyDataAnomaliesScopeKind) Valid() bool {
+	switch e {
+	case Dependency:
+		return true
+	case Plugin:
+		return true
+	case Resource:
+		return true
+	case Runtime:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetMonitorServerStatus200JSONResponseBodyDataAnomaliesSeverity.
+const (
+	Critical GetMonitorServerStatus200JSONResponseBodyDataAnomaliesSeverity = "critical"
+	Warning  GetMonitorServerStatus200JSONResponseBodyDataAnomaliesSeverity = "warning"
+)
+
+// Valid indicates whether the value is a known member of the GetMonitorServerStatus200JSONResponseBodyDataAnomaliesSeverity enum.
+func (e GetMonitorServerStatus200JSONResponseBodyDataAnomaliesSeverity) Valid() bool {
+	switch e {
+	case Critical:
+		return true
+	case Warning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetMonitorServerStatus200JSONResponseBodyDataAnomaliesStatus.
+const (
+	Active GetMonitorServerStatus200JSONResponseBodyDataAnomaliesStatus = "active"
+)
+
+// Valid indicates whether the value is a known member of the GetMonitorServerStatus200JSONResponseBodyDataAnomaliesStatus enum.
+func (e GetMonitorServerStatus200JSONResponseBodyDataAnomaliesStatus) Valid() bool {
+	switch e {
+	case Active:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetMonitorServerStatus200JSONResponseBodyDataTrendRange.
 const (
 	GetMonitorServerStatus200JSONResponseBodyDataTrendRangeN10m GetMonitorServerStatus200JSONResponseBodyDataTrendRange = "10m"
@@ -115,6 +322,33 @@ type GetMonitorServerStatusParams struct {
 
 // GetMonitorServerStatusParamsTrendRange defines parameters for GetMonitorServerStatus.
 type GetMonitorServerStatusParamsTrendRange string
+
+// GetMonitorServerStatus200JSONResponseBodyDataAnomaliesAnomalyKey defines parameters for GetMonitorServerStatus.
+type GetMonitorServerStatus200JSONResponseBodyDataAnomaliesAnomalyKey string
+
+// GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksAuditContextResult defines parameters for GetMonitorServerStatus.
+type GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksAuditContextResult string
+
+// GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksAuditContextRiskLevel defines parameters for GetMonitorServerStatus.
+type GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksAuditContextRiskLevel string
+
+// GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksAuditContextSource defines parameters for GetMonitorServerStatus.
+type GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksAuditContextSource string
+
+// GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksLinkState defines parameters for GetMonitorServerStatus.
+type GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksLinkState string
+
+// GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksTargetKind defines parameters for GetMonitorServerStatus.
+type GetMonitorServerStatus200JSONResponseBodyDataAnomaliesEvidenceLinksTargetKind string
+
+// GetMonitorServerStatus200JSONResponseBodyDataAnomaliesScopeKind defines parameters for GetMonitorServerStatus.
+type GetMonitorServerStatus200JSONResponseBodyDataAnomaliesScopeKind string
+
+// GetMonitorServerStatus200JSONResponseBodyDataAnomaliesSeverity defines parameters for GetMonitorServerStatus.
+type GetMonitorServerStatus200JSONResponseBodyDataAnomaliesSeverity string
+
+// GetMonitorServerStatus200JSONResponseBodyDataAnomaliesStatus defines parameters for GetMonitorServerStatus.
+type GetMonitorServerStatus200JSONResponseBodyDataAnomaliesStatus string
 
 // GetMonitorServerStatus200JSONResponseBodyDataTrendRange defines parameters for GetMonitorServerStatus.
 type GetMonitorServerStatus200JSONResponseBodyDataTrendRange string

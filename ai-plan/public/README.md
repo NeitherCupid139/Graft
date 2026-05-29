@@ -16,6 +16,25 @@ Overlay note:
 
 ## Archived Topics
 
+- `audit-monitor-phase-b-integration`
+  - Status: `archived`
+  - Recovery status: completed the bounded Phase B authority-discovery and design loop; no active continuation remains until an implementation slice is opened.
+  - Archive reason: the truthful next step was an authority-first integration design, not a fake frontend correlation layer or an observability-platform rollout.
+  - Final result:
+    - identified `audit` and `monitor` canonical authorities plus the required upstream authority repairs
+    - defined a bounded `monitor resource -> evidence link -> audit context` integration model
+    - defined a dedicated security timeline drilldown workflow based on an audit-owned incident read model
+    - produced contract, backend, frontend, and UX gap analysis plus a B1/B2/B3 roadmap
+    - recommended Phase B1 as the first implementation slice so monitor anomaly semantics move into backend/OpenAPI before incident-page expansion
+  - Follow-up status: `new-topic-only`
+  - Archived topic directory:
+    - `ai-plan/public/archive/audit-monitor-phase-b-integration`
+  - Archive notes:
+    - do not introduce OpenTelemetry, Prometheus, Grafana, tracing, or log-platform scope under this topic
+    - repair canonical authority first: monitor anomaly semantics and audit evidence context must move upstream before UI drilldown expansion
+    - related monitor context remains bounded by current short-retention monitor authority unless a future topic widens it explicitly
+  - Next-session prompt: `Re-run startup preflight from root AGENTS.md. Treat audit-monitor-phase-b-integration as archived design evidence and open a new bounded implementation topic only if Phase B1 authority repair is being started.`
+
 - `observability-development-governance`
   - Status: `archived`
   - Recovery status: the original three phases completed locally with bounded server and web validation; the bounded P2 audit-console analytics follow-up also completed locally and is now archived as part of this topic's final evidence.

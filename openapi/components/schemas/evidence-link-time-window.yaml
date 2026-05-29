@@ -1,0 +1,9 @@
+type: object
+required: [created_from, created_to]
+properties:
+  created_from:
+    type: string
+    format: date-time
+  created_to:
+    type: string
+    format: date-time

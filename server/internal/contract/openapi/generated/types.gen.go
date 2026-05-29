@@ -12,6 +12,75 @@ const (
 	RefreshCookieScopes refreshCookieContextKey = "refreshCookie.Scopes"
 )
 
+// Defines values for AuditEvidenceContextResult.
+const (
+	AuditEvidenceContextResultDENIED  AuditEvidenceContextResult = "DENIED"
+	AuditEvidenceContextResultERROR   AuditEvidenceContextResult = "ERROR"
+	AuditEvidenceContextResultFAILED  AuditEvidenceContextResult = "FAILED"
+	AuditEvidenceContextResultSUCCESS AuditEvidenceContextResult = "SUCCESS"
+)
+
+// Valid indicates whether the value is a known member of the AuditEvidenceContextResult enum.
+func (e AuditEvidenceContextResult) Valid() bool {
+	switch e {
+	case AuditEvidenceContextResultDENIED:
+		return true
+	case AuditEvidenceContextResultERROR:
+		return true
+	case AuditEvidenceContextResultFAILED:
+		return true
+	case AuditEvidenceContextResultSUCCESS:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AuditEvidenceContextRiskLevel.
+const (
+	AuditEvidenceContextRiskLevelCRITICAL AuditEvidenceContextRiskLevel = "CRITICAL"
+	AuditEvidenceContextRiskLevelHIGH     AuditEvidenceContextRiskLevel = "HIGH"
+	AuditEvidenceContextRiskLevelLOW      AuditEvidenceContextRiskLevel = "LOW"
+	AuditEvidenceContextRiskLevelMEDIUM   AuditEvidenceContextRiskLevel = "MEDIUM"
+)
+
+// Valid indicates whether the value is a known member of the AuditEvidenceContextRiskLevel enum.
+func (e AuditEvidenceContextRiskLevel) Valid() bool {
+	switch e {
+	case AuditEvidenceContextRiskLevelCRITICAL:
+		return true
+	case AuditEvidenceContextRiskLevelHIGH:
+		return true
+	case AuditEvidenceContextRiskLevelLOW:
+		return true
+	case AuditEvidenceContextRiskLevelMEDIUM:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AuditEvidenceContextSource.
+const (
+	AuditEvidenceContextSourceDOMAINEVENT   AuditEvidenceContextSource = "DOMAIN_EVENT"
+	AuditEvidenceContextSourceREQUEST       AuditEvidenceContextSource = "REQUEST"
+	AuditEvidenceContextSourceSECURITYEVENT AuditEvidenceContextSource = "SECURITY_EVENT"
+)
+
+// Valid indicates whether the value is a known member of the AuditEvidenceContextSource enum.
+func (e AuditEvidenceContextSource) Valid() bool {
+	switch e {
+	case AuditEvidenceContextSourceDOMAINEVENT:
+		return true
+	case AuditEvidenceContextSourceREQUEST:
+		return true
+	case AuditEvidenceContextSourceSECURITYEVENT:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AuditLogListItemResult.
 const (
 	AuditLogListItemResultDENIED  AuditLogListItemResult = "DENIED"
@@ -264,6 +333,48 @@ func (e ErrorResponseSuccess) Valid() bool {
 	}
 }
 
+// Defines values for EvidenceLinkLinkState.
+const (
+	Available   EvidenceLinkLinkState = "available"
+	Empty       EvidenceLinkLinkState = "empty"
+	Unavailable EvidenceLinkLinkState = "unavailable"
+	Unsupported EvidenceLinkLinkState = "unsupported"
+)
+
+// Valid indicates whether the value is a known member of the EvidenceLinkLinkState enum.
+func (e EvidenceLinkLinkState) Valid() bool {
+	switch e {
+	case Available:
+		return true
+	case Empty:
+		return true
+	case Unavailable:
+		return true
+	case Unsupported:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EvidenceLinkTargetKind.
+const (
+	AuditContext  EvidenceLinkTargetKind = "audit_context"
+	AuditIncident EvidenceLinkTargetKind = "audit_incident"
+)
+
+// Valid indicates whether the value is a known member of the EvidenceLinkTargetKind enum.
+func (e EvidenceLinkTargetKind) Valid() bool {
+	switch e {
+	case AuditContext:
+		return true
+	case AuditIncident:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for HealthResponseStatus.
 const (
 	Ok HealthResponseStatus = "ok"
@@ -309,6 +420,102 @@ func (e RoleListItemStatus) Valid() bool {
 	case RoleListItemStatusDisabled:
 		return true
 	case RoleListItemStatusEnabled:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ServerStatusAnomalyAnomalyKey.
+const (
+	DependencyStatusDegraded ServerStatusAnomalyAnomalyKey = "dependency_status_degraded"
+	DependencyStatusUnknown  ServerStatusAnomalyAnomalyKey = "dependency_status_unknown"
+	PluginDependencyMissing  ServerStatusAnomalyAnomalyKey = "plugin_dependency_missing"
+	ResourceCpuPressure      ServerStatusAnomalyAnomalyKey = "resource_cpu_pressure"
+	ResourceDiskPressure     ServerStatusAnomalyAnomalyKey = "resource_disk_pressure"
+	ResourceMemoryPressure   ServerStatusAnomalyAnomalyKey = "resource_memory_pressure"
+	RuntimeGoroutinePressure ServerStatusAnomalyAnomalyKey = "runtime_goroutine_pressure"
+	RuntimeHeapPressure      ServerStatusAnomalyAnomalyKey = "runtime_heap_pressure"
+	SystemLoadPressure       ServerStatusAnomalyAnomalyKey = "system_load_pressure"
+)
+
+// Valid indicates whether the value is a known member of the ServerStatusAnomalyAnomalyKey enum.
+func (e ServerStatusAnomalyAnomalyKey) Valid() bool {
+	switch e {
+	case DependencyStatusDegraded:
+		return true
+	case DependencyStatusUnknown:
+		return true
+	case PluginDependencyMissing:
+		return true
+	case ResourceCpuPressure:
+		return true
+	case ResourceDiskPressure:
+		return true
+	case ResourceMemoryPressure:
+		return true
+	case RuntimeGoroutinePressure:
+		return true
+	case RuntimeHeapPressure:
+		return true
+	case SystemLoadPressure:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ServerStatusAnomalyScopeKind.
+const (
+	Dependency ServerStatusAnomalyScopeKind = "dependency"
+	Plugin     ServerStatusAnomalyScopeKind = "plugin"
+	Resource   ServerStatusAnomalyScopeKind = "resource"
+	Runtime    ServerStatusAnomalyScopeKind = "runtime"
+)
+
+// Valid indicates whether the value is a known member of the ServerStatusAnomalyScopeKind enum.
+func (e ServerStatusAnomalyScopeKind) Valid() bool {
+	switch e {
+	case Dependency:
+		return true
+	case Plugin:
+		return true
+	case Resource:
+		return true
+	case Runtime:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ServerStatusAnomalySeverity.
+const (
+	Critical ServerStatusAnomalySeverity = "critical"
+	Warning  ServerStatusAnomalySeverity = "warning"
+)
+
+// Valid indicates whether the value is a known member of the ServerStatusAnomalySeverity enum.
+func (e ServerStatusAnomalySeverity) Valid() bool {
+	switch e {
+	case Critical:
+		return true
+	case Warning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ServerStatusAnomalyStatus.
+const (
+	Active ServerStatusAnomalyStatus = "active"
+)
+
+// Valid indicates whether the value is a known member of the ServerStatusAnomalyStatus enum.
+func (e ServerStatusAnomalyStatus) Valid() bool {
+	switch e {
+	case Active:
 		return true
 	default:
 		return false
@@ -395,19 +602,19 @@ func (e TrendRangeQuery) Valid() bool {
 
 // Defines values for GetAuditLogsParamsSource.
 const (
-	GetAuditLogsParamsSourceDOMAINEVENT   GetAuditLogsParamsSource = "DOMAIN_EVENT"
-	GetAuditLogsParamsSourceREQUEST       GetAuditLogsParamsSource = "REQUEST"
-	GetAuditLogsParamsSourceSECURITYEVENT GetAuditLogsParamsSource = "SECURITY_EVENT"
+	DOMAINEVENT   GetAuditLogsParamsSource = "DOMAIN_EVENT"
+	REQUEST       GetAuditLogsParamsSource = "REQUEST"
+	SECURITYEVENT GetAuditLogsParamsSource = "SECURITY_EVENT"
 )
 
 // Valid indicates whether the value is a known member of the GetAuditLogsParamsSource enum.
 func (e GetAuditLogsParamsSource) Valid() bool {
 	switch e {
-	case GetAuditLogsParamsSourceDOMAINEVENT:
+	case DOMAINEVENT:
 		return true
-	case GetAuditLogsParamsSourceREQUEST:
+	case REQUEST:
 		return true
-	case GetAuditLogsParamsSourceSECURITYEVENT:
+	case SECURITYEVENT:
 		return true
 	default:
 		return false
@@ -416,22 +623,22 @@ func (e GetAuditLogsParamsSource) Valid() bool {
 
 // Defines values for GetAuditLogsParamsResult.
 const (
-	DENIED  GetAuditLogsParamsResult = "DENIED"
-	ERROR   GetAuditLogsParamsResult = "ERROR"
-	FAILED  GetAuditLogsParamsResult = "FAILED"
-	SUCCESS GetAuditLogsParamsResult = "SUCCESS"
+	GetAuditLogsParamsResultDENIED  GetAuditLogsParamsResult = "DENIED"
+	GetAuditLogsParamsResultERROR   GetAuditLogsParamsResult = "ERROR"
+	GetAuditLogsParamsResultFAILED  GetAuditLogsParamsResult = "FAILED"
+	GetAuditLogsParamsResultSUCCESS GetAuditLogsParamsResult = "SUCCESS"
 )
 
 // Valid indicates whether the value is a known member of the GetAuditLogsParamsResult enum.
 func (e GetAuditLogsParamsResult) Valid() bool {
 	switch e {
-	case DENIED:
+	case GetAuditLogsParamsResultDENIED:
 		return true
-	case ERROR:
+	case GetAuditLogsParamsResultERROR:
 		return true
-	case FAILED:
+	case GetAuditLogsParamsResultFAILED:
 		return true
-	case SUCCESS:
+	case GetAuditLogsParamsResultSUCCESS:
 		return true
 	default:
 		return false
@@ -440,22 +647,22 @@ func (e GetAuditLogsParamsResult) Valid() bool {
 
 // Defines values for GetAuditLogsParamsRiskLevel.
 const (
-	GetAuditLogsParamsRiskLevelCRITICAL GetAuditLogsParamsRiskLevel = "CRITICAL"
-	GetAuditLogsParamsRiskLevelHIGH     GetAuditLogsParamsRiskLevel = "HIGH"
-	GetAuditLogsParamsRiskLevelLOW      GetAuditLogsParamsRiskLevel = "LOW"
-	GetAuditLogsParamsRiskLevelMEDIUM   GetAuditLogsParamsRiskLevel = "MEDIUM"
+	CRITICAL GetAuditLogsParamsRiskLevel = "CRITICAL"
+	HIGH     GetAuditLogsParamsRiskLevel = "HIGH"
+	LOW      GetAuditLogsParamsRiskLevel = "LOW"
+	MEDIUM   GetAuditLogsParamsRiskLevel = "MEDIUM"
 )
 
 // Valid indicates whether the value is a known member of the GetAuditLogsParamsRiskLevel enum.
 func (e GetAuditLogsParamsRiskLevel) Valid() bool {
 	switch e {
-	case GetAuditLogsParamsRiskLevelCRITICAL:
+	case CRITICAL:
 		return true
-	case GetAuditLogsParamsRiskLevelHIGH:
+	case HIGH:
 		return true
-	case GetAuditLogsParamsRiskLevelLOW:
+	case LOW:
 		return true
-	case GetAuditLogsParamsRiskLevelMEDIUM:
+	case MEDIUM:
 		return true
 	default:
 		return false
@@ -541,6 +748,30 @@ type ApiEnvelope struct {
 	// TraceId Mirrors the request id contract used by the current runtime.
 	TraceId string `json:"traceId"`
 }
+
+// AuditEvidenceContext defines model for audit-evidence-context.
+type AuditEvidenceContext struct {
+	Action       *string                        `json:"action,omitempty"`
+	ActionPrefix *string                        `json:"action_prefix,omitempty"`
+	CreatedFrom  *time.Time                     `json:"created_from,omitempty"`
+	CreatedTo    *time.Time                     `json:"created_to,omitempty"`
+	RequestId    *string                        `json:"request_id,omitempty"`
+	ResourceId   *string                        `json:"resource_id,omitempty"`
+	ResourceName *string                        `json:"resource_name,omitempty"`
+	ResourceType *string                        `json:"resource_type,omitempty"`
+	Result       *AuditEvidenceContextResult    `json:"result,omitempty"`
+	RiskLevel    *AuditEvidenceContextRiskLevel `json:"risk_level,omitempty"`
+	Source       *AuditEvidenceContextSource    `json:"source,omitempty"`
+}
+
+// AuditEvidenceContextResult defines model for AuditEvidenceContext.Result.
+type AuditEvidenceContextResult string
+
+// AuditEvidenceContextRiskLevel defines model for AuditEvidenceContext.RiskLevel.
+type AuditEvidenceContextRiskLevel string
+
+// AuditEvidenceContextSource defines model for AuditEvidenceContext.Source.
+type AuditEvidenceContextSource string
 
 // AuditLogListItem defines model for audit-log-list-item.
 type AuditLogListItem struct {
@@ -1080,6 +1311,31 @@ type ErrorResponse struct {
 // ErrorResponseSuccess defines model for ErrorResponse.Success.
 type ErrorResponseSuccess bool
 
+// EvidenceLink defines model for evidence-link.
+type EvidenceLink struct {
+	AuditContext *AuditEvidenceContext `json:"audit_context,omitempty"`
+	IncidentSeed *struct {
+		EventId int64 `json:"event_id"`
+	} `json:"incident_seed,omitempty"`
+	LinkState  EvidenceLinkLinkState   `json:"link_state"`
+	Reason     *string                 `json:"reason,omitempty"`
+	TargetKind EvidenceLinkTargetKind  `json:"target_kind"`
+	TimeWindow *EvidenceLinkTimeWindow `json:"time_window,omitempty"`
+	Title      string                  `json:"title"`
+}
+
+// EvidenceLinkLinkState defines model for EvidenceLink.LinkState.
+type EvidenceLinkLinkState string
+
+// EvidenceLinkTargetKind defines model for EvidenceLink.TargetKind.
+type EvidenceLinkTargetKind string
+
+// EvidenceLinkTimeWindow defines model for evidence-link-time-window.
+type EvidenceLinkTimeWindow struct {
+	CreatedFrom time.Time `json:"created_from"`
+	CreatedTo   time.Time `json:"created_to"`
+}
+
 // HealthResponse defines model for health-response.
 type HealthResponse struct {
 	DefaultLocale  string               `json:"defaultLocale"`
@@ -1199,6 +1455,30 @@ type RolePermissionBindingResponse struct {
 	PermissionIds []int64 `json:"permission_ids"`
 }
 
+// ServerStatusAnomaly defines model for server-status-anomaly.
+type ServerStatusAnomaly struct {
+	AnomalyKey    ServerStatusAnomalyAnomalyKey `json:"anomaly_key"`
+	EvidenceLinks []EvidenceLink                `json:"evidence_links"`
+	ObservedAt    time.Time                     `json:"observed_at"`
+	ScopeKind     ServerStatusAnomalyScopeKind  `json:"scope_kind"`
+	ScopeRef      string                        `json:"scope_ref"`
+	Severity      ServerStatusAnomalySeverity   `json:"severity"`
+	Status        ServerStatusAnomalyStatus     `json:"status"`
+	Summary       string                        `json:"summary"`
+}
+
+// ServerStatusAnomalyAnomalyKey defines model for ServerStatusAnomaly.AnomalyKey.
+type ServerStatusAnomalyAnomalyKey string
+
+// ServerStatusAnomalyScopeKind defines model for ServerStatusAnomaly.ScopeKind.
+type ServerStatusAnomalyScopeKind string
+
+// ServerStatusAnomalySeverity defines model for ServerStatusAnomaly.Severity.
+type ServerStatusAnomalySeverity string
+
+// ServerStatusAnomalyStatus defines model for ServerStatusAnomaly.Status.
+type ServerStatusAnomalyStatus string
+
 // ServerStatusDependencies defines model for server-status-dependencies.
 type ServerStatusDependencies struct {
 	Database ServerStatusDependency `json:"database"`
@@ -1240,6 +1520,7 @@ type ServerStatusPlugin struct {
 
 // ServerStatusResponse defines model for server-status-response.
 type ServerStatusResponse struct {
+	Anomalies    []ServerStatusAnomaly    `json:"anomalies"`
 	Dependencies ServerStatusDependencies `json:"dependencies"`
 	ObservedAt   time.Time                `json:"observed_at"`
 	Plugins      []ServerStatusPlugin     `json:"plugins"`

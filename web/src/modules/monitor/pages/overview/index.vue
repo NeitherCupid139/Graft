@@ -290,6 +290,44 @@
         :min-height="520"
       >
         <div v-if="serverStatus" class="status-sidebar__content">
+          <section
+            v-if="monitorAnomalies.length > 0"
+            class="status-sidebar__section"
+            data-status-sidebar-group="anomalies"
+          >
+            <header class="status-sidebar__section-header">
+              <h3 class="status-sidebar__section-title">{{ t('monitor.serverStatus.anomaliesTitle') }}</h3>
+            </header>
+            <div class="anomaly-list">
+              <article
+                v-for="anomaly in monitorAnomalies"
+                :key="`${anomaly.anomaly_key}:${anomaly.scope_ref}`"
+                class="anomaly-item"
+                :data-anomaly-key="anomaly.anomaly_key"
+              >
+                <div class="anomaly-item__header">
+                  <strong class="anomaly-item__summary">{{ anomaly.summary }}</strong>
+                  <t-tag :theme="anomalySeverityTheme(anomaly.severity)" variant="light">
+                    {{ anomalySeverityLabel(anomaly.severity) }}
+                  </t-tag>
+                </div>
+                <p v-if="anomalyEvidenceHint(anomaly)" class="anomaly-item__hint">
+                  {{ anomalyEvidenceHint(anomaly) }}
+                </p>
+                <t-button
+                  v-if="firstAvailableEvidenceLink(anomaly)"
+                  size="small"
+                  theme="primary"
+                  variant="text"
+                  class="anomaly-item__action"
+                  @click="openAnomalyEvidence(anomaly)"
+                >
+                  {{ t('monitor.serverStatus.openAuditEvidence') }}
+                </t-button>
+              </article>
+            </div>
+          </section>
+
           <section class="status-sidebar__section" data-status-sidebar-group="dependencies">
             <header class="status-sidebar__section-header">
               <h3 class="status-sidebar__section-title">
@@ -374,6 +412,7 @@ import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 
 import type { TChartColor } from '@/config/color';
+import { buildAuditEvidenceLocation } from '@/modules/audit/contract/deep-link';
 import { openCorrelationErrorNotification, requestIdFromError } from '@/modules/audit/shared/correlation-actions';
 import { resolveLocalizedErrorMessage } from '@/modules/shared/localized-api-error';
 import { useSettingStore } from '@/store';
@@ -387,7 +426,13 @@ import SummaryMetricCard from '../../components/SummaryMetricCard.vue';
 import { useMonitorRefreshPreferences } from '../../composables/use-monitor-refresh-preferences';
 import type { MonitorRefreshInterval } from '../../contract/refresh';
 import { MONITOR_TREND_RANGE, type MonitorTrendRange } from '../../contract/trend';
-import type { ServerStatusDependency, ServerStatusResponse, ServerStatusTrendPoint } from '../../types/server-status';
+import type {
+  EvidenceLink,
+  ServerStatusAnomaly,
+  ServerStatusDependency,
+  ServerStatusResponse,
+  ServerStatusTrendPoint,
+} from '../../types/server-status';
 
 defineOptions({
   name: 'MonitorServerStatusOverviewIndex',
@@ -500,6 +545,8 @@ const trendModeOptions = computed(() => [
   { label: t('monitor.serverStatus.trendModeMulti'), value: 'multi' },
   { label: t('monitor.serverStatus.trendModeFocus'), value: 'focus' },
 ]);
+
+const monitorAnomalies = computed<ServerStatusAnomaly[]>(() => serverStatus.value?.anomalies ?? []);
 
 const selectedTrendRangeLabel = computed(() => {
   return trendRangeOptions.value.find((option) => option.value === selectedTrendRange.value)?.label ?? '--';
@@ -718,23 +765,7 @@ const focusReferenceText = computed(() =>
 );
 
 const overallStatus = computed<MonitorStatus>(() => {
-  const statuses = [
-    normalizeStatus(serverStatus.value?.status),
-    ...metricCards.value.map((card) => metricToneToMonitorStatus(card.tone)),
-    ...dependencyItems.value.map((item) => item.status),
-  ];
-
-  if (statuses.includes('degraded')) {
-    return 'degraded';
-  }
-  if (statuses.includes('healthy')) {
-    return 'healthy';
-  }
-  if (statuses.includes('disabled')) {
-    return 'disabled';
-  }
-
-  return 'unknown';
+  return normalizeStatus(serverStatus.value?.status);
 });
 
 const refreshCountdownText = computed(() => {
@@ -788,7 +819,15 @@ const metricCards = computed<MetricCard[]>(() => {
         five: formatLoadAverage(loadAverage.five_minutes),
         fifteen: formatLoadAverage(loadAverage.fifteen_minutes),
       }),
-      ...buildLoadCardStatus(loadPercent),
+      ...buildMetricCardStatus(resolveAnomalyByKey('system_load_pressure'), {
+        hasValue: loadPercent !== null,
+        healthyDescription: t('monitor.serverStatus.metricLoadDescriptionHealthy'),
+        healthyLabel: t('monitor.serverStatus.metricLoadStatusHealthy'),
+        warningDescription: t('monitor.serverStatus.metricLoadDescriptionWarning'),
+        warningLabel: t('monitor.serverStatus.metricLoadStatusWarning'),
+        criticalDescription: t('monitor.serverStatus.metricLoadDescriptionCritical'),
+        criticalLabel: t('monitor.serverStatus.metricLoadStatusCritical'),
+      }),
     },
     {
       key: 'cpu',
@@ -800,7 +839,15 @@ const metricCards = computed<MetricCard[]>(() => {
       meta: t('monitor.serverStatus.metricCpuMeta', {
         count: String(response.runtime.cpu_cores),
       }),
-      ...buildCpuCardStatus(cpuPercent),
+      ...buildMetricCardStatus(resolveAnomalyByKey('resource_cpu_pressure'), {
+        hasValue: cpuPercent !== null,
+        healthyDescription: t('monitor.serverStatus.metricCpuDescriptionHealthy'),
+        healthyLabel: t('monitor.serverStatus.metricCpuStatusHealthy'),
+        warningDescription: t('monitor.serverStatus.metricCpuDescriptionWarning'),
+        warningLabel: t('monitor.serverStatus.metricCpuStatusWarning'),
+        criticalDescription: t('monitor.serverStatus.metricCpuDescriptionCritical'),
+        criticalLabel: t('monitor.serverStatus.metricCpuStatusCritical'),
+      }),
     },
     {
       key: 'memory',
@@ -813,7 +860,15 @@ const metricCards = computed<MetricCard[]>(() => {
       meta: t('monitor.serverStatus.metricMemoryMeta', {
         available: formatBytes(response.runtime.host_memory_free_bytes),
       }),
-      ...buildMemoryCardStatus(hostMemoryPercent),
+      ...buildMetricCardStatus(resolveAnomalyByKey('resource_memory_pressure'), {
+        hasValue: hostMemoryPercent !== null,
+        healthyDescription: t('monitor.serverStatus.metricMemoryDescriptionHealthy'),
+        healthyLabel: t('monitor.serverStatus.metricMemoryStatusHealthy'),
+        warningDescription: t('monitor.serverStatus.metricMemoryDescriptionWarning'),
+        warningLabel: t('monitor.serverStatus.metricMemoryStatusWarning'),
+        criticalDescription: t('monitor.serverStatus.metricMemoryDescriptionCritical'),
+        criticalLabel: t('monitor.serverStatus.metricMemoryStatusCritical'),
+      }),
     },
     {
       key: 'disk',
@@ -827,7 +882,15 @@ const metricCards = computed<MetricCard[]>(() => {
         path: diskPath,
         free: formatBytes(response.runtime.disk_usage.free_bytes),
       }),
-      ...buildDiskCardStatus(diskPercent),
+      ...buildMetricCardStatus(resolveAnomalyByKey('resource_disk_pressure'), {
+        hasValue: diskPercent !== null,
+        healthyDescription: t('monitor.serverStatus.metricDiskDescriptionHealthy'),
+        healthyLabel: t('monitor.serverStatus.metricDiskStatusHealthy'),
+        warningDescription: t('monitor.serverStatus.metricDiskDescriptionWarning'),
+        warningLabel: t('monitor.serverStatus.metricDiskStatusWarning'),
+        criticalDescription: t('monitor.serverStatus.metricDiskDescriptionCritical'),
+        criticalLabel: t('monitor.serverStatus.metricDiskStatusCritical'),
+      }),
     },
   ];
 });
@@ -1081,17 +1144,8 @@ function buildDependencyItem(key: string, label: string, dependency: ServerStatu
   };
 }
 
-function loadTone(percent: number | null): MetricCardTone {
-  if (percent === null || Number.isNaN(percent)) {
-    return 'unknown';
-  }
-  if (percent >= 100) {
-    return 'critical';
-  }
-  if (percent >= 60) {
-    return 'warning';
-  }
-  return 'healthy';
+function resolveAnomalyByKey(anomalyKey: string) {
+  return monitorAnomalies.value.find((anomaly) => anomaly.anomaly_key === anomalyKey);
 }
 
 function normalizedDiskPath(path?: string | null) {
@@ -1099,31 +1153,6 @@ function normalizedDiskPath(path?: string | null) {
     return t('monitor.serverStatus.diskRootPath');
   }
   return path;
-}
-
-function usageTone(percent: number | null, warningThreshold: number, criticalThreshold: number): MetricCardTone {
-  if (percent === null || Number.isNaN(percent)) {
-    return 'unknown';
-  }
-  if (percent >= criticalThreshold) {
-    return 'critical';
-  }
-  if (percent >= warningThreshold) {
-    return 'warning';
-  }
-  return 'healthy';
-}
-
-function metricToneToMonitorStatus(tone: MetricCardTone): MonitorStatus {
-  switch (tone) {
-    case 'healthy':
-      return 'healthy';
-    case 'warning':
-    case 'critical':
-      return 'degraded';
-    default:
-      return 'unknown';
-  }
 }
 
 function metricToneToServerStatusTone(tone: MetricCardTone): ServerStatusTone {
@@ -1152,152 +1181,80 @@ function metricCardTagTheme(tone: MetricCardTone): MetricCard['tagTheme'] {
   }
 }
 
-function buildLoadCardStatus(
-  percent: number | null,
+function buildMetricCardStatus(
+  anomaly: ServerStatusAnomaly | undefined,
+  copy: {
+    hasValue: boolean;
+    healthyDescription: string;
+    healthyLabel: string;
+    warningDescription: string;
+    warningLabel: string;
+    criticalDescription: string;
+    criticalLabel: string;
+  },
 ): Pick<MetricCard, 'description' | 'statusLabel' | 'tagTheme' | 'tone'> {
-  const tone = loadTone(percent);
-
-  switch (tone) {
-    case 'healthy':
-      return {
-        tone,
-        statusLabel: t('monitor.serverStatus.metricLoadStatusHealthy'),
-        description: t('monitor.serverStatus.metricLoadDescriptionHealthy'),
-        tagTheme: metricCardTagTheme(tone),
-      };
-    case 'warning':
-      return {
-        tone,
-        statusLabel: t('monitor.serverStatus.metricLoadStatusWarning'),
-        description: t('monitor.serverStatus.metricLoadDescriptionWarning'),
-        tagTheme: metricCardTagTheme(tone),
-      };
-    case 'critical':
-      return {
-        tone,
-        statusLabel: t('monitor.serverStatus.metricLoadStatusCritical'),
-        description: t('monitor.serverStatus.metricLoadDescriptionCritical'),
-        tagTheme: metricCardTagTheme(tone),
-      };
-    default:
-      return {
-        tone,
-        statusLabel: t('monitor.serverStatus.statusUnknown'),
-        description: t('monitor.serverStatus.emptyMetric.description'),
-        tagTheme: metricCardTagTheme(tone),
-      };
+  if (anomaly?.severity === 'critical') {
+    return {
+      tone: 'critical',
+      statusLabel: copy.criticalLabel,
+      description: anomaly.summary || copy.criticalDescription,
+      tagTheme: metricCardTagTheme('critical'),
+    };
   }
+  if (anomaly?.severity === 'warning') {
+    return {
+      tone: 'warning',
+      statusLabel: copy.warningLabel,
+      description: anomaly.summary || copy.warningDescription,
+      tagTheme: metricCardTagTheme('warning'),
+    };
+  }
+  if (!copy.hasValue) {
+    return {
+      tone: 'unknown',
+      statusLabel: t('monitor.serverStatus.statusUnknown'),
+      description: t('monitor.serverStatus.emptyMetric.description'),
+      tagTheme: metricCardTagTheme('unknown'),
+    };
+  }
+  return {
+    tone: 'healthy',
+    statusLabel: copy.healthyLabel,
+    description: copy.healthyDescription,
+    tagTheme: metricCardTagTheme('healthy'),
+  };
 }
 
-function buildCpuCardStatus(
-  percent: number | null,
-): Pick<MetricCard, 'description' | 'statusLabel' | 'tagTheme' | 'tone'> {
-  const tone = usageTone(percent, 20, 70);
-
-  switch (tone) {
-    case 'healthy':
-      return {
-        tone,
-        statusLabel: t('monitor.serverStatus.metricCpuStatusHealthy'),
-        description: t('monitor.serverStatus.metricCpuDescriptionHealthy'),
-        tagTheme: metricCardTagTheme(tone),
-      };
-    case 'warning':
-      return {
-        tone,
-        statusLabel: t('monitor.serverStatus.metricCpuStatusWarning'),
-        description: t('monitor.serverStatus.metricCpuDescriptionWarning'),
-        tagTheme: metricCardTagTheme(tone),
-      };
-    case 'critical':
-      return {
-        tone,
-        statusLabel: t('monitor.serverStatus.metricCpuStatusCritical'),
-        description: t('monitor.serverStatus.metricCpuDescriptionCritical'),
-        tagTheme: metricCardTagTheme(tone),
-      };
-    default:
-      return {
-        tone,
-        statusLabel: t('monitor.serverStatus.statusUnknown'),
-        description: t('monitor.serverStatus.emptyMetric.description'),
-        tagTheme: metricCardTagTheme(tone),
-      };
-  }
+function anomalySeverityTheme(severity?: string) {
+  return severity === 'critical' ? 'danger' : 'warning';
 }
 
-function buildMemoryCardStatus(
-  percent: number | null,
-): Pick<MetricCard, 'description' | 'statusLabel' | 'tagTheme' | 'tone'> {
-  const tone = usageTone(percent, 60, 85);
-
-  switch (tone) {
-    case 'healthy':
-      return {
-        tone,
-        statusLabel: t('monitor.serverStatus.metricMemoryStatusHealthy'),
-        description: t('monitor.serverStatus.metricMemoryDescriptionHealthy'),
-        tagTheme: metricCardTagTheme(tone),
-      };
-    case 'warning':
-      return {
-        tone,
-        statusLabel: t('monitor.serverStatus.metricMemoryStatusWarning'),
-        description: t('monitor.serverStatus.metricMemoryDescriptionWarning'),
-        tagTheme: metricCardTagTheme(tone),
-      };
-    case 'critical':
-      return {
-        tone,
-        statusLabel: t('monitor.serverStatus.metricMemoryStatusCritical'),
-        description: t('monitor.serverStatus.metricMemoryDescriptionCritical'),
-        tagTheme: metricCardTagTheme(tone),
-      };
-    default:
-      return {
-        tone,
-        statusLabel: t('monitor.serverStatus.statusUnknown'),
-        description: t('monitor.serverStatus.emptyMetric.description'),
-        tagTheme: metricCardTagTheme(tone),
-      };
-  }
+function anomalySeverityLabel(severity?: string) {
+  return severity === 'critical'
+    ? t('monitor.serverStatus.anomalySeverityCritical')
+    : t('monitor.serverStatus.anomalySeverityWarning');
 }
 
-function buildDiskCardStatus(
-  percent: number | null,
-): Pick<MetricCard, 'description' | 'statusLabel' | 'tagTheme' | 'tone'> {
-  const tone = usageTone(percent, 70, 85);
+function firstAvailableEvidenceLink(anomaly: ServerStatusAnomaly): EvidenceLink | undefined {
+  return anomaly.evidence_links.find((item) => item.link_state === 'available' && item.audit_context);
+}
 
-  switch (tone) {
-    case 'healthy':
-      return {
-        tone,
-        statusLabel: t('monitor.serverStatus.metricDiskStatusHealthy'),
-        description: t('monitor.serverStatus.metricDiskDescriptionHealthy'),
-        tagTheme: metricCardTagTheme(tone),
-      };
-    case 'warning':
-      return {
-        tone,
-        statusLabel: t('monitor.serverStatus.metricDiskStatusWarning'),
-        description: t('monitor.serverStatus.metricDiskDescriptionWarning'),
-        tagTheme: metricCardTagTheme(tone),
-      };
-    case 'critical':
-      return {
-        tone,
-        statusLabel: t('monitor.serverStatus.metricDiskStatusCritical'),
-        description: t('monitor.serverStatus.metricDiskDescriptionCritical'),
-        tagTheme: metricCardTagTheme(tone),
-      };
-    default:
-      return {
-        tone,
-        statusLabel: t('monitor.serverStatus.statusUnknown'),
-        description: t('monitor.serverStatus.emptyMetric.description'),
-        tagTheme: metricCardTagTheme(tone),
-      };
+function anomalyEvidenceHint(anomaly: ServerStatusAnomaly) {
+  const available = firstAvailableEvidenceLink(anomaly);
+  if (available) {
+    return available.reason ?? '';
   }
+
+  return anomaly.evidence_links[0]?.reason ?? t('monitor.serverStatus.auditEvidenceUnavailable');
+}
+
+function openAnomalyEvidence(anomaly: ServerStatusAnomaly) {
+  const link = firstAvailableEvidenceLink(anomaly);
+  if (!link?.audit_context) {
+    return;
+  }
+
+  void router.push(buildAuditEvidenceLocation(link.audit_context));
 }
 
 function formatPercent(percent: number | null) {

@@ -80,8 +80,14 @@ func TestBuildServerStatusResponseUsesUnknownWhenDatabaseServiceIsAbsent(t *test
 	if response.Dependencies.Redis.Detail != "Redis client is not configured" {
 		t.Fatalf("expected redis detail for disabled client, got %q", response.Dependencies.Redis.Detail)
 	}
-	if response.Status != "unknown" {
-		t.Fatalf("expected overall status unknown, got %q", response.Status)
+	if response.Status != "degraded" {
+		t.Fatalf("expected overall status degraded when dependency observability is missing, got %q", response.Status)
+	}
+	if len(response.Anomalies) != 1 {
+		t.Fatalf("expected one dependency anomaly for missing database handle, got %d", len(response.Anomalies))
+	}
+	if string(response.Anomalies[0].AnomalyKey) != string(monitorcontract.DependencyStatusUnknown) {
+		t.Fatalf("expected dependency_status_unknown anomaly, got %q", response.Anomalies[0].AnomalyKey)
 	}
 	if string(response.Trend.Range) != monitorcontract.TrendRange10Minutes.String() {
 		t.Fatalf("expected default trend range in response, got %q", response.Trend.Range)
@@ -425,7 +431,7 @@ func TestDeriveOverallStatus(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			if actual := deriveOverallStatus(testCase.databaseStatus, testCase.redisStatus); actual != testCase.expected {
+			if actual := deriveOverallStatus(testCase.databaseStatus, testCase.redisStatus, nil); actual != testCase.expected {
 				t.Fatalf(
 					"deriveOverallStatus(%q, %q) = %q, want %q",
 					testCase.databaseStatus,
@@ -435,6 +441,19 @@ func TestDeriveOverallStatus(t *testing.T) {
 				)
 			}
 		})
+	}
+}
+
+func TestDeriveOverallStatusDegradesWhenAnomaliesExist(t *testing.T) {
+	t.Parallel()
+
+	actual := deriveOverallStatus("healthy", "disabled", []generated.ServerStatusAnomaly{
+		{
+			AnomalyKey: generated.ServerStatusAnomalyAnomalyKey(monitorcontract.ResourceCPUPressure),
+		},
+	})
+	if actual != "degraded" {
+		t.Fatalf("expected anomaly-backed overall status degraded, got %q", actual)
 	}
 }
 
@@ -462,6 +481,9 @@ func assertCurrentSliceResponseStatus(t *testing.T, response generated.ServerSta
 	assertEqual(t, "go version", response.Server.GoVersion, runtime.Version())
 	assertEqual(t, "app name", response.Server.AppName, "graft")
 	assertEqual(t, "app env", response.Server.AppEnv, "prod")
+	if len(response.Anomalies) != 0 {
+		t.Fatalf("expected current slice happy-path response to stay anomaly-free, got %d", len(response.Anomalies))
+	}
 	if response.Server.UptimeSeconds < 5 {
 		t.Fatalf("expected uptime to be at least 5 seconds, got %d", response.Server.UptimeSeconds)
 	}
