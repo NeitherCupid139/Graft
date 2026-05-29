@@ -448,6 +448,7 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 
+import { buildAuditResourceLocation } from '@/modules/audit/contract/deep-link';
 import { RBAC_PERMISSION_CODE } from '@/modules/rbac/contract/permissions';
 import { localizedApiErrorMessage } from '@/modules/shared/localized-api-error';
 import {
@@ -477,6 +478,7 @@ import {
 } from '@/shared/components/management';
 import { useAssignmentSelection } from '@/shared/composables';
 import { formatHintedMessage, resolveErrorMessageWithCorrelation } from '@/shared/correlation';
+import { openCorrelationErrorNotification, requestIdFromError } from '@/shared/correlation-actions';
 import { usePermissionStore } from '@/store';
 import { createLogger } from '@/utils/logger';
 import { isApiRequestError } from '@/utils/request';
@@ -1120,13 +1122,7 @@ function handleUserRowAction(action: string, user: UserRow) {
   }
 
   if (action === 'view-audit') {
-    void router.push({
-      path: '/audit/logs',
-      query: {
-        resourceType: 'user',
-        resourceId: String(user.id),
-      },
-    });
+    void router.push(buildAuditResourceLocation('user', String(user.id), user.display || user.username));
     return;
   }
 
@@ -1288,7 +1284,15 @@ async function handleUserSubmit(ctx: SubmitContext) {
         return;
       }
 
-      MessagePlugin.error(resolveErrorMessageWithCorrelation(t, error, errorMessage));
+      const message = resolveErrorMessageWithCorrelation(t, error, errorMessage);
+      MessagePlugin.error(message);
+      openCorrelationErrorNotification({
+        router,
+        title: t('audit.correlation.errorTitle'),
+        message,
+        requestId: requestIdFromError(error),
+        translate: t,
+      });
       return;
     }
 
@@ -1357,11 +1361,27 @@ async function submitResetPassword() {
         return;
       }
 
-      MessagePlugin.error(resolveErrorMessageWithCorrelation(t, error, errorMessage));
+      const message = resolveErrorMessageWithCorrelation(t, error, errorMessage);
+      MessagePlugin.error(message);
+      openCorrelationErrorNotification({
+        router,
+        title: t('audit.correlation.errorTitle'),
+        message,
+        requestId: requestIdFromError(error),
+        translate: t,
+      });
       return;
     }
 
-    MessagePlugin.error(resolveErrorMessageWithCorrelation(t, error, t('user.userList.resetPasswordFailed')));
+    const message = resolveErrorMessageWithCorrelation(t, error, t('user.userList.resetPasswordFailed'));
+    MessagePlugin.error(message);
+    openCorrelationErrorNotification({
+      router,
+      title: t('audit.correlation.errorTitle'),
+      message,
+      requestId: requestIdFromError(error),
+      translate: t,
+    });
   } finally {
     submittingResetPassword.value = false;
   }
@@ -1397,7 +1417,15 @@ async function toggleUserStatus(user: UserRow) {
   } catch (error) {
     logger.error('failed to update status', error);
     if (isApiRequestError(error)) {
-      MessagePlugin.error(resolveErrorMessageWithCorrelation(t, error, t('user.userList.statusUpdateFailed')));
+      const message = resolveErrorMessageWithCorrelation(t, error, t('user.userList.statusUpdateFailed'));
+      MessagePlugin.error(message);
+      openCorrelationErrorNotification({
+        router,
+        title: t('audit.correlation.errorTitle'),
+        message,
+        requestId: requestIdFromError(error),
+        translate: t,
+      });
       return;
     }
 
@@ -1429,7 +1457,15 @@ async function confirmDeleteUser(user: UserRow) {
     MessagePlugin.success(formatHintedMessage(t, t('user.userList.deleteSuccess')));
   } catch (error) {
     logger.error('failed to delete user', error);
-    MessagePlugin.error(resolveErrorMessageWithCorrelation(t, error, t('user.userList.deleteFailed')));
+    const message = resolveErrorMessageWithCorrelation(t, error, t('user.userList.deleteFailed'));
+    MessagePlugin.error(message);
+    openCorrelationErrorNotification({
+      router,
+      title: t('audit.correlation.errorTitle'),
+      message,
+      requestId: requestIdFromError(error),
+      translate: t,
+    });
   }
 }
 

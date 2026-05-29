@@ -33,15 +33,21 @@
       </management-empty-state>
 
       <template #summary>
-        <governance-summary-card
+        <button
           v-for="item in stats"
           :key="item.key"
-          kind="activity"
-          :title="item.title"
-          :value="item.value"
-          :description="item.meta"
-          :value-aside="item.unit"
-        />
+          class="audit-overview__summary-action"
+          type="button"
+          @click="openSummary(item.key)"
+        >
+          <governance-summary-card
+            kind="activity"
+            :title="item.title"
+            :value="item.value"
+            :description="item.meta"
+            :value-aside="item.unit"
+          />
+        </button>
       </template>
 
       <section class="audit-overview__grid">
@@ -95,7 +101,13 @@
         <div class="audit-overview__stack">
           <governance-section :title="t('audit.overview.sections.riskWatch')">
             <div class="audit-overview__watch-list">
-              <article v-for="group in riskGroups" :key="group.key" class="audit-overview__watch-item">
+              <button
+                v-for="group in riskGroups"
+                :key="group.key"
+                class="audit-overview__watch-item audit-overview__watch-item--button"
+                type="button"
+                @click="openRiskGroup(group.risk_level)"
+              >
                 <div>
                   <strong>{{ t(group.label_key) }}</strong>
                   <p>{{ t('audit.overview.riskGroups.meta', { count: group.count }) }}</p>
@@ -103,7 +115,7 @@
                 <t-tag :theme="riskTheme(group.risk_level)" variant="light-outline" size="small">
                   {{ t(`audit.common.risk.${group.risk_level}`) }}
                 </t-tag>
-              </article>
+              </button>
             </div>
           </governance-section>
 
@@ -156,7 +168,11 @@
               :label="formatTime(item.created_at)"
               :dot-color="timelineDotColor(item.risk_level)"
             >
-              <div class="audit-overview__timeline-item">
+              <button
+                class="audit-overview__timeline-item audit-overview__timeline-item--button"
+                type="button"
+                @click="openSecurityTimelineItem(item.request_id)"
+              >
                 <strong>{{ item.action }}</strong>
                 <p>{{ item.resource_name || item.resource_type || t('audit.common.unknownResource') }}</p>
                 <div class="audit-overview__timeline-meta">
@@ -167,7 +183,7 @@
                     {{ t(`audit.common.source.${item.source}`) }}
                   </t-tag>
                 </div>
-              </div>
+              </button>
             </t-timeline-item>
           </t-timeline>
         </governance-section>
@@ -181,13 +197,14 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 
+import { buildAuditLogsLocation, buildAuditRequestLocation } from '@/modules/audit/contract/deep-link';
 import { resolveLocalizedErrorMessage } from '@/modules/shared/localized-api-error';
 import { GovernanceDashboardShell, GovernanceSection, GovernanceSummaryCard } from '@/shared/components/governance';
 import { ManagementEmptyState } from '@/shared/components/management';
+import { openCorrelationErrorNotification, requestIdFromError } from '@/shared/correlation-actions';
 import { createLogger } from '@/utils/logger';
 
 import { getAuditOverview } from '../../api/audit';
-import { AUDIT_ROUTE_PATH } from '../../contract/paths';
 import type { AuditOverviewItem, AuditOverviewResponse, AuditOverviewWindow } from '../../types/audit';
 
 defineOptions({
@@ -293,10 +310,35 @@ const shortcuts = computed(() => [
 ]);
 
 function openShortcut(preset: string) {
-  void router.push({
-    path: AUDIT_ROUTE_PATH.LOGS,
-    query: { preset },
-  });
+  void router.push(buildAuditLogsLocation({ preset }));
+}
+
+function openSummary(key: string) {
+  switch (key) {
+    case 'failed':
+      void router.push(buildAuditLogsLocation({ result: 'FAILED' }));
+      return;
+    case 'risk':
+      void router.push(buildAuditLogsLocation({ riskLevel: 'HIGH' }));
+      return;
+    case 'sensitive':
+      void router.push(buildAuditLogsLocation({ riskLevel: 'HIGH', source: 'DOMAIN_EVENT' }));
+      return;
+    default:
+      void router.push(buildAuditLogsLocation({}));
+  }
+}
+
+function openRiskGroup(riskLevel: string) {
+  void router.push(buildAuditLogsLocation({ riskLevel }));
+}
+
+function openSecurityTimelineItem(requestId?: string) {
+  if (!requestId) {
+    return;
+  }
+
+  void router.push(buildAuditRequestLocation(requestId));
 }
 
 async function fetchOverview() {
@@ -310,6 +352,13 @@ async function fetchOverview() {
     logger.error('failed to fetch audit overview', error);
     errorMessage.value = resolveLocalizedErrorMessage(t, error, t('audit.overview.loadFailed'));
     MessagePlugin.error(errorMessage.value);
+    openCorrelationErrorNotification({
+      router,
+      title: t('audit.correlation.errorTitle'),
+      message: errorMessage.value,
+      requestId: requestIdFromError(error),
+      translate: t,
+    });
   } finally {
     loading.value = false;
   }
@@ -448,6 +497,17 @@ onMounted(() => {
 .audit-overview__shortcut {
   background: var(--td-bg-color-container);
   cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+
+.audit-overview__summary-action,
+.audit-overview__watch-item--button,
+.audit-overview__timeline-item--button {
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
   text-align: left;
   width: 100%;
 }

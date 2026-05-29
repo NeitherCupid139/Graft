@@ -241,6 +241,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 
+import { buildAuditLogsLocation } from '@/modules/audit/contract/deep-link';
 import { resolveLocalizedErrorMessage } from '@/modules/shared/localized-api-error';
 import {
   buildVisibleColumns,
@@ -260,6 +261,7 @@ import {
   TableActionMenu,
 } from '@/shared/components/management';
 import { resolveErrorMessageWithCorrelation } from '@/shared/correlation';
+import { openCorrelationErrorNotification, requestIdFromError } from '@/shared/correlation-actions';
 import { createLogger } from '@/utils/logger';
 
 import { getPermissionDetail, getPermissions } from '../../api/rbac';
@@ -405,7 +407,15 @@ async function loadPermissionDetail(permissionId: number) {
     detailRecord.value = null;
     logger.warn('failed to fetch permission detail', error);
     detailError.value = resolveLocalizedErrorMessage(t, error, t('rbac.permissionList.detailLoadFailed'));
-    MessagePlugin.error(resolveErrorMessageWithCorrelation(t, error, detailError.value));
+    const message = resolveErrorMessageWithCorrelation(t, error, detailError.value);
+    MessagePlugin.error(message);
+    openCorrelationErrorNotification({
+      router,
+      title: t('audit.correlation.errorTitle'),
+      message,
+      requestId: requestIdFromError(error),
+      translate: t,
+    });
   } finally {
     detailLoading.value = false;
   }
@@ -413,13 +423,13 @@ async function loadPermissionDetail(permissionId: number) {
 
 function handlePermissionAction(action: string, permission: PermissionListItem) {
   if (action === 'view-audit') {
-    void router.push({
-      path: '/audit/logs',
-      query: {
+    void router.push(
+      buildAuditLogsLocation({
         resourceType: 'permission',
-        keyword: permission.code,
-      },
-    });
+        resourceName: localizedPermissionDisplay(permission),
+        resourceId: String(permission.id),
+      }),
+    );
     return;
   }
 

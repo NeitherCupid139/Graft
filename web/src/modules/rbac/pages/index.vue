@@ -358,6 +358,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 
+import { buildAuditResourceLocation } from '@/modules/audit/contract/deep-link';
 import { AUDIT_PERMISSION_CODE } from '@/modules/audit/contract/permissions';
 import { localizedApiErrorMessage, resolveLocalizedErrorMessage } from '@/modules/shared/localized-api-error';
 import {
@@ -388,6 +389,7 @@ import {
 } from '@/shared/components/management';
 import { useAssignmentSelection } from '@/shared/composables';
 import { formatHintedMessage, resolveErrorMessageWithCorrelation } from '@/shared/correlation';
+import { openCorrelationErrorNotification, requestIdFromError } from '@/shared/correlation-actions';
 import { usePermissionStore } from '@/store';
 import { createLogger } from '@/utils/logger';
 import { isApiRequestError } from '@/utils/request';
@@ -1079,13 +1081,7 @@ function handleRoleRowAction(action: string, role: RoleListItem) {
   }
 
   if (action === 'view-audit') {
-    void router.push({
-      path: '/audit/logs',
-      query: {
-        resourceType: 'role',
-        resourceId: String(role.id),
-      },
-    });
+    void router.push(buildAuditResourceLocation('role', String(role.id), role.display || role.name));
     return;
   }
 
@@ -1157,7 +1153,15 @@ async function handleRoleSubmit(ctx: SubmitContext) {
         return;
       }
 
-      MessagePlugin.error(resolveErrorMessageWithCorrelation(t, error, errorMessage));
+      const message = resolveErrorMessageWithCorrelation(t, error, errorMessage);
+      MessagePlugin.error(message);
+      openCorrelationErrorNotification({
+        router,
+        title: t('audit.correlation.errorTitle'),
+        message,
+        requestId: requestIdFromError(error),
+        translate: t,
+      });
       return;
     }
 
@@ -1361,7 +1365,15 @@ async function submitPermissionAssignment() {
           return;
         }
 
-        MessagePlugin.error(resolveErrorMessageWithCorrelation(t, error, errorMessage));
+        const message = resolveErrorMessageWithCorrelation(t, error, errorMessage);
+        MessagePlugin.error(message);
+        openCorrelationErrorNotification({
+          router,
+          title: t('audit.correlation.errorTitle'),
+          message,
+          requestId: requestIdFromError(error),
+          translate: t,
+        });
         return;
       }
 
@@ -1402,7 +1414,15 @@ async function toggleRoleStatus(role: RoleStatusCompat) {
   } catch (error) {
     logger.error('failed to update role status', error);
     if (isApiRequestError(error)) {
-      MessagePlugin.error(resolveErrorMessageWithCorrelation(t, error, t('rbac.roleList.statusUpdateFailed')));
+      const message = resolveErrorMessageWithCorrelation(t, error, t('rbac.roleList.statusUpdateFailed'));
+      MessagePlugin.error(message);
+      openCorrelationErrorNotification({
+        router,
+        title: t('audit.correlation.errorTitle'),
+        message,
+        requestId: requestIdFromError(error),
+        translate: t,
+      });
       return;
     }
 
@@ -1426,7 +1446,15 @@ async function removeRole(role: RoleStatusCompat) {
   } catch (error) {
     logger.error('failed to delete role', error);
     if (isApiRequestError(error)) {
-      MessagePlugin.error(resolveErrorMessageWithCorrelation(t, error, t('rbac.roleList.deleteFailed')));
+      const message = resolveErrorMessageWithCorrelation(t, error, t('rbac.roleList.deleteFailed'));
+      MessagePlugin.error(message);
+      openCorrelationErrorNotification({
+        router,
+        title: t('audit.correlation.errorTitle'),
+        message,
+        requestId: requestIdFromError(error),
+        translate: t,
+      });
       return;
     }
 

@@ -372,9 +372,11 @@ import { MessagePlugin } from 'tdesign-vue-next';
 import type { Component } from 'vue';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useRouter } from 'vue-router';
 
 import type { TChartColor } from '@/config/color';
 import { resolveLocalizedErrorMessage } from '@/modules/shared/localized-api-error';
+import { openCorrelationErrorNotification, requestIdFromError } from '@/shared/correlation-actions';
 import { useSettingStore } from '@/store';
 
 import { getServerStatus } from '../../api/server-status';
@@ -393,6 +395,7 @@ defineOptions({
 });
 
 echarts.use([TooltipComponent, LegendComponent, GridComponent, MarkLineComponent, LineChart, CanvasRenderer]);
+const router = useRouter();
 
 type MonitorStatus = 'healthy' | 'degraded' | 'disabled' | 'unknown';
 type MetricCardTone = 'healthy' | 'warning' | 'critical' | 'unknown';
@@ -952,7 +955,15 @@ async function fetchServerStatus(options: { manual?: boolean } = {}) {
     consecutiveFailures.value += 1;
 
     if (options.manual || previousFailures === 0) {
-      MessagePlugin.error(resolveLocalizedErrorMessage(t, error, t('monitor.serverStatus.loadFailed')));
+      const message = resolveLocalizedErrorMessage(t, error, t('monitor.serverStatus.loadFailed'));
+      MessagePlugin.error(message);
+      openCorrelationErrorNotification({
+        router,
+        title: t('audit.correlation.errorTitle'),
+        message,
+        requestId: requestIdFromError(error),
+        translate: t,
+      });
     }
   } finally {
     loading.value = false;

@@ -24,10 +24,17 @@ function readLatestCorrelation(): CorrelationSnapshot {
   };
 }
 
-function correlationHintText(translate: Translate, snapshot?: Partial<CorrelationSnapshot>) {
+function resolveCorrelationSnapshot(snapshot?: Partial<CorrelationSnapshot>) {
   const correlation = snapshot ?? readLatestCorrelation();
-  const requestId = normalizeText(correlation.requestId);
-  const traceId = normalizeText(correlation.traceId);
+
+  return {
+    requestId: normalizeText(correlation.requestId),
+    traceId: normalizeText(correlation.traceId),
+  };
+}
+
+function correlationHintText(translate: Translate, snapshot?: Partial<CorrelationSnapshot>) {
+  const { requestId, traceId } = resolveCorrelationSnapshot(snapshot);
 
   if (requestId && traceId && requestId !== traceId) {
     return translate('audit.correlation.hintRequestAndTrace', { requestId, traceId });

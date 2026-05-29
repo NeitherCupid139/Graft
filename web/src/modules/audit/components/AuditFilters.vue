@@ -45,12 +45,20 @@
             :placeholder="t('audit.logList.filters.sourcePlaceholder')"
             @update:model-value="updateField('source', $event)"
           />
-          <t-input
-            :model-value="modelValue.resource"
+          <t-select
+            :model-value="modelValue.resourceType"
             class="audit-filters__input"
             clearable
-            :placeholder="t('audit.logList.filters.resourcePlaceholder')"
-            @update:model-value="updateField('resource', $event)"
+            :options="resourceTypeOptions"
+            :placeholder="t('audit.logList.filters.resourceTypePlaceholder')"
+            @update:model-value="updateField('resourceType', $event)"
+          />
+          <t-input
+            :model-value="modelValue.resourceName"
+            class="audit-filters__input"
+            clearable
+            :placeholder="t('audit.logList.filters.resourceNamePlaceholder')"
+            @update:model-value="updateField('resourceName', $event)"
           />
           <t-input
             :model-value="modelValue.resourceId"
@@ -153,6 +161,14 @@ const sourceOptions = computed(() => [
   { label: t('audit.common.source.REQUEST'), value: 'REQUEST' },
   { label: t('audit.common.source.SECURITY_EVENT'), value: 'SECURITY_EVENT' },
   { label: t('audit.common.source.DOMAIN_EVENT'), value: 'DOMAIN_EVENT' },
+]);
+
+const resourceTypeOptions = computed(() => [
+  { label: t('audit.logList.filterOptions.allResourceTypes'), value: '' },
+  { label: t('audit.logList.filterOptions.userResource'), value: 'user' },
+  { label: t('audit.logList.filterOptions.roleResource'), value: 'role' },
+  { label: t('audit.logList.filterOptions.permissionResource'), value: 'permission' },
+  { label: t('audit.logList.filterOptions.authResource'), value: 'auth' },
 ]);
 
 const resultOptions = computed(() => [

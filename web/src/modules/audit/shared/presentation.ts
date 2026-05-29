@@ -12,7 +12,8 @@ export type AuditClientFilterState = {
   action: string;
   source: string;
   createdRange: string[];
-  resource: string;
+  resourceType: string;
+  resourceName: string;
   resourceId: string;
   result: AuditResultValue;
   riskLevel: 'all' | AuditRiskValue;
@@ -211,7 +212,8 @@ export function matchesAuditRow(row: AuditLogListItem, filters: AuditClientFilte
   const actor = filters.actor.trim().toLowerCase();
   const action = filters.action.trim().toLowerCase();
   const source = filters.source.trim().toUpperCase();
-  const resource = filters.resource.trim().toLowerCase();
+  const resourceType = filters.resourceType.trim().toLowerCase();
+  const resourceName = filters.resourceName.trim().toLowerCase();
   const resourceId = filters.resourceId.trim().toLowerCase();
   const session = filters.session.trim().toLowerCase();
   const requestId = filters.requestId.trim().toLowerCase();
@@ -249,7 +251,11 @@ export function matchesAuditRow(row: AuditLogListItem, filters: AuditClientFilte
     return false;
   }
 
-  if (resource && !includesText(`${resourceDetailLabel(row, t)} ${row.message}`, resource)) {
+  if (resourceType && !includesText(row.resource_type || row.target_type || '', resourceType)) {
+    return false;
+  }
+
+  if (resourceName && !includesText(`${resourceDetailLabel(row, t)} ${row.message}`, resourceName)) {
     return false;
   }
 

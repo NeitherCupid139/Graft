@@ -122,7 +122,6 @@ const hasClientOnlyFilters = computed(() =>
   Boolean(
     filters.value.keyword ||
     filters.value.actor ||
-    filters.value.resource ||
     filters.value.resourceId ||
     filters.value.session ||
     filters.value.requestId ||
@@ -151,8 +150,11 @@ function buildQuery(): AuditLogQuery {
   if (filters.value.source) {
     query.source = filters.value.source as AuditLogQuery['source'];
   }
-  if (filters.value.resource) {
-    query.resource_type = filters.value.resource;
+  if (filters.value.resourceType) {
+    query.resource_type = filters.value.resourceType;
+  }
+  if (filters.value.resourceName) {
+    query.resource_name = filters.value.resourceName;
   }
   if (filters.value.resourceId) {
     query.resource_id = filters.value.resourceId;
@@ -243,7 +245,8 @@ function createDefaultFilters(): AuditClientFilterState {
     action: '',
     source: '',
     createdRange: [],
-    resource: '',
+    resourceType: '',
+    resourceName: '',
     resourceId: '',
     result: 'all',
     riskLevel: 'all',
@@ -260,7 +263,7 @@ function presetFilterOverrides(preset: PresetKey): Partial<AuditClientFilterStat
     case 'permission-denied':
       return { source: 'SECURITY_EVENT', result: 'DENIED', riskLevel: 'CRITICAL' };
     case 'auth-failed':
-      return { source: 'REQUEST', result: 'FAILED', resource: 'auth', riskLevel: 'HIGH' };
+      return { source: 'REQUEST', result: 'FAILED', resourceType: 'auth', riskLevel: 'HIGH' };
     case 'sensitive-ops':
       return { riskLevel: 'HIGH' };
     case 'high-risk':
@@ -307,7 +310,8 @@ function applyRouteFilters() {
     action: firstQueryValue(route.query.action),
     source: firstQueryValue(route.query.source),
     createdRange: [],
-    resource: firstQueryValue(route.query.resourceType),
+    resourceType: firstQueryValue(route.query.resourceType),
+    resourceName: firstQueryValue(route.query.resourceName),
     resourceId: firstQueryValue(route.query.resourceId),
     result: (firstQueryValue(route.query.result) as AuditClientFilterState['result']) || 'all',
     riskLevel: (firstQueryValue(route.query.riskLevel) as AuditClientFilterState['riskLevel']) || 'all',
@@ -319,7 +323,8 @@ function applyRouteFilters() {
   filters.value = nextFilters;
   activePreset.value = nextPreset || 'all';
   advancedVisible.value = Boolean(
-    nextFilters.resource ||
+    nextFilters.resourceType ||
+    nextFilters.resourceName ||
     nextFilters.resourceId ||
     nextFilters.result !== 'all' ||
     nextFilters.riskLevel !== 'all' ||
@@ -347,8 +352,11 @@ function syncRouteQuery() {
   if (filters.value.source) {
     query.source = filters.value.source;
   }
-  if (filters.value.resource) {
-    query.resourceType = filters.value.resource;
+  if (filters.value.resourceType) {
+    query.resourceType = filters.value.resourceType;
+  }
+  if (filters.value.resourceName) {
+    query.resourceName = filters.value.resourceName;
   }
   if (filters.value.resourceId) {
     query.resourceId = filters.value.resourceId;
