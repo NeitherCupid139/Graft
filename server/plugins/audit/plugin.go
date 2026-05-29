@@ -24,7 +24,8 @@ import (
 // 该插件在 Register 阶段挂载请求级自动审计中间件、受权只读查询路由、
 // 菜单/权限声明，并订阅主动审计事件；当前不承载归档和分析逻辑。
 type Plugin struct {
-	recorder *auditcore.Service
+	recorder      *auditcore.Service
+	monitorBinder incidentMonitorEvidenceBinder
 }
 
 const eventMetadataExtraFields = 3
@@ -36,7 +37,12 @@ func NewPlugin(repo auditstore.AuditRepository) (*Plugin, error) {
 		return nil, err
 	}
 
-	return &Plugin{recorder: recorder}, nil
+	pluginInstance := &Plugin{recorder: recorder}
+	if binder, ok := repo.(incidentMonitorEvidenceBinder); ok {
+		pluginInstance.monitorBinder = binder
+	}
+
+	return pluginInstance, nil
 }
 
 // Name 返回插件稳定标识。
@@ -108,14 +114,33 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 	})
 }
 
-// Boot 当前没有额外运行时行为需要启动。
-func (p *Plugin) Boot(_ *plugin.Context) error {
+// Boot resolves optional cross-plugin capabilities after all plugins have completed Register.
+func (p *Plugin) Boot(ctx *plugin.Context) error {
+	if p == nil || p.monitorBinder == nil || ctx == nil || ctx.Services == nil {
+		return nil
+	}
+
+	resolved, err := ctx.Services.Resolve((*pluginapi.MonitorIncidentEvidenceService)(nil))
+	if err != nil {
+		return nil
+	}
+
+	service, ok := resolved.(pluginapi.MonitorIncidentEvidenceService)
+	if !ok {
+		return fmt.Errorf("resolve monitor incident evidence service: unexpected type %T", resolved)
+	}
+
+	p.monitorBinder.BindMonitorEvidence(service)
 	return nil
 }
 
 // Shutdown 当前没有额外资源需要释放。
 func (p *Plugin) Shutdown(_ *plugin.Context) error {
 	return nil
+}
+
+type incidentMonitorEvidenceBinder interface {
+	BindMonitorEvidence(pluginapi.MonitorIncidentEvidenceService)
 }
 
 func requestAuditMiddleware(logger *zap.Logger, recorder *auditcore.Service) gin.HandlerFunc {

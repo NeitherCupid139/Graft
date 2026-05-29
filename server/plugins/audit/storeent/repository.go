@@ -12,12 +12,14 @@ import (
 	"strings"
 	"time"
 
+	"graft/server/internal/pluginapi"
 	auditcontract "graft/server/plugins/audit/contract"
 	auditstore "graft/server/plugins/audit/store"
 )
 
 type repository struct {
-	db *sql.DB
+	db              *sql.DB
+	monitorEvidence pluginapi.MonitorIncidentEvidenceService
 }
 
 type actorKey struct {
@@ -51,12 +53,19 @@ const incidentCorrelationWindow = 30 * time.Minute
 var sensitiveAuditActionKeywords = []string{"delete", "reset", "grant", "assign", "revoke", "remove", "replace", "update_role", "update_permission"}
 
 // NewRepository 基于共享连接池构建 audit 插件的 SQL repository。
-func NewRepository(db *sql.DB) (auditstore.AuditRepository, error) {
+func NewRepository(db *sql.DB, monitorEvidence pluginapi.MonitorIncidentEvidenceService) (auditstore.AuditRepository, error) {
 	if db == nil {
 		return nil, errors.New("audit repository requires a non-nil sql db")
 	}
 
-	return &repository{db: db}, nil
+	return &repository{db: db, monitorEvidence: monitorEvidence}, nil
+}
+
+func (r *repository) BindMonitorEvidence(service pluginapi.MonitorIncidentEvidenceService) {
+	if r == nil {
+		return
+	}
+	r.monitorEvidence = service
 }
 
 // CreateAuditLog 持久化一条审计日志记录。
@@ -288,13 +297,109 @@ func (r *repository) ReadIncident(ctx context.Context, eventID uint64) (auditsto
 		RelatedActors:    relatedActors,
 		RelatedResources: relatedResources,
 		RelatedRequests:  relatedRequests,
-		MonitorContext: auditstore.AuditIncidentMonitorContext{
-			State:         auditstore.MonitorContextStateUnavailable,
-			Summary:       "Canonical monitor evidence is bounded to typed audit evidence links for this incident workflow.",
-			Reason:        "No direct monitor anomaly is attached to the current bounded incident correlation window.",
-			EvidenceLinks: buildIncidentMonitorEvidenceLinks(seed, relatedEvents),
-		},
+		MonitorContext:   r.resolveIncidentMonitorContext(ctx, seed, relatedEvents),
 	}, nil
+}
+
+func (r *repository) resolveIncidentMonitorContext(
+	ctx context.Context,
+	seed auditstore.AuditLog,
+	relatedEvents []auditstore.AuditLog,
+) auditstore.AuditIncidentMonitorContext {
+	if r == nil || r.monitorEvidence == nil {
+		return auditstore.AuditIncidentMonitorContext{
+			State:         auditstore.MonitorContextStateUnavailable,
+			Summary:       "Monitor capability is unavailable for this audit incident.",
+			Reason:        "Monitor plugin capability is unavailable.",
+			EvidenceLinks: buildIncidentMonitorEvidenceLinks(seed, relatedEvents),
+		}
+	}
+
+	resolved, err := r.monitorEvidence.ResolveAuditIncidentMonitorEvidence(ctx, pluginapi.ResolveAuditIncidentMonitorEvidenceInput{
+		IncidentSeedEventID: seed.ID,
+		IncidentStartedAt:   incidentStartedAt(relatedEvents),
+		IncidentEndedAt:     incidentEndedAt(relatedEvents),
+		RequestID:           seed.RequestID,
+		ResourceType:        seed.ResourceType,
+		ResourceID:          seed.ResourceID,
+		ResourceName:        seed.ResourceName,
+		AuditSource:         string(seed.Source),
+		AuditResult:         string(seed.Result),
+		AuditRiskLevel:      string(seed.RiskLevel),
+	})
+	if err != nil {
+		return auditstore.AuditIncidentMonitorContext{
+			State:         auditstore.MonitorContextStateUnavailable,
+			Summary:       "Monitor capability could not resolve incident evidence.",
+			Reason:        "Monitor capability is unavailable.",
+			EvidenceLinks: buildIncidentMonitorEvidenceLinks(seed, relatedEvents),
+		}
+	}
+
+	return auditstore.AuditIncidentMonitorContext{
+		State:         monitorContextStateFromAvailability(resolved.Availability),
+		Summary:       resolved.Summary,
+		Reason:        resolved.Reason,
+		AnomalyKey:    resolved.AnomalyKey,
+		ScopeKind:     resolved.ScopeKind,
+		ScopeRef:      resolved.ScopeRef,
+		ObservedAt:    resolved.ObservedAt,
+		EvidenceLinks: toAuditEvidenceLinksFromMonitor(resolved.EvidenceLinks, seed, relatedEvents),
+	}
+}
+
+func monitorContextStateFromAvailability(availability pluginapi.MonitorEvidenceAvailability) auditstore.MonitorContextState {
+	if availability == pluginapi.MonitorEvidenceAvailable {
+		return auditstore.MonitorContextStateAvailable
+	}
+	return auditstore.MonitorContextStateUnavailable
+}
+
+func toAuditEvidenceLinksFromMonitor(
+	links []pluginapi.MonitorEvidenceLink,
+	seed auditstore.AuditLog,
+	relatedEvents []auditstore.AuditLog,
+) []auditstore.EvidenceLink {
+	if len(links) == 0 {
+		return buildIncidentMonitorEvidenceLinks(seed, relatedEvents)
+	}
+
+	converted := make([]auditstore.EvidenceLink, 0, len(links))
+	for _, link := range links {
+		entry := auditstore.EvidenceLink{
+			TargetKind: link.TargetKind,
+			LinkState:  link.LinkState,
+			Title:      link.Title,
+			Reason:     link.Reason,
+		}
+		if link.TimeWindow != nil {
+			entry.TimeWindow = &auditstore.EvidenceLinkTimeWindow{
+				CreatedFrom: link.TimeWindow.CreatedFrom,
+				CreatedTo:   link.TimeWindow.CreatedTo,
+			}
+		}
+		if link.AuditContext != nil {
+			entry.AuditContext = &auditstore.AuditEvidenceContext{
+				Action:       link.AuditContext.Action,
+				ActionPrefix: link.AuditContext.ActionPrefix,
+				Source:       auditstore.AuditSource(link.AuditContext.Source),
+				ResourceType: link.AuditContext.ResourceType,
+				ResourceID:   link.AuditContext.ResourceID,
+				ResourceName: link.AuditContext.ResourceName,
+				RequestID:    link.AuditContext.RequestID,
+				Result:       auditstore.AuditResult(link.AuditContext.Result),
+				RiskLevel:    auditstore.AuditRiskLevel(link.AuditContext.RiskLevel),
+				CreatedFrom:  link.AuditContext.CreatedFrom,
+				CreatedTo:    link.AuditContext.CreatedTo,
+			}
+		}
+		if link.IncidentSeed != nil {
+			entry.IncidentSeed = &auditstore.IncidentSeedLink{EventID: link.IncidentSeed.EventID}
+		}
+		converted = append(converted, entry)
+	}
+
+	return converted
 }
 
 func buildIncidentMonitorEvidenceLinks(seed auditstore.AuditLog, relatedEvents []auditstore.AuditLog) []auditstore.EvidenceLink {

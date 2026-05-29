@@ -18,6 +18,7 @@ import (
 	"graft/server/internal/container"
 	generated "graft/server/internal/contract/openapi/generated"
 	"graft/server/internal/plugin"
+	"graft/server/internal/pluginapi"
 	monitorcontract "graft/server/plugins/monitor/contract"
 )
 
@@ -360,6 +361,23 @@ func TestBuildServerStatusResponseLoadsRedisTrendPoints(t *testing.T) {
 	}
 	if response.Trend.Points[1].LoadAverageOneMinute != 0.49 {
 		t.Fatalf("expected one-minute load average from redis-backed trend point, got %v", response.Trend.Points[1].LoadAverageOneMinute)
+	}
+}
+
+func TestIncidentEvidenceCapabilityReturnsExpiredWhenWindowExceedsRetention(t *testing.T) {
+	t.Parallel()
+
+	capability := incidentEvidenceCapability{plugin: &Plugin{}, ctx: &plugin.Context{}}
+	now := time.Now().UTC()
+	resolved, err := capability.ResolveAuditIncidentMonitorEvidence(context.Background(), pluginapi.ResolveAuditIncidentMonitorEvidenceInput{
+		IncidentStartedAt: now.Add(-2 * time.Hour),
+		IncidentEndedAt:   now.Add(-90 * time.Minute),
+	})
+	if err != nil {
+		t.Fatalf("resolve monitor incident evidence: %v", err)
+	}
+	if resolved.Availability != pluginapi.MonitorEvidenceExpired {
+		t.Fatalf("expected expired availability, got %q", resolved.Availability)
 	}
 }
 

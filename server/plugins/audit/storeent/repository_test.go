@@ -10,8 +10,21 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 
+	"graft/server/internal/pluginapi"
 	auditstore "graft/server/plugins/audit/store"
 )
+
+type stubMonitorIncidentEvidenceService struct {
+	resolved pluginapi.ResolvedAuditIncidentMonitorEvidence
+	err      error
+}
+
+func (s stubMonitorIncidentEvidenceService) ResolveAuditIncidentMonitorEvidence(
+	context.Context,
+	pluginapi.ResolveAuditIncidentMonitorEvidenceInput,
+) (pluginapi.ResolvedAuditIncidentMonitorEvidence, error) {
+	return s.resolved, s.err
+}
 
 func openTestDB(t *testing.T) *sql.DB {
 	t.Helper()
@@ -68,7 +81,7 @@ func openTestDB(t *testing.T) *sql.DB {
 
 func TestRepositoryCreateAndListAuditLogs(t *testing.T) {
 	db := openTestDB(t)
-	repo, err := NewRepository(db)
+	repo, err := NewRepository(db, nil)
 	if err != nil {
 		t.Fatalf("new repository: %v", err)
 	}
@@ -135,7 +148,7 @@ func TestRepositoryCreateAndListAuditLogs(t *testing.T) {
 
 func TestRepositoryListAuditLogsSupportsActionPrefix(t *testing.T) {
 	db := openTestDB(t)
-	repo, err := NewRepository(db)
+	repo, err := NewRepository(db, nil)
 	if err != nil {
 		t.Fatalf("new repository: %v", err)
 	}
@@ -202,7 +215,7 @@ func TestRepositoryListAuditLogsSupportsActionPrefix(t *testing.T) {
 
 func TestRepositoryListAuditLogsAppliesFilters(t *testing.T) {
 	db := openTestDB(t)
-	repo, err := NewRepository(db)
+	repo, err := NewRepository(db, nil)
 	if err != nil {
 		t.Fatalf("new repository: %v", err)
 	}
@@ -255,7 +268,7 @@ func TestRepositoryListAuditLogsAppliesFilters(t *testing.T) {
 
 func TestRepositoryListAuditLogsRejectsInvalidPagination(t *testing.T) {
 	db := openTestDB(t)
-	repo, err := NewRepository(db)
+	repo, err := NewRepository(db, nil)
 	if err != nil {
 		t.Fatalf("new repository: %v", err)
 	}
@@ -275,14 +288,40 @@ func TestRepositoryListAuditLogsRejectsInvalidPagination(t *testing.T) {
 
 func TestRepositoryReadIncidentCorrelatesBoundedContext(t *testing.T) {
 	db := openTestDB(t)
-	repo, err := NewRepository(db)
+	base := time.Date(2026, 5, 29, 12, 0, 0, 0, time.UTC)
+	repo, err := NewRepository(db, stubMonitorIncidentEvidenceService{
+		resolved: pluginapi.ResolvedAuditIncidentMonitorEvidence{
+			Availability: pluginapi.MonitorEvidenceAvailable,
+			Summary:      "CPU pressure matched the bounded incident window.",
+			AnomalyKey:   "resource_cpu_pressure",
+			ScopeKind:    "resource",
+			ScopeRef:     "runtime.cpu",
+			ObservedAt:   timePointer(base.Add(4 * time.Minute)),
+			EvidenceLinks: []pluginapi.MonitorEvidenceLink{
+				{
+					TargetKind: "audit_context",
+					LinkState:  "available",
+					Title:      "Review related audit activity",
+					TimeWindow: &pluginapi.MonitorEvidenceLinkTimeWindow{
+						CreatedFrom: base.Add(-5 * time.Minute),
+						CreatedTo:   base.Add(4 * time.Minute),
+					},
+					AuditContext: &pluginapi.MonitorAuditEvidenceContext{
+						RequestID:    "req-incident",
+						ResourceType: "runtime",
+						CreatedFrom:  timePointer(base.Add(-5 * time.Minute)),
+						CreatedTo:    timePointer(base.Add(4 * time.Minute)),
+					},
+				},
+			},
+		},
+	})
 	if err != nil {
 		t.Fatalf("new repository: %v", err)
 	}
 
 	ctx := context.Background()
 	actorID := uint64(7)
-	base := time.Date(2026, 5, 29, 12, 0, 0, 0, time.UTC)
 	seed, err := repo.CreateAuditLog(ctx, auditstore.CreateAuditLogInput{
 		ActorUserID:      &actorID,
 		ActorUsername:    "alice",
@@ -360,8 +399,14 @@ func assertIncidentCorrelation(t *testing.T, incident auditstore.AuditIncident, 
 	if len(incident.RelatedRequests) != 1 || incident.RelatedRequests[0].RequestID != "req-incident" {
 		t.Fatalf("expected one correlated request summary, got %#v", incident.RelatedRequests)
 	}
-	if incident.MonitorContext.State != auditstore.MonitorContextStateUnavailable {
-		t.Fatalf("expected monitor context to stay unavailable in current authority, got %#v", incident.MonitorContext)
+	if incident.MonitorContext.State != auditstore.MonitorContextStateAvailable {
+		t.Fatalf("expected monitor context to be available, got %#v", incident.MonitorContext)
+	}
+	if incident.MonitorContext.AnomalyKey != "resource_cpu_pressure" {
+		t.Fatalf("unexpected monitor anomaly key %#v", incident.MonitorContext)
+	}
+	if incident.MonitorContext.ObservedAt == nil {
+		t.Fatalf("expected observed_at to be attached, got %#v", incident.MonitorContext)
 	}
 }
 
@@ -394,7 +439,7 @@ func TestBuildAuditTargetPromotesIncidentTargets(t *testing.T) {
 
 func TestRepositoryReadAuditOverview(t *testing.T) {
 	db := openTestDB(t)
-	repo, err := NewRepository(db)
+	repo, err := NewRepository(db, nil)
 	if err != nil {
 		t.Fatalf("new repository: %v", err)
 	}
@@ -487,9 +532,13 @@ func assertOverviewSummary(t *testing.T, overview auditstore.AuditOverview) {
 	}
 }
 
+func timePointer(value time.Time) *time.Time {
+	return &value
+}
+
 func TestRepositoryListAuditPolicyRulesOrdersByPriority(t *testing.T) {
 	db := openTestDB(t)
-	repo, err := NewRepository(db)
+	repo, err := NewRepository(db, nil)
 	if err != nil {
 		t.Fatalf("new repository: %v", err)
 	}

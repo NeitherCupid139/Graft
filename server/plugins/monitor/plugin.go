@@ -150,6 +150,9 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 
 	registerMonitorPermissions(ctx.PermissionRegistry, p.Name())
 	registerMonitorMenu(ctx.MenuRegistry, p.Name())
+	if err := registerIncidentEvidenceCapability(ctx, p); err != nil {
+		return fmt.Errorf("register monitor incident evidence capability: %w", err)
+	}
 	registerMonitorRoutes(ctx, p, p.Name(), p.authService, p.routeAuthorizer)
 	return nil
 }
