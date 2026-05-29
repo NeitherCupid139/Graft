@@ -8,6 +8,11 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	httpStatusBadRequest          = 400
+	httpStatusInternalServerError = 500
+)
+
 func newAccessLogMiddleware(logger *zap.Logger) gin.HandlerFunc {
 	if logger == nil {
 		logger = zap.NewNop()
@@ -37,9 +42,9 @@ func newAccessLogMiddleware(logger *zap.Logger) gin.HandlerFunc {
 
 func logAccess(logger *zap.Logger, status int, fields ...zap.Field) {
 	switch {
-	case status >= 500:
+	case status >= httpStatusInternalServerError:
 		logger.Error("http access", fields...)
-	case status >= 400:
+	case status >= httpStatusBadRequest:
 		logger.Warn("http access", fields...)
 	case status >= 0:
 		logger.Info("http access", fields...)

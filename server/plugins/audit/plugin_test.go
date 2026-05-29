@@ -2,6 +2,7 @@ package audit
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -378,7 +379,21 @@ func TestRegisterSubscribesActiveAuditEvents(t *testing.T) {
 	repo := &memoryAuditRepository{}
 	_, _, bus := newPluginTestContext(t, repo)
 
-	err := bus.Publish(context.Background(), eventbus.Event{
+	requestCtx := httpx.WithRequestAuditContext(
+		pluginapi.WithRequestAuthContext(context.Background(), pluginapi.RequestAuthContext{
+			User: &pluginapi.CurrentUser{ID: 21, Username: "ctx-admin", DisplayName: "Context Admin"},
+		}),
+		httpx.RequestAuditContext{
+			RequestID: "req-domain-1",
+			TraceID:   "req-domain-1",
+			Route:     "/api/users",
+			Method:    http.MethodPost,
+			ClientIP:  "203.0.113.10",
+			UserAgent: "audit-plugin-test",
+		},
+	)
+
+	err := bus.Publish(requestCtx, eventbus.Event{
 		Name: pluginapi.AuditRecordEventName,
 		Payload: pluginapi.AuditEvent{
 			Operator:     &pluginapi.CurrentUser{ID: 9, Username: "bob"},
@@ -399,6 +414,61 @@ func TestRegisterSubscribesActiveAuditEvents(t *testing.T) {
 	}
 	if repo.items[0].ActorUserID == nil || *repo.items[0].ActorUserID != 9 {
 		t.Fatalf("expected actor id 9, got %#v", repo.items[0].ActorUserID)
+	}
+	if repo.items[0].RequestID != "req-domain-1" {
+		t.Fatalf("expected request id from context, got %#v", repo.items[0])
+	}
+
+	var metadata map[string]any
+	if err := json.Unmarshal(repo.items[0].Metadata, &metadata); err != nil {
+		t.Fatalf("unmarshal metadata: %v", err)
+	}
+	if metadata["traceId"] != "req-domain-1" {
+		t.Fatalf("expected traceId from context, got %#v", metadata)
+	}
+	if metadata["actorId"] != "9" {
+		t.Fatalf("expected explicit operator actorId, got %#v", metadata)
+	}
+	if metadata["trace_id"] != "req-domain-1" {
+		t.Fatalf("expected legacy aliases to remain, got %#v", metadata)
+	}
+}
+
+func TestRegisterSubscribesActiveAuditEventsFallsBackToRequestAuthActor(t *testing.T) {
+	repo := &memoryAuditRepository{}
+	_, _, bus := newPluginTestContext(t, repo)
+
+	requestCtx := httpx.WithRequestAuditContext(
+		pluginapi.WithRequestAuthContext(context.Background(), pluginapi.RequestAuthContext{
+			User: &pluginapi.CurrentUser{ID: 22, Username: "ctx-user", DisplayName: "Context User"},
+		}),
+		httpx.RequestAuditContext{
+			RequestID: "req-domain-2",
+			TraceID:   "req-domain-2",
+			Route:     "/api/roles/:id/status",
+			Method:    http.MethodPost,
+			ClientIP:  "203.0.113.22",
+			UserAgent: "audit-plugin-test-auth",
+		},
+	)
+
+	err := bus.Publish(requestCtx, eventbus.Event{
+		Name: pluginapi.AuditRecordEventName,
+		Payload: pluginapi.AuditEvent{
+			Action:       "user.profile.update",
+			ResourceType: "user",
+			ResourceID:   "22",
+			Success:      true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("publish audit event: %v", err)
+	}
+	if len(repo.items) != 1 {
+		t.Fatalf("expected one audit record, got %d", len(repo.items))
+	}
+	if repo.items[0].ActorUserID == nil || *repo.items[0].ActorUserID != 22 {
+		t.Fatalf("expected actor id 22 from request auth, got %#v", repo.items[0].ActorUserID)
 	}
 }
 
@@ -447,6 +517,30 @@ func TestRegisterSwallowsActiveAuditWriteErrors(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("expected active audit failure to be swallowed, got %v", err)
+	}
+}
+
+func TestRegisterSubscribesActiveAuditEventsWithoutHTTPContextDoesNotPanic(t *testing.T) {
+	repo := &memoryAuditRepository{}
+	_, _, bus := newPluginTestContext(t, repo)
+
+	err := bus.Publish(context.Background(), eventbus.Event{
+		Name: pluginapi.AuditRecordEventName,
+		Payload: pluginapi.AuditEvent{
+			Action:       "user.profile.update",
+			ResourceType: "user",
+			ResourceID:   "33",
+			Success:      true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("publish audit event: %v", err)
+	}
+	if len(repo.items) != 1 {
+		t.Fatalf("expected one audit record, got %d", len(repo.items))
+	}
+	if repo.items[0].RequestID != "" {
+		t.Fatalf("expected empty request id without HTTP context, got %#v", repo.items[0])
 	}
 }
 

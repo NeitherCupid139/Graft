@@ -16,6 +16,28 @@ Overlay note:
 
 ## Archived Topics
 
+- `plugin-audit-correlation-governance`
+  - Status: `archive-ready`
+  - Recovery status: completed the bounded server-only follow-up for plugin-owned domain audit correlation
+    propagation; no continuation required unless a new bounded topic expands audit semantics again.
+  - Archive reason: closed the `logging-unification-rollout` non-goal by moving plugin-domain audit correlation
+    inheritance into the canonical `httpx -> context.Context -> audit plugin` path without introducing a second audit
+    context model.
+  - Final result:
+    - plugin-owned domain audit events now inherit canonical `requestId`, `traceId`, `actorId`, `route`, `method`,
+      `clientIp`, and `userAgent` semantics from request context when publishers omit them
+    - explicit event payload fields still override inferred request-context values
+    - legacy aliases such as `request_id` and `trace_id` remain unchanged in unified audit metadata
+    - user/RBAC legacy request-id helper adapters remain preserved for compatibility but are no longer the only
+      propagation path
+  - Follow-up status: `new-topic-only`
+  - Archived topic directory:
+    - `ai-plan/public/plugin-audit-correlation-governance`
+  - Archive notes:
+    - `traceId` still intentionally aliases `requestId` in MVP; no tracing platform was introduced
+    - this topic did not widen into audit UI/query expansion, schema changes, or broader plugin refactors
+  - Next-session prompt: `Re-run startup preflight from root AGENTS.md. Treat plugin-audit-correlation-governance as archive-ready evidence and open a new bounded topic only if audit correlation semantics need further expansion.`
+
 - `logging-governance`
   - Status: `archived`
   - Recovery status: no continuation required; do not resume this topic as an active loop.

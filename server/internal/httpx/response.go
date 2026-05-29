@@ -1,6 +1,7 @@
 package httpx
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 
@@ -15,6 +16,19 @@ import (
 
 const localizedErrorMessageKeyContextKey = "httpx.localized_error_message_key"
 const requestIDContextKey = "httpx.request_id"
+
+type requestAuditContextKey struct{}
+
+// RequestAuditContext describes the canonical request correlation snapshot that
+// should follow one request through context.Context-based plugin/service calls.
+type RequestAuditContext struct {
+	RequestID string
+	TraceID   string
+	Route     string
+	Method    string
+	ClientIP  string
+	UserAgent string
+}
 
 // RequestIDHeader 是统一回写给客户端的稳定 request-id 响应头。
 const RequestIDHeader = string(httpheader.RequestID)
@@ -128,6 +142,23 @@ func EnsureRequestID(ctx *gin.Context) string {
 	ctx.Set(requestIDContextKey, requestID)
 	ctx.Writer.Header().Set(RequestIDHeader, requestID)
 	return requestID
+}
+
+// WithRequestAuditContext attaches the canonical request audit snapshot to one
+// request-scoped context.
+func WithRequestAuditContext(ctx context.Context, auditCtx RequestAuditContext) context.Context {
+	return context.WithValue(ctx, requestAuditContextKey{}, auditCtx)
+}
+
+// RequestAuditContextFromContext reads the canonical request audit snapshot from
+// one context chain.
+func RequestAuditContextFromContext(ctx context.Context) (RequestAuditContext, bool) {
+	if ctx == nil {
+		return RequestAuditContext{}, false
+	}
+
+	auditCtx, ok := ctx.Value(requestAuditContextKey{}).(RequestAuditContext)
+	return auditCtx, ok
 }
 
 // LastErrorMessageKey 返回当前请求最近一次统一错误响应写入的稳定 message key。

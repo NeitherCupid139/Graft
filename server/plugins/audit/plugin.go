@@ -144,7 +144,7 @@ func requestAuditMiddleware(logger *zap.Logger, recorder *auditcore.Service) gin
 }
 
 func recordEvent(ctx context.Context, recorder *auditcore.Service, payload pluginapi.AuditEvent) error {
-	_, _, err := recorder.RecordCandidate(ctx, eventAuditCandidate(payload))
+	_, _, err := recorder.RecordCandidate(ctx, eventAuditCandidate(ctx, payload))
 	return err
 }
 
@@ -179,7 +179,10 @@ func requestAuditCandidate(ctx *gin.Context) auditstore.AuditCandidate {
 	return candidate
 }
 
-func eventAuditCandidate(payload pluginapi.AuditEvent) auditstore.AuditCandidate {
+func eventAuditCandidate(ctx context.Context, payload pluginapi.AuditEvent) auditstore.AuditCandidate {
+	requestAudit := resolveRequestAuditContext(ctx)
+	operator := resolveEventOperator(ctx, payload)
+
 	candidate := auditstore.AuditCandidate{
 		Source:        auditSourceFromEvent(payload),
 		Action:        strings.TrimSpace(payload.Action),
@@ -187,25 +190,51 @@ func eventAuditCandidate(payload pluginapi.AuditEvent) auditstore.AuditCandidate
 		ResourceType:  strings.TrimSpace(payload.ResourceType),
 		ResourceID:    strings.TrimSpace(payload.ResourceID),
 		ResourceName:  strings.TrimSpace(payload.ResourceName),
-		RequestMethod: strings.TrimSpace(payload.RequestMethod),
-		RequestPath:   strings.TrimSpace(payload.RequestPath),
+		RequestMethod: firstNonEmptyTrimmed(payload.RequestMethod, requestAudit.Method),
+		RequestPath:   firstNonEmptyTrimmed(payload.RequestPath, requestAudit.Route),
 		StatusCode:    payload.StatusCode,
-		RequestID:     strings.TrimSpace(payload.RequestID),
-		TraceID:       strings.TrimSpace(payload.RequestID),
-		IP:            strings.TrimSpace(payload.IP),
-		UserAgent:     strings.TrimSpace(payload.UserAgent),
+		RequestID:     firstNonEmptyTrimmed(payload.RequestID, requestAudit.RequestID),
+		TraceID:       firstNonEmptyTrimmed(payload.RequestID, requestAudit.TraceID, requestAudit.RequestID),
+		IP:            firstNonEmptyTrimmed(payload.IP, requestAudit.ClientIP),
+		UserAgent:     firstNonEmptyTrimmed(payload.UserAgent, requestAudit.UserAgent),
 		Success:       payload.Success,
 		Message:       strings.TrimSpace(payload.Message),
 		Metadata:      mustMarshalAuditEventMetadata(eventMetadata(payload)),
 		CreatedAt:     payload.CreatedAt,
 	}
-	if payload.Operator != nil {
-		candidate.ActorUserID = &payload.Operator.ID
-		candidate.ActorUsername = strings.TrimSpace(payload.Operator.Username)
-		candidate.ActorDisplayName = strings.TrimSpace(payload.Operator.DisplayName)
+	if operator != nil {
+		candidate.ActorUserID = &operator.ID
+		candidate.ActorUsername = strings.TrimSpace(operator.Username)
+		candidate.ActorDisplayName = strings.TrimSpace(operator.DisplayName)
 	}
 
 	return candidate
+}
+
+func resolveRequestAuditContext(ctx context.Context) httpx.RequestAuditContext {
+	requestAudit, _ := httpx.RequestAuditContextFromContext(ctx)
+	return requestAudit
+}
+
+func resolveEventOperator(ctx context.Context, payload pluginapi.AuditEvent) *pluginapi.CurrentUser {
+	if payload.Operator != nil {
+		return payload.Operator
+	}
+	if requestAuth, ok := pluginapi.RequestAuthContextFromContext(ctx); ok && requestAuth.User != nil {
+		return requestAuth.User
+	}
+
+	return nil
+}
+
+func firstNonEmptyTrimmed(values ...string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
+	}
+
+	return ""
 }
 
 func auditSourceFromEvent(payload pluginapi.AuditEvent) auditstore.AuditSource {

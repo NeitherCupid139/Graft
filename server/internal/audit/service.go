@@ -259,46 +259,9 @@ func normalizeCandidateAction(candidate auditstore.AuditCandidate) string {
 
 func candidateMetadata(candidate auditstore.AuditCandidate, decision auditstore.AuditPolicyDecision) any {
 	metadata := decodeCandidateMetadata(candidate.Metadata)
-	requestMethod := firstNonEmptyTrimmed(strings.TrimSpace(candidate.RequestMethod), stringValue(metadata["method"]), stringValue(metadata["request_method"]))
-	requestPath := firstNonEmptyTrimmed(strings.TrimSpace(candidate.RequestPath), stringValue(metadata["route"]), stringValue(metadata["path"]), stringValue(metadata["request_path"]))
-	requestID := firstNonEmptyTrimmed(strings.TrimSpace(candidate.RequestID), stringValue(metadata["requestId"]), stringValue(metadata["request_id"]))
-	traceID := firstNonEmptyTrimmed(strings.TrimSpace(candidate.TraceID), stringValue(metadata["traceId"]), stringValue(metadata["trace_id"]), requestID)
-	eventType := firstNonEmptyTrimmed(strings.TrimSpace(candidate.EventType), stringValue(metadata["eventType"]), stringValue(metadata["event_type"]))
-	targetType := firstNonEmptyTrimmed(strings.TrimSpace(candidate.TargetType), stringValue(metadata["targetType"]), stringValue(metadata["target_type"]))
-	targetID := firstNonEmptyTrimmed(strings.TrimSpace(candidate.ResourceID), stringValue(metadata["targetId"]), stringValue(metadata["target_id"]))
-	status := firstNonZeroInt(candidate.StatusCode, intValue(metadata["status"]), intValue(metadata["status_code"]))
-	actorID := ""
-	if candidate.ActorUserID != nil {
-		actorID = strconv.FormatUint(*candidate.ActorUserID, 10)
-	}
-	actorID = firstNonEmptyTrimmed(actorID, stringValue(metadata["actorId"]), stringValue(metadata["actor_id"]))
-	actorType := firstNonEmptyTrimmed(stringValue(metadata["actorType"]), stringValue(metadata["actor_type"]))
-	if actorType == "" && actorID != "" {
-		actorType = "user"
-	}
+	resolved := resolveCandidateMetadataFields(candidate, metadata)
 
-	metadata["auditSource"] = string(candidate.Source)
-	metadata["requestId"] = requestID
-	metadata["traceId"] = traceID
-	metadata["method"] = requestMethod
-	metadata["path"] = requestPath
-	metadata["route"] = requestPath
-	metadata["status"] = status
-	if actorID != "" {
-		metadata["actorId"] = actorID
-	}
-	if actorType != "" {
-		metadata["actorType"] = actorType
-	}
-	if eventType != "" {
-		metadata["eventType"] = eventType
-	}
-	if targetType != "" {
-		metadata["targetType"] = targetType
-	}
-	if targetID != "" {
-		metadata["targetId"] = targetID
-	}
+	applyCanonicalCandidateMetadata(metadata, candidate, resolved)
 	if sessionID := firstNonEmptyTrimmed(strings.TrimSpace(candidate.SessionID), stringValue(metadata["sessionId"]), stringValue(metadata["session_id"])); sessionID != "" {
 		metadata["sessionId"] = sessionID
 		metadata["session_id"] = sessionID
@@ -308,21 +271,78 @@ func candidateMetadata(candidate auditstore.AuditCandidate, decision auditstore.
 		metadata["policy_rule_name"] = decision.Rule.Name
 		metadata["policy_effect"] = decision.Rule.Effect
 	}
+	applyLegacyCandidateMetadataAliases(metadata, resolved)
+	return metadata
+}
+
+type resolvedCandidateMetadata struct {
+	requestMethod string
+	requestPath   string
+	requestID     string
+	traceID       string
+	eventType     string
+	targetType    string
+	targetID      string
+	status        int
+	actorID       string
+	actorType     string
+}
+
+func resolveCandidateMetadataFields(candidate auditstore.AuditCandidate, metadata map[string]any) resolvedCandidateMetadata {
+	actorID := ""
+	if candidate.ActorUserID != nil {
+		actorID = strconv.FormatUint(*candidate.ActorUserID, 10)
+	}
+
+	resolved := resolvedCandidateMetadata{
+		requestMethod: firstNonEmptyTrimmed(strings.TrimSpace(candidate.RequestMethod), stringValue(metadata["method"]), stringValue(metadata["request_method"])),
+		requestPath:   firstNonEmptyTrimmed(strings.TrimSpace(candidate.RequestPath), stringValue(metadata["route"]), stringValue(metadata["path"]), stringValue(metadata["request_path"])),
+		requestID:     firstNonEmptyTrimmed(strings.TrimSpace(candidate.RequestID), stringValue(metadata["requestId"]), stringValue(metadata["request_id"])),
+		eventType:     firstNonEmptyTrimmed(strings.TrimSpace(candidate.EventType), stringValue(metadata["eventType"]), stringValue(metadata["event_type"])),
+		targetType:    firstNonEmptyTrimmed(strings.TrimSpace(candidate.TargetType), stringValue(metadata["targetType"]), stringValue(metadata["target_type"])),
+		targetID:      firstNonEmptyTrimmed(strings.TrimSpace(candidate.ResourceID), stringValue(metadata["targetId"]), stringValue(metadata["target_id"])),
+		status:        firstNonZeroInt(candidate.StatusCode, intValue(metadata["status"]), intValue(metadata["status_code"])),
+		actorID:       firstNonEmptyTrimmed(actorID, stringValue(metadata["actorId"]), stringValue(metadata["actor_id"])),
+		actorType:     firstNonEmptyTrimmed(stringValue(metadata["actorType"]), stringValue(metadata["actor_type"])),
+	}
+	resolved.traceID = firstNonEmptyTrimmed(strings.TrimSpace(candidate.TraceID), stringValue(metadata["traceId"]), stringValue(metadata["trace_id"]), resolved.requestID)
+	if resolved.actorType == "" && resolved.actorID != "" {
+		resolved.actorType = "user"
+	}
+
+	return resolved
+}
+
+func applyCanonicalCandidateMetadata(metadata map[string]any, candidate auditstore.AuditCandidate, resolved resolvedCandidateMetadata) {
+	metadata["auditSource"] = string(candidate.Source)
+	metadata["requestId"] = resolved.requestID
+	metadata["traceId"] = resolved.traceID
+	metadata["method"] = resolved.requestMethod
+	metadata["path"] = resolved.requestPath
+	metadata["route"] = resolved.requestPath
+	metadata["status"] = resolved.status
+	assignOptionalMetadataString(metadata, "actorId", resolved.actorID)
+	assignOptionalMetadataString(metadata, "actorType", resolved.actorType)
+	assignOptionalMetadataString(metadata, "eventType", resolved.eventType)
+	assignOptionalMetadataString(metadata, "targetType", resolved.targetType)
+	assignOptionalMetadataString(metadata, "targetId", resolved.targetID)
+}
+
+func applyLegacyCandidateMetadataAliases(metadata map[string]any, resolved resolvedCandidateMetadata) {
 	metadata["audit_source"] = metadata["auditSource"]
 	metadata["request_method"] = metadata["method"]
 	metadata["request_path"] = metadata["path"]
 	metadata["status_code"] = metadata["status"]
 	metadata["trace_id"] = metadata["traceId"]
-	if eventType != "" {
-		metadata["event_type"] = eventType
+	assignOptionalMetadataString(metadata, "event_type", resolved.eventType)
+	assignOptionalMetadataString(metadata, "target_type", resolved.targetType)
+	assignOptionalMetadataString(metadata, "target_id", resolved.targetID)
+}
+
+func assignOptionalMetadataString(metadata map[string]any, key string, value string) {
+	if value != "" {
+		metadata[key] = value
 	}
-	if targetType != "" {
-		metadata["target_type"] = targetType
-	}
-	if targetID != "" {
-		metadata["target_id"] = targetID
-	}
-	return metadata
 }
 
 func decodeCandidateMetadata(raw json.RawMessage) map[string]any {
