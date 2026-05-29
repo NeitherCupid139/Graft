@@ -44,6 +44,13 @@
             :placeholder="t('audit.logList.filters.resourcePlaceholder')"
             @update:model-value="updateField('resource', $event)"
           />
+          <t-input
+            :model-value="modelValue.resourceId"
+            class="audit-filters__input"
+            clearable
+            :placeholder="t('audit.logList.filters.resourceIdPlaceholder')"
+            @update:model-value="updateField('resourceId', $event)"
+          />
           <t-select
             :model-value="modelValue.result"
             class="audit-filters__input"
@@ -60,6 +67,8 @@
             :placeholder="t('audit.logList.filters.riskPlaceholder')"
             @update:model-value="updateField('riskLevel', $event)"
           />
+        </div>
+        <div v-if="advancedVisible" class="audit-filters__row">
           <t-input
             :model-value="modelValue.session"
             class="audit-filters__input"
@@ -164,7 +173,7 @@ function updateField<Key extends keyof AuditClientFilterState>(key: Key, value: 
 .audit-filters__row {
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(240px, 1.3fr) repeat(2, minmax(180px, 0.9fr)) minmax(260px, 1.1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .audit-filters__input,

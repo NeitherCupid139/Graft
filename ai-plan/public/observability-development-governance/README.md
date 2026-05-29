@@ -3,10 +3,10 @@
 ## Status
 
 - Topic: `observability-development-governance`
-- Status: `active`
+- Status: `archive-ready`
 - Loop mode: `topic-completion-loop`
 - Worktree: `feat/wt-audit-plugin-mvp`
-- Branch: `feat/wt-audit-plugin-mvp`
+- Branch: `feat/observability-development-governance`
 - Task class: `cross-boundary`
 - Started: `2026-05-29`
 
@@ -52,11 +52,31 @@ Hard order：
 ## Phase Status
 
 - Phase A: `done`
-- Phase B: `pending`
-- Phase C: `pending`
+- Phase B: `done`
+- Phase C: `done`
 
 ## Phase A Acceptance
 
 - `ai-plan/design/日志治理开发规范.md` completed
 - topic tracking updated to mark Phase A done
 - no runtime code changes required in this phase
+
+## Phase B Acceptance
+
+- inventory completed before any bounded code changes
+- fix-now rollout stayed inside approved `server` authority paths
+- bounded backend validation passed:
+  - `cd server && go test ./internal/httpx ./internal/audit ./internal/logger ./cmd/graft ./plugins/user/... ./plugins/rbac/... ./plugins/audit/...`
+
+## Phase C Acceptance
+
+- frontend audit filters now support URL-driven governance queries including `resourceId`
+- RBAC role list now exposes audit-navigation entrypoints for operators with audit read permission
+- bounded frontend validation passed:
+  - `cd web && bun run check`
+
+## Closeout
+
+- Topic status: `archive-ready`
+- No additional batch is required for this three-phase loop.
+- Future work, if any, should open a new bounded topic instead of reopening this governance loop.

@@ -358,6 +358,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 
+import { AUDIT_PERMISSION_CODE } from '@/modules/audit/contract/permissions';
 import { localizedApiErrorMessage, resolveLocalizedErrorMessage } from '@/modules/shared/localized-api-error';
 import {
   AssignmentCard,
@@ -703,6 +704,14 @@ function roleRowActions(role: RoleListItem) {
       label: t('rbac.roleList.assignPermissions'),
       testId: 'role-assign-permissions',
       value: 'assign-permissions',
+    });
+  }
+
+  if (permissionStore.hasPermission(AUDIT_PERMISSION_CODE.READ)) {
+    actions.push({
+      label: t('rbac.roleList.viewAudit'),
+      testId: 'role-view-audit',
+      value: 'view-audit',
     });
   }
 
@@ -1065,6 +1074,17 @@ function handleRoleMoreAction(
 function handleRoleRowAction(action: string, role: RoleListItem) {
   if (action === 'assign-permissions') {
     void openPermissionDrawer(role);
+    return;
+  }
+
+  if (action === 'view-audit') {
+    void router.push({
+      path: '/audit/logs',
+      query: {
+        resourceType: 'role',
+        resourceId: String(role.id),
+      },
+    });
     return;
   }
 

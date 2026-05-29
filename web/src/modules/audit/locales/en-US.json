@@ -215,6 +215,7 @@
         "actionPlaceholder": "Action type",
         "datePlaceholder": "Time range",
         "resourcePlaceholder": "Audit Target / Target Object / Operated Object",
+        "resourceIdPlaceholder": "Resource ID",
         "resultPlaceholder": "Result",
         "riskPlaceholder": "Risk level",
         "sessionPlaceholder": "Session ID",

@@ -215,6 +215,7 @@
         "actionPlaceholder": "操作类型",
         "datePlaceholder": "时间范围",
         "resourcePlaceholder": "审计目标 / 目标对象 / 操作对象",
+        "resourceIdPlaceholder": "资源 ID",
         "resultPlaceholder": "结果",
         "riskPlaceholder": "风险等级",
         "sessionPlaceholder": "Session ID",

@@ -13,8 +13,8 @@ Overlay note:
 ## Active Topics
 
 - `observability-development-governance`
-  - Status: `active`
-  - Recovery status: Phase A `logging-development-standard` completed; Phase B inventory and bounded rollout still pending.
+  - Status: `archive-ready`
+  - Recovery status: all three phases completed locally with bounded server and web validation; no continuation required inside this topic unless a new bounded follow-up is opened.
   - Goal:
     - define backend observability development standards for app log / audit / security event / metric placeholder
     - inventory and fix bounded logging compliance drift
@@ -25,7 +25,7 @@ Overlay note:
     - `server/internal/logger/**` is backend app/error logger authority
     - `server/internal/httpx/**` is request correlation, access log, and HTTP security-event authority
     - `server/internal/audit/**` + `server/plugins/audit/**` are audit persistence and normalization authority
-  - Next-session prompt: `Re-run startup preflight from root AGENTS.md. Resume topic observability-development-governance from ai-plan/public/observability-development-governance with Phase B inventory first, and do not skip Phase A-complete -> Phase B ordering.`
+  - Next-session prompt: `Re-run startup preflight from root AGENTS.md. Treat observability-development-governance as archive-ready evidence and open a new bounded topic only if observability, metrics-governance, or audit-console follow-up is required.`
 
 ## Archived Topics
 

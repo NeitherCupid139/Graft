@@ -110,6 +110,7 @@ const filters = ref<AuditClientFilterState>({
   action: '',
   createdRange: [],
   resource: '',
+  resourceId: '',
   result: 'all',
   riskLevel: 'all',
   session: '',
@@ -130,6 +131,7 @@ const hasClientOnlyFilters = computed(() =>
     filters.value.keyword ||
     filters.value.actor ||
     filters.value.resource ||
+    filters.value.resourceId ||
     filters.value.session ||
     filters.value.traceId,
   ),
@@ -151,10 +153,13 @@ function buildQuery(): AuditLogQuery {
   };
 
   if (filters.value.action) {
-    query.resource_type = filters.value.action === 'auth' ? 'auth' : filters.value.action;
+    query.action = filters.value.action;
   }
   if (filters.value.resource) {
     query.resource_type = filters.value.resource;
+  }
+  if (filters.value.resourceId) {
+    query.resource_id = filters.value.resourceId;
   }
   if (filters.value.result !== 'all') {
     query.result = filters.value.result;
@@ -207,35 +212,42 @@ function applyPreset(preset: PresetKey) {
     filters.value.action = '';
     filters.value.result = 'all';
     filters.value.resource = '';
+    filters.value.resourceId = '';
     filters.value.riskLevel = 'all';
   } else if (preset === 'today-anomalies') {
     filters.value.action = '';
     filters.value.result = 'ERROR';
     filters.value.resource = '';
+    filters.value.resourceId = '';
     filters.value.riskLevel = 'HIGH';
   } else if (preset === 'permission-denied') {
     filters.value.action = '';
     filters.value.result = 'DENIED';
     filters.value.resource = '';
+    filters.value.resourceId = '';
     filters.value.riskLevel = 'CRITICAL';
   } else if (preset === 'auth-failed') {
-    filters.value.action = 'auth';
+    filters.value.action = '';
     filters.value.result = 'FAILED';
     filters.value.resource = 'auth';
+    filters.value.resourceId = '';
     filters.value.riskLevel = 'HIGH';
   } else if (preset === 'sensitive-ops') {
     filters.value.action = '';
     filters.value.result = 'all';
     filters.value.resource = '';
+    filters.value.resourceId = '';
     filters.value.riskLevel = 'HIGH';
   } else if (preset === 'high-risk') {
     filters.value.action = '';
     filters.value.result = 'all';
     filters.value.resource = '';
+    filters.value.resourceId = '';
     filters.value.riskLevel = 'CRITICAL';
   }
 
   pagination.value.current = 1;
+  syncRouteQuery();
   fetchAuditLogs();
 }
 
@@ -251,6 +263,7 @@ function resetFilters() {
     action: '',
     createdRange: [],
     resource: '',
+    resourceId: '',
     result: 'all',
     riskLevel: 'all',
     session: '',
@@ -258,6 +271,7 @@ function resetFilters() {
   };
   activePreset.value = 'all';
   pagination.value.current = 1;
+  syncRouteQuery();
   fetchAuditLogs();
 }
 
@@ -286,7 +300,80 @@ function applyRoutePreset() {
   return false;
 }
 
+function firstQueryValue(value: unknown) {
+  return typeof value === 'string' ? value : '';
+}
+
+function applyRouteFilters() {
+  const nextPreset = firstQueryValue(route.query.preset) as PresetKey | '';
+  const nextFilters: AuditClientFilterState = {
+    keyword: firstQueryValue(route.query.keyword),
+    actor: firstQueryValue(route.query.actor),
+    action: firstQueryValue(route.query.action),
+    createdRange: [],
+    resource: firstQueryValue(route.query.resourceType),
+    resourceId: firstQueryValue(route.query.resourceId),
+    result: (firstQueryValue(route.query.result) as AuditClientFilterState['result']) || 'all',
+    riskLevel: (firstQueryValue(route.query.riskLevel) as AuditClientFilterState['riskLevel']) || 'all',
+    session: firstQueryValue(route.query.session),
+    traceId: firstQueryValue(route.query.traceId),
+  };
+
+  filters.value = nextFilters;
+  activePreset.value = nextPreset || 'all';
+  advancedVisible.value = Boolean(
+    nextFilters.resource ||
+    nextFilters.resourceId ||
+    nextFilters.result !== 'all' ||
+    nextFilters.riskLevel !== 'all' ||
+    nextFilters.session ||
+    nextFilters.traceId,
+  );
+}
+
+function syncRouteQuery() {
+  const query: Record<string, string> = {};
+
+  if (activePreset.value !== 'all') {
+    query.preset = activePreset.value;
+  }
+  if (filters.value.keyword) {
+    query.keyword = filters.value.keyword;
+  }
+  if (filters.value.actor) {
+    query.actor = filters.value.actor;
+  }
+  if (filters.value.action) {
+    query.action = filters.value.action;
+  }
+  if (filters.value.resource) {
+    query.resourceType = filters.value.resource;
+  }
+  if (filters.value.resourceId) {
+    query.resourceId = filters.value.resourceId;
+  }
+  if (filters.value.result !== 'all') {
+    query.result = filters.value.result;
+  }
+  if (filters.value.riskLevel !== 'all') {
+    query.riskLevel = filters.value.riskLevel;
+  }
+  if (filters.value.session) {
+    query.session = filters.value.session;
+  }
+  if (filters.value.traceId) {
+    query.traceId = filters.value.traceId;
+  }
+
+  void history.replaceState(
+    history.state,
+    '',
+    `${route.path}${new URLSearchParams(query).toString() ? `?${new URLSearchParams(query).toString()}` : ''}`,
+  );
+}
+
 onMounted(() => {
+  applyRouteFilters();
   if (!applyRoutePreset()) {
     fetchAuditLogs();
   }
