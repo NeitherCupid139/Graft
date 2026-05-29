@@ -209,6 +209,14 @@
         "display": "更新角色",
         "description": "允许更新角色管理数据。"
       },
+      "roleStatusUpdate": {
+        "display": "更新角色状态",
+        "description": "允许启用或停用角色。"
+      },
+      "roleDelete": {
+        "display": "删除角色",
+        "description": "允许删除满足生命周期要求的自定义角色。"
+      },
       "rolePermissionAssign": {
         "display": "分配角色权限",
         "description": "允许更新角色与权限的绑定关系。"
@@ -228,6 +236,10 @@
       "monitorServerStatusRead": {
         "display": "读取服务器状态",
         "description": "允许读取服务器状态概览。"
+      },
+      "auditRead": {
+        "display": "读取审计日志",
+        "description": "允许查看审计概览与审计日志。"
       }
     }
   }

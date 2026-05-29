@@ -50,7 +50,9 @@ export function formatHintedMessage(
   baseMessage: string,
   snapshot?: Partial<CorrelationSnapshot>,
 ) {
-  return formatMessageWithCorrelation(baseMessage, correlationHintText(translate, snapshot));
+  void translate;
+  void snapshot;
+  return baseMessage.trim();
 }
 
 export function formatMessageWithCorrelation(baseMessage: string, correlationHint: string) {
@@ -76,6 +78,10 @@ export function resolveErrorMessageWithCorrelation(
   const baseMessage = isApiRequestError(error)
     ? localizedApiErrorMessage(translate, error.messageKey, error.message) || fallbackMessage
     : fallbackMessage;
+
+  if (isApiRequestError(error) && error.status < 500) {
+    return baseMessage.trim();
+  }
 
   const correlationHint = correlationHintText(
     translate,

@@ -413,6 +413,7 @@ type TrendChartKey =
   | 'multi-runtimeSys'
   | 'multi-goroutines'
   | 'focus';
+const FIXED_CPU_TREND_COLOR = '#2F6BFF';
 
 interface MetricCard {
   key: string;
@@ -531,7 +532,7 @@ const trendMetricConfigs = computed<TrendMetricDefinition[]>(() => {
       unit: '%',
       group: 'resourceUsage',
       groupLabel: t('monitor.serverStatus.trendGroupResourceUsage'),
-      color: () => readMetricThemeColor('--td-brand-color', '#2F6BFF'),
+      color: () => FIXED_CPU_TREND_COLOR,
       axis: 'percent',
       description: t('monitor.serverStatus.chartCpuDescription'),
       formatter: formatPercentPrecise,

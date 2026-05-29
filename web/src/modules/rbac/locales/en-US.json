@@ -198,6 +198,14 @@
         "display": "Update Roles",
         "description": "Allows updating role-management data."
       },
+      "roleStatusUpdate": {
+        "display": "Update Role Status",
+        "description": "Allows enabling or disabling roles."
+      },
+      "roleDelete": {
+        "display": "Delete Roles",
+        "description": "Allows deleting custom roles that satisfy the lifecycle requirements."
+      },
       "rolePermissionAssign": {
         "display": "Assign Role Permissions",
         "description": "Allows updating role-permission bindings."
@@ -217,6 +225,10 @@
       "monitorServerStatusRead": {
         "display": "Read Server Status",
         "description": "Allows reading the server status overview."
+      },
+      "auditRead": {
+        "display": "Read Audit Logs",
+        "description": "Allows viewing the audit overview and audit logs."
       }
     }
   }
