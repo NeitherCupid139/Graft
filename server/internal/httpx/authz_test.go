@@ -277,6 +277,53 @@ func TestRequirePermissionAllowsAuthorizedRequest(t *testing.T) {
 	}
 }
 
+func TestRequirePermissionInjectsCanonicalRequestAuditContext(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	authService := testAuthService{
+		parseAccessToken: func(context.Context, string) (*pluginapi.AccessTokenClaims, error) {
+			return newAuthenticatedClaims(), nil
+		},
+		currentUser: func(context.Context) (*pluginapi.CurrentUser, error) {
+			return newAuthenticatedUser(), nil
+		},
+	}
+	authorizer := testAuthorizer{
+		authorize: func(_ context.Context, _ pluginapi.RequestAuthContext, _ string) error {
+			return nil
+		},
+	}
+
+	recorder := httptest.NewRecorder()
+	ctx, engine := gin.CreateTestContext(recorder)
+	engine.Use(RequirePermission(nil, authService, authorizer, "user.read"))
+	engine.GET("/api/users/:id", func(inner *gin.Context) {
+		auditCtx, ok := RequestAuditContextFromContext(inner.Request.Context())
+		if !ok {
+			t.Fatal("expected request audit context in handler context")
+		}
+		if auditCtx.RequestID == "" || auditCtx.TraceID != auditCtx.RequestID {
+			t.Fatalf("expected canonical request/trace ids, got %#v", auditCtx)
+		}
+		if auditCtx.Route != "/api/users/:id" || auditCtx.Method != http.MethodGet {
+			t.Fatalf("expected route and method in audit context, got %#v", auditCtx)
+		}
+		if auditCtx.ClientIP != "198.51.100.8" || auditCtx.UserAgent != "authz-test" {
+			t.Fatalf("expected client metadata in audit context, got %#v", auditCtx)
+		}
+		inner.Status(http.StatusOK)
+	})
+
+	ctx.Request = newBearerRequest("/api/users/1", "token-1")
+	ctx.Request.Header.Set("User-Agent", "authz-test")
+	ctx.Request.Header.Set("X-Forwarded-For", "198.51.100.8")
+	engine.HandleContext(ctx)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+}
+
 // TestRequirePermissionAllowsAuthenticatedRequestWhenPermissionCodeBlank 验证空权限码只要求建立登录态。
 func TestRequirePermissionAllowsAuthenticatedRequestWhenPermissionCodeBlank(t *testing.T) {
 	assertAuthenticatedRequestAllowed(t, " ")

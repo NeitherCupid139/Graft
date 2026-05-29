@@ -136,7 +136,7 @@ func newRuntimeCore(cfg *config.Config) (*Runtime, error) {
 		i18n:               i18n.New(cfg.I18n),
 		database:           databaseResources,
 		redis:              redisClient,
-		server:             httpx.NewServer(),
+		server:             httpx.NewServer(runtimeLogger),
 		eventBus:           eventbus.New(runtimeLogger),
 		services:           container.New(),
 		menuRegistry:       menu.NewRegistry(),

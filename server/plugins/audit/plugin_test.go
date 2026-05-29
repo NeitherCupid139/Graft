@@ -2,6 +2,7 @@ package audit
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 
 	"graft/server/internal/config"
 	"graft/server/internal/container"
@@ -27,6 +29,7 @@ import (
 
 type memoryAuditRepository struct {
 	items []store.AuditLog
+	rules []store.AuditPolicyRule
 }
 
 func (r *memoryAuditRepository) CreateAuditLog(_ context.Context, input store.CreateAuditLogInput) (store.AuditLog, error) {
@@ -97,6 +100,13 @@ func (r *memoryAuditRepository) ReadAuditOverview(_ context.Context, window stor
 	}, nil
 }
 
+func (r *memoryAuditRepository) ListAuditPolicyRules(_ context.Context) ([]store.AuditPolicyRule, error) {
+	if len(r.rules) == 0 {
+		return defaultPluginTestPolicyRules(), nil
+	}
+	return append([]store.AuditPolicyRule(nil), r.rules...), nil
+}
+
 type failingAuditRepository struct{}
 
 func (failingAuditRepository) CreateAuditLog(context.Context, store.CreateAuditLogInput) (store.AuditLog, error) {
@@ -109,6 +119,10 @@ func (failingAuditRepository) ListAuditLogs(context.Context, store.ListAuditLogs
 
 func (failingAuditRepository) ReadAuditOverview(context.Context, store.OverviewWindow) (store.AuditOverview, error) {
 	return store.AuditOverview{}, errors.New("overview failed")
+}
+
+func (failingAuditRepository) ListAuditPolicyRules(context.Context) ([]store.AuditPolicyRule, error) {
+	return defaultPluginTestPolicyRules(), nil
 }
 
 type stubAuthService struct {
@@ -145,14 +159,24 @@ func (allowAuthorizer) Authorize(_ context.Context, _ pluginapi.RequestAuthConte
 	return nil
 }
 
+type denyAuthorizer struct{}
+
+func (denyAuthorizer) Authorize(_ context.Context, _ pluginapi.RequestAuthContext, _ string) error {
+	return pluginapi.ErrPermissionDenied
+}
+
 func newPluginTestContext(t *testing.T, repo store.AuditRepository) (*plugin.Context, *gin.Engine, eventbus.Bus) {
+	return newPluginTestContextWithLogger(t, repo, zap.NewNop())
+}
+
+func newPluginTestContextWithLogger(t *testing.T, repo store.AuditRepository, logger *zap.Logger) (*plugin.Context, *gin.Engine, eventbus.Bus) {
 	t.Helper()
 
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
 	bus := eventbus.New(zap.NewNop())
 	ctx := &plugin.Context{
-		Logger:             zap.NewNop(),
+		Logger:             logger,
 		Config:             &config.Config{},
 		I18n:               i18n.New(config.I18nConfig{DefaultLocale: "zh-CN", FallbackLocale: "zh-CN", SupportedLocales: []string{"zh-CN", "en-US"}}),
 		EventBus:           bus,
@@ -185,9 +209,8 @@ func newPluginTestContext(t *testing.T, repo store.AuditRepository) (*plugin.Con
 	return ctx, engine, bus
 }
 
-// TestRequestAuditMiddlewareCapturesAuthenticatedRequest 验证请求级自动审计会在
-// 受保护路由完成后记录当前主体和稳定路由语义。
-func TestRequestAuditMiddlewareCapturesAuthenticatedRequest(t *testing.T) {
+// TestRequestAuditMiddlewareSkipsUnmatchedRequest 验证未命中策略的普通请求不会落库。
+func TestRequestAuditMiddlewareSkipsUnmatchedRequest(t *testing.T) {
 	repo := &memoryAuditRepository{}
 	ctx, engine, _ := newPluginTestContext(t, repo)
 	authService := stubAuthService{user: pluginapi.CurrentUser{ID: 7, Username: "alice", DisplayName: "Alice"}}
@@ -206,20 +229,8 @@ func TestRequestAuditMiddlewareCapturesAuthenticatedRequest(t *testing.T) {
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", recorder.Code)
 	}
-	if len(repo.items) != 1 {
-		t.Fatalf("expected one audit record, got %d", len(repo.items))
-	}
-
-	record := repo.items[0]
-	assertAuditRecord(t, record, expectedAuditRecord{
-		username:     "alice",
-		displayName:  "Alice",
-		action:       "GET /api/users/:id",
-		resourceType: "users",
-		resourceID:   "42",
-	})
-	if record.RequestID == "" {
-		t.Fatal("expected request id to be recorded")
+	if len(repo.items) != 0 {
+		t.Fatalf("expected request to be skipped by policy, got %d audit records", len(repo.items))
 	}
 }
 
@@ -251,34 +262,119 @@ func TestRequestAuditMiddlewareCapturesLocalizedErrorKey(t *testing.T) {
 	}
 }
 
-type expectedAuditRecord struct {
-	username     string
-	displayName  string
-	action       string
-	resourceType string
-	resourceID   string
+func TestRequirePermissionPublishesSecurityAuditEvent(t *testing.T) {
+	repo := &memoryAuditRepository{}
+	ctx, engine, _ := newPluginTestContext(t, repo)
+
+	ctx.Router.GET(
+		"/roles",
+		httpx.RequirePermission(
+			ctx.I18n,
+			stubAuthService{user: pluginapi.CurrentUser{ID: 7, Username: "alice", DisplayName: "Alice"}},
+			denyAuthorizer{},
+			"rbac.role.read",
+			httpx.NewSecurityAuditPublisher(ctx.EventBus, ctx.Logger, "test"),
+		),
+		func(ginCtx *gin.Context) {
+			ginCtx.JSON(http.StatusOK, gin.H{"ok": true})
+		},
+	)
+
+	request := httptest.NewRequest(http.MethodGet, "/api/roles", nil)
+	request.Header.Set("Authorization", "Bearer token")
+	recorder := httptest.NewRecorder()
+	engine.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("expected status 403, got %d", recorder.Code)
+	}
+	if len(repo.items) != 1 {
+		t.Fatalf("expected one security audit record, got %d", len(repo.items))
+	}
+	if repo.items[0].Action != "auth.permission.denied" {
+		t.Fatalf("expected permission denied audit action, got %q", repo.items[0].Action)
+	}
 }
 
-func assertAuditRecord(t *testing.T, record store.AuditLog, expected expectedAuditRecord) {
-	t.Helper()
-
-	if record.ActorUserID == nil || *record.ActorUserID != 7 {
-		t.Fatalf("expected actor id 7, got %#v", record.ActorUserID)
-	}
-	if record.ActorUsername != expected.username || record.ActorDisplayName != expected.displayName {
-		t.Fatalf("expected actor identity %s/%s, got %#v", expected.username, expected.displayName, record)
-	}
-	if record.Action != expected.action {
-		t.Fatalf("expected stable action, got %q", record.Action)
-	}
-	if record.ResourceType != expected.resourceType {
-		t.Fatalf("expected resource type %s, got %q", expected.resourceType, record.ResourceType)
-	}
-	if record.ResourceID != expected.resourceID {
-		t.Fatalf("expected resource id %s, got %q", expected.resourceID, record.ResourceID)
-	}
-	if !record.Success || record.Message != "" {
-		t.Fatalf("expected successful audit record, got %#v", record)
+func defaultPluginTestPolicyRules() []store.AuditPolicyRule {
+	return []store.AuditPolicyRule{
+		{
+			Name:        "request.healthz.exclude",
+			Source:      store.AuditSourceRequest,
+			Enabled:     true,
+			Priority:    1,
+			Effect:      store.AuditPolicyEffectExclude,
+			Method:      http.MethodGet,
+			PathPattern: "/healthz",
+			MatchType:   store.AuditPolicyMatchTypeExact,
+		},
+		{
+			Name:        "request.monitor.exclude",
+			Source:      store.AuditSourceRequest,
+			Enabled:     true,
+			Priority:    2,
+			Effect:      store.AuditPolicyEffectExclude,
+			Method:      http.MethodGet,
+			PathPattern: "/api/monitor",
+			MatchType:   store.AuditPolicyMatchTypePrefix,
+		},
+		{
+			Name:        "request.audit.overview.exclude",
+			Source:      store.AuditSourceRequest,
+			Enabled:     true,
+			Priority:    3,
+			Effect:      store.AuditPolicyEffectExclude,
+			Method:      http.MethodGet,
+			PathPattern: "/api/audit/overview",
+			MatchType:   store.AuditPolicyMatchTypeExact,
+		},
+		{
+			Name:        "request.audit.logs.exclude",
+			Source:      store.AuditSourceRequest,
+			Enabled:     true,
+			Priority:    4,
+			Effect:      store.AuditPolicyEffectExclude,
+			Method:      http.MethodGet,
+			PathPattern: "/api/audit/logs",
+			MatchType:   store.AuditPolicyMatchTypeExact,
+		},
+		{
+			Name:      "security.auth.permission_denied",
+			Source:    store.AuditSourceSecurityEvent,
+			Enabled:   true,
+			Priority:  10,
+			Effect:    store.AuditPolicyEffectInclude,
+			EventType: "auth.permission.denied",
+			MatchType: store.AuditPolicyMatchTypeExact,
+		},
+		{
+			Name:        "request.auth.login",
+			Source:      store.AuditSourceRequest,
+			Enabled:     true,
+			Priority:    20,
+			Effect:      store.AuditPolicyEffectInclude,
+			Method:      http.MethodPost,
+			PathPattern: "/api/auth/login",
+			MatchType:   store.AuditPolicyMatchTypeExact,
+		},
+		{
+			Name:      "domain.user.password.reset",
+			Source:    store.AuditSourceDomainEvent,
+			Enabled:   true,
+			Priority:  30,
+			Effect:    store.AuditPolicyEffectInclude,
+			EventType: "user.password.reset",
+			MatchType: store.AuditPolicyMatchTypeExact,
+		},
+		{
+			Name:      "domain.user.profile.update",
+			Source:    store.AuditSourceDomainEvent,
+			Enabled:   true,
+			Priority:  31,
+			Effect:    store.AuditPolicyEffectInclude,
+			EventType: "user.profile.update",
+			MatchType: store.AuditPolicyMatchTypeExact,
+		},
 	}
 }
 
@@ -288,7 +384,21 @@ func TestRegisterSubscribesActiveAuditEvents(t *testing.T) {
 	repo := &memoryAuditRepository{}
 	_, _, bus := newPluginTestContext(t, repo)
 
-	err := bus.Publish(context.Background(), eventbus.Event{
+	requestCtx := httpx.WithRequestAuditContext(
+		pluginapi.WithRequestAuthContext(context.Background(), pluginapi.RequestAuthContext{
+			User: &pluginapi.CurrentUser{ID: 21, Username: "ctx-admin", DisplayName: "Context Admin"},
+		}),
+		httpx.RequestAuditContext{
+			RequestID: "req-domain-1",
+			TraceID:   "req-domain-1",
+			Route:     "/api/users",
+			Method:    http.MethodPost,
+			ClientIP:  "203.0.113.10",
+			UserAgent: "audit-plugin-test",
+		},
+	)
+
+	err := bus.Publish(requestCtx, eventbus.Event{
 		Name: pluginapi.AuditRecordEventName,
 		Payload: pluginapi.AuditEvent{
 			Operator:     &pluginapi.CurrentUser{ID: 9, Username: "bob"},
@@ -309,6 +419,61 @@ func TestRegisterSubscribesActiveAuditEvents(t *testing.T) {
 	}
 	if repo.items[0].ActorUserID == nil || *repo.items[0].ActorUserID != 9 {
 		t.Fatalf("expected actor id 9, got %#v", repo.items[0].ActorUserID)
+	}
+	if repo.items[0].RequestID != "req-domain-1" {
+		t.Fatalf("expected request id from context, got %#v", repo.items[0])
+	}
+
+	var metadata map[string]any
+	if err := json.Unmarshal(repo.items[0].Metadata, &metadata); err != nil {
+		t.Fatalf("unmarshal metadata: %v", err)
+	}
+	if metadata["traceId"] != "req-domain-1" {
+		t.Fatalf("expected traceId from context, got %#v", metadata)
+	}
+	if metadata["actorId"] != "9" {
+		t.Fatalf("expected explicit operator actorId, got %#v", metadata)
+	}
+	if metadata["trace_id"] != "req-domain-1" {
+		t.Fatalf("expected legacy aliases to remain, got %#v", metadata)
+	}
+}
+
+func TestRegisterSubscribesActiveAuditEventsFallsBackToRequestAuthActor(t *testing.T) {
+	repo := &memoryAuditRepository{}
+	_, _, bus := newPluginTestContext(t, repo)
+
+	requestCtx := httpx.WithRequestAuditContext(
+		pluginapi.WithRequestAuthContext(context.Background(), pluginapi.RequestAuthContext{
+			User: &pluginapi.CurrentUser{ID: 22, Username: "ctx-user", DisplayName: "Context User"},
+		}),
+		httpx.RequestAuditContext{
+			RequestID: "req-domain-2",
+			TraceID:   "req-domain-2",
+			Route:     "/api/roles/:id/status",
+			Method:    http.MethodPost,
+			ClientIP:  "203.0.113.22",
+			UserAgent: "audit-plugin-test-auth",
+		},
+	)
+
+	err := bus.Publish(requestCtx, eventbus.Event{
+		Name: pluginapi.AuditRecordEventName,
+		Payload: pluginapi.AuditEvent{
+			Action:       "user.profile.update",
+			ResourceType: "user",
+			ResourceID:   "22",
+			Success:      true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("publish audit event: %v", err)
+	}
+	if len(repo.items) != 1 {
+		t.Fatalf("expected one audit record, got %d", len(repo.items))
+	}
+	if repo.items[0].ActorUserID == nil || *repo.items[0].ActorUserID != 22 {
+		t.Fatalf("expected actor id 22 from request auth, got %#v", repo.items[0].ActorUserID)
 	}
 }
 
@@ -357,6 +522,133 @@ func TestRegisterSwallowsActiveAuditWriteErrors(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("expected active audit failure to be swallowed, got %v", err)
+	}
+}
+
+func TestRegisterWarnsWhenSecurityAuditEventIsSkippedByPolicy(t *testing.T) {
+	repo := &memoryAuditRepository{
+		rules: []store.AuditPolicyRule{
+			{
+				Name:      "domain.user.profile.update",
+				Source:    store.AuditSourceDomainEvent,
+				Enabled:   true,
+				Priority:  10,
+				Effect:    store.AuditPolicyEffectInclude,
+				EventType: "user.profile.update",
+				MatchType: store.AuditPolicyMatchTypeExact,
+			},
+		},
+	}
+	core, observed := observer.New(zap.WarnLevel)
+	logger := zap.New(core)
+	_, _, bus := newPluginTestContextWithLogger(t, repo, logger)
+
+	err := bus.Publish(context.Background(), eventbus.Event{
+		Name: pluginapi.AuditRecordEventName,
+		Payload: pluginapi.AuditEvent{
+			Kind:         pluginapi.AuditEventKindSecurity,
+			Action:       "auth.permission.denied",
+			RequestPath:  "/api/roles/12",
+			ResourceType: "role",
+			ResourceID:   "12",
+			Success:      false,
+		},
+	})
+	if err != nil {
+		t.Fatalf("publish security audit event: %v", err)
+	}
+	if len(repo.items) != 0 {
+		t.Fatalf("expected skipped security event to avoid persistence, got %d records", len(repo.items))
+	}
+
+	entries := observed.FilterMessage("skip security audit candidate by policy").All()
+	if len(entries) != 1 {
+		t.Fatalf("expected one warn log for skipped security event, got %d", len(entries))
+	}
+	fields := entries[0].ContextMap()
+	if fields["action"] != "auth.permission.denied" || fields["path"] != "/api/roles/12" {
+		t.Fatalf("expected warn log to preserve candidate context, got %#v", fields)
+	}
+}
+
+func TestRegisterSubscribesActiveAuditEventsWithoutHTTPContextDoesNotPanic(t *testing.T) {
+	repo := &memoryAuditRepository{}
+	_, _, bus := newPluginTestContext(t, repo)
+
+	err := bus.Publish(context.Background(), eventbus.Event{
+		Name: pluginapi.AuditRecordEventName,
+		Payload: pluginapi.AuditEvent{
+			Action:       "user.profile.update",
+			ResourceType: "user",
+			ResourceID:   "33",
+			Success:      true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("publish audit event: %v", err)
+	}
+	if len(repo.items) != 1 {
+		t.Fatalf("expected one audit record, got %d", len(repo.items))
+	}
+	if repo.items[0].RequestID != "" {
+		t.Fatalf("expected empty request id without HTTP context, got %#v", repo.items[0])
+	}
+}
+
+func TestAuditReadRoutesStayOutOfAuditLogByPolicy(t *testing.T) {
+	repo := &memoryAuditRepository{}
+	_, engine, _ := newPluginTestContext(t, repo)
+
+	for _, path := range []string{"/api/audit/logs", "/api/audit/overview?window=7d"} {
+		request := httptest.NewRequest(http.MethodGet, path, nil)
+		request.Header.Set("Authorization", "Bearer token")
+		recorder := httptest.NewRecorder()
+		engine.ServeHTTP(recorder, request)
+
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("expected status 200 for %s, got %d", path, recorder.Code)
+		}
+	}
+
+	if len(repo.items) != 0 {
+		t.Fatalf("expected audit read routes to be excluded by policy, got %d records", len(repo.items))
+	}
+}
+
+func TestRegisterRecordsRBACDomainEventWhenPolicyAllows(t *testing.T) {
+	repo := &memoryAuditRepository{
+		rules: append(defaultPluginTestPolicyRules(), store.AuditPolicyRule{
+			Name:      "domain.rbac.role.delete",
+			Source:    store.AuditSourceDomainEvent,
+			Enabled:   true,
+			Priority:  40,
+			Effect:    store.AuditPolicyEffectInclude,
+			EventType: "rbac.role.delete",
+			MatchType: store.AuditPolicyMatchTypeExact,
+		}),
+	}
+	_, _, bus := newPluginTestContext(t, repo)
+
+	err := bus.Publish(context.Background(), eventbus.Event{
+		Name: pluginapi.AuditRecordEventName,
+		Payload: pluginapi.AuditEvent{
+			Kind:         pluginapi.AuditEventKindDomain,
+			Operator:     &pluginapi.CurrentUser{ID: 9, Username: "bob"},
+			Action:       "rbac.role.delete",
+			ResourceType: "role",
+			ResourceID:   "12",
+			ResourceName: "ops-admin",
+			Success:      true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("publish audit event: %v", err)
+	}
+	if len(repo.items) != 1 {
+		t.Fatalf("expected one rbac audit record, got %d", len(repo.items))
+	}
+	if repo.items[0].Action != "rbac.role.delete" {
+		t.Fatalf("expected rbac role delete action, got %q", repo.items[0].Action)
 	}
 }
 

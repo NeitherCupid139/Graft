@@ -12,7 +12,7 @@ import (
 // 这里直接占用运行槽位，而不是依赖真实监听端口，避免测试结果受到
 // 沙箱网络能力或本地监听时序的影响。
 func TestRunRejectsConcurrentStart(t *testing.T) {
-	server := NewServer()
+	server := NewServer(nil)
 	running := &http.Server{ReadHeaderTimeout: time.Second}
 	if err := server.bindRunningServer(running); err != nil {
 		t.Fatalf("bind running server: %v", err)
@@ -30,7 +30,7 @@ func TestRunRejectsConcurrentStart(t *testing.T) {
 // 这个断言覆盖 Shutdown 内部依赖的“摘除后不再可见”语义，确保重复清理
 // 不会拿到旧指针并尝试再次关闭同一个服务实例。
 func TestDetachRunningServerClearsPointer(t *testing.T) {
-	server := NewServer()
+	server := NewServer(nil)
 	running := &http.Server{ReadHeaderTimeout: time.Second}
 	if err := server.bindRunningServer(running); err != nil {
 		t.Fatalf("bind running server: %v", err)

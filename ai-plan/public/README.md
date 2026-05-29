@@ -12,18 +12,94 @@ Overlay note:
 
 ## Active Topics
 
-  - `audit-plugin-mvp`
-  - Purpose: hold the dedicated recovery entry for the audit plugin MVP loop spanning `server` and `web`, starting
-    from exploration and then closing through bounded implementation batches.
-  - Tracking: `ai-plan/public/audit-plugin-mvp/todos/audit-plugin-mvp-tracking.md`
-  - Trace: `ai-plan/public/audit-plugin-mvp/traces/audit-plugin-mvp-trace.md`
-  - Recovery note: this topic now runs from the dedicated `feat/wt-audit-plugin-mvp` worktree on branch
-    `feat/wt-audit-plugin-mvp`; standing ownership is centered on `server/plugins/audit/**` and
-    `web/src/modules/audit/**`, while shared-hotspot touches remain serialized exceptions. This owned scope guides
-    default responsibility, not canonical authority; if future audit drift is traced to upstream authority, escalate
-    and repair there rather than adding downstream compatibility.
+- none
 
 ## Archived Topics
+
+- `plugin-audit-correlation-governance`
+  - Status: `archived`
+  - Recovery status: completed the bounded server-only follow-up for plugin-owned domain audit correlation
+    propagation; no continuation required unless a new bounded topic expands audit semantics again.
+  - Archive reason: closed the `logging-unification-rollout` non-goal by moving plugin-domain audit correlation
+    inheritance into the canonical `httpx -> context.Context -> audit plugin` path without introducing a second audit
+    context model.
+  - Final result:
+    - plugin-owned domain audit events now inherit canonical `requestId`, `traceId`, `actorId`, `route`, `method`,
+      `clientIp`, and `userAgent` semantics from request context when publishers omit them
+    - explicit event payload fields still override inferred request-context values
+    - legacy aliases such as `request_id` and `trace_id` remain unchanged in unified audit metadata
+    - user/RBAC legacy request-id helper adapters remain preserved for compatibility but are no longer the only
+      propagation path
+  - Follow-up status: `new-topic-only`
+  - Archived topic directory:
+    - `ai-plan/public/archive/plugin-audit-correlation-governance`
+  - Archive notes:
+    - `traceId` still intentionally aliases `requestId` in MVP; no tracing platform was introduced
+    - this topic did not widen into audit UI/query expansion, schema changes, or broader plugin refactors
+  - Next-session prompt: `Re-run startup preflight from root AGENTS.md. Treat plugin-audit-correlation-governance as archive-ready evidence and open a new bounded topic only if audit correlation semantics need further expansion.`
+
+- `logging-governance`
+  - Status: `archived`
+  - Recovery status: no continuation required; do not resume this topic as an active loop.
+  - Archive reason: the read-only cross-boundary logging governance loop completed the planned server inventory,
+    frontend inventory, and Batch 3 architecture assessment without widening into runtime refactor work.
+  - Final result: the topic records the current zap-based backend baseline, the remaining access/request-id/frontend
+    error-capture gaps, and a recommended split between `AppLogger`, `AccessLogger`, `AuditRecorder`, security events,
+    and a future `MetricsEmitter`.
+  - Follow-up status: `new-topic-only`
+  - Archived topic directory:
+    - `ai-plan/public/archive/logging-governance`
+  - Archive notes:
+    - any implementation follow-up should open a new bounded topic instead of reopening this design-only loop
+    - preserve `zap` as the backend logging baseline unless future evidence justifies a change
+    - keep `audit-plugin-mvp` archived and separate from logging implementation follow-up
+    - OpenTelemetry, remote frontend telemetry, and request-log productization remain future scope, not archive
+      blockers
+  - Next-session prompt: `Re-run startup preflight from root AGENTS.md. Treat logging-governance as archived design evidence and open a new bounded implementation topic if logging changes are needed.`
+
+- `logging-unification-rollout`
+  - Status: `archived`
+  - Recovery status: completed bounded rollout for MVP logging closure; no further continuation required inside this
+    topic unless a new bounded follow-up is opened.
+  - Archive reason: completed the remaining in-scope logging unification work after archived `logging-governance` and
+    archive-ready `request-correlation-access-logging`, then passed bounded backend and web validation.
+  - Final result:
+    - backend CLI fatal paths now use the shared `zap` logger baseline through `server/internal/logger`
+    - Ent debug defaults in owned scope no longer fall back to stdlib `log.Println`
+    - security-event metadata now lands with a canonical request/trace/actor/route field dictionary while preserving
+      current legacy audit aliases
+    - frontend now has shell-owned global error sinks plus default route/request-correlation logger context
+  - Follow-up status: `new-topic-only`
+  - Archived topic directory:
+    - `ai-plan/public/archive/logging-unification-rollout`
+  - Archive notes:
+    - `traceId` still intentionally aliases `requestId` in MVP; no separate tracing platform was introduced
+    - plugin-owned domain audit paths still contain some manual request-id injection outside this topic's allowed
+      scope; this remained a documented non-goal for the bounded rollout rather than a reopened authority drift inside
+      owned scope
+    - metrics stays an explicit future boundary; this topic did not backfill metrics by parsing logs
+  - Next-session prompt: `Re-run startup preflight from root AGENTS.md. Treat logging-unification-rollout as archive-ready evidence; open a new bounded topic only if plugin-owned domain audit context or a future metrics/tracing platform needs work.`
+
+- `audit-plugin-mvp`
+  - Status: `archived`
+  - Recovery status: no continuation required; do not restore this topic into the active recovery path.
+  - Archive reason: the dedicated audit plugin MVP loop completed its planned backend and frontend batches, recorded
+    the Batch 6 and Batch 7 validation evidence, and reached archive-ready closeout without widening into request-log
+    products, system-log products, or SOC-style security capabilities.
+  - Final result: the topic accepted `Access Log / Request Log -> Audit Policy -> Audit Log` as the MVP model; normal
+    request traffic no longer defines the audit dataset by default; persisted audit policy rules now own default
+    include/exclude behavior; the frontend audit overview and log copy now describe policy-filtered security audit
+    events instead of generic traffic noise.
+  - Follow-up status: `future-topic-only`
+  - Archived topic directory:
+    - `ai-plan/public/archive/audit-plugin-mvp`
+  - Archive notes:
+    - future request-log or system-log product work should open separate topics instead of reviving this archived audit
+      MVP line
+    - future audit-policy UI should open a new bounded topic if the repository needs operator-facing rule management
+    - regex rule engines, dynamic expressions, risk analytics, geo/IP profiling, and SOC workflows remain intentionally
+      out of scope for this archive line
+  - Next-session prompt: `Re-run startup preflight from root AGENTS.md. If follow-up is needed, open a new topic instead of resuming audit-plugin-mvp.`
 
 - `backend-rbac-contract-audit`
   - Status: `archived`
@@ -48,6 +124,24 @@ Overlay note:
       enforcement; this is a non-blocking hardening risk, not a reopen trigger by itself
   - Next-session prompt: `Re-run startup preflight from root AGENTS.md. If follow-up is needed, open a new bugfix-only or new-scope topic instead of resuming backend-rbac-contract-audit.`
 
+- `request-correlation-access-logging`
+  - Status: `archived`
+  - Recovery status: no continuation required; the bounded server-only slice completed and should not remain an active recovery entry.
+  - Archive reason: completed the planned request-correlation and structured access-logging implementation, recorded bounded validation, and was absorbed as historical evidence by the later logging rollout closeout.
+  - Final result:
+    - global request correlation now covers root and plugin HTTP routes through one canonical middleware path
+    - Gin default access logging was replaced by structured `zap`-backed access logging
+    - access-log severity routing and bounded backend validation evidence were recorded before closeout
+  - Follow-up status: `superseded`
+  - Superseded by:
+    - `logging-unification-rollout`
+  - Archived topic directory:
+    - `ai-plan/public/archive/request-correlation-access-logging`
+  - Archive notes:
+    - later logging work should continue as a new bounded topic instead of reopening this completed Phase 1 slice
+    - the later `logging-unification-rollout` topic is the cross-boundary closeout line for broader logging follow-up
+  - Next-session prompt: `Re-run startup preflight from root AGENTS.md. Open a new bounded topic instead of resuming request-correlation-access-logging.`
+
 - `frontend-permission-code-cleanup`
   - Status: `archived`
   - Recovery status: no continuation required; do not restore this topic into the active recovery path.
@@ -59,7 +153,7 @@ Overlay note:
     unchanged because the underlying canonical permission value did not change.
   - Follow-up status: `follow-up-needed`
   - Archived topic directory:
-    - `ai-plan/public/frontend-permission-code-cleanup`
+    - `ai-plan/public/archive/frontend-permission-code-cleanup`
   - Archive notes:
     - future backend RBAC contract work should run as a separate cross-boundary topic if canonical permission semantics
       ever need to change
@@ -77,7 +171,7 @@ Overlay note:
     handlers retain local runtime guards; business-state disabled behavior remains intact.
   - Follow-up status: `follow-up-needed`
   - Archived topic directory:
-    - `ai-plan/public/user-page-permission-governance`
+    - `ai-plan/public/archive/user-page-permission-governance`
   - Archive notes:
     - future frontend permission-code cleanup can remove the `ROLE_PERMISSION_MANAGE` alias if the RBAC module adopts a
       clearer canonical name without changing backend permission values
@@ -94,7 +188,7 @@ Overlay note:
   - Superseded by:
     - operating rule `feature-delivery-with-existing-rbac-visibility-chain`
   - Archived topic directory:
-    - `ai-plan/public/rbac-visibility-governance`
+    - `ai-plan/public/archive/rbac-visibility-governance`
   - Archive notes:
     - future RBAC work should extend the existing visibility chain through ordinary feature or contract slices rather than reopening broad governance
     - any future capability snapshot should stay frontend-only and read-only unless a new bounded slice explicitly introduces a justified cross-boundary observability contract
@@ -155,9 +249,32 @@ Overlay note:
     grant standing feature ownership to the root worktree
 - Worktree: `feat/wt-audit-plugin-mvp`
   - Branch: `feat/wt-audit-plugin-mvp`
-  - Active topic: `audit-plugin-mvp`
-  - Role: dedicated audit plugin MVP worktree and recovery entry for slices centered on `server/plugins/audit/**` and
-    `web/src/modules/audit/**`
-  - Hotspot policy: no standing shared-hotspot ownership; current serialized exception is limited to public recovery
-    docs at `ai-plan/public/README.md` and `ai-plan/public/audit-plugin-mvp/**` while the topic baseline is being
-    established
+  - Active topic: none
+  - Archived topic history: `audit-plugin-mvp`
+  - Role: retained historical worktree for the archived audit plugin MVP recovery materials; future audit follow-up must
+    start as a new topic instead of resuming this worktree as an active recovery entry
+  - Hotspot policy: no standing feature ownership; only archived recovery docs under `ai-plan/public/archive/audit-plugin-mvp/**`
+    remain as historical evidence
+- Worktree: `feat/wt-audit-plugin-mvp`
+  - Branch: `feat/logging-governance`
+  - Active topic: none
+  - Archived topic history: `logging-governance`
+  - Role: retained design-only worktree state for the archived logging governance assessment; any implementation
+    follow-up must start as a new bounded topic instead of resuming this archived loop
+  - Hotspot policy:
+    - no standing feature ownership; archived governance evidence remains under `ai-plan/public/archive/logging-governance/**`
+      and the temporary assessment output under `temp/logging-governance-assessment.md`
+- Worktree: `feat/wt-audit-plugin-mvp`
+  - Branch: `feat/logging-unification-rollout`
+  - Active topic: none
+  - Archived topic history:
+    - `logging-governance`
+    - `logging-unification-rollout`
+  - Recovery dependency:
+    - archived `request-correlation-access-logging`
+  - Role: retained worktree state for the archive-ready MVP logging closure rollout after request correlation and
+    structured access logging landed
+  - Hotspot policy:
+    - no standing feature ownership; `ai-plan/public/archive/logging-unification-rollout/**` remains historical
+      recovery evidence
+    - archived governance evidence remains under `ai-plan/public/archive/logging-governance/**`

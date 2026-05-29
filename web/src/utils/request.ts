@@ -13,6 +13,7 @@ import { AUTH_ROUTE_PATH } from '@/modules/auth/contract/routes';
 import type { LoginResponse } from '@/modules/auth/contract/types';
 import type { ApiRequestError, AxiosRequestConfigRetry, RequestOptions } from '@/types/axios';
 import { clearAccessToken, getAccessToken, setAccessToken } from '@/utils/auth-state';
+import { patchGlobalLoggerContext } from '@/utils/logger';
 
 type RequestConfig = AxiosRequestConfigRetry & {
   requestOptions?: RequestOptions;
@@ -102,9 +103,11 @@ function unwrapResponse<T>(response: AxiosResponse<T | ApiEnvelope<T>>): T {
   }
 
   if (!payload.success) {
+    syncLoggerCorrelation(payload.traceId);
     throw buildApiRequestError(response.status, payload);
   }
 
+  syncLoggerCorrelation(payload.traceId);
   return payload.data;
 }
 
@@ -126,6 +129,7 @@ function normalizeAxiosError(error: AxiosError<ApiErrorEnvelope>): ApiRequestErr
   const payload = error.response?.data;
 
   if (payload && isApiEnvelope(payload) && !payload.success) {
+    syncLoggerCorrelation(payload.traceId);
     return buildApiRequestError(status, payload);
   }
 
@@ -149,6 +153,21 @@ function buildApiRequestError(status: number, payload: ApiErrorEnvelope): ApiReq
   error.responseData = payload;
   error.isApiRequestError = true;
   return error;
+}
+
+function syncLoggerCorrelation(traceId: string | undefined) {
+  const normalized = (traceId || '').trim();
+  if (!normalized) {
+    return;
+  }
+
+  // syncLoggerCorrelation 按后端 request/audit 契约把同一个 normalized 同时写入
+  // patchGlobalLoggerContext 的 requestId 与 traceId；当前运行时中 traceId 就是 request id，
+  // 因此前端不能在这里再发明第二个相关性值。
+  patchGlobalLoggerContext({
+    requestId: normalized,
+    traceId: normalized,
+  });
 }
 
 function shouldRefresh(error: ApiRequestError, config?: AxiosRequestConfigRetry) {

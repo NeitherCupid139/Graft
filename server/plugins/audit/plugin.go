@@ -2,6 +2,7 @@ package audit
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -26,7 +27,7 @@ type Plugin struct {
 	recorder *auditcore.Service
 }
 
-const eventMetadataExtraFields = 2
+const eventMetadataExtraFields = 3
 
 // NewPlugin 创建最小审计插件。
 func NewPlugin(repo auditstore.AuditRepository) (*Plugin, error) {
@@ -94,7 +95,7 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 			return nil
 		}
 
-		if err := recordEvent(eventCtx, p.recorder, payload); err != nil {
+		if err := recordEvent(eventCtx, logger, p.recorder, payload); err != nil {
 			logger.Error("write active audit log failed",
 				zap.String("plugin", pluginID),
 				zap.String("event", pluginapi.AuditRecordEventName),
@@ -125,61 +126,141 @@ func requestAuditMiddleware(logger *zap.Logger, recorder *auditcore.Service) gin
 	return func(ctx *gin.Context) {
 		ctx.Next()
 
-		input := auditcore.RecordInput{
-			Action:       buildAction(ctx),
-			ResourceType: currentResourceType(ctx),
-			ResourceID:   currentResourceID(ctx),
-			ResourceName: currentResourceName(ctx),
-			RequestID:    httpx.EnsureRequestID(ctx),
-			IP:           ctx.ClientIP(),
-			UserAgent:    ctx.Request.UserAgent(),
-			Success:      ctx.Writer.Status() < http.StatusBadRequest,
-			Message:      currentAuditMessage(ctx),
-			Metadata: map[string]any{
-				"request_method": ctx.Request.Method,
-				"request_path":   currentRoutePath(ctx),
-				"status_code":    ctx.Writer.Status(),
-			},
-		}
-
-		if requestAuth, ok := pluginapi.RequestAuthContextFromContext(ctx.Request.Context()); ok && requestAuth.User != nil {
-			input.ActorUserID = &requestAuth.User.ID
-			input.ActorUsername = strings.TrimSpace(requestAuth.User.Username)
-			input.ActorDisplayName = strings.TrimSpace(requestAuth.User.DisplayName)
-		}
-
-		if _, err := recorder.Record(ctx.Request.Context(), input); err != nil {
+		candidate := requestAuditCandidate(ctx)
+		if _, recorded, err := recorder.RecordCandidate(ctx.Request.Context(), candidate); err != nil {
 			logger.Error("write request audit log failed",
 				zap.String("plugin", "audit"),
-				zap.String("action", input.Action),
+				zap.String("action", candidate.Action),
 				zap.Error(err),
+			)
+		} else if !recorded {
+			logger.Debug("skip request audit candidate by policy",
+				zap.String("plugin", pluginID),
+				zap.String("method", candidate.RequestMethod),
+				zap.String("path", candidate.RequestPath),
 			)
 		}
 	}
 }
 
-func recordEvent(ctx context.Context, recorder *auditcore.Service, payload pluginapi.AuditEvent) error {
-	input := auditcore.RecordInput{
-		Action:       strings.TrimSpace(payload.Action),
-		ResourceType: strings.TrimSpace(payload.ResourceType),
-		ResourceID:   strings.TrimSpace(payload.ResourceID),
-		ResourceName: strings.TrimSpace(payload.ResourceName),
-		RequestID:    strings.TrimSpace(payload.RequestID),
-		IP:           strings.TrimSpace(payload.IP),
-		UserAgent:    strings.TrimSpace(payload.UserAgent),
-		Success:      payload.Success,
-		Message:      strings.TrimSpace(payload.Message),
-		Metadata:     eventMetadata(payload),
-		CreatedAt:    payload.CreatedAt,
+func recordEvent(ctx context.Context, logger *zap.Logger, recorder *auditcore.Service, payload pluginapi.AuditEvent) error {
+	candidate := eventAuditCandidate(ctx, payload)
+	_, recorded, err := recorder.RecordCandidate(ctx, candidate)
+	if err != nil {
+		return err
 	}
-	if payload.Operator != nil {
-		input.ActorUserID = &payload.Operator.ID
-		input.ActorUsername = strings.TrimSpace(payload.Operator.Username)
-		input.ActorDisplayName = strings.TrimSpace(payload.Operator.DisplayName)
+	if recorded || candidate.Source != auditstore.AuditSourceSecurityEvent {
+		return nil
+	}
+	if logger == nil {
+		logger = zap.NewNop()
 	}
 
-	_, err := recorder.Record(ctx, input)
-	return err
+	logger.Warn("skip security audit candidate by policy",
+		zap.String("plugin", pluginID),
+		zap.String("action", candidate.Action),
+		zap.String("eventType", candidate.EventType),
+		zap.String("path", candidate.RequestPath),
+	)
+	return nil
+}
+
+func requestAuditCandidate(ctx *gin.Context) auditstore.AuditCandidate {
+	candidate := auditstore.AuditCandidate{
+		Source:        auditstore.AuditSourceRequest,
+		Action:        buildAction(ctx),
+		ResourceType:  currentResourceType(ctx),
+		ResourceID:    currentResourceID(ctx),
+		ResourceName:  currentResourceName(ctx),
+		RequestMethod: strings.TrimSpace(ctx.Request.Method),
+		RequestPath:   currentRoutePath(ctx),
+		StatusCode:    ctx.Writer.Status(),
+		RequestID:     httpx.EnsureRequestID(ctx),
+		TraceID:       httpx.EnsureRequestID(ctx),
+		IP:            strings.TrimSpace(ctx.ClientIP()),
+		UserAgent:     strings.TrimSpace(ctx.Request.UserAgent()),
+		Success:       ctx.Writer.Status() < http.StatusBadRequest,
+		Message:       currentAuditMessage(ctx),
+	}
+	if requestAuth, ok := pluginapi.RequestAuthContextFromContext(ctx.Request.Context()); ok {
+		if requestAuth.User != nil {
+			candidate.ActorUserID = &requestAuth.User.ID
+			candidate.ActorUsername = strings.TrimSpace(requestAuth.User.Username)
+			candidate.ActorDisplayName = strings.TrimSpace(requestAuth.User.DisplayName)
+		}
+		if requestAuth.Claims != nil {
+			candidate.SessionID = strings.TrimSpace(requestAuth.Claims.SessionID)
+		}
+	}
+
+	return candidate
+}
+
+func eventAuditCandidate(ctx context.Context, payload pluginapi.AuditEvent) auditstore.AuditCandidate {
+	requestAudit := resolveRequestAuditContext(ctx)
+	operator := resolveEventOperator(ctx, payload)
+
+	candidate := auditstore.AuditCandidate{
+		Source:        auditSourceFromEvent(payload),
+		Action:        strings.TrimSpace(payload.Action),
+		EventType:     strings.TrimSpace(payload.Action),
+		ResourceType:  strings.TrimSpace(payload.ResourceType),
+		ResourceID:    strings.TrimSpace(payload.ResourceID),
+		ResourceName:  strings.TrimSpace(payload.ResourceName),
+		RequestMethod: firstNonEmptyTrimmed(payload.RequestMethod, requestAudit.Method),
+		RequestPath:   firstNonEmptyTrimmed(payload.RequestPath, requestAudit.Route),
+		StatusCode:    payload.StatusCode,
+		RequestID:     firstNonEmptyTrimmed(payload.RequestID, requestAudit.RequestID),
+		TraceID:       firstNonEmptyTrimmed(payload.RequestID, requestAudit.TraceID, requestAudit.RequestID),
+		IP:            firstNonEmptyTrimmed(payload.IP, requestAudit.ClientIP),
+		UserAgent:     firstNonEmptyTrimmed(payload.UserAgent, requestAudit.UserAgent),
+		Success:       payload.Success,
+		Message:       strings.TrimSpace(payload.Message),
+		Metadata:      mustMarshalAuditEventMetadata(eventMetadata(payload)),
+		CreatedAt:     payload.CreatedAt,
+	}
+	if operator != nil {
+		candidate.ActorUserID = &operator.ID
+		candidate.ActorUsername = strings.TrimSpace(operator.Username)
+		candidate.ActorDisplayName = strings.TrimSpace(operator.DisplayName)
+	}
+
+	return candidate
+}
+
+func resolveRequestAuditContext(ctx context.Context) httpx.RequestAuditContext {
+	requestAudit, _ := httpx.RequestAuditContextFromContext(ctx)
+	return requestAudit
+}
+
+func resolveEventOperator(ctx context.Context, payload pluginapi.AuditEvent) *pluginapi.CurrentUser {
+	if payload.Operator != nil {
+		return payload.Operator
+	}
+	if requestAuth, ok := pluginapi.RequestAuthContextFromContext(ctx); ok && requestAuth.User != nil {
+		return requestAuth.User
+	}
+
+	return nil
+}
+
+func firstNonEmptyTrimmed(values ...string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
+	}
+
+	return ""
+}
+
+func auditSourceFromEvent(payload pluginapi.AuditEvent) auditstore.AuditSource {
+	switch payload.Kind {
+	case pluginapi.AuditEventKindSecurity:
+		return auditstore.AuditSourceSecurityEvent
+	default:
+		return auditstore.AuditSourceDomainEvent
+	}
 }
 
 func buildAction(ctx *gin.Context) string {
@@ -261,7 +342,23 @@ func eventMetadata(payload pluginapi.AuditEvent) map[string]any {
 	if path := strings.TrimSpace(payload.RequestPath); path != "" {
 		metadata["request_path"] = path
 	}
+	if payload.StatusCode > 0 {
+		metadata["status_code"] = payload.StatusCode
+	}
 	return metadata
+}
+
+func mustMarshalAuditEventMetadata(metadata map[string]any) json.RawMessage {
+	if len(metadata) == 0 {
+		return json.RawMessage([]byte("{}"))
+	}
+
+	payload, err := json.Marshal(metadata)
+	if err != nil {
+		return json.RawMessage([]byte("{}"))
+	}
+
+	return json.RawMessage(payload)
 }
 
 func resolveAuditEventPayload(payload any) (pluginapi.AuditEvent, error) {

@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -15,6 +17,13 @@ const (
 	defaultPage     = 1
 	defaultPageSize = 20
 	maxPageSize     = 200
+)
+
+var (
+	// ErrNilAuditRepository indicates the service was built without the plugin-owned repository.
+	ErrNilAuditRepository = errors.New("audit repository is required")
+	// ErrAuditServiceUnavailable indicates the service or its repository dependency is unavailable at runtime.
+	ErrAuditServiceUnavailable = errors.New("audit service is unavailable")
 )
 
 // RecordInput describes one audit record write at the service boundary.
@@ -71,7 +80,7 @@ type Service struct {
 // NewService creates the audit service.
 func NewService(repo auditstore.AuditRepository) (*Service, error) {
 	if repo == nil {
-		return nil, errors.New("audit repository is required")
+		return nil, ErrNilAuditRepository
 	}
 
 	return &Service{repo: repo}, nil
@@ -80,7 +89,7 @@ func NewService(repo auditstore.AuditRepository) (*Service, error) {
 // Record writes one audit record after normalizing stable fields and redacting sensitive data.
 func (s *Service) Record(ctx context.Context, input RecordInput) (auditstore.AuditLog, error) {
 	if s == nil || s.repo == nil {
-		return auditstore.AuditLog{}, errors.New("audit service is unavailable")
+		return auditstore.AuditLog{}, ErrAuditServiceUnavailable
 	}
 
 	action := strings.TrimSpace(input.Action)
@@ -117,7 +126,7 @@ func (s *Service) Record(ctx context.Context, input RecordInput) (auditstore.Aud
 // List returns a bounded page of audit records.
 func (s *Service) List(ctx context.Context, query ListQuery) (ListResult, error) {
 	if s == nil || s.repo == nil {
-		return ListResult{}, errors.New("audit service is unavailable")
+		return ListResult{}, ErrAuditServiceUnavailable
 	}
 
 	page := query.Page
@@ -192,10 +201,281 @@ func normalizeAuditRiskLevel(level auditstore.AuditRiskLevel) auditstore.AuditRi
 // Overview returns the aggregated overview payload for the selected window.
 func (s *Service) Overview(ctx context.Context, window auditstore.OverviewWindow) (OverviewResult, error) {
 	if s == nil || s.repo == nil {
-		return OverviewResult{}, errors.New("audit service is unavailable")
+		return OverviewResult{}, ErrAuditServiceUnavailable
 	}
 
 	return s.repo.ReadAuditOverview(ctx, window)
+}
+
+// RecordCandidate writes one normalized candidate after policy evaluation approves it.
+func (s *Service) RecordCandidate(ctx context.Context, candidate auditstore.AuditCandidate) (auditstore.AuditLog, bool, error) {
+	if s == nil || s.repo == nil {
+		return auditstore.AuditLog{}, false, ErrAuditServiceUnavailable
+	}
+
+	evaluator, err := NewPolicyEvaluator(s.repo)
+	if err != nil {
+		return auditstore.AuditLog{}, false, err
+	}
+
+	decision, err := evaluator.Evaluate(ctx, candidate)
+	if err != nil {
+		return auditstore.AuditLog{}, false, err
+	}
+	if !decision.Matched || !decision.Allowed {
+		return auditstore.AuditLog{}, false, nil
+	}
+
+	record, err := s.Record(ctx, RecordInput{
+		ActorUserID:      candidate.ActorUserID,
+		ActorUsername:    candidate.ActorUsername,
+		ActorDisplayName: candidate.ActorDisplayName,
+		Action:           normalizeCandidateAction(candidate),
+		ResourceType:     candidate.ResourceType,
+		ResourceID:       candidate.ResourceID,
+		ResourceName:     candidate.ResourceName,
+		Success:          candidate.Success,
+		RequestID:        candidate.RequestID,
+		IP:               candidate.IP,
+		UserAgent:        candidate.UserAgent,
+		Message:          candidate.Message,
+		Metadata:         candidateMetadata(candidate, decision),
+		CreatedAt:        candidate.CreatedAt,
+	})
+	if err != nil {
+		return auditstore.AuditLog{}, false, err
+	}
+
+	return record, true, nil
+}
+
+func normalizeCandidateAction(candidate auditstore.AuditCandidate) string {
+	if eventType := strings.TrimSpace(candidate.EventType); eventType != "" {
+		return eventType
+	}
+
+	return strings.TrimSpace(candidate.Action)
+}
+
+func candidateMetadata(candidate auditstore.AuditCandidate, decision auditstore.AuditPolicyDecision) any {
+	metadata := decodeCandidateMetadata(candidate.Metadata)
+	resolved := resolveCandidateMetadataFields(candidate, metadata)
+
+	applyCanonicalCandidateMetadata(metadata, candidate, resolved)
+	if sessionID := firstNonEmptyTrimmed(strings.TrimSpace(candidate.SessionID), stringValue(metadata["sessionId"]), stringValue(metadata["session_id"])); sessionID != "" {
+		metadata["sessionId"] = sessionID
+		metadata["session_id"] = sessionID
+	}
+	if decision.Rule != nil {
+		metadata["policy_rule_id"] = decision.Rule.ID
+		metadata["policy_rule_name"] = decision.Rule.Name
+		metadata["policy_effect"] = decision.Rule.Effect
+	}
+	applyLegacyCandidateMetadataAliases(metadata, resolved)
+	return metadata
+}
+
+type resolvedCandidateMetadata struct {
+	requestMethod string
+	requestPath   string
+	requestID     string
+	traceID       string
+	eventType     string
+	targetType    string
+	targetID      string
+	status        int
+	actorID       string
+	actorType     string
+}
+
+func resolveCandidateMetadataFields(candidate auditstore.AuditCandidate, metadata map[string]any) resolvedCandidateMetadata {
+	actorID := ""
+	if candidate.ActorUserID != nil {
+		actorID = strconv.FormatUint(*candidate.ActorUserID, 10)
+	}
+
+	resolved := resolvedCandidateMetadata{
+		requestMethod: firstNonEmptyTrimmed(strings.TrimSpace(candidate.RequestMethod), stringValue(metadata["method"]), stringValue(metadata["request_method"])),
+		requestPath:   firstNonEmptyTrimmed(strings.TrimSpace(candidate.RequestPath), stringValue(metadata["route"]), stringValue(metadata["path"]), stringValue(metadata["request_path"])),
+		requestID:     firstNonEmptyTrimmed(strings.TrimSpace(candidate.RequestID), stringValue(metadata["requestId"]), stringValue(metadata["request_id"])),
+		eventType:     firstNonEmptyTrimmed(strings.TrimSpace(candidate.EventType), stringValue(metadata["eventType"]), stringValue(metadata["event_type"])),
+		targetType:    firstNonEmptyTrimmed(strings.TrimSpace(candidate.TargetType), stringValue(metadata["targetType"]), stringValue(metadata["target_type"])),
+		targetID:      firstNonEmptyTrimmed(strings.TrimSpace(candidate.ResourceID), stringValue(metadata["targetId"]), stringValue(metadata["target_id"])),
+		status:        firstNonZeroInt(candidate.StatusCode, intValue(metadata["status"]), intValue(metadata["status_code"])),
+		actorID:       firstNonEmptyTrimmed(actorID, stringValue(metadata["actorId"]), stringValue(metadata["actor_id"])),
+		actorType:     firstNonEmptyTrimmed(stringValue(metadata["actorType"]), stringValue(metadata["actor_type"])),
+	}
+	resolved.traceID = firstNonEmptyTrimmed(strings.TrimSpace(candidate.TraceID), stringValue(metadata["traceId"]), stringValue(metadata["trace_id"]), resolved.requestID)
+	if resolved.actorType == "" && resolved.actorID != "" {
+		resolved.actorType = "user"
+	}
+
+	return resolved
+}
+
+func applyCanonicalCandidateMetadata(metadata map[string]any, candidate auditstore.AuditCandidate, resolved resolvedCandidateMetadata) {
+	metadata["auditSource"] = string(candidate.Source)
+	metadata["requestId"] = resolved.requestID
+	metadata["traceId"] = resolved.traceID
+	metadata["method"] = resolved.requestMethod
+	metadata["path"] = resolved.requestPath
+	metadata["route"] = resolved.requestPath
+	metadata["status"] = resolved.status
+	assignOptionalMetadataString(metadata, "actorId", resolved.actorID)
+	assignOptionalMetadataString(metadata, "actorType", resolved.actorType)
+	assignOptionalMetadataString(metadata, "eventType", resolved.eventType)
+	assignOptionalMetadataString(metadata, "targetType", resolved.targetType)
+	assignOptionalMetadataString(metadata, "targetId", resolved.targetID)
+}
+
+func applyLegacyCandidateMetadataAliases(metadata map[string]any, resolved resolvedCandidateMetadata) {
+	metadata["audit_source"] = metadata["auditSource"]
+	metadata["request_method"] = metadata["method"]
+	metadata["request_path"] = metadata["path"]
+	metadata["status_code"] = metadata["status"]
+	metadata["trace_id"] = metadata["traceId"]
+	assignOptionalMetadataString(metadata, "event_type", resolved.eventType)
+	assignOptionalMetadataString(metadata, "target_type", resolved.targetType)
+	assignOptionalMetadataString(metadata, "target_id", resolved.targetID)
+}
+
+func assignOptionalMetadataString(metadata map[string]any, key string, value string) {
+	if value != "" {
+		metadata[key] = value
+	}
+}
+
+func decodeCandidateMetadata(raw json.RawMessage) map[string]any {
+	if len(raw) == 0 {
+		return map[string]any{}
+	}
+
+	var metadata map[string]any
+	if err := json.Unmarshal(raw, &metadata); err != nil || metadata == nil {
+		return map[string]any{}
+	}
+
+	return metadata
+}
+
+func classifyCandidateRiskLevel(candidate auditstore.AuditCandidate) auditstore.AuditRiskLevel {
+	record := auditstore.AuditLog{
+		Action:       normalizeCandidateAction(candidate),
+		Success:      candidate.Success,
+		ResourceType: candidate.ResourceType,
+	}
+	record.Metadata = mustMarshalMetadata(candidateMetadata(candidate, auditstore.AuditPolicyDecision{}))
+	record.RequestPath = candidate.RequestPath
+	record.StatusCode = candidate.StatusCode
+	record.Result = classifyCandidateResult(record, decodeCandidateMetadata(record.Metadata))
+	return classifyCandidateAuditRiskLevel(record)
+}
+
+func mustMarshalMetadata(value any) json.RawMessage {
+	payload, err := json.Marshal(value)
+	if err != nil {
+		return json.RawMessage([]byte("{}"))
+	}
+	return payload
+}
+
+func classifyCandidateResult(record auditstore.AuditLog, metadata map[string]any) auditstore.AuditResult {
+	if record.Success {
+		return auditstore.AuditResultSuccess
+	}
+
+	statusCode := record.StatusCode
+	if statusCode == 0 {
+		if raw, ok := metadata["status_code"]; ok {
+			switch typed := raw.(type) {
+			case float64:
+				statusCode = int(typed)
+			case int:
+				statusCode = typed
+			}
+		}
+	}
+	if statusCode == http.StatusForbidden {
+		return auditstore.AuditResultDenied
+	}
+
+	if errorKind, _ := metadata["error_kind"].(string); statusCode >= http.StatusInternalServerError || strings.TrimSpace(errorKind) == "system" {
+		return auditstore.AuditResultError
+	}
+	if errorText, _ := metadata["error"].(string); strings.TrimSpace(errorText) != "" {
+		return auditstore.AuditResultError
+	}
+
+	return auditstore.AuditResultFailed
+}
+
+func classifyCandidateAuditRiskLevel(record auditstore.AuditLog) auditstore.AuditRiskLevel {
+	action := strings.ToLower(strings.TrimSpace(record.Action))
+
+	if record.Result == auditstore.AuditResultError || record.Result == auditstore.AuditResultDenied {
+		return auditstore.AuditRiskLevelCritical
+	}
+	if containsAny(action, []string{"reset_password", "update_permission", "update_role", "assign_role", "token_revoke"}) {
+		return auditstore.AuditRiskLevelCritical
+	}
+	if record.Result == auditstore.AuditResultFailed || containsAny(action, []string{"delete", "reset", "grant", "assign", "revoke", "remove", "replace", "update_role", "update_permission"}) {
+		return auditstore.AuditRiskLevelHigh
+	}
+	if containsAny(action, []string{"login_failed", "login", "permission", "role", "auth"}) {
+		return auditstore.AuditRiskLevelMedium
+	}
+
+	return auditstore.AuditRiskLevelLow
+}
+
+func containsAny(source string, keywords []string) bool {
+	for _, keyword := range keywords {
+		if strings.Contains(source, keyword) {
+			return true
+		}
+	}
+	return false
+}
+
+func stringValue(value any) string {
+	typed, ok := value.(string)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(typed)
+}
+
+func intValue(value any) int {
+	switch typed := value.(type) {
+	case int:
+		return typed
+	case int32:
+		return int(typed)
+	case int64:
+		return int(typed)
+	case float64:
+		return int(typed)
+	default:
+		return 0
+	}
+}
+
+func firstNonZeroInt(values ...int) int {
+	for _, value := range values {
+		if value != 0 {
+			return value
+		}
+	}
+	return 0
+}
+
+func firstNonEmptyTrimmed(values ...string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
 }
 
 func sanitizeMetadata(input any) (json.RawMessage, error) {
