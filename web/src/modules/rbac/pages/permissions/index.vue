@@ -110,20 +110,18 @@
             <table-action-menu
               :actions="[
                 {
-                  fallbackLabel: '详情',
                   label: t('rbac.permissionList.detail'),
                   testId: 'permission-detail',
                   value: 'detail',
                 },
                 {
-                  fallbackLabel: '查看审计',
                   label: t('rbac.permissionList.viewAudit'),
                   testId: 'permission-view-audit',
                   value: 'view-audit',
                 },
               ]"
               :more-label="t('rbac.permissionList.more')"
-              more-label-fallback="更多"
+              :more-label-fallback="t('rbac.permissionList.more')"
               @action="(action) => handlePermissionAction(action, row)"
             />
           </template>
