@@ -146,8 +146,16 @@ const columnSettingOptions = computed(() => [
   { label: t('accessLog.columns.requestId'), value: 'request_id' },
 ]);
 
+const hasClientOnlyFilters = computed(() =>
+  Boolean(
+    filters.value.keyword ||
+    (filters.value.username && filters.value.username !== authSessionStore.userInfo.username) ||
+    filters.value.statusCode === '400' ||
+    filters.value.statusCode === '500',
+  ),
+);
 const displayRows = computed(() => rows.value.filter((row) => matchesClientFilters(row, filters.value)));
-const tableTotal = computed(() => displayRows.value.length);
+const tableTotal = computed(() => (hasClientOnlyFilters.value ? displayRows.value.length : total.value));
 const tableSummary = computed(() => t('accessLog.page.summary', { count: displayRows.value.length }));
 const footerSummary = computed(() => t('accessLog.page.footerTotal', { count: total.value }));
 const emptyDescription = computed(() => {
@@ -201,7 +209,9 @@ function buildQuery(): AccessLogQuery {
   if (filters.value.method) query.method = filters.value.method;
   if (filters.value.path) query.path = filters.value.path;
   if (filters.value.route) query.route = filters.value.route;
-  if (filters.value.statusCode) query.status_code = Number(filters.value.statusCode);
+  if (filters.value.statusCode && filters.value.statusCode !== '400' && filters.value.statusCode !== '500') {
+    query.status_code = Number(filters.value.statusCode);
+  }
   if (filters.value.durationMinMs) query.duration_min_ms = Number(filters.value.durationMinMs);
   if (filters.value.durationMaxMs) query.duration_max_ms = Number(filters.value.durationMaxMs);
   if (filters.value.occurredRange[0]) query.occurred_from = normalizeOccurredAt(filters.value.occurredRange[0]);

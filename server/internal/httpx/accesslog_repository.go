@@ -620,10 +620,19 @@ func appendAccessLogPathFilter(add func(string, any), query AccessLogListQuery) 
 	}
 
 	if query.PathMatchMode == AccessLogPathMatchPrefix {
-		add("path LIKE", query.Path+"%")
+		add("path LIKE ESCAPE '\\\\'", escapeAccessLogLikePattern(query.Path)+"%")
 		return
 	}
 	add("path =", query.Path)
+}
+
+func escapeAccessLogLikePattern(value string) string {
+	replacer := strings.NewReplacer(
+		"\\", "\\\\",
+		"%", "\\%",
+		"_", "\\_",
+	)
+	return replacer.Replace(value)
 }
 
 type accessLogScanner interface {

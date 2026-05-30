@@ -12,7 +12,7 @@ import (
 
 const (
 	// appLogCorrelationFieldCount is the current fixed correlation field fan-out.
-	appLogCorrelationFieldCount = 6
+	appLogCorrelationFieldCount = 4
 
 	// FieldApp stores the runtime app name attached by the base zap logger.
 	FieldApp = "app"
@@ -127,8 +127,6 @@ func appendCorrelationFields(fields []zap.Field, correlation httpx.RequestAuditC
 	fields = appendStringField(fields, FieldTraceID, correlation.TraceID)
 	fields = appendStringField(fields, FieldRoute, correlation.Route)
 	fields = appendStringField(fields, FieldMethod, correlation.Method)
-	fields = appendStringField(fields, FieldClientIP, correlation.ClientIP)
-	fields = appendStringField(fields, FieldUserAgent, correlation.UserAgent)
 	return fields
 }
 

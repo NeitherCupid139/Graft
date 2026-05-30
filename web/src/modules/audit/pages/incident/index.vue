@@ -42,8 +42,8 @@
                   </t-tag>
                 </t-descriptions-item>
                 <t-descriptions-item :label="t('audit.incident.fields.window')">
-                  {{ formatAuditTimestamp(incident.incident.started_at) }} -
-                  {{ formatAuditTimestamp(incident.incident.ended_at) }}
+                  {{ formatAuditTimestamp(incident.incident.started_at, locale) }} -
+                  {{ formatAuditTimestamp(incident.incident.ended_at, locale) }}
                 </t-descriptions-item>
                 <t-descriptions-item :label="t('audit.incident.fields.reason')">
                   {{ incident.incident.correlation_reason }}
@@ -115,8 +115,8 @@
                     <span v-if="link.time_window" class="audit-incident-page__text audit-incident-page__text--subtle">
                       {{
                         t('audit.incident.evidenceWindow', {
-                          from: formatAuditTimestamp(link.time_window.created_from),
-                          to: formatAuditTimestamp(link.time_window.created_to),
+                          from: formatAuditTimestamp(link.time_window.created_from, locale),
+                          to: formatAuditTimestamp(link.time_window.created_to, locale),
                         })
                       }}
                     </span>
@@ -144,7 +144,7 @@
                   <t-space direction="vertical" size="2">
                     <strong>{{ item.action }}</strong>
                     <span>{{ resourceLabel(item, t) }}</span>
-                    <span>{{ formatAuditTimestamp(item.created_at) }}</span>
+                    <span>{{ formatAuditTimestamp(item.created_at, locale) }}</span>
                     <t-button
                       v-if="item.request_id"
                       size="small"
@@ -222,8 +222,8 @@
                     <strong>{{ request.request_id }}</strong>
                     <span>{{ t('audit.incident.eventCount', { count: request.event_count }) }}</span>
                     <span
-                      >{{ formatAuditTimestamp(request.started_at) }} -
-                      {{ formatAuditTimestamp(request.ended_at) }}</span
+                      >{{ formatAuditTimestamp(request.started_at, locale) }} -
+                      {{ formatAuditTimestamp(request.ended_at, locale) }}</span
                     >
                     <t-button size="small" theme="primary" variant="text" @click="openRequest(request.request_id)">
                       {{ t('audit.incident.actions.openRelatedRequest') }}
@@ -267,7 +267,7 @@ defineOptions({
 
 const route = useRoute();
 const router = useRouter();
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const logger = createLogger('audit.incident');
 const loading = ref(false);
 const errorMessage = ref('');
@@ -295,7 +295,7 @@ const monitorContextMeta = computed(() => {
         }
       : null,
     context.observed_at
-      ? { label: t('audit.incident.observedAt', { value: formatAuditTimestamp(context.observed_at) }) }
+      ? { label: t('audit.incident.observedAt', { value: formatAuditTimestamp(context.observed_at, locale.value) }) }
       : null,
   ].filter((item): item is { label: string } => Boolean(item));
 });

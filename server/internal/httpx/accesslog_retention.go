@@ -15,7 +15,7 @@ import (
 const (
 	accessLogRetentionCleanupJobName     = "httpx.access-log-retention-cleanup"
 	accessLogRetentionCleanupJobPlugin   = "core.httpx"
-	accessLogRetentionCleanupJobSchedule = "0 17 * * * *"
+	accessLogRetentionCleanupJobSchedule = "0 0 17 * * *"
 )
 
 type accessLogRetentionPolicy struct {

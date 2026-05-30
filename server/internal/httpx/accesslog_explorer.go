@@ -345,11 +345,6 @@ func bindAccessLogIdentityFilters(ctx *gin.Context, query *AccessLogListQuery) {
 	query.Method = strings.TrimSpace(ctx.Query("method"))
 	query.Path = strings.TrimSpace(ctx.Query("path"))
 	query.Route = strings.TrimSpace(ctx.Query("route"))
-
-	userID, ok, err := parseOptionalUint64QueryValue(ctx.Query("user_id"))
-	if err == nil && ok {
-		query.UserID = &userID
-	}
 }
 
 func bindAccessLogNumericFilters(ctx *gin.Context, query *AccessLogListQuery) string {

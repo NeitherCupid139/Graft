@@ -187,8 +187,12 @@ func normalizeAuditSortBy(value string) string {
 }
 
 func normalizeAuditSortOrder(value string) string {
-	if strings.EqualFold(strings.TrimSpace(value), "asc") {
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	if normalized == "asc" {
 		return "asc"
+	}
+	if normalized == "desc" {
+		return "desc"
 	}
 	return ""
 }
