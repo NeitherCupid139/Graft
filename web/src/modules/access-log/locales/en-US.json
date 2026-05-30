@@ -52,7 +52,7 @@
       "requestId": "Request ID",
       "traceId": "Trace ID",
       "userId": "User ID",
-      "username": "Username",
+      "user": "User",
       "method": "Method",
       "path": "Path",
       "pathMatch": "Path Match",
@@ -102,6 +102,15 @@
       "requestId": "Request ID",
       "operation": "Operation"
     },
+    "path": {
+      "routeTemplateValue": "Route template: {route}"
+    },
+    "user": {
+      "anonymous": "Anonymous User",
+      "noUserId": "No user ID",
+      "unauthenticated": "Unauthenticated request",
+      "userIdValue": "User ID: {id}"
+    },
     "detail": {
       "basic": "Basic Facts",
       "network": "Network",
@@ -116,7 +125,8 @@
       "responseSize": "Response Size",
       "userId": "User ID",
       "username": "Username",
-      "context": "Full Request Context"
+      "context": "Full Request Context",
+      "toggleContext": "Expand full request context JSON"
     }
   }
 }

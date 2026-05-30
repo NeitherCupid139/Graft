@@ -67,7 +67,8 @@
         "highRiskOperations": "High-Risk Operations",
         "authFailures": "Authentication Failures",
         "permissionDenials": "Permission Denials",
-        "meta": "{count} events in the current window"
+        "meta": "{count} events in the current window",
+        "action": "View related events"
       },
       "trend": {
         "pointMeta": "Total {total} / High risk {highRisk} / Security {security}"

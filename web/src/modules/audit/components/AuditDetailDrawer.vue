@@ -211,6 +211,7 @@ import { useRouter } from 'vue-router';
 
 import type { MonitorOriginContext } from '@/modules/monitor/contract/navigation';
 import { buildMonitorLocationFromOrigin } from '@/modules/monitor/contract/navigation';
+import { copyText } from '@/shared/observability';
 
 import {
   buildAccessLogRequestLocationWithOrigin,
@@ -260,7 +261,11 @@ async function copyTraceId(record: AuditLogListItem) {
   }
 
   try {
-    await navigator.clipboard.writeText(traceId);
+    const copied = await copyText(traceId);
+    if (!copied) {
+      MessagePlugin.error(t('audit.logList.drawer.actions.copyFail'));
+      return;
+    }
     MessagePlugin.success(t('audit.logList.drawer.actions.copySuccess'));
   } catch {
     MessagePlugin.error(t('audit.logList.drawer.actions.copyFail'));
@@ -274,7 +279,11 @@ async function copyRequestId(record: AuditLogListItem) {
   }
 
   try {
-    await navigator.clipboard.writeText(requestId);
+    const copied = await copyText(requestId);
+    if (!copied) {
+      MessagePlugin.error(t('audit.logList.drawer.actions.copyRequestIdFail'));
+      return;
+    }
     MessagePlugin.success(t('audit.logList.drawer.actions.copyRequestIdSuccess'));
   } catch {
     MessagePlugin.error(t('audit.logList.drawer.actions.copyRequestIdFail'));

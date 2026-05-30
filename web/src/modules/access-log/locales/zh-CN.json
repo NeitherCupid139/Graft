@@ -50,9 +50,9 @@
     },
     "filters": {
       "requestId": "请求 ID",
-      "traceId": "Trace ID",
+      "traceId": "链路 ID",
       "userId": "用户 ID",
-      "username": "用户名",
+      "user": "用户",
       "method": "方法",
       "path": "路径",
       "pathMatch": "路径匹配",
@@ -102,21 +102,31 @@
       "requestId": "请求 ID",
       "operation": "操作"
     },
+    "path": {
+      "routeTemplateValue": "路由模板：{route}"
+    },
+    "user": {
+      "anonymous": "匿名用户",
+      "noUserId": "未关联用户 ID",
+      "unauthenticated": "未登录请求",
+      "userIdValue": "用户 ID：{id}"
+    },
     "detail": {
       "basic": "基础信息",
       "network": "网络信息",
       "size": "传输大小",
       "requestId": "请求 ID",
-      "traceId": "Trace ID",
+      "traceId": "追踪 ID",
       "route": "路由模板",
       "relatedAudit": "关联审计排查",
       "clientIp": "客户端 IP",
-      "userAgent": "User-Agent",
+      "userAgent": "用户代理",
       "requestSize": "请求大小",
       "responseSize": "响应大小",
       "userId": "用户 ID",
       "username": "用户名",
-      "context": "完整请求上下文"
+      "context": "完整请求上下文",
+      "toggleContext": "展开完整请求上下文 JSON"
     }
   }
 }

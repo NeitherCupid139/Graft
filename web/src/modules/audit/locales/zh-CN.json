@@ -67,7 +67,8 @@
         "highRiskOperations": "高风险操作聚集",
         "authFailures": "认证失败聚集",
         "permissionDenials": "权限拒绝聚集",
-        "meta": "当前窗口共 {count} 条"
+        "meta": "当前窗口共 {count} 条",
+        "action": "查看相关事件"
       },
       "trend": {
         "pointMeta": "总量 {total} / 高风险 {highRisk} / 安全事件 {security}"
@@ -389,11 +390,11 @@
           "source": "事件类型",
           "result": "结果",
           "reason": "原因 / 说明",
-          "requestId": "Request ID",
-          "traceId": "Trace ID",
-          "sessionId": "Session ID",
+          "requestId": "请求 ID",
+          "traceId": "链路 ID",
+          "sessionId": "会话 ID",
           "ip": "IP",
-          "userAgent": "User-Agent",
+          "userAgent": "用户代理",
           "method": "请求方法",
           "path": "请求路径",
           "status": "状态码",
@@ -401,11 +402,11 @@
         },
         "actions": {
           "copyRequestId": "复制",
-          "copyRequestIdSuccess": "Request ID 已复制",
-          "copyRequestIdFail": "复制 Request ID 失败",
+          "copyRequestIdSuccess": "请求 ID 已复制",
+          "copyRequestIdFail": "复制请求 ID 失败",
           "copyTraceId": "复制",
-          "copySuccess": "Trace ID 已复制",
-          "copyFail": "复制 Trace ID 失败",
+          "copySuccess": "链路 ID 已复制",
+          "copyFail": "复制链路 ID 失败",
           "toggleMetadata": "展开原始元数据",
           "backToMonitor": "返回监控",
           "openIncident": "打开事件钻取",

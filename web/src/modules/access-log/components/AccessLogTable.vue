@@ -22,7 +22,9 @@
       <template #path="{ row }">
         <div class="stack-cell">
           <strong>{{ row.path }}</strong>
-          <span class="stack-cell__secondary">{{ row.route || '-' }}</span>
+          <span v-if="accessLogPathSecondary(row)" class="stack-cell__secondary">
+            {{ t('accessLog.path.routeTemplateValue', { route: accessLogPathSecondary(row) }) }}
+          </span>
         </div>
       </template>
       <template #status_code="{ row }">
@@ -35,8 +37,8 @@
       </template>
       <template #user="{ row }">
         <div class="stack-cell">
-          <strong>{{ row.username || '-' }}</strong>
-          <span class="stack-cell__secondary">{{ row.user_id ?? '-' }}</span>
+          <strong>{{ accessLogUserPrimary(row, t) }}</strong>
+          <span class="stack-cell__secondary">{{ accessLogUserSecondary(row, t) }}</span>
         </div>
       </template>
       <template #request_id="{ row }">
@@ -89,6 +91,7 @@ import {
 } from '@/shared/components/management';
 import { LogIdText } from '@/shared/observability';
 
+import { accessLogPathSecondary, accessLogUserPrimary, accessLogUserSecondary } from '../shared/presentation';
 import type { AccessLogItem } from '../types/access-log';
 
 const props = defineProps<{
@@ -120,7 +123,7 @@ const columns = computed<TdBaseTableProps['columns']>(() => {
     createTextColumn(t('accessLog.columns.path'), 'path', { minWidth: 320 }),
     createTextColumn(t('accessLog.columns.statusCode'), 'status_code', { width: 110 }),
     createTextColumn(t('accessLog.columns.durationMs'), 'duration_ms', { width: 120 }),
-    createTextColumn(t('accessLog.columns.user'), 'user', { width: 160 }),
+    createTextColumn(t('accessLog.columns.user'), 'user', { width: 190 }),
     createTextColumn(t('accessLog.columns.requestId'), 'request_id', { width: 240 }),
     createActionColumn(t('accessLog.columns.operation'), 104),
   ];

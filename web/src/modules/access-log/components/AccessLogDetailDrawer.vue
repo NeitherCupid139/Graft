@@ -32,9 +32,9 @@
             <span>{{ t('accessLog.columns.path') }}</span
             ><strong>{{ record.path }}</strong>
           </div>
-          <div class="access-log-detail__item access-log-detail__item--full">
+          <div v-if="accessLogPathSecondary(record)" class="access-log-detail__item access-log-detail__item--full">
             <span>{{ t('accessLog.detail.route') }}</span
-            ><strong>{{ record.route || '-' }}</strong>
+            ><strong>{{ accessLogPathSecondary(record) }}</strong>
           </div>
           <div class="access-log-detail__item access-log-detail__item--full">
             <span>{{ t('accessLog.detail.requestId') }}</span>
@@ -62,11 +62,11 @@
           </div>
           <div class="access-log-detail__item">
             <span>{{ t('accessLog.detail.userId') }}</span
-            ><strong>{{ record.user_id ?? '-' }}</strong>
+            ><strong>{{ accessLogUserSecondary(record, t) }}</strong>
           </div>
           <div class="access-log-detail__item">
-            <span>{{ t('accessLog.detail.username') }}</span
-            ><strong>{{ record.username || '-' }}</strong>
+            <span>{{ t('accessLog.detail.user') }}</span
+            ><strong>{{ accessLogUserPrimary(record, t) }}</strong>
           </div>
         </div>
       </section>
@@ -101,9 +101,10 @@
 
       <section class="access-log-detail__section">
         <h4>{{ t('accessLog.detail.context') }}</h4>
-        <div class="access-log-detail__context">
+        <details class="access-log-detail__context">
+          <summary>{{ t('accessLog.detail.toggleContext') }}</summary>
           <pre>{{ JSON.stringify(record, null, 2) }}</pre>
-        </div>
+        </details>
       </section>
 
       <section v-if="relatedActions.length" class="access-log-detail__section">
@@ -132,7 +133,9 @@ import { useRouter } from 'vue-router';
 
 import { buildAuditRequestLocation, buildAuditTraceLocation } from '@/modules/audit/contract/deep-link';
 import { formatCompactDateTime } from '@/shared/components/management';
+import { copyText } from '@/shared/observability';
 
+import { accessLogPathSecondary, accessLogUserPrimary, accessLogUserSecondary } from '../shared/presentation';
 import type { AccessLogItem } from '../types/access-log';
 
 const props = defineProps<{
@@ -173,7 +176,11 @@ const relatedActions = computed(() => {
 
 async function copyValue(value: string) {
   try {
-    await navigator.clipboard.writeText(value);
+    const copied = await copyText(value);
+    if (!copied) {
+      MessagePlugin.error(t('accessLog.actions.copyFail'));
+      return;
+    }
     MessagePlugin.success(t('accessLog.actions.copySuccess'));
   } catch {
     MessagePlugin.error(t('accessLog.actions.copyFail'));
@@ -228,12 +235,17 @@ async function copyValue(value: string) {
   background: var(--td-bg-color-page);
   border: 1px solid var(--td-component-border);
   border-radius: 12px;
-  overflow: auto;
   padding: 12px;
+}
+
+.access-log-detail__context summary {
+  cursor: pointer;
+  margin-bottom: 8px;
 }
 
 .access-log-detail__context pre {
   margin: 0;
+  overflow: auto;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
