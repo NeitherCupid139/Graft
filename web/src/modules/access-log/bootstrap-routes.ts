@@ -9,18 +9,7 @@ export const accessLogBootstrapRouteRegistrations: BootstrapRouteRegistration[] 
     meta: {
       tabGroup: 'access-log',
       pageKind: 'list',
-      semanticTitle: {
-        'zh-CN': '日志中心 - 访问日志',
-        'en-US': 'Log Center - Access Logs',
-      },
-      breadcrumbTitle: {
-        'zh-CN': '访问日志',
-        'en-US': 'Access Logs',
-      },
-      tabTitle: {
-        'zh-CN': '日志中心 - 访问日志',
-        'en-US': 'Log Center - Access Logs',
-      },
+      titleKey: 'menu.accessLog.title',
     },
   },
 ];
