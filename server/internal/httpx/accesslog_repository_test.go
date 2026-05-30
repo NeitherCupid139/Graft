@@ -23,6 +23,7 @@ func newAccessLogSQLiteDB(t *testing.T) *sql.DB {
 	schema := `CREATE TABLE access_logs (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		request_id TEXT NOT NULL,
+		trace_id TEXT NOT NULL DEFAULT '',
 		method TEXT NOT NULL,
 		path TEXT NOT NULL,
 		route TEXT NULL,
@@ -64,6 +65,7 @@ func TestAccessLogRepositoryCreateAndBatchCreate(t *testing.T) {
 
 	first, err := repo.CreateAccessLog(ctx, CreateAccessLogInput{
 		RequestID:    "req-1",
+		TraceID:      "trace-1",
 		Method:       "POST",
 		Path:         "/api/login?token=secret",
 		Route:        "/api/login",
@@ -94,6 +96,7 @@ func TestAccessLogRepositoryCreateAndBatchCreate(t *testing.T) {
 	batch, err := repo.CreateAccessLogs(ctx, []CreateAccessLogInput{
 		{
 			RequestID:  "req-2",
+			TraceID:    "trace-2",
 			Method:     "GET",
 			Path:       "/healthz",
 			Route:      "/healthz",
@@ -103,6 +106,7 @@ func TestAccessLogRepositoryCreateAndBatchCreate(t *testing.T) {
 		},
 		{
 			RequestID:  "req-3",
+			TraceID:    "trace-3",
 			Method:     "GET",
 			Path:       "/api/users/password=guessme",
 			Route:      "/api/users/:id",
@@ -129,8 +133,8 @@ func TestAccessLogRepositoryDeleteBefore(t *testing.T) {
 	base := time.Date(2026, 5, 30, 9, 0, 0, 0, time.UTC)
 
 	_, err := repo.CreateAccessLogs(ctx, []CreateAccessLogInput{
-		{RequestID: "req-old", Method: "GET", Path: "/old", StatusCode: 200, DurationMS: 1, OccurredAt: base},
-		{RequestID: "req-keep", Method: "GET", Path: "/keep", StatusCode: 200, DurationMS: 1, OccurredAt: base.Add(time.Hour)},
+		{RequestID: "req-old", TraceID: "trace-old", Method: "GET", Path: "/old", StatusCode: 200, DurationMS: 1, OccurredAt: base},
+		{RequestID: "req-keep", TraceID: "trace-keep", Method: "GET", Path: "/keep", StatusCode: 200, DurationMS: 1, OccurredAt: base.Add(time.Hour)},
 	})
 	if err != nil {
 		t.Fatalf("seed access logs: %v", err)
@@ -231,6 +235,40 @@ func TestAccessLogRepositoryListAccessLogsSortNormalization(t *testing.T) {
 	}
 }
 
+func TestAccessLogRepositoryListAccessLogsSupportsTraceIDFilter(t *testing.T) {
+	repo := newSQLiteAccessLogRepository(t)
+	ctx := context.Background()
+	base := time.Date(2026, 5, 30, 9, 0, 0, 0, time.UTC)
+
+	_, err := repo.CreateAccessLogs(ctx, []CreateAccessLogInput{
+		{RequestID: "req-1", TraceID: "trace-shared", Method: "GET", Path: "/a", StatusCode: 200, DurationMS: 1, OccurredAt: base},
+		{RequestID: "req-2", TraceID: "trace-shared", Method: "POST", Path: "/b", StatusCode: 201, DurationMS: 2, OccurredAt: base.Add(time.Minute)},
+		{RequestID: "req-3", TraceID: "trace-other", Method: "GET", Path: "/c", StatusCode: 500, DurationMS: 3, OccurredAt: base.Add(2 * time.Minute)},
+	})
+	if err != nil {
+		t.Fatalf("seed access logs: %v", err)
+	}
+
+	result, err := repo.ListAccessLogs(ctx, AccessLogListQuery{
+		Page:      1,
+		PageSize:  10,
+		TraceID:   "trace-shared",
+		SortBy:    AccessLogSortOccurredAt,
+		SortOrder: AccessLogSortOrderAsc,
+	})
+	if err != nil {
+		t.Fatalf("list access logs by trace id: %v", err)
+	}
+
+	if result.Total != 2 {
+		t.Fatalf("expected total 2, got %d", result.Total)
+	}
+	assertAccessLogRequestOrder(t, result, []string{"req-1", "req-2"})
+	if result.Items[0].TraceID != "trace-shared" || result.Items[1].TraceID != "trace-shared" {
+		t.Fatalf("expected trace id filter to preserve canonical trace id, got %#v", result.Items)
+	}
+}
+
 func seedAccessLogSortNormalizationCases(
 	ctx context.Context,
 	t *testing.T,
@@ -242,6 +280,7 @@ func seedAccessLogSortNormalizationCases(
 	_, err := repo.CreateAccessLogs(ctx, []CreateAccessLogInput{
 		{
 			RequestID:  "req-a",
+			TraceID:    "trace-a",
 			Method:     "GET",
 			Path:       "/a",
 			StatusCode: 404,
@@ -250,6 +289,7 @@ func seedAccessLogSortNormalizationCases(
 		},
 		{
 			RequestID:  "req-b",
+			TraceID:    "trace-b",
 			Method:     "GET",
 			Path:       "/b",
 			StatusCode: 200,
@@ -258,6 +298,7 @@ func seedAccessLogSortNormalizationCases(
 		},
 		{
 			RequestID:  "req-c",
+			TraceID:    "trace-c",
 			Method:     "GET",
 			Path:       "/c",
 			StatusCode: 500,

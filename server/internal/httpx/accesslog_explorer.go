@@ -211,6 +211,7 @@ type accessLogListResponse struct {
 type accessLogDetailResponse struct {
 	ID           uint64  `json:"id"`
 	RequestID    string  `json:"request_id"`
+	TraceID      string  `json:"trace_id"`
 	Method       string  `json:"method"`
 	Path         string  `json:"path"`
 	Route        string  `json:"route"`
@@ -243,6 +244,7 @@ func toAccessLogDetailResponse(record AccessLog) accessLogDetailResponse {
 	return accessLogDetailResponse{
 		ID:           record.ID,
 		RequestID:    record.RequestID,
+		TraceID:      record.TraceID,
 		Method:       record.Method,
 		Path:         record.Path,
 		Route:        record.Route,
@@ -262,6 +264,7 @@ var accessLogAllowedListQueryKeys = map[string]struct{}{
 	"page":            {},
 	"page_size":       {},
 	"request_id":      {},
+	"trace_id":        {},
 	"user_id":         {},
 	"username":        {},
 	"method":          {},
@@ -336,6 +339,7 @@ func bindAccessLogPagination(ctx *gin.Context, query *AccessLogListQuery) string
 
 func bindAccessLogIdentityFilters(ctx *gin.Context, query *AccessLogListQuery) {
 	query.RequestID = strings.TrimSpace(ctx.Query("request_id"))
+	query.TraceID = strings.TrimSpace(ctx.Query("trace_id"))
 	query.Username = strings.TrimSpace(ctx.Query("username"))
 	query.Method = strings.TrimSpace(ctx.Query("method"))
 	query.Path = strings.TrimSpace(ctx.Query("path"))

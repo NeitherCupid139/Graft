@@ -2,6 +2,7 @@ type: object
 required:
   - id
   - request_id
+  - trace_id
   - method
   - path
   - route
@@ -16,6 +17,8 @@ properties:
     type: integer
     format: int64
   request_id:
+    type: string
+  trace_id:
     type: string
   method:
     type: string

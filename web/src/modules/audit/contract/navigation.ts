@@ -1,5 +1,6 @@
 import type { LocationQuery, RouteLocationAsPathGeneric } from 'vue-router';
 
+import { buildAccessLogRequestLocation, buildAccessLogTraceLocation } from '@/modules/access-log/contract/deep-link';
 import {
   buildMonitorLocationFromOrigin,
   buildMonitorOriginQuery,
@@ -50,11 +51,25 @@ export function buildAuditIncidentLocationWithOrigin(
   return withMonitorOrigin(buildAuditIncidentLocation(eventId) as RouteLocationWithQuery, monitorOrigin);
 }
 
-export function buildAuditRequestLocationWithOrigin(
+function buildAuditRequestLocationWithOrigin(
   requestId: string,
   monitorOrigin?: MonitorOriginContext | null,
 ): RouteLocationWithQuery {
   return withMonitorOrigin(buildAuditRequestLocation(requestId) as RouteLocationWithQuery, monitorOrigin);
+}
+
+export function buildAccessLogRequestLocationWithOrigin(
+  requestId: string,
+  monitorOrigin?: MonitorOriginContext | null,
+): RouteLocationWithQuery {
+  return withMonitorOrigin(buildAccessLogRequestLocation(requestId) as RouteLocationWithQuery, monitorOrigin);
+}
+
+export function buildAccessLogTraceLocationWithOrigin(
+  traceId: string,
+  monitorOrigin?: MonitorOriginContext | null,
+): RouteLocationWithQuery {
+  return withMonitorOrigin(buildAccessLogTraceLocation(traceId) as RouteLocationWithQuery, monitorOrigin);
 }
 
 export function buildAuditLogsLocationWithOrigin(

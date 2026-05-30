@@ -87,6 +87,12 @@ export function buildAuditRequestLocation(requestId: string) {
   });
 }
 
+export function buildAuditTraceLocation(traceId: string) {
+  return buildAuditLogsLocation({
+    traceId,
+  });
+}
+
 export function buildAuditIncidentLocation(eventId: number | string) {
   return {
     path: AUDIT_ROUTE_PATH.INCIDENT_DETAIL.replace(':eventId', String(eventId)),

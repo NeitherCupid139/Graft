@@ -184,6 +184,15 @@
                   </t-tag>
                 </div>
               </button>
+              <t-button
+                v-if="item.request_id"
+                size="small"
+                theme="default"
+                variant="text"
+                @click.stop="openSecurityTimelineRequest(item.request_id)"
+              >
+                {{ t('audit.logList.drawer.actions.viewRelatedRequest') }}
+              </t-button>
             </t-timeline-item>
           </t-timeline>
         </governance-section>
@@ -197,6 +206,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 
+import { buildAccessLogRequestLocation } from '@/modules/access-log/contract/deep-link';
 import { buildAuditIncidentLocation, buildAuditLogsLocation } from '@/modules/audit/contract/deep-link';
 import type { AuditPresetKey } from '@/modules/audit/contract/presets';
 import { resolveAuditPresetKey } from '@/modules/audit/contract/presets';
@@ -341,6 +351,14 @@ function openSecurityTimelineItem(eventId?: number) {
   }
 
   void router.push(buildAuditIncidentLocation(eventId));
+}
+
+function openSecurityTimelineRequest(requestId?: string) {
+  if (!requestId) {
+    return;
+  }
+
+  void router.push(buildAccessLogRequestLocation(requestId));
 }
 
 async function fetchOverview() {

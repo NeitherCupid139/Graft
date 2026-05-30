@@ -208,7 +208,7 @@
       "actions": {
         "refresh": "刷新",
         "retry": "重试",
-        "openRequest": "查看种子请求",
+        "openRequest": "查看关联请求",
         "backToMonitor": "返回监控",
         "openMonitorContext": "打开监控上下文",
         "openEvidenceLink": "打开证据",
@@ -399,6 +399,8 @@
           "toggleMetadata": "展开原始元数据",
           "backToMonitor": "返回监控",
           "openIncident": "打开事件钻取",
+          "viewRelatedRequest": "查看关联请求",
+          "openAccessLogByTraceId": "按 Trace ID 打开访问日志",
           "openRelatedEvents": "查看关联事件"
         },
         "related": {

@@ -12,6 +12,7 @@ export type AccessLogQuery = {
   page?: number;
   page_size?: number;
   request_id?: string;
+  trace_id?: string;
   user_id?: number;
   username?: string;
   method?: string;
@@ -29,6 +30,7 @@ export type AccessLogQuery = {
 
 export type AccessLogFilterState = {
   requestId: string;
+  traceId: string;
   userId: string;
   username: string;
   method: string;

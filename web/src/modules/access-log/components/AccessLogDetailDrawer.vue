@@ -45,6 +45,21 @@
               }}</t-button>
             </div>
           </div>
+          <div class="access-log-detail__item access-log-detail__item--full">
+            <span>{{ t('accessLog.detail.traceId') }}</span>
+            <div class="access-log-detail__copy-line">
+              <strong class="access-log-detail__mono">{{ record.trace_id || '-' }}</strong>
+              <t-button
+                v-if="record.trace_id"
+                size="small"
+                theme="default"
+                variant="text"
+                @click="copyValue(record.trace_id)"
+              >
+                {{ t('accessLog.actions.copy') }}
+              </t-button>
+            </div>
+          </div>
           <div class="access-log-detail__item">
             <span>{{ t('accessLog.detail.userId') }}</span
             ><strong>{{ record.user_id ?? '-' }}</strong>
@@ -83,16 +98,36 @@
           </div>
         </div>
       </section>
+
+      <section v-if="relatedActions.length" class="access-log-detail__section">
+        <h4>{{ t('accessLog.detail.relatedAudit') }}</h4>
+        <div class="access-log-detail__actions">
+          <t-button
+            v-for="action in relatedActions"
+            :key="action.key"
+            size="small"
+            theme="default"
+            variant="outline"
+            @click="action.onClick"
+          >
+            {{ action.label }}
+          </t-button>
+        </div>
+      </section>
     </div>
   </t-drawer>
 </template>
 <script setup lang="ts">
 import { MessagePlugin } from 'tdesign-vue-next';
+import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useRouter } from 'vue-router';
+
+import { buildAuditRequestLocation, buildAuditTraceLocation } from '@/modules/audit/contract/deep-link';
 
 import type { AccessLogItem } from '../types/access-log';
 
-defineProps<{
+const props = defineProps<{
   record: AccessLogItem | null;
   visible: boolean;
 }>();
@@ -102,6 +137,36 @@ defineEmits<{
 }>();
 
 const { t } = useI18n();
+const router = useRouter();
+const relatedActions = computed(() => {
+  const record = props.record;
+  if (!record) {
+    return [];
+  }
+
+  const actions = [];
+  if (record.request_id) {
+    actions.push({
+      key: 'audit-records',
+      label: t('accessLog.actions.viewRelatedAuditRecords'),
+      onClick: () => void router.push(buildAuditRequestLocation(record.request_id)),
+    });
+    actions.push({
+      key: 'audit-request',
+      label: t('accessLog.actions.openAuditByRequestId'),
+      onClick: () => void router.push(buildAuditRequestLocation(record.request_id)),
+    });
+  }
+  if (record.trace_id) {
+    actions.push({
+      key: 'audit-trace',
+      label: t('accessLog.actions.openAuditByTraceId'),
+      onClick: () => void router.push(buildAuditTraceLocation(record.trace_id)),
+    });
+  }
+
+  return actions;
+});
 
 async function copyValue(value: string) {
   try {
@@ -148,6 +213,12 @@ async function copyValue(value: string) {
   display: flex;
   gap: 8px;
   justify-content: space-between;
+}
+
+.access-log-detail__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .access-log-detail__mono {

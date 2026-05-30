@@ -244,6 +244,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 
+import { buildAccessLogRequestLocation } from '@/modules/access-log/contract/deep-link';
 import { resolveLocalizedErrorMessage } from '@/modules/shared/localized-api-error';
 import { ManagementEmptyState, ManagementPageContent, ManagementPageHeader } from '@/shared/components/management';
 import { createLogger } from '@/utils/logger';
@@ -253,9 +254,9 @@ import { buildAuditEvidenceTargetLocation } from '../../contract/deep-link';
 import {
   buildAuditRelatedActorLocation,
   buildAuditRelatedResourceLocation,
-  buildAuditRequestLocationWithOrigin,
   buildMonitorReturnLocation,
   resolveAuditNavigationContext,
+  withMonitorOrigin,
 } from '../../contract/navigation';
 import { formatAuditTimestamp, resourceLabel, riskTone } from '../../shared/presentation';
 import type { AuditIncidentMonitorContext, AuditIncidentResponse, EvidenceLink } from '../../types/audit';
@@ -332,11 +333,11 @@ function openSeedRequest() {
   if (!requestId) {
     return;
   }
-  void router.push(buildAuditRequestLocationWithOrigin(requestId, navigationContext.value.monitorOrigin));
+  void router.push(withMonitorOrigin(buildAccessLogRequestLocation(requestId), navigationContext.value.monitorOrigin));
 }
 
 function openRequest(requestId: string) {
-  void router.push(buildAuditRequestLocationWithOrigin(requestId, navigationContext.value.monitorOrigin));
+  void router.push(withMonitorOrigin(buildAccessLogRequestLocation(requestId), navigationContext.value.monitorOrigin));
 }
 
 function openActor(actor: string, actorUserId?: number | null) {

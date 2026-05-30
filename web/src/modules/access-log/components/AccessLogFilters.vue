@@ -9,6 +9,12 @@
           @update:model-value="updateField('requestId', $event)"
         />
         <t-input
+          :model-value="modelValue.traceId"
+          :placeholder="t('accessLog.filters.traceId')"
+          clearable
+          @update:model-value="updateField('traceId', $event)"
+        />
+        <t-input
           :model-value="modelValue.userId"
           :placeholder="t('accessLog.filters.userId')"
           clearable

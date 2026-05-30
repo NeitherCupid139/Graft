@@ -118,6 +118,24 @@
           <t-button v-if="incidentLocation" size="small" theme="default" variant="outline" @click="openIncident">
             {{ t('audit.logList.drawer.actions.openIncident') }}
           </t-button>
+          <t-button
+            v-if="requestIdForRecord(record) !== '-'"
+            size="small"
+            theme="default"
+            variant="outline"
+            @click="openRelatedRequest"
+          >
+            {{ t('audit.logList.drawer.actions.viewRelatedRequest') }}
+          </t-button>
+          <t-button
+            v-if="traceIdForRecord(record) !== '-'"
+            size="small"
+            theme="default"
+            variant="outline"
+            @click="openRelatedTrace"
+          >
+            {{ t('audit.logList.drawer.actions.openAccessLogByTraceId') }}
+          </t-button>
           <t-button v-if="record" size="small" theme="default" variant="outline" @click="openRelatedRecord">
             {{ t('audit.logList.drawer.actions.openRelatedEvents') }}
           </t-button>
@@ -195,11 +213,12 @@ import type { MonitorOriginContext } from '@/modules/monitor/contract/navigation
 import { buildMonitorLocationFromOrigin } from '@/modules/monitor/contract/navigation';
 
 import {
+  buildAccessLogRequestLocationWithOrigin,
+  buildAccessLogTraceLocationWithOrigin,
   buildAuditIncidentLocationWithOrigin,
   buildAuditRelatedActorLocation,
   buildAuditRelatedRecordLocation,
   buildAuditRelatedResourceLocation,
-  buildAuditRequestLocationWithOrigin,
 } from '../contract/navigation';
 import {
   actorLabel,
@@ -307,7 +326,25 @@ function openRequest(requestId?: string | null) {
     return;
   }
 
-  void router.push(buildAuditRequestLocationWithOrigin(requestId, props.monitorOrigin));
+  void router.push(buildAccessLogRequestLocationWithOrigin(requestId, props.monitorOrigin));
+}
+
+function openRelatedRequest() {
+  const requestId = props.record ? requestIdForRecord(props.record) : '-';
+  if (!requestId || requestId === '-') {
+    return;
+  }
+
+  void router.push(buildAccessLogRequestLocationWithOrigin(requestId, props.monitorOrigin));
+}
+
+function openRelatedTrace() {
+  const traceId = props.record ? traceIdForRecord(props.record) : '-';
+  if (!traceId || traceId === '-') {
+    return;
+  }
+
+  void router.push(buildAccessLogTraceLocationWithOrigin(traceId, props.monitorOrigin));
 }
 
 function openRelatedActor(row: AuditLogListItem) {

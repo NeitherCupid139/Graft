@@ -58,7 +58,7 @@
       </template>
       <template #empty>
         <div class="table-empty-state">
-          <t-empty :title="t('accessLog.page.emptyTitle')" :description="t('accessLog.page.emptyDescription')" />
+          <t-empty :title="t('accessLog.page.emptyTitle')" :description="emptyDescription" />
         </div>
       </template>
     </t-table>
@@ -95,6 +95,7 @@ import type { AccessLogItem } from '../types/access-log';
 
 defineProps<{
   description: string;
+  emptyDescription: string;
   footerSummary: string;
   loading?: boolean;
   rows: AccessLogItem[];

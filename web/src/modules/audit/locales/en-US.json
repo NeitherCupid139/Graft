@@ -208,11 +208,11 @@
       "actions": {
         "refresh": "Refresh",
         "retry": "Retry",
-        "openRequest": "Open seed request",
+        "openRequest": "View Related Request",
         "backToMonitor": "Back to monitor",
         "openMonitorContext": "Open monitor context",
         "openEvidenceLink": "Open evidence",
-        "openRelatedRequest": "Open related request",
+        "openRelatedRequest": "View Related Request",
         "openActorEvents": "Open actor events",
         "openResourceEvents": "Open resource events"
       },
@@ -399,6 +399,8 @@
           "toggleMetadata": "Show raw metadata",
           "backToMonitor": "Back to monitor",
           "openIncident": "Open incident",
+          "viewRelatedRequest": "View Related Request",
+          "openAccessLogByTraceId": "Open Access Log By Trace ID",
           "openRelatedEvents": "Open related events"
         },
         "related": {

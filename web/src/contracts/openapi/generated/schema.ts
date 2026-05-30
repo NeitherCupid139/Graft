@@ -1807,6 +1807,7 @@ export interface components {
       /** Format: int64 */
       id: number;
       request_id: string;
+      trace_id: string;
       method: string;
       path: string;
       route: string;
@@ -4130,6 +4131,7 @@ export interface operations {
         page?: number;
         page_size?: number;
         request_id?: string;
+        trace_id?: string;
         user_id?: number;
         username?: string;
         method?: string;

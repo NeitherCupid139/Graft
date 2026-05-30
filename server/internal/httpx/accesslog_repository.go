@@ -26,6 +26,7 @@ const (
 type AccessLog struct {
 	ID           uint64
 	RequestID    string
+	TraceID      string
 	Method       string
 	Path         string
 	Route        string
@@ -43,6 +44,7 @@ type AccessLog struct {
 // CreateAccessLogInput describes the canonical request facts persisted by the runtime owner.
 type CreateAccessLogInput struct {
 	RequestID    string
+	TraceID      string
 	Method       string
 	Path         string
 	Route        string
@@ -74,6 +76,7 @@ type AccessLogListQuery struct {
 	Page          int
 	PageSize      int
 	RequestID     string
+	TraceID       string
 	UserID        *uint64
 	Username      string
 	Method        string
@@ -270,6 +273,7 @@ func (r *accessLogRepository) GetAccessLogByID(ctx context.Context, id uint64) (
 	query := `SELECT
 		id,
 		request_id,
+		trace_id,
 		method,
 		path,
 		route,
@@ -309,6 +313,7 @@ func (r *accessLogRepository) createAccessLog(
 
 	args := []any{
 		record.RequestID,
+		record.TraceID,
 		record.Method,
 		record.Path,
 		nullableString(record.Route),
@@ -325,6 +330,7 @@ func (r *accessLogRepository) createAccessLog(
 
 	query := fmt.Sprintf(`INSERT INTO access_logs (
 		request_id,
+		trace_id,
 		method,
 		path,
 		route,
@@ -370,6 +376,7 @@ func (r *accessLogRepository) placeholder(index int) string {
 func normalizeCreateAccessLogInput(input CreateAccessLogInput) AccessLog {
 	return AccessLog{
 		RequestID:    strings.TrimSpace(input.RequestID),
+		TraceID:      strings.TrimSpace(input.TraceID),
 		Method:       strings.TrimSpace(input.Method),
 		Path:         sanitizeAccessLogPath(input.Path),
 		Route:        sanitizeAccessLogRoute(input.Route),
@@ -396,6 +403,7 @@ func normalizeAccessLogListQuery(query AccessLogListQuery) AccessLogListQuery {
 	query.Page = normalizePositivePage(query.Page)
 	query.PageSize = normalizePageSize(query.PageSize)
 	query.RequestID = strings.TrimSpace(query.RequestID)
+	query.TraceID = strings.TrimSpace(query.TraceID)
 	query.Username = strings.TrimSpace(query.Username)
 	query.Method = strings.TrimSpace(query.Method)
 	query.Path = sanitizeAccessLogPath(query.Path)
@@ -480,6 +488,7 @@ func (r *accessLogRepository) buildAccessLogListSelectQuery(
 	builder.WriteString(`SELECT
 		id,
 		request_id,
+		trace_id,
 		method,
 		path,
 		route,
@@ -515,6 +524,7 @@ func (r *accessLogRepository) buildAccessLogWhereClause(query AccessLogListQuery
 	}
 
 	appendAccessLogEqualityFilter(&conditions, &args, r, "request_id =", query.RequestID)
+	appendAccessLogEqualityFilter(&conditions, &args, r, "trace_id =", query.TraceID)
 	appendAccessLogOptionalUint64Filter(&conditions, &args, r, "user_id =", query.UserID)
 	appendAccessLogEqualityFilter(&conditions, &args, r, "username =", query.Username)
 	appendAccessLogEqualityFilter(&conditions, &args, r, "method =", query.Method)
@@ -636,6 +646,7 @@ func scanAccessLog(scanner accessLogScanner) (AccessLog, error) {
 	if err := scanner.Scan(
 		&id,
 		&record.RequestID,
+		&record.TraceID,
 		&record.Method,
 		&record.Path,
 		&route,

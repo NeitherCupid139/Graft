@@ -1,6 +1,7 @@
 CREATE TABLE "access_logs" (
   "id" bigserial PRIMARY KEY,
   "request_id" varchar(64) NOT NULL,
+  "trace_id" varchar(64) NOT NULL DEFAULT '',
   "method" varchar(16) NOT NULL,
   "path" text NOT NULL,
   "route" text NULL,
@@ -17,5 +18,6 @@ CREATE TABLE "access_logs" (
 
 CREATE INDEX "idx_access_logs_occurred_at_id" ON "access_logs" ("occurred_at" DESC, "id" DESC);
 CREATE INDEX "idx_access_logs_request_id" ON "access_logs" ("request_id");
+CREATE INDEX "idx_access_logs_trace_id" ON "access_logs" ("trace_id");
 CREATE INDEX "idx_access_logs_route_occurred_at" ON "access_logs" ("route", "occurred_at" DESC);
 CREATE INDEX "idx_access_logs_user_id_occurred_at" ON "access_logs" ("user_id", "occurred_at" DESC);

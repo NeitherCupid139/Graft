@@ -112,6 +112,9 @@ func TestNewServerAppliesGlobalRequestIDAndAccessLog(t *testing.T) {
 	if repo.created[0].RequestID != requestID {
 		t.Fatalf("expected persisted request id %q, got %#v", requestID, repo.created[0])
 	}
+	if repo.created[0].TraceID != requestID {
+		t.Fatalf("expected persisted trace id %q, got %#v", requestID, repo.created[0])
+	}
 	if repo.created[0].ResponseSize != nil && *repo.created[0].ResponseSize < 0 {
 		t.Fatalf("expected bounded response size when present, got %#v", repo.created[0].ResponseSize)
 	}
@@ -160,6 +163,29 @@ func TestNewServerReusesIncomingRequestIDForRootRoutes(t *testing.T) {
 
 	if recorder.Header().Get(RequestIDHeader) != "req-root-healthz" {
 		t.Fatalf("expected incoming request id to be preserved, got %q", recorder.Header().Get(RequestIDHeader))
+	}
+}
+
+func TestNewServerPreservesIncomingTraceIDForRootRoutes(t *testing.T) {
+	repo := &stubAccessLogRepository{}
+	server := NewServer(zap.NewNop(), repo)
+
+	server.Engine().GET("/healthz", func(ctx *gin.Context) {
+		ctx.Status(http.StatusOK)
+	})
+
+	request := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	request.Header.Set(RequestIDHeader, "req-root-healthz")
+	request.Header.Set("X-Trace-Id", "trace-root-healthz")
+
+	recorder := httptest.NewRecorder()
+	server.Engine().ServeHTTP(recorder, request)
+
+	if len(repo.created) != 1 {
+		t.Fatalf("expected one persisted access log, got %d", len(repo.created))
+	}
+	if repo.created[0].TraceID != "trace-root-healthz" {
+		t.Fatalf("expected incoming trace id to be preserved, got %#v", repo.created[0])
 	}
 }
 

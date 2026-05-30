@@ -735,6 +735,63 @@ func (e TrendRangeQuery) Valid() bool {
 	}
 }
 
+// Defines values for GetAccessLogsParamsPathMatch.
+const (
+	Exact  GetAccessLogsParamsPathMatch = "exact"
+	Prefix GetAccessLogsParamsPathMatch = "prefix"
+)
+
+// Valid indicates whether the value is a known member of the GetAccessLogsParamsPathMatch enum.
+func (e GetAccessLogsParamsPathMatch) Valid() bool {
+	switch e {
+	case Exact:
+		return true
+	case Prefix:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetAccessLogsParamsSortBy.
+const (
+	DurationMs GetAccessLogsParamsSortBy = "duration_ms"
+	OccurredAt GetAccessLogsParamsSortBy = "occurred_at"
+	StatusCode GetAccessLogsParamsSortBy = "status_code"
+)
+
+// Valid indicates whether the value is a known member of the GetAccessLogsParamsSortBy enum.
+func (e GetAccessLogsParamsSortBy) Valid() bool {
+	switch e {
+	case DurationMs:
+		return true
+	case OccurredAt:
+		return true
+	case StatusCode:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetAccessLogsParamsSortOrder.
+const (
+	Asc  GetAccessLogsParamsSortOrder = "asc"
+	Desc GetAccessLogsParamsSortOrder = "desc"
+)
+
+// Valid indicates whether the value is a known member of the GetAccessLogsParamsSortOrder enum.
+func (e GetAccessLogsParamsSortOrder) Valid() bool {
+	switch e {
+	case Asc:
+		return true
+	case Desc:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetAuditLogsParamsSource.
 const (
 	DOMAINEVENT   GetAuditLogsParamsSource = "DOMAIN_EVENT"
@@ -862,6 +919,33 @@ func (e GetRolesParamsStatus) Valid() bool {
 	default:
 		return false
 	}
+}
+
+// AccessLogDetailResponse defines model for access-log-detail-response.
+type AccessLogDetailResponse struct {
+	ClientIp     string    `json:"client_ip"`
+	DurationMs   int64     `json:"duration_ms"`
+	Id           int64     `json:"id"`
+	Method       string    `json:"method"`
+	OccurredAt   time.Time `json:"occurred_at"`
+	Path         string    `json:"path"`
+	RequestId    string    `json:"request_id"`
+	RequestSize  *int64    `json:"request_size,omitempty"`
+	ResponseSize *int64    `json:"response_size,omitempty"`
+	Route        string    `json:"route"`
+	StatusCode   int       `json:"status_code"`
+	TraceId      string    `json:"trace_id"`
+	UserAgent    string    `json:"user_agent"`
+	UserId       *int64    `json:"user_id,omitempty"`
+	Username     string    `json:"username"`
+}
+
+// AccessLogListResponse defines model for access-log-list-response.
+type AccessLogListResponse struct {
+	Items    []AccessLogDetailResponse `json:"items"`
+	Page     int                       `json:"page"`
+	PageSize int                       `json:"page_size"`
+	Total    int                       `json:"total"`
 }
 
 // ApiEnvelope defines model for api-envelope.
@@ -1224,6 +1308,46 @@ type CreateUserRequest struct {
 	// Password Initial password. The current server policy requires at least 12 characters and both letters and digits.
 	Password string `json:"password"`
 	Username string `json:"username"`
+}
+
+// EnvelopedAccessLogDetailResponse defines model for enveloped-access-log-detail-response.
+type EnvelopedAccessLogDetailResponse struct {
+	// Code Existing canonical response code.
+	Code string                  `json:"code"`
+	Data AccessLogDetailResponse `json:"data"`
+
+	// Locale Present on localized error flows and omitted on normal success.
+	Locale *string `json:"locale,omitempty"`
+
+	// Message Existing runtime fallback text. Consumers should not treat this as the canonical localization contract when a key field is present.
+	Message string `json:"message"`
+
+	// MessageKey Stable localization key for key-aware error flows. When present, consumers should treat it as canonical and use message only as fallback text.
+	MessageKey *string `json:"messageKey,omitempty"`
+	Success    bool    `json:"success"`
+
+	// TraceId Mirrors the request id contract used by the current runtime.
+	TraceId string `json:"traceId"`
+}
+
+// EnvelopedAccessLogListResponse defines model for enveloped-access-log-list-response.
+type EnvelopedAccessLogListResponse struct {
+	// Code Existing canonical response code.
+	Code string                `json:"code"`
+	Data AccessLogListResponse `json:"data"`
+
+	// Locale Present on localized error flows and omitted on normal success.
+	Locale *string `json:"locale,omitempty"`
+
+	// Message Existing runtime fallback text. Consumers should not treat this as the canonical localization contract when a key field is present.
+	Message string `json:"message"`
+
+	// MessageKey Stable localization key for key-aware error flows. When present, consumers should treat it as canonical and use message only as fallback text.
+	MessageKey *string `json:"messageKey,omitempty"`
+	Success    bool    `json:"success"`
+
+	// TraceId Mirrors the request id contract used by the current runtime.
+	TraceId string `json:"traceId"`
 }
 
 // EnvelopedAuditIncidentResponse defines model for enveloped-audit-incident-response.
@@ -1963,6 +2087,53 @@ type bearerAuthContextKey string
 
 // refreshCookieContextKey is the context key for refreshCookie security scheme
 type refreshCookieContextKey string
+
+// GetAccessLogsParams defines parameters for GetAccessLogs.
+type GetAccessLogsParams struct {
+	Page          *int                          `form:"page,omitempty" json:"page,omitempty"`
+	PageSize      *int                          `form:"page_size,omitempty" json:"page_size,omitempty"`
+	RequestId     *string                       `form:"request_id,omitempty" json:"request_id,omitempty"`
+	TraceId       *string                       `form:"trace_id,omitempty" json:"trace_id,omitempty"`
+	UserId        *int64                        `form:"user_id,omitempty" json:"user_id,omitempty"`
+	Username      *string                       `form:"username,omitempty" json:"username,omitempty"`
+	Method        *string                       `form:"method,omitempty" json:"method,omitempty"`
+	Path          *string                       `form:"path,omitempty" json:"path,omitempty"`
+	PathMatch     *GetAccessLogsParamsPathMatch `form:"path_match,omitempty" json:"path_match,omitempty"`
+	Route         *string                       `form:"route,omitempty" json:"route,omitempty"`
+	StatusCode    *int                          `form:"status_code,omitempty" json:"status_code,omitempty"`
+	DurationMinMs *int64                        `form:"duration_min_ms,omitempty" json:"duration_min_ms,omitempty"`
+	DurationMaxMs *int64                        `form:"duration_max_ms,omitempty" json:"duration_max_ms,omitempty"`
+	OccurredFrom  *time.Time                    `form:"occurred_from,omitempty" json:"occurred_from,omitempty"`
+	OccurredTo    *time.Time                    `form:"occurred_to,omitempty" json:"occurred_to,omitempty"`
+	SortBy        *GetAccessLogsParamsSortBy    `form:"sort_by,omitempty" json:"sort_by,omitempty"`
+	SortOrder     *GetAccessLogsParamsSortOrder `form:"sort_order,omitempty" json:"sort_order,omitempty"`
+
+	// XGraftLocale Explicit locale override header already supported by the runtime.
+	XGraftLocale *LocaleHeader `json:"X-Graft-Locale,omitempty"`
+
+	// XRequestId Optional caller-supplied request id. If omitted, the runtime generates one and echoes it
+	// through the response header and envelope traceId field.
+	XRequestId *RequestIdHeader `json:"X-Request-Id,omitempty"`
+}
+
+// GetAccessLogsParamsPathMatch defines parameters for GetAccessLogs.
+type GetAccessLogsParamsPathMatch string
+
+// GetAccessLogsParamsSortBy defines parameters for GetAccessLogs.
+type GetAccessLogsParamsSortBy string
+
+// GetAccessLogsParamsSortOrder defines parameters for GetAccessLogs.
+type GetAccessLogsParamsSortOrder string
+
+// GetAccessLogDetailParams defines parameters for GetAccessLogDetail.
+type GetAccessLogDetailParams struct {
+	// XGraftLocale Explicit locale override header already supported by the runtime.
+	XGraftLocale *LocaleHeader `json:"X-Graft-Locale,omitempty"`
+
+	// XRequestId Optional caller-supplied request id. If omitted, the runtime generates one and echoes it
+	// through the response header and envelope traceId field.
+	XRequestId *RequestIdHeader `json:"X-Request-Id,omitempty"`
+}
 
 // GetAuditIncidentParams defines parameters for GetAuditIncident.
 type GetAuditIncidentParams struct {

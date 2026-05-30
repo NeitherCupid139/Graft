@@ -288,9 +288,9 @@ describe('AuditIncidentPage', () => {
 
     await buttons[1]!.trigger('click');
     expect(routerMocks.push).toHaveBeenCalledWith({
-      path: '/audit/logs',
+      path: '/access-log',
       query: {
-        requestId: 'req-42',
+        request_id: 'req-42',
         monitorView: 'overview',
         monitorTrendRange: '10m',
         monitorAnomalyKey: 'resource_cpu_pressure',
