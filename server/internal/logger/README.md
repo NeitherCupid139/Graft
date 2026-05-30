@@ -90,6 +90,7 @@
 * retention owner：`none`
 * default retention policy：`0`，表示仓库 runtime 当前没有 App Log retention authority
 * future durable-store owner：仍然预留给 `server/internal/logger/**`，但只有在后续主题显式批准 schema、repository、operator contract 与 cleanup lifecycle 后才允许落地
+* durable-store decision status：`defer-until-operator-workflow`，当前不得把 developer debugging 的 process output 直接升级为仓库内 durable dataset
 
 当前 canonical persisted fields 定义为：
 
