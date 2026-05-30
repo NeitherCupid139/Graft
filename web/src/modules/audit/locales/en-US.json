@@ -71,7 +71,16 @@
         "action": "View related events"
       },
       "trend": {
-        "pointMeta": "Total {total} / High risk {highRisk} / Security {security}"
+        "emptyTitle": "Not enough risk events yet",
+        "emptyDescription": "Trend analysis will appear after more audit events are collected.",
+        "legend": {
+          "total": "Total",
+          "highRisk": "High risk",
+          "security": "Security events"
+        },
+        "totalValue": "Total {value}",
+        "highRiskValue": "High risk {value}",
+        "securityValue": "Security events {value}"
       },
       "stats": {
         "totalLogs": {
@@ -315,7 +324,6 @@
           "resourceName": "Audit target",
           "resourceType": "Target type",
           "requestId": "Request ID",
-          "traceId": "Trace ID",
           "session": "Session ID",
           "resourceId": "Resource ID"
         }
@@ -332,8 +340,7 @@
         "resultPlaceholder": "Result",
         "riskPlaceholder": "Risk level",
         "sessionPlaceholder": "Session ID",
-        "requestIdPlaceholder": "Troubleshooting ID / Request ID",
-        "traceIdPlaceholder": "Trace ID"
+        "requestIdPlaceholder": "Request ID"
       },
       "sort": {
         "title": "Sort",
@@ -371,7 +378,7 @@
         "action": "Action",
         "actor": "Actor",
         "resource": "Audit Target",
-        "correlation": "Troubleshooting ID",
+        "correlation": "Request ID",
         "result": "Result",
         "risk": "Risk",
         "createdAt": "Time"
@@ -391,31 +398,28 @@
           "result": "Result",
           "reason": "Reason / Notes",
           "requestId": "Request ID",
-          "traceId": "Trace ID",
           "sessionId": "Session ID",
           "ip": "IP",
           "userAgent": "User-Agent",
           "method": "Method",
           "path": "Path",
-          "status": "Status",
-          "latency": "Latency"
+          "status": "Status"
         },
         "actions": {
           "copyRequestId": "Copy",
           "copyRequestIdSuccess": "Request ID copied",
           "copyRequestIdFail": "Failed to copy Request ID",
-          "copyTraceId": "Copy",
-          "copySuccess": "Trace ID copied",
-          "copyFail": "Failed to copy Trace ID",
           "toggleMetadata": "Show raw metadata",
+          "copyMetadata": "Copy JSON",
+          "copyMetadataSuccess": "Metadata JSON copied",
+          "copyMetadataFail": "Failed to copy metadata JSON",
           "backToMonitor": "Back to monitor",
           "openIncident": "Open incident",
           "viewRelatedRequest": "View Related Request",
-          "openAccessLogByTraceId": "Open Access Log By Trace ID",
           "openRelatedEvents": "Open related events"
         },
         "related": {
-          "sameRequest": "Same Request Chain",
+          "sameRequest": "Same Request ID",
           "sameActor": "Recent Actions by Actor",
           "sameResource": "Recent Changes on Audit Target",
           "empty": "No more related records in the current list"
@@ -423,24 +427,32 @@
         "risk": {
           "failedOperation": "Failed operation",
           "sensitiveOperation": "Sensitive write",
-          "requestTrace": "Request trace available"
-        }
+          "requestTrace": "Request available"
+        },
+        "metadataEmpty": "No metadata is available for this event."
       }
     },
     "correlation": {
       "errorTitle": "Operation failed",
       "requestIdLabel": "Request ID:",
-      "traceIdLabel": "Trace ID:",
       "copyRequestIdAction": "Copy",
       "viewAuditAction": "View Audit",
       "copyRequestIdSuccessTitle": "Request ID copied",
       "copyRequestIdSuccessContent": "The request ID is ready for troubleshooting.",
       "copyRequestIdErrorTitle": "Copy failed",
       "copyRequestIdErrorContent": "Unable to copy the request ID from this browser.",
-      "idLabel": "Troubleshooting ID: {id}",
-      "hintRequestOnly": "Troubleshooting ID: {requestId}",
-      "hintTraceOnly": "Troubleshooting ID: {traceId}",
-      "hintRequestAndTrace": "Troubleshooting ID: {requestId} / Trace: {traceId}"
+      "idLabel": "Request ID: {id}",
+      "hintRequestOnly": "Request ID: {requestId}"
+    },
+    "actionLabel": {
+      "auth.failed": "Authentication Failed",
+      "auth.token.expired": "Token Expired",
+      "rbac.role.permissions.replace": "Update Role Permissions",
+      "rbac.role.delete": "Delete Role",
+      "rbac.role.assign": "Assign Role",
+      "rbac.role.permissions.add": "Add Role Permissions",
+      "rbac.role.permissions.remove": "Remove Role Permissions",
+      "user.password.reset": "Reset User Password"
     }
   }
 }

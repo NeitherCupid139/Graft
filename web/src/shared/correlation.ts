@@ -6,7 +6,6 @@ type Translate = (key: string, params?: Record<string, unknown>) => string;
 
 export type CorrelationSnapshot = {
   requestId: string;
-  traceId: string;
 };
 
 function normalizeText(value: unknown) {
@@ -16,11 +15,9 @@ function normalizeText(value: unknown) {
 function readLatestCorrelation(): CorrelationSnapshot {
   const context = readGlobalLoggerContext();
   const requestId = normalizeText(context.requestId);
-  const traceId = normalizeText(context.traceId);
 
   return {
     requestId,
-    traceId,
   };
 }
 
@@ -29,21 +26,13 @@ function resolveCorrelationSnapshot(snapshot?: Partial<CorrelationSnapshot>) {
 
   return {
     requestId: normalizeText(correlation.requestId),
-    traceId: normalizeText(correlation.traceId),
   };
 }
 
 function correlationHintText(translate: Translate, snapshot?: Partial<CorrelationSnapshot>) {
-  const { requestId, traceId } = resolveCorrelationSnapshot(snapshot);
-
-  if (requestId && traceId && requestId !== traceId) {
-    return translate('audit.correlation.hintRequestAndTrace', { requestId, traceId });
-  }
+  const { requestId } = resolveCorrelationSnapshot(snapshot);
   if (requestId) {
     return translate('audit.correlation.hintRequestOnly', { requestId });
-  }
-  if (traceId) {
-    return translate('audit.correlation.hintTraceOnly', { traceId });
   }
   return '';
 }
@@ -88,7 +77,7 @@ export function resolveErrorMessageWithCorrelation(
     translate,
     isApiRequestError(error)
       ? {
-          traceId: error.traceId,
+          requestId: error.traceId,
         }
       : fallbackCorrelation,
   );

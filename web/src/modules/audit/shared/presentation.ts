@@ -24,7 +24,6 @@ export type AuditClientFilterState = {
   riskLevel: 'all' | AuditRiskValue;
   session: string;
   requestId: string;
-  traceId: string;
   sorters: AuditSorter[];
 };
 
@@ -62,12 +61,8 @@ export function resourceDetailLabel(row: AuditLogListItem, t: Translate) {
   );
 }
 
-export function traceIdForRecord(row: AuditLogListItem) {
-  return row.trace_id || metadataLookup(row, 'trace_id') || row.request_id || '-';
-}
-
 export function requestIdForRecord(row: AuditLogListItem) {
-  return row.request_id || metadataLookup(row, 'request_id') || traceIdForRecord(row);
+  return row.request_id || metadataLookup(row, 'request_id') || '-';
 }
 
 export function sessionIdForRecord(row: AuditLogListItem) {
@@ -108,6 +103,24 @@ export function sourceLabel(row: AuditLogListItem, t: Translate) {
   return t(`audit.common.source.${row.source || sourceForRecord(row)}`);
 }
 
+function translateIfPresent(t: Translate, key: string, fallback: string) {
+  const translated = t(key);
+  return translated === key ? fallback : translated;
+}
+
+export function actionCategoryLabel(row: AuditLogListItem, t: Translate) {
+  return sourceLabel(row, t);
+}
+
+export function actionTitle(row: AuditLogListItem, t: Translate) {
+  const actionKey = row.action?.trim();
+  if (!actionKey) {
+    return t('audit.common.unknownResource');
+  }
+
+  return translateIfPresent(t, `audit.actionLabel.${actionKey}`, actionCategoryLabel(row, t));
+}
+
 export function metadataLookup(row: AuditLogListItem, key: string) {
   const metadata = row.metadata;
   if (!metadata || typeof metadata !== 'object' || !(key in metadata)) {
@@ -116,14 +129,6 @@ export function metadataLookup(row: AuditLogListItem, key: string) {
 
   const value = metadata[key];
   return typeof value === 'string' || typeof value === 'number' ? String(value) : JSON.stringify(value);
-}
-
-export function metadataDetail(metadata: AuditLogListItem['metadata']) {
-  if (!metadata || typeof metadata !== 'object' || Object.keys(metadata).length === 0) {
-    return '-';
-  }
-
-  return JSON.stringify(metadata, null, 2);
 }
 
 export function isSensitiveAction(row: AuditLogListItem) {
@@ -210,13 +215,11 @@ export function matchesAuditRow(row: AuditLogListItem, filters: AuditClientFilte
   const resourceId = filters.resourceId.trim().toLowerCase();
   const session = filters.session.trim().toLowerCase();
   const requestId = filters.requestId.trim().toLowerCase();
-  const traceId = filters.traceId.trim().toLowerCase();
-
   if (keyword) {
     const keywordSource = [
       row.action,
+      actionTitle(row, t),
       row.request_id,
-      row.trace_id,
       row.message,
       actorLabel(row, t),
       resourceLabel(row, t),
@@ -277,10 +280,6 @@ export function matchesAuditRow(row: AuditLogListItem, filters: AuditClientFilte
   }
 
   if (requestId && !includesText(requestIdForRecord(row), requestId)) {
-    return false;
-  }
-
-  if (traceId && !includesText(traceIdForRecord(row), traceId)) {
     return false;
   }
 

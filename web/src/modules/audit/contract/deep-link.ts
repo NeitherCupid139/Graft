@@ -26,7 +26,6 @@ export type AuditLogsRouteQuery = Partial<{
   risk_level: string;
   session: string;
   request_id: string;
-  trace_id: string;
   sort_by: string;
   sort_order: string;
 }>;
@@ -58,7 +57,6 @@ export function parseAuditLogsRouteQuery(query: LocationQuery | AuditLogsRouteQu
     risk_level: trimQueryValue(firstQueryValue(query.risk_level)),
     session: trimQueryValue(firstQueryValue(query.session)),
     request_id: trimQueryValue(firstQueryValue(query.request_id)),
-    trace_id: trimQueryValue(firstQueryValue(query.trace_id)),
     sort_by: trimQueryValue(firstQueryValue(query.sort_by)),
     sort_order: trimQueryValue(firstQueryValue(query.sort_order)),
   };
@@ -90,12 +88,6 @@ export function buildAuditResourceLocation(resourceType: string, resourceId: str
 export function buildAuditRequestLocation(requestId: string) {
   return buildAuditLogsLocation({
     request_id: requestId,
-  });
-}
-
-export function buildAuditTraceLocation(traceId: string) {
-  return buildAuditLogsLocation({
-    trace_id: traceId,
   });
 }
 

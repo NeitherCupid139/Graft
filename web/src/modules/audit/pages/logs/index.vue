@@ -160,8 +160,7 @@ const hasClientOnlyFilters = computed(() =>
     filters.value.actorUserId ||
     filters.value.resourceId ||
     filters.value.session ||
-    filters.value.requestId ||
-    filters.value.traceId,
+    filters.value.requestId,
   ),
 );
 
@@ -201,8 +200,6 @@ function buildQuery(): AuditLogQuery {
   }
   if (filters.value.requestId) {
     query.request_id = filters.value.requestId;
-  } else if (filters.value.traceId) {
-    query.request_id = filters.value.traceId;
   }
   if (filters.value.result !== 'all') {
     query.result = filters.value.result;
@@ -246,7 +243,7 @@ async function fetchAuditLogs() {
     total.value = 0;
     logger.error('failed to fetch audit logs', error);
     listError.value = resolveLocalizedErrorMessage(t, error, t('audit.logList.loadFailed'));
-    const correlationId = filters.value.requestId || filters.value.traceId;
+    const correlationId = filters.value.requestId;
     MessagePlugin.error(
       correlationId
         ? formatMessageWithCorrelation(listError.value, describeCorrelationId(t, correlationId))
@@ -299,7 +296,6 @@ function createDefaultFilters(): AuditClientFilterState {
     riskLevel: 'all',
     session: '',
     requestId: '',
-    traceId: '',
     sorters: createSingleSorter('created_at', 'desc'),
   };
 }
@@ -335,7 +331,6 @@ function applyRouteFilters() {
     riskLevel: (query.risk_level as AuditClientFilterState['riskLevel']) || presetDefaults.riskLevel || 'all',
     session: query.session ?? '',
     requestId: query.request_id ?? '',
-    traceId: query.trace_id ?? '',
     sorters: query.sort_by
       ? createSingleSorter('created_at', normalizeSortOrder(query.sort_order || 'desc'))
       : filters.value.sorters,
@@ -366,7 +361,6 @@ function buildRouteQuery() {
     risk_level: filters.value.riskLevel === 'all' ? '' : filters.value.riskLevel,
     session: filters.value.session,
     request_id: filters.value.requestId,
-    trace_id: filters.value.traceId,
     sort_by: sorter?.field ?? '',
     sort_order: sorter?.field ? (sorter.direction ?? '') : '',
   };

@@ -294,12 +294,6 @@ const definitions = computed<FilterDefinition[]>(() => [
     placeholder: t('audit.logList.filters.requestIdPlaceholder'),
   },
   {
-    key: 'traceId',
-    kind: 'text',
-    fieldLabel: t('audit.logList.builder.fields.traceId'),
-    placeholder: t('audit.logList.filters.traceIdPlaceholder'),
-  },
-  {
     key: 'session',
     kind: 'text',
     fieldLabel: t('audit.logList.builder.fields.session'),

@@ -10,7 +10,7 @@
   "accessLog": {
     "page": {
       "title": "访问日志",
-      "description": "面向请求观测与排障，按请求链路、用户与响应特征快速定位访问事实。",
+      "description": "面向请求观测与排查，按请求 ID、用户与响应特征快速定位访问事实。",
       "columnSettings": "列设置",
       "refresh": "刷新",
       "retry": "重试",
@@ -21,9 +21,8 @@
       "emptyTitle": "暂无访问日志",
       "emptyDescription": "调整筛选条件后重试。",
       "emptyRequestDescription": "当前保留范围内没有匹配该 Request ID 的访问日志，请求可能已经超出访问日志保留窗口。",
-      "emptyTraceDescription": "当前保留范围内没有匹配该 Trace ID 的访问日志，关联请求可能已经过期。",
       "detailTitle": "请求详情",
-      "searchPlaceholder": "搜索请求 ID、Trace ID、路径、用户名",
+      "searchPlaceholder": "搜索请求 ID、路径、用户名",
       "tableHint": "列表保留核心请求观测字段，完整上下文请展开详情抽屉。"
     },
     "actions": {
@@ -32,8 +31,7 @@
       "addFilter": "添加筛选条件",
       "detail": "详情",
       "viewRelatedAuditRecords": "查看关联审计记录",
-      "openAuditByRequestId": "按 Request ID 打开审计搜索",
-      "openAuditByTraceId": "按 Trace ID 打开审计搜索",
+      "openAuditByRequestId": "按请求 ID 打开审计搜索",
       "copy": "复制",
       "copySuccess": "已复制",
       "copyFail": "复制失败"
@@ -50,7 +48,6 @@
     },
     "filters": {
       "requestId": "请求 ID",
-      "traceId": "链路 ID",
       "userId": "用户 ID",
       "user": "用户",
       "method": "方法",
@@ -82,7 +79,6 @@
       "hint": "按需叠加条件，避免固定大表单占满页面。",
       "fields": {
         "requestId": "请求 ID",
-        "traceId": "Trace ID",
         "userId": "用户 ID",
         "username": "用户名",
         "method": "方法",
@@ -116,7 +112,6 @@
       "network": "网络信息",
       "size": "传输大小",
       "requestId": "请求 ID",
-      "traceId": "追踪 ID",
       "route": "路由模板",
       "relatedAudit": "关联审计排查",
       "clientIp": "客户端 IP",
@@ -124,9 +119,13 @@
       "requestSize": "请求大小",
       "responseSize": "响应大小",
       "userId": "用户 ID",
-      "username": "用户名",
+      "user": "用户名",
       "context": "完整请求上下文",
-      "toggleContext": "展开完整请求上下文 JSON"
+      "toggleContext": "展开完整请求上下文 JSON",
+      "copyContext": "复制 JSON",
+      "copyContextSuccess": "请求上下文 JSON 已复制",
+      "copyContextFail": "复制请求上下文 JSON 失败",
+      "contextEmpty": "当前请求没有可展示的完整上下文。"
     }
   }
 }

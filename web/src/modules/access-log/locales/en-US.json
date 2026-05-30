@@ -21,9 +21,8 @@
       "emptyTitle": "No access logs",
       "emptyDescription": "Adjust filters and try again.",
       "emptyRequestDescription": "No retained access log matches this request ID. The request may be outside the current access-log retention window.",
-      "emptyTraceDescription": "No retained access log matches this trace ID. The correlated request may have expired from access-log retention.",
       "detailTitle": "Request Detail",
-      "searchPlaceholder": "Search request ID, trace ID, path, or username",
+      "searchPlaceholder": "Search request ID, path, or username",
       "tableHint": "The table keeps core request facts visible. Open the drawer for the full request context."
     },
     "actions": {
@@ -33,7 +32,6 @@
       "detail": "Detail",
       "viewRelatedAuditRecords": "View Related Audit Records",
       "openAuditByRequestId": "Open Audit Search By Request ID",
-      "openAuditByTraceId": "Open Audit Search By Trace ID",
       "copy": "Copy",
       "copySuccess": "Copied",
       "copyFail": "Copy failed"
@@ -50,7 +48,6 @@
     },
     "filters": {
       "requestId": "Request ID",
-      "traceId": "Trace ID",
       "userId": "User ID",
       "user": "User",
       "method": "Method",
@@ -82,7 +79,6 @@
       "hint": "Add only the conditions you need instead of filling a large static form.",
       "fields": {
         "requestId": "Request ID",
-        "traceId": "Trace ID",
         "userId": "User ID",
         "username": "Username",
         "method": "Method",
@@ -116,7 +112,6 @@
       "network": "Network",
       "size": "Transfer Size",
       "requestId": "Request ID",
-      "traceId": "Trace ID",
       "route": "Route Template",
       "relatedAudit": "Related Audit Investigation",
       "clientIp": "Client IP",
@@ -124,9 +119,13 @@
       "requestSize": "Request Size",
       "responseSize": "Response Size",
       "userId": "User ID",
-      "username": "Username",
+      "user": "Username",
       "context": "Full Request Context",
-      "toggleContext": "Expand full request context JSON"
+      "toggleContext": "Expand full request context JSON",
+      "copyContext": "Copy JSON",
+      "copyContextSuccess": "Request context JSON copied",
+      "copyContextFail": "Failed to copy request context JSON",
+      "contextEmpty": "No full request context is available for this request."
     }
   }
 }

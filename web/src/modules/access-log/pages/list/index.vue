@@ -125,7 +125,7 @@ const pagination = ref({
   pageSize: 20,
 });
 const filters = ref<AccessLogFilterState>(createDefaultFilters());
-const deepLinkCorrelation = ref<'requestId' | 'traceId' | null>(null);
+const deepLinkCorrelation = ref<'requestId' | null>(null);
 
 const presetViews = computed(() => [
   { key: 'all' as const, title: t('accessLog.presets.all') },
@@ -162,9 +162,6 @@ const emptyDescription = computed(() => {
   if (deepLinkCorrelation.value === 'requestId') {
     return t('accessLog.page.emptyRequestDescription');
   }
-  if (deepLinkCorrelation.value === 'traceId') {
-    return t('accessLog.page.emptyTraceDescription');
-  }
   return t('accessLog.page.emptyDescription');
 });
 
@@ -172,7 +169,6 @@ function createDefaultFilters(): AccessLogFilterState {
   return {
     keyword: '',
     requestId: '',
-    traceId: '',
     userId: '',
     username: '',
     method: '',
@@ -203,7 +199,6 @@ function buildQuery(): AccessLogQuery {
   }
 
   if (filters.value.requestId) query.request_id = filters.value.requestId;
-  if (filters.value.traceId) query.trace_id = filters.value.traceId;
   if (filters.value.userId) query.user_id = Number(filters.value.userId);
   if (filters.value.username) query.username = filters.value.username;
   if (filters.value.method) query.method = filters.value.method;
@@ -267,7 +262,6 @@ function applyPreset(preset: AccessLogPresetKey) {
     ...createDefaultFilters(),
     ...buildPresetFilters(preset),
     requestId: filters.value.requestId,
-    traceId: filters.value.traceId,
     sorters: filters.value.sorters,
   };
   pagination.value.current = 1;
@@ -308,7 +302,6 @@ function normalizeOccurredAt(value: string) {
 function applyRouteFilters() {
   const {
     request_id: requestId = '',
-    trace_id: traceId = '',
     user_id: userId = '',
     username = '',
     occurred_from: occurredFrom = '',
@@ -319,7 +312,6 @@ function applyRouteFilters() {
   filters.value = {
     ...filters.value,
     requestId,
-    traceId,
     userId,
     username,
     occurredRange: occurredFrom || occurredTo ? [occurredFrom, occurredTo] : [],
@@ -327,14 +319,13 @@ function applyRouteFilters() {
       ? createSingleSorter(normalizeSortBy(sortBy), normalizeSortOrder(sortOrder || 'desc'))
       : filters.value.sorters,
   };
-  deepLinkCorrelation.value = requestId ? 'requestId' : traceId ? 'traceId' : null;
+  deepLinkCorrelation.value = requestId ? 'requestId' : null;
 }
 
 function buildRouteQuery() {
   const sorter = getSingleSorter(filters.value.sorters);
   return buildAccessLogLocation({
     request_id: filters.value.requestId,
-    trace_id: filters.value.traceId,
     user_id: filters.value.userId,
     username: filters.value.username,
     occurred_from: filters.value.occurredRange[0],
@@ -351,7 +342,6 @@ async function updateRouteQuery() {
 
   const targetLocation = buildRouteQuery();
   const currentRequestId = typeof route.query.request_id === 'string' ? route.query.request_id : '';
-  const currentTraceId = typeof route.query.trace_id === 'string' ? route.query.trace_id : '';
   const currentUserId = typeof route.query.user_id === 'string' ? route.query.user_id : '';
   const currentUsername = typeof route.query.username === 'string' ? route.query.username : '';
   const currentOccurredFrom = typeof route.query.occurred_from === 'string' ? route.query.occurred_from : '';
@@ -362,7 +352,6 @@ async function updateRouteQuery() {
 
   if (
     currentRequestId === (nextQuery.request_id ?? '') &&
-    currentTraceId === (nextQuery.trace_id ?? '') &&
     currentUserId === (nextQuery.user_id ?? '') &&
     currentUsername === (nextQuery.username ?? '') &&
     currentOccurredFrom === (nextQuery.occurred_from ?? '') &&
@@ -380,7 +369,7 @@ async function updateRouteQuery() {
 function matchesClientFilters(row: AccessLogItem, state: AccessLogFilterState) {
   if (state.keyword) {
     const keyword = state.keyword.toLowerCase();
-    const haystack = [row.request_id, row.trace_id, row.path, row.route, row.username, row.method]
+    const haystack = [row.request_id, row.path, row.route, row.username, row.method]
       .filter(Boolean)
       .join(' ')
       .toLowerCase();
@@ -390,9 +379,6 @@ function matchesClientFilters(row: AccessLogItem, state: AccessLogFilterState) {
   }
 
   if (state.requestId && row.request_id !== state.requestId) {
-    return false;
-  }
-  if (state.traceId && row.trace_id !== state.traceId) {
     return false;
   }
   if (state.userId && String(row.user_id ?? '') !== state.userId) {
@@ -434,7 +420,6 @@ function matchesClientFilters(row: AccessLogItem, state: AccessLogFilterState) {
 watch(
   () => [
     route.query.request_id,
-    route.query.trace_id,
     route.query.user_id,
     route.query.username,
     route.query.occurred_from,

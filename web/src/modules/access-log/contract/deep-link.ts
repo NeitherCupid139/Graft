@@ -4,7 +4,6 @@ import { ACCESS_LOG_ROUTE_PATH } from './paths';
 
 export type AccessLogRouteQuery = Partial<{
   request_id: string;
-  trace_id: string;
   user_id: string;
   username: string;
   occurred_from: string;
@@ -15,7 +14,6 @@ export type AccessLogRouteQuery = Partial<{
 
 const ACCESS_LOG_QUERY_KEYS = [
   'request_id',
-  'trace_id',
   'user_id',
   'username',
   'occurred_from',
@@ -61,8 +59,4 @@ export function buildAccessLogLocation(query: AccessLogRouteQuery) {
 
 export function buildAccessLogRequestLocation(requestId: string) {
   return buildAccessLogLocation({ request_id: requestId });
-}
-
-export function buildAccessLogTraceLocation(traceId: string) {
-  return buildAccessLogLocation({ trace_id: traceId });
 }

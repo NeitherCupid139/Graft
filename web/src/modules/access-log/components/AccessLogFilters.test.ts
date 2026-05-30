@@ -64,7 +64,7 @@ const i18n = createI18n({
   messages: {
     'zh-CN': {
       accessLog: {
-        page: { searchPlaceholder: '搜索请求 ID、Trace ID、路径、用户名' },
+        page: { searchPlaceholder: '搜索请求 ID、路径、用户名' },
         actions: { search: '查询', reset: '重置', addFilter: '添加筛选条件' },
         presets: { label: '快捷筛选' },
         sort: {
@@ -76,7 +76,6 @@ const i18n = createI18n({
         filters: {
           occurredRange: '时间范围',
           requestId: '请求 ID',
-          traceId: 'Trace ID',
           userId: '用户 ID',
           username: '用户名',
           method: '方法',
@@ -95,7 +94,6 @@ const i18n = createI18n({
           hint: 'hint',
           fields: {
             requestId: '请求 ID',
-            traceId: 'Trace ID',
             userId: '用户 ID',
             username: '用户名',
             method: '方法',
@@ -118,7 +116,6 @@ describe('AccessLogFilters', () => {
         modelValue: {
           keyword: '',
           requestId: 'req-1',
-          traceId: '',
           userId: '',
           username: '',
           method: '',
@@ -147,7 +144,7 @@ describe('AccessLogFilters', () => {
       },
     });
 
-    expect(wrapper.find('input').attributes('placeholder')).toBe('搜索请求 ID、Trace ID、路径、用户名');
+    expect(wrapper.find('input').attributes('placeholder')).toBe('搜索请求 ID、路径、用户名');
     expect(wrapper.text()).toContain('排序：发生时间 ↓');
     expect(wrapper.text()).toContain('请求 ID：req-1');
 

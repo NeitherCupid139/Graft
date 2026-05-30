@@ -8,12 +8,6 @@ function t(key: string, params?: Record<string, unknown>) {
   if (key === 'audit.correlation.hintRequestOnly') {
     return `Request ID: ${String(params?.requestId ?? '')}`;
   }
-  if (key === 'audit.correlation.hintTraceOnly') {
-    return `Trace ID: ${String(params?.traceId ?? '')}`;
-  }
-  if (key === 'audit.correlation.hintRequestAndTrace') {
-    return `Request ID: ${String(params?.requestId ?? '')}; Trace ID: ${String(params?.traceId ?? '')}`;
-  }
   return key;
 }
 
@@ -59,6 +53,6 @@ describe('correlation message helpers', () => {
       isApiRequestError: true as const,
     });
 
-    expect(resolveErrorMessageWithCorrelation(t, error, 'Fallback')).toBe('Server exploded Trace ID: trace-500');
+    expect(resolveErrorMessageWithCorrelation(t, error, 'Fallback')).toBe('Server exploded Request ID: trace-500');
   });
 });
