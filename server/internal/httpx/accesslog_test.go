@@ -37,6 +37,14 @@ func (r *stubAccessLogRepository) DeleteAccessLogsBefore(context.Context, time.T
 	return 0, nil
 }
 
+func (r *stubAccessLogRepository) ListAccessLogs(context.Context, AccessLogListQuery) (AccessLogListResult, error) {
+	return AccessLogListResult{}, nil
+}
+
+func (r *stubAccessLogRepository) GetAccessLogByID(context.Context, uint64) (AccessLog, error) {
+	return AccessLog{}, ErrAccessLogNotFound
+}
+
 func TestLogAccessSeverityByStatus(t *testing.T) {
 	testCases := []struct {
 		name   string

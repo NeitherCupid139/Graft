@@ -1,0 +1,77 @@
+{
+  "menu": {
+    "accessLog": {
+      "title": "Access Logs",
+      "list": {
+        "title": "Access Log Explorer"
+      }
+    }
+  },
+  "accessLog": {
+    "page": {
+      "title": "Access Log Explorer",
+      "description": "Filter canonical request facts and inspect one request in detail.",
+      "refresh": "Refresh",
+      "retry": "Retry",
+      "errorTitle": "Access logs are temporarily unavailable",
+      "loadFailed": "Failed to load access logs",
+      "summary": "{count} access logs on this page",
+      "footerTotal": "{count} total records",
+      "emptyTitle": "No access logs",
+      "emptyDescription": "Adjust filters and try again.",
+      "detailTitle": "Request Detail"
+    },
+    "actions": {
+      "search": "Search",
+      "reset": "Reset",
+      "detail": "View Detail",
+      "copy": "Copy",
+      "copySuccess": "Copied",
+      "copyFail": "Copy failed"
+    },
+    "filters": {
+      "requestId": "Request ID",
+      "userId": "User ID",
+      "username": "Username",
+      "method": "Method",
+      "path": "Path",
+      "pathMatch": "Path Match",
+      "route": "Route Template",
+      "statusCode": "Status Code",
+      "durationMin": "Min Duration",
+      "durationMax": "Max Duration",
+      "occurredRange": "Time Range",
+      "sortBy": "Sort By",
+      "sortOrder": "Sort Order",
+      "pathMatchExact": "Exact",
+      "pathMatchPrefix": "Prefix",
+      "sortOccurredAt": "Occurred At",
+      "sortDuration": "Duration",
+      "sortStatusCode": "Status Code",
+      "sortAsc": "Ascending",
+      "sortDesc": "Descending"
+    },
+    "columns": {
+      "occurredAt": "Time",
+      "method": "Method",
+      "path": "Path",
+      "statusCode": "Status",
+      "durationMs": "Duration",
+      "user": "User",
+      "requestId": "Request ID"
+    },
+    "detail": {
+      "basic": "Basic Facts",
+      "network": "Network",
+      "size": "Transfer Size",
+      "requestId": "Request ID",
+      "route": "Route Template",
+      "clientIp": "Client IP",
+      "userAgent": "User-Agent",
+      "requestSize": "Request Size",
+      "responseSize": "Response Size",
+      "userId": "User ID",
+      "username": "Username"
+    }
+  }
+}

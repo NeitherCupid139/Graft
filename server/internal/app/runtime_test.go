@@ -46,6 +46,14 @@ func (r *runtimeAccessLogRecorderRepo) DeleteAccessLogsBefore(context.Context, t
 	return 0, nil
 }
 
+func (r *runtimeAccessLogRecorderRepo) ListAccessLogs(context.Context, httpx.AccessLogListQuery) (httpx.AccessLogListResult, error) {
+	return httpx.AccessLogListResult{}, nil
+}
+
+func (r *runtimeAccessLogRecorderRepo) GetAccessLogByID(context.Context, uint64) (httpx.AccessLog, error) {
+	return httpx.AccessLog{}, httpx.ErrAccessLogNotFound
+}
+
 type shutdownRecorderPlugin struct {
 	name        string
 	shutdownLog *[]string

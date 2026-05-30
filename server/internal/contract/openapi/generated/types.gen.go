@@ -884,49 +884,85 @@ type ApiEnvelope struct {
 	TraceId string `json:"traceId"`
 }
 
-// AuditEvidenceContext defines model for audit-evidence-context.
+// AuditEvidenceContext Optional audit evidence filters used to correlate evidence links and narrow audit investigation context.
 type AuditEvidenceContext struct {
-	Action       *string                        `json:"action,omitempty"`
-	ActionPrefix *string                        `json:"action_prefix,omitempty"`
-	CreatedFrom  *time.Time                     `json:"created_from,omitempty"`
-	CreatedTo    *time.Time                     `json:"created_to,omitempty"`
-	RequestId    *string                        `json:"request_id,omitempty"`
-	ResourceId   *string                        `json:"resource_id,omitempty"`
-	ResourceName *string                        `json:"resource_name,omitempty"`
-	ResourceType *string                        `json:"resource_type,omitempty"`
-	Result       *AuditEvidenceContextResult    `json:"result,omitempty"`
-	RiskLevel    *AuditEvidenceContextRiskLevel `json:"risk_level,omitempty"`
-	Source       *AuditEvidenceContextSource    `json:"source,omitempty"`
+	// Action Exact audit action identifier to match.
+	Action *string `json:"action,omitempty"`
+
+	// ActionPrefix Action namespace prefix used for broader matching such as `user.`.
+	ActionPrefix *string `json:"action_prefix,omitempty"`
+
+	// CreatedFrom Inclusive RFC 3339 lower bound for audit record creation time.
+	CreatedFrom *time.Time `json:"created_from,omitempty"`
+
+	// CreatedTo Inclusive RFC 3339 upper bound for audit record creation time.
+	CreatedTo *time.Time `json:"created_to,omitempty"`
+
+	// RequestId Correlation request identifier used to trace related records.
+	RequestId *string `json:"request_id,omitempty"`
+
+	// ResourceId Stable resource identifier associated with the audit record.
+	ResourceId *string `json:"resource_id,omitempty"`
+
+	// ResourceName Human-readable resource label captured with the audit record.
+	ResourceName *string `json:"resource_name,omitempty"`
+
+	// ResourceType Resource type associated with the audit record.
+	ResourceType *string `json:"resource_type,omitempty"`
+
+	// Result Audit result classification for the matching evidence set.
+	Result *AuditEvidenceContextResult `json:"result,omitempty"`
+
+	// RiskLevel Risk classification for matched audit evidence.
+	RiskLevel *AuditEvidenceContextRiskLevel `json:"risk_level,omitempty"`
+
+	// Source Canonical audit event source category.
+	Source *AuditEvidenceContextSource `json:"source,omitempty"`
 }
 
-// AuditEvidenceContextResult defines model for AuditEvidenceContext.Result.
+// AuditEvidenceContextResult Audit result classification for the matching evidence set.
 type AuditEvidenceContextResult string
 
-// AuditEvidenceContextRiskLevel defines model for AuditEvidenceContext.RiskLevel.
+// AuditEvidenceContextRiskLevel Risk classification for matched audit evidence.
 type AuditEvidenceContextRiskLevel string
 
-// AuditEvidenceContextSource defines model for AuditEvidenceContext.Source.
+// AuditEvidenceContextSource Canonical audit event source category.
 type AuditEvidenceContextSource string
 
-// AuditIncidentMonitorEvidence defines model for audit-incident-monitor-evidence.
+// AuditIncidentMonitorEvidence Monitor evidence linked to an audit incident, describing anomaly scope, observation time, and deep-link evidence navigation.
 type AuditIncidentMonitorEvidence struct {
-	AnomalyKey    *AuditIncidentMonitorEvidenceAnomalyKey `json:"anomaly_key,omitempty"`
-	EvidenceLinks []EvidenceLink                          `json:"evidence_links"`
-	ObservedAt    *time.Time                              `json:"observed_at,omitempty"`
-	Reason        *string                                 `json:"reason,omitempty"`
-	ScopeKind     *AuditIncidentMonitorEvidenceScopeKind  `json:"scope_kind,omitempty"`
-	ScopeRef      *string                                 `json:"scope_ref,omitempty"`
-	State         AuditIncidentMonitorEvidenceState       `json:"state"`
-	Summary       string                                  `json:"summary"`
+	// AnomalyKey Canonical anomaly identifier describing the monitor condition tied to the incident.
+	AnomalyKey *AuditIncidentMonitorEvidenceAnomalyKey `json:"anomaly_key,omitempty"`
+
+	// EvidenceLinks Canonical evidence links that deep-link into related monitor or audit investigation surfaces.
+	EvidenceLinks []EvidenceLink `json:"evidence_links"`
+
+	// ObservedAt RFC 3339 timestamp when the anomaly was observed.
+	ObservedAt *time.Time `json:"observed_at,omitempty"`
+
+	// Reason Optional explanation when evidence is partial or unavailable.
+	Reason *string `json:"reason,omitempty"`
+
+	// ScopeKind Scope category that owns the anomaly target.
+	ScopeKind *AuditIncidentMonitorEvidenceScopeKind `json:"scope_kind,omitempty"`
+
+	// ScopeRef Stable scope identifier used to reopen the owning monitor view.
+	ScopeRef *string `json:"scope_ref,omitempty"`
+
+	// State Availability of correlated monitor evidence for this incident.
+	State AuditIncidentMonitorEvidenceState `json:"state"`
+
+	// Summary Human-readable summary of the correlated monitor evidence.
+	Summary string `json:"summary"`
 }
 
-// AuditIncidentMonitorEvidenceAnomalyKey defines model for AuditIncidentMonitorEvidence.AnomalyKey.
+// AuditIncidentMonitorEvidenceAnomalyKey Canonical anomaly identifier describing the monitor condition tied to the incident.
 type AuditIncidentMonitorEvidenceAnomalyKey string
 
-// AuditIncidentMonitorEvidenceScopeKind defines model for AuditIncidentMonitorEvidence.ScopeKind.
+// AuditIncidentMonitorEvidenceScopeKind Scope category that owns the anomaly target.
 type AuditIncidentMonitorEvidenceScopeKind string
 
-// AuditIncidentMonitorEvidenceState defines model for AuditIncidentMonitorEvidence.State.
+// AuditIncidentMonitorEvidenceState Availability of correlated monitor evidence for this incident.
 type AuditIncidentMonitorEvidenceState string
 
 // AuditIncidentResponse defines model for audit-incident-response.
@@ -940,6 +976,8 @@ type AuditIncidentResponse struct {
 		Summary           string                                 `json:"summary"`
 		Title             string                                 `json:"title"`
 	} `json:"incident"`
+
+	// MonitorContext Monitor evidence linked to an audit incident, describing anomaly scope, observation time, and deep-link evidence navigation.
 	MonitorContext AuditIncidentMonitorEvidence `json:"monitor_context"`
 	RelatedActors  []struct {
 		ActorDisplayName *string `json:"actor_display_name,omitempty"`
@@ -1542,6 +1580,7 @@ type ErrorResponseSuccess bool
 
 // EvidenceLink defines model for evidence-link.
 type EvidenceLink struct {
+	// AuditContext Optional audit evidence filters used to correlate evidence links and narrow audit investigation context.
 	AuditContext *AuditEvidenceContext `json:"audit_context,omitempty"`
 	IncidentSeed *struct {
 		EventId int64 `json:"event_id"`
