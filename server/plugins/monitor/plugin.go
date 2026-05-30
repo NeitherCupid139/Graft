@@ -430,6 +430,22 @@ func buildServerStatusResponse(
 	instance *Plugin,
 	trendRange monitorcontract.TrendRange,
 ) (generated.ServerStatusResponse, error) {
+	runtimeSnapshot, err := collectRuntimeSnapshot(ctx)
+	if err != nil {
+		return generated.ServerStatusResponse{}, err
+	}
+	return buildServerStatusResponseWithRuntimeSnapshot(ctx, pluginCtx, instance, trendRange, runtimeSnapshot)
+}
+
+// buildServerStatusResponseWithRuntimeSnapshot keeps the production response assembly
+// logic reusable for tests that need deterministic runtime inputs instead of host-dependent metrics.
+func buildServerStatusResponseWithRuntimeSnapshot(
+	ctx context.Context,
+	pluginCtx *plugin.Context,
+	instance *Plugin,
+	trendRange monitorcontract.TrendRange,
+	runtimeSnapshot generated.ServerStatusRuntime,
+) (generated.ServerStatusResponse, error) {
 	observedAt := time.Now().UTC()
 	startedAt := observedAt
 	if instance != nil {
@@ -438,10 +454,6 @@ func buildServerStatusResponse(
 		}
 	}
 
-	runtimeSnapshot, err := collectRuntimeSnapshot(ctx)
-	if err != nil {
-		return generated.ServerStatusResponse{}, err
-	}
 	databaseStatus, err := databaseHealth(ctx, instance)
 	if err != nil {
 		return generated.ServerStatusResponse{}, err

@@ -102,3 +102,9 @@ fi
 
 cd "$repo_root/server"
 go run ./cmd/graft validate backend --stage lint
+
+if printf '%s\n' "$changed_files" | grep -q '^server/'; then
+  go run ./cmd/graft validate backend --stage buildtest
+else
+  echo "backend buildtest gate: no server/** changes detected; skipping."
+fi

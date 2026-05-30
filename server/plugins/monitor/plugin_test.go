@@ -34,7 +34,7 @@ func TestBuildServerStatusResponseIncludesCurrentSliceFields(t *testing.T) {
 	})
 
 	startedAt := time.Now().UTC().Add(-5 * time.Second).Truncate(time.Second)
-	response, err := buildServerStatusResponse(context.Background(), &plugin.Context{
+	response, err := buildServerStatusResponseWithRuntimeSnapshot(context.Background(), &plugin.Context{
 		Config: &config.Config{
 			App: config.AppConfig{
 				Name: " graft ",
@@ -47,7 +47,7 @@ func TestBuildServerStatusResponseIncludesCurrentSliceFields(t *testing.T) {
 			{ID: "rbac", PluginVersion: "0.3.0", Dependencies: []string{"user"}},
 			{ID: pluginID, PluginVersion: pluginVersion, Dependencies: []string{"user", "rbac"}},
 		}),
-	}, pluginWithStartedAt(db, startedAt), monitorcontract.TrendRange10Minutes)
+	}, pluginWithStartedAt(db, startedAt), monitorcontract.TrendRange10Minutes, stableRuntimeSnapshot())
 	if err != nil {
 		t.Fatalf("build server status response: %v", err)
 	}
@@ -62,9 +62,9 @@ func TestBuildServerStatusResponseIncludesCurrentSliceFields(t *testing.T) {
 func TestBuildServerStatusResponseUsesUnknownWhenDatabaseServiceIsAbsent(t *testing.T) {
 	t.Parallel()
 
-	response, err := buildServerStatusResponse(context.Background(), &plugin.Context{
+	response, err := buildServerStatusResponseWithRuntimeSnapshot(context.Background(), &plugin.Context{
 		Services: container.New(),
-	}, nil, monitorcontract.TrendRange10Minutes)
+	}, nil, monitorcontract.TrendRange10Minutes, stableRuntimeSnapshot())
 	if err != nil {
 		t.Fatalf("build server status response: %v", err)
 	}
@@ -106,7 +106,7 @@ func TestBuildServerStatusResponseReportsDegradedOnDatabasePingError(t *testing.
 		t.Fatalf("close sqlite database: %v", err)
 	}
 
-	response, err := buildServerStatusResponse(context.Background(), &plugin.Context{}, &Plugin{db: db}, monitorcontract.TrendRange10Minutes)
+	response, err := buildServerStatusResponseWithRuntimeSnapshot(context.Background(), &plugin.Context{}, &Plugin{db: db}, monitorcontract.TrendRange10Minutes, stableRuntimeSnapshot())
 	if err != nil {
 		t.Fatalf("build server status response: %v", err)
 	}
@@ -660,6 +660,37 @@ func pluginWithStartedAt(db *sql.DB, startedAt time.Time) *Plugin {
 	pluginInstance := &Plugin{db: db}
 	pluginInstance.startedAtUnixNs.Store(startedAt.UnixNano())
 	return pluginInstance
+}
+
+func stableRuntimeSnapshot() generated.ServerStatusRuntime {
+	return generated.ServerStatusRuntime{
+		GoVersion:       runtime.Version(),
+		HostName:        "test-host",
+		OperatingSystem: runtime.GOOS,
+		Architecture:    runtime.GOARCH,
+		CpuCores:        8,
+		LoadAverage: generated.ServerStatusLoadAverage{
+			OneMinute:      0.24,
+			FiveMinutes:    0.19,
+			FifteenMinutes: 0.15,
+		},
+		DiskUsage: generated.ServerStatusDiskUsage{
+			Path:        defaultDiskUsagePath(),
+			TotalBytes:  512 * 1024 * 1024 * 1024,
+			UsedBytes:   128 * 1024 * 1024 * 1024,
+			FreeBytes:   384 * 1024 * 1024 * 1024,
+			UsedPercent: 25,
+		},
+		HostMemoryTotalBytes:  32 * 1024 * 1024 * 1024,
+		HostMemoryUsedBytes:   12 * 1024 * 1024 * 1024,
+		HostMemoryFreeBytes:   20 * 1024 * 1024 * 1024,
+		HostMemoryUsedPercent: 37.5,
+		Goroutines:            12,
+		RuntimeAllocBytes:     48 * 1024 * 1024,
+		RuntimeHeapInUseBytes: 28 * 1024 * 1024,
+		RuntimeSysBytes:       96 * 1024 * 1024,
+		RuntimeGcCycles:       4,
+	}
 }
 
 func TestDefaultDiskUsagePathForGOOS(t *testing.T) {
