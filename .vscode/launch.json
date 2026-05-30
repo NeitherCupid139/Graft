@@ -1,0 +1,111 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "server: 项目启动",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/server/cmd/graft",
+            "cwd": "${workspaceFolder}/server",
+            "args": [
+                "serve"
+            ]
+        },
+        {
+            "name": "server: 迁移+启动",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/server/cmd/graft",
+            "cwd": "${workspaceFolder}/server",
+            "args": [
+                "dev"
+            ]
+        },
+        {
+            "name": "server: 迁移启动",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/server/cmd/graft",
+            "cwd": "${workspaceFolder}/server",
+            "args": [
+                "migrate",
+                "up"
+            ]
+        },
+        {
+            "name": "server: 重置管理员",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/server/cmd/graft",
+            "cwd": "${workspaceFolder}/server",
+            "args": [
+                "dev",
+                "reset-admin"
+            ]
+        },
+        {
+            "name": "server: Air 热重载",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/server/cmd/graft",
+            "cwd": "${workspaceFolder}/server",
+            "args": [
+                "dev",
+                "air"
+            ]
+        },
+        {
+            "name": "server: 停止 Air",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/server/cmd/graft",
+            "cwd": "${workspaceFolder}/server",
+            "args": [
+                "dev",
+                "stop-air"
+            ]
+        },
+        {
+            "name": "server: 生成 JWT 密钥",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/server/cmd/graft-jwt-secret",
+            "cwd": "${workspaceFolder}/server"
+        },
+        {
+            "name": "server: 生成签名密钥",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/server/cmd/graft-signing-key",
+            "cwd": "${workspaceFolder}/server"
+        },
+        {
+            "name": "web: dev",
+            "type": "node",
+            "request": "launch",
+            "runtimeExecutable": "bash",
+            "runtimeArgs": [
+                "-lc",
+                "cd \"${workspaceFolder}/web\" && bun run dev"
+            ],
+            "console": "integratedTerminal"
+        }
+    ],
+    "compounds": [
+        {
+            "name": "fullstack: dev",
+            "configurations": [
+                "server: 迁移+启动",
+                "web: dev"
+            ]
+        }
+    ]
+}

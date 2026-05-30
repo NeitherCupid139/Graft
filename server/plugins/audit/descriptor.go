@@ -27,7 +27,7 @@ func NewDescriptor() plugin.Descriptor {
 			if err != nil {
 				return nil, fmt.Errorf("resolve sql db: %w", err)
 			}
-			repo, err := storeent.NewRepository(sqlDB)
+			repo, err := storeent.NewRepository(sqlDB, nil)
 			if err != nil {
 				return nil, fmt.Errorf("build audit repository: %w", err)
 			}

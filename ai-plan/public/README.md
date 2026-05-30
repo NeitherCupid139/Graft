@@ -12,9 +12,80 @@ Overlay note:
 
 ## Active Topics
 
-- No active public recovery topics.
+- `phase-d-access-log-contract-definition`
+  - Status: `archive-ready`
+  - Recovery status: completed the bounded governance-only topic for future `Access Log` contract authority.
+  - Scope outcome:
+    - formalized `Access Log` vs `Audit Log` vs `Security Event` boundary matrix
+    - defined canonical access-log schema, query contract, sort contract, and pagination contract
+    - defined future operator workflow and ownership matrix for `server -> openapi -> web`
+    - recorded truthful runtime gaps without approving storage, API, or UI work
+  - Topic directory:
+    - `ai-plan/public/phase-d-access-log-contract-definition`
+  - Next-session prompt: `Re-run startup preflight from root AGENTS.md. Governance source: root AGENTS.md. Task class: cross-boundary. Recovery source: parent topic phase-d-access-log-contract-definition. Owned scope: server/internal/httpx/**, server/internal/logger/**, server/internal/pluginapi/**, openapi/**, ai-plan/design/**, and ai-plan/public/phase-d-access-log-contract-definition/** only. Open the next bounded topic only as phase-d-access-log-runtime-storage, and do not add explorer UI, query APIs, or durable tables until runtime storage authority is explicitly approved.`
+
+- `phase-d-log-explorer-authority-definition`
+  - Status: `archive-ready`
+  - Recovery status: completed the bounded governance-only authority-definition topic for future `Log Explorer`.
+  - Scope outcome:
+    - formalized `Audit Domain` vs `Log Explorer Domain`
+    - formalized log ownership, retention, contract ownership, and investigation workflow matrices
+    - recorded truthful runtime readiness as `Partially Ready`
+  - Topic directory:
+    - `ai-plan/public/phase-d-log-explorer-authority-definition`
+  - Next-session prompt: `Re-run startup preflight from root AGENTS.md. Treat phase-d-log-explorer-authority-definition as current authority evidence. Open a new bounded runtime topic only if retention authority and runtime log-explorer storage authority are being explicitly repaired before API/page work.`
+
+- `phase-d-log-retention-and-storage-authority`
+  - Status: `archive-ready`
+  - Recovery status: completed the bounded server runtime governance topic for retention, storage, and cleanup authority.
+  - Scope outcome:
+    - verified runtime logging write-path and storage matrix from code
+    - formalized that only audit logs currently have durable repository-owned storage authority
+    - formalized that app/access log retention cleanup is `not-ready` inside repository runtime until a future storage authority exists
+  - Topic directory:
+    - `ai-plan/public/phase-d-log-retention-and-storage-authority`
+  - Next-session prompt: `Re-run startup preflight from root AGENTS.md. Governance source: root AGENTS.md. Task class: server. Recovery source: parent topic phase-d-log-retention-and-storage-authority. Owned scope: server/internal/httpx/**, server/internal/logger/**, server/internal/pluginapi/**, ai-plan/design/**, ai-plan/public/phase-d-log-retention-and-storage-authority/**, and openapi/** only if authority becomes necessary. Open the next bounded topic only as phase-d-access-log-contract-definition, and do not add UI or query APIs unless access-log contract authority remains truthful to current storage reality.`
 
 ## Archived Topics
+
+- `observability-governance-closeout`
+  - Status: `archived`
+  - Recovery status: completed the bounded Observability Phase C governance closeout; authority ownership, EvidenceLink governance, plugin capability governance, observability boundaries, and Phase D logging readiness are now documented without widening into runtime feature work.
+  - Archive reason: the truthful remaining work was governance consolidation, not new observability implementation, and that consolidation is now complete.
+  - Final result:
+    - formalized audit / monitor / OpenAPI / generated artifact / web-consumer authority ownership
+    - formalized `EvidenceLink` as backend-owned canonical drilldown contract and documented frontend consumer limits
+    - documented observability capability expectations for `server/internal/pluginapi/**`
+    - published an explicit observability boundary matrix across audit, monitor, logging, metrics, and tracing
+    - recorded truthful Phase D logging readiness as `Partially Ready`
+  - Follow-up status: `new-topic-only`
+  - Archived topic directory:
+    - `ai-plan/public/observability-governance-closeout`
+  - Archive notes:
+    - no new feature work was accepted in this topic
+    - metadata fallback in audit UI remains a documented governance gap rather than a reopened runtime implementation slice
+    - Phase D must start as a new bounded authority-definition topic, not as immediate feature rollout
+  - Next-session prompt: `Re-run startup preflight from root AGENTS.md. Treat observability-governance-closeout as archived governance evidence. Open a new bounded topic only if Phase D log-explorer authority definition or another explicit observability follow-up is required.`
+
+- `audit-monitor-phase-b-integration`
+  - Status: `archived`
+  - Recovery status: completed the bounded Phase B authority-discovery, design, and final maturity-review loop; Phase B is closed and no active continuation remains until a new bounded topic is opened.
+  - Archive reason: the truthful next step was an authority-first integration design, not a fake frontend correlation layer or an observability-platform rollout.
+  - Final result:
+    - identified `audit` and `monitor` canonical authorities plus the required upstream authority repairs
+    - defined a bounded `monitor resource -> evidence link -> audit context` integration model
+    - defined a dedicated security timeline drilldown workflow based on an audit-owned incident read model
+    - produced contract, backend, frontend, and UX gap analysis plus a B1/B2/B3 roadmap
+    - confirmed Phase B1, Phase B2, and Phase B3 as complete design evidence inside the archive closeout
+    - recommended governance enforcement as the next bounded observability topic, with Phase B1 still the first implementation slice if runtime integration is later approved
+  - Follow-up status: `new-topic-only`
+  - Archived topic directory:
+    - `ai-plan/public/archive/audit-monitor-phase-b-integration`
+  - Archive notes:
+    - do not introduce OpenTelemetry, Prometheus, Grafana, tracing, or log-platform scope under this topic
+    - repair canonical authority first: monitor anomaly semantics and audit evidence context must move upstream before UI drilldown expansion
+    - related monitor context remains bounded by current short-retention monitor authority unless a future topic widens it explicitly
+  - Next-session prompt: `Re-run startup preflight from root AGENTS.md. Treat audit-monitor-phase-b-integration as archived design evidence and Phase B as closed. Open a new bounded topic for governance enforcement first, or open a bounded implementation topic only if Phase B1 authority repair is being started.`
 
 - `observability-development-governance`
   - Status: `archived`

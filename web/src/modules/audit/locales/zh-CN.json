@@ -7,6 +7,9 @@
       },
       "logs": {
         "title": "审计日志"
+      },
+      "incident": {
+        "title": "事件钻取"
       }
     }
   },
@@ -196,6 +199,72 @@
         }
       }
     },
+    "incident": {
+      "title": "安全事件钻取",
+      "description": "围绕一个规范安全时间线种子事件展示 audit 拥有的事件上下文。",
+      "errorTitle": "事件钻取暂时不可用",
+      "loadFailed": "事件钻取加载失败",
+      "invalidEventId": "事件种子 ID 无效。",
+      "actions": {
+        "refresh": "刷新",
+        "retry": "重试",
+        "openRequest": "查看种子请求",
+        "backToMonitor": "返回监控",
+        "openMonitorContext": "打开监控上下文",
+        "openEvidenceLink": "打开证据",
+        "openRelatedRequest": "查看关联请求",
+        "openActorEvents": "查看操作者事件",
+        "openResourceEvents": "查看资源事件"
+      },
+      "sections": {
+        "summary": "事件摘要",
+        "monitorContext": "监控上下文",
+        "evidenceLinks": "证据链接",
+        "relatedEvents": "关联审计事件",
+        "relatedActors": "关联操作者",
+        "relatedResources": "关联资源",
+        "relatedRequests": "关联请求"
+      },
+      "fields": {
+        "riskLevel": "风险等级",
+        "window": "事件窗口",
+        "reason": "关联原因",
+        "seedAction": "种子动作",
+        "seedResource": "种子资源"
+      },
+      "monitorState": {
+        "available": "可用",
+        "partial": "部分可用",
+        "unavailable": "不可用"
+      },
+      "evidenceState": {
+        "available": "可用",
+        "empty": "空结果",
+        "unavailable": "不可用",
+        "unsupported": "暂不支持"
+      },
+      "scopeKind": {
+        "dependency": "依赖",
+        "plugin": "插件",
+        "runtime": "运行时",
+        "resource": "资源"
+      },
+      "anomalyKey": {
+        "dependency_status_degraded": "依赖降级",
+        "dependency_status_unknown": "依赖状态未知",
+        "plugin_dependency_missing": "插件依赖缺失",
+        "resource_cpu_pressure": "CPU 压力",
+        "resource_memory_pressure": "内存压力",
+        "resource_disk_pressure": "磁盘压力",
+        "runtime_goroutine_pressure": "Goroutine 压力",
+        "runtime_heap_pressure": "堆内存压力",
+        "system_load_pressure": "系统负载压力"
+      },
+      "scopeLabel": "{kind}：{ref}",
+      "observedAt": "观测时间：{value}",
+      "evidenceWindow": "{from} - {to}",
+      "eventCount": "关联 {count} 条事件"
+    },
     "logList": {
       "title": "审计日志",
       "description": "按条件检索安全审计事件，并查看请求与权限上下文；健康检查、监控轮询和 bootstrap 请求不属于默认审计数据集。",
@@ -227,6 +296,7 @@
       "actions": {
         "search": "查询",
         "reset": "重置",
+        "backToMonitor": "返回监控",
         "addFilter": "添加筛选条件",
         "showAdvanced": "高级筛选",
         "hideAdvanced": "收起高级筛选"
@@ -326,7 +396,10 @@
           "copyTraceId": "复制",
           "copySuccess": "Trace ID 已复制",
           "copyFail": "复制 Trace ID 失败",
-          "toggleMetadata": "展开原始元数据"
+          "toggleMetadata": "展开原始元数据",
+          "backToMonitor": "返回监控",
+          "openIncident": "打开事件钻取",
+          "openRelatedEvents": "查看关联事件"
         },
         "related": {
           "sameRequest": "同 Request Chain",

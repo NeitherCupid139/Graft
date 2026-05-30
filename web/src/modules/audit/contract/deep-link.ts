@@ -1,11 +1,18 @@
 import type { LocationQuery, LocationQueryValue } from 'vue-router';
 
+import type { components } from '@/contracts/openapi/generated/schema';
+import type { MonitorOriginContext } from '@/modules/monitor/contract/navigation';
+
+import { withMonitorOrigin } from './navigation';
 import { AUDIT_ROUTE_PATH } from './paths';
+
+type AuditEvidenceContext = components['schemas']['AuditEvidenceContext'];
 
 export type AuditLogsRouteQuery = Partial<{
   preset: string;
   keyword: string;
   actor: string;
+  actorUserId: string;
   action: string;
   actionPrefix: string;
   source: string;
@@ -34,6 +41,7 @@ export function parseAuditLogsRouteQuery(query: LocationQuery | AuditLogsRouteQu
     preset: trimQueryValue(firstQueryValue(query.preset)),
     keyword: trimQueryValue(firstQueryValue(query.keyword)),
     actor: trimQueryValue(firstQueryValue(query.actor)),
+    actorUserId: trimQueryValue(firstQueryValue(query.actorUserId)),
     action: trimQueryValue(firstQueryValue(query.action)),
     actionPrefix: trimQueryValue(firstQueryValue(query.actionPrefix)),
     source: trimQueryValue(firstQueryValue(query.source)),
@@ -77,4 +85,44 @@ export function buildAuditRequestLocation(requestId: string) {
   return buildAuditLogsLocation({
     requestId,
   });
+}
+
+export function buildAuditIncidentLocation(eventId: number | string) {
+  return {
+    path: AUDIT_ROUTE_PATH.INCIDENT_DETAIL.replace(':eventId', String(eventId)),
+  };
+}
+
+function buildAuditEvidenceLocation(context: AuditEvidenceContext) {
+  return buildAuditLogsLocation({
+    action: context.action,
+    actionPrefix: context.action_prefix,
+    source: context.source,
+    resourceType: context.resource_type,
+    resourceId: context.resource_id,
+    resourceName: context.resource_name,
+    requestId: context.request_id,
+    result: context.result,
+    riskLevel: context.risk_level,
+    createdFrom: context.created_from,
+    createdTo: context.created_to,
+  });
+}
+
+type EvidenceLink = components['schemas']['EvidenceLink'];
+
+export function buildAuditEvidenceTargetLocation(link: EvidenceLink, monitorOrigin?: MonitorOriginContext | null) {
+  if (link.link_state !== 'available') {
+    return null;
+  }
+
+  if (link.target_kind === 'audit_incident' && link.incident_seed?.event_id) {
+    return withMonitorOrigin(buildAuditIncidentLocation(link.incident_seed.event_id), monitorOrigin);
+  }
+
+  if (link.audit_context) {
+    return withMonitorOrigin(buildAuditEvidenceLocation(link.audit_context), monitorOrigin);
+  }
+
+  return null;
 }

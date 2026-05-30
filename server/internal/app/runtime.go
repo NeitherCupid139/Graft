@@ -31,6 +31,16 @@ import (
 
 const pluginShutdownTimeout = 5 * time.Second
 
+type runtimeCoreDeps struct {
+	newAccessLogRepository func(*sql.DB) (httpx.AccessLogRepository, error)
+	openRedisClient        func(context.Context, config.RedisConfig) (*redis.Client, error)
+}
+
+var defaultRuntimeCoreDeps = runtimeCoreDeps{
+	newAccessLogRepository: httpx.NewAccessLogRepository,
+	openRedisClient:        redisx.Open,
+}
+
 // Runtime 持有 MVP 运行时的核心资源与插件生命周期执行入口。
 //
 // Runtime 把配置、数据库、Redis、HTTP 服务、注册中心和插件管理器集中
@@ -112,6 +122,17 @@ func NewRuntime() (*Runtime, error) {
 }
 
 func newRuntimeCore(cfg *config.Config) (*Runtime, error) {
+	return newRuntimeCoreWithDeps(cfg, defaultRuntimeCoreDeps)
+}
+
+func newRuntimeCoreWithDeps(cfg *config.Config, deps runtimeCoreDeps) (*Runtime, error) {
+	if deps.newAccessLogRepository == nil {
+		deps.newAccessLogRepository = httpx.NewAccessLogRepository
+	}
+	if deps.openRedisClient == nil {
+		deps.openRedisClient = redisx.Open
+	}
+
 	runtimeLogger, err := logger.New(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("create logger: %w", err)
@@ -123,7 +144,7 @@ func newRuntimeCore(cfg *config.Config) (*Runtime, error) {
 		return nil, fmt.Errorf("open database resources: %w", err)
 	}
 
-	redisClient, err := redisx.Open(context.Background(), cfg.Redis)
+	redisClient, err := deps.openRedisClient(context.Background(), cfg.Redis)
 	if err != nil {
 		_ = database.Close(databaseResources)
 		_ = logger.Close(runtimeLogger)
@@ -138,13 +159,21 @@ func newRuntimeCore(cfg *config.Config) (*Runtime, error) {
 		return nil, fmt.Errorf("create i18n service: %w", err)
 	}
 
+	accessLogRepo, err := deps.newAccessLogRepository(databaseResources.SQL)
+	if err != nil {
+		_ = redisClient.Close()
+		_ = database.Close(databaseResources)
+		_ = logger.Close(runtimeLogger)
+		return nil, fmt.Errorf("create access log repository: %w", err)
+	}
+
 	return &Runtime{
 		config:             cfg,
 		logger:             runtimeLogger,
 		i18n:               localizer,
 		database:           databaseResources,
 		redis:              redisClient,
-		server:             httpx.NewServer(runtimeLogger),
+		server:             httpx.NewServer(runtimeLogger, accessLogRepo),
 		eventBus:           eventbus.New(runtimeLogger),
 		services:           container.New(),
 		menuRegistry:       menu.NewRegistry(),

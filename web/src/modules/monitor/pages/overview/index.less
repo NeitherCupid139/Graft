@@ -1,3 +1,5 @@
+@import '../../shared/visualization-tokens.less';
+
 .monitor-dashboard {
   --monitor-surface-background: var(--server-status-card-background, var(--td-bg-color-container));
   --monitor-surface-background-soft: var(--server-status-card-background-subtle, var(--td-bg-color-container-hover));
@@ -300,6 +302,47 @@
   color: var(--td-text-color-primary);
   font: var(--td-font-title-medium);
   margin: 0;
+}
+
+.anomaly-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.anomaly-item {
+  background: var(--monitor-surface-background-soft);
+  border: 1px solid color-mix(in srgb, var(--td-warning-color-4) 22%, var(--monitor-surface-border));
+  border-radius: var(--td-radius-medium);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+}
+
+.anomaly-item__header {
+  align-items: flex-start;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.anomaly-item__summary {
+  color: var(--td-text-color-primary);
+  font: var(--td-font-body-medium);
+  line-height: 1.45;
+}
+
+.anomaly-item__hint {
+  color: var(--monitor-surface-muted);
+  font: var(--td-font-body-small);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.anomaly-item__action {
+  align-self: flex-start;
+  padding-left: 0;
 }
 
 .status-sidebar__summary-list {

@@ -20,6 +20,10 @@ const correlationActionMocks = vi.hoisted(() => ({
   requestIdFromError: vi.fn(() => ''),
 }));
 
+const routerMocks = vi.hoisted(() => ({
+  push: vi.fn(),
+}));
+
 const chartMocks = vi.hoisted(() => {
   const setOption = vi.fn();
   const resize = vi.fn();
@@ -115,6 +119,11 @@ const translations = vi.hoisted(
     'monitor.serverStatus.dependencyCardTitle': 'Dependency Status',
     'monitor.serverStatus.runtimeStatusTitle': 'Runtime status',
     'monitor.serverStatus.runtimeStatusSubtitle': 'Summary of service, dependencies, and sampling status',
+    'monitor.serverStatus.anomaliesTitle': 'Active anomalies',
+    'monitor.serverStatus.anomalySeverityWarning': 'Warning',
+    'monitor.serverStatus.anomalySeverityCritical': 'Critical',
+    'monitor.serverStatus.openAuditEvidence': 'Open audit evidence',
+    'monitor.serverStatus.auditEvidenceUnavailable': 'Audit evidence is unavailable for this anomaly.',
     'monitor.serverStatus.runtimeStatusDependenciesTitle': 'Dependencies',
     'monitor.serverStatus.runtimeStatusProcessTitle': 'Process summary',
     'monitor.serverStatus.runtimeStatusSamplingTitle': 'Sampling status',
@@ -298,6 +307,10 @@ vi.mock('@/modules/audit/shared/correlation-actions', () => ({
   requestIdFromError: correlationActionMocks.requestIdFromError,
 }));
 
+vi.mock('vue-router', () => ({
+  useRouter: () => routerMocks,
+}));
+
 vi.mock('echarts/core', async () => {
   const actual = await vi.importActual<typeof import('echarts/core')>('echarts/core');
   return {
@@ -461,7 +474,7 @@ const tableStub = defineComponent({
 
 function createServerStatusResponse() {
   return {
-    status: 'healthy',
+    status: 'degraded',
     observed_at: '2026-05-20T09:00:00Z',
     server: {
       version: 'dev',
@@ -569,6 +582,32 @@ function createServerStatusResponse() {
         missing_dependencies: ['audit'],
       },
     ],
+    anomalies: [
+      {
+        anomaly_key: 'resource_cpu_pressure',
+        scope_kind: 'resource',
+        scope_ref: 'runtime.cpu',
+        severity: 'warning',
+        status: 'active',
+        observed_at: '2026-05-20T09:00:00Z',
+        summary: 'CPU usage reached 84.2% in the current monitor window.',
+        evidence_links: [
+          {
+            target_kind: 'audit_incident',
+            link_state: 'available',
+            title: 'Review related audit activity',
+            reason: 'Check audit records from the same bounded monitor window.',
+            time_window: {
+              created_from: '2026-05-20T08:50:00Z',
+              created_to: '2026-05-20T09:00:00Z',
+            },
+            incident_seed: {
+              event_id: 42,
+            },
+          },
+        ],
+      },
+    ],
   };
 }
 
@@ -643,6 +682,7 @@ describe('MonitorPage', () => {
     correlationActionMocks.openCorrelationErrorNotification.mockReset();
     correlationActionMocks.requestIdFromError.mockReset();
     correlationActionMocks.requestIdFromError.mockReturnValue('');
+    routerMocks.push.mockReset();
     chartMocks.init.mockClear();
     chartMocks.setOption.mockClear();
     chartMocks.resize.mockClear();
@@ -650,14 +690,17 @@ describe('MonitorPage', () => {
     resizeObserverMocks.observe.mockClear();
     resizeObserverMocks.unobserve.mockClear();
     resizeObserverMocks.disconnect.mockClear();
+    settingStoreMock.brandTheme = '#0052D9';
     document.body.innerHTML = '';
     setVisibilityState('visible');
     document.documentElement.style.setProperty('--td-brand-color', '#0052D9');
-    document.documentElement.style.setProperty('--td-brand-color-7', '#003cab');
-    document.documentElement.style.setProperty('--td-success-color-5', '#00A870');
-    document.documentElement.style.setProperty('--td-success-color-6', '#078d5c');
-    document.documentElement.style.setProperty('--td-warning-color-5', '#ED7B2F');
-    document.documentElement.style.setProperty('--td-warning-color-6', '#d96c1f');
+    document.documentElement.style.setProperty('--graft-monitor-cpu-color', '#2F6BFF');
+    document.documentElement.style.setProperty('--graft-monitor-memory-color', '#16A085');
+    document.documentElement.style.setProperty('--graft-monitor-load-color', '#D97706');
+    document.documentElement.style.setProperty('--graft-monitor-runtime-alloc-color', '#7B61FF');
+    document.documentElement.style.setProperty('--graft-monitor-runtime-heap-color', '#1F8EF1');
+    document.documentElement.style.setProperty('--graft-monitor-runtime-sys-color', '#C47A2C');
+    document.documentElement.style.setProperty('--graft-monitor-goroutines-color', '#D9488B');
     document.documentElement.style.setProperty('--td-text-color-brand', '#4f46e5');
   });
 
@@ -686,6 +729,8 @@ describe('MonitorPage', () => {
     expect(wrapper.text()).toContain('Trend window');
     expect(wrapper.text()).toContain('Refresh now');
     expect(wrapper.text()).toContain('Pause auto refresh');
+    expect(wrapper.text()).toContain('Active anomalies');
+    expect(wrapper.text()).toContain('Open audit evidence');
     expect(wrapper.text()).toContain('Load');
     expect(wrapper.text()).toContain('CPU');
     expect(wrapper.text()).toContain('Memory');
@@ -707,8 +752,8 @@ describe('MonitorPage', () => {
     const overviewChartOptions = chartMocks.setOption.mock.calls.map((call) => call[0]) as Array<{
       color?: string[];
     }>;
-    expect(overviewChartOptions.some((option) => option.color?.includes('#0052D9'))).toBe(true);
-    expect(overviewChartOptions.some((option) => option.color?.includes('#00A870'))).toBe(true);
+    expect(overviewChartOptions.some((option) => option.color?.includes('#2F6BFF'))).toBe(true);
+    expect(overviewChartOptions.some((option) => option.color?.includes('#16A085'))).toBe(true);
 
     const loadCardText = metricCardText(wrapper, 'load');
     const cpuCardText = metricCardText(wrapper, 'cpu');
@@ -723,7 +768,7 @@ describe('MonitorPage', () => {
     expect(cpuCardText).toContain('Normal');
     expect(cpuCardText).toContain('21%');
     expect(cpuCardText).toContain('8 cores · latest sample');
-    expect(cpuCardText).toContain('CPU usage is within the normal range');
+    expect(cpuCardText).toContain('CPU usage reached 84.2% in the current monitor window.');
     expect(cpuCardText).not.toContain('1m load');
 
     expect(memoryCardText).toContain('Sufficient');
@@ -742,7 +787,10 @@ describe('MonitorPage', () => {
     expect(diskCardText).not.toContain('Root partition ·');
     expect(diskCardText).not.toContain('/ 11.8 GB / 59.9 GB');
 
-    expect(wrapper.findAll('[data-status-sidebar-group]')).toHaveLength(3);
+    expect(wrapper.findAll('[data-status-sidebar-group]')).toHaveLength(4);
+    expect(sidebarGroupText(wrapper, 'anomalies')).toContain('Active anomalies');
+    expect(sidebarGroupText(wrapper, 'anomalies')).toContain('CPU usage reached 84.2% in the current monitor window.');
+    expect(sidebarGroupText(wrapper, 'anomalies')).toContain('Open audit evidence');
     expect(sidebarGroupText(wrapper, 'dependencies')).toContain('Dependencies');
     expect(sidebarGroupText(wrapper, 'dependencies')).toContain('PostgreSQL');
     expect(sidebarGroupText(wrapper, 'dependencies')).toContain('Healthy');
@@ -834,6 +882,50 @@ describe('MonitorPage', () => {
     expect(allOverviewText).toContain('Heap');
     expect(allOverviewText).toContain('Runtime Sys');
     expect(allOverviewText).toContain('Goroutines');
+  });
+
+  it('preserves monitor origin when opening audit evidence from an anomaly', async () => {
+    monitorApiMocks.getServerStatus.mockResolvedValue(createServerStatusResponse());
+
+    const wrapper = mountMonitorPage();
+    await flushPromises();
+
+    routerMocks.push.mockReset();
+
+    const actionButtons = wrapper.findAll('button').filter((button) => button.text().includes('Open audit evidence'));
+    expect(actionButtons).toHaveLength(1);
+
+    await actionButtons[0]!.trigger('click');
+
+    expect(routerMocks.push).toHaveBeenCalledWith({
+      path: '/audit/incidents/42',
+      query: {
+        monitorView: 'overview',
+        monitorTrendRange: '10m',
+        monitorAnomalyKey: 'resource_cpu_pressure',
+        monitorScopeRef: 'runtime.cpu',
+      },
+    });
+  });
+
+  it('opens the audit incident drilldown from backend-owned anomaly evidence links', async () => {
+    monitorApiMocks.getServerStatus.mockResolvedValue(createServerStatusResponse());
+
+    const wrapper = mountMonitorPage();
+    await flushPromises();
+    await nextTick();
+
+    await wrapper.get('[data-anomaly-key="resource_cpu_pressure"] button').trigger('click');
+
+    expect(routerMocks.push).toHaveBeenCalledWith({
+      path: '/audit/incidents/42',
+      query: {
+        monitorView: 'overview',
+        monitorTrendRange: '10m',
+        monitorAnomalyKey: 'resource_cpu_pressure',
+        monitorScopeRef: 'runtime.cpu',
+      },
+    });
   });
 
   it('renders no chart when fewer than two samples are available', async () => {
@@ -947,6 +1039,26 @@ describe('MonitorPage', () => {
     expect(multiOptions[3]?.yAxis[0]?.axisLabel?.formatter?.(100)).toBe('100 MB');
     expect(multiOptions[6]?.series[0]?.name).toBe('Goroutines');
     expect(multiOptions[6]?.yAxis[0]?.axisLabel?.formatter?.(32)).toBe('32');
+  });
+
+  it('keeps CPU and memory trend colors distinct when the brand theme switches to green', async () => {
+    monitorApiMocks.getServerStatus.mockResolvedValue(createServerStatusResponse());
+    settingStoreMock.brandTheme = '#2BA471';
+    document.documentElement.style.setProperty('--td-brand-color', '#2BA471');
+    document.documentElement.style.setProperty('--graft-monitor-cpu-color', '#2F6BFF');
+    document.documentElement.style.setProperty('--graft-monitor-memory-color', '#16A085');
+
+    mountMonitorPage();
+    await flushPromises();
+    await nextTick();
+
+    const usageOption = chartMocks.setOption.mock.calls
+      .map((call) => call[0] as { series?: Array<{ name: string }>; color?: string[] })
+      .find((option) => option.series?.some((series) => series.name === 'CPU usage'));
+
+    expect(usageOption?.color).toEqual(['#2F6BFF', '#16A085']);
+    expect(usageOption?.color?.[0]).not.toBe('#2BA471');
+    expect(usageOption?.color?.[0]).not.toBe(usageOption?.color?.[1]);
   });
 
   it('keeps the selected trend mode when the range changes', async () => {

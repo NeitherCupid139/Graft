@@ -18,6 +18,7 @@ import (
 	"graft/server/internal/container"
 	generated "graft/server/internal/contract/openapi/generated"
 	"graft/server/internal/plugin"
+	"graft/server/internal/pluginapi"
 	monitorcontract "graft/server/plugins/monitor/contract"
 )
 
@@ -33,7 +34,7 @@ func TestBuildServerStatusResponseIncludesCurrentSliceFields(t *testing.T) {
 	})
 
 	startedAt := time.Now().UTC().Add(-5 * time.Second).Truncate(time.Second)
-	response, err := buildServerStatusResponse(context.Background(), &plugin.Context{
+	response, err := buildServerStatusResponseWithRuntimeSnapshot(context.Background(), &plugin.Context{
 		Config: &config.Config{
 			App: config.AppConfig{
 				Name: " graft ",
@@ -46,7 +47,7 @@ func TestBuildServerStatusResponseIncludesCurrentSliceFields(t *testing.T) {
 			{ID: "rbac", PluginVersion: "0.3.0", Dependencies: []string{"user"}},
 			{ID: pluginID, PluginVersion: pluginVersion, Dependencies: []string{"user", "rbac"}},
 		}),
-	}, pluginWithStartedAt(db, startedAt), monitorcontract.TrendRange10Minutes)
+	}, pluginWithStartedAt(db, startedAt), monitorcontract.TrendRange10Minutes, stableRuntimeSnapshot())
 	if err != nil {
 		t.Fatalf("build server status response: %v", err)
 	}
@@ -61,9 +62,9 @@ func TestBuildServerStatusResponseIncludesCurrentSliceFields(t *testing.T) {
 func TestBuildServerStatusResponseUsesUnknownWhenDatabaseServiceIsAbsent(t *testing.T) {
 	t.Parallel()
 
-	response, err := buildServerStatusResponse(context.Background(), &plugin.Context{
+	response, err := buildServerStatusResponseWithRuntimeSnapshot(context.Background(), &plugin.Context{
 		Services: container.New(),
-	}, nil, monitorcontract.TrendRange10Minutes)
+	}, nil, monitorcontract.TrendRange10Minutes, stableRuntimeSnapshot())
 	if err != nil {
 		t.Fatalf("build server status response: %v", err)
 	}
@@ -80,8 +81,14 @@ func TestBuildServerStatusResponseUsesUnknownWhenDatabaseServiceIsAbsent(t *test
 	if response.Dependencies.Redis.Detail != "Redis client is not configured" {
 		t.Fatalf("expected redis detail for disabled client, got %q", response.Dependencies.Redis.Detail)
 	}
-	if response.Status != "unknown" {
-		t.Fatalf("expected overall status unknown, got %q", response.Status)
+	if response.Status != "degraded" {
+		t.Fatalf("expected overall status degraded when dependency observability is missing, got %q", response.Status)
+	}
+	if len(response.Anomalies) != 1 {
+		t.Fatalf("expected one dependency anomaly for missing database handle, got %d", len(response.Anomalies))
+	}
+	if string(response.Anomalies[0].AnomalyKey) != string(monitorcontract.DependencyStatusUnknown) {
+		t.Fatalf("expected dependency_status_unknown anomaly, got %q", response.Anomalies[0].AnomalyKey)
 	}
 	if string(response.Trend.Range) != monitorcontract.TrendRange10Minutes.String() {
 		t.Fatalf("expected default trend range in response, got %q", response.Trend.Range)
@@ -99,7 +106,7 @@ func TestBuildServerStatusResponseReportsDegradedOnDatabasePingError(t *testing.
 		t.Fatalf("close sqlite database: %v", err)
 	}
 
-	response, err := buildServerStatusResponse(context.Background(), &plugin.Context{}, &Plugin{db: db}, monitorcontract.TrendRange10Minutes)
+	response, err := buildServerStatusResponseWithRuntimeSnapshot(context.Background(), &plugin.Context{}, &Plugin{db: db}, monitorcontract.TrendRange10Minutes, stableRuntimeSnapshot())
 	if err != nil {
 		t.Fatalf("build server status response: %v", err)
 	}
@@ -357,6 +364,23 @@ func TestBuildServerStatusResponseLoadsRedisTrendPoints(t *testing.T) {
 	}
 }
 
+func TestIncidentEvidenceCapabilityReturnsExpiredWhenWindowExceedsRetention(t *testing.T) {
+	t.Parallel()
+
+	capability := incidentEvidenceCapability{plugin: &Plugin{}, ctx: &plugin.Context{}}
+	now := time.Now().UTC()
+	resolved, err := capability.ResolveAuditIncidentMonitorEvidence(context.Background(), pluginapi.ResolveAuditIncidentMonitorEvidenceInput{
+		IncidentStartedAt: now.Add(-2 * time.Hour),
+		IncidentEndedAt:   now.Add(-90 * time.Minute),
+	})
+	if err != nil {
+		t.Fatalf("resolve monitor incident evidence: %v", err)
+	}
+	if resolved.Availability != pluginapi.MonitorEvidenceExpired {
+		t.Fatalf("expected expired availability, got %q", resolved.Availability)
+	}
+}
+
 func TestParseTrendRange(t *testing.T) {
 	t.Parallel()
 
@@ -425,7 +449,7 @@ func TestDeriveOverallStatus(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			if actual := deriveOverallStatus(testCase.databaseStatus, testCase.redisStatus); actual != testCase.expected {
+			if actual := deriveOverallStatus(testCase.databaseStatus, testCase.redisStatus, nil); actual != testCase.expected {
 				t.Fatalf(
 					"deriveOverallStatus(%q, %q) = %q, want %q",
 					testCase.databaseStatus,
@@ -435,6 +459,19 @@ func TestDeriveOverallStatus(t *testing.T) {
 				)
 			}
 		})
+	}
+}
+
+func TestDeriveOverallStatusDegradesWhenAnomaliesExist(t *testing.T) {
+	t.Parallel()
+
+	actual := deriveOverallStatus("healthy", "disabled", []generated.ServerStatusAnomaly{
+		{
+			AnomalyKey: generated.ServerStatusAnomalyAnomalyKey(monitorcontract.ResourceCPUPressure),
+		},
+	})
+	if actual != "degraded" {
+		t.Fatalf("expected anomaly-backed overall status degraded, got %q", actual)
 	}
 }
 
@@ -462,6 +499,9 @@ func assertCurrentSliceResponseStatus(t *testing.T, response generated.ServerSta
 	assertEqual(t, "go version", response.Server.GoVersion, runtime.Version())
 	assertEqual(t, "app name", response.Server.AppName, "graft")
 	assertEqual(t, "app env", response.Server.AppEnv, "prod")
+	if len(response.Anomalies) != 0 {
+		t.Fatalf("expected current slice happy-path response to stay anomaly-free, got %d", len(response.Anomalies))
+	}
 	if response.Server.UptimeSeconds < 5 {
 		t.Fatalf("expected uptime to be at least 5 seconds, got %d", response.Server.UptimeSeconds)
 	}
@@ -620,6 +660,37 @@ func pluginWithStartedAt(db *sql.DB, startedAt time.Time) *Plugin {
 	pluginInstance := &Plugin{db: db}
 	pluginInstance.startedAtUnixNs.Store(startedAt.UnixNano())
 	return pluginInstance
+}
+
+func stableRuntimeSnapshot() generated.ServerStatusRuntime {
+	return generated.ServerStatusRuntime{
+		GoVersion:       runtime.Version(),
+		HostName:        "test-host",
+		OperatingSystem: runtime.GOOS,
+		Architecture:    runtime.GOARCH,
+		CpuCores:        8,
+		LoadAverage: generated.ServerStatusLoadAverage{
+			OneMinute:      0.24,
+			FiveMinutes:    0.19,
+			FifteenMinutes: 0.15,
+		},
+		DiskUsage: generated.ServerStatusDiskUsage{
+			Path:        defaultDiskUsagePath(),
+			TotalBytes:  512 * 1024 * 1024 * 1024,
+			UsedBytes:   128 * 1024 * 1024 * 1024,
+			FreeBytes:   384 * 1024 * 1024 * 1024,
+			UsedPercent: 25,
+		},
+		HostMemoryTotalBytes:  32 * 1024 * 1024 * 1024,
+		HostMemoryUsedBytes:   12 * 1024 * 1024 * 1024,
+		HostMemoryFreeBytes:   20 * 1024 * 1024 * 1024,
+		HostMemoryUsedPercent: 37.5,
+		Goroutines:            12,
+		RuntimeAllocBytes:     48 * 1024 * 1024,
+		RuntimeHeapInUseBytes: 28 * 1024 * 1024,
+		RuntimeSysBytes:       96 * 1024 * 1024,
+		RuntimeGcCycles:       4,
+	}
 }
 
 func TestDefaultDiskUsagePathForGOOS(t *testing.T) {

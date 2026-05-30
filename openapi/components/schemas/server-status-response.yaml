@@ -1,5 +1,5 @@
 type: object
-required: [status, observed_at, server, runtime, dependencies, summary, trend, plugins]
+required: [status, observed_at, server, runtime, dependencies, summary, trend, plugins, anomalies]
 properties:
   status:
     type: string
@@ -20,3 +20,7 @@ properties:
     type: array
     items:
       $ref: ./server-status-plugin.yaml
+  anomalies:
+    type: array
+    items:
+      $ref: ./server-status-anomaly.yaml

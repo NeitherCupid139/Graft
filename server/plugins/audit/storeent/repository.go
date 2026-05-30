@@ -7,16 +7,26 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
 
+	"graft/server/internal/pluginapi"
+	auditcontract "graft/server/plugins/audit/contract"
 	auditstore "graft/server/plugins/audit/store"
 )
 
 type repository struct {
-	db *sql.DB
+	db              *sql.DB
+	monitorEvidence pluginapi.MonitorIncidentEvidenceService
+}
+
+type actorKey struct {
+	id       uint64
+	username string
+	display  string
 }
 
 const defaultFilterCapacity = 8
@@ -25,6 +35,10 @@ const overviewRecentLimit = 3
 const overviewRiskGroupLimit = 4
 const overviewTrendPointLimit = 12
 const overviewSecurityTimelineLimit = 6
+const incidentRelatedEventLimit = 20
+const incidentActorLimit = 5
+const incidentResourceLimit = 5
+const incidentRequestLimit = 5
 const httpStatusForbidden = 403
 const overviewTrendDayStep = "1 day"
 const overviewTrendThreeDayStep = "3 day"
@@ -35,16 +49,25 @@ const overviewTrendTwoHourBucketSize = 2
 const overviewTrendOneDayDuration = 24 * time.Hour
 const overviewTrendThreeDayDuration = 72 * time.Hour
 const overviewTrendTwoHourDuration = 2 * time.Hour
+const incidentCorrelationWindow = 30 * time.Minute
+const incidentCandidateScanLimit = 200
 
 var sensitiveAuditActionKeywords = []string{"delete", "reset", "grant", "assign", "revoke", "remove", "replace", "update_role", "update_permission"}
 
 // NewRepository 基于共享连接池构建 audit 插件的 SQL repository。
-func NewRepository(db *sql.DB) (auditstore.AuditRepository, error) {
+func NewRepository(db *sql.DB, monitorEvidence pluginapi.MonitorIncidentEvidenceService) (auditstore.AuditRepository, error) {
 	if db == nil {
 		return nil, errors.New("audit repository requires a non-nil sql db")
 	}
 
-	return &repository{db: db}, nil
+	return &repository{db: db, monitorEvidence: monitorEvidence}, nil
+}
+
+func (r *repository) BindMonitorEvidence(service pluginapi.MonitorIncidentEvidenceService) {
+	if r == nil {
+		return
+	}
+	r.monitorEvidence = service
 }
 
 // CreateAuditLog 持久化一条审计日志记录。
@@ -70,6 +93,10 @@ func (r *repository) CreateAuditLog(ctx context.Context, input auditstore.Create
 		Metadata:         metadata,
 		CreatedAt:        input.CreatedAt,
 	}
+	actorUserID, err := nullableUint64(input.ActorUserID)
+	if err != nil {
+		return auditstore.AuditLog{}, fmt.Errorf("create audit log: %w", err)
+	}
 
 	row := r.db.QueryRowContext(
 		ctx,
@@ -90,7 +117,7 @@ func (r *repository) CreateAuditLog(ctx context.Context, input auditstore.Create
 			created_at
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 		RETURNING id`,
-		nullableUint64(input.ActorUserID),
+		actorUserID,
 		input.ActorUsername,
 		input.ActorDisplayName,
 		input.Action,
@@ -237,6 +264,199 @@ func (r *repository) ReadAuditOverview(ctx context.Context, window auditstore.Ov
 	}, nil
 }
 
+// ReadIncident returns the audit-owned incident drilldown derived from one seed event.
+func (r *repository) ReadIncident(ctx context.Context, eventID uint64) (auditstore.AuditIncident, error) {
+	if r == nil || r.db == nil {
+		return auditstore.AuditIncident{}, errors.New("audit repository is unavailable")
+	}
+
+	seed, err := r.readAuditLogByID(ctx, eventID)
+	if err != nil {
+		return auditstore.AuditIncident{}, err
+	}
+
+	windowStart := seed.CreatedAt.Add(-incidentCorrelationWindow)
+	windowEnd := seed.CreatedAt.Add(incidentCorrelationWindow)
+
+	candidates, err := r.readIncidentCandidateLogs(ctx, windowStart, windowEnd)
+	if err != nil {
+		return auditstore.AuditIncident{}, err
+	}
+
+	relatedEvents := correlateIncidentEvents(seed, candidates)
+	relatedActors := summarizeIncidentActors(relatedEvents)
+	relatedResources := summarizeIncidentResources(relatedEvents)
+	relatedRequests := summarizeIncidentRequests(relatedEvents)
+
+	return auditstore.AuditIncident{
+		SeedEvent: seed,
+		Incident: auditstore.AuditIncidentSummary{
+			IncidentKey:       buildIncidentKey(seed),
+			Title:             buildIncidentTitle(seed),
+			Summary:           buildIncidentSummary(seed, relatedEvents),
+			RiskLevel:         incidentRiskLevel(relatedEvents),
+			StartedAt:         incidentStartedAt(relatedEvents),
+			EndedAt:           incidentEndedAt(relatedEvents),
+			CorrelationReason: correlationReason(seed),
+		},
+		RelatedEvents:    relatedEvents,
+		RelatedActors:    relatedActors,
+		RelatedResources: relatedResources,
+		RelatedRequests:  relatedRequests,
+		MonitorContext:   r.resolveIncidentMonitorContext(ctx, seed, relatedEvents),
+	}, nil
+}
+
+func (r *repository) resolveIncidentMonitorContext(
+	ctx context.Context,
+	seed auditstore.AuditLog,
+	relatedEvents []auditstore.AuditLog,
+) auditstore.AuditIncidentMonitorContext {
+	if r == nil || r.monitorEvidence == nil {
+		return auditstore.AuditIncidentMonitorContext{
+			State:         auditstore.MonitorContextStateUnavailable,
+			Summary:       "Monitor capability is unavailable for this audit incident.",
+			Reason:        "Monitor plugin capability is unavailable.",
+			EvidenceLinks: buildIncidentMonitorEvidenceLinks(seed, relatedEvents),
+		}
+	}
+
+	resolved, err := r.monitorEvidence.ResolveAuditIncidentMonitorEvidence(ctx, pluginapi.ResolveAuditIncidentMonitorEvidenceInput{
+		IncidentSeedEventID: seed.ID,
+		IncidentStartedAt:   incidentStartedAt(relatedEvents),
+		IncidentEndedAt:     incidentEndedAt(relatedEvents),
+		RequestID:           seed.RequestID,
+		ResourceType:        seed.ResourceType,
+		ResourceID:          seed.ResourceID,
+		ResourceName:        seed.ResourceName,
+		AuditSource:         string(seed.Source),
+		AuditResult:         string(seed.Result),
+		AuditRiskLevel:      string(seed.RiskLevel),
+	})
+	if err != nil {
+		return auditstore.AuditIncidentMonitorContext{
+			State:         auditstore.MonitorContextStateUnavailable,
+			Summary:       "Monitor capability could not resolve incident evidence.",
+			Reason:        "Monitor capability is unavailable.",
+			EvidenceLinks: buildIncidentMonitorEvidenceLinks(seed, relatedEvents),
+		}
+	}
+
+	return auditstore.AuditIncidentMonitorContext{
+		State:         monitorContextStateFromAvailability(resolved.Availability),
+		Summary:       resolved.Summary,
+		Reason:        resolved.Reason,
+		AnomalyKey:    resolved.AnomalyKey,
+		ScopeKind:     resolved.ScopeKind,
+		ScopeRef:      resolved.ScopeRef,
+		ObservedAt:    resolved.ObservedAt,
+		EvidenceLinks: toAuditEvidenceLinksFromMonitor(resolved.EvidenceLinks, seed, relatedEvents),
+	}
+}
+
+func monitorContextStateFromAvailability(availability pluginapi.MonitorEvidenceAvailability) auditstore.MonitorContextState {
+	if availability == pluginapi.MonitorEvidenceAvailable {
+		return auditstore.MonitorContextStateAvailable
+	}
+	return auditstore.MonitorContextStateUnavailable
+}
+
+func toAuditEvidenceLinksFromMonitor(
+	links []pluginapi.MonitorEvidenceLink,
+	seed auditstore.AuditLog,
+	relatedEvents []auditstore.AuditLog,
+) []auditstore.EvidenceLink {
+	if len(links) == 0 {
+		return buildIncidentMonitorEvidenceLinks(seed, relatedEvents)
+	}
+
+	converted := make([]auditstore.EvidenceLink, 0, len(links))
+	for _, link := range links {
+		entry := auditstore.EvidenceLink{
+			TargetKind: link.TargetKind,
+			LinkState:  link.LinkState,
+			Title:      link.Title,
+			Reason:     link.Reason,
+		}
+		if link.TimeWindow != nil {
+			entry.TimeWindow = &auditstore.EvidenceLinkTimeWindow{
+				CreatedFrom: link.TimeWindow.CreatedFrom,
+				CreatedTo:   link.TimeWindow.CreatedTo,
+			}
+		}
+		if link.AuditContext != nil {
+			entry.AuditContext = &auditstore.AuditEvidenceContext{
+				Action:       link.AuditContext.Action,
+				ActionPrefix: link.AuditContext.ActionPrefix,
+				Source:       auditstore.AuditSource(link.AuditContext.Source),
+				ResourceType: link.AuditContext.ResourceType,
+				ResourceID:   link.AuditContext.ResourceID,
+				ResourceName: link.AuditContext.ResourceName,
+				RequestID:    link.AuditContext.RequestID,
+				Result:       auditstore.AuditResult(link.AuditContext.Result),
+				RiskLevel:    auditstore.AuditRiskLevel(link.AuditContext.RiskLevel),
+				CreatedFrom:  link.AuditContext.CreatedFrom,
+				CreatedTo:    link.AuditContext.CreatedTo,
+			}
+		}
+		if link.IncidentSeed != nil {
+			entry.IncidentSeed = &auditstore.IncidentSeedLink{EventID: link.IncidentSeed.EventID}
+		}
+		converted = append(converted, entry)
+	}
+
+	return converted
+}
+
+func buildIncidentMonitorEvidenceLinks(seed auditstore.AuditLog, relatedEvents []auditstore.AuditLog) []auditstore.EvidenceLink {
+	window := incidentEvidenceWindow(relatedEvents)
+	link := auditstore.EvidenceLink{
+		TargetKind: "audit_incident",
+		LinkState:  "available",
+		Title:      "Audit incident evidence",
+		IncidentSeed: &auditstore.IncidentSeedLink{
+			EventID: seed.ID,
+		},
+	}
+	if window != nil {
+		link.TimeWindow = window
+	}
+
+	context := auditstore.AuditEvidenceContext{
+		RequestID:    seed.RequestID,
+		ResourceType: seed.ResourceType,
+		ResourceID:   seed.ResourceID,
+		ResourceName: seed.ResourceName,
+		Result:       seed.Result,
+		RiskLevel:    seed.RiskLevel,
+	}
+	if seed.Source != "" {
+		context.Source = seed.Source
+	}
+	if window != nil {
+		context.CreatedFrom = &window.CreatedFrom
+		context.CreatedTo = &window.CreatedTo
+	}
+	link.AuditContext = &context
+
+	return []auditstore.EvidenceLink{link}
+}
+
+func incidentEvidenceWindow(events []auditstore.AuditLog) *auditstore.EvidenceLinkTimeWindow {
+	if len(events) == 0 {
+		return nil
+	}
+	startedAt := incidentStartedAt(events)
+	endedAt := incidentEndedAt(events)
+	if startedAt.IsZero() || endedAt.IsZero() {
+		return nil
+	}
+	return &auditstore.EvidenceLinkTimeWindow{
+		CreatedFrom: startedAt,
+		CreatedTo:   endedAt,
+	}
+}
+
 func buildAuditLogFilters(query auditstore.ListAuditLogsQuery) (string, []any) {
 	clauses := make([]string, 0, defaultFilterCapacity)
 	args := make([]any, 0, defaultFilterCapacity)
@@ -368,10 +588,456 @@ func enrichAuditLog(record *auditstore.AuditLog) {
 	record.RequestMethod = stringMetadataValue(metadata, "request_method")
 	record.RequestPath = stringMetadataValue(metadata, "request_path")
 	record.StatusCode = intMetadataValue(metadata, "status_code")
-	record.TargetType = normalizeAuditTargetType(record.ResourceType)
-	record.TargetLabel = firstNonEmpty(record.ResourceName, displayTargetLabel(record.TargetType), record.ResourceID)
 	record.Result = classifyAuditResult(*record, metadata)
 	record.RiskLevel = classifyAuditRiskLevel(*record)
+	record.TargetType = normalizeAuditTargetType(record.ResourceType)
+	record.TargetLabel = firstNonEmpty(record.ResourceName, displayTargetLabel(record.TargetType), record.ResourceID)
+	record.Target = buildAuditTarget(*record)
+}
+
+func buildAuditTarget(record auditstore.AuditLog) auditstore.AuditTarget {
+	targetType := firstNonEmpty(record.TargetType, record.ResourceType)
+	label := firstNonEmpty(record.TargetLabel, record.ResourceName, record.ResourceID, record.Action)
+	target := auditstore.AuditTarget{
+		Kind:  "resource",
+		Type:  targetType,
+		ID:    record.ResourceID,
+		Label: label,
+	}
+
+	switch {
+	case record.RequestID != "":
+		target.Kind = "request"
+		target.Type = firstNonEmpty(target.Type, "request")
+		target.ID = record.RequestID
+		target.Label = firstNonEmpty(label, record.RequestID)
+	case record.SessionID != "":
+		target.Kind = "session"
+		target.Type = firstNonEmpty(target.Type, "session")
+		target.ID = record.SessionID
+		target.Label = firstNonEmpty(label, record.SessionID)
+	case record.ActorUserID != nil || record.ActorUsername != "" || record.ActorDisplayName != "":
+		target.Kind = "actor"
+		target.Type = firstNonEmpty(target.Type, "user")
+		if target.ID == "" && record.ActorUserID != nil {
+			target.ID = strconv.FormatUint(*record.ActorUserID, 10)
+		}
+		target.Label = firstNonEmpty(record.ActorDisplayName, record.ActorUsername, target.Label)
+	}
+
+	if shouldLinkAuditIncident(record) {
+		target.Kind = "incident"
+		target.Type = firstNonEmpty(target.Type, "incident")
+		target.ID = strconv.FormatUint(record.ID, 10)
+		target.Label = firstNonEmpty(target.Label, label, record.Action, target.ID)
+		target.RouteRef = strings.Replace(auditcontract.AuditIncidentItem, ":"+auditcontract.AuditIncidentParam, target.ID, 1)
+	}
+
+	if target.Label == "" {
+		target.Label = firstNonEmpty(target.Type, target.Kind, record.Action)
+	}
+
+	return target
+}
+
+func shouldLinkAuditIncident(record auditstore.AuditLog) bool {
+	switch record.Result {
+	case auditstore.AuditResultDenied, auditstore.AuditResultError:
+		return true
+	}
+
+	switch record.Source {
+	case auditstore.AuditSourceSecurityEvent:
+		return true
+	}
+
+	switch record.RiskLevel {
+	case auditstore.AuditRiskLevelHigh, auditstore.AuditRiskLevelCritical:
+		return true
+	}
+
+	return false
+}
+
+func (r *repository) readAuditLogByID(ctx context.Context, eventID uint64) (auditstore.AuditLog, error) {
+	row := r.db.QueryRowContext(ctx, `SELECT
+		id,
+		COALESCE(metadata ->> 'auditSource', metadata ->> 'audit_source', '') AS source,
+		actor_user_id,
+		actor_username,
+		actor_display_name,
+		action,
+		resource_type,
+		resource_id,
+		resource_name,
+		success,
+		request_id,
+		ip,
+		user_agent,
+		message,
+		metadata,
+		created_at
+	FROM audit_logs
+	WHERE id = $1`, eventID)
+
+	record, err := scanAuditLog(row)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return auditstore.AuditLog{}, auditstore.ErrIncidentNotFound
+		}
+		return auditstore.AuditLog{}, fmt.Errorf("read audit incident seed: %w", err)
+	}
+	return record, nil
+}
+
+func (r *repository) readIncidentCandidateLogs(ctx context.Context, windowStart time.Time, windowEnd time.Time) ([]auditstore.AuditLog, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT
+		id,
+		COALESCE(metadata ->> 'auditSource', metadata ->> 'audit_source', '') AS source,
+		actor_user_id,
+		actor_username,
+		actor_display_name,
+		action,
+		resource_type,
+		resource_id,
+		resource_name,
+		success,
+		request_id,
+		ip,
+		user_agent,
+		message,
+		metadata,
+		created_at
+	FROM audit_logs
+		WHERE created_at >= $1 AND created_at <= $2
+		ORDER BY created_at DESC, id DESC
+		LIMIT $3`, windowStart, windowEnd, incidentCandidateScanLimit)
+	if err != nil {
+		return nil, fmt.Errorf("read audit incident candidates: %w", err)
+	}
+	defer func() {
+		_ = rows.Close()
+	}()
+
+	candidates := make([]auditstore.AuditLog, 0, incidentRelatedEventLimit)
+	for rows.Next() {
+		record, scanErr := scanAuditLog(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		candidates = append(candidates, record)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate audit incident candidates: %w", err)
+	}
+	return candidates, nil
+}
+
+func correlateIncidentEvents(seed auditstore.AuditLog, candidates []auditstore.AuditLog) []auditstore.AuditLog {
+	related, seedIncluded := collectRelatedIncidentEvents(seed, candidates)
+	if !seedIncluded {
+		related = append(related, seed)
+	}
+	slices.SortStableFunc(related, func(a auditstore.AuditLog, b auditstore.AuditLog) int {
+		switch {
+		case a.CreatedAt.After(b.CreatedAt):
+			return -1
+		case a.CreatedAt.Before(b.CreatedAt):
+			return 1
+		case a.ID > b.ID:
+			return -1
+		case a.ID < b.ID:
+			return 1
+		default:
+			return 0
+		}
+	})
+	return related
+}
+
+func collectRelatedIncidentEvents(seed auditstore.AuditLog, candidates []auditstore.AuditLog) ([]auditstore.AuditLog, bool) {
+	related := make([]auditstore.AuditLog, 0, incidentRelatedEventLimit)
+	otherLimit := incidentRelatedEventLimit - 1
+	seedIncluded := false
+	for _, candidate := range candidates {
+		related, seedIncluded = appendRelatedIncidentCandidate(seed, candidate, related, seedIncluded, otherLimit)
+		if seedIncluded && len(related) == incidentRelatedEventLimit {
+			break
+		}
+	}
+	return related, seedIncluded
+}
+
+func appendRelatedIncidentCandidate(
+	seed auditstore.AuditLog,
+	candidate auditstore.AuditLog,
+	related []auditstore.AuditLog,
+	seedIncluded bool,
+	otherLimit int,
+) ([]auditstore.AuditLog, bool) {
+	if candidate.ID == seed.ID {
+		if seedIncluded {
+			return related, true
+		}
+		return append(related, candidate), true
+	}
+	if !incidentMatches(seed, candidate) {
+		return related, seedIncluded
+	}
+	if !seedIncluded && len(related) >= otherLimit {
+		return related, seedIncluded
+	}
+
+	return append(related, candidate), seedIncluded
+}
+
+func incidentMatches(seed auditstore.AuditLog, candidate auditstore.AuditLog) bool {
+	return seed.ID == candidate.ID ||
+		matchIncidentRequest(seed, candidate) ||
+		matchIncidentSession(seed, candidate) ||
+		matchIncidentActor(seed, candidate) ||
+		matchIncidentResource(seed, candidate)
+}
+
+func matchIncidentRequest(seed auditstore.AuditLog, candidate auditstore.AuditLog) bool {
+	return seed.RequestID != "" && seed.RequestID == candidate.RequestID
+}
+
+func matchIncidentSession(seed auditstore.AuditLog, candidate auditstore.AuditLog) bool {
+	return seed.SessionID != "" && seed.SessionID == candidate.SessionID
+}
+
+func matchIncidentActor(seed auditstore.AuditLog, candidate auditstore.AuditLog) bool {
+	return seed.ActorUserID != nil && candidate.ActorUserID != nil && *seed.ActorUserID == *candidate.ActorUserID
+}
+
+func matchIncidentResource(seed auditstore.AuditLog, candidate auditstore.AuditLog) bool {
+	return seed.ResourceType != "" &&
+		seed.ResourceType == candidate.ResourceType &&
+		seed.ResourceID != "" &&
+		seed.ResourceID == candidate.ResourceID
+}
+
+func summarizeIncidentActors(events []auditstore.AuditLog) []auditstore.AuditIncidentActor {
+	counts := make(map[actorKey]auditstore.AuditIncidentActor)
+	for _, event := range events {
+		if !hasIncidentActorIdentity(event) {
+			continue
+		}
+		key := incidentActorKeyFromLog(event)
+		entry := counts[key]
+		entry.ActorUserID = event.ActorUserID
+		entry.ActorUsername = event.ActorUsername
+		entry.ActorDisplayName = event.ActorDisplayName
+		entry.EventCount++
+		counts[key] = entry
+	}
+	result := make([]auditstore.AuditIncidentActor, 0, len(counts))
+	for _, item := range counts {
+		result = append(result, item)
+	}
+	slices.SortStableFunc(result, func(a, b auditstore.AuditIncidentActor) int {
+		switch {
+		case a.EventCount > b.EventCount:
+			return -1
+		case a.EventCount < b.EventCount:
+			return 1
+		default:
+			return strings.Compare(a.ActorUsername+a.ActorDisplayName, b.ActorUsername+b.ActorDisplayName)
+		}
+	})
+	if len(result) > incidentActorLimit {
+		return result[:incidentActorLimit]
+	}
+	return result
+}
+
+func hasIncidentActorIdentity(event auditstore.AuditLog) bool {
+	return event.ActorUserID != nil || event.ActorUsername != "" || event.ActorDisplayName != ""
+}
+
+func incidentActorKeyFromLog(event auditstore.AuditLog) actorKey {
+	key := actorKey{
+		username: event.ActorUsername,
+		display:  event.ActorDisplayName,
+	}
+	if event.ActorUserID != nil {
+		key.id = *event.ActorUserID
+	}
+	return key
+}
+
+func summarizeIncidentResources(events []auditstore.AuditLog) []auditstore.AuditIncidentResource {
+	type resourceKey struct {
+		resourceType string
+		resourceID   string
+		resourceName string
+	}
+	counts := make(map[resourceKey]auditstore.AuditIncidentResource)
+	for _, event := range events {
+		if event.ResourceType == "" && event.ResourceID == "" && event.ResourceName == "" {
+			continue
+		}
+		key := resourceKey{resourceType: event.ResourceType, resourceID: event.ResourceID, resourceName: event.ResourceName}
+		entry := counts[key]
+		entry.ResourceType = event.ResourceType
+		entry.ResourceID = event.ResourceID
+		entry.ResourceName = event.ResourceName
+		entry.EventCount++
+		counts[key] = entry
+	}
+	result := make([]auditstore.AuditIncidentResource, 0, len(counts))
+	for _, item := range counts {
+		result = append(result, item)
+	}
+	slices.SortStableFunc(result, func(a, b auditstore.AuditIncidentResource) int {
+		switch {
+		case a.EventCount > b.EventCount:
+			return -1
+		case a.EventCount < b.EventCount:
+			return 1
+		default:
+			return strings.Compare(a.ResourceType+a.ResourceID+a.ResourceName, b.ResourceType+b.ResourceID+b.ResourceName)
+		}
+	})
+	if len(result) > incidentResourceLimit {
+		return result[:incidentResourceLimit]
+	}
+	return result
+}
+
+func summarizeIncidentRequests(events []auditstore.AuditLog) []auditstore.AuditIncidentRequest {
+	grouped := make(map[string]auditstore.AuditIncidentRequest)
+	for _, event := range events {
+		if event.RequestID == "" {
+			continue
+		}
+		grouped[event.RequestID] = mergeIncidentRequest(grouped[event.RequestID], event)
+	}
+	result := make([]auditstore.AuditIncidentRequest, 0, len(grouped))
+	for _, item := range grouped {
+		result = append(result, item)
+	}
+	slices.SortStableFunc(result, func(a, b auditstore.AuditIncidentRequest) int {
+		switch {
+		case a.EventCount > b.EventCount:
+			return -1
+		case a.EventCount < b.EventCount:
+			return 1
+		case a.EndedAt.After(b.EndedAt):
+			return -1
+		case a.EndedAt.Before(b.EndedAt):
+			return 1
+		default:
+			return strings.Compare(a.RequestID, b.RequestID)
+		}
+	})
+	if len(result) > incidentRequestLimit {
+		return result[:incidentRequestLimit]
+	}
+	return result
+}
+
+func mergeIncidentRequest(current auditstore.AuditIncidentRequest, event auditstore.AuditLog) auditstore.AuditIncidentRequest {
+	current.RequestID = event.RequestID
+	current.EventCount++
+	if current.StartedAt.IsZero() || event.CreatedAt.Before(current.StartedAt) {
+		current.StartedAt = event.CreatedAt
+	}
+	if current.EndedAt.IsZero() || event.CreatedAt.After(current.EndedAt) {
+		current.EndedAt = event.CreatedAt
+	}
+	return current
+}
+
+func buildIncidentKey(seed auditstore.AuditLog) string {
+	if seed.RequestID != "" {
+		return "incident:req:" + seed.RequestID
+	}
+	return "incident:event:" + strconv.FormatUint(seed.ID, 10)
+}
+
+func buildIncidentTitle(seed auditstore.AuditLog) string {
+	if seed.Result == auditstore.AuditResultDenied {
+		return "Permission denial incident"
+	}
+	if seed.Source == auditstore.AuditSourceSecurityEvent {
+		return "Security event incident"
+	}
+	if seed.Result == auditstore.AuditResultError {
+		return "Audit error incident"
+	}
+	return "Audit incident"
+}
+
+func buildIncidentSummary(seed auditstore.AuditLog, events []auditstore.AuditLog) string {
+	return fmt.Sprintf("%s correlated %d audit events around seed event %d.", buildIncidentTitle(seed), len(events), seed.ID)
+}
+
+func incidentRiskLevel(events []auditstore.AuditLog) auditstore.AuditRiskLevel {
+	level := auditstore.AuditRiskLevelLow
+	for _, event := range events {
+		if riskRank(event.RiskLevel) > riskRank(level) {
+			level = event.RiskLevel
+		}
+	}
+	return level
+}
+
+func riskRank(level auditstore.AuditRiskLevel) int {
+	const (
+		riskRankLow      = 1
+		riskRankMedium   = 2
+		riskRankHigh     = 3
+		riskRankCritical = 4
+	)
+
+	switch level {
+	case auditstore.AuditRiskLevelCritical:
+		return riskRankCritical
+	case auditstore.AuditRiskLevelHigh:
+		return riskRankHigh
+	case auditstore.AuditRiskLevelMedium:
+		return riskRankMedium
+	default:
+		return riskRankLow
+	}
+}
+
+func incidentStartedAt(events []auditstore.AuditLog) time.Time {
+	var startedAt time.Time
+	for _, event := range events {
+		if startedAt.IsZero() || event.CreatedAt.Before(startedAt) {
+			startedAt = event.CreatedAt
+		}
+	}
+	return startedAt
+}
+
+func incidentEndedAt(events []auditstore.AuditLog) time.Time {
+	var endedAt time.Time
+	for _, event := range events {
+		if endedAt.IsZero() || event.CreatedAt.After(endedAt) {
+			endedAt = event.CreatedAt
+		}
+	}
+	return endedAt
+}
+
+func correlationReason(seed auditstore.AuditLog) string {
+	if seed.RequestID != "" {
+		return "Correlated by stable request_id first, then expanded through bounded actor, resource, and session joins."
+	}
+	if seed.SessionID != "" {
+		return "Correlated by stable session_id first, then expanded through bounded actor and resource joins."
+	}
+	if seed.ActorUserID != nil {
+		return "Correlated by stable actor identity inside a bounded incident window."
+	}
+	if seed.ResourceType != "" && seed.ResourceID != "" {
+		return "Correlated by stable resource identity inside a bounded incident window."
+	}
+	return "Correlated from the seed event inside a bounded incident window."
 }
 
 func decodeAuditMetadata(raw json.RawMessage) map[string]any {
@@ -1143,12 +1809,15 @@ func failedAuthUniqueByRequest(primary []auditstore.OverviewItem, fallback []aud
 	return primary
 }
 
-func nullableUint64(value *uint64) any {
+func nullableUint64(value *uint64) (any, error) {
 	if value == nil {
-		return nil
+		return nil, nil
+	}
+	if *value > math.MaxInt64 {
+		return nil, fmt.Errorf("actor user id %d exceeds bigint range", *value)
 	}
 
-	return *value
+	return *value, nil
 }
 
 func toStoreID(id int64) uint64 {

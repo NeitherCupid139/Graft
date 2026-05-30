@@ -115,6 +115,26 @@ get:
                       status_detail: Runtime metadata is present and platform signals are healthy
                       version: 0.1.0
                       depends_on: [user, rbac]
+                  anomalies:
+                    - anomaly_key: resource_cpu_pressure
+                      scope_kind: resource
+                      scope_ref: runtime.cpu
+                      severity: warning
+                      status: active
+                      observed_at: '2026-05-24T08:05:00Z'
+                      summary: CPU usage is elevated for the current monitor window.
+                      evidence_links:
+                        - target_kind: audit_context
+                          link_state: available
+                          title: Review audit activity around this CPU spike
+                          reason: Security or administrative activity in the same window may explain the current CPU pressure.
+                          time_window:
+                            created_from: '2026-05-24T07:55:00Z'
+                            created_to: '2026-05-24T08:05:00Z'
+                          audit_context:
+                            source: SECURITY_EVENT
+                            created_from: '2026-05-24T07:55:00Z'
+                            created_to: '2026-05-24T08:05:00Z'
     '401':
       $ref: ../components/responses/unauthorized.yaml
     '403':

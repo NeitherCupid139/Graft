@@ -40,20 +40,42 @@ import (
 )
 
 const (
-	fallbackServerVersion   = "dev"
-	healthCheckTimeout      = 2 * time.Second
-	trendSampleInterval     = 5 * time.Second
-	maxTrendRetentionWindow = time.Hour
-	trendStorageTTL         = 2 * time.Hour
-	samplerShutdownTimeout  = 3 * time.Second
-	millisecondsPerSecond   = 1000
-	latencyPrecisionScale   = 100
-	trendStorageKeyPrefix   = "graft:monitor:server-status:trend"
-	maxProcessIDInt32       = int64(1<<31 - 1)
-	statusHealthy           = "healthy"
-	statusDegraded          = "degraded"
-	statusDisabled          = "disabled"
-	statusUnknown           = "unknown"
+	fallbackServerVersion          = "dev"
+	healthCheckTimeout             = 2 * time.Second
+	trendSampleInterval            = 5 * time.Second
+	maxTrendRetentionWindow        = time.Hour
+	trendStorageTTL                = 2 * time.Hour
+	samplerShutdownTimeout         = 3 * time.Second
+	millisecondsPerSecond          = 1000
+	latencyPrecisionScale          = 100
+	trendStorageKeyPrefix          = "graft:monitor:server-status:trend"
+	maxProcessIDInt32              = int64(1<<31 - 1)
+	statusHealthy                  = "healthy"
+	statusDegraded                 = "degraded"
+	statusDisabled                 = "disabled"
+	statusUnknown                  = "unknown"
+	anomalyStatusActive            = "active"
+	scopeKindDependency            = "dependency"
+	scopeKindPlugin                = "plugin"
+	scopeKindRuntime               = "runtime"
+	scopeKindResource              = "resource"
+	evidenceTargetAudit            = "audit_context"
+	evidenceStateAvailable         = "available"
+	evidenceStateUnavailable       = "unavailable"
+	cpuPressureWarningPercent      = 70
+	cpuPressureCriticalPercent     = 90
+	memoryPressureWarningPercent   = 85
+	memoryPressureCriticalPercent  = 95
+	diskPressureWarningPercent     = 85
+	diskPressureCriticalPercent    = 95
+	loadPressureWarningPercent     = 100
+	loadPressureCriticalPercent    = 150
+	percentageScale                = 100
+	goroutinePressureWarningCount  = 200
+	goroutinePressureCriticalCount = 500
+	runtimeHeapWarningBytes        = 512 * 1024 * 1024
+	runtimeHeapCriticalBytes       = 1024 * 1024 * 1024
+	serverDependencyCount          = 2
 )
 
 func defaultDiskUsagePath() string {
@@ -80,6 +102,21 @@ type monitorServerHandler struct {
 	ctx        *plugin.Context
 	instance   *Plugin
 	pluginName string
+}
+
+type serverStatusAnomalyInputs struct {
+	runtimeSnapshot generated.ServerStatusRuntime
+	dependencies    generated.ServerStatusDependencies
+	plugins         []generated.ServerStatusPlugin
+	trend           generated.ServerStatusTrend
+}
+
+type metricAnomalySpec struct {
+	key       monitorcontract.AnomalyKey
+	scopeKind string
+	scopeRef  string
+	severity  monitorcontract.Severity
+	summary   string
 }
 
 // NewPlugin creates the monitor plugin.
@@ -113,6 +150,9 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 
 	registerMonitorPermissions(ctx.PermissionRegistry, p.Name())
 	registerMonitorMenu(ctx.MenuRegistry, p.Name())
+	if err := registerIncidentEvidenceCapability(ctx, p); err != nil {
+		return fmt.Errorf("register monitor incident evidence capability: %w", err)
+	}
 	registerMonitorRoutes(ctx, p, p.Name(), p.authService, p.routeAuthorizer)
 	return nil
 }
@@ -390,6 +430,22 @@ func buildServerStatusResponse(
 	instance *Plugin,
 	trendRange monitorcontract.TrendRange,
 ) (generated.ServerStatusResponse, error) {
+	runtimeSnapshot, err := collectRuntimeSnapshot(ctx)
+	if err != nil {
+		return generated.ServerStatusResponse{}, err
+	}
+	return buildServerStatusResponseWithRuntimeSnapshot(ctx, pluginCtx, instance, trendRange, runtimeSnapshot)
+}
+
+// buildServerStatusResponseWithRuntimeSnapshot keeps the production response assembly
+// logic reusable for tests that need deterministic runtime inputs instead of host-dependent metrics.
+func buildServerStatusResponseWithRuntimeSnapshot(
+	ctx context.Context,
+	pluginCtx *plugin.Context,
+	instance *Plugin,
+	trendRange monitorcontract.TrendRange,
+	runtimeSnapshot generated.ServerStatusRuntime,
+) (generated.ServerStatusResponse, error) {
 	observedAt := time.Now().UTC()
 	startedAt := observedAt
 	if instance != nil {
@@ -398,10 +454,6 @@ func buildServerStatusResponse(
 		}
 	}
 
-	runtimeSnapshot, err := collectRuntimeSnapshot(ctx)
-	if err != nil {
-		return generated.ServerStatusResponse{}, err
-	}
 	databaseStatus, err := databaseHealth(ctx, instance)
 	if err != nil {
 		return generated.ServerStatusResponse{}, err
@@ -413,9 +465,18 @@ func buildServerStatusResponse(
 	plugins := runtimePluginSummaries(pluginCtx, databaseStatus, redisStatus)
 	summary := buildServerStatusSummary(databaseStatus, redisStatus, plugins)
 	trend := buildServerStatusTrend(ctx, pluginCtx, instance, observedAt, trendRange)
+	anomalies := buildServerStatusAnomalies(observedAt, trendRange, serverStatusAnomalyInputs{
+		runtimeSnapshot: runtimeSnapshot,
+		dependencies: generated.ServerStatusDependencies{
+			Database: databaseStatus,
+			Redis:    redisStatus,
+		},
+		plugins: plugins,
+		trend:   trend,
+	})
 
 	return generated.ServerStatusResponse{
-		Status:     deriveOverallStatus(databaseStatus.Status, redisStatus.Status),
+		Status:     deriveOverallStatus(databaseStatus.Status, redisStatus.Status, anomalies),
 		ObservedAt: observedAt,
 		Server: generated.ServerStatusServer{
 			Version:       fallbackServerVersion,
@@ -430,10 +491,356 @@ func buildServerStatusResponse(
 			Database: databaseStatus,
 			Redis:    redisStatus,
 		},
-		Summary: summary,
-		Trend:   trend,
-		Plugins: plugins,
+		Summary:   summary,
+		Trend:     trend,
+		Plugins:   plugins,
+		Anomalies: anomalies,
 	}, nil
+}
+
+func buildServerStatusAnomalies(
+	observedAt time.Time,
+	trendRange monitorcontract.TrendRange,
+	inputs serverStatusAnomalyInputs,
+) []generated.ServerStatusAnomaly {
+	windowStart := observedAt.Add(-trendRange.Duration())
+	anomalies := make([]generated.ServerStatusAnomaly, 0)
+
+	anomalies = append(anomalies, buildDependencyAnomalies(observedAt, windowStart, inputs.dependencies)...)
+	anomalies = append(anomalies, buildPluginDependencyAnomalies(observedAt, windowStart, inputs.plugins)...)
+	anomalies = append(anomalies, buildRuntimeMetricAnomalies(observedAt, windowStart, inputs.runtimeSnapshot, inputs.trend)...)
+	return anomalies
+}
+
+func buildDependencyAnomalies(
+	observedAt time.Time,
+	windowStart time.Time,
+	dependencies generated.ServerStatusDependencies,
+) []generated.ServerStatusAnomaly {
+	anomalies := make([]generated.ServerStatusAnomaly, 0, serverDependencyCount)
+	appendDependencyAnomaly := func(scopeRef string, dependency generated.ServerStatusDependency) {
+		switch dependency.Status {
+		case statusDegraded:
+			anomalies = append(anomalies, generated.ServerStatusAnomaly{
+				AnomalyKey: generated.ServerStatusAnomalyAnomalyKey(monitorcontract.DependencyStatusDegraded),
+				ScopeKind:  generated.ServerStatusAnomalyScopeKind(scopeKindDependency),
+				ScopeRef:   scopeRef,
+				Severity:   generated.ServerStatusAnomalySeverity(monitorcontract.SeverityCritical),
+				Status:     generated.ServerStatusAnomalyStatus(anomalyStatusActive),
+				ObservedAt: observedAt,
+				Summary:    dependency.Detail,
+				EvidenceLinks: []generated.EvidenceLink{
+					unavailableEvidenceLink(windowStart, observedAt, "Audit evidence is not available for this dependency health issue."),
+				},
+			})
+		case statusUnknown:
+			anomalies = append(anomalies, generated.ServerStatusAnomaly{
+				AnomalyKey: generated.ServerStatusAnomalyAnomalyKey(monitorcontract.DependencyStatusUnknown),
+				ScopeKind:  generated.ServerStatusAnomalyScopeKind(scopeKindDependency),
+				ScopeRef:   scopeRef,
+				Severity:   generated.ServerStatusAnomalySeverity(monitorcontract.SeverityWarning),
+				Status:     generated.ServerStatusAnomalyStatus(anomalyStatusActive),
+				ObservedAt: observedAt,
+				Summary:    dependency.Detail,
+				EvidenceLinks: []generated.EvidenceLink{
+					unavailableEvidenceLink(windowStart, observedAt, "Audit evidence is not available for this dependency observability gap."),
+				},
+			})
+		}
+	}
+
+	appendDependencyAnomaly("database", dependencies.Database)
+	appendDependencyAnomaly("redis", dependencies.Redis)
+
+	return anomalies
+}
+
+func buildPluginDependencyAnomalies(
+	observedAt time.Time,
+	windowStart time.Time,
+	plugins []generated.ServerStatusPlugin,
+) []generated.ServerStatusAnomaly {
+	anomalies := make([]generated.ServerStatusAnomaly, 0)
+	for _, item := range plugins {
+		if item.MissingDependencies == nil || len(*item.MissingDependencies) == 0 {
+			continue
+		}
+		anomalies = append(anomalies, generated.ServerStatusAnomaly{
+			AnomalyKey: generated.ServerStatusAnomalyAnomalyKey(monitorcontract.PluginDependencyMissing),
+			ScopeKind:  generated.ServerStatusAnomalyScopeKind(scopeKindPlugin),
+			ScopeRef:   item.Name,
+			Severity:   generated.ServerStatusAnomalySeverity(monitorcontract.SeverityCritical),
+			Status:     generated.ServerStatusAnomalyStatus(anomalyStatusActive),
+			ObservedAt: observedAt,
+			Summary:    item.StatusDetail,
+			EvidenceLinks: []generated.EvidenceLink{
+				unavailableEvidenceLink(windowStart, observedAt, "Audit evidence is not available for this plugin dependency issue."),
+			},
+		})
+	}
+	return anomalies
+}
+
+func buildRuntimeMetricAnomalies(
+	observedAt time.Time,
+	windowStart time.Time,
+	runtimeSnapshot generated.ServerStatusRuntime,
+	trend generated.ServerStatusTrend,
+) []generated.ServerStatusAnomaly {
+	anomalies := make([]generated.ServerStatusAnomaly, 0)
+
+	if cpuAnomaly, ok := buildCPUAnomaly(observedAt, windowStart, trend); ok {
+		anomalies = append(anomalies, cpuAnomaly)
+	}
+	if memoryAnomaly, ok := buildMemoryAnomaly(observedAt, windowStart, runtimeSnapshot); ok {
+		anomalies = append(anomalies, memoryAnomaly)
+	}
+	if diskAnomaly, ok := buildDiskAnomaly(observedAt, windowStart, runtimeSnapshot); ok {
+		anomalies = append(anomalies, diskAnomaly)
+	}
+	if loadAnomaly, ok := buildLoadAnomaly(observedAt, windowStart, runtimeSnapshot); ok {
+		anomalies = append(anomalies, loadAnomaly)
+	}
+	if goroutineAnomaly, ok := buildGoroutineAnomaly(observedAt, windowStart, runtimeSnapshot); ok {
+		anomalies = append(anomalies, goroutineAnomaly)
+	}
+	if heapAnomaly, ok := buildHeapAnomaly(observedAt, windowStart, runtimeSnapshot); ok {
+		anomalies = append(anomalies, heapAnomaly)
+	}
+
+	return anomalies
+}
+
+func buildCPUAnomaly(observedAt time.Time, windowStart time.Time, trend generated.ServerStatusTrend) (generated.ServerStatusAnomaly, bool) {
+	cpuPercent, ok := latestTrendCPUPercent(trend)
+	if !ok {
+		return generated.ServerStatusAnomaly{}, false
+	}
+	severity, hit := classifyPercentSeverity(cpuPercent, cpuPressureWarningPercent, cpuPressureCriticalPercent)
+	if !hit {
+		return generated.ServerStatusAnomaly{}, false
+	}
+	return newMetricAnomaly(
+		observedAt,
+		windowStart,
+		metricAnomalySpec{
+			key:       monitorcontract.ResourceCPUPressure,
+			scopeKind: scopeKindResource,
+			scopeRef:  "runtime.cpu",
+			severity:  severity,
+			summary:   fmt.Sprintf("CPU usage reached %.1f%% in the current monitor window.", cpuPercent),
+		},
+	), true
+}
+
+func buildMemoryAnomaly(
+	observedAt time.Time,
+	windowStart time.Time,
+	runtimeSnapshot generated.ServerStatusRuntime,
+) (generated.ServerStatusAnomaly, bool) {
+	severity, hit := classifyPercentSeverity(float64(runtimeSnapshot.HostMemoryUsedPercent), memoryPressureWarningPercent, memoryPressureCriticalPercent)
+	if !hit {
+		return generated.ServerStatusAnomaly{}, false
+	}
+	return newMetricAnomaly(
+		observedAt,
+		windowStart,
+		metricAnomalySpec{
+			key:       monitorcontract.ResourceMemoryPressure,
+			scopeKind: scopeKindResource,
+			scopeRef:  "runtime.host_memory",
+			severity:  severity,
+			summary:   fmt.Sprintf("Server memory usage reached %.1f%%.", float64(runtimeSnapshot.HostMemoryUsedPercent)),
+		},
+	), true
+}
+
+func buildDiskAnomaly(
+	observedAt time.Time,
+	windowStart time.Time,
+	runtimeSnapshot generated.ServerStatusRuntime,
+) (generated.ServerStatusAnomaly, bool) {
+	if runtimeSnapshot.DiskUsage.TotalBytes <= 0 {
+		return generated.ServerStatusAnomaly{}, false
+	}
+	severity, hit := classifyPercentSeverity(float64(runtimeSnapshot.DiskUsage.UsedPercent), diskPressureWarningPercent, diskPressureCriticalPercent)
+	if !hit {
+		return generated.ServerStatusAnomaly{}, false
+	}
+	return newMetricAnomaly(
+		observedAt,
+		windowStart,
+		metricAnomalySpec{
+			key:       monitorcontract.ResourceDiskPressure,
+			scopeKind: scopeKindResource,
+			scopeRef:  fmt.Sprintf("disk:%s", runtimeSnapshot.DiskUsage.Path),
+			severity:  severity,
+			summary:   fmt.Sprintf("Disk usage on %s reached %.1f%%.", runtimeSnapshot.DiskUsage.Path, float64(runtimeSnapshot.DiskUsage.UsedPercent)),
+		},
+	), true
+}
+
+func buildLoadAnomaly(
+	observedAt time.Time,
+	windowStart time.Time,
+	runtimeSnapshot generated.ServerStatusRuntime,
+) (generated.ServerStatusAnomaly, bool) {
+	loadPercent := 0.0
+	if runtimeSnapshot.CpuCores > 0 {
+		loadPercent = (float64(runtimeSnapshot.LoadAverage.OneMinute) / float64(runtimeSnapshot.CpuCores)) * percentageScale
+	}
+	severity, hit := classifyPercentSeverity(loadPercent, loadPressureWarningPercent, loadPressureCriticalPercent)
+	if !hit {
+		return generated.ServerStatusAnomaly{}, false
+	}
+	return newMetricAnomaly(
+		observedAt,
+		windowStart,
+		metricAnomalySpec{
+			key:       monitorcontract.SystemLoadPressure,
+			scopeKind: scopeKindRuntime,
+			scopeRef:  "runtime.load",
+			severity:  severity,
+			summary:   fmt.Sprintf("1-minute load average reached %.2f against %d CPU cores.", float64(runtimeSnapshot.LoadAverage.OneMinute), runtimeSnapshot.CpuCores),
+		},
+	), true
+}
+
+func buildGoroutineAnomaly(
+	observedAt time.Time,
+	windowStart time.Time,
+	runtimeSnapshot generated.ServerStatusRuntime,
+) (generated.ServerStatusAnomaly, bool) {
+	severity, hit := classifyCountSeverity(runtimeSnapshot.Goroutines, goroutinePressureWarningCount, goroutinePressureCriticalCount)
+	if !hit {
+		return generated.ServerStatusAnomaly{}, false
+	}
+	return newMetricAnomaly(
+		observedAt,
+		windowStart,
+		metricAnomalySpec{
+			key:       monitorcontract.RuntimeGoroutinePressure,
+			scopeKind: scopeKindRuntime,
+			scopeRef:  "runtime.goroutines",
+			severity:  severity,
+			summary:   fmt.Sprintf("Goroutine count reached %d.", runtimeSnapshot.Goroutines),
+		},
+	), true
+}
+
+func buildHeapAnomaly(
+	observedAt time.Time,
+	windowStart time.Time,
+	runtimeSnapshot generated.ServerStatusRuntime,
+) (generated.ServerStatusAnomaly, bool) {
+	severity, hit := classifyInt64Severity(runtimeSnapshot.RuntimeHeapInUseBytes, runtimeHeapWarningBytes, runtimeHeapCriticalBytes)
+	if !hit {
+		return generated.ServerStatusAnomaly{}, false
+	}
+	return newMetricAnomaly(
+		observedAt,
+		windowStart,
+		metricAnomalySpec{
+			key:       monitorcontract.RuntimeHeapPressure,
+			scopeKind: scopeKindRuntime,
+			scopeRef:  "runtime.heap_in_use",
+			severity:  severity,
+			summary:   fmt.Sprintf("Runtime heap usage reached %d bytes.", runtimeSnapshot.RuntimeHeapInUseBytes),
+		},
+	), true
+}
+
+func newMetricAnomaly(
+	observedAt time.Time,
+	windowStart time.Time,
+	spec metricAnomalySpec,
+) generated.ServerStatusAnomaly {
+	return generated.ServerStatusAnomaly{
+		AnomalyKey: generated.ServerStatusAnomalyAnomalyKey(spec.key),
+		ScopeKind:  generated.ServerStatusAnomalyScopeKind(spec.scopeKind),
+		ScopeRef:   spec.scopeRef,
+		Severity:   generated.ServerStatusAnomalySeverity(spec.severity),
+		Status:     generated.ServerStatusAnomalyStatus(anomalyStatusActive),
+		ObservedAt: observedAt,
+		Summary:    spec.summary,
+		EvidenceLinks: []generated.EvidenceLink{
+			availableEvidenceLink(windowStart, observedAt, "Review related audit activity", "Check audit records from the same bounded monitor window."),
+		},
+	}
+}
+
+func latestTrendCPUPercent(trend generated.ServerStatusTrend) (float64, bool) {
+	if len(trend.Points) == 0 {
+		return 0, false
+	}
+	return float64(trend.Points[len(trend.Points)-1].CpuPercent), true
+}
+
+func classifyPercentSeverity(value float64, warningThreshold float64, criticalThreshold float64) (monitorcontract.Severity, bool) {
+	if value >= criticalThreshold {
+		return monitorcontract.SeverityCritical, true
+	}
+	if value >= warningThreshold {
+		return monitorcontract.SeverityWarning, true
+	}
+	return "", false
+}
+
+func classifyCountSeverity(value int, warningThreshold int, criticalThreshold int) (monitorcontract.Severity, bool) {
+	if value >= criticalThreshold {
+		return monitorcontract.SeverityCritical, true
+	}
+	if value >= warningThreshold {
+		return monitorcontract.SeverityWarning, true
+	}
+	return "", false
+}
+
+func classifyInt64Severity(value int64, warningThreshold int64, criticalThreshold int64) (monitorcontract.Severity, bool) {
+	if value >= criticalThreshold {
+		return monitorcontract.SeverityCritical, true
+	}
+	if value >= warningThreshold {
+		return monitorcontract.SeverityWarning, true
+	}
+	return "", false
+}
+
+func availableEvidenceLink(windowStart time.Time, windowEnd time.Time, title string, reason string) generated.EvidenceLink {
+	return generated.EvidenceLink{
+		TargetKind: generated.EvidenceLinkTargetKind(evidenceTargetAudit),
+		LinkState:  generated.EvidenceLinkLinkState(evidenceStateAvailable),
+		Title:      title,
+		Reason:     stringPointer(reason),
+		TimeWindow: &generated.EvidenceLinkTimeWindow{
+			CreatedFrom: windowStart,
+			CreatedTo:   windowEnd,
+		},
+		AuditContext: &generated.AuditEvidenceContext{
+			CreatedFrom: &windowStart,
+			CreatedTo:   &windowEnd,
+		},
+	}
+}
+
+func unavailableEvidenceLink(windowStart time.Time, windowEnd time.Time, reason string) generated.EvidenceLink {
+	return generated.EvidenceLink{
+		TargetKind: generated.EvidenceLinkTargetKind(evidenceTargetAudit),
+		LinkState:  generated.EvidenceLinkLinkState(evidenceStateUnavailable),
+		Title:      "Audit evidence is unavailable",
+		Reason:     stringPointer(reason),
+		TimeWindow: &generated.EvidenceLinkTimeWindow{
+			CreatedFrom: windowStart,
+			CreatedTo:   windowEnd,
+		},
+	}
+}
+
+func stringPointer(value string) *string {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	return &value
 }
 
 func databaseHealth(ctx context.Context, instance *Plugin) (generated.ServerStatusDependency, error) {
@@ -517,7 +924,7 @@ func runtimePluginSummaries(
 		available[name] = struct{}{}
 	}
 
-	platformStatus := deriveOverallStatus(database.Status, redis.Status)
+	platformStatus := deriveOverallStatus(database.Status, redis.Status, nil)
 	items := make([]generated.ServerStatusPlugin, 0, len(descriptors))
 	for _, descriptor := range descriptors {
 		dependsOn := append([]string(nil), descriptor.DependsOn...)
@@ -1078,11 +1485,15 @@ func resolveAppEnv(pluginCtx *plugin.Context) string {
 	return strings.TrimSpace(pluginCtx.Config.App.Env)
 }
 
-func deriveOverallStatus(databaseStatus string, redisStatus string) string {
+func deriveOverallStatus(databaseStatus string, redisStatus string, anomalies []generated.ServerStatusAnomaly) string {
 	for _, status := range []string{databaseStatus, redisStatus} {
 		if status == statusDegraded {
 			return statusDegraded
 		}
+	}
+
+	if len(anomalies) > 0 {
+		return statusDegraded
 	}
 
 	if databaseStatus == statusHealthy || redisStatus == statusHealthy {

@@ -4,14 +4,28 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"math"
 	"strings"
 	"testing"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 
+	"graft/server/internal/pluginapi"
 	auditstore "graft/server/plugins/audit/store"
 )
+
+type stubMonitorIncidentEvidenceService struct {
+	resolved pluginapi.ResolvedAuditIncidentMonitorEvidence
+	err      error
+}
+
+func (s stubMonitorIncidentEvidenceService) ResolveAuditIncidentMonitorEvidence(
+	context.Context,
+	pluginapi.ResolveAuditIncidentMonitorEvidenceInput,
+) (pluginapi.ResolvedAuditIncidentMonitorEvidence, error) {
+	return s.resolved, s.err
+}
 
 func openTestDB(t *testing.T) *sql.DB {
 	t.Helper()
@@ -68,7 +82,7 @@ func openTestDB(t *testing.T) *sql.DB {
 
 func TestRepositoryCreateAndListAuditLogs(t *testing.T) {
 	db := openTestDB(t)
-	repo, err := NewRepository(db)
+	repo, err := NewRepository(db, nil)
 	if err != nil {
 		t.Fatalf("new repository: %v", err)
 	}
@@ -133,9 +147,31 @@ func TestRepositoryCreateAndListAuditLogs(t *testing.T) {
 	}
 }
 
+func TestRepositoryCreateAuditLogRejectsActorUserIDOutsideBigIntRange(t *testing.T) {
+	db := openTestDB(t)
+	repo, err := NewRepository(db, nil)
+	if err != nil {
+		t.Fatalf("new repository: %v", err)
+	}
+
+	overflow := uint64(math.MaxInt64) + 1
+	_, err = repo.CreateAuditLog(context.Background(), auditstore.CreateAuditLogInput{
+		ActorUserID: &overflow,
+		Action:      "audit.test",
+		Success:     true,
+		CreatedAt:   time.Now().UTC(),
+	})
+	if err == nil {
+		t.Fatalf("expected bigint range error")
+	}
+	if !strings.Contains(err.Error(), "exceeds bigint range") {
+		t.Fatalf("expected bigint range error, got %v", err)
+	}
+}
+
 func TestRepositoryListAuditLogsSupportsActionPrefix(t *testing.T) {
 	db := openTestDB(t)
-	repo, err := NewRepository(db)
+	repo, err := NewRepository(db, nil)
 	if err != nil {
 		t.Fatalf("new repository: %v", err)
 	}
@@ -202,7 +238,7 @@ func TestRepositoryListAuditLogsSupportsActionPrefix(t *testing.T) {
 
 func TestRepositoryListAuditLogsAppliesFilters(t *testing.T) {
 	db := openTestDB(t)
-	repo, err := NewRepository(db)
+	repo, err := NewRepository(db, nil)
 	if err != nil {
 		t.Fatalf("new repository: %v", err)
 	}
@@ -255,7 +291,7 @@ func TestRepositoryListAuditLogsAppliesFilters(t *testing.T) {
 
 func TestRepositoryListAuditLogsRejectsInvalidPagination(t *testing.T) {
 	db := openTestDB(t)
-	repo, err := NewRepository(db)
+	repo, err := NewRepository(db, nil)
 	if err != nil {
 		t.Fatalf("new repository: %v", err)
 	}
@@ -273,9 +309,160 @@ func TestRepositoryListAuditLogsRejectsInvalidPagination(t *testing.T) {
 	}
 }
 
+func TestRepositoryReadIncidentCorrelatesBoundedContext(t *testing.T) {
+	db := openTestDB(t)
+	base := time.Date(2026, 5, 29, 12, 0, 0, 0, time.UTC)
+	repo, err := NewRepository(db, stubMonitorIncidentEvidenceService{
+		resolved: pluginapi.ResolvedAuditIncidentMonitorEvidence{
+			Availability: pluginapi.MonitorEvidenceAvailable,
+			Summary:      "CPU pressure matched the bounded incident window.",
+			AnomalyKey:   "resource_cpu_pressure",
+			ScopeKind:    "resource",
+			ScopeRef:     "runtime.cpu",
+			ObservedAt:   timePointer(base.Add(4 * time.Minute)),
+			EvidenceLinks: []pluginapi.MonitorEvidenceLink{
+				{
+					TargetKind: "audit_context",
+					LinkState:  "available",
+					Title:      "Review related audit activity",
+					TimeWindow: &pluginapi.MonitorEvidenceLinkTimeWindow{
+						CreatedFrom: base.Add(-5 * time.Minute),
+						CreatedTo:   base.Add(4 * time.Minute),
+					},
+					AuditContext: &pluginapi.MonitorAuditEvidenceContext{
+						RequestID:    "req-incident",
+						ResourceType: "runtime",
+						CreatedFrom:  timePointer(base.Add(-5 * time.Minute)),
+						CreatedTo:    timePointer(base.Add(4 * time.Minute)),
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("new repository: %v", err)
+	}
+
+	ctx := context.Background()
+	actorID := uint64(7)
+	seed, err := repo.CreateAuditLog(ctx, auditstore.CreateAuditLogInput{
+		ActorUserID:      &actorID,
+		ActorUsername:    "alice",
+		ActorDisplayName: "Alice",
+		Action:           "auth.permission.denied",
+		ResourceType:     "role",
+		ResourceID:       "9",
+		ResourceName:     "ops-admin",
+		Success:          false,
+		RequestID:        "req-incident",
+		Message:          "common.forbidden",
+		Metadata:         json.RawMessage(`{"auditSource":"SECURITY_EVENT","status_code":403,"session_id":"sess-1","trace_id":"trace-1"}`),
+		CreatedAt:        base,
+	})
+	if err != nil {
+		t.Fatalf("create seed log: %v", err)
+	}
+
+	for _, item := range []auditstore.CreateAuditLogInput{
+		{
+			ActorUserID:      &actorID,
+			ActorUsername:    "alice",
+			ActorDisplayName: "Alice",
+			Action:           "rbac.role.delete",
+			ResourceType:     "role",
+			ResourceID:       "9",
+			ResourceName:     "ops-admin",
+			Success:          false,
+			RequestID:        "req-incident",
+			Message:          "delete denied",
+			Metadata:         json.RawMessage(`{"status_code":403,"session_id":"sess-1","trace_id":"trace-1"}`),
+			CreatedAt:        base.Add(2 * time.Minute),
+		},
+		{
+			Action:       "user.update",
+			ResourceType: "user",
+			ResourceID:   "20",
+			Success:      true,
+			RequestID:    "req-other",
+			Message:      "outside correlation",
+			Metadata:     json.RawMessage(`{"status_code":200}`),
+			CreatedAt:    base.Add(90 * time.Minute),
+		},
+	} {
+		if _, err := repo.CreateAuditLog(ctx, item); err != nil {
+			t.Fatalf("seed incident context log: %v", err)
+		}
+	}
+
+	incident, err := repo.ReadIncident(ctx, seed.ID)
+	if err != nil {
+		t.Fatalf("read incident: %v", err)
+	}
+	assertIncidentCorrelation(t, incident, seed.ID)
+}
+
+func assertIncidentCorrelation(t *testing.T, incident auditstore.AuditIncident, seedID uint64) {
+	t.Helper()
+
+	if incident.SeedEvent.ID != seedID {
+		t.Fatalf("expected seed event id %d, got %d", seedID, incident.SeedEvent.ID)
+	}
+	if incident.Incident.IncidentKey != "incident:req:req-incident" {
+		t.Fatalf("unexpected incident key %q", incident.Incident.IncidentKey)
+	}
+	if len(incident.RelatedEvents) != 2 {
+		t.Fatalf("expected two bounded related events, got %d", len(incident.RelatedEvents))
+	}
+	if len(incident.RelatedActors) != 1 || incident.RelatedActors[0].EventCount != 2 {
+		t.Fatalf("expected one correlated actor summary, got %#v", incident.RelatedActors)
+	}
+	if len(incident.RelatedResources) != 1 || incident.RelatedResources[0].ResourceID != "9" {
+		t.Fatalf("expected one correlated resource summary, got %#v", incident.RelatedResources)
+	}
+	if len(incident.RelatedRequests) != 1 || incident.RelatedRequests[0].RequestID != "req-incident" {
+		t.Fatalf("expected one correlated request summary, got %#v", incident.RelatedRequests)
+	}
+	if incident.MonitorContext.State != auditstore.MonitorContextStateAvailable {
+		t.Fatalf("expected monitor context to be available, got %#v", incident.MonitorContext)
+	}
+	if incident.MonitorContext.AnomalyKey != "resource_cpu_pressure" {
+		t.Fatalf("unexpected monitor anomaly key %#v", incident.MonitorContext)
+	}
+	if incident.MonitorContext.ObservedAt == nil {
+		t.Fatalf("expected observed_at to be attached, got %#v", incident.MonitorContext)
+	}
+}
+
+func TestBuildAuditTargetPromotesIncidentTargets(t *testing.T) {
+	record := auditstore.AuditLog{
+		ID:          42,
+		Source:      auditstore.AuditSourceSecurityEvent,
+		Action:      "auth.failed",
+		ResourceType: "AUTH",
+		ResourceID:  "console",
+		ResourceName: "Console",
+		Result:      auditstore.AuditResultFailed,
+		RiskLevel:   auditstore.AuditRiskLevelHigh,
+		TargetType:  "AUTH",
+		TargetLabel: "Console",
+	}
+
+	target := buildAuditTarget(record)
+
+	if target.Kind != "incident" {
+		t.Fatalf("expected incident target kind, got %#v", target)
+	}
+	if target.ID != "42" {
+		t.Fatalf("expected incident target id 42, got %#v", target)
+	}
+	if target.RouteRef != "/incidents/42" {
+		t.Fatalf("expected canonical incident route ref, got %#v", target)
+	}
+}
+
 func TestRepositoryReadAuditOverview(t *testing.T) {
 	db := openTestDB(t)
-	repo, err := NewRepository(db)
+	repo, err := NewRepository(db, nil)
 	if err != nil {
 		t.Fatalf("new repository: %v", err)
 	}
@@ -368,9 +555,13 @@ func assertOverviewSummary(t *testing.T, overview auditstore.AuditOverview) {
 	}
 }
 
+func timePointer(value time.Time) *time.Time {
+	return &value
+}
+
 func TestRepositoryListAuditPolicyRulesOrdersByPriority(t *testing.T) {
 	db := openTestDB(t)
-	repo, err := NewRepository(db)
+	repo, err := NewRepository(db, nil)
 	if err != nil {
 		t.Fatalf("new repository: %v", err)
 	}

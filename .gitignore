@@ -30,7 +30,8 @@ go.work.sum
 # Editor/IDE
 .idea/
 .idea
-.vscode/
+.vscode/*
+!.vscode/launch.json
 .run/
 .run
 # project

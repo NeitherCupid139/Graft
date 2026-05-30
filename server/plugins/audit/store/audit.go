@@ -4,7 +4,13 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
+)
+
+var (
+	// ErrIncidentNotFound indicates that the requested audit-owned incident seed does not exist.
+	ErrIncidentNotFound = errors.New("audit incident not found")
 )
 
 // AuditSource identifies where one audit candidate originated.
@@ -86,6 +92,7 @@ type AuditLog struct {
 	Metadata         json.RawMessage
 	Result           AuditResult
 	RiskLevel        AuditRiskLevel
+	Target           AuditTarget
 	TargetType       string
 	TargetLabel      string
 	TraceID          string
@@ -94,6 +101,15 @@ type AuditLog struct {
 	RequestPath      string
 	StatusCode       int
 	CreatedAt        time.Time
+}
+
+// AuditTarget is the canonical typed target exposed by audit read models.
+type AuditTarget struct {
+	Kind     string
+	Type     string
+	ID       string
+	Label    string
+	RouteRef string
 }
 
 // CreateAuditLogInput describes the minimum fields required to persist an audit record.
@@ -282,10 +298,123 @@ type AuditOverview struct {
 	SensitiveOps     []OverviewItem
 }
 
+// IncidentSeed identifies one stable audit-owned incident entrypoint.
+type IncidentSeed struct {
+	EventID uint64
+}
+
+// AuditIncidentSummary describes the aggregate incident computed from one seed event.
+type AuditIncidentSummary struct {
+	IncidentKey       string
+	Title             string
+	Summary           string
+	RiskLevel         AuditRiskLevel
+	StartedAt         time.Time
+	EndedAt           time.Time
+	CorrelationReason string
+}
+
+// AuditIncidentActor aggregates one related actor inside the bounded incident context.
+type AuditIncidentActor struct {
+	ActorUserID      *uint64
+	ActorUsername    string
+	ActorDisplayName string
+	EventCount       int
+}
+
+// AuditIncidentResource aggregates one related resource inside the bounded incident context.
+type AuditIncidentResource struct {
+	ResourceType string
+	ResourceID   string
+	ResourceName string
+	EventCount   int
+}
+
+// AuditIncidentRequest aggregates one related request inside the bounded incident context.
+type AuditIncidentRequest struct {
+	RequestID  string
+	EventCount int
+	StartedAt  time.Time
+	EndedAt    time.Time
+}
+
+// MonitorContextState records whether bounded monitor participation is available to the incident read model.
+type MonitorContextState string
+
+const (
+	// MonitorContextStateAvailable indicates monitor participation is attached and current.
+	MonitorContextStateAvailable MonitorContextState = "available"
+	// MonitorContextStatePartial indicates monitor participation is only partially available.
+	MonitorContextStatePartial MonitorContextState = "partial"
+	// MonitorContextStateUnavailable indicates the incident cannot attach monitor participation canonically.
+	MonitorContextStateUnavailable MonitorContextState = "unavailable"
+)
+
+// AuditIncidentMonitorContext returns the bounded monitor participation state attached to one incident.
+type AuditIncidentMonitorContext struct {
+	State         MonitorContextState
+	Summary       string
+	Reason        string
+	AnomalyKey    string
+	ScopeKind     string
+	ScopeRef      string
+	ObservedAt    *time.Time
+	EvidenceLinks []EvidenceLink
+}
+
+// EvidenceLinkTimeWindow keeps canonical bounded evidence timing for drilldown links.
+type EvidenceLinkTimeWindow struct {
+	CreatedFrom time.Time
+	CreatedTo   time.Time
+}
+
+// AuditEvidenceContext points consumers at canonical audit evidence filters.
+type AuditEvidenceContext struct {
+	Action       string
+	ActionPrefix string
+	Source       AuditSource
+	ResourceType string
+	ResourceID   string
+	ResourceName string
+	RequestID    string
+	Result       AuditResult
+	RiskLevel    AuditRiskLevel
+	CreatedFrom  *time.Time
+	CreatedTo    *time.Time
+}
+
+// IncidentSeedLink points at one stable audit incident seed event.
+type IncidentSeedLink struct {
+	EventID uint64
+}
+
+// EvidenceLink is the canonical cross-surface evidence link DTO reused by audit and monitor.
+type EvidenceLink struct {
+	TargetKind   string
+	LinkState    string
+	Title        string
+	Reason       string
+	TimeWindow   *EvidenceLinkTimeWindow
+	AuditContext *AuditEvidenceContext
+	IncidentSeed *IncidentSeedLink
+}
+
+// AuditIncident is the canonical incident drilldown payload owned by the audit plugin.
+type AuditIncident struct {
+	SeedEvent        AuditLog
+	Incident         AuditIncidentSummary
+	RelatedEvents    []AuditLog
+	RelatedActors    []AuditIncidentActor
+	RelatedResources []AuditIncidentResource
+	RelatedRequests  []AuditIncidentRequest
+	MonitorContext   AuditIncidentMonitorContext
+}
+
 // AuditRepository exposes the audit plugin's persistence contract.
 type AuditRepository interface {
 	CreateAuditLog(ctx context.Context, input CreateAuditLogInput) (AuditLog, error)
 	ListAuditLogs(ctx context.Context, query ListAuditLogsQuery) (ListAuditLogsResult, error)
 	ReadAuditOverview(ctx context.Context, window OverviewWindow) (AuditOverview, error)
+	ReadIncident(ctx context.Context, eventID uint64) (AuditIncident, error)
 	ListAuditPolicyRules(ctx context.Context) ([]AuditPolicyRule, error)
 }

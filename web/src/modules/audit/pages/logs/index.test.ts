@@ -80,6 +80,7 @@ vi.mock('../../components/AuditFilters.vue', () => ({
                 emit('update:modelValue', {
                   ...props.modelValue,
                   actor: 'route-admin',
+                  actorUserId: '7',
                   createdRange: ['2026-05-01T10:00:00Z', '2026-05-02T18:30:00Z'],
                   result: 'FAILED',
                 }),
@@ -111,9 +112,9 @@ vi.mock('../../components/AuditTable.vue', () => ({
 vi.mock('../../components/AuditDetailDrawer.vue', () => ({
   default: defineComponent({
     name: 'AuditDetailDrawerStub',
-    props: ['visible', 'record'],
+    props: ['visible', 'record', 'monitorOrigin'],
     setup(props) {
-      return () => h('div', [String(props.visible), props.record?.request_id]);
+      return () => h('div', [String(props.visible), props.record?.request_id, JSON.stringify(props.monitorOrigin)]);
     },
   }),
 }));
@@ -189,6 +190,7 @@ const i18n = createI18n({
           actions: {
             search: 'Search',
             reset: 'Reset',
+            backToMonitor: 'Back to monitor',
             showAdvanced: 'Advanced Filters',
             hideAdvanced: 'Hide Advanced',
           },
@@ -356,6 +358,42 @@ describe('AuditLogsPage', () => {
     expect(wrapper.text()).toContain('req-1');
   });
 
+  it('keeps monitor return context when syncing log filters', async () => {
+    const { replaceSpy, router, wrapper } = await mountPage({
+      preset: 'permission-denied',
+      monitorView: 'overview',
+      monitorTrendRange: '10m',
+      monitorAnomalyKey: 'resource_cpu_pressure',
+      monitorScopeRef: 'runtime:cpu',
+    });
+
+    auditApiMocks.getAuditLogs.mockClear();
+    replaceSpy.mockClear();
+
+    await wrapper.get('[data-testid="audit-route-sync"]').trigger('click');
+    await wrapper.get('[data-testid="audit-search"]').trigger('click');
+    await flushPromises();
+
+    expect(replaceSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: '/audit/logs',
+        query: expect.objectContaining({
+          monitorView: 'overview',
+          monitorTrendRange: '10m',
+          monitorAnomalyKey: 'resource_cpu_pressure',
+          monitorScopeRef: 'runtime:cpu',
+        }),
+      }),
+    );
+    expect(router.currentRoute.value.query).toMatchObject({
+      monitorView: 'overview',
+      monitorTrendRange: '10m',
+      monitorAnomalyKey: 'resource_cpu_pressure',
+      monitorScopeRef: 'runtime:cpu',
+    });
+    expect(wrapper.text()).toContain('"view":"overview"');
+  });
+
   it('applies quick preset from filters and refetches with unchanged query contract', async () => {
     const { wrapper } = await mountPage();
     auditApiMocks.getAuditLogs.mockClear();
@@ -385,6 +423,7 @@ describe('AuditLogsPage', () => {
         path: '/audit/logs',
         query: expect.objectContaining({
           actor: 'route-admin',
+          actorUserId: '7',
           createdFrom: '2026-05-01T10:00:00Z',
           createdTo: '2026-05-02T18:30:00Z',
           preset: 'permission-denied',
@@ -394,6 +433,7 @@ describe('AuditLogsPage', () => {
     );
     expect(router.currentRoute.value.query).toMatchObject({
       actor: 'route-admin',
+      actorUserId: '7',
       createdFrom: '2026-05-01T10:00:00Z',
       createdTo: '2026-05-02T18:30:00Z',
       preset: 'permission-denied',
