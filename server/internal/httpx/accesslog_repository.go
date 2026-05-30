@@ -374,9 +374,12 @@ func (r *accessLogRepository) placeholder(index int) string {
 }
 
 func normalizeCreateAccessLogInput(input CreateAccessLogInput) AccessLog {
+	requestID := strings.TrimSpace(input.RequestID)
+	traceID := normalizeAccessLogTraceID(strings.TrimSpace(input.TraceID), requestID)
+
 	return AccessLog{
-		RequestID:    strings.TrimSpace(input.RequestID),
-		TraceID:      strings.TrimSpace(input.TraceID),
+		RequestID:    requestID,
+		TraceID:      traceID,
 		Method:       strings.TrimSpace(input.Method),
 		Path:         sanitizeAccessLogPath(input.Path),
 		Route:        sanitizeAccessLogRoute(input.Route),
@@ -412,6 +415,13 @@ func normalizeAccessLogListQuery(query AccessLogListQuery) AccessLogListQuery {
 	query.SortBy = normalizeAccessLogSortField(query.SortBy)
 	query.SortOrder = normalizeAccessLogSortOrder(query.SortOrder)
 	return query
+}
+
+func normalizeAccessLogTraceID(traceID string, requestID string) string {
+	if traceID == "" || traceID == requestID {
+		return ""
+	}
+	return traceID
 }
 
 func normalizePositivePage(page int) int {
@@ -518,17 +528,12 @@ func (r *accessLogRepository) buildAccessLogWhereClause(query AccessLogListQuery
 	conditions := make([]string, 0, accessLogListClauseCapacity)
 	args := make([]any, 0, accessLogListClauseCapacity)
 
-	appendAccessLogFilter := func(condition string, value any) {
-		args = append(args, value)
-		conditions = append(conditions, condition+" "+r.placeholder(len(args)))
-	}
-
 	appendAccessLogEqualityFilter(&conditions, &args, r, "request_id =", query.RequestID)
-	appendAccessLogEqualityFilter(&conditions, &args, r, "trace_id =", query.TraceID)
+	appendAccessLogEqualityFilter(&conditions, &args, r, "request_id =", query.TraceID)
 	appendAccessLogOptionalUint64Filter(&conditions, &args, r, "user_id =", query.UserID)
 	appendAccessLogEqualityFilter(&conditions, &args, r, "username =", query.Username)
 	appendAccessLogEqualityFilter(&conditions, &args, r, "method =", query.Method)
-	appendAccessLogPathFilter(appendAccessLogFilter, query)
+	appendAccessLogPathFilter(&conditions, &args, r, query)
 	appendAccessLogEqualityFilter(&conditions, &args, r, "route =", query.Route)
 	appendAccessLogOptionalIntFilter(&conditions, &args, r, "status_code =", query.StatusCode)
 	appendAccessLogOptionalInt64Filter(&conditions, &args, r, "duration_ms >=", query.DurationMinMS)
@@ -614,16 +619,22 @@ func appendAccessLogOptionalTimeFilter(
 	*conditions = append(*conditions, operator+" "+repo.placeholder(len(*args)))
 }
 
-func appendAccessLogPathFilter(add func(string, any), query AccessLogListQuery) {
+func appendAccessLogPathFilter(
+	conditions *[]string,
+	args *[]any,
+	repo *accessLogRepository,
+	query AccessLogListQuery,
+) {
 	if query.Path == "" {
 		return
 	}
 
 	if query.PathMatchMode == AccessLogPathMatchPrefix {
-		add("path LIKE ESCAPE '\\\\'", escapeAccessLogLikePattern(query.Path)+"%")
+		*args = append(*args, escapeAccessLogLikePattern(query.Path)+"%")
+		*conditions = append(*conditions, "path LIKE "+repo.placeholder(len(*args))+" ESCAPE '\\'")
 		return
 	}
-	add("path =", query.Path)
+	appendAccessLogEqualityFilter(conditions, args, repo, "path =", query.Path)
 }
 
 func escapeAccessLogLikePattern(value string) string {
@@ -642,6 +653,7 @@ type accessLogScanner interface {
 func scanAccessLog(scanner accessLogScanner) (AccessLog, error) {
 	var (
 		id           int64
+		traceID      sql.NullString
 		route        sql.NullString
 		clientIP     sql.NullString
 		userAgent    sql.NullString
@@ -655,7 +667,7 @@ func scanAccessLog(scanner accessLogScanner) (AccessLog, error) {
 	if err := scanner.Scan(
 		&id,
 		&record.RequestID,
-		&record.TraceID,
+		&traceID,
 		&record.Method,
 		&record.Path,
 		&route,
@@ -674,6 +686,7 @@ func scanAccessLog(scanner accessLogScanner) (AccessLog, error) {
 	if id >= 0 {
 		record.ID = uint64(id)
 	}
+	record.TraceID = traceID.String
 	record.Route = route.String
 	record.ClientIP = clientIP.String
 	record.UserAgent = userAgent.String
