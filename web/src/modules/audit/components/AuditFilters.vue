@@ -34,11 +34,11 @@
           <t-tag
             v-for="tag in activeFilterTags"
             :key="tag.key"
-            closable
+            :closable="!isLocked(tag.key)"
             max-width="240"
             theme="primary"
             variant="light-outline"
-            @close="tag.key === 'sorter' ? clearSorter() : clearField(tag.key)"
+            @close="isLocked(tag.key) ? undefined : tag.key === 'sorter' ? clearSorter() : clearField(tag.key)"
           >
             {{ tag.label }}
           </t-tag>
@@ -184,6 +184,7 @@ type FilterTag = { key: AuditFilterKey; label: string };
 
 const props = defineProps<{
   activePreset: AuditQuickPresetKey;
+  lockedFields?: AuditFilterKey[];
   loading?: boolean;
   modelValue: AuditClientFilterState;
   presets: { key: AuditQuickPresetKey; title: string }[];
@@ -381,8 +382,8 @@ const sortDirectionValue = computed(() => activeSorterSelection.value.direction)
 const availableDefinitions = computed(() =>
   definitions.value.filter(
     (definition) =>
-      !isFieldActive(definition.key) ||
-      definition.key === selectedDefinitionKey.value ||
+      (!isLocked(definition.key) && !isFieldActive(definition.key)) ||
+      (!isLocked(definition.key) && definition.key === selectedDefinitionKey.value) ||
       activeFilterTags.value.some((tag) => tag.key === definition.key),
   ),
 );
@@ -411,6 +412,9 @@ const dateRangePlaceholder = computed(() => [
 ]);
 
 function updateField<Key extends keyof AuditClientFilterState>(key: Key, value: AuditClientFilterState[Key]) {
+  if (isLocked(key as AuditFilterKey)) {
+    return;
+  }
   emit('update:modelValue', {
     ...props.modelValue,
     [key]: value,
@@ -418,7 +422,17 @@ function updateField<Key extends keyof AuditClientFilterState>(key: Key, value: 
 }
 
 function selectDefinition(key: AuditFilterKey) {
+  if (isLocked(key)) {
+    return;
+  }
   selectedDefinitionKey.value = key;
+}
+
+function isLocked(key: AuditFilterKey | 'sorter') {
+  if (key === 'sorter') {
+    return false;
+  }
+  return props.lockedFields?.includes(key) ?? false;
 }
 
 function isFieldActive(key: AuditFilterKey) {
@@ -476,6 +490,9 @@ function optionLabel(options: AuditFilterOption[], value: string) {
 }
 
 function clearField(key: AuditFilterKey) {
+  if (isLocked(key)) {
+    return;
+  }
   if (key === 'result') {
     updateField(key, 'all' as AuditClientFilterState[typeof key]);
     return;

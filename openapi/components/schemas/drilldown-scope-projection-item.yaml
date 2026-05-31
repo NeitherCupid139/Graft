@@ -1,0 +1,19 @@
+type: object
+required:
+  - key
+  - label
+  - kind
+  - locked
+properties:
+  key:
+    type: string
+  label:
+    type: string
+  kind:
+    type: string
+  values:
+    type: array
+    items:
+      type: string
+  locked:
+    type: boolean

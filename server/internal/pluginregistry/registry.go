@@ -18,6 +18,7 @@ const DefaultMigrationDir = "default"
 const HistoricalSharedMigrationDir = "internal/ent/migrate/migrations"
 
 const accessLogMigrationDir = "internal/httpx/migrations"
+const drilldownMigrationDir = "internal/drilldown/migrations"
 
 // Descriptors 返回 compile-time 生成的插件描述符快照。
 func Descriptors() []plugin.Descriptor {
@@ -51,7 +52,7 @@ func BuildPlugins(buildCtx plugin.BuildContext) ([]plugin.Plugin, error) {
 
 // CoreMigrationDirs 返回当前默认链路中的 core-owned live 迁移目录集合。
 func CoreMigrationDirs() []string {
-	return []string{accessLogMigrationDir}
+	return []string{accessLogMigrationDir, drilldownMigrationDir}
 }
 
 // MigrationDirs 返回当前 compile-time registry 声明的默认迁移目录集合。

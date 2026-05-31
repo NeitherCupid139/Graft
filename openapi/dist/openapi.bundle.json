@@ -4276,6 +4276,22 @@
             }
           },
           {
+            "name": "keyword",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "actor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "action",
             "in": "query",
             "required": false,
@@ -4297,28 +4313,12 @@
             }
           },
           {
-            "name": "summary",
+            "name": "scope",
             "in": "query",
             "required": false,
+            "description": "Stable business drilldown scope. When present, scope-owned fields remain read-only until the client exits drilldown or converts to normal filters.",
             "schema": {
-              "type": "string",
-              "enum": [
-                "sensitive-operations",
-                "failed-operations"
-              ]
-            }
-          },
-          {
-            "name": "risk_group",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "high_risk_operations",
-                "auth_failures",
-                "permission_denials"
-              ]
+              "type": "string"
             }
           },
           {
@@ -4420,6 +4420,14 @@
           },
           {
             "name": "request_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "session_id",
             "in": "query",
             "required": false,
             "schema": {
@@ -4564,7 +4572,7 @@
             }
           },
           "400": {
-            "description": "Invalid list filter or pagination query.",
+            "description": "Invalid list filter, scope conflict, disabled scope, or pagination query.",
             "headers": {
               "X-Request-Id": {
                 "$ref": "#/components/headers/request-id"
@@ -6613,6 +6621,155 @@
           }
         }
       },
+      "applied-drilldown-scope": {
+        "type": "object",
+        "required": [
+          "module",
+          "scope",
+          "name"
+        ],
+        "properties": {
+          "module": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "owned_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "drilldown-scope-projection-item": {
+        "type": "object",
+        "required": [
+          "key",
+          "label",
+          "kind",
+          "locked"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "locked": {
+            "type": "boolean"
+          }
+        }
+      },
+      "drilldown-scope-projection": {
+        "type": "object",
+        "required": [
+          "title"
+        ],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/drilldown-scope-projection-item"
+            }
+          }
+        }
+      },
+      "audit-log-convertible-filters": {
+        "type": "object",
+        "properties": {
+          "preset": {
+            "type": "string",
+            "enum": [
+              "last_24h",
+              "last_7d",
+              "last_30d"
+            ]
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "REQUEST",
+              "SECURITY_EVENT",
+              "DOMAIN_EVENT"
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          },
+          "action_prefixes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "action_keywords": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "resource_types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "request_path_prefixes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "SUCCESS",
+                "FAILED",
+                "DENIED",
+                "ERROR"
+              ]
+            }
+          },
+          "risk_levels": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "LOW",
+                "MEDIUM",
+                "HIGH",
+                "CRITICAL"
+              ]
+            }
+          }
+        }
+      },
       "audit-log-list-response": {
         "type": "object",
         "required": [
@@ -6636,6 +6793,15 @@
           },
           "page_size": {
             "type": "integer"
+          },
+          "applied_scope": {
+            "$ref": "#/components/schemas/applied-drilldown-scope"
+          },
+          "scope_projection": {
+            "$ref": "#/components/schemas/drilldown-scope-projection"
+          },
+          "convertible_filters": {
+            "$ref": "#/components/schemas/audit-log-convertible-filters"
           }
         }
       },

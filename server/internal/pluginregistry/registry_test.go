@@ -18,6 +18,7 @@ func TestMigrationDirsUsesOwnerAlignedBaseline(t *testing.T) {
 
 	expected := []string{
 		"internal/httpx/migrations",
+		"internal/drilldown/migrations",
 		"plugins/user/migrations",
 		"plugins/auth/migrations",
 		"plugins/rbac/migrations",

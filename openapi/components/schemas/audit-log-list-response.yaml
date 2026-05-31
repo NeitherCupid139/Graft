@@ -15,3 +15,9 @@ properties:
     type: integer
   page_size:
     type: integer
+  applied_scope:
+    $ref: ./applied-drilldown-scope.yaml
+  scope_projection:
+    $ref: ./drilldown-scope-projection.yaml
+  convertible_filters:
+    $ref: ./audit-log-convertible-filters.yaml

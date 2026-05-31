@@ -311,6 +311,15 @@
         "showAdvanced": "Advanced Filters",
         "hideAdvanced": "Hide Advanced"
       },
+      "scope": {
+        "eyebrow": "Business drilldown",
+        "lockedTag": "Scope mode",
+        "readonlyTag": "Readonly",
+        "projectionTitle": "Scope conditions",
+        "hint": "Scope-owned conditions are display-only. Exit business drilldown to remove them, or convert to normal filters before editing them.",
+        "exitAction": "Exit business drilldown",
+        "convertAction": "Convert to normal filters"
+      },
       "builder": {
         "title": "Filter fields",
         "hint": "Choose a field and set its value. Active conditions appear as removable tags.",

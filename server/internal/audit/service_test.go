@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"graft/server/internal/drilldown"
 	auditstore "graft/server/plugins/audit/store"
 )
 
@@ -217,6 +218,124 @@ func TestServiceListPreservesExplicitPreset(t *testing.T) {
 
 	if repo.listQuery.TimePreset != auditstore.AuditTimePresetLast24Hours {
 		t.Fatalf("expected explicit preset to be preserved, got %q", repo.listQuery.TimePreset)
+	}
+}
+
+type stubDrilldownRepo struct {
+	metadata drilldown.ScopeMetadata
+	err      error
+}
+
+func (r stubDrilldownRepo) GetScope(context.Context, string, string) (drilldown.ScopeMetadata, error) {
+	if r.err != nil {
+		return drilldown.ScopeMetadata{}, r.err
+	}
+	return r.metadata, nil
+}
+
+type stubListQueryResolver struct {
+	resolved drilldown.ResolvedScope[ListQuery]
+	err      error
+}
+
+func (r stubListQueryResolver) Resolve(
+	context.Context,
+	drilldown.ScopeMetadata,
+	ListQuery,
+) (drilldown.ResolvedScope[ListQuery], error) {
+	if r.err != nil {
+		return drilldown.ResolvedScope[ListQuery]{}, r.err
+	}
+	return r.resolved, nil
+}
+
+func TestServiceListResolvesScopeAndExposesMetadata(t *testing.T) {
+	repo := &stubAuditRepository{listResult: auditstore.ListAuditLogsResult{Total: 15}}
+	drilldownService, err := drilldown.NewService[ListQuery, ListQuery](
+		stubDrilldownRepo{metadata: drilldown.ScopeMetadata{
+			Module:       "audit",
+			Scope:        "sensitive_operations",
+			Name:         "敏感操作",
+			TargetType:   "log_query",
+			TargetModule: "audit",
+			TargetPage:   "audit_logs",
+			Enabled:      true,
+		}},
+		stubListQueryResolver{resolved: drilldown.ResolvedScope[ListQuery]{
+			Applied: drilldown.AppliedScope{
+				Module:      "audit",
+				Scope:       "sensitive_operations",
+				Name:        "敏感操作",
+				OwnedFields: []string{"action_keywords"},
+			},
+			Projection: drilldown.ScopeProjection{
+				Title: "敏感操作",
+			},
+			ConvertibleFilters: drilldown.ConvertibleFilters{
+				ActionKeywords: []string{"delete", "reset"},
+			},
+			QueryPatch: ListQuery{
+				ActionKeywords: []string{"delete", "reset"},
+			},
+		}},
+	)
+	if err != nil {
+		t.Fatalf("new drilldown service: %v", err)
+	}
+
+	service, err := NewServiceWithDrilldown(repo, drilldownService)
+	if err != nil {
+		t.Fatalf("new service with drilldown: %v", err)
+	}
+
+	result, err := service.List(context.Background(), ListQuery{
+		Scope:      "sensitive_operations",
+		TimePreset: auditstore.AuditTimePresetLast24Hours,
+	})
+	if err != nil {
+		t.Fatalf("list audit logs with scope: %v", err)
+	}
+
+	if repo.listQuery.ActionKeywords == nil || len(repo.listQuery.ActionKeywords) != 2 {
+		t.Fatalf("expected resolved action keywords, got %#v", repo.listQuery.ActionKeywords)
+	}
+	if result.AppliedScope == nil || result.AppliedScope.Scope != "sensitive_operations" {
+		t.Fatalf("expected applied scope metadata, got %#v", result.AppliedScope)
+	}
+	if result.ScopeProjection == nil || result.ScopeProjection.Title != "敏感操作" {
+		t.Fatalf("expected scope projection, got %#v", result.ScopeProjection)
+	}
+	if result.ConvertibleFilters == nil || len(result.ConvertibleFilters.ActionKeywords) != 2 {
+		t.Fatalf("expected convertible filters, got %#v", result.ConvertibleFilters)
+	}
+}
+
+func TestServiceListRejectsScopeConflict(t *testing.T) {
+	repo := &stubAuditRepository{}
+	drilldownService, err := drilldown.NewService[ListQuery, ListQuery](
+		stubDrilldownRepo{metadata: drilldown.ScopeMetadata{
+			Module:       "audit",
+			Scope:        "sensitive_operations",
+			Name:         "敏感操作",
+			TargetType:   "log_query",
+			TargetModule: "audit",
+			TargetPage:   "audit_logs",
+			Enabled:      true,
+		}},
+		stubListQueryResolver{err: drilldown.ErrScopeConflict},
+	)
+	if err != nil {
+		t.Fatalf("new drilldown service: %v", err)
+	}
+
+	service, err := NewServiceWithDrilldown(repo, drilldownService)
+	if err != nil {
+		t.Fatalf("new service with drilldown: %v", err)
+	}
+
+	_, err = service.List(context.Background(), ListQuery{Scope: "sensitive_operations"})
+	if !errors.Is(err, drilldown.ErrScopeConflict) {
+		t.Fatalf("expected scope conflict, got %v", err)
 	}
 }
 

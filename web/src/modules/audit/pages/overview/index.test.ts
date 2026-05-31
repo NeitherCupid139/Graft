@@ -1,5 +1,5 @@
 import { flushPromises, mount } from '@vue/test-utils';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineComponent, h } from 'vue';
 import { createI18n } from 'vue-i18n';
 
@@ -7,77 +7,13 @@ import { AUDIT_ROUTE_PATH } from '../../contract/paths';
 import type { AuditOverviewResponse } from '../../types/audit';
 import AuditOverviewPage from './index.vue';
 
-const routerMocks = vi.hoisted(() => ({
-  push: vi.fn(),
+const { getAuditOverviewMock } = vi.hoisted(() => ({
+  getAuditOverviewMock: vi.fn(),
 }));
 
-const auditApiMocks = vi.hoisted(() => ({
-  getAuditOverview: vi.fn(
-    async (): Promise<AuditOverviewResponse> => ({
-      time_preset: 'last_24h',
-      summary: {
-        total_logs: 12,
-        failed_operations: 3,
-        high_risk_events: 5,
-        sensitive_operations: 4,
-      },
-      failed_auth: [
-        {
-          id: 1,
-          actor_display_name: 'ops-admin',
-          action: 'POST /api/auth/login',
-          success: false,
-          request_id: 'req-1',
-          message: '',
-          metadata: { request_path: '/api/auth/login' },
-          created_at: '2026-05-27T08:00:00Z',
-        },
-      ],
-      permission_denied: [
-        {
-          id: 2,
-          actor_display_name: 'viewer-01',
-          action: 'rbac.role.delete',
-          success: false,
-          request_id: 'req-2',
-          message: 'common.forbidden',
-          metadata: { request_path: '/api/roles/1/delete' },
-          created_at: '2026-05-27T08:05:00Z',
-        },
-      ],
-      security_timeline: [
-        {
-          id: 11,
-          incident_seed: { event_id: 42 },
-          created_at: '2026-05-27T08:12:00Z',
-          source: 'SECURITY_EVENT',
-          risk_level: 'HIGH',
-          action: 'auth.failed',
-          result: 'FAILED',
-          request_id: 'req-incident-42',
-          resource_name: 'console',
-        },
-      ],
-      risk_groups: [],
-      trend: { bucket_unit: 'hour', bucket_size: 1, points: [] },
-      sensitive_operations: [
-        {
-          id: 3,
-          actor_display_name: 'security-lead',
-          resource_name: 'alice',
-          resource_type: 'user',
-          resource_id: '42',
-          action: 'user.password.reset',
-          success: true,
-          request_id: 'req-3',
-          message: '',
-          metadata: { request_path: '/api/users/42/reset-password' },
-          created_at: '2026-05-27T08:10:00Z',
-        },
-      ],
-    }),
-  ),
-}));
+const routerMocks = {
+  push: vi.fn(),
+};
 
 function createTrendPoint(
   bucketStart: string,
@@ -97,8 +33,74 @@ function createTrendPoint(
   };
 }
 
+function createAuditOverviewResponse(): AuditOverviewResponse {
+  return {
+    time_preset: 'last_24h',
+    summary: {
+      total_logs: 12,
+      failed_operations: 3,
+      high_risk_events: 5,
+      sensitive_operations: 4,
+    },
+    failed_auth: [
+      {
+        id: 1,
+        actor_display_name: 'ops-admin',
+        action: 'POST /api/auth/login',
+        success: false,
+        request_id: 'req-1',
+        message: '',
+        metadata: { request_path: '/api/auth/login' },
+        created_at: '2026-05-27T08:00:00Z',
+      },
+    ],
+    permission_denied: [
+      {
+        id: 2,
+        actor_display_name: 'viewer-01',
+        action: 'rbac.role.delete',
+        success: false,
+        request_id: 'req-2',
+        message: 'common.forbidden',
+        metadata: { request_path: '/api/roles/1/delete' },
+        created_at: '2026-05-27T08:05:00Z',
+      },
+    ],
+    security_timeline: [
+      {
+        id: 11,
+        incident_seed: { event_id: 42 },
+        created_at: '2026-05-27T08:12:00Z',
+        source: 'SECURITY_EVENT',
+        risk_level: 'HIGH',
+        action: 'auth.failed',
+        result: 'FAILED',
+        request_id: 'req-incident-42',
+        resource_name: 'console',
+      },
+    ],
+    risk_groups: [],
+    trend: { bucket_unit: 'hour', bucket_size: 1, points: [] },
+    sensitive_operations: [
+      {
+        id: 3,
+        actor_display_name: 'security-lead',
+        resource_name: 'alice',
+        resource_type: 'user',
+        resource_id: '42',
+        action: 'user.password.reset',
+        success: true,
+        request_id: 'req-3',
+        message: '',
+        metadata: { request_path: '/api/users/42/reset-password' },
+        created_at: '2026-05-27T08:10:00Z',
+      },
+    ],
+  };
+}
+
 vi.mock('../../api/audit', () => ({
-  getAuditOverview: auditApiMocks.getAuditOverview,
+  getAuditOverview: getAuditOverviewMock,
 }));
 
 vi.mock('@/modules/shared/localized-api-error', () => ({
@@ -135,6 +137,38 @@ const passthroughStub = defineComponent({
   },
 });
 
+const shellStub = defineComponent({
+  name: 'GovernanceDashboardShellStub',
+  props: ['eyebrow', 'title', 'description'],
+  setup(props, { slots }) {
+    return () =>
+      h('div', { 'data-page-type': 'overview-dashboard' }, [
+        props.eyebrow,
+        props.title,
+        props.description,
+        slots.actions?.(),
+        slots.summary?.(),
+        slots.default?.(),
+      ]);
+  },
+});
+
+const sectionStub = defineComponent({
+  name: 'GovernanceSectionStub',
+  props: ['title'],
+  setup(props, { slots }) {
+    return () => h('section', [props.title, slots.default?.()]);
+  },
+});
+
+const summaryCardStub = defineComponent({
+  name: 'GovernanceSummaryCardStub',
+  props: ['title', 'value', 'valueAside'],
+  setup(props) {
+    return () => h('div', [props.title, props.value, props.valueAside]);
+  },
+});
+
 const buttonStub = defineComponent({
   name: 'TButtonStub',
   emits: ['click'],
@@ -158,10 +192,39 @@ const radioButtonStub = defineComponent({
   },
 });
 
+const spaceStub = defineComponent({
+  name: 'TSpaceStub',
+  setup(_, { slots }) {
+    return () => h('div', slots.default?.());
+  },
+});
+
 const tagStub = defineComponent({
   name: 'TTagStub',
   setup(_, { slots }) {
     return () => h('span', slots.default?.());
+  },
+});
+
+const tooltipStub = defineComponent({
+  name: 'TTooltipStub',
+  setup(_, { slots }) {
+    return () => h('div', [slots.content?.(), slots.default?.()]);
+  },
+});
+
+const timelineStub = defineComponent({
+  name: 'TTimelineStub',
+  setup(_, { slots }) {
+    return () => h('div', slots.default?.());
+  },
+});
+
+const timelineItemStub = defineComponent({
+  name: 'TTimelineItemStub',
+  props: ['label', 'dotColor'],
+  setup(props, { slots }) {
+    return () => h('div', [props.label, props.dotColor, slots.default?.()]);
   },
 });
 
@@ -252,30 +315,41 @@ const i18n = createI18n({
   },
 });
 
-describe('AuditOverviewPage', () => {
-  it('renders the streamlined workbench overview and opens a quick link with canonical filter keys', async () => {
-    const wrapper = mount(AuditOverviewPage, {
-      global: {
-        plugins: [i18n],
-        stubs: {
-          'governance-dashboard-shell': passthroughStub,
-          'governance-section': passthroughStub,
-          'governance-summary-card': passthroughStub,
-          'management-empty-state': passthroughStub,
-          't-button': buttonStub,
-          't-radio-group': radioGroupStub,
-          't-radio-button': radioButtonStub,
-          't-space': passthroughStub,
-          't-tag': tagStub,
-          't-timeline': passthroughStub,
-          't-timeline-item': passthroughStub,
-        },
+function mountOverview() {
+  return mount(AuditOverviewPage, {
+    global: {
+      plugins: [i18n],
+      stubs: {
+        'governance-dashboard-shell': shellStub,
+        'governance-section': sectionStub,
+        'governance-summary-card': summaryCardStub,
+        'management-empty-state': passthroughStub,
+        't-button': buttonStub,
+        't-radio-group': radioGroupStub,
+        't-radio-button': radioButtonStub,
+        't-space': spaceStub,
+        't-tag': tagStub,
+        't-tooltip': tooltipStub,
+        't-timeline': timelineStub,
+        't-timeline-item': timelineItemStub,
       },
-    });
+    },
+  });
+}
+
+describe('AuditOverviewPage', () => {
+  beforeEach(() => {
+    getAuditOverviewMock.mockReset();
+    getAuditOverviewMock.mockResolvedValue(createAuditOverviewResponse());
+    routerMocks.push.mockReset();
+  });
+
+  it('renders the streamlined workbench overview and opens a quick link with canonical filter keys', async () => {
+    const wrapper = mountOverview();
 
     await flushPromises();
 
-    expect(auditApiMocks.getAuditOverview).toHaveBeenCalledWith({ preset: 'last_24h' });
+    expect(getAuditOverviewMock).toHaveBeenCalledWith({ preset: 'last_24h' });
     expect(wrapper.attributes('data-page-type')).toBe('overview-dashboard');
     expect(wrapper.text()).toContain('Security Audit Overview');
     expect(wrapper.text()).toContain('excluding health checks, monitor polling, and page-load noise');
@@ -304,24 +378,7 @@ describe('AuditOverviewPage', () => {
   it('opens the failed summary card with explicit failed-operation filters', async () => {
     routerMocks.push.mockClear();
 
-    const wrapper = mount(AuditOverviewPage, {
-      global: {
-        plugins: [i18n],
-        stubs: {
-          'governance-dashboard-shell': passthroughStub,
-          'governance-section': passthroughStub,
-          'governance-summary-card': passthroughStub,
-          'management-empty-state': passthroughStub,
-          't-button': buttonStub,
-          't-radio-group': radioGroupStub,
-          't-radio-button': radioButtonStub,
-          't-space': passthroughStub,
-          't-tag': tagStub,
-          't-timeline': passthroughStub,
-          't-timeline-item': passthroughStub,
-        },
-      },
-    });
+    const wrapper = mountOverview();
 
     await flushPromises();
 
@@ -340,24 +397,7 @@ describe('AuditOverviewPage', () => {
   it('opens the high-risk summary card with canonical summary query params', async () => {
     routerMocks.push.mockClear();
 
-    const wrapper = mount(AuditOverviewPage, {
-      global: {
-        plugins: [i18n],
-        stubs: {
-          'governance-dashboard-shell': passthroughStub,
-          'governance-section': passthroughStub,
-          'governance-summary-card': passthroughStub,
-          'management-empty-state': passthroughStub,
-          't-button': buttonStub,
-          't-radio-group': radioGroupStub,
-          't-radio-button': radioButtonStub,
-          't-space': passthroughStub,
-          't-tag': tagStub,
-          't-timeline': passthroughStub,
-          't-timeline-item': passthroughStub,
-        },
-      },
-    });
+    const wrapper = mountOverview();
 
     await flushPromises();
 
@@ -375,7 +415,7 @@ describe('AuditOverviewPage', () => {
 
   it('opens risk groups with canonical visible audit filters', async () => {
     routerMocks.push.mockClear();
-    auditApiMocks.getAuditOverview.mockResolvedValueOnce({
+    getAuditOverviewMock.mockResolvedValueOnce({
       time_preset: 'last_24h',
       summary: {
         total_logs: 12,
@@ -398,24 +438,7 @@ describe('AuditOverviewPage', () => {
       sensitive_operations: [],
     });
 
-    const wrapper = mount(AuditOverviewPage, {
-      global: {
-        plugins: [i18n],
-        stubs: {
-          'governance-dashboard-shell': passthroughStub,
-          'governance-section': passthroughStub,
-          'governance-summary-card': passthroughStub,
-          'management-empty-state': passthroughStub,
-          't-button': buttonStub,
-          't-radio-group': radioGroupStub,
-          't-radio-button': radioButtonStub,
-          't-space': passthroughStub,
-          't-tag': tagStub,
-          't-timeline': passthroughStub,
-          't-timeline-item': passthroughStub,
-        },
-      },
-    });
+    const wrapper = mountOverview();
 
     await flushPromises();
 
@@ -437,24 +460,7 @@ describe('AuditOverviewPage', () => {
   it('opens sensitive summary with the same keyword scope used by overview counters', async () => {
     routerMocks.push.mockClear();
 
-    const wrapper = mount(AuditOverviewPage, {
-      global: {
-        plugins: [i18n],
-        stubs: {
-          'governance-dashboard-shell': passthroughStub,
-          'governance-section': passthroughStub,
-          'governance-summary-card': passthroughStub,
-          'management-empty-state': passthroughStub,
-          't-button': buttonStub,
-          't-radio-group': radioGroupStub,
-          't-radio-button': radioButtonStub,
-          't-space': passthroughStub,
-          't-tag': tagStub,
-          't-timeline': passthroughStub,
-          't-timeline-item': passthroughStub,
-        },
-      },
-    });
+    const wrapper = mountOverview();
 
     await flushPromises();
 
@@ -463,7 +469,7 @@ describe('AuditOverviewPage', () => {
     expect(routerMocks.push).toHaveBeenCalledWith({
       path: AUDIT_ROUTE_PATH.LOGS,
       query: expect.objectContaining({
-        action_keywords: 'delete,reset,grant,assign,revoke,remove,replace',
+        scope: 'sensitive_operations',
         created_from: expect.any(String),
         created_to: expect.any(String),
       }),
@@ -471,29 +477,12 @@ describe('AuditOverviewPage', () => {
   });
 
   it('uses the updated overview stat labels', async () => {
-    const wrapper = mount(AuditOverviewPage, {
-      global: {
-        plugins: [i18n],
-        stubs: {
-          'governance-dashboard-shell': passthroughStub,
-          'governance-section': passthroughStub,
-          'governance-summary-card': passthroughStub,
-          'management-empty-state': passthroughStub,
-          't-button': buttonStub,
-          't-radio-group': radioGroupStub,
-          't-radio-button': radioButtonStub,
-          't-space': passthroughStub,
-          't-tag': tagStub,
-          't-timeline': passthroughStub,
-          't-timeline-item': passthroughStub,
-        },
-      },
-    });
+    const wrapper = mountOverview();
 
     await flushPromises();
 
     const summaryCards = wrapper
-      .findAllComponents({ name: 'PassthroughStub' })
+      .findAllComponents({ name: 'GovernanceSummaryCardStub' })
       .map((item) => item.props('title'))
       .filter((value) => typeof value === 'string');
 
@@ -528,27 +517,9 @@ describe('AuditOverviewPage', () => {
       sensitive_operations: [],
     };
 
-    auditApiMocks.getAuditOverview.mockResolvedValueOnce(overviewWithTrend);
+    getAuditOverviewMock.mockResolvedValueOnce(overviewWithTrend);
 
-    const wrapper = mount(AuditOverviewPage, {
-      global: {
-        plugins: [i18n],
-        stubs: {
-          'governance-dashboard-shell': passthroughStub,
-          'governance-section': passthroughStub,
-          'governance-summary-card': passthroughStub,
-          'management-empty-state': passthroughStub,
-          't-button': buttonStub,
-          't-radio-group': radioGroupStub,
-          't-radio-button': radioButtonStub,
-          't-space': passthroughStub,
-          't-tag': tagStub,
-          't-timeline': passthroughStub,
-          't-timeline-item': passthroughStub,
-          't-tooltip': passthroughStub,
-        },
-      },
-    });
+    const wrapper = mountOverview();
 
     await flushPromises();
 
@@ -562,24 +533,7 @@ describe('AuditOverviewPage', () => {
   });
 
   it('navigates security timeline items with the current request CTA-only interaction', async () => {
-    const wrapper = mount(AuditOverviewPage, {
-      global: {
-        plugins: [i18n],
-        stubs: {
-          'governance-dashboard-shell': passthroughStub,
-          'governance-section': passthroughStub,
-          'governance-summary-card': passthroughStub,
-          'management-empty-state': passthroughStub,
-          't-button': buttonStub,
-          't-radio-group': radioGroupStub,
-          't-radio-button': radioButtonStub,
-          't-space': passthroughStub,
-          't-tag': tagStub,
-          't-timeline': passthroughStub,
-          't-timeline-item': passthroughStub,
-        },
-      },
-    });
+    const wrapper = mountOverview();
 
     await flushPromises();
 

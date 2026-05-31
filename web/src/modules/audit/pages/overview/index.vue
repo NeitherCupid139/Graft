@@ -238,6 +238,7 @@ import { useRouter } from 'vue-router';
 
 import { buildAccessLogRequestLocation } from '@/modules/access-log/contract/deep-link';
 import { buildAuditLogsLocation } from '@/modules/audit/contract/deep-link';
+import { AUDIT_DRILLDOWN_SCOPE } from '@/modules/audit/contract/presets';
 import { AUDIT_TIME_PRESET, type AuditTimePreset } from '@/modules/audit/contract/time-presets';
 import { openCorrelationErrorNotification, requestIdFromError } from '@/modules/audit/shared/correlation-actions';
 import { resolveLocalizedErrorMessage } from '@/modules/shared/localized-api-error';
@@ -385,7 +386,7 @@ const shortcuts = computed(() => [
     title: t('audit.overview.shortcuts.sensitiveOps.title'),
     description: t('audit.overview.shortcuts.sensitiveOps.description'),
     query: buildOverviewAuditQuery({
-      action_keywords: 'delete,reset,grant,assign,revoke,remove,replace',
+      scope: AUDIT_DRILLDOWN_SCOPE.SENSITIVE_OPERATIONS,
     }),
   },
 ]);
@@ -416,7 +417,7 @@ function openSummary(key: string) {
       void router.push(
         buildAuditLogsLocation(
           buildOverviewAuditQuery({
-            action_keywords: 'delete,reset,grant,assign,revoke,remove,replace',
+            scope: AUDIT_DRILLDOWN_SCOPE.SENSITIVE_OPERATIONS,
           }),
         ),
       );

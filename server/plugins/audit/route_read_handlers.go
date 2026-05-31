@@ -15,6 +15,7 @@ import (
 	httpheader "graft/server/internal/contract/httpheader"
 	messagecontract "graft/server/internal/contract/message"
 	auditopenapi "graft/server/internal/contract/openapi/audit"
+	"graft/server/internal/drilldown"
 	"graft/server/internal/httpx"
 	"graft/server/internal/plugin"
 	auditcontract "graft/server/plugins/audit/contract"
@@ -57,6 +58,15 @@ func handleListAuditLogs(
 
 		result, err := reader.List(ginCtx, query)
 		if err != nil {
+			if errors.Is(err, drilldown.ErrScopeNotFound) ||
+				errors.Is(err, drilldown.ErrScopeDisabled) ||
+				errors.Is(err, drilldown.ErrTargetMismatch) ||
+				errors.Is(err, drilldown.ErrScopeConflict) {
+				httpx.AbortLocalizedError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument.String(), map[string]any{
+					"field": "scope",
+				})
+				return
+			}
 			logger.Error("list audit logs failed",
 				zap.String("plugin", pluginName),
 				zap.Error(err),
@@ -200,7 +210,7 @@ func bindGeneratedAuditListParams(
 	if field := bindAuditPreset(ginCtx, &params, &query); field != "" {
 		return params, query, field
 	}
-	if field := rejectLegacyAuditScope(ginCtx); field != "" {
+	if field := bindAuditScope(ginCtx, &params, &query); field != "" {
 		return params, query, field
 	}
 	bindAuditStringFilters(ginCtx, &params, &query)
@@ -282,9 +292,10 @@ func bindAuditPreset(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParam
 	return ""
 }
 
-func rejectLegacyAuditScope(ginCtx *gin.Context) string {
-	if strings.TrimSpace(ginCtx.Query("scope")) != "" {
-		return "scope"
+func bindAuditScope(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParams, query *auditcore.ListQuery) string {
+	if raw := strings.TrimSpace(ginCtx.Query("scope")); raw != "" {
+		params.Scope = &raw
+		query.Scope = raw
 	}
 	return ""
 }

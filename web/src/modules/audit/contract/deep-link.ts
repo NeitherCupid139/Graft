@@ -9,6 +9,8 @@ import { AUDIT_ROUTE_PATH } from './paths';
 type AuditEvidenceContext = components['schemas']['AuditEvidenceContext'];
 
 export type AuditLogsRouteQuery = Partial<{
+  preset: string;
+  scope: string;
   keyword: string;
   actor: string;
   success: string;
@@ -45,6 +47,8 @@ function firstQueryValue(value: LocationQueryValue | LocationQueryValue[] | unde
 export function parseAuditLogsRouteQuery(query: LocationQuery | AuditLogsRouteQuery): AuditLogsRouteQuery {
   return {
     keyword: trimQueryValue(firstQueryValue(query.keyword)),
+    preset: trimQueryValue(firstQueryValue(query.preset)),
+    scope: trimQueryValue(firstQueryValue(query.scope)),
     actor: trimQueryValue(firstQueryValue(query.actor)),
     success: trimQueryValue(firstQueryValue(query.success)),
     action: trimQueryValue(firstQueryValue(query.action)),

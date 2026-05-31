@@ -1293,11 +1293,46 @@ export interface components {
       /** Format: date-time */
       created_at: string;
     };
+    'applied-drilldown-scope': {
+      module: string;
+      scope: string;
+      name: string;
+      description?: string;
+      owned_fields?: string[];
+    };
+    'drilldown-scope-projection-item': {
+      key: string;
+      label: string;
+      kind: string;
+      values?: string[];
+      locked: boolean;
+    };
+    'drilldown-scope-projection': {
+      title: string;
+      description?: string;
+      items?: components['schemas']['drilldown-scope-projection-item'][];
+    };
+    'audit-log-convertible-filters': {
+      /** @enum {string} */
+      preset?: 'last_24h' | 'last_7d' | 'last_30d';
+      /** @enum {string} */
+      source?: 'REQUEST' | 'SECURITY_EVENT' | 'DOMAIN_EVENT';
+      success?: boolean;
+      action_prefixes?: string[];
+      action_keywords?: string[];
+      resource_types?: string[];
+      request_path_prefixes?: string[];
+      results?: ('SUCCESS' | 'FAILED' | 'DENIED' | 'ERROR')[];
+      risk_levels?: ('LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL')[];
+    };
     'audit-log-list-response': {
       items: components['schemas']['audit-log-list-item'][];
       total: number;
       page: number;
       page_size: number;
+      applied_scope?: components['schemas']['applied-drilldown-scope'];
+      scope_projection?: components['schemas']['drilldown-scope-projection'];
+      convertible_filters?: components['schemas']['audit-log-convertible-filters'];
     };
     'enveloped-audit-log-list-response': components['schemas']['api-envelope'] & {
       data?: components['schemas']['audit-log-list-response'];
@@ -3956,6 +3991,8 @@ export interface operations {
         actor?: string;
         action?: string;
         preset?: 'last_24h' | 'last_7d' | 'last_30d';
+        /** @description Stable business drilldown scope. When present, scope-owned fields remain read-only until the client exits drilldown or converts to normal filters. */
+        scope?: string;
         action_prefix?: string;
         action_prefixes?: string[];
         action_keywords?: string[];
@@ -4001,7 +4038,7 @@ export interface operations {
           'application/json': components['schemas']['enveloped-audit-log-list-response'];
         };
       };
-      /** @description Invalid list filter or pagination query. */
+      /** @description Invalid list filter, scope conflict, disabled scope, or pagination query. */
       400: {
         headers: {
           'X-Request-Id': components['headers']['request-id'];

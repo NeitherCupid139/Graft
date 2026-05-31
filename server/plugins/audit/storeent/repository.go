@@ -51,8 +51,7 @@ const overviewTrendThreeDayDuration = 72 * time.Hour
 const overviewTrendTwoHourDuration = 2 * time.Hour
 const incidentCorrelationWindow = 30 * time.Minute
 const incidentCandidateScanLimit = 200
-
-var sensitiveAuditActionKeywords = []string{"delete", "reset", "grant", "assign", "revoke", "remove", "replace", "update_role", "update_permission"}
+const sqlLikeEscapeClause = " ESCAPE '\\'"
 
 // NewRepository 基于共享连接池构建 audit 插件的 SQL repository。
 func NewRepository(db *sql.DB, monitorEvidence pluginapi.MonitorIncidentEvidenceService) (auditstore.AuditRepository, error) {
@@ -478,7 +477,7 @@ func buildAuditLogFilters(query auditstore.ListAuditLogsQuery) (string, []any) {
 	addKeywordFilter(&clauses, &args, query.Keyword)
 	addActorFilter(&clauses, &args, query.Actor)
 	addScalarFilter(add, "action = $%d", query.Action)
-	addPrefixFilter(add, "action LIKE $%d ESCAPE '\\'", query.ActionPrefix)
+	addPrefixFilter(add, "action LIKE $%d"+sqlLikeEscapeClause, query.ActionPrefix)
 	addPrefixAnyFilter(&clauses, &args, "action", query.ActionPrefixes)
 	addKeywordAnyFilter(&clauses, &args, "action", query.ActionKeywords)
 	addScalarFilter(add, sourceWhereClause(), string(query.Source))
@@ -556,15 +555,12 @@ func highRiskWhereClause() string {
 }
 
 func sensitiveOperationsWhereClause() string {
-	return `(
-		LOWER(action) LIKE '%delete%'
-		OR LOWER(action) LIKE '%reset%'
-		OR LOWER(action) LIKE '%grant%'
-		OR LOWER(action) LIKE '%assign%'
-		OR LOWER(action) LIKE '%revoke%'
-		OR LOWER(action) LIKE '%remove%'
-		OR LOWER(action) LIKE '%replace%'
-	)`
+	keywords := sensitiveOperationAuthorityKeywords()
+	orClauses := make([]string, 0, len(keywords))
+	for _, keyword := range keywords {
+		orClauses = append(orClauses, fmt.Sprintf("LOWER(action) LIKE '%%%s%%'", strings.ToLower(keyword)))
+	}
+	return "(" + strings.Join(orClauses, "\n\t\tOR ") + ")"
 }
 
 func authFailuresWhereClause() string {
@@ -612,7 +608,7 @@ func addPrefixAnyFilter(clauses *[]string, args *[]any, column string, values []
 	orClauses := make([]string, 0, len(values))
 	for _, value := range values {
 		*args = append(*args, escapeLikePattern(value)+"%")
-		orClauses = append(orClauses, fmt.Sprintf("%s LIKE $%d ESCAPE '\\\\'", column, len(*args)))
+		orClauses = append(orClauses, fmt.Sprintf("%s LIKE $%d%s", column, len(*args), sqlLikeEscapeClause))
 	}
 	*clauses = append(*clauses, "("+strings.Join(orClauses, " OR ")+")")
 }
@@ -625,7 +621,7 @@ func addKeywordAnyFilter(clauses *[]string, args *[]any, column string, values [
 	orClauses := make([]string, 0, len(values))
 	for _, value := range values {
 		*args = append(*args, "%"+escapeLikePattern(strings.ToLower(value))+"%")
-		orClauses = append(orClauses, fmt.Sprintf("LOWER(%s) LIKE $%d ESCAPE '\\\\'", column, len(*args)))
+		orClauses = append(orClauses, fmt.Sprintf("LOWER(%s) LIKE $%d%s", column, len(*args), sqlLikeEscapeClause))
 	}
 	*clauses = append(*clauses, "("+strings.Join(orClauses, " OR ")+")")
 }
@@ -696,7 +692,7 @@ func addPrefixAnyJSONMetadataFilter(clauses *[]string, args *[]any, key string, 
 		*args = append(*args, escapeLikePattern(strings.ToLower(value))+"%")
 		orClauses = append(
 			orClauses,
-			fmt.Sprintf("LOWER(COALESCE(metadata ->> '%s', '')) LIKE $%d ESCAPE '\\\\'", key, len(*args)),
+			fmt.Sprintf("LOWER(COALESCE(metadata ->> '%s', '')) LIKE $%d%s", key, len(*args), sqlLikeEscapeClause),
 		)
 	}
 	*clauses = append(*clauses, "("+strings.Join(orClauses, " OR ")+")")
@@ -1376,7 +1372,7 @@ func classifyAuditRiskLevel(record auditstore.AuditLog) auditstore.AuditRiskLeve
 	if containsAny(action, []string{"reset_password", "update_permission", "update_role", "assign_role", "token_revoke"}) {
 		return auditstore.AuditRiskLevelCritical
 	}
-	if record.Result == auditstore.AuditResultFailed || containsAny(action, sensitiveAuditActionKeywords) {
+	if record.Result == auditstore.AuditResultFailed || sensitiveOperationMatch(action) {
 		return auditstore.AuditRiskLevelHigh
 	}
 	if containsAny(action, []string{"login_failed", "login", "permission", "role", "auth"}) {
@@ -1392,6 +1388,14 @@ func containsAny(source string, keywords []string) bool {
 		}
 	}
 	return false
+}
+
+func sensitiveOperationAuthorityKeywords() []string {
+	return []string{"delete", "reset", "grant", "assign", "revoke", "remove", "replace"}
+}
+
+func sensitiveOperationMatch(action string) bool {
+	return containsAny(action, sensitiveOperationAuthorityKeywords())
 }
 
 func normalizeAuditTargetType(resourceType string) string {

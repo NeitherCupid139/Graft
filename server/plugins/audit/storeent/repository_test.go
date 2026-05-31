@@ -776,3 +776,38 @@ func TestRiskLevelWhereClauseKeepsEscapedLikePatterns(t *testing.T) {
 		t.Fatalf("expected 5xx branch in risk level clause, got %s", clause)
 	}
 }
+
+func TestBuildAuditLogFiltersUsesSingleBackslashLikeEscape(t *testing.T) {
+	whereSQL, args := buildAuditLogFilters(auditstore.ListAuditLogsQuery{
+		ActionPrefix:        `audit\prefix`,
+		ActionKeywords:      []string{`grant_%`},
+		RequestPathPrefixes: []string{`/api/a_b%`},
+		Limit:               20,
+		Offset:              0,
+	})
+
+	if strings.Contains(whereSQL, `ESCAPE '\\\\'`) {
+		t.Fatalf("unexpected doubled escape clause in where SQL: %s", whereSQL)
+	}
+	if count := strings.Count(whereSQL, sqlLikeEscapeClause); count != 3 {
+		t.Fatalf("expected three single-backslash escape clauses, got %d in %s", count, whereSQL)
+	}
+
+	wantArgs := []string{
+		`audit\\prefix%`,
+		`%grant\_\%%`,
+		`/api/a\_b\%%`,
+	}
+	if len(args) < len(wantArgs) {
+		t.Fatalf("expected at least %d args, got %d (%#v)", len(wantArgs), len(args), args)
+	}
+	for index, want := range wantArgs {
+		got, ok := args[index].(string)
+		if !ok {
+			t.Fatalf("expected string arg at index %d, got %#v", index, args[index])
+		}
+		if got != want {
+			t.Fatalf("unexpected arg at index %d: got %q want %q", index, got, want)
+		}
+	}
+}

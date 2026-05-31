@@ -47,6 +47,12 @@ get:
       schema:
         type: string
         enum: [last_24h, last_7d, last_30d]
+    - name: scope
+      in: query
+      required: false
+      description: Stable business drilldown scope. When present, scope-owned fields remain read-only until the client exits drilldown or converts to normal filters.
+      schema:
+        type: string
     - name: action_prefix
       in: query
       required: false
@@ -193,7 +199,7 @@ get:
           schema:
             $ref: ../components/schemas/enveloped-audit-log-list-response.yaml
     '400':
-      description: Invalid list filter or pagination query.
+      description: Invalid list filter, scope conflict, disabled scope, or pagination query.
       headers:
         X-Request-Id:
           $ref: ../components/headers/request-id.yaml

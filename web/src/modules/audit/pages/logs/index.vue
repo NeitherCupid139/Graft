@@ -16,9 +16,67 @@
         </template>
       </management-page-header>
 
+      <section v-if="scopeState" class="audit-scope-card">
+        <div class="audit-scope-card__header">
+          <div>
+            <p class="audit-scope-card__eyebrow">{{ t('audit.logList.scope.eyebrow') }}</p>
+            <div class="audit-scope-card__title-row">
+              <strong>{{ scopeState.appliedScope.name }}</strong>
+              <t-tag theme="primary" variant="light-outline" size="small">
+                {{ t('audit.logList.scope.lockedTag') }}
+              </t-tag>
+            </div>
+            <p v-if="scopeState.appliedScope.description" class="audit-scope-card__description">
+              {{ scopeState.appliedScope.description }}
+            </p>
+          </div>
+          <t-space size="small" wrap>
+            <t-button theme="default" variant="outline" size="small" @click="exitDrilldown">
+              {{ t('audit.logList.scope.exitAction') }}
+            </t-button>
+            <t-button theme="primary" variant="outline" size="small" @click="convertScopeToFilters">
+              {{ t('audit.logList.scope.convertAction') }}
+            </t-button>
+          </t-space>
+        </div>
+
+        <p class="audit-scope-card__hint">{{ t('audit.logList.scope.hint') }}</p>
+
+        <t-collapse v-if="scopeState.projection.items?.length" :value="scopePanelValue">
+          <t-collapse-panel value="projection" :header="t('audit.logList.scope.projectionTitle')">
+            <div class="audit-scope-card__projection-list">
+              <article
+                v-for="item in scopeState.projection.items"
+                :key="item.key"
+                class="audit-scope-card__projection-item"
+              >
+                <div class="audit-scope-card__projection-head">
+                  <span>{{ item.label }}</span>
+                  <t-tag v-if="item.locked" theme="warning" variant="light-outline" size="small">
+                    {{ t('audit.logList.scope.readonlyTag') }}
+                  </t-tag>
+                </div>
+                <div class="audit-scope-card__projection-values">
+                  <t-tag
+                    v-for="value in item.values ?? []"
+                    :key="`${item.key}-${value}`"
+                    theme="default"
+                    variant="light-outline"
+                    size="small"
+                  >
+                    {{ value }}
+                  </t-tag>
+                </div>
+              </article>
+            </div>
+          </t-collapse-panel>
+        </t-collapse>
+      </section>
+
       <audit-filters
         v-model="filters"
         :active-preset="activePreset"
+        :locked-fields="scopeOwnedFilterKeys"
         :loading="loading"
         :presets="presetViews"
         @apply-preset="applyPreset"
@@ -108,10 +166,22 @@ import {
   resolveAuditNavigationContext,
   withMonitorOrigin,
 } from '../../contract/navigation';
-import { applyAuditPresetFilters, type AuditQuickPresetKey, listAuditPresets } from '../../contract/presets';
+import {
+  applyAuditPresetFilters,
+  AUDIT_DRILLDOWN_SCOPE,
+  type AuditQuickPresetKey,
+  listAuditPresets,
+} from '../../contract/presets';
 import { AUDIT_TIME_PRESET, type AuditTimePreset } from '../../contract/time-presets';
+import type { AuditFilterKey } from '../../shared/filter-definitions';
 import type { AuditClientFilterState } from '../../shared/presentation';
-import type { AuditLogListItem, AuditLogQuery } from '../../types/audit';
+import type {
+  AppliedDrilldownScope,
+  AuditLogConvertibleFilters,
+  AuditLogListItem,
+  AuditLogQuery,
+  DrilldownScopeProjection,
+} from '../../types/audit';
 
 defineOptions({
   name: 'AuditLogListIndex',
@@ -138,11 +208,27 @@ const pagination = ref({
 const filters = ref<AuditClientFilterState>({
   ...createDefaultFilters(),
 });
+const routePreset = ref<AuditTimePreset | ''>('');
+const routeScope = ref('');
+const appliedScope = ref<AppliedDrilldownScope | null>(null);
+const scopeProjection = ref<DrilldownScopeProjection | null>(null);
+const convertibleFilters = ref<AuditLogConvertibleFilters | null>(null);
 const applyingRoute = ref(false);
 const isRouteSyncActive = ref(true);
 const navigationContext = computed(() => resolveAuditNavigationContext(route.query));
 const monitorReturnLocation = computed(() => buildMonitorReturnLocation(route.query));
-const activePreset = computed(() => inferPresetFromFilters(filters.value));
+const activePreset = computed(() => inferPresetFromState(filters.value, routeScope.value));
+const scopeState = computed(() =>
+  appliedScope.value && scopeProjection.value
+    ? {
+        appliedScope: appliedScope.value,
+        projection: scopeProjection.value,
+        convertibleFilters: convertibleFilters.value,
+      }
+    : null,
+);
+const scopeOwnedFilterKeys = computed(() => mapOwnedFieldsToFilterKeys(appliedScope.value?.owned_fields ?? []));
+const scopePanelValue = computed(() => ['projection']);
 
 const presetViews = computed(() =>
   listAuditPresets().map((preset) => ({
@@ -201,6 +287,12 @@ function buildQuery(): AuditLogQuery {
     page: pagination.value.current,
     page_size: pagination.value.pageSize,
   };
+  if (routePreset.value) {
+    query.preset = routePreset.value;
+  }
+  if (routeScope.value) {
+    query.scope = routeScope.value;
+  }
   if (filters.value.keyword) {
     query.keyword = filters.value.keyword;
   }
@@ -287,12 +379,18 @@ async function fetchAuditLogs() {
     }
     rows.value = response.items;
     total.value = response.total;
+    appliedScope.value = response.applied_scope ?? null;
+    scopeProjection.value = response.scope_projection ?? null;
+    convertibleFilters.value = response.convertible_filters ?? null;
   } catch (error) {
     if (requestSeq !== latestRequestSeq.value) {
       return;
     }
     rows.value = [];
     total.value = 0;
+    appliedScope.value = null;
+    scopeProjection.value = null;
+    convertibleFilters.value = null;
     logger.error('failed to fetch audit logs', error);
     listError.value = resolveLocalizedErrorMessage(t, error, t('audit.logList.loadFailed'));
     const correlationId = filters.value.requestId;
@@ -309,8 +407,18 @@ async function fetchAuditLogs() {
 }
 
 function applyPreset(preset: AuditQuickPresetKey) {
+  if (preset === 'sensitive-ops') {
+    filters.value = createDefaultFilters();
+    routePreset.value = resolvePresetTimeWindow(preset);
+    routeScope.value = AUDIT_DRILLDOWN_SCOPE.SENSITIVE_OPERATIONS;
+    pagination.value.current = 1;
+    updateRouteQuery();
+    return;
+  }
   filters.value = applyAuditPresetFilters(preset, filters.value, createDefaultFilters);
-  filters.value.createdRange = buildPresetCreatedRange(resolvePresetTimeWindow(preset));
+  routePreset.value = resolvePresetTimeWindow(preset);
+  routeScope.value = '';
+  filters.value.createdRange = buildPresetCreatedRange(routePreset.value);
   pagination.value.current = 1;
   updateRouteQuery();
 }
@@ -322,6 +430,26 @@ function handleSearch() {
 
 function resetFilters() {
   filters.value = createDefaultFilters();
+  routePreset.value = '';
+  routeScope.value = '';
+  pagination.value.current = 1;
+  updateRouteQuery();
+}
+
+function exitDrilldown() {
+  routeScope.value = '';
+  pagination.value.current = 1;
+  updateRouteQuery();
+}
+
+function convertScopeToFilters() {
+  if (!convertibleFilters.value) {
+    return;
+  }
+
+  routeScope.value = '';
+  routePreset.value = convertibleFilters.value.preset ?? routePreset.value;
+  applyConvertibleFilters(convertibleFilters.value);
   pagination.value.current = 1;
   updateRouteQuery();
 }
@@ -359,6 +487,8 @@ function openDetailDrawer(row: AuditLogListItem) {
 
 function applyRouteFilters() {
   const query = parseAuditLogsRouteQuery(route.query);
+  routePreset.value = normalizePreset(query.preset);
+  routeScope.value = query.scope || '';
   const nextFilters: AuditClientFilterState = {
     ...createDefaultFilters(),
     keyword: query.keyword ?? '',
@@ -394,6 +524,8 @@ function buildRouteQuery() {
   const sorter = getSingleSorter(filters.value.sorters);
 
   return {
+    preset: routePreset.value,
+    scope: routeScope.value,
     keyword: filters.value.keyword,
     actor: filters.value.actor,
     success: filters.value.success === 'all' ? '' : filters.value.success,
@@ -518,6 +650,65 @@ function normalizeSortOrder(value: string) {
   return value === 'asc' ? 'asc' : 'desc';
 }
 
+function normalizePreset(value?: string) {
+  return value === AUDIT_TIME_PRESET.LAST_24H ||
+    value === AUDIT_TIME_PRESET.LAST_7D ||
+    value === AUDIT_TIME_PRESET.LAST_30D
+    ? value
+    : '';
+}
+
+function applyConvertibleFilters(next: AuditLogConvertibleFilters) {
+  filters.value = {
+    ...filters.value,
+    source: next.source ?? '',
+    success: next.success === true ? 'true' : next.success === false ? 'false' : 'all',
+    actionPrefixes: next.action_prefixes ? [...next.action_prefixes] : [],
+    actionKeywords: next.action_keywords ? [...next.action_keywords] : [],
+    resourceTypes: next.resource_types ? [...next.resource_types] : [],
+    requestPathPrefixes: next.request_path_prefixes ? [...next.request_path_prefixes] : [],
+    results: next.results ? [...next.results] : [],
+    riskLevels: next.risk_levels ? [...next.risk_levels] : [],
+  };
+}
+
+function mapOwnedFieldsToFilterKeys(fields: string[]) {
+  const mapped: AuditFilterKey[] = [];
+
+  fields.forEach((field) => {
+    switch (field) {
+      case 'action_keywords':
+        mapped.push('actionKeywords');
+        break;
+      case 'action_prefixes':
+        mapped.push('actionPrefixes');
+        break;
+      case 'resource_types':
+        mapped.push('resourceTypes');
+        break;
+      case 'request_path_prefixes':
+        mapped.push('requestPathPrefixes');
+        break;
+      case 'results':
+        mapped.push('results');
+        break;
+      case 'risk_levels':
+        mapped.push('riskLevels');
+        break;
+      case 'source':
+        mapped.push('source');
+        break;
+      case 'success':
+        mapped.push('success');
+        break;
+      default:
+        break;
+    }
+  });
+
+  return mapped;
+}
+
 function splitRouteList(value: string | undefined) {
   if (!value) {
     return [];
@@ -533,7 +724,10 @@ function joinRouteList(values: string[]) {
   return values.length ? values.join(',') : '';
 }
 
-function inferPresetFromFilters(value: AuditClientFilterState): AuditQuickPresetKey {
+function inferPresetFromState(value: AuditClientFilterState, scope: string): AuditQuickPresetKey {
+  if (scope === AUDIT_DRILLDOWN_SCOPE.SENSITIVE_OPERATIONS) {
+    return 'sensitive-ops';
+  }
   if (
     value.success === 'false' &&
     value.resourceTypes.join(',') === 'auth,session' &&
@@ -550,11 +744,6 @@ function inferPresetFromFilters(value: AuditClientFilterState): AuditQuickPreset
   }
   if (value.results.join(',') === 'DENIED') {
     return 'permission-denied';
-  }
-  if (
-    value.actionKeywords.join(',') === 'delete,reset,grant,assign,revoke,remove,replace,update_role,update_permission'
-  ) {
-    return 'sensitive-ops';
   }
   if (value.riskLevels.join(',') === 'HIGH,CRITICAL') {
     return 'high-risk';
@@ -593,6 +782,61 @@ function resolvePresetTimeWindow(preset: AuditQuickPresetKey): AuditTimePreset |
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.audit-scope-card {
+  background: linear-gradient(135deg, rgb(250 252 255 / 95%), rgb(255 250 243 / 95%)), var(--td-bg-color-container);
+  border: 1px solid var(--td-component-stroke);
+  border-radius: var(--td-radius-large);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+}
+
+.audit-scope-card__header {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.audit-scope-card__eyebrow {
+  color: var(--td-text-color-placeholder);
+  font-size: 12px;
+  margin: 0 0 4px;
+}
+
+.audit-scope-card__title-row {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.audit-scope-card__description,
+.audit-scope-card__hint {
+  color: var(--td-text-color-secondary);
+  margin: 0;
+}
+
+.audit-scope-card__projection-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.audit-scope-card__projection-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.audit-scope-card__projection-head,
+.audit-scope-card__projection-values {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .column-grid {

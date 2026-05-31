@@ -1,13 +1,18 @@
 import { flushPromises, mount } from '@vue/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { defineComponent, h, KeepAlive } from 'vue';
+import { defineComponent, h, KeepAlive, resolveComponent } from 'vue';
 import { createI18n } from 'vue-i18n';
-import { createMemoryHistory, createRouter, RouterView } from 'vue-router';
+import { createMemoryHistory, createRouter } from 'vue-router';
 
+import type { AuditLogListResponse } from '../../types/audit';
 import AuditLogsPage from './index.vue';
 
-const auditApiMocks = vi.hoisted(() => ({
-  getAuditLogs: vi.fn(async () => ({
+const { getAuditLogsMock } = vi.hoisted(() => ({
+  getAuditLogsMock: vi.fn(),
+}));
+
+function createAuditLogsResponse(overrides: Partial<AuditLogListResponse> = {}): AuditLogListResponse {
+  return {
     items: [
       {
         id: 1,
@@ -18,6 +23,12 @@ const auditApiMocks = vi.hoisted(() => ({
         resource_type: 'role',
         resource_id: '12',
         resource_name: 'Ops Admin',
+        target: {
+          kind: 'resource',
+          type: 'role',
+          id: '12',
+          label: 'Ops Admin',
+        },
         success: false,
         result: 'DENIED',
         risk_level: 'CRITICAL',
@@ -42,11 +53,15 @@ const auditApiMocks = vi.hoisted(() => ({
     total: 1,
     page: 1,
     page_size: 10,
-  })),
-}));
+    applied_scope: undefined,
+    scope_projection: undefined,
+    convertible_filters: undefined,
+    ...overrides,
+  };
+}
 
 vi.mock('../../api/audit', () => ({
-  getAuditLogs: auditApiMocks.getAuditLogs,
+  getAuditLogs: getAuditLogsMock,
 }));
 
 vi.mock('@/modules/shared/localized-api-error', () => ({
@@ -72,6 +87,11 @@ vi.mock('../../components/AuditFilters.vue', () => ({
           h('button', { 'data-testid': 'audit-search', onClick: () => emit('search') }, 'search'),
           h('button', { 'data-testid': 'audit-reset', onClick: () => emit('reset') }, 'reset'),
           h('button', { 'data-testid': 'audit-preset', onClick: () => emit('apply-preset', 'high-risk') }, 'preset'),
+          h(
+            'button',
+            { 'data-testid': 'audit-sensitive-preset', onClick: () => emit('apply-preset', 'sensitive-ops') },
+            'sensitive-preset',
+          ),
           h(
             'button',
             {
@@ -164,6 +184,28 @@ const drawerStub = defineComponent({
   },
 });
 
+const collapseStub = defineComponent({
+  name: 'TCollapseStub',
+  setup(_, { slots }) {
+    return () => h('div', slots.default?.());
+  },
+});
+
+const collapsePanelStub = defineComponent({
+  name: 'TCollapsePanelStub',
+  props: ['header'],
+  setup(props, { slots }) {
+    return () => h('section', [props.header, slots.default?.()]);
+  },
+});
+
+const tagStub = defineComponent({
+  name: 'TTagStub',
+  setup(_, { slots }) {
+    return () => h('span', slots.default?.());
+  },
+});
+
 const i18n = createI18n({
   legacy: false,
   locale: 'en-US',
@@ -223,6 +265,15 @@ const i18n = createI18n({
             addFilter: 'Add filter',
             showAdvanced: 'Advanced Filters',
             hideAdvanced: 'Hide Advanced',
+          },
+          scope: {
+            eyebrow: 'Business drilldown',
+            lockedTag: 'Scope mode',
+            readonlyTag: 'Readonly',
+            projectionTitle: 'Scope conditions',
+            hint: 'Scope-owned conditions are display-only. Exit business drilldown to remove them, or convert to normal filters before editing them.',
+            exitAction: 'Exit business drilldown',
+            convertAction: 'Convert to normal filters',
           },
           filters: {
             keywordPlaceholder: 'Keyword: action, request ID, audit target, operated object',
@@ -352,7 +403,8 @@ const i18n = createI18n({
 
 describe('AuditLogsPage', () => {
   beforeEach(() => {
-    auditApiMocks.getAuditLogs.mockClear();
+    getAuditLogsMock.mockReset();
+    getAuditLogsMock.mockResolvedValue(createAuditLogsResponse());
   });
 
   afterEach(() => {
@@ -388,8 +440,11 @@ describe('AuditLogsPage', () => {
           't-button': buttonStub,
           't-checkbox': checkboxStub,
           't-checkbox-group': checkboxGroupStub,
+          't-collapse': collapseStub,
+          't-collapse-panel': collapsePanelStub,
           't-drawer': drawerStub,
           't-space': passthroughStub,
+          't-tag': tagStub,
         },
       },
     });
@@ -408,7 +463,7 @@ describe('AuditLogsPage', () => {
       name: 'RouterHost',
       setup() {
         return () =>
-          h(RouterView, null, {
+          h(resolveComponent('RouterView'), null, {
             default: ({ Component }: { Component: unknown }) => h(KeepAlive, null, () => [h(Component as never)]),
           });
       },
@@ -439,8 +494,11 @@ describe('AuditLogsPage', () => {
           't-button': buttonStub,
           't-checkbox': checkboxStub,
           't-checkbox-group': checkboxGroupStub,
+          't-collapse': collapseStub,
+          't-collapse-panel': collapsePanelStub,
           't-drawer': drawerStub,
           't-space': passthroughStub,
+          't-tag': tagStub,
         },
       },
     });
@@ -461,7 +519,7 @@ describe('AuditLogsPage', () => {
     expect(wrapper.get('[data-testid="audit-filter-model"]').text()).toContain(
       '"createdRange":["2026-05-01 18:00:00","2026-05-03 02:30:00"]',
     );
-    expect(auditApiMocks.getAuditLogs).toHaveBeenLastCalledWith({
+    expect(getAuditLogsMock).toHaveBeenLastCalledWith({
       page: 1,
       page_size: 10,
       actor: 'alice',
@@ -476,7 +534,7 @@ describe('AuditLogsPage', () => {
   it('loads explicit-range records and opens the detail drawer', async () => {
     const { wrapper } = await mountPage();
 
-    expect(auditApiMocks.getAuditLogs).toHaveBeenCalledWith(
+    expect(getAuditLogsMock).toHaveBeenCalledWith(
       expect.objectContaining({
         created_from: '2026-05-30T07:21:04.000Z',
         created_to: '2026-05-31T07:21:04.000Z',
@@ -506,7 +564,7 @@ describe('AuditLogsPage', () => {
       monitorScopeRef: 'runtime:cpu',
     });
 
-    auditApiMocks.getAuditLogs.mockClear();
+    getAuditLogsMock.mockClear();
     replaceSpy.mockClear();
 
     await wrapper.get('[data-testid="audit-route-sync"]').trigger('click');
@@ -537,14 +595,15 @@ describe('AuditLogsPage', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-05-31T07:21:04Z'));
     const { wrapper } = await mountPage();
-    auditApiMocks.getAuditLogs.mockClear();
+    getAuditLogsMock.mockClear();
 
     await wrapper.get('[data-testid="audit-preset"]').trigger('click');
     await flushPromises();
 
-    expect(auditApiMocks.getAuditLogs).toHaveBeenCalledWith({
+    expect(getAuditLogsMock).toHaveBeenCalledWith({
       page: 1,
       page_size: 10,
+      preset: 'last_24h',
       created_from: '2026-05-30T07:21:04.000Z',
       created_to: '2026-05-31T07:21:04.000Z',
       risk_levels: ['HIGH', 'CRITICAL'],
@@ -553,10 +612,154 @@ describe('AuditLogsPage', () => {
     });
   });
 
+  it('requests scope in business-drilldown mode and renders readonly projection metadata', async () => {
+    getAuditLogsMock.mockResolvedValueOnce(
+      createAuditLogsResponse({
+        items: [],
+        total: 15,
+        applied_scope: {
+          module: 'audit',
+          scope: 'sensitive_operations',
+          name: 'Sensitive Operations',
+          description: 'Sensitive write actions',
+          owned_fields: ['action_keywords'],
+        },
+        scope_projection: {
+          title: 'Sensitive Operations',
+          items: [
+            {
+              key: 'action_keywords',
+              label: 'Action keywords',
+              kind: 'string_list',
+              values: ['delete', 'reset', 'grant'],
+              locked: true,
+            },
+          ],
+        },
+        convertible_filters: {
+          preset: 'last_24h',
+          action_keywords: ['delete', 'reset', 'grant'],
+        },
+      }),
+    );
+
+    const { wrapper } = await mountPage({
+      preset: 'last_24h',
+      scope: 'sensitive_operations',
+    });
+
+    expect(getAuditLogsMock).toHaveBeenLastCalledWith({
+      page: 1,
+      page_size: 10,
+      preset: 'last_24h',
+      scope: 'sensitive_operations',
+      sort_by: 'created_at',
+      sort_order: 'desc',
+    });
+    expect(wrapper.text()).toContain('Business drilldown');
+    expect(wrapper.text()).toContain('Sensitive Operations');
+    expect(wrapper.text()).toContain('Readonly');
+    expect(wrapper.text()).toContain('delete');
+  });
+
+  it('exits business drilldown by removing scope only', async () => {
+    getAuditLogsMock.mockResolvedValue(
+      createAuditLogsResponse({
+        items: [],
+        total: 15,
+        applied_scope: {
+          module: 'audit',
+          scope: 'sensitive_operations',
+          name: 'Sensitive Operations',
+          owned_fields: ['action_keywords'],
+        },
+        scope_projection: {
+          title: 'Sensitive Operations',
+          items: [],
+        },
+        convertible_filters: {
+          preset: 'last_24h',
+          action_keywords: ['delete', 'reset', 'grant'],
+        },
+      }),
+    );
+
+    const { router, wrapper } = await mountPage({
+      preset: 'last_24h',
+      scope: 'sensitive_operations',
+      actor: 'admin',
+    });
+
+    await wrapper.get('button').trigger('click');
+    const exitButton = wrapper.findAll('button').find((item) => item.text().includes('Exit business drilldown'));
+    expect(exitButton).toBeTruthy();
+    await exitButton!.trigger('click');
+    await flushPromises();
+
+    expect(router.currentRoute.value.query).toMatchObject({
+      preset: 'last_24h',
+      actor: 'admin',
+    });
+    expect(router.currentRoute.value.query).not.toHaveProperty('scope');
+  });
+
+  it('converts scope to normal filters by removing scope and writing canonical filters to route', async () => {
+    getAuditLogsMock.mockResolvedValue(
+      createAuditLogsResponse({
+        items: [],
+        total: 15,
+        applied_scope: {
+          module: 'audit',
+          scope: 'sensitive_operations',
+          name: 'Sensitive Operations',
+          owned_fields: ['action_keywords'],
+        },
+        scope_projection: {
+          title: 'Sensitive Operations',
+          items: [],
+        },
+        convertible_filters: {
+          preset: 'last_24h',
+          action_keywords: ['delete', 'reset', 'grant'],
+        },
+      }),
+    );
+
+    const { router, wrapper } = await mountPage({
+      preset: 'last_24h',
+      scope: 'sensitive_operations',
+    });
+
+    const convertButton = wrapper.findAll('button').find((item) => item.text().includes('Convert to normal filters'));
+    expect(convertButton).toBeTruthy();
+    await convertButton!.trigger('click');
+    await flushPromises();
+
+    expect(router.currentRoute.value.query).toMatchObject({
+      preset: 'last_24h',
+      action_keywords: 'delete,reset,grant',
+    });
+    expect(router.currentRoute.value.query).not.toHaveProperty('scope');
+  });
+
+  it('maps the sensitive quick preset to scope mode instead of action keywords', async () => {
+    const { router, wrapper } = await mountPage();
+    getAuditLogsMock.mockClear();
+
+    await wrapper.get('[data-testid="audit-sensitive-preset"]').trigger('click');
+    await flushPromises();
+
+    expect(router.currentRoute.value.query).toMatchObject({
+      preset: 'last_24h',
+      scope: 'sensitive_operations',
+    });
+    expect(router.currentRoute.value.query).not.toHaveProperty('action_keywords');
+  });
+
   it('does not send an implicit preset when the route has no time range', async () => {
     const { wrapper } = await mountPage({});
 
-    expect(auditApiMocks.getAuditLogs).toHaveBeenLastCalledWith({
+    expect(getAuditLogsMock).toHaveBeenLastCalledWith({
       page: 1,
       page_size: 10,
       sort_by: 'created_at',
@@ -567,7 +770,7 @@ describe('AuditLogsPage', () => {
 
   it('syncs interactive filters into route query for reload and sharing', async () => {
     const { replaceSpy, router, wrapper } = await mountPage();
-    auditApiMocks.getAuditLogs.mockClear();
+    getAuditLogsMock.mockClear();
     replaceSpy.mockClear();
 
     await wrapper.get('[data-testid="audit-route-sync"]').trigger('click');
@@ -595,7 +798,7 @@ describe('AuditLogsPage', () => {
       sort_by: 'created_at',
       sort_order: 'asc',
     });
-    expect(auditApiMocks.getAuditLogs).toHaveBeenLastCalledWith(
+    expect(getAuditLogsMock).toHaveBeenLastCalledWith(
       expect.objectContaining({
         result: 'FAILED',
         created_from: '2026-05-01T02:00:00.000Z',
@@ -643,18 +846,19 @@ describe('AuditLogsPage', () => {
       '"resourceTypes":["auth","session"]',
     );
     expect(router.currentRoute.value.query).toMatchObject({
+      preset: 'last_24h',
       created_from: '2026-05-03T10:00:00.000Z',
       created_to: '2026-05-04T18:30:00.000Z',
       results: 'DENIED',
     });
-    expect(router.currentRoute.value.query).not.toHaveProperty('preset');
     expect(router.currentRoute.value.query).not.toHaveProperty('summary');
     expect(router.currentRoute.value.query).not.toHaveProperty('risk_group');
     expect(router.currentRoute.value.query).not.toHaveProperty('occurred_from');
     expect(router.currentRoute.value.query).not.toHaveProperty('occurred_to');
-    expect(auditApiMocks.getAuditLogs).toHaveBeenLastCalledWith({
+    expect(getAuditLogsMock).toHaveBeenLastCalledWith({
       page: 1,
       page_size: 10,
+      preset: 'last_24h',
       created_from: '2026-05-03T10:00:00.000Z',
       created_to: '2026-05-04T18:30:00.000Z',
       results: ['DENIED'],
@@ -678,12 +882,12 @@ describe('AuditLogsPage', () => {
     await flushPromises();
 
     expect(router.currentRoute.value.query).toMatchObject({
+      preset: 'last_24h',
       created_from: '2026-05-03T10:00:00.000Z',
       created_to: '2026-05-04T18:30:00.000Z',
       sort_by: 'created_at',
       sort_order: 'desc',
     });
-    expect(router.currentRoute.value.query).not.toHaveProperty('preset');
     expect(router.currentRoute.value.query).not.toHaveProperty('summary');
     expect(router.currentRoute.value.query).not.toHaveProperty('risk_group');
     expect(router.currentRoute.value.query).not.toHaveProperty('occurred_from');
@@ -697,7 +901,7 @@ describe('AuditLogsPage', () => {
       results: 'DENIED',
     });
 
-    auditApiMocks.getAuditLogs.mockClear();
+    getAuditLogsMock.mockClear();
     replaceSpy.mockClear();
 
     await router.push({ path: '/users', query: { tab: 'active' } });
@@ -711,7 +915,7 @@ describe('AuditLogsPage', () => {
         path: '/audit/logs',
       }),
     );
-    expect(auditApiMocks.getAuditLogs).not.toHaveBeenCalled();
+    expect(getAuditLogsMock).not.toHaveBeenCalled();
   });
 
   it('re-applies current route query when the kept-alive audit page is re-activated', async () => {
@@ -724,7 +928,7 @@ describe('AuditLogsPage', () => {
     await router.push({ path: '/users', query: { tab: 'active' } });
     await flushPromises();
 
-    auditApiMocks.getAuditLogs.mockClear();
+    getAuditLogsMock.mockClear();
 
     await router.push({
       path: '/audit/logs',
@@ -745,7 +949,7 @@ describe('AuditLogsPage', () => {
     expect(wrapper.get('[data-testid="audit-filter-model"]').text()).toContain('"resourceType":"user"');
     expect(wrapper.get('[data-testid="audit-filter-model"]').text()).toContain('"resourceName":"Graft Admin"');
     expect(wrapper.get('[data-testid="audit-filter-model"]').text()).toContain('"resourceId":"1"');
-    expect(auditApiMocks.getAuditLogs).toHaveBeenLastCalledWith({
+    expect(getAuditLogsMock).toHaveBeenLastCalledWith({
       page: 1,
       page_size: 10,
       resource_type: 'user',

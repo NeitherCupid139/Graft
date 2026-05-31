@@ -311,6 +311,15 @@
         "showAdvanced": "高级筛选",
         "hideAdvanced": "收起高级筛选"
       },
+      "scope": {
+        "eyebrow": "业务钻取",
+        "lockedTag": "Scope 模式",
+        "readonlyTag": "只读",
+        "projectionTitle": "Scope 条件",
+        "hint": "Scope 拥有的条件仅用于展示。退出业务钻取会移除 scope，转换为普通筛选后才可自由编辑这些条件。",
+        "exitAction": "退出业务钻取",
+        "convertAction": "转换为普通筛选"
+      },
       "builder": {
         "title": "筛选字段",
         "hint": "选择一个字段后立即设置条件，已设置字段会显示为可移除标签。",

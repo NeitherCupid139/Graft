@@ -14,6 +14,10 @@ export type AuditIncidentResource = AuditIncidentResponse['related_resources'][n
 export type AuditIncidentRequest = AuditIncidentResponse['related_requests'][number];
 export type AuditIncidentMonitorContext = AuditIncidentResponse['monitor_context'];
 export type EvidenceLink = components['schemas']['EvidenceLink'];
+export type AppliedDrilldownScope = components['schemas']['applied-drilldown-scope'];
+export type DrilldownScopeProjection = components['schemas']['drilldown-scope-projection'];
+export type DrilldownScopeProjectionItem = components['schemas']['drilldown-scope-projection-item'];
+export type AuditLogConvertibleFilters = components['schemas']['audit-log-convertible-filters'];
 
 export type AuditTimePreset = components['schemas']['AuditOverviewResponse']['time_preset'];
 export type AuditRiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
@@ -26,6 +30,8 @@ export type AuditSorter = QuerySorter<AuditSortBy>;
 export type AuditLogQuery = {
   page?: number;
   page_size?: number;
+  preset?: AuditTimePreset;
+  scope?: string;
   keyword?: string;
   actor?: string;
   actor_user_id?: number;
