@@ -81,7 +81,15 @@ import { useRoute, useRouter } from 'vue-router';
 import { useAuthSessionStore } from '@/modules/auth/store';
 import { resolveLocalizedErrorMessage as resolveAccessLogErrorMessage } from '@/modules/shared/localized-api-error';
 import { ManagementEmptyState, ManagementPageContent, ManagementPageHeader } from '@/shared/components/management';
-import { createSingleSorter, getSingleSorter } from '@/shared/observability';
+import {
+  buildRecentHoursLocalRange,
+  buildTodayLocalRange,
+  createSingleSorter,
+  getSingleSorter,
+  localDateTimeToUtcIso,
+  normalizePageStateRangeForRoute,
+  normalizeRouteRangeForPageState,
+} from '@/shared/observability';
 import { createLogger as createModuleLogger } from '@/utils/logger';
 
 import { getAccessLogDetail, getAccessLogs } from '../../api/access-log';
@@ -119,7 +127,7 @@ const detailRecord = ref<AccessLogItem | null>(null);
 const applyingRoute = ref(false);
 const activePreset = ref<AccessLogPresetKey>('all');
 const columnDrawerVisible = ref(false);
-const visibleColumnKeys = ref(['occurred_at', 'method', 'path', 'status_code', 'duration_ms', 'user', 'request_id']);
+const visibleColumnKeys = ref(['started_at', 'method', 'path', 'status_code', 'duration_ms', 'user', 'request_id']);
 const pagination = ref({
   current: 1,
   pageSize: 20,
@@ -178,8 +186,8 @@ function createDefaultFilters(): AccessLogFilterState {
     statusCode: '',
     durationMinMs: '',
     durationMaxMs: '',
-    occurredRange: [],
-    sorters: createSingleSorter('occurred_at', 'desc'),
+    startedRange: [],
+    sorters: createSingleSorter('started_at', 'desc'),
   };
 }
 
@@ -209,8 +217,8 @@ function buildQuery(): AccessLogQuery {
   }
   if (filters.value.durationMinMs) query.duration_min_ms = Number(filters.value.durationMinMs);
   if (filters.value.durationMaxMs) query.duration_max_ms = Number(filters.value.durationMaxMs);
-  if (filters.value.occurredRange[0]) query.occurred_from = normalizeOccurredAt(filters.value.occurredRange[0]);
-  if (filters.value.occurredRange[1]) query.occurred_to = normalizeOccurredAt(filters.value.occurredRange[1]);
+  if (filters.value.startedRange[0]) query.started_from = localDateTimeToUtcIso(filters.value.startedRange[0]);
+  if (filters.value.startedRange[1]) query.started_to = localDateTimeToUtcIso(filters.value.startedRange[1]);
 
   return query;
 }
@@ -273,9 +281,7 @@ function buildPresetFilters(preset: AccessLogPresetKey): Partial<AccessLogFilter
   const currentUsername = authSessionStore.userInfo.username;
   switch (preset) {
     case 'todayErrors': {
-      const start = new Date(now);
-      start.setHours(0, 0, 0, 0);
-      return { statusCode: '400', occurredRange: [start.toISOString(), now.toISOString()] };
+      return { statusCode: '400', startedRange: buildTodayLocalRange(now) };
     }
     case 'status4xx':
       return { statusCode: '400' };
@@ -286,17 +292,11 @@ function buildPresetFilters(preset: AccessLogPresetKey): Partial<AccessLogFilter
     case 'currentUser':
       return { username: currentUsername || '' };
     case 'lastHour': {
-      const start = new Date(now.getTime() - 60 * 60 * 1000);
-      return { occurredRange: [start.toISOString(), now.toISOString()] };
+      return { startedRange: buildRecentHoursLocalRange(now, 1) };
     }
     default:
       return {};
   }
-}
-
-function normalizeOccurredAt(value: string) {
-  const date = new Date(value.replace(' ', 'T'));
-  return Number.isFinite(date.getTime()) ? date.toISOString() : value;
 }
 
 function applyRouteFilters() {
@@ -304,6 +304,8 @@ function applyRouteFilters() {
     request_id: requestId = '',
     user_id: userId = '',
     username = '',
+    started_from: startedFrom = '',
+    started_to: startedTo = '',
     occurred_from: occurredFrom = '',
     occurred_to: occurredTo = '',
     sort_by: sortBy = '',
@@ -314,7 +316,7 @@ function applyRouteFilters() {
     requestId,
     userId,
     username,
-    occurredRange: occurredFrom || occurredTo ? [occurredFrom, occurredTo] : [],
+    startedRange: normalizeRouteRangeForPageState([startedFrom || occurredFrom, startedTo || occurredTo]),
     sorters: sortBy
       ? createSingleSorter(normalizeSortBy(sortBy), normalizeSortOrder(sortOrder || 'desc'))
       : filters.value.sorters,
@@ -324,12 +326,13 @@ function applyRouteFilters() {
 
 function buildRouteQuery() {
   const sorter = getSingleSorter(filters.value.sorters);
+  const [startedFrom = '', startedTo = ''] = normalizePageStateRangeForRoute(filters.value.startedRange);
   return buildAccessLogLocation({
     request_id: filters.value.requestId,
     user_id: filters.value.userId,
     username: filters.value.username,
-    occurred_from: filters.value.occurredRange[0],
-    occurred_to: filters.value.occurredRange[1],
+    started_from: startedFrom,
+    started_to: startedTo,
     sort_by: sorter?.field ?? '',
     sort_order: sorter?.field ? (sorter.direction ?? '') : '',
   });
@@ -344,6 +347,8 @@ async function updateRouteQuery() {
   const currentRequestId = typeof route.query.request_id === 'string' ? route.query.request_id : '';
   const currentUserId = typeof route.query.user_id === 'string' ? route.query.user_id : '';
   const currentUsername = typeof route.query.username === 'string' ? route.query.username : '';
+  const currentStartedFrom = typeof route.query.started_from === 'string' ? route.query.started_from : '';
+  const currentStartedTo = typeof route.query.started_to === 'string' ? route.query.started_to : '';
   const currentOccurredFrom = typeof route.query.occurred_from === 'string' ? route.query.occurred_from : '';
   const currentOccurredTo = typeof route.query.occurred_to === 'string' ? route.query.occurred_to : '';
   const currentSortBy = typeof route.query.sort_by === 'string' ? route.query.sort_by : '';
@@ -354,6 +359,8 @@ async function updateRouteQuery() {
     currentRequestId === (nextQuery.request_id ?? '') &&
     currentUserId === (nextQuery.user_id ?? '') &&
     currentUsername === (nextQuery.username ?? '') &&
+    currentStartedFrom === (nextQuery.started_from ?? '') &&
+    currentStartedTo === (nextQuery.started_to ?? '') &&
     currentOccurredFrom === (nextQuery.occurred_from ?? '') &&
     currentOccurredTo === (nextQuery.occurred_to ?? '') &&
     currentSortBy === (nextQuery.sort_by ?? '') &&

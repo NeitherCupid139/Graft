@@ -1824,6 +1824,8 @@ export interface components {
       /** Format: int64 */
       response_size?: number | null;
       /** Format: date-time */
+      started_at: string;
+      /** Format: date-time */
       occurred_at: string;
     };
     'access-log-list-response': {
@@ -4154,9 +4156,9 @@ export interface operations {
         status_code?: number;
         duration_min_ms?: number;
         duration_max_ms?: number;
-        occurred_from?: string;
-        occurred_to?: string;
-        sort_by?: 'occurred_at' | 'duration_ms' | 'status_code';
+        started_from?: string;
+        started_to?: string;
+        sort_by?: 'started_at' | 'occurred_at' | 'duration_ms' | 'status_code';
         sort_order?: 'asc' | 'desc';
       };
       header?: {

@@ -143,10 +143,10 @@ import { useI18n } from 'vue-i18n';
 
 import { ManagementToolbar } from '@/shared/components/management';
 import {
-  getSingleSorter,
   normalizeSingleSorterDirection,
   normalizeSingleSorterField,
   prependSingleSorterTag,
+  useSingleSorterSelection,
 } from '@/shared/observability';
 
 import type { AuditQuickPresetKey } from '../contract/presets';
@@ -309,9 +309,10 @@ const definitions = computed<FilterDefinition[]>(() => [
 
 const definitionMap = computed(() => new Map(definitions.value.map((item) => [item.key, item])));
 const selectedDefinition = computed(() => definitionMap.value.get(selectedDefinitionKey.value));
-const activeSorter = computed(() => getSingleSorter(props.modelValue.sorters));
-const sortFieldValue = computed(() => activeSorter.value?.field ?? '');
-const sortDirectionValue = computed(() => activeSorter.value?.direction ?? '');
+const activeSorterSelection = computed(() => useSingleSorterSelection(() => props.modelValue.sorters));
+const activeSorter = computed(() => activeSorterSelection.value.sorter);
+const sortFieldValue = computed(() => activeSorterSelection.value.field);
+const sortDirectionValue = computed(() => activeSorterSelection.value.direction);
 
 const availableDefinitions = computed(() =>
   definitions.value.filter(

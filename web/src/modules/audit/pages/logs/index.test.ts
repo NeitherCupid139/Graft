@@ -81,7 +81,7 @@ vi.mock('../../components/AuditFilters.vue', () => ({
                   ...props.modelValue,
                   actor: 'route-admin',
                   actorUserId: '7',
-                  createdRange: ['2026-05-01T10:00:00Z', '2026-05-02T18:30:00Z'],
+                  createdRange: ['2026-05-01 10:00:00', '2026-05-02 18:30:00'],
                   result: 'FAILED',
                   sorters: [{ field: 'created_at', direction: 'asc' }],
                 }),
@@ -333,7 +333,7 @@ describe('AuditLogsPage', () => {
 
     expect(wrapper.get('[data-testid="audit-filter-model"]').text()).toContain('"actor":"alice"');
     expect(wrapper.get('[data-testid="audit-filter-model"]').text()).toContain(
-      '"createdRange":["2026-05-01T10:00:00Z","2026-05-02T18:30:00Z"]',
+      '"createdRange":["2026-05-01 18:00:00","2026-05-03 02:30:00"]',
     );
     expect(auditApiMocks.getAuditLogs).toHaveBeenLastCalledWith({
       page: 1,
@@ -353,7 +353,7 @@ describe('AuditLogsPage', () => {
     });
 
     expect(wrapper.get('[data-testid="audit-filter-model"]').text()).toContain(
-      '"createdRange":["2026-05-01T10:00:00Z","2026-05-02T18:30:00Z"]',
+      '"createdRange":["2026-05-01 18:00:00","2026-05-03 02:30:00"]',
     );
 
     replaceSpy.mockClear();
@@ -363,8 +363,8 @@ describe('AuditLogsPage', () => {
     expect(replaceSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         query: expect.objectContaining({
-          created_from: '2026-05-01T10:00:00Z',
-          created_to: '2026-05-02T18:30:00Z',
+          created_from: '2026-05-01T10:00:00.000Z',
+          created_to: '2026-05-02T18:30:00.000Z',
         }),
       }),
     );
@@ -462,8 +462,8 @@ describe('AuditLogsPage', () => {
         query: expect.objectContaining({
           username: 'route-admin',
           user_id: '7',
-          created_from: '2026-05-01T10:00:00Z',
-          created_to: '2026-05-02T18:30:00Z',
+          created_from: '2026-05-01T02:00:00.000Z',
+          created_to: '2026-05-02T10:30:00.000Z',
           result: 'FAILED',
           sort_by: 'created_at',
           sort_order: 'asc',
@@ -473,8 +473,8 @@ describe('AuditLogsPage', () => {
     expect(router.currentRoute.value.query).toMatchObject({
       username: 'route-admin',
       user_id: '7',
-      created_from: '2026-05-01T10:00:00Z',
-      created_to: '2026-05-02T18:30:00Z',
+      created_from: '2026-05-01T02:00:00.000Z',
+      created_to: '2026-05-02T10:30:00.000Z',
       result: 'FAILED',
       sort_by: 'created_at',
       sort_order: 'asc',
@@ -482,8 +482,8 @@ describe('AuditLogsPage', () => {
     expect(auditApiMocks.getAuditLogs).toHaveBeenLastCalledWith(
       expect.objectContaining({
         result: 'FAILED',
-        created_from: '2026-05-01T10:00:00.000Z',
-        created_to: '2026-05-02T18:30:00.000Z',
+        created_from: '2026-05-01T02:00:00.000Z',
+        created_to: '2026-05-02T10:30:00.000Z',
         sort_by: 'created_at',
         sort_order: 'asc',
       }),

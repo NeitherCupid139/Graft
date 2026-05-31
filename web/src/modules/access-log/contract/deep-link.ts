@@ -6,6 +6,8 @@ export type AccessLogRouteQuery = Partial<{
   request_id: string;
   user_id: string;
   username: string;
+  started_from: string;
+  started_to: string;
   occurred_from: string;
   occurred_to: string;
   sort_by: string;
@@ -16,6 +18,8 @@ const ACCESS_LOG_QUERY_KEYS = [
   'request_id',
   'user_id',
   'username',
+  'started_from',
+  'started_to',
   'occurred_from',
   'occurred_to',
   'sort_by',

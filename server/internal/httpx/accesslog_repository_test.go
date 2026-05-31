@@ -35,6 +35,7 @@ func newAccessLogSQLiteDB(t *testing.T) *sql.DB {
 		username TEXT NULL,
 		request_size BIGINT NULL,
 		response_size BIGINT NULL,
+		started_at TIMESTAMP NOT NULL,
 		occurred_at TIMESTAMP NOT NULL
 	);`
 	if _, err := db.Exec(schema); err != nil {
@@ -62,6 +63,7 @@ func TestAccessLogRepositoryCreateAndBatchCreate(t *testing.T) {
 	requestSize := int64(128)
 	responseSize := int64(512)
 	occurredAt := time.Date(2026, 5, 30, 9, 0, 0, 0, time.UTC)
+	startedAt := occurredAt.Add(-42 * time.Millisecond)
 
 	first, err := repo.CreateAccessLog(ctx, CreateAccessLogInput{
 		RequestID:    "req-1",
@@ -77,6 +79,7 @@ func TestAccessLogRepositoryCreateAndBatchCreate(t *testing.T) {
 		Username:     "alice",
 		RequestSize:  &requestSize,
 		ResponseSize: &responseSize,
+		StartedAt:    startedAt,
 		OccurredAt:   occurredAt,
 	})
 	if err != nil {
@@ -174,6 +177,16 @@ func TestAccessLogRepositoryListAccessLogsSortNormalization(t *testing.T) {
 				Page:      1,
 				PageSize:  10,
 				SortBy:    AccessLogSortOccurredAt,
+				SortOrder: AccessLogSortOrderDesc,
+			},
+			wantOrder: []string{"req-b", "req-c", "req-a"},
+		},
+		{
+			name: "started at desc is default authority sort",
+			query: AccessLogListQuery{
+				Page:      1,
+				PageSize:  10,
+				SortBy:    AccessLogSortStartedAt,
 				SortOrder: AccessLogSortOrderDesc,
 			},
 			wantOrder: []string{"req-b", "req-c", "req-a"},

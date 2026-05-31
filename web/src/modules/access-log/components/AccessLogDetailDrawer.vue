@@ -13,6 +13,10 @@
         <h4>{{ t('accessLog.detail.basic') }}</h4>
         <div class="access-log-detail__grid">
           <div class="access-log-detail__item">
+            <span>{{ t('accessLog.columns.startedAt') }}</span
+            ><strong>{{ formatCompactDateTime(record.started_at, locale) }}</strong>
+          </div>
+          <div class="access-log-detail__item">
             <span>{{ t('accessLog.columns.occurredAt') }}</span
             ><strong>{{ formatCompactDateTime(record.occurred_at, locale) }}</strong>
           </div>

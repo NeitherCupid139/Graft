@@ -115,6 +115,7 @@ describe('AccessLogFilters', () => {
         activePreset: 'all',
         modelValue: {
           keyword: '',
+          startedRange: [],
           requestId: 'req-1',
           userId: '',
           username: '',
@@ -125,7 +126,6 @@ describe('AccessLogFilters', () => {
           statusCode: '',
           durationMinMs: '',
           durationMaxMs: '',
-          occurredRange: [],
           sorters: [{ field: 'occurred_at', direction: 'desc' }],
         },
         presets: [],

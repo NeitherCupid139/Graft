@@ -89,7 +89,13 @@ import { useRoute, useRouter } from 'vue-router';
 import { resolveLocalizedErrorMessage } from '@/modules/shared/localized-api-error';
 import { ManagementEmptyState, ManagementPageContent, ManagementPageHeader } from '@/shared/components/management';
 import { describeCorrelationId, formatMessageWithCorrelation } from '@/shared/correlation';
-import { createSingleSorter, getSingleSorter } from '@/shared/observability';
+import {
+  createSingleSorter,
+  getSingleSorter,
+  localDateTimeToUtcIso,
+  normalizePageStateRangeForRoute,
+  normalizeRouteRangeForPageState,
+} from '@/shared/observability';
 import { createLogger } from '@/utils/logger';
 
 import { getAuditLogs } from '../../api/audit';
@@ -233,10 +239,10 @@ function buildQuery(): AuditLogQuery {
     query.risk_level = filters.value.riskLevel;
   }
   if (filters.value.createdRange[0]) {
-    query.created_from = toISOStringOrRaw(filters.value.createdRange[0]);
+    query.created_from = localDateTimeToUtcIso(filters.value.createdRange[0]);
   }
   if (filters.value.createdRange[1]) {
-    query.created_to = toISOStringOrRaw(filters.value.createdRange[1]);
+    query.created_to = localDateTimeToUtcIso(filters.value.createdRange[1]);
   }
   if (!query.created_from && !query.created_to) {
     query.preset = activeTimePreset.value;
@@ -329,11 +335,6 @@ function openDetailDrawer(row: AuditLogListItem) {
   detailDrawerVisible.value = true;
 }
 
-function toISOStringOrRaw(value: string) {
-  const date = new Date(value.replace(' ', 'T'));
-  return Number.isNaN(date.getTime()) ? value : date.toISOString();
-}
-
 function applyRouteFilters() {
   const query = parseAuditLogsRouteQuery(route.query);
   const nextPreset = resolveAuditPresetKeyFromScope(query.scope ?? '');
@@ -347,7 +348,7 @@ function applyRouteFilters() {
     action: query.action || '',
     actionPrefix: query.action_prefix || '',
     source: query.source || '',
-    createdRange: query.created_from || query.created_to ? [query.created_from ?? '', query.created_to ?? ''] : [],
+    createdRange: normalizeRouteRangeForPageState([query.created_from ?? '', query.created_to ?? '']),
     resourceType: query.resource_type || '',
     resourceName: query.resource_name ?? '',
     resourceId: query.resource_id ?? '',
@@ -365,7 +366,7 @@ function applyRouteFilters() {
 }
 
 function buildRouteQuery() {
-  const [createdFrom = '', createdTo = ''] = filters.value.createdRange;
+  const [createdFrom = '', createdTo = ''] = normalizePageStateRangeForRoute(filters.value.createdRange);
   const sorter = getSingleSorter(filters.value.sorters);
 
   return {

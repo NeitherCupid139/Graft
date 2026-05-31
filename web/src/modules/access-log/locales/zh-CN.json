@@ -23,7 +23,7 @@
       "emptyRequestDescription": "当前保留范围内没有匹配该 Request ID 的访问日志，请求可能已经超出访问日志保留窗口。",
       "detailTitle": "请求详情",
       "searchPlaceholder": "搜索请求 ID、路径、用户名",
-      "tableHint": "列表保留核心请求观测字段，完整上下文请展开详情抽屉。"
+      "tableHint": "列表默认展示请求开始时间，完整上下文与请求完成时间请展开详情抽屉或开启列设置。"
     },
     "actions": {
       "search": "查询",
@@ -57,11 +57,13 @@
       "statusCode": "状态码",
       "durationMin": "最小时长",
       "durationMax": "最大时长",
-      "occurredRange": "时间范围",
+      "startedRange": "请求开始时间",
+      "occurredRange": "请求完成时间",
       "sortBy": "排序字段",
       "sortOrder": "排序方向",
       "pathMatchExact": "精确",
       "pathMatchPrefix": "前缀",
+      "sortStartedAt": "请求开始时间",
       "sortOccurredAt": "发生时间",
       "sortDuration": "耗时",
       "sortStatusCode": "状态码",
@@ -78,6 +80,7 @@
       "title": "筛选条件",
       "hint": "按需叠加条件，避免固定大表单占满页面。",
       "fields": {
+        "startedRange": "请求开始时间",
         "requestId": "请求 ID",
         "userId": "用户 ID",
         "username": "用户名",
@@ -89,7 +92,8 @@
       }
     },
     "columns": {
-      "occurredAt": "时间",
+      "startedAt": "开始时间",
+      "occurredAt": "完成时间",
       "method": "方法",
       "path": "路径",
       "statusCode": "状态码",

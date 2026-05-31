@@ -5,7 +5,7 @@ export type AccessLogItem = components['schemas']['access-log-detail-response'];
 export type AccessLogListResponse = components['schemas']['access-log-list-response'];
 export type AccessLogDetailResponse = components['schemas']['AccessLogDetailResponse'];
 
-export type AccessLogSortBy = 'occurred_at' | 'duration_ms' | 'status_code';
+export type AccessLogSortBy = 'started_at' | 'occurred_at' | 'duration_ms' | 'status_code';
 export type AccessLogSortOrder = 'asc' | 'desc';
 export type AccessLogPathMatch = 'exact' | 'prefix';
 export type AccessLogSorter = QuerySorter<AccessLogSortBy>;
@@ -24,8 +24,8 @@ export type AccessLogQuery = {
   status_code?: number;
   duration_min_ms?: number;
   duration_max_ms?: number;
-  occurred_from?: string;
-  occurred_to?: string;
+  started_from?: string;
+  started_to?: string;
   sort_by?: AccessLogSortBy;
   sort_order?: AccessLogSortOrder;
 };
@@ -42,6 +42,6 @@ export type AccessLogFilterState = {
   statusCode: string;
   durationMinMs: string;
   durationMaxMs: string;
-  occurredRange: string[];
+  startedRange: string[];
   sorters: AccessLogSorter[];
 };

@@ -54,6 +54,12 @@
 - 默认排序：按原始发生时间倒序
 - 页面允许主搜索框 + 动态筛选构建器并存
 - URL query 统一使用 `snake_case`
+- 日志页页面状态统一保存 `YYYY-MM-DD HH:mm:ss` 本地展示时间字符串
+- Route Query 与 API Request 必须复用同一个 shared UTC conversion helper
+- 禁止页面分别实现 UTC 转换逻辑
+- 禁止 `Date -> toISOString() -> DatePicker / DateRangePicker` 直接绑定链路
+- 提交请求时统一执行：`本地展示时间 -> ISO UTC`
+- 恢复 deep link 时统一执行：`ISO UTC -> 本地展示时间`
 - 共享 query 键：
   - `request_id`
   - `trace_id`

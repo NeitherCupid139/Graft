@@ -10,16 +10,6 @@
             :placeholder="t('accessLog.page.searchPlaceholder')"
             @update:model-value="updateField('keyword', normalizeTextValue($event))"
           />
-          <t-date-range-picker
-            :model-value="modelValue.occurredRange"
-            allow-input
-            clearable
-            class="access-log-filters__date"
-            enable-time-picker
-            format="YYYY-MM-DD HH:mm:ss"
-            :placeholder="dateRangePlaceholder"
-            @update:model-value="updateField('occurredRange', $event)"
-          />
           <div class="access-log-filters__actions">
             <t-button theme="primary" :loading="loading" @click="$emit('search')">
               {{ t('accessLog.actions.search') }}
@@ -101,8 +91,18 @@
                   <div class="access-log-filter-builder__editor-title">
                     {{ selectedDefinition.fieldLabel }}
                   </div>
+                  <t-date-range-picker
+                    v-if="selectedDefinition.kind === 'date-range'"
+                    :model-value="modelValue.startedRange"
+                    allow-input
+                    clearable
+                    enable-time-picker
+                    format="YYYY-MM-DD HH:mm:ss"
+                    :placeholder="selectedDefinition.placeholder"
+                    @update:model-value="updateStartedRange"
+                  />
                   <t-select
-                    v-if="selectedDefinition.kind === 'select'"
+                    v-else-if="selectedDefinition.kind === 'select'"
                     :model-value="props.modelValue[selectedDefinition.key]"
                     clearable
                     :options="selectedDefinition.options"
@@ -168,16 +168,26 @@ type AccessLogPresetKey =
   | 'slowRequests'
   | 'currentUser'
   | 'lastHour';
-type FilterKey = Exclude<keyof AccessLogFilterState, 'keyword' | 'occurredRange' | 'pathMatch' | 'route' | 'sorters'>;
+type FilterKey = Exclude<keyof AccessLogFilterState, 'keyword' | 'pathMatch' | 'route' | 'sorters'>;
 type SelectFilterKey = 'method';
-
-type FilterDefinition = {
-  key: FilterKey;
+type BaseFilterDefinition<Key extends FilterKey> = {
+  key: Key;
   fieldLabel: string;
-  kind: 'select' | 'text';
-  placeholder: string;
-  options?: Array<{ label: string; value: string }>;
 };
+type TextFilterDefinition = BaseFilterDefinition<Exclude<FilterKey, 'startedRange' | 'method'>> & {
+  kind: 'text';
+  placeholder: string;
+};
+type SelectFilterDefinition = BaseFilterDefinition<'method'> & {
+  kind: 'select';
+  placeholder: string;
+  options: Array<{ label: string; value: string }>;
+};
+type DateRangeFilterDefinition = BaseFilterDefinition<'startedRange'> & {
+  kind: 'date-range';
+  placeholder: string[];
+};
+type FilterDefinition = TextFilterDefinition | SelectFilterDefinition | DateRangeFilterDefinition;
 
 const props = defineProps<{
   activePreset: AccessLogPresetKey;
@@ -196,12 +206,13 @@ const emit = defineEmits<{
 const { t } = useI18n();
 
 const builderVisible = ref(false);
-const selectedDefinitionKey = ref<FilterKey>('requestId');
+const selectedDefinitionKey = ref<FilterKey>('startedRange');
 
 const methodOptions = computed(() =>
   ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map((value) => ({ label: value, value })),
 );
 const sortByOptions = computed(() => [
+  { label: t('accessLog.filters.sortStartedAt'), value: 'started_at' },
   { label: t('accessLog.filters.sortOccurredAt'), value: 'occurred_at' },
   { label: t('accessLog.filters.sortDuration'), value: 'duration_ms' },
   { label: t('accessLog.filters.sortStatusCode'), value: 'status_code' },
@@ -212,6 +223,12 @@ const sortOrderOptions = computed(() => [
 ]);
 
 const definitions = computed<FilterDefinition[]>(() => [
+  {
+    key: 'startedRange',
+    kind: 'date-range',
+    fieldLabel: t('accessLog.builder.fields.startedRange'),
+    placeholder: [t('accessLog.filters.startedRange'), t('accessLog.filters.startedRange')],
+  },
   {
     key: 'requestId',
     kind: 'text',
@@ -269,14 +286,21 @@ const selectedDefinition = computed(() =>
 const activeSorter = computed(() => getSingleSorter(props.modelValue.sorters));
 const sortFieldValue = computed(() => activeSorter.value?.field ?? '');
 const sortDirectionValue = computed(() => activeSorter.value?.direction ?? '');
-const dateRangePlaceholder = computed(() => [
-  t('accessLog.filters.occurredRange'),
-  t('accessLog.filters.occurredRange'),
-]);
 
 const activeFilterTags = computed(() => {
   const filterTags = definitions.value
     .map((definition) => {
+      if (definition.key === 'startedRange') {
+        const [from = '', to = ''] = props.modelValue.startedRange;
+        if (!from && !to) {
+          return null;
+        }
+        return {
+          key: definition.key,
+          label: `${definition.fieldLabel}：${[from, to].filter(Boolean).join(' ~ ')}`,
+        };
+      }
+
       const rawValue = props.modelValue[definition.key];
       const value = typeof rawValue === 'string' ? rawValue.trim() : rawValue;
       if (!value) {
@@ -284,7 +308,7 @@ const activeFilterTags = computed(() => {
       }
       const label =
         definition.kind === 'select'
-          ? definition.options?.find((option) => option.value === value)?.label || String(value)
+          ? definition.options.find((option) => option.value === value)?.label || String(value)
           : String(value);
       return { key: definition.key, label: `${definition.fieldLabel}：${label}` };
     })
@@ -304,6 +328,13 @@ function updateSelectField(key: SelectFilterKey, value: string | number | Array<
   updateField(key, normalizeSelect(value));
 }
 
+function updateStartedRange(value: string[] | undefined) {
+  emit('update:modelValue', {
+    ...props.modelValue,
+    startedRange: Array.isArray(value) ? value : [],
+  });
+}
+
 function clearField(key: FilterKey | 'sorter') {
   if (key === 'sorter') {
     emit('update:modelValue', {
@@ -314,6 +345,13 @@ function clearField(key: FilterKey | 'sorter') {
   }
   if (key === 'method') {
     updateField('method', '');
+    return;
+  }
+  if (key === 'startedRange') {
+    emit('update:modelValue', {
+      ...props.modelValue,
+      startedRange: [],
+    });
     return;
   }
   updateField(key, '');
@@ -332,7 +370,7 @@ function normalizeSelect(value: string | number | Array<string | number> | undef
 }
 
 function normalizeSortBy(value: string): AccessLogSortBy {
-  return value === 'duration_ms' || value === 'status_code' ? value : 'occurred_at';
+  return value === 'occurred_at' || value === 'duration_ms' || value === 'status_code' ? value : 'started_at';
 }
 
 function normalizeSortOrder(value: string): AccessLogSortOrder {
@@ -374,11 +412,6 @@ void (null as unknown as AccessLogPathMatch);
 
 .access-log-filters__keyword {
   flex: 1 1 340px;
-  min-width: 240px;
-}
-
-.access-log-filters__date {
-  flex: 0 1 360px;
   min-width: 240px;
 }
 
@@ -431,7 +464,7 @@ void (null as unknown as AccessLogPathMatch);
 .access-log-filter-builder {
   display: grid;
   gap: 16px;
-  grid-template-columns: minmax(160px, 200px) minmax(220px, 320px);
+  grid-template-columns: minmax(160px, 200px) minmax(280px, 360px);
   padding: 8px;
 }
 
@@ -516,7 +549,6 @@ void (null as unknown as AccessLogPathMatch);
   }
 
   .access-log-filters__keyword,
-  .access-log-filters__date,
   .access-log-filters__actions,
   .access-log-filters__sort-row,
   .access-log-filters__preset-row {
