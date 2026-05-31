@@ -25,12 +25,6 @@ const AUDIT_PRESET_DEFINITIONS: readonly AuditQuickPresetDefinition[] = [
   { key: 'high-risk', titleKey: 'audit.logList.presets.highRisk' },
 ] as const;
 
-const AUDIT_PRESET_KEY_SET = new Set<AuditQuickPresetKey>(AUDIT_PRESET_DEFINITIONS.map((preset) => preset.key));
-
-const AUDIT_PRESET_ALIASES: Record<string, AuditQuickPresetKey> = {
-  'failed-auth': 'auth-failed',
-};
-
 const RBAC_ACTION_PREFIXES = ['rbac.', 'role.', 'permission.'] as const;
 const SENSITIVE_ACTION_KEYWORDS = [
   'delete',
@@ -51,14 +45,6 @@ const PERMISSION_DENIED_RESULTS: AuditResult[] = ['DENIED'];
 
 export function listAuditPresets() {
   return AUDIT_PRESET_DEFINITIONS;
-}
-
-export function resolveAuditPresetKey(value: string): AuditQuickPresetKey {
-  if (AUDIT_PRESET_KEY_SET.has(value as AuditQuickPresetKey)) {
-    return value as AuditQuickPresetKey;
-  }
-
-  return AUDIT_PRESET_ALIASES[value] ?? 'all';
 }
 
 export function applyAuditPresetFilters(

@@ -70,11 +70,10 @@ export function buildAuditRelatedActorLocation(
   actorUserId?: number | string | null,
   monitorOrigin?: MonitorOriginContext | null,
 ): RouteLocationWithQuery {
+  void actorUserId;
   return buildAuditLogsLocationWithOrigin(
     {
       actor,
-      username: actor,
-      user_id: actorUserId === null || actorUserId === undefined ? '' : String(actorUserId),
     },
     monitorOrigin,
   );

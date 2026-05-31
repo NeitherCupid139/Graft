@@ -243,7 +243,7 @@ import { openCorrelationErrorNotification, requestIdFromError } from '@/modules/
 import { resolveLocalizedErrorMessage } from '@/modules/shared/localized-api-error';
 import { GovernanceDashboardShell, GovernanceSection, GovernanceSummaryCard } from '@/shared/components/governance';
 import { ManagementEmptyState } from '@/shared/components/management';
-import { formatLocaleDateTime } from '@/shared/observability';
+import { buildRecentHoursLocalRange, formatLocaleDateTime, localDateTimeToUtcIso } from '@/shared/observability';
 import { createLogger } from '@/utils/logger';
 
 import { getAuditOverview } from '../../api/audit';
@@ -395,7 +395,7 @@ const relatedRequestActionLabel = computed(() => t('audit.logList.drawer.actions
 
 function buildOverviewAuditQuery(query: Record<string, string>) {
   return {
-    preset: activeWindow.value,
+    ...buildFrozenOverviewWindow(),
     ...query,
   };
 }
@@ -407,13 +407,19 @@ function openShortcut(query: Record<string, string>) {
 function openSummary(key: string) {
   switch (key) {
     case 'failed':
-      void router.push(buildAuditLogsLocation(buildOverviewAuditQuery({ summary: 'failed-operations' })));
+      void router.push(buildAuditLogsLocation(buildOverviewAuditQuery({ success: 'false' })));
       return;
     case 'risk':
-      void router.push(buildAuditLogsLocation(buildOverviewAuditQuery({ risk_group: 'high_risk_operations' })));
+      void router.push(buildAuditLogsLocation(buildOverviewAuditQuery({ risk_levels: 'HIGH,CRITICAL' })));
       return;
     case 'sensitive':
-      void router.push(buildAuditLogsLocation(buildOverviewAuditQuery({ summary: 'sensitive-operations' })));
+      void router.push(
+        buildAuditLogsLocation(
+          buildOverviewAuditQuery({
+            action_keywords: 'delete,reset,grant,assign,revoke,remove,replace,update_role,update_permission',
+          }),
+        ),
+      );
       return;
     default:
       void router.push(buildAuditLogsLocation(buildOverviewAuditQuery({})));
@@ -421,7 +427,20 @@ function openSummary(key: string) {
 }
 
 function openRiskGroup(groupKey: string) {
-  void router.push(buildAuditLogsLocation(buildOverviewAuditQuery(groupKey ? { risk_group: groupKey } : {})));
+  const riskGroupQueries: Record<string, Record<string, string>> = {
+    high_risk_operations: { risk_levels: 'HIGH,CRITICAL' },
+    auth_failures: {
+      success: 'false',
+      resource_types: 'auth,session',
+      action_keywords: 'auth,login',
+      request_path_prefixes: '/api/auth',
+    },
+    permission_denials: {
+      results: 'DENIED',
+    },
+  };
+
+  void router.push(buildAuditLogsLocation(buildOverviewAuditQuery(groupKey ? (riskGroupQueries[groupKey] ?? {}) : {})));
 }
 
 function openSecurityTimelineRequest(requestId?: string) {
@@ -518,6 +537,28 @@ function resolveTrendLabelStep(pointCount: number) {
     return 2;
   }
   return 3;
+}
+
+function buildFrozenOverviewWindow() {
+  const [createdFrom = '', createdTo = ''] = buildPresetLocalRange(activeWindow.value);
+  return {
+    created_from: createdFrom ? localDateTimeToUtcIso(createdFrom) : '',
+    created_to: createdTo ? localDateTimeToUtcIso(createdTo) : '',
+  };
+}
+
+function buildPresetLocalRange(preset: AuditTimePreset) {
+  const now = new Date();
+  switch (preset) {
+    case AUDIT_TIME_PRESET.LAST_24H:
+      return buildRecentHoursLocalRange(now, 24);
+    case AUDIT_TIME_PRESET.LAST_7D:
+      return buildRecentHoursLocalRange(now, 24 * 7);
+    case AUDIT_TIME_PRESET.LAST_30D:
+      return buildRecentHoursLocalRange(now, 24 * 30);
+    default:
+      return [];
+  }
 }
 
 function resolveTrendBarHeight(value: number, maxTotal: number) {

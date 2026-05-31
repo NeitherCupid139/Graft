@@ -8,7 +8,7 @@ export const auditBootstrapRouteRegistrations: BootstrapRouteRegistration[] = [
     loadPage: () => import('./pages/overview/index.vue'),
     meta: {
       domain: 'audit',
-      tabGroup: 'audit',
+      tabGroup: 'audit-overview',
       dashboard: true,
       pageKind: 'overview',
       semanticTitle: {
@@ -30,7 +30,7 @@ export const auditBootstrapRouteRegistrations: BootstrapRouteRegistration[] = [
     loadPage: () => import('./pages/logs/index.vue'),
     meta: {
       domain: 'audit',
-      tabGroup: 'audit',
+      tabGroup: 'audit-logs',
       pageKind: 'list',
       semanticTitle: {
         'zh-CN': '安全审计 - 审计日志',
@@ -51,7 +51,7 @@ export const auditBootstrapRouteRegistrations: BootstrapRouteRegistration[] = [
     loadPage: () => import('./pages/incident/index.vue'),
     meta: {
       domain: 'audit',
-      tabGroup: 'audit',
+      tabGroup: 'audit-incident',
       pageKind: 'detail',
       semanticTitle: {
         'zh-CN': '安全审计 - 事件钻取',

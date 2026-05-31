@@ -80,7 +80,7 @@
 </template>
 <script setup lang="ts">
 import { MessagePlugin } from 'tdesign-vue-next';
-import { computed, ref, watch } from 'vue';
+import { computed, onActivated, onDeactivated, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 
@@ -101,21 +101,16 @@ import { getAuditLogs } from '../../api/audit';
 import AuditDetailDrawer from '../../components/AuditDetailDrawer.vue';
 import AuditFilters from '../../components/AuditFilters.vue';
 import AuditTable from '../../components/AuditTable.vue';
+import { AUDIT_BOOTSTRAP_ROUTE } from '../../contract/bootstrap';
 import { buildAuditLogsLocation, parseAuditLogsRouteQuery } from '../../contract/deep-link';
 import {
   buildMonitorReturnLocation,
   resolveAuditNavigationContext,
   withMonitorOrigin,
 } from '../../contract/navigation';
-import {
-  applyAuditPresetFilters,
-  type AuditQuickPresetKey,
-  listAuditPresets,
-  resolveAuditPresetKey,
-} from '../../contract/presets';
-import { type AuditTimePreset, resolveAuditTimePreset } from '../../contract/time-presets';
+import { applyAuditPresetFilters, type AuditQuickPresetKey, listAuditPresets } from '../../contract/presets';
+import { AUDIT_TIME_PRESET, type AuditTimePreset } from '../../contract/time-presets';
 import type { AuditClientFilterState } from '../../shared/presentation';
-import { matchesAuditRow } from '../../shared/presentation';
 import type { AuditLogListItem, AuditLogQuery } from '../../types/audit';
 
 defineOptions({
@@ -131,12 +126,6 @@ const loading = ref(false);
 const listError = ref('');
 const rows = ref<AuditLogListItem[]>([]);
 const total = ref(0);
-const activePreset = ref<AuditQuickPresetKey>(resolveAuditPresetKey(''));
-const activeTimePreset = ref<AuditTimePreset | ''>('');
-const routeSummary = ref('');
-const routeRiskGroup = ref('');
-const presetDisplayRange = ref<string[]>([]);
-const usingPresetDisplayRange = ref(false);
 const detailDrawerVisible = ref(false);
 const detailRecord = ref<AuditLogListItem | null>(null);
 const latestRequestSeq = ref(0);
@@ -150,8 +139,10 @@ const filters = ref<AuditClientFilterState>({
   ...createDefaultFilters(),
 });
 const applyingRoute = ref(false);
+const isRouteSyncActive = ref(true);
 const navigationContext = computed(() => resolveAuditNavigationContext(route.query));
 const monitorReturnLocation = computed(() => buildMonitorReturnLocation(route.query));
+const activePreset = computed(() => inferPresetFromFilters(filters.value));
 
 const presetViews = computed(() =>
   listAuditPresets().map((preset) => ({
@@ -169,18 +160,9 @@ const columnSettingOptions = computed(() => [
   { label: t('audit.logList.columns.createdAt'), value: 'created_at' },
 ]);
 
-const hasClientOnlyFilters = computed(() =>
-  Boolean(
-    filters.value.keyword ||
-    filters.value.actor ||
-    filters.value.actorUserId ||
-    filters.value.resourceId ||
-    filters.value.session ||
-    filters.value.requestId,
-  ),
-);
+const hasClientOnlyFilters = computed(() => false);
 
-const displayRows = computed(() => rows.value.filter((row) => matchesAuditRow(row, filters.value, t)));
+const displayRows = computed(() => rows.value);
 const tableTotal = computed(() => total.value);
 const footerSummary = computed(() =>
   hasClientOnlyFilters.value
@@ -188,18 +170,42 @@ const footerSummary = computed(() =>
     : t('audit.logList.footerTotal', { count: total.value }),
 );
 
+const isCurrentAuditLogsRoute = computed(
+  () => route.path === buildAuditLogsLocation({}).path || route.name === AUDIT_BOOTSTRAP_ROUTE.LOG_LIST.routeName,
+);
+
+function serializeRouteQuery(query: Record<string, unknown> | undefined) {
+  return JSON.stringify(query ?? {});
+}
+
+function canSyncAuditRoute(reason: string) {
+  const allowed = isRouteSyncActive.value && isCurrentAuditLogsRoute.value;
+
+  if (!allowed) {
+    logger.debug('skip audit route sync while page is inactive or route changed', {
+      reason,
+      routePath: route.path,
+      routeName: route.name,
+      isRouteSyncActive: isRouteSyncActive.value,
+      isCurrentAuditLogsRoute: isCurrentAuditLogsRoute.value,
+      query: route.query,
+    });
+  }
+
+  return allowed;
+}
+
 function buildQuery(): AuditLogQuery {
   const sorter = getSingleSorter(filters.value.sorters);
   const query: AuditLogQuery = {
     page: pagination.value.current,
     page_size: pagination.value.pageSize,
   };
-
-  if (routeSummary.value) {
-    query.summary = routeSummary.value;
+  if (filters.value.keyword) {
+    query.keyword = filters.value.keyword;
   }
-  if (routeRiskGroup.value) {
-    query.risk_group = routeRiskGroup.value;
+  if (filters.value.actor) {
+    query.actor = filters.value.actor;
   }
   if (filters.value.action) {
     query.action = filters.value.action;
@@ -225,11 +231,11 @@ function buildQuery(): AuditLogQuery {
   if (filters.value.resourceName) {
     query.resource_name = filters.value.resourceName;
   }
-  if (filters.value.resourceId) {
-    query.resource_id = filters.value.resourceId;
-  }
   if (filters.value.requestId) {
     query.request_id = filters.value.requestId;
+  }
+  if (filters.value.resourceId) {
+    query.resource_id = filters.value.resourceId;
   }
   if (filters.value.result !== 'all') {
     query.result = filters.value.result;
@@ -246,19 +252,18 @@ function buildQuery(): AuditLogQuery {
   if (filters.value.success !== 'all') {
     query.success = filters.value.success === 'true';
   }
+  if (filters.value.session) {
+    query.session_id = filters.value.session;
+  }
   if (filters.value.requestPathPrefixes.length) {
     query.request_path_prefixes = [...filters.value.requestPathPrefixes];
   }
-  const explicitCreatedRange = usingPresetDisplayRange.value ? [] : filters.value.createdRange;
-
+  const explicitCreatedRange = filters.value.createdRange;
   if (explicitCreatedRange[0]) {
     query.created_from = localDateTimeToUtcIso(explicitCreatedRange[0]);
   }
   if (explicitCreatedRange[1]) {
     query.created_to = localDateTimeToUtcIso(explicitCreatedRange[1]);
-  }
-  if (!query.created_from && !query.created_to && activeTimePreset.value) {
-    query.preset = activeTimePreset.value;
   }
   if (sorter?.field) {
     query.sort_by = sorter.field;
@@ -303,10 +308,9 @@ async function fetchAuditLogs() {
   }
 }
 
-function applyPreset(preset: typeof activePreset.value) {
-  activePreset.value = preset;
+function applyPreset(preset: AuditQuickPresetKey) {
   filters.value = applyAuditPresetFilters(preset, filters.value, createDefaultFilters);
-
+  filters.value.createdRange = buildPresetCreatedRange(resolvePresetTimeWindow(preset));
   pagination.value.current = 1;
   updateRouteQuery();
 }
@@ -318,7 +322,6 @@ function handleSearch() {
 
 function resetFilters() {
   filters.value = createDefaultFilters();
-  activePreset.value = 'all';
   pagination.value.current = 1;
   updateRouteQuery();
 }
@@ -327,7 +330,6 @@ function createDefaultFilters(): AuditClientFilterState {
   return {
     keyword: '',
     actor: '',
-    actorUserId: '',
     success: 'all',
     action: '',
     actionPrefix: '',
@@ -357,17 +359,10 @@ function openDetailDrawer(row: AuditLogListItem) {
 
 function applyRouteFilters() {
   const query = parseAuditLogsRouteQuery(route.query);
-  activeTimePreset.value = query.preset ? resolveAuditTimePreset(query.preset) : '';
-  routeSummary.value = query.summary || '';
-  routeRiskGroup.value = query.risk_group || '';
-  const hasExplicitCreatedRange = Boolean(query.created_from || query.created_to);
-  presetDisplayRange.value = hasExplicitCreatedRange ? [] : buildPresetCreatedRange(activeTimePreset.value);
-  usingPresetDisplayRange.value = presetDisplayRange.value.length > 0;
   const nextFilters: AuditClientFilterState = {
     ...createDefaultFilters(),
     keyword: query.keyword ?? '',
-    actor: query.username || query.actor || '',
-    actorUserId: query.user_id ?? '',
+    actor: query.actor ?? '',
     success: query.success === 'true' ? 'true' : query.success === 'false' ? 'false' : 'all',
     action: query.action || '',
     actionPrefix: query.action_prefix || '',
@@ -375,9 +370,7 @@ function applyRouteFilters() {
     actionKeywords: splitRouteList(query.action_keywords),
     requestPathPrefixes: splitRouteList(query.request_path_prefixes),
     source: query.source || '',
-    createdRange: hasExplicitCreatedRange
-      ? normalizeRouteRangeForPageState([query.created_from ?? '', query.created_to ?? ''])
-      : [...presetDisplayRange.value],
+    createdRange: normalizeRouteRangeForPageState([query.created_from ?? '', query.created_to ?? '']),
     resourceType: query.resource_type || '',
     resourceTypes: splitRouteList(query.resource_types),
     resourceName: query.resource_name ?? '',
@@ -392,23 +385,17 @@ function applyRouteFilters() {
       ? createSingleSorter('created_at', normalizeSortOrder(query.sort_order || 'desc'))
       : filters.value.sorters,
   };
-
   filters.value = nextFilters;
-  activePreset.value = inferPresetFromFilters(nextFilters);
 }
 
 function buildRouteQuery() {
-  const explicitCreatedRange = usingPresetDisplayRange.value ? [] : filters.value.createdRange;
+  const explicitCreatedRange = filters.value.createdRange;
   const [createdFrom = '', createdTo = ''] = normalizePageStateRangeForRoute(explicitCreatedRange);
   const sorter = getSingleSorter(filters.value.sorters);
 
   return {
-    preset: createdFrom || createdTo ? '' : activeTimePreset.value,
-    summary: routeSummary.value,
-    risk_group: routeRiskGroup.value,
     keyword: filters.value.keyword,
-    username: filters.value.actor,
-    user_id: filters.value.actorUserId,
+    actor: filters.value.actor,
     success: filters.value.success === 'all' ? '' : filters.value.success,
     action: filters.value.action,
     action_prefix: filters.value.actionPrefix,
@@ -437,6 +424,9 @@ async function updateRouteQuery() {
   if (applyingRoute.value) {
     return;
   }
+  if (!canSyncAuditRoute('interactive-filter-sync')) {
+    return;
+  }
 
   const nextLocation = withMonitorOrigin(
     buildAuditLogsLocation(buildRouteQuery()),
@@ -444,42 +434,77 @@ async function updateRouteQuery() {
   );
   const currentLocation = withMonitorOrigin(buildAuditLogsLocation(route.query), navigationContext.value.monitorOrigin);
 
-  if (JSON.stringify(nextLocation.query) === JSON.stringify(currentLocation.query)) {
+  if (serializeRouteQuery(nextLocation.query) === serializeRouteQuery(currentLocation.query)) {
     await fetchAuditLogs();
     return;
   }
 
+  logger.debug('replace audit route query from interactive filters', {
+    reason: 'interactive-filter-sync',
+    routePath: route.path,
+    routeName: route.name,
+    currentQuery: currentLocation.query,
+    nextQuery: nextLocation.query,
+  });
   await router.replace(nextLocation);
 }
 
-watch(
-  () => filters.value.createdRange,
-  (value) => {
-    if (!usingPresetDisplayRange.value) {
-      return;
-    }
+async function syncFromCurrentRoute(reason: string) {
+  logger.debug('observe route query change for audit logs', {
+    reason,
+    routePath: route.path,
+    routeName: route.name,
+    isRouteSyncActive: isRouteSyncActive.value,
+    isCurrentAuditLogsRoute: isCurrentAuditLogsRoute.value,
+    applyingRoute: applyingRoute.value,
+    query: route.query,
+  });
+  if (!canSyncAuditRoute(reason)) {
+    return;
+  }
 
-    if (JSON.stringify(value) !== JSON.stringify(presetDisplayRange.value)) {
-      usingPresetDisplayRange.value = false;
-    }
-  },
-  { deep: true },
-);
+  applyingRoute.value = true;
+  try {
+    applyRouteFilters();
+  } finally {
+    applyingRoute.value = false;
+  }
+  pagination.value.current = 1;
+  const canonicalLocation = withMonitorOrigin(
+    buildAuditLogsLocation(buildRouteQuery()),
+    navigationContext.value.monitorOrigin,
+  );
+  const currentLocation = withMonitorOrigin(buildAuditLogsLocation(route.query), navigationContext.value.monitorOrigin);
+  if (serializeRouteQuery(canonicalLocation.query) !== serializeRouteQuery(currentLocation.query)) {
+    logger.debug('canonicalize audit route query after route change', {
+      reason,
+      routePath: route.path,
+      routeName: route.name,
+      currentQuery: currentLocation.query,
+      canonicalQuery: canonicalLocation.query,
+    });
+    await router.replace(canonicalLocation);
+    return;
+  }
+  await fetchAuditLogs();
+}
 
 watch(
   () => route.query,
   async () => {
-    applyingRoute.value = true;
-    try {
-      applyRouteFilters();
-    } finally {
-      applyingRoute.value = false;
-    }
-    pagination.value.current = 1;
-    await fetchAuditLogs();
+    await syncFromCurrentRoute('route-query-watch');
   },
   { immediate: true },
 );
+
+onActivated(() => {
+  isRouteSyncActive.value = true;
+  void syncFromCurrentRoute('route-activated');
+});
+
+onDeactivated(() => {
+  isRouteSyncActive.value = false;
+});
 
 function returnToMonitor() {
   if (!monitorReturnLocation.value) {
@@ -549,6 +574,10 @@ function buildPresetCreatedRange(preset: AuditTimePreset | '') {
     default:
       return [];
   }
+}
+
+function resolvePresetTimeWindow(preset: AuditQuickPresetKey): AuditTimePreset | '' {
+  return preset === 'all' ? '' : AUDIT_TIME_PRESET.LAST_24H;
 }
 </script>
 <style scoped lang="less">

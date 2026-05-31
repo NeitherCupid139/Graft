@@ -187,7 +187,6 @@ describe('AuditFilters', () => {
         modelValue: {
           keyword: '',
           actor: 'admin',
-          actorUserId: '',
           success: 'all',
           action: '',
           actionPrefix: '',

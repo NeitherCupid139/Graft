@@ -462,14 +462,28 @@
       "hintRequestOnly": "请求 ID：{requestId}"
     },
     "actionLabel": {
-      "auth.failed": "认证失败",
-      "auth.token.expired": "令牌失效",
-      "rbac.role.permissions.replace": "更新角色权限",
-      "rbac.role.delete": "删除角色",
-      "rbac.role.assign": "分配角色",
-      "rbac.role.permissions.add": "添加角色权限",
-      "rbac.role.permissions.remove": "移除角色权限",
-      "user.password.reset": "重置用户密码"
+      "auth": {
+        "failed": "认证失败",
+        "token": {
+          "expired": "令牌失效"
+        }
+      },
+      "rbac": {
+        "role": {
+          "permissions": {
+            "replace": "更新角色权限",
+            "add": "添加角色权限",
+            "remove": "移除角色权限"
+          },
+          "delete": "删除角色",
+          "assign": "分配角色"
+        }
+      },
+      "user": {
+        "password": {
+          "reset": "重置用户密码"
+        }
+      }
     }
   }
 }

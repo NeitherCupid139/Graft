@@ -26,6 +26,16 @@ get:
         type: integer
         format: int64
         minimum: 1
+    - name: keyword
+      in: query
+      required: false
+      schema:
+        type: string
+    - name: actor
+      in: query
+      required: false
+      schema:
+        type: string
     - name: action
       in: query
       required: false
@@ -37,18 +47,6 @@ get:
       schema:
         type: string
         enum: [last_24h, last_7d, last_30d]
-    - name: summary
-      in: query
-      required: false
-      schema:
-        type: string
-        enum: [sensitive-operations, failed-operations]
-    - name: risk_group
-      in: query
-      required: false
-      schema:
-        type: string
-        enum: [high_risk_operations, auth_failures, permission_denials]
     - name: action_prefix
       in: query
       required: false
@@ -112,6 +110,11 @@ get:
         items:
           type: string
     - name: request_id
+      in: query
+      required: false
+      schema:
+        type: string
+    - name: session_id
       in: query
       required: false
       schema:

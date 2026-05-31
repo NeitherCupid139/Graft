@@ -1,10 +1,9 @@
 import { flushPromises, mount } from '@vue/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { defineComponent, h } from 'vue';
+import { defineComponent, h, KeepAlive } from 'vue';
 import { createI18n } from 'vue-i18n';
-import { createMemoryHistory, createRouter } from 'vue-router';
+import { createMemoryHistory, createRouter, RouterView } from 'vue-router';
 
-import { resolveAuditPresetKey } from '../../contract/presets';
 import AuditLogsPage from './index.vue';
 
 const auditApiMocks = vi.hoisted(() => ({
@@ -56,6 +55,7 @@ vi.mock('@/modules/shared/localized-api-error', () => ({
 
 vi.mock('@/utils/logger', () => ({
   createLogger: () => ({
+    debug: vi.fn(),
     error: vi.fn(),
   }),
 }));
@@ -80,7 +80,6 @@ vi.mock('../../components/AuditFilters.vue', () => ({
                 emit('update:modelValue', {
                   ...props.modelValue,
                   actor: 'route-admin',
-                  actorUserId: '7',
                   success: 'all',
                   createdRange: ['2026-05-01 10:00:00', '2026-05-02 18:30:00'],
                   actionPrefixes: [],
@@ -140,6 +139,28 @@ const buttonStub = defineComponent({
   emits: ['click'],
   setup(_, { emit, slots, attrs }) {
     return () => h('button', { ...attrs, onClick: () => emit('click') }, slots.default?.());
+  },
+});
+
+const checkboxGroupStub = defineComponent({
+  name: 'TCheckboxGroupStub',
+  setup(_, { slots }) {
+    return () => h('div', slots.default?.());
+  },
+});
+
+const checkboxStub = defineComponent({
+  name: 'TCheckboxStub',
+  setup(_, { slots }) {
+    return () => h('label', slots.default?.());
+  },
+});
+
+const drawerStub = defineComponent({
+  name: 'TDrawerStub',
+  props: ['visible', 'header'],
+  setup(_, { slots }) {
+    return () => h('div', slots.default?.());
   },
 });
 
@@ -338,7 +359,13 @@ describe('AuditLogsPage', () => {
     vi.useRealTimers();
   });
 
-  async function mountPage(initialQuery: Record<string, string> = { preset: 'last_24h', results: 'DENIED' }) {
+  async function mountPage(
+    initialQuery: Record<string, string> = {
+      created_from: '2026-05-30T07:21:04.000Z',
+      created_to: '2026-05-31T07:21:04.000Z',
+      results: 'DENIED',
+    },
+  ) {
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [{ path: '/audit/logs', component: AuditLogsPage }],
@@ -359,6 +386,60 @@ describe('AuditLogsPage', () => {
           'management-page-content': passthroughStub,
           'management-page-header': passthroughStub,
           't-button': buttonStub,
+          't-checkbox': checkboxStub,
+          't-checkbox-group': checkboxGroupStub,
+          't-drawer': drawerStub,
+          't-space': passthroughStub,
+        },
+      },
+    });
+
+    await flushPromises();
+    return { router, replaceSpy, wrapper };
+  }
+
+  async function mountKeepAliveHost(initialQuery: Record<string, string> = {}) {
+    const OtherPage = defineComponent({
+      name: 'OtherPageStub',
+      setup: () => () => h('div', { 'data-testid': 'other-page' }, 'other'),
+    });
+
+    const RouterHost = defineComponent({
+      name: 'RouterHost',
+      setup() {
+        return () =>
+          h(RouterView, null, {
+            default: ({ Component }: { Component: unknown }) => h(KeepAlive, null, () => [h(Component as never)]),
+          });
+      },
+    });
+
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/audit/logs', name: 'AuditLogList', component: AuditLogsPage },
+        { path: '/users', name: 'UsersIndex', component: OtherPage },
+      ],
+    });
+
+    await router.push({
+      path: '/audit/logs',
+      query: initialQuery,
+    });
+    await router.isReady();
+
+    const replaceSpy = vi.spyOn(router, 'replace');
+    const wrapper = mount(RouterHost, {
+      global: {
+        plugins: [i18n, router],
+        stubs: {
+          'management-empty-state': passthroughStub,
+          'management-page-content': passthroughStub,
+          'management-page-header': passthroughStub,
+          't-button': buttonStub,
+          't-checkbox': checkboxStub,
+          't-checkbox-group': checkboxGroupStub,
+          't-drawer': drawerStub,
           't-space': passthroughStub,
         },
       },
@@ -370,7 +451,7 @@ describe('AuditLogsPage', () => {
 
   it('restores deep-link filters including created range and keeps backend request shape unchanged', async () => {
     const { wrapper } = await mountPage({
-      username: 'alice',
+      actor: 'alice',
       created_from: '2026-05-01T10:00:00Z',
       created_to: '2026-05-02T18:30:00Z',
       result: 'FAILED',
@@ -383,6 +464,7 @@ describe('AuditLogsPage', () => {
     expect(auditApiMocks.getAuditLogs).toHaveBeenLastCalledWith({
       page: 1,
       page_size: 10,
+      actor: 'alice',
       result: 'FAILED',
       created_from: '2026-05-01T10:00:00.000Z',
       created_to: '2026-05-02T18:30:00.000Z',
@@ -391,36 +473,13 @@ describe('AuditLogsPage', () => {
     });
   });
 
-  it('accepts legacy occurred range query while normalizing route writes to created range', async () => {
-    const { replaceSpy, wrapper } = await mountPage({
-      occurred_from: '2026-05-01T10:00:00Z',
-      occurred_to: '2026-05-02T18:30:00Z',
-    });
-
-    expect(wrapper.get('[data-testid="audit-filter-model"]').text()).toContain(
-      '"createdRange":["2026-05-01 18:00:00","2026-05-03 02:30:00"]',
-    );
-
-    replaceSpy.mockClear();
-    await wrapper.get('[data-testid="audit-search"]').trigger('click');
-    await flushPromises();
-
-    expect(replaceSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        query: expect.objectContaining({
-          created_from: '2026-05-01T10:00:00.000Z',
-          created_to: '2026-05-02T18:30:00.000Z',
-        }),
-      }),
-    );
-  });
-
-  it('loads preset-backed records and opens the detail drawer', async () => {
+  it('loads explicit-range records and opens the detail drawer', async () => {
     const { wrapper } = await mountPage();
 
     expect(auditApiMocks.getAuditLogs).toHaveBeenCalledWith(
       expect.objectContaining({
-        preset: 'last_24h',
+        created_from: '2026-05-30T07:21:04.000Z',
+        created_to: '2026-05-31T07:21:04.000Z',
         results: ['DENIED'],
         sort_by: 'created_at',
         sort_order: 'desc',
@@ -436,28 +495,10 @@ describe('AuditLogsPage', () => {
     expect(wrapper.text()).toContain('req-1');
   });
 
-  it('restores a visible created range from preset-only routes without changing the backend query contract', async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-05-31T07:21:04Z'));
-
-    const { wrapper } = await mountPage({ preset: 'last_24h', results: 'DENIED' });
-
-    expect(wrapper.get('[data-testid="audit-filter-model"]').text()).toContain(
-      '"createdRange":["2026-05-30 15:21:04","2026-05-31 15:21:04"]',
-    );
-    expect(auditApiMocks.getAuditLogs).toHaveBeenLastCalledWith({
-      page: 1,
-      page_size: 10,
-      preset: 'last_24h',
-      results: ['DENIED'],
-      sort_by: 'created_at',
-      sort_order: 'desc',
-    });
-  });
-
   it('keeps monitor return context when syncing log filters', async () => {
     const { replaceSpy, router, wrapper } = await mountPage({
-      preset: 'last_24h',
+      created_from: '2026-05-30T07:21:04.000Z',
+      created_to: '2026-05-31T07:21:04.000Z',
       results: 'DENIED',
       monitorView: 'overview',
       monitorTrendRange: '10m',
@@ -493,6 +534,8 @@ describe('AuditLogsPage', () => {
   });
 
   it('applies quick preset from filters and refetches with unchanged query contract', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-31T07:21:04Z'));
     const { wrapper } = await mountPage();
     auditApiMocks.getAuditLogs.mockClear();
 
@@ -502,7 +545,8 @@ describe('AuditLogsPage', () => {
     expect(auditApiMocks.getAuditLogs).toHaveBeenCalledWith({
       page: 1,
       page_size: 10,
-      preset: 'last_24h',
+      created_from: '2026-05-30T07:21:04.000Z',
+      created_to: '2026-05-31T07:21:04.000Z',
       risk_levels: ['HIGH', 'CRITICAL'],
       sort_by: 'created_at',
       sort_order: 'desc',
@@ -534,8 +578,7 @@ describe('AuditLogsPage', () => {
       expect.objectContaining({
         path: '/audit/logs',
         query: expect.objectContaining({
-          username: 'route-admin',
-          user_id: '7',
+          actor: 'route-admin',
           created_from: '2026-05-01T02:00:00.000Z',
           created_to: '2026-05-02T10:30:00.000Z',
           result: 'FAILED',
@@ -545,8 +588,7 @@ describe('AuditLogsPage', () => {
       }),
     );
     expect(router.currentRoute.value.query).toMatchObject({
-      username: 'route-admin',
-      user_id: '7',
+      actor: 'route-admin',
       created_from: '2026-05-01T02:00:00.000Z',
       created_to: '2026-05-02T10:30:00.000Z',
       result: 'FAILED',
@@ -564,86 +606,11 @@ describe('AuditLogsPage', () => {
     );
   });
 
-  it('maps legacy overview preset keys to the canonical local preset authority', async () => {
-    expect(resolveAuditPresetKey('failed-auth')).toBe('auth-failed');
-    expect(resolveAuditPresetKey('rbac-changes')).toBe('rbac-changes');
-
-    const { replaceSpy, router, wrapper } = await mountPage({
-      preset: 'last_24h',
-      success: 'false',
-      resource_types: 'auth,session',
-      action_keywords: 'auth,login',
-      request_path_prefixes: '/api/auth',
-    });
-    replaceSpy.mockClear();
-    auditApiMocks.getAuditLogs.mockClear();
-
-    expect(wrapper.get('[data-testid="audit-filter-model"]').text()).not.toContain('"resourceType":"auth"');
-    expect(wrapper.get('[data-testid="audit-filter-model"]').text()).toContain('"result":"all"');
-
-    await wrapper.get('[data-testid="audit-search"]').trigger('click');
-    await flushPromises();
-
-    expect(replaceSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        path: '/audit/logs',
-        query: expect.objectContaining({
-          preset: 'last_24h',
-          success: 'false',
-          resource_types: 'auth,session',
-          action_keywords: 'auth,login',
-          request_path_prefixes: '/api/auth',
-        }),
-      }),
-    );
-    expect(router.currentRoute.value.query).toMatchObject({
-      preset: 'last_24h',
-      success: 'false',
-      resource_types: 'auth,session',
-      action_keywords: 'auth,login',
-      request_path_prefixes: '/api/auth',
-    });
-    expect(auditApiMocks.getAuditLogs).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        preset: 'last_24h',
-        success: false,
-        resource_types: ['auth', 'session'],
-        action_keywords: ['auth', 'login'],
-        request_path_prefixes: ['/api/auth'],
-      }),
-    );
-  });
-
-  it('keeps explicit filters empty when rewriting a plain preset-only route query', async () => {
-    const { replaceSpy, wrapper } = await mountPage({ preset: 'last_24h' });
-
-    replaceSpy.mockClear();
-    await wrapper.get('[data-testid="audit-search"]').trigger('click');
-    await flushPromises();
-
-    expect(replaceSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        query: expect.objectContaining({
-          preset: 'last_24h',
-        }),
-      }),
-    );
-    expect(replaceSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        query: expect.not.objectContaining({
-          created_from: expect.anything(),
-          created_to: expect.anything(),
-        }),
-      }),
-    );
-  });
-
   it('preserves explicit created range over preset-derived display state', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-05-31T07:21:04Z'));
 
     const { wrapper } = await mountPage({
-      preset: 'last_24h',
       created_from: '2026-05-01T10:00:00Z',
       created_to: '2026-05-02T18:30:00Z',
     });
@@ -656,55 +623,136 @@ describe('AuditLogsPage', () => {
     );
   });
 
-  it('preserves failed-operations explicit filters from overview drilldown', async () => {
-    const { replaceSpy, wrapper } = await mountPage({ preset: 'last_24h', summary: 'failed-operations' });
+  it('ignores legacy route params and keeps only canonical visible filters', async () => {
+    const { router, wrapper } = await mountPage({
+      preset: 'last_24h',
+      summary: 'failed-operations',
+      risk_group: 'auth_failures',
+      occurred_from: '2026-05-01T10:00:00Z',
+      occurred_to: '2026-05-02T18:30:00Z',
+      created_from: '2026-05-03T10:00:00Z',
+      created_to: '2026-05-04T18:30:00Z',
+      results: 'DENIED',
+    });
 
-    replaceSpy.mockClear();
+    expect(wrapper.get('[data-testid="audit-filter-model"]').text()).toContain(
+      '"createdRange":["2026-05-03 18:00:00","2026-05-05 02:30:00"]',
+    );
+    expect(wrapper.get('[data-testid="audit-filter-model"]').text()).not.toContain('"success":"false"');
+    expect(wrapper.get('[data-testid="audit-filter-model"]').text()).not.toContain(
+      '"resourceTypes":["auth","session"]',
+    );
+    expect(router.currentRoute.value.query).toMatchObject({
+      created_from: '2026-05-03T10:00:00.000Z',
+      created_to: '2026-05-04T18:30:00.000Z',
+      results: 'DENIED',
+    });
+    expect(router.currentRoute.value.query).not.toHaveProperty('preset');
+    expect(router.currentRoute.value.query).not.toHaveProperty('summary');
+    expect(router.currentRoute.value.query).not.toHaveProperty('risk_group');
+    expect(router.currentRoute.value.query).not.toHaveProperty('occurred_from');
+    expect(router.currentRoute.value.query).not.toHaveProperty('occurred_to');
+    expect(auditApiMocks.getAuditLogs).toHaveBeenLastCalledWith({
+      page: 1,
+      page_size: 10,
+      created_from: '2026-05-03T10:00:00.000Z',
+      created_to: '2026-05-04T18:30:00.000Z',
+      results: ['DENIED'],
+      sort_by: 'created_at',
+      sort_order: 'desc',
+    });
+  });
+
+  it('writes back canonical query fields only after interactive changes', async () => {
+    const { router, wrapper } = await mountPage({
+      preset: 'last_24h',
+      summary: 'failed-operations',
+      risk_group: 'auth_failures',
+      occurred_from: '2026-05-01T10:00:00Z',
+      occurred_to: '2026-05-02T18:30:00Z',
+      created_from: '2026-05-03T10:00:00Z',
+      created_to: '2026-05-04T18:30:00Z',
+    });
+
     await wrapper.get('[data-testid="audit-search"]').trigger('click');
     await flushPromises();
 
-    expect(replaceSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        query: expect.objectContaining({
-          preset: 'last_24h',
-          summary: 'failed-operations',
-        }),
-      }),
-    );
-    expect(auditApiMocks.getAuditLogs).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        preset: 'last_24h',
-        summary: 'failed-operations',
-      }),
-    );
+    expect(router.currentRoute.value.query).toMatchObject({
+      created_from: '2026-05-03T10:00:00.000Z',
+      created_to: '2026-05-04T18:30:00.000Z',
+      sort_by: 'created_at',
+      sort_order: 'desc',
+    });
+    expect(router.currentRoute.value.query).not.toHaveProperty('preset');
+    expect(router.currentRoute.value.query).not.toHaveProperty('summary');
+    expect(router.currentRoute.value.query).not.toHaveProperty('risk_group');
+    expect(router.currentRoute.value.query).not.toHaveProperty('occurred_from');
+    expect(router.currentRoute.value.query).not.toHaveProperty('occurred_to');
   });
 
-  it('applies the canonical rbac preset to the backend query contract', async () => {
-    const { wrapper } = await mountPage({ preset: 'last_24h', action_prefixes: 'rbac.,role.,permission.' });
-
-    expect(wrapper.get('[data-testid="audit-filter-model"]').text()).not.toContain('"actionPrefix":"rbac."');
-    expect(auditApiMocks.getAuditLogs).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        preset: 'last_24h',
-        action_prefixes: ['rbac.', 'role.', 'permission.'],
-      }),
-    );
-  });
-
-  it('forwards canonical summary and risk group route params to the backend query', async () => {
-    const { wrapper } = await mountPage({
-      preset: 'last_24h',
-      summary: 'failed-operations',
-      risk_group: 'high_risk_operations',
+  it('does not redirect back to audit logs after the kept-alive page is deactivated', async () => {
+    const { replaceSpy, router, wrapper } = await mountKeepAliveHost({
+      created_from: '2026-05-30T07:21:04.000Z',
+      created_to: '2026-05-31T07:21:04.000Z',
+      results: 'DENIED',
     });
 
-    expect(wrapper.get('[data-testid="audit-filter-model"]').text()).toContain('"createdRange"');
-    expect(auditApiMocks.getAuditLogs).toHaveBeenLastCalledWith(
+    auditApiMocks.getAuditLogs.mockClear();
+    replaceSpy.mockClear();
+
+    await router.push({ path: '/users', query: { tab: 'active' } });
+    await flushPromises();
+
+    expect(router.currentRoute.value.path).toBe('/users');
+    expect(router.currentRoute.value.query).toMatchObject({ tab: 'active' });
+    expect(wrapper.get('[data-testid="other-page"]').text()).toBe('other');
+    expect(replaceSpy).not.toHaveBeenCalledWith(
       expect.objectContaining({
-        preset: 'last_24h',
-        summary: 'failed-operations',
-        risk_group: 'high_risk_operations',
+        path: '/audit/logs',
       }),
     );
+    expect(auditApiMocks.getAuditLogs).not.toHaveBeenCalled();
+  });
+
+  it('re-applies current route query when the kept-alive audit page is re-activated', async () => {
+    const { router, wrapper } = await mountKeepAliveHost({
+      created_from: '2026-05-30T07:21:04.000Z',
+      created_to: '2026-05-31T07:21:04.000Z',
+      results: 'DENIED',
+    });
+
+    await router.push({ path: '/users', query: { tab: 'active' } });
+    await flushPromises();
+
+    auditApiMocks.getAuditLogs.mockClear();
+
+    await router.push({
+      path: '/audit/logs',
+      query: {
+        resource_type: 'user',
+        resource_name: 'Graft Admin',
+        resource_id: '1',
+      },
+    });
+    await flushPromises();
+
+    expect(router.currentRoute.value.path).toBe('/audit/logs');
+    expect(router.currentRoute.value.query).toMatchObject({
+      resource_type: 'user',
+      resource_name: 'Graft Admin',
+      resource_id: '1',
+    });
+    expect(wrapper.get('[data-testid="audit-filter-model"]').text()).toContain('"resourceType":"user"');
+    expect(wrapper.get('[data-testid="audit-filter-model"]').text()).toContain('"resourceName":"Graft Admin"');
+    expect(wrapper.get('[data-testid="audit-filter-model"]').text()).toContain('"resourceId":"1"');
+    expect(auditApiMocks.getAuditLogs).toHaveBeenLastCalledWith({
+      page: 1,
+      page_size: 10,
+      resource_type: 'user',
+      resource_name: 'Graft Admin',
+      resource_id: '1',
+      sort_by: 'created_at',
+      sort_order: 'desc',
+    });
   });
 });

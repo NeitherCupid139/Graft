@@ -253,7 +253,7 @@ const i18n = createI18n({
 });
 
 describe('AuditOverviewPage', () => {
-  it('renders the streamlined workbench overview and opens a quick link with canonical preset keys', async () => {
+  it('renders the streamlined workbench overview and opens a quick link with canonical filter keys', async () => {
     const wrapper = mount(AuditOverviewPage, {
       global: {
         plugins: [i18n],
@@ -288,14 +288,17 @@ describe('AuditOverviewPage', () => {
     expect(wrapper.text()).toContain('Trend analysis will appear after more audit events are collected.');
 
     await wrapper.get('button[type="button"]').trigger('click');
+    const firstQuery = routerMocks.push.mock.calls[0]?.[0]?.query ?? {};
     expect(routerMocks.push).toHaveBeenCalledWith(
       expect.objectContaining({
         path: AUDIT_ROUTE_PATH.LOGS,
         query: expect.objectContaining({
-          preset: 'last_24h',
+          created_from: expect.any(String),
+          created_to: expect.any(String),
         }),
       }),
     );
+    expect(firstQuery).not.toHaveProperty('preset');
   });
 
   it('opens the failed summary card with explicit failed-operation filters', async () => {
@@ -326,10 +329,11 @@ describe('AuditOverviewPage', () => {
 
     expect(routerMocks.push).toHaveBeenCalledWith({
       path: AUDIT_ROUTE_PATH.LOGS,
-      query: {
-        preset: 'last_24h',
-        summary: 'failed-operations',
-      },
+      query: expect.objectContaining({
+        success: 'false',
+        created_from: expect.any(String),
+        created_to: expect.any(String),
+      }),
     });
   });
 
@@ -361,14 +365,15 @@ describe('AuditOverviewPage', () => {
 
     expect(routerMocks.push).toHaveBeenCalledWith({
       path: AUDIT_ROUTE_PATH.LOGS,
-      query: {
-        preset: 'last_24h',
-        risk_group: 'high_risk_operations',
-      },
+      query: expect.objectContaining({
+        risk_levels: 'HIGH,CRITICAL',
+        created_from: expect.any(String),
+        created_to: expect.any(String),
+      }),
     });
   });
 
-  it('opens risk groups with canonical risk_group query params', async () => {
+  it('opens risk groups with canonical visible audit filters', async () => {
     routerMocks.push.mockClear();
     auditApiMocks.getAuditOverview.mockResolvedValueOnce({
       time_preset: 'last_24h',
@@ -421,10 +426,11 @@ describe('AuditOverviewPage', () => {
 
     expect(routerMocks.push).toHaveBeenCalledWith({
       path: AUDIT_ROUTE_PATH.LOGS,
-      query: {
-        preset: 'last_24h',
-        risk_group: 'high_risk_operations',
-      },
+      query: expect.objectContaining({
+        risk_levels: 'HIGH,CRITICAL',
+        created_from: expect.any(String),
+        created_to: expect.any(String),
+      }),
     });
   });
 

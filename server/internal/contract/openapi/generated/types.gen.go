@@ -372,6 +372,27 @@ func (e AuditOverviewResponseSecurityTimelineSource) Valid() bool {
 	}
 }
 
+// Defines values for AuditOverviewResponseTimePreset.
+const (
+	AuditOverviewResponseTimePresetLast24h AuditOverviewResponseTimePreset = "last_24h"
+	AuditOverviewResponseTimePresetLast30d AuditOverviewResponseTimePreset = "last_30d"
+	AuditOverviewResponseTimePresetLast7d  AuditOverviewResponseTimePreset = "last_7d"
+)
+
+// Valid indicates whether the value is a known member of the AuditOverviewResponseTimePreset enum.
+func (e AuditOverviewResponseTimePreset) Valid() bool {
+	switch e {
+	case AuditOverviewResponseTimePresetLast24h:
+		return true
+	case AuditOverviewResponseTimePresetLast30d:
+		return true
+	case AuditOverviewResponseTimePresetLast7d:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AuditOverviewResponseTrendBucketUnit.
 const (
 	Day  AuditOverviewResponseTrendBucketUnit = "day"
@@ -384,27 +405,6 @@ func (e AuditOverviewResponseTrendBucketUnit) Valid() bool {
 	case Day:
 		return true
 	case Hour:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for AuditOverviewResponseWindow.
-const (
-	AuditOverviewResponseWindowN24h AuditOverviewResponseWindow = "24h"
-	AuditOverviewResponseWindowN30d AuditOverviewResponseWindow = "30d"
-	AuditOverviewResponseWindowN7d  AuditOverviewResponseWindow = "7d"
-)
-
-// Valid indicates whether the value is a known member of the AuditOverviewResponseWindow enum.
-func (e AuditOverviewResponseWindow) Valid() bool {
-	switch e {
-	case AuditOverviewResponseWindowN24h:
-		return true
-	case AuditOverviewResponseWindowN30d:
-		return true
-	case AuditOverviewResponseWindowN7d:
 		return true
 	default:
 		return false
@@ -757,6 +757,7 @@ func (e GetAccessLogsParamsPathMatch) Valid() bool {
 const (
 	DurationMs GetAccessLogsParamsSortBy = "duration_ms"
 	OccurredAt GetAccessLogsParamsSortBy = "occurred_at"
+	StartedAt  GetAccessLogsParamsSortBy = "started_at"
 	StatusCode GetAccessLogsParamsSortBy = "status_code"
 )
 
@@ -766,6 +767,8 @@ func (e GetAccessLogsParamsSortBy) Valid() bool {
 	case DurationMs:
 		return true
 	case OccurredAt:
+		return true
+	case StartedAt:
 		return true
 	case StatusCode:
 		return true
@@ -786,6 +789,66 @@ func (e GetAccessLogsParamsSortOrder) Valid() bool {
 	case GetAccessLogsParamsSortOrderAsc:
 		return true
 	case GetAccessLogsParamsSortOrderDesc:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetAuditLogsParamsPreset.
+const (
+	GetAuditLogsParamsPresetLast24h GetAuditLogsParamsPreset = "last_24h"
+	GetAuditLogsParamsPresetLast30d GetAuditLogsParamsPreset = "last_30d"
+	GetAuditLogsParamsPresetLast7d  GetAuditLogsParamsPreset = "last_7d"
+)
+
+// Valid indicates whether the value is a known member of the GetAuditLogsParamsPreset enum.
+func (e GetAuditLogsParamsPreset) Valid() bool {
+	switch e {
+	case GetAuditLogsParamsPresetLast24h:
+		return true
+	case GetAuditLogsParamsPresetLast30d:
+		return true
+	case GetAuditLogsParamsPresetLast7d:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetAuditLogsParamsSummary.
+const (
+	FailedOperations    GetAuditLogsParamsSummary = "failed-operations"
+	SensitiveOperations GetAuditLogsParamsSummary = "sensitive-operations"
+)
+
+// Valid indicates whether the value is a known member of the GetAuditLogsParamsSummary enum.
+func (e GetAuditLogsParamsSummary) Valid() bool {
+	switch e {
+	case FailedOperations:
+		return true
+	case SensitiveOperations:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetAuditLogsParamsRiskGroup.
+const (
+	AuthFailures       GetAuditLogsParamsRiskGroup = "auth_failures"
+	HighRiskOperations GetAuditLogsParamsRiskGroup = "high_risk_operations"
+	PermissionDenials  GetAuditLogsParamsRiskGroup = "permission_denials"
+)
+
+// Valid indicates whether the value is a known member of the GetAuditLogsParamsRiskGroup enum.
+func (e GetAuditLogsParamsRiskGroup) Valid() bool {
+	switch e {
+	case AuthFailures:
+		return true
+	case HighRiskOperations:
+		return true
+	case PermissionDenials:
 		return true
 	default:
 		return false
@@ -837,6 +900,30 @@ func (e GetAuditLogsParamsResult) Valid() bool {
 	}
 }
 
+// Defines values for GetAuditLogsParamsResults.
+const (
+	DENIED  GetAuditLogsParamsResults = "DENIED"
+	ERROR   GetAuditLogsParamsResults = "ERROR"
+	FAILED  GetAuditLogsParamsResults = "FAILED"
+	SUCCESS GetAuditLogsParamsResults = "SUCCESS"
+)
+
+// Valid indicates whether the value is a known member of the GetAuditLogsParamsResults enum.
+func (e GetAuditLogsParamsResults) Valid() bool {
+	switch e {
+	case DENIED:
+		return true
+	case ERROR:
+		return true
+	case FAILED:
+		return true
+	case SUCCESS:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetAuditLogsParamsRiskLevel.
 const (
 	GetAuditLogsParamsRiskLevelCRITICAL GetAuditLogsParamsRiskLevel = "CRITICAL"
@@ -855,6 +942,30 @@ func (e GetAuditLogsParamsRiskLevel) Valid() bool {
 	case GetAuditLogsParamsRiskLevelLOW:
 		return true
 	case GetAuditLogsParamsRiskLevelMEDIUM:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetAuditLogsParamsRiskLevels.
+const (
+	CRITICAL GetAuditLogsParamsRiskLevels = "CRITICAL"
+	HIGH     GetAuditLogsParamsRiskLevels = "HIGH"
+	LOW      GetAuditLogsParamsRiskLevels = "LOW"
+	MEDIUM   GetAuditLogsParamsRiskLevels = "MEDIUM"
+)
+
+// Valid indicates whether the value is a known member of the GetAuditLogsParamsRiskLevels enum.
+func (e GetAuditLogsParamsRiskLevels) Valid() bool {
+	switch e {
+	case CRITICAL:
+		return true
+	case HIGH:
+		return true
+	case LOW:
+		return true
+	case MEDIUM:
 		return true
 	default:
 		return false
@@ -894,21 +1005,21 @@ func (e GetAuditLogsParamsSortOrder) Valid() bool {
 	}
 }
 
-// Defines values for GetAuditOverviewParamsWindow.
+// Defines values for GetAuditOverviewParamsPreset.
 const (
-	GetAuditOverviewParamsWindowN24h GetAuditOverviewParamsWindow = "24h"
-	GetAuditOverviewParamsWindowN30d GetAuditOverviewParamsWindow = "30d"
-	GetAuditOverviewParamsWindowN7d  GetAuditOverviewParamsWindow = "7d"
+	Last24h GetAuditOverviewParamsPreset = "last_24h"
+	Last30d GetAuditOverviewParamsPreset = "last_30d"
+	Last7d  GetAuditOverviewParamsPreset = "last_7d"
 )
 
-// Valid indicates whether the value is a known member of the GetAuditOverviewParamsWindow enum.
-func (e GetAuditOverviewParamsWindow) Valid() bool {
+// Valid indicates whether the value is a known member of the GetAuditOverviewParamsPreset enum.
+func (e GetAuditOverviewParamsPreset) Valid() bool {
 	switch e {
-	case GetAuditOverviewParamsWindowN24h:
+	case Last24h:
 		return true
-	case GetAuditOverviewParamsWindowN30d:
+	case Last30d:
 		return true
-	case GetAuditOverviewParamsWindowN7d:
+	case Last7d:
 		return true
 	default:
 		return false
@@ -966,6 +1077,7 @@ type AccessLogDetailResponse struct {
 	RequestSize  *int64    `json:"request_size,omitempty"`
 	ResponseSize *int64    `json:"response_size,omitempty"`
 	Route        string    `json:"route"`
+	StartedAt    time.Time `json:"started_at"`
 	StatusCode   int       `json:"status_code"`
 	TraceId      string    `json:"trace_id"`
 	UserAgent    string    `json:"user_agent"`
@@ -1215,8 +1327,9 @@ type AuditOverviewResponse struct {
 		RiskLevel    AuditOverviewResponseSecurityTimelineRiskLevel `json:"risk_level"`
 		Source       AuditOverviewResponseSecurityTimelineSource    `json:"source"`
 	} `json:"security_timeline"`
-	SensitiveOperations []AuditOverviewItem  `json:"sensitive_operations"`
-	Summary             AuditOverviewSummary `json:"summary"`
+	SensitiveOperations []AuditOverviewItem             `json:"sensitive_operations"`
+	Summary             AuditOverviewSummary            `json:"summary"`
+	TimePreset          AuditOverviewResponseTimePreset `json:"time_preset"`
 	Trend               struct {
 		BucketSize int                                  `json:"bucket_size"`
 		BucketUnit AuditOverviewResponseTrendBucketUnit `json:"bucket_unit"`
@@ -1229,7 +1342,6 @@ type AuditOverviewResponse struct {
 			Total          int       `json:"total"`
 		} `json:"points"`
 	} `json:"trend"`
-	Window AuditOverviewResponseWindow `json:"window"`
 }
 
 // AuditOverviewResponseRiskGroupsRiskLevel defines model for AuditOverviewResponse.RiskGroups.RiskLevel.
@@ -1244,11 +1356,11 @@ type AuditOverviewResponseSecurityTimelineRiskLevel string
 // AuditOverviewResponseSecurityTimelineSource defines model for AuditOverviewResponse.SecurityTimeline.Source.
 type AuditOverviewResponseSecurityTimelineSource string
 
+// AuditOverviewResponseTimePreset defines model for AuditOverviewResponse.TimePreset.
+type AuditOverviewResponseTimePreset string
+
 // AuditOverviewResponseTrendBucketUnit defines model for AuditOverviewResponse.Trend.BucketUnit.
 type AuditOverviewResponseTrendBucketUnit string
-
-// AuditOverviewResponseWindow defines model for AuditOverviewResponse.Window.
-type AuditOverviewResponseWindow string
 
 // AuditOverviewSummary defines model for audit-overview-summary.
 type AuditOverviewSummary struct {
@@ -2136,6 +2248,8 @@ type GetAccessLogsParams struct {
 	StatusCode    *int                          `form:"status_code,omitempty" json:"status_code,omitempty"`
 	DurationMinMs *int64                        `form:"duration_min_ms,omitempty" json:"duration_min_ms,omitempty"`
 	DurationMaxMs *int64                        `form:"duration_max_ms,omitempty" json:"duration_max_ms,omitempty"`
+	StartedFrom   *time.Time                    `form:"started_from,omitempty" json:"started_from,omitempty"`
+	StartedTo     *time.Time                    `form:"started_to,omitempty" json:"started_to,omitempty"`
 	OccurredFrom  *time.Time                    `form:"occurred_from,omitempty" json:"occurred_from,omitempty"`
 	OccurredTo    *time.Time                    `form:"occurred_to,omitempty" json:"occurred_to,omitempty"`
 	SortBy        *GetAccessLogsParamsSortBy    `form:"sort_by,omitempty" json:"sort_by,omitempty"`
@@ -2180,23 +2294,32 @@ type GetAuditIncidentParams struct {
 
 // GetAuditLogsParams defines parameters for GetAuditLogs.
 type GetAuditLogsParams struct {
-	Page         *int                         `form:"page,omitempty" json:"page,omitempty"`
-	PageSize     *int                         `form:"page_size,omitempty" json:"page_size,omitempty"`
-	ActorUserId  *int64                       `form:"actor_user_id,omitempty" json:"actor_user_id,omitempty"`
-	Action       *string                      `form:"action,omitempty" json:"action,omitempty"`
-	ActionPrefix *string                      `form:"action_prefix,omitempty" json:"action_prefix,omitempty"`
-	Source       *GetAuditLogsParamsSource    `form:"source,omitempty" json:"source,omitempty"`
-	ResourceType *string                      `form:"resource_type,omitempty" json:"resource_type,omitempty"`
-	ResourceId   *string                      `form:"resource_id,omitempty" json:"resource_id,omitempty"`
-	ResourceName *string                      `form:"resource_name,omitempty" json:"resource_name,omitempty"`
-	RequestId    *string                      `form:"request_id,omitempty" json:"request_id,omitempty"`
-	Result       *GetAuditLogsParamsResult    `form:"result,omitempty" json:"result,omitempty"`
-	RiskLevel    *GetAuditLogsParamsRiskLevel `form:"risk_level,omitempty" json:"risk_level,omitempty"`
-	Success      *bool                        `form:"success,omitempty" json:"success,omitempty"`
-	CreatedFrom  *time.Time                   `form:"created_from,omitempty" json:"created_from,omitempty"`
-	CreatedTo    *time.Time                   `form:"created_to,omitempty" json:"created_to,omitempty"`
-	SortBy       *GetAuditLogsParamsSortBy    `form:"sort_by,omitempty" json:"sort_by,omitempty"`
-	SortOrder    *GetAuditLogsParamsSortOrder `form:"sort_order,omitempty" json:"sort_order,omitempty"`
+	Page                *int                            `form:"page,omitempty" json:"page,omitempty"`
+	PageSize            *int                            `form:"page_size,omitempty" json:"page_size,omitempty"`
+	ActorUserId         *int64                          `form:"actor_user_id,omitempty" json:"actor_user_id,omitempty"`
+	Action              *string                         `form:"action,omitempty" json:"action,omitempty"`
+	Preset              *GetAuditLogsParamsPreset       `form:"preset,omitempty" json:"preset,omitempty"`
+	Summary             *GetAuditLogsParamsSummary      `form:"summary,omitempty" json:"summary,omitempty"`
+	RiskGroup           *GetAuditLogsParamsRiskGroup    `form:"risk_group,omitempty" json:"risk_group,omitempty"`
+	ActionPrefix        *string                         `form:"action_prefix,omitempty" json:"action_prefix,omitempty"`
+	ActionPrefixes      *[]string                       `form:"action_prefixes,omitempty" json:"action_prefixes,omitempty"`
+	ActionKeywords      *[]string                       `form:"action_keywords,omitempty" json:"action_keywords,omitempty"`
+	Source              *GetAuditLogsParamsSource       `form:"source,omitempty" json:"source,omitempty"`
+	ResourceType        *string                         `form:"resource_type,omitempty" json:"resource_type,omitempty"`
+	ResourceTypes       *[]string                       `form:"resource_types,omitempty" json:"resource_types,omitempty"`
+	ResourceId          *string                         `form:"resource_id,omitempty" json:"resource_id,omitempty"`
+	ResourceName        *string                         `form:"resource_name,omitempty" json:"resource_name,omitempty"`
+	RequestPathPrefixes *[]string                       `form:"request_path_prefixes,omitempty" json:"request_path_prefixes,omitempty"`
+	RequestId           *string                         `form:"request_id,omitempty" json:"request_id,omitempty"`
+	Result              *GetAuditLogsParamsResult       `form:"result,omitempty" json:"result,omitempty"`
+	Results             *[]GetAuditLogsParamsResults    `form:"results,omitempty" json:"results,omitempty"`
+	RiskLevel           *GetAuditLogsParamsRiskLevel    `form:"risk_level,omitempty" json:"risk_level,omitempty"`
+	RiskLevels          *[]GetAuditLogsParamsRiskLevels `form:"risk_levels,omitempty" json:"risk_levels,omitempty"`
+	Success             *bool                           `form:"success,omitempty" json:"success,omitempty"`
+	CreatedFrom         *time.Time                      `form:"created_from,omitempty" json:"created_from,omitempty"`
+	CreatedTo           *time.Time                      `form:"created_to,omitempty" json:"created_to,omitempty"`
+	SortBy              *GetAuditLogsParamsSortBy       `form:"sort_by,omitempty" json:"sort_by,omitempty"`
+	SortOrder           *GetAuditLogsParamsSortOrder    `form:"sort_order,omitempty" json:"sort_order,omitempty"`
 
 	// XGraftLocale Explicit locale override header already supported by the runtime.
 	XGraftLocale *LocaleHeader `json:"X-Graft-Locale,omitempty"`
@@ -2206,14 +2329,29 @@ type GetAuditLogsParams struct {
 	XRequestId *RequestIdHeader `json:"X-Request-Id,omitempty"`
 }
 
+// GetAuditLogsParamsPreset defines parameters for GetAuditLogs.
+type GetAuditLogsParamsPreset string
+
+// GetAuditLogsParamsSummary defines parameters for GetAuditLogs.
+type GetAuditLogsParamsSummary string
+
+// GetAuditLogsParamsRiskGroup defines parameters for GetAuditLogs.
+type GetAuditLogsParamsRiskGroup string
+
 // GetAuditLogsParamsSource defines parameters for GetAuditLogs.
 type GetAuditLogsParamsSource string
 
 // GetAuditLogsParamsResult defines parameters for GetAuditLogs.
 type GetAuditLogsParamsResult string
 
+// GetAuditLogsParamsResults defines parameters for GetAuditLogs.
+type GetAuditLogsParamsResults string
+
 // GetAuditLogsParamsRiskLevel defines parameters for GetAuditLogs.
 type GetAuditLogsParamsRiskLevel string
+
+// GetAuditLogsParamsRiskLevels defines parameters for GetAuditLogs.
+type GetAuditLogsParamsRiskLevels string
 
 // GetAuditLogsParamsSortBy defines parameters for GetAuditLogs.
 type GetAuditLogsParamsSortBy string
@@ -2223,7 +2361,7 @@ type GetAuditLogsParamsSortOrder string
 
 // GetAuditOverviewParams defines parameters for GetAuditOverview.
 type GetAuditOverviewParams struct {
-	Window *GetAuditOverviewParamsWindow `form:"window,omitempty" json:"window,omitempty"`
+	Preset *GetAuditOverviewParamsPreset `form:"preset,omitempty" json:"preset,omitempty"`
 
 	// XGraftLocale Explicit locale override header already supported by the runtime.
 	XGraftLocale *LocaleHeader `json:"X-Graft-Locale,omitempty"`
@@ -2233,8 +2371,8 @@ type GetAuditOverviewParams struct {
 	XRequestId *RequestIdHeader `json:"X-Request-Id,omitempty"`
 }
 
-// GetAuditOverviewParamsWindow defines parameters for GetAuditOverview.
-type GetAuditOverviewParamsWindow string
+// GetAuditOverviewParamsPreset defines parameters for GetAuditOverview.
+type GetAuditOverviewParamsPreset string
 
 // GetAuthBootstrapParams defines parameters for GetAuthBootstrap.
 type GetAuthBootstrapParams struct {

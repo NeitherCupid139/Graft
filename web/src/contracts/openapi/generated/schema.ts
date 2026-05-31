@@ -3952,10 +3952,10 @@ export interface operations {
         page?: number;
         page_size?: number;
         actor_user_id?: number;
+        keyword?: string;
+        actor?: string;
         action?: string;
         preset?: 'last_24h' | 'last_7d' | 'last_30d';
-        summary?: 'sensitive-operations' | 'failed-operations';
-        risk_group?: 'high_risk_operations' | 'auth_failures' | 'permission_denials';
         action_prefix?: string;
         action_prefixes?: string[];
         action_keywords?: string[];
@@ -3966,6 +3966,7 @@ export interface operations {
         resource_name?: string;
         request_path_prefixes?: string[];
         request_id?: string;
+        session_id?: string;
         result?: 'SUCCESS' | 'FAILED' | 'DENIED' | 'ERROR';
         results?: ('SUCCESS' | 'FAILED' | 'DENIED' | 'ERROR')[];
         risk_level?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';

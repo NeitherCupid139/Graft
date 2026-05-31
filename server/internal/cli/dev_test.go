@@ -69,8 +69,12 @@ func TestRunDevStopsAfterMigrationFailure(t *testing.T) {
 // TestRunDevAirInvokesAirRunner 验证 `graft dev air` 会调用 Air 热重载执行边界。
 func TestRunDevAirInvokesAirRunner(t *testing.T) {
 	originalAirRunner := devAirRunner
+	originalModuleRootResolver := devAirModuleRootResolver
+	originalTargetFinder := devAirTargetFinder
 	defer func() {
 		devAirRunner = originalAirRunner
+		devAirModuleRootResolver = originalModuleRootResolver
+		devAirTargetFinder = originalTargetFinder
 	}()
 
 	var gotConfig string
@@ -78,25 +82,41 @@ func TestRunDevAirInvokesAirRunner(t *testing.T) {
 		gotConfig = configPath
 		return nil
 	}
+	devAirModuleRootResolver = func() (string, error) {
+		return "/repo/server", nil
+	}
+	devAirTargetFinder = func(_ string, _ string) ([]int, []int, error) {
+		return nil, nil, nil
+	}
 
 	err := runDevAir(&cobra.Command{}, devAirOptions{configPath: ".air.toml"})
 	if err != nil {
 		t.Fatalf("run dev air: %v", err)
 	}
-	if gotConfig != ".air.toml" {
-		t.Fatalf("expected config path .air.toml, got %q", gotConfig)
+	if gotConfig != "/repo/server/.air.toml" {
+		t.Fatalf("expected resolved config path /repo/server/.air.toml, got %q", gotConfig)
 	}
 }
 
 // TestRunDevAirWrapsRunnerError 验证 Air 执行失败时会返回带上下文的错误。
 func TestRunDevAirWrapsRunnerError(t *testing.T) {
 	originalAirRunner := devAirRunner
+	originalModuleRootResolver := devAirModuleRootResolver
+	originalTargetFinder := devAirTargetFinder
 	defer func() {
 		devAirRunner = originalAirRunner
+		devAirModuleRootResolver = originalModuleRootResolver
+		devAirTargetFinder = originalTargetFinder
 	}()
 
 	devAirRunner = func(_ *cobra.Command, _ string) error {
 		return errors.New("air failed")
+	}
+	devAirModuleRootResolver = func() (string, error) {
+		return "/repo/server", nil
+	}
+	devAirTargetFinder = func(_ string, _ string) ([]int, []int, error) {
+		return nil, nil, nil
 	}
 
 	err := runDevAir(&cobra.Command{}, devAirOptions{configPath: ".air.toml"})
@@ -105,6 +125,49 @@ func TestRunDevAirWrapsRunnerError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "start Air live reload") {
 		t.Fatalf("expected air context, got %v", err)
+	}
+}
+
+// TestRunDevAirRejectsConcurrentSession 验证已有同仓库 Air 实例时会拒绝再次启动。
+func TestRunDevAirRejectsConcurrentSession(t *testing.T) {
+	originalAirRunner := devAirRunner
+	originalModuleRootResolver := devAirModuleRootResolver
+	originalTargetFinder := devAirTargetFinder
+	defer func() {
+		devAirRunner = originalAirRunner
+		devAirModuleRootResolver = originalModuleRootResolver
+		devAirTargetFinder = originalTargetFinder
+	}()
+
+	devAirRunner = func(_ *cobra.Command, _ string) error {
+		t.Fatal("air runner should not be called when another session is active")
+		return nil
+	}
+	devAirModuleRootResolver = func() (string, error) {
+		return "/repo/server", nil
+	}
+	devAirTargetFinder = func(moduleRoot string, configPath string) ([]int, []int, error) {
+		if moduleRoot != "/repo/server" {
+			t.Fatalf("expected module root /repo/server, got %q", moduleRoot)
+		}
+		if configPath != "/repo/server/.air.toml" {
+			t.Fatalf("expected resolved config path /repo/server/.air.toml, got %q", configPath)
+		}
+		return []int{101}, []int{102}, nil
+	}
+
+	err := runDevAir(&cobra.Command{}, devAirOptions{configPath: ".air.toml"})
+	if runtimeGOOS() != "linux" {
+		if err != nil {
+			t.Fatalf("expected non-linux to skip single-instance guard, got %v", err)
+		}
+		return
+	}
+	if err == nil {
+		t.Fatal("expected concurrent Air session error")
+	}
+	if !strings.Contains(err.Error(), "graft dev stop-air") {
+		t.Fatalf("expected stop-air guidance, got %v", err)
 	}
 }
 

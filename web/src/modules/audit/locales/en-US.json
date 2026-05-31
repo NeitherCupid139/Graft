@@ -462,14 +462,28 @@
       "hintRequestOnly": "Request ID: {requestId}"
     },
     "actionLabel": {
-      "auth.failed": "Authentication Failed",
-      "auth.token.expired": "Token Expired",
-      "rbac.role.permissions.replace": "Update Role Permissions",
-      "rbac.role.delete": "Delete Role",
-      "rbac.role.assign": "Assign Role",
-      "rbac.role.permissions.add": "Add Role Permissions",
-      "rbac.role.permissions.remove": "Remove Role Permissions",
-      "user.password.reset": "Reset User Password"
+      "auth": {
+        "failed": "Authentication Failed",
+        "token": {
+          "expired": "Token Expired"
+        }
+      },
+      "rbac": {
+        "role": {
+          "permissions": {
+            "replace": "Update Role Permissions",
+            "add": "Add Role Permissions",
+            "remove": "Remove Role Permissions"
+          },
+          "delete": "Delete Role",
+          "assign": "Assign Role"
+        }
+      },
+      "user": {
+        "password": {
+          "reset": "Reset User Password"
+        }
+      }
     }
   }
 }

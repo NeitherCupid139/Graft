@@ -32,6 +32,7 @@ import { useRoute } from 'vue-router';
 import { prefix } from '@/config/global';
 import { LOCALE } from '@/contracts/i18n/locales';
 import { useSettingStore, useTabsRouterStore } from '@/store';
+import { createLogger } from '@/utils/logger';
 import { resolveRouteLocalizedTitle, toLocalizedTitle } from '@/utils/route/meta';
 import type { AppRouteMeta } from '@/utils/types';
 
@@ -44,6 +45,7 @@ const route = useRoute();
 const settingStore = useSettingStore();
 const tabsRouterStore = useTabsRouterStore();
 const setting = storeToRefs(settingStore);
+const logger = createLogger('layout.tabs');
 
 const shellSurfaceAttrs = computed(() => ({
   'data-layout-mode': settingStore.layout,
@@ -74,6 +76,11 @@ const appendNewRoute = () => {
       [LOCALE.ZH_CN]: '',
       [LOCALE.EN_US]: '',
     };
+  logger.debug('append route into tabs router', {
+    path,
+    name,
+    query,
+  });
   tabsRouterStore.appendTabRouterList({
     path,
     query,

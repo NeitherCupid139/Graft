@@ -474,8 +474,9 @@ func buildAuditLogFilters(query auditstore.ListAuditLogsQuery) (string, []any) {
 	}
 
 	addAuditPresetRange(&clauses, &args, query)
-	addDrilldownFilters(&clauses, query)
 	addUint64Filter(&clauses, &args, "actor_user_id = $%d", query.ActorUserID)
+	addKeywordFilter(&clauses, &args, query.Keyword)
+	addActorFilter(&clauses, &args, query.Actor)
 	addScalarFilter(add, "action = $%d", query.Action)
 	addPrefixFilter(add, "action LIKE $%d ESCAPE '\\'", query.ActionPrefix)
 	addPrefixAnyFilter(&clauses, &args, "action", query.ActionPrefixes)
@@ -487,6 +488,7 @@ func buildAuditLogFilters(query auditstore.ListAuditLogsQuery) (string, []any) {
 	addScalarFilter(add, "resource_name = $%d", query.ResourceName)
 	addPrefixAnyJSONMetadataFilter(&clauses, &args, "request_path", query.RequestPathPrefixes)
 	addBoolFilter(&clauses, &args, "success = $%d", query.Success)
+	addScalarJSONMetadataFilter(&clauses, &args, "session_id", query.SessionID)
 	addScalarFilter(add, "request_id = $%d", query.RequestID)
 	addScalarFilter(add, auditResultWhereClause(), string(query.Result))
 	addAnyExpressionFilter(&clauses, &args, auditResultWhereClause(), auditResultValues(query.Results))
@@ -509,82 +511,7 @@ func validateListAuditLogsQuery(query auditstore.ListAuditLogsQuery) error {
 		return fmt.Errorf("list audit logs: invalid offset %d", query.Offset)
 	}
 
-	return validateDrilldownFilters(query)
-}
-
-func validateDrilldownFilters(query auditstore.ListAuditLogsQuery) error {
-	if query.Summary != "" && query.RiskGroup != "" {
-		return fmt.Errorf("%w: summary and risk_group cannot be combined", auditstore.ErrConflictingDrilldownFilter)
-	}
-
-	if err := validateSummaryDrilldownFilters(query); err != nil {
-		return err
-	}
-	if err := validateRiskGroupDrilldownFilters(query); err != nil {
-		return err
-	}
-
 	return nil
-}
-
-func validateSummaryDrilldownFilters(query auditstore.ListAuditLogsQuery) error {
-	switch query.Summary {
-	case auditstore.AuditDrilldownSummaryFailedOperations:
-		if query.Success != nil || query.Result != "" || len(query.Results) > 0 {
-			return fmt.Errorf("%w: summary conflicts with success/result filters", auditstore.ErrConflictingDrilldownFilter)
-		}
-	case auditstore.AuditDrilldownSummarySensitiveOperations:
-		if hasActionOrRiskFilters(query) {
-			return fmt.Errorf("%w: summary conflicts with action/risk filters", auditstore.ErrConflictingDrilldownFilter)
-		}
-	}
-
-	return nil
-}
-
-func validateRiskGroupDrilldownFilters(query auditstore.ListAuditLogsQuery) error {
-	switch query.RiskGroup {
-	case auditstore.AuditDrilldownRiskGroupHighRiskOperations:
-		if query.Success != nil || hasActionOrRiskFilters(query) {
-			return fmt.Errorf("%w: risk_group conflicts with success/action/risk filters", auditstore.ErrConflictingDrilldownFilter)
-		}
-	case auditstore.AuditDrilldownRiskGroupAuthFailures:
-		if hasAuthSemanticConflicts(query) {
-			return fmt.Errorf("%w: risk_group conflicts with auth semantic filters", auditstore.ErrConflictingDrilldownFilter)
-		}
-	case auditstore.AuditDrilldownRiskGroupPermissionDenials:
-		if hasResultConflicts(query) {
-			return fmt.Errorf("%w: risk_group conflicts with denial semantic filters", auditstore.ErrConflictingDrilldownFilter)
-		}
-	}
-
-	return nil
-}
-
-func hasActionOrRiskFilters(query auditstore.ListAuditLogsQuery) bool {
-	return query.RiskLevel != "" || len(query.RiskLevels) > 0 ||
-		query.Action != "" || query.ActionPrefix != "" ||
-		len(query.ActionPrefixes) > 0 || len(query.ActionKeywords) > 0
-}
-
-func hasAuthSemanticConflicts(query auditstore.ListAuditLogsQuery) bool {
-	return query.Success != nil || query.Source != "" || query.ResourceType != "" ||
-		len(query.ResourceTypes) > 0 || len(query.RequestPathPrefixes) > 0 ||
-		hasResultConflicts(query)
-}
-
-func hasResultConflicts(query auditstore.ListAuditLogsQuery) bool {
-	return query.Result != "" || len(query.Results) > 0
-}
-
-func addDrilldownFilters(clauses *[]string, query auditstore.ListAuditLogsQuery) {
-	if clause := drilldownSummaryWhereClause(query.Summary); clause != "" {
-		*clauses = append(*clauses, "("+clause+")")
-		return
-	}
-	if clause := drilldownRiskGroupWhereClause(query.RiskGroup); clause != "" {
-		*clauses = append(*clauses, "("+clause+")")
-	}
 }
 
 func addAuditPresetRange(clauses *[]string, args *[]any, query auditstore.ListAuditLogsQuery) {
@@ -628,10 +555,6 @@ func highRiskWhereClause() string {
 	return highRiskOperationsWhereClause()
 }
 
-func failedOperationsWhereClause() string {
-	return `NOT success`
-}
-
 func sensitiveOperationsWhereClause() string {
 	return `(
 		LOWER(action) LIKE '%delete%'
@@ -664,30 +587,6 @@ func permissionDenialsWhereClause() string {
 		OR LOWER(message) LIKE '%permission%'
 	)
 `
-}
-
-func drilldownSummaryWhereClause(summary auditstore.AuditDrilldownSummary) string {
-	switch summary {
-	case auditstore.AuditDrilldownSummarySensitiveOperations:
-		return sensitiveOperationsWhereClause()
-	case auditstore.AuditDrilldownSummaryFailedOperations:
-		return failedOperationsWhereClause()
-	default:
-		return ""
-	}
-}
-
-func drilldownRiskGroupWhereClause(riskGroup auditstore.AuditDrilldownRiskGroup) string {
-	switch riskGroup {
-	case auditstore.AuditDrilldownRiskGroupHighRiskOperations:
-		return highRiskOperationsWhereClause()
-	case auditstore.AuditDrilldownRiskGroupAuthFailures:
-		return authFailuresWhereClause()
-	case auditstore.AuditDrilldownRiskGroupPermissionDenials:
-		return permissionDenialsWhereClause()
-	default:
-		return ""
-	}
 }
 
 func addScalarFilter(add func(string, any), format string, value string) {
@@ -731,6 +630,49 @@ func addKeywordAnyFilter(clauses *[]string, args *[]any, column string, values [
 	*clauses = append(*clauses, "("+strings.Join(orClauses, " OR ")+")")
 }
 
+func addKeywordFilter(clauses *[]string, args *[]any, value string) {
+	if strings.TrimSpace(value) == "" {
+		return
+	}
+
+	pattern := "%" + escapeLikePattern(strings.ToLower(strings.TrimSpace(value))) + "%"
+	fields := []string{
+		"LOWER(action)",
+		"LOWER(request_id)",
+		"LOWER(message)",
+		"LOWER(resource_type)",
+		"LOWER(resource_id)",
+		"LOWER(resource_name)",
+		"LOWER(actor_username)",
+		"LOWER(actor_display_name)",
+		fmt.Sprintf("LOWER(COALESCE(metadata ->> '%s', ''))", "request_path"),
+	}
+	orClauses := make([]string, 0, len(fields))
+	for _, field := range fields {
+		*args = append(*args, pattern)
+		orClauses = append(orClauses, fmt.Sprintf("%s LIKE $%d", field, len(*args)))
+	}
+	*clauses = append(*clauses, "("+strings.Join(orClauses, " OR ")+")")
+}
+
+func addActorFilter(clauses *[]string, args *[]any, value string) {
+	if strings.TrimSpace(value) == "" {
+		return
+	}
+
+	pattern := "%" + escapeLikePattern(strings.ToLower(strings.TrimSpace(value))) + "%"
+	fields := []string{
+		"LOWER(actor_username)",
+		"LOWER(actor_display_name)",
+	}
+	orClauses := make([]string, 0, len(fields))
+	for _, field := range fields {
+		*args = append(*args, pattern)
+		orClauses = append(orClauses, fmt.Sprintf("%s LIKE $%d", field, len(*args)))
+	}
+	*clauses = append(*clauses, "("+strings.Join(orClauses, " OR ")+")")
+}
+
 func addAnyScalarFilter(clauses *[]string, args *[]any, column string, values []string) {
 	if len(values) == 0 {
 		return
@@ -758,6 +700,14 @@ func addPrefixAnyJSONMetadataFilter(clauses *[]string, args *[]any, key string, 
 		)
 	}
 	*clauses = append(*clauses, "("+strings.Join(orClauses, " OR ")+")")
+}
+
+func addScalarJSONMetadataFilter(clauses *[]string, args *[]any, key string, value string) {
+	if strings.TrimSpace(value) == "" {
+		return
+	}
+	*args = append(*args, strings.TrimSpace(value))
+	*clauses = append(*clauses, fmt.Sprintf("COALESCE(metadata ->> '%s', '') = $%d", key, len(*args)))
 }
 
 func addAnyExpressionFilter(clauses *[]string, args *[]any, expression string, values []string) {

@@ -53,7 +53,7 @@ describe('audit navigation context', () => {
     });
   });
 
-  it('builds actor locations with stable actor user id when available', () => {
+  it('builds actor locations from visible actor filters only', () => {
     expect(
       buildAuditRelatedActorLocation('alice', 42, {
         view: 'overview',
@@ -65,8 +65,6 @@ describe('audit navigation context', () => {
       path: '/audit/logs',
       query: {
         actor: 'alice',
-        username: 'alice',
-        user_id: '42',
         monitorView: 'overview',
         monitorTrendRange: '10m',
         monitorAnomalyKey: 'cpu_pressure',

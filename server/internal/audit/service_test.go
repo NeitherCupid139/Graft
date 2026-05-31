@@ -220,7 +220,7 @@ func TestServiceListPreservesExplicitPreset(t *testing.T) {
 	}
 }
 
-func TestServiceListPreservesCanonicalDrilldownFilters(t *testing.T) {
+func TestServiceListPreservesCanonicalFilters(t *testing.T) {
 	repo := &stubAuditRepository{}
 	service, err := NewService(repo)
 	if err != nil {
@@ -228,18 +228,22 @@ func TestServiceListPreservesCanonicalDrilldownFilters(t *testing.T) {
 	}
 
 	_, err = service.List(context.Background(), ListQuery{
-		Summary:   auditstore.AuditDrilldownSummaryFailedOperations,
-		RiskGroup: auditstore.AuditDrilldownRiskGroupAuthFailures,
+		Keyword:   " login ",
+		Actor:     " alice ",
+		SessionID: " session-1 ",
 	})
 	if err != nil {
 		t.Fatalf("list audit logs: %v", err)
 	}
 
-	if repo.listQuery.Summary != auditstore.AuditDrilldownSummaryFailedOperations {
-		t.Fatalf("expected summary to be preserved, got %q", repo.listQuery.Summary)
+	if repo.listQuery.Keyword != "login" {
+		t.Fatalf("expected keyword to be preserved, got %q", repo.listQuery.Keyword)
 	}
-	if repo.listQuery.RiskGroup != auditstore.AuditDrilldownRiskGroupAuthFailures {
-		t.Fatalf("expected risk group to be preserved, got %q", repo.listQuery.RiskGroup)
+	if repo.listQuery.Actor != "alice" {
+		t.Fatalf("expected actor to be preserved, got %q", repo.listQuery.Actor)
+	}
+	if repo.listQuery.SessionID != "session-1" {
+		t.Fatalf("expected session id to be preserved, got %q", repo.listQuery.SessionID)
 	}
 }
 

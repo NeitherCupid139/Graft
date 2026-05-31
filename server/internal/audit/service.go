@@ -46,32 +46,33 @@ type RecordInput struct {
 
 // ListQuery describes the service-layer read shape used by future API pagination/filtering.
 type ListQuery struct {
-	Page         int
-	PageSize     int
-	ActorUserID  *uint64
-	Action       string
-	ActionPrefix string
-	ActionPrefixes []string
-	ActionKeywords []string
-	TimePreset   auditstore.AuditTimePreset
-	Summary      auditstore.AuditDrilldownSummary
-	RiskGroup    auditstore.AuditDrilldownRiskGroup
-	Source       auditstore.AuditSource
-	ResourceType string
-	ResourceTypes []string
-	ResourceID   string
-	ResourceName string
+	Page                int
+	PageSize            int
+	ActorUserID         *uint64
+	Keyword             string
+	Actor               string
+	Action              string
+	ActionPrefix        string
+	ActionPrefixes      []string
+	ActionKeywords      []string
+	TimePreset          auditstore.AuditTimePreset
+	Source              auditstore.AuditSource
+	ResourceType        string
+	ResourceTypes       []string
+	ResourceID          string
+	ResourceName        string
 	RequestPathPrefixes []string
-	Success      *bool
-	RequestID    string
-	Result       auditstore.AuditResult
-	Results      []auditstore.AuditResult
-	RiskLevel    auditstore.AuditRiskLevel
-	RiskLevels   []auditstore.AuditRiskLevel
-	CreatedFrom  *time.Time
-	CreatedTo    *time.Time
-	SortBy       string
-	SortOrder    string
+	Success             *bool
+	SessionID           string
+	RequestID           string
+	Result              auditstore.AuditResult
+	Results             []auditstore.AuditResult
+	RiskLevel           auditstore.AuditRiskLevel
+	RiskLevels          []auditstore.AuditRiskLevel
+	CreatedFrom         *time.Time
+	CreatedTo           *time.Time
+	SortBy              string
+	SortOrder           string
 }
 
 // ListResult contains one page of audit records plus the total count.
@@ -158,32 +159,33 @@ func (s *Service) List(ctx context.Context, query ListQuery) (ListResult, error)
 	}
 
 	result, err := s.repo.ListAuditLogs(ctx, auditstore.ListAuditLogsQuery{
-		ActorUserID:  query.ActorUserID,
-		Action:       strings.TrimSpace(query.Action),
-		ActionPrefix: strings.TrimSpace(query.ActionPrefix),
-		ActionPrefixes: normalizeAuditStringFilters(query.ActionPrefixes),
-		ActionKeywords: normalizeAuditStringFilters(query.ActionKeywords),
-		TimePreset:   normalizeAuditTimePreset(query.TimePreset),
-		Summary:      normalizeAuditDrilldownSummary(query.Summary),
-		RiskGroup:    normalizeAuditDrilldownRiskGroup(query.RiskGroup),
-		Source:       normalizeAuditSource(query.Source),
-		ResourceType: strings.TrimSpace(query.ResourceType),
-		ResourceTypes: normalizeAuditStringFilters(query.ResourceTypes),
-		ResourceID:   strings.TrimSpace(query.ResourceID),
-		ResourceName: strings.TrimSpace(query.ResourceName),
+		ActorUserID:         query.ActorUserID,
+		Keyword:             strings.TrimSpace(query.Keyword),
+		Actor:               strings.TrimSpace(query.Actor),
+		Action:              strings.TrimSpace(query.Action),
+		ActionPrefix:        strings.TrimSpace(query.ActionPrefix),
+		ActionPrefixes:      normalizeAuditStringFilters(query.ActionPrefixes),
+		ActionKeywords:      normalizeAuditStringFilters(query.ActionKeywords),
+		TimePreset:          normalizeAuditTimePreset(query.TimePreset),
+		Source:              normalizeAuditSource(query.Source),
+		ResourceType:        strings.TrimSpace(query.ResourceType),
+		ResourceTypes:       normalizeAuditStringFilters(query.ResourceTypes),
+		ResourceID:          strings.TrimSpace(query.ResourceID),
+		ResourceName:        strings.TrimSpace(query.ResourceName),
 		RequestPathPrefixes: normalizeAuditStringFilters(query.RequestPathPrefixes),
-		Success:      query.Success,
-		RequestID:    strings.TrimSpace(query.RequestID),
-		Result:       normalizeAuditResult(query.Result),
-		Results:      normalizeAuditResults(query.Results),
-		RiskLevel:    normalizeAuditRiskLevel(query.RiskLevel),
-		RiskLevels:   normalizeAuditRiskLevels(query.RiskLevels),
-		CreatedFrom:  normalizeAuditCreatedFrom(query.CreatedFrom),
-		CreatedTo:    normalizeAuditCreatedTo(query.CreatedTo),
-		SortBy:       normalizeAuditSortBy(query.SortBy),
-		SortOrder:    normalizeAuditSortOrder(query.SortOrder),
-		Limit:        pageSize,
-		Offset:       (page - 1) * pageSize,
+		Success:             query.Success,
+		SessionID:           strings.TrimSpace(query.SessionID),
+		RequestID:           strings.TrimSpace(query.RequestID),
+		Result:              normalizeAuditResult(query.Result),
+		Results:             normalizeAuditResults(query.Results),
+		RiskLevel:           normalizeAuditRiskLevel(query.RiskLevel),
+		RiskLevels:          normalizeAuditRiskLevels(query.RiskLevels),
+		CreatedFrom:         normalizeAuditCreatedFrom(query.CreatedFrom),
+		CreatedTo:           normalizeAuditCreatedTo(query.CreatedTo),
+		SortBy:              normalizeAuditSortBy(query.SortBy),
+		SortOrder:           normalizeAuditSortOrder(query.SortOrder),
+		Limit:               pageSize,
+		Offset:              (page - 1) * pageSize,
 	})
 	if err != nil {
 		return ListResult{}, err
@@ -271,30 +273,6 @@ func normalizeAuditTimePreset(value auditstore.AuditTimePreset) auditstore.Audit
 		return auditstore.AuditTimePresetLast7Days
 	case auditstore.AuditTimePresetLast30Days:
 		return auditstore.AuditTimePresetLast30Days
-	default:
-		return ""
-	}
-}
-
-func normalizeAuditDrilldownSummary(value auditstore.AuditDrilldownSummary) auditstore.AuditDrilldownSummary {
-	switch auditstore.AuditDrilldownSummary(strings.TrimSpace(string(value))) {
-	case auditstore.AuditDrilldownSummarySensitiveOperations:
-		return auditstore.AuditDrilldownSummarySensitiveOperations
-	case auditstore.AuditDrilldownSummaryFailedOperations:
-		return auditstore.AuditDrilldownSummaryFailedOperations
-	default:
-		return ""
-	}
-}
-
-func normalizeAuditDrilldownRiskGroup(value auditstore.AuditDrilldownRiskGroup) auditstore.AuditDrilldownRiskGroup {
-	switch auditstore.AuditDrilldownRiskGroup(strings.TrimSpace(string(value))) {
-	case auditstore.AuditDrilldownRiskGroupHighRiskOperations:
-		return auditstore.AuditDrilldownRiskGroupHighRiskOperations
-	case auditstore.AuditDrilldownRiskGroupAuthFailures:
-		return auditstore.AuditDrilldownRiskGroupAuthFailures
-	case auditstore.AuditDrilldownRiskGroupPermissionDenials:
-		return auditstore.AuditDrilldownRiskGroupPermissionDenials
 	default:
 		return ""
 	}

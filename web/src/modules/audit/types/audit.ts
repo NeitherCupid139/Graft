@@ -26,9 +26,8 @@ export type AuditSorter = QuerySorter<AuditSortBy>;
 export type AuditLogQuery = {
   page?: number;
   page_size?: number;
-  preset?: AuditTimePreset;
-  summary?: string;
-  risk_group?: string;
+  keyword?: string;
+  actor?: string;
   actor_user_id?: number;
   action?: string;
   action_prefix?: string;
@@ -39,6 +38,7 @@ export type AuditLogQuery = {
   resource_types?: string[];
   resource_id?: string;
   resource_name?: string;
+  session_id?: string;
   request_id?: string;
   result?: AuditResult;
   results?: AuditResult[];
