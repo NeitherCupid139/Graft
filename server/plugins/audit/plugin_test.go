@@ -14,9 +14,11 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
+	auditcore "graft/server/internal/audit"
 	"graft/server/internal/config"
 	"graft/server/internal/container"
 	"graft/server/internal/cronx"
+	"graft/server/internal/drilldown"
 	"graft/server/internal/eventbus"
 	"graft/server/internal/httpx"
 	"graft/server/internal/i18n"
@@ -246,6 +248,85 @@ func newPluginTestContextWithLogger(t *testing.T, repo store.AuditRepository, lo
 	return ctx, engine, bus
 }
 
+type stubScopeMetadataRepo struct {
+	metadata map[string]drilldown.ScopeMetadata
+}
+
+func (r stubScopeMetadataRepo) GetScope(_ context.Context, module, scope string) (drilldown.ScopeMetadata, error) {
+	if metadata, ok := r.metadata[module+":"+scope]; ok {
+		return metadata, nil
+	}
+	return drilldown.ScopeMetadata{}, drilldown.ErrScopeNotFound
+}
+
+func newPluginTestContextWithDrilldown(
+	t *testing.T,
+	repo store.AuditRepository,
+	scopes []string,
+) (*plugin.Context, *gin.Engine, eventbus.Bus) {
+	t.Helper()
+
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	bus := eventbus.New(zap.NewNop())
+	ctx := &plugin.Context{
+		Logger:             zap.NewNop(),
+		Config:             &config.Config{},
+		I18n:               i18n.MustNew(config.I18nConfig{DefaultLocale: "zh-CN", FallbackLocale: "zh-CN", SupportedLocales: []string{"zh-CN", "en-US"}}),
+		EventBus:           bus,
+		Router:             engine.Group("/api"),
+		Services:           container.New(),
+		MenuRegistry:       menu.NewRegistry(),
+		PermissionRegistry: permission.NewRegistry(),
+		CronRegistry:       cronx.NewRegistry(),
+	}
+
+	if err := ctx.Services.RegisterSingleton((*pluginapi.AuthService)(nil), func(container.Resolver) (any, error) {
+		return stubAuthService{user: pluginapi.CurrentUser{ID: 7, Username: "alice", DisplayName: "Alice"}}, nil
+	}); err != nil {
+		t.Fatalf("register auth service: %v", err)
+	}
+	if err := ctx.Services.RegisterSingleton((*pluginapi.Authorizer)(nil), func(container.Resolver) (any, error) {
+		return allowAuthorizer{}, nil
+	}); err != nil {
+		t.Fatalf("register authorizer: %v", err)
+	}
+
+	scopeMetadata := make(map[string]drilldown.ScopeMetadata, len(scopes))
+	for index, scope := range scopes {
+		scopeMetadata["audit:"+scope] = drilldown.ScopeMetadata{
+			ID:           uint64(index + 1),
+			Module:       "audit",
+			Scope:        scope,
+			Name:         scope,
+			Description:  "test scope",
+			TargetType:   "log_query",
+			TargetModule: "audit",
+			TargetPage:   "audit_logs",
+			Enabled:      true,
+			SortOrder:    index + 1,
+		}
+	}
+
+	drilldownService, err := drilldown.NewService[auditcore.ListQuery, auditcore.ListQuery](
+		stubScopeMetadataRepo{metadata: scopeMetadata},
+		newAuditScopeResolver(),
+	)
+	if err != nil {
+		t.Fatalf("build drilldown service: %v", err)
+	}
+
+	pluginInstance, err := NewPluginWithDrilldown(repo, drilldownService)
+	if err != nil {
+		t.Fatalf("build audit plugin with drilldown: %v", err)
+	}
+	if err := pluginInstance.Register(ctx); err != nil {
+		t.Fatalf("register audit plugin: %v", err)
+	}
+
+	return ctx, engine, bus
+}
+
 // TestRequestAuditMiddlewareSkipsUnmatchedRequest 验证未命中策略的普通请求不会落库。
 func TestRequestAuditMiddlewareSkipsUnmatchedRequest(t *testing.T) {
 	repo := &memoryAuditRepository{}
@@ -328,6 +409,53 @@ func TestAuditLogsRouteAcceptsBracketedArrayFilters(t *testing.T) {
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", recorder.Code)
+	}
+}
+
+func TestAuditLogsRouteAcceptsRegisteredDrilldownScopes(t *testing.T) {
+	repo := &memoryAuditRepository{}
+	scopes := []string{
+		"failed_operations",
+		"high_risk_operations",
+		"sensitive_operations",
+		"auth_failures",
+		"permission_denials",
+		"rbac_changes",
+		"critical_security",
+	}
+	_, engine, _ := newPluginTestContextWithDrilldown(t, repo, scopes)
+
+	for _, scope := range scopes {
+		request := httptest.NewRequest(http.MethodGet, "/api/audit/logs?scope="+scope, nil)
+		request.Header.Set("Authorization", "Bearer token")
+		recorder := httptest.NewRecorder()
+		engine.ServeHTTP(recorder, request)
+
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("expected status 200 for scope %q, got %d", scope, recorder.Code)
+		}
+	}
+}
+
+func TestAuditLogsRouteRejectsUnknownDrilldownScope(t *testing.T) {
+	repo := &memoryAuditRepository{}
+	_, engine, _ := newPluginTestContextWithDrilldown(t, repo, []string{"sensitive_operations"})
+
+	request := httptest.NewRequest(http.MethodGet, "/api/audit/logs?scope=failed_operations", nil)
+	request.Header.Set("Authorization", "Bearer token")
+	recorder := httptest.NewRecorder()
+	engine.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", recorder.Code)
+	}
+
+	var response httpx.ErrorResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode error response: %v", err)
+	}
+	if field := response.Details["field"]; field != "scope" {
+		t.Fatalf("expected invalid scope field, got %#v", field)
 	}
 }
 
