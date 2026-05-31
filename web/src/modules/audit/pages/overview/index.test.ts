@@ -1,5 +1,5 @@
 import { flushPromises, mount } from '@vue/test-utils';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineComponent, h } from 'vue';
 import { createI18n } from 'vue-i18n';
 
@@ -9,6 +9,59 @@ import AuditOverviewPage from './index.vue';
 
 const { getAuditOverviewMock } = vi.hoisted(() => ({
   getAuditOverviewMock: vi.fn(),
+}));
+
+const chartMocks = vi.hoisted(() => {
+  const setOption = vi.fn();
+  const resize = vi.fn();
+  const dispose = vi.fn();
+  const init = vi.fn(() => ({
+    setOption,
+    resize,
+    dispose,
+  }));
+
+  return {
+    init,
+    setOption,
+    resize,
+    dispose,
+  };
+});
+
+const resizeObserverMocks = vi.hoisted(() => {
+  const observe = vi.fn();
+  const disconnect = vi.fn();
+  let callback: ResizeObserverCallback | null = null;
+
+  class ResizeObserverMock {
+    constructor(nextCallback: ResizeObserverCallback) {
+      callback = nextCallback;
+    }
+
+    observe = observe;
+    disconnect = disconnect;
+  }
+
+  return {
+    ResizeObserverMock,
+    observe,
+    disconnect,
+    trigger() {
+      callback?.([], {} as ResizeObserver);
+    },
+  };
+});
+
+const settingStoreMock = vi.hoisted(() => ({
+  displayMode: 'light',
+  brandTheme: '#0052D9',
+  chartColors: {
+    textColor: 'rgba(0, 0, 0, 0.9)',
+    placeholderColor: 'rgba(0, 0, 0, 0.35)',
+    borderColor: '#dcdcdc',
+    containerColor: '#ffffff',
+  },
 }));
 
 const routerMocks = {
@@ -113,11 +166,24 @@ vi.mock('@/utils/logger', () => ({
   }),
 }));
 
+vi.mock('@/store', () => ({
+  useSettingStore: () => settingStoreMock,
+}));
+
 vi.mock('vue-router', () => ({
   useRouter: () => ({
     push: routerMocks.push,
   }),
 }));
+
+vi.mock('echarts/core', async () => {
+  const actual = await vi.importActual<typeof import('echarts/core')>('echarts/core');
+  return {
+    ...actual,
+    init: chartMocks.init,
+    use: vi.fn(),
+  };
+});
 
 const passthroughStub = defineComponent({
   name: 'PassthroughStub',
@@ -264,15 +330,12 @@ const i18n = createI18n({
           trend: {
             emptyTitle: 'Not enough risk events yet',
             emptyDescription: 'Trend analysis will appear after more audit events are collected.',
-            legend: {
-              total: 'Total',
-              highRisk: 'High risk',
-              security: 'Security events',
-            },
+            totalMetric: 'Total events',
+            highRiskMetric: 'High risk',
+            securityMetric: 'Security events',
             totalValue: 'Total {value}',
             highRiskValue: 'High risk: {value}',
             securityValue: 'Security events: {value}',
-            highRiskRatio: 'High-risk ratio: {value}',
           },
           riskGroups: {
             criticalSecurity: 'Critical Security Failures',
@@ -343,6 +406,17 @@ describe('AuditOverviewPage', () => {
     getAuditOverviewMock.mockReset();
     getAuditOverviewMock.mockResolvedValue(createAuditOverviewResponse());
     routerMocks.push.mockReset();
+    chartMocks.init.mockClear();
+    chartMocks.setOption.mockClear();
+    chartMocks.resize.mockClear();
+    chartMocks.dispose.mockClear();
+    resizeObserverMocks.observe.mockClear();
+    resizeObserverMocks.disconnect.mockClear();
+    vi.stubGlobal('ResizeObserver', resizeObserverMocks.ResizeObserverMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('renders the streamlined workbench overview and opens a quick link with canonical filter keys', async () => {
@@ -525,13 +599,94 @@ describe('AuditOverviewPage', () => {
     await flushPromises();
 
     expect(wrapper.text()).not.toContain('Not enough risk events yet');
-    expect(wrapper.text()).toContain('Total');
+    expect(wrapper.text()).toContain('Total events');
     expect(wrapper.text()).toContain('High risk');
     expect(wrapper.text()).toContain('Security events');
-    expect(wrapper.findAll('.audit-overview__trend-point')).toHaveLength(3);
-    expect(wrapper.findAll('.audit-overview__trend-line')).toHaveLength(3);
-    expect(wrapper.findAll('.audit-overview__trend-marker')).toHaveLength(9);
-    expect(wrapper.text()).toContain('High-risk ratio: 43%');
+    expect(wrapper.find('[data-audit-trend-chart="true"]').exists()).toBe(true);
+    expect(chartMocks.init).toHaveBeenCalledTimes(1);
+    expect(chartMocks.setOption).toHaveBeenCalled();
+
+    const option = chartMocks.setOption.mock.calls.at(-1)?.[0];
+    expect(option?.series).toHaveLength(3);
+    expect(option?.series?.map((item: { name: string }) => item.name)).toEqual([
+      'Total events',
+      'High risk',
+      'Security events',
+    ]);
+    expect(option?.series?.[0]?.data).toEqual([4, 7, 5]);
+    expect(option?.series?.[1]?.data).toEqual([1, 3, 2]);
+    expect(option?.series?.[2]?.data).toEqual([1, 2, 1]);
+    expect(option?.yAxis?.axisLabel?.formatter(12)).toBe('12');
+    expect(
+      option?.tooltip?.formatter([
+        {
+          axisValue: '05/27',
+          axisValueLabel: '05/27',
+          seriesName: 'Total events',
+          color: '#0052D9',
+          data: 4,
+        },
+        {
+          axisValue: '05/27',
+          axisValueLabel: '05/27',
+          seriesName: 'High risk',
+          color: '#ED7B2F',
+          data: 1,
+        },
+        {
+          axisValue: '05/27',
+          axisValueLabel: '05/27',
+          seriesName: 'Security events',
+          color: '#E34D59',
+          data: 1,
+        },
+      ]),
+    ).toContain('Total events');
+  });
+
+  it('keeps the chart hidden when not enough non-empty buckets are present', async () => {
+    getAuditOverviewMock.mockResolvedValueOnce({
+      ...createAuditOverviewResponse(),
+      trend: {
+        bucket_unit: 'hour',
+        bucket_size: 1,
+        points: [
+          createTrendPoint('2026-05-27T08:00:00Z', '2026-05-27T09:00:00Z', 0, 0, 0, 0),
+          createTrendPoint('2026-05-27T09:00:00Z', '2026-05-27T10:00:00Z', 4, 1, 4, 1),
+          createTrendPoint('2026-05-27T10:00:00Z', '2026-05-27T11:00:00Z', 0, 0, 0, 0),
+        ],
+      },
+    });
+
+    const wrapper = mountOverview();
+
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('Not enough risk events yet');
+    expect(chartMocks.init).not.toHaveBeenCalled();
+  });
+
+  it('uses quantity-based y-axis instead of percentage labels', async () => {
+    getAuditOverviewMock.mockResolvedValueOnce({
+      ...createAuditOverviewResponse(),
+      trend: {
+        bucket_unit: 'hour',
+        bucket_size: 1,
+        points: [
+          createTrendPoint('2026-05-27T08:00:00Z', '2026-05-27T09:00:00Z', 4, 1, 3, 1),
+          createTrendPoint('2026-05-27T09:00:00Z', '2026-05-27T10:00:00Z', 12, 2, 7, 2),
+          createTrendPoint('2026-05-27T10:00:00Z', '2026-05-27T11:00:00Z', 9, 1, 5, 1),
+        ],
+      },
+    });
+
+    mountOverview();
+
+    await flushPromises();
+
+    const option = chartMocks.setOption.mock.calls.at(-1)?.[0];
+    expect(option?.yAxis?.axisLabel?.formatter(9)).toBe('9');
+    expect(JSON.stringify(option)).not.toContain('%');
   });
 
   it('navigates security timeline items with the current request CTA-only interaction', async () => {

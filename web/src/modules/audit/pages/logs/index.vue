@@ -16,65 +16,25 @@
         </template>
       </management-page-header>
 
-      <section v-if="scopeState" class="audit-scope-card">
-        <div class="audit-scope-card__header">
-          <div>
-            <p class="audit-scope-card__eyebrow">{{ t('audit.logList.scope.eyebrow') }}</p>
-            <div class="audit-scope-card__title-row">
-              <strong>{{ scopeState.appliedScope.name }}</strong>
-              <t-tag theme="primary" variant="light-outline" size="small">
-                {{ t('audit.logList.scope.lockedTag') }}
-              </t-tag>
-            </div>
-            <p v-if="scopeState.appliedScope.description" class="audit-scope-card__description">
-              {{ scopeState.appliedScope.description }}
-            </p>
+      <section v-if="scopeState" class="audit-scope-banner">
+        <div class="audit-scope-banner__main">
+          <div class="audit-scope-banner__summary">
+            <t-tag theme="primary" variant="light-outline" size="small">
+              {{ t('audit.logList.scope.drilldownTag', { name: scopeState.appliedScope.name }) }}
+            </t-tag>
+            <span v-if="primaryScopeCondition" class="audit-scope-banner__condition">
+              {{ t('audit.logList.scope.conditionInline', { condition: primaryScopeCondition }) }}
+            </span>
           </div>
-          <t-space size="small" wrap>
-            <t-button theme="default" variant="outline" size="small" @click="exitDrilldown">
-              {{ t('audit.logList.scope.exitAction') }}
-            </t-button>
-            <t-button theme="primary" variant="outline" size="small" @click="convertScopeToFilters">
-              {{ t('audit.logList.scope.convertAction') }}
-            </t-button>
-          </t-space>
         </div>
-
-        <p class="audit-scope-card__hint">{{ t('audit.logList.scope.hint') }}</p>
-
-        <t-collapse
-          v-if="localizedScopeProjectionItems.length"
-          :value="scopePanelValue"
-          @change="handleScopePanelChange"
-        >
-          <t-collapse-panel value="projection" :header="t('audit.logList.scope.projectionTitle')">
-            <div class="audit-scope-card__projection-list">
-              <article
-                v-for="item in localizedScopeProjectionItems"
-                :key="item.key"
-                class="audit-scope-card__projection-item"
-              >
-                <div class="audit-scope-card__projection-head">
-                  <span>{{ item.label }}</span>
-                  <t-tag v-if="item.locked" theme="warning" variant="light-outline" size="small">
-                    {{ t('audit.logList.scope.readonlyTag') }}
-                  </t-tag>
-                </div>
-                <div class="audit-scope-card__projection-values">
-                  <t-tag
-                    v-for="value in item.localizedValues"
-                    :key="`${item.key}-${value}`"
-                    theme="default"
-                    variant="light-outline"
-                    size="small"
-                  >
-                    {{ value }}
-                  </t-tag>
-                </div>
-              </article>
-            </div>
-          </t-collapse-panel>
-        </t-collapse>
+        <div class="audit-scope-banner__actions">
+          <t-button theme="primary" variant="outline" size="small" @click="convertScopeToFilters">
+            {{ t('audit.logList.scope.convertAction') }}
+          </t-button>
+          <t-button theme="default" variant="text" size="small" @click="exitDrilldown">
+            {{ t('audit.logList.scope.exitAction') }}
+          </t-button>
+        </div>
       </section>
 
       <audit-filters
@@ -218,7 +178,6 @@ const routeScope = ref<AuditDrilldownScope | ''>('');
 const appliedScope = ref<AppliedDrilldownScope | null>(null);
 const scopeProjection = ref<DrilldownScopeProjection | null>(null);
 const convertibleFilters = ref<AuditLogConvertibleFilters | null>(null);
-const scopePanelValue = ref<Array<string | number>>(['projection']);
 const applyingRoute = ref(false);
 const isRouteSyncActive = ref(true);
 const navigationContext = computed(() => resolveAuditNavigationContext(route.query));
@@ -249,6 +208,16 @@ const localizedScopeProjectionItems = computed(() =>
       .filter((value, index, values) => Boolean(value) && values.indexOf(value) === index),
   })),
 );
+const scopeConditionTags = computed(() =>
+  localizedScopeProjectionItems.value.flatMap((item) => {
+    const values = item.localizedValues.filter(Boolean);
+    if (item.key === 'business_category' && values.length === 1) {
+      return [];
+    }
+    return values.map((value) => `${item.label}=${value}`);
+  }),
+);
+const primaryScopeCondition = computed(() => scopeConditionTags.value[0] ?? '');
 const columnSettingOptions = computed(() => [
   { label: t('audit.logList.columns.action'), value: 'action' },
   { label: t('audit.logList.columns.actor'), value: 'actor' },
@@ -833,10 +802,6 @@ function resolveScopeForPreset(preset: AuditQuickPresetKey): AuditDrilldownScope
   }
 }
 
-function handleScopePanelChange(value: Array<string | number>) {
-  scopePanelValue.value = [...value];
-}
-
 function buildPresetCreatedRange(preset: AuditTimePreset | '') {
   const now = new Date();
   switch (preset) {
@@ -864,25 +829,42 @@ function formatScopeProjectionValue(key: string, value: string) {
   if (key === 'business_category') {
     switch (normalized) {
       case AUDIT_BUSINESS_CATEGORY.FAILED_OPERATIONS:
-        return t('audit.logList.businessCategory.failedOperations');
+        return resolveNonRedundantScopeValue(t('audit.logList.businessCategory.failedOperations'), 'business_category');
       case AUDIT_BUSINESS_CATEGORY.HIGH_RISK_OPERATIONS:
-        return t('audit.logList.businessCategory.highRiskOperations');
+        return resolveNonRedundantScopeValue(
+          t('audit.logList.businessCategory.highRiskOperations'),
+          'business_category',
+        );
       case AUDIT_BUSINESS_CATEGORY.SENSITIVE_OPERATIONS:
-        return t('audit.logList.businessCategory.sensitiveOperations');
+        return resolveNonRedundantScopeValue(
+          t('audit.logList.businessCategory.sensitiveOperations'),
+          'business_category',
+        );
       case AUDIT_BUSINESS_CATEGORY.AUTH_FAILURES:
-        return t('audit.logList.businessCategory.authFailures');
+        return resolveNonRedundantScopeValue(t('audit.logList.businessCategory.authFailures'), 'business_category');
       case AUDIT_BUSINESS_CATEGORY.PERMISSION_DENIALS:
-        return t('audit.logList.businessCategory.permissionDenials');
+        return resolveNonRedundantScopeValue(
+          t('audit.logList.businessCategory.permissionDenials'),
+          'business_category',
+        );
       case AUDIT_BUSINESS_CATEGORY.RBAC_CHANGES:
-        return t('audit.logList.businessCategory.rbacChanges');
+        return resolveNonRedundantScopeValue(t('audit.logList.businessCategory.rbacChanges'), 'business_category');
       case AUDIT_BUSINESS_CATEGORY.CRITICAL_SECURITY:
-        return t('audit.logList.businessCategory.criticalSecurity');
+        return resolveNonRedundantScopeValue(t('audit.logList.businessCategory.criticalSecurity'), 'business_category');
       default:
         return t('audit.logList.scope.unknownValue');
     }
   }
 
   return normalized;
+}
+
+function resolveNonRedundantScopeValue(localizedValue: string, key: string) {
+  const localizedLabel = key === 'business_category' ? t('audit.logList.builder.fields.businessCategory') : '';
+  if (localizedLabel && localizedLabel === localizedValue) {
+    return '';
+  }
+  return localizedValue;
 }
 </script>
 <style scoped lang="less">
@@ -900,59 +882,50 @@ function formatScopeProjectionValue(key: string, value: string) {
   gap: 16px;
 }
 
-.audit-scope-card {
-  background: linear-gradient(135deg, rgb(250 252 255 / 95%), rgb(255 250 243 / 95%)), var(--td-bg-color-container);
-  border: 1px solid var(--td-component-stroke);
-  border-radius: var(--td-radius-large);
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 16px 18px;
-}
-
-.audit-scope-card__header {
-  align-items: flex-start;
-  display: flex;
-  gap: 16px;
-  justify-content: space-between;
-}
-
-.audit-scope-card__eyebrow {
-  color: var(--td-text-color-placeholder);
-  font-size: 12px;
-  margin: 0 0 4px;
-}
-
-.audit-scope-card__title-row {
+.audit-scope-banner {
   align-items: center;
+  background: color-mix(in srgb, var(--td-brand-color-light) 22%, var(--td-bg-color-container) 78%);
+  border: 1px solid var(--td-component-stroke);
+  border-radius: var(--td-radius-medium);
   display: flex;
-  gap: 8px;
-}
-
-.audit-scope-card__description,
-.audit-scope-card__hint {
-  color: var(--td-text-color-secondary);
-  margin: 0;
-}
-
-.audit-scope-card__projection-list {
-  display: flex;
-  flex-direction: column;
   gap: 12px;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 8px 12px;
 }
 
-.audit-scope-card__projection-item {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.audit-scope-banner__main {
+  flex: 1;
+  min-width: 0;
 }
 
-.audit-scope-card__projection-head,
-.audit-scope-card__projection-values {
+.audit-scope-banner__summary,
+.audit-scope-banner__actions {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.audit-scope-banner__condition {
+  color: var(--td-text-color-secondary);
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.audit-scope-banner__actions {
+  flex-shrink: 0;
+  justify-content: flex-end;
+}
+
+@media (width <= 768px) {
+  .audit-scope-banner {
+    flex-direction: column;
+  }
+
+  .audit-scope-banner__actions {
+    width: 100%;
+  }
 }
 
 .column-grid {

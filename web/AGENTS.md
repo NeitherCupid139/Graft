@@ -336,6 +336,8 @@ UI 约束：
   - tooltip、legend、axis、splitLine、series 主色与容器边框都必须响应当前 color mode 和 brand theme
   - 图表颜色若需要回退值，只能作为 token 缺失时的最终兜底，不能成为运行时主真值
   - 需要在 `mode`、brand theme、locale 或容器尺寸变化后重新同步图表
+- 严禁在前端页面内手写 SVG、自绘 `polyline/path`、手工坐标轴、手工 tooltip 或同类 DOM 拼装方式实现业务数据图表；业务图表默认使用 ECharts 或仓库已批准的标准图表方案
+- 装饰性 SVG 只允许用于图标、插画或非数据可视化场景，不得把页面内手写 SVG 伪装成趋势图、柱状图、面积图或其它业务图表
 - 使用 CSS 渐变、`color-mix` 或自定义背景时，必须同时验证浅色和深色模式下的可读性、边框对比度和状态语义，不得制造仅在一种模式下可读的卡片或图表面板
 - 模块内状态色应优先映射到 TDesign 语义 token，如 success / warning / error / placeholder，对应健康、降级、异常、未启用等状态，不要私造第二套长期状态色规范
 - 若某个页面需要依赖主题 token 才能正确渲染，相关 Vitest 或最小直接验证应至少覆盖一次图表/主题同步路径，而不是只验证纯文案渲染

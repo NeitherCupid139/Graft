@@ -73,11 +73,9 @@
       "trend": {
         "emptyTitle": "暂无足够风险事件数据",
         "emptyDescription": "产生更多审计事件后将展示趋势分析。",
-        "legend": {
-          "total": "总量",
-          "highRisk": "高风险",
-          "security": "安全事件"
-        },
+        "totalMetric": "总事件",
+        "highRiskMetric": "高风险",
+        "securityMetric": "安全事件",
         "totalValue": "总量 {value}",
         "highRiskValue": "高风险：{value}",
         "securityValue": "安全事件：{value}"
@@ -312,12 +310,9 @@
         "hideAdvanced": "收起高级筛选"
       },
       "scope": {
-        "eyebrow": "业务钻取",
-        "lockedTag": "钻取模式",
-        "readonlyTag": "只读",
-        "projectionTitle": "钻取条件",
-        "hint": "业务钻取拥有的条件仅用于展示。退出业务钻取会移除该钻取条件，转换为普通筛选后才可自由编辑这些条件。",
-        "exitAction": "退出业务钻取",
+        "drilldownTag": "钻取：{name}",
+        "conditionInline": "条件：{condition}",
+        "exitAction": "退出钻取",
         "convertAction": "转换为普通筛选",
         "unknownValue": "未命名条件"
       },

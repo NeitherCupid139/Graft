@@ -73,11 +73,9 @@
       "trend": {
         "emptyTitle": "Not enough risk events yet",
         "emptyDescription": "Trend analysis will appear after more audit events are collected.",
-        "legend": {
-          "total": "Total",
-          "highRisk": "High risk",
-          "security": "Security events"
-        },
+        "totalMetric": "Total events",
+        "highRiskMetric": "High risk",
+        "securityMetric": "Security events",
         "totalValue": "Total {value}",
         "highRiskValue": "High risk: {value}",
         "securityValue": "Security events: {value}"
@@ -312,12 +310,9 @@
         "hideAdvanced": "Hide Advanced"
       },
       "scope": {
-        "eyebrow": "Business drilldown",
-        "lockedTag": "Scope mode",
-        "readonlyTag": "Read-only",
-        "projectionTitle": "Scope conditions",
-        "hint": "Scope-owned conditions are display-only. Exit business drilldown to remove them, or convert to normal filters before editing them.",
-        "exitAction": "Exit business drilldown",
+        "drilldownTag": "Drilldown: {name}",
+        "conditionInline": "Condition: {condition}",
+        "exitAction": "Exit drilldown",
         "convertAction": "Convert to normal filters",
         "unknownValue": "Unnamed condition"
       },

@@ -184,34 +184,6 @@ const drawerStub = defineComponent({
   },
 });
 
-const collapseStub = defineComponent({
-  name: 'TCollapseStub',
-  props: ['value'],
-  emits: ['change'],
-  setup(props, { emit, slots }) {
-    return () =>
-      h('div', [
-        h(
-          'button',
-          {
-            'data-testid': 'scope-collapse-toggle',
-            onClick: () => emit('change', props.value?.length ? [] : ['projection']),
-          },
-          'toggle',
-        ),
-        slots.default?.(),
-      ]);
-  },
-});
-
-const collapsePanelStub = defineComponent({
-  name: 'TCollapsePanelStub',
-  props: ['header'],
-  setup(props, { slots }) {
-    return () => h('section', [props.header, slots.default?.()]);
-  },
-});
-
 const tagStub = defineComponent({
   name: 'TTagStub',
   setup(_, { slots }) {
@@ -280,12 +252,9 @@ const i18n = createI18n({
             hideAdvanced: 'Hide Advanced',
           },
           scope: {
-            eyebrow: 'Business drilldown',
-            lockedTag: 'Scope mode',
-            readonlyTag: 'Read-only',
-            projectionTitle: 'Scope conditions',
-            hint: 'Scope-owned conditions are display-only. Exit business drilldown to remove them, or convert to normal filters before editing them.',
-            exitAction: 'Exit business drilldown',
+            drilldownTag: 'Drilldown: {name}',
+            conditionInline: 'Condition: {condition}',
+            exitAction: 'Exit drilldown',
             convertAction: 'Convert to normal filters',
             unknownValue: 'Unnamed condition',
           },
@@ -317,6 +286,7 @@ const i18n = createI18n({
             title: 'Filter fields',
             hint: 'Choose a field and set its value. Active conditions appear as removable tags.',
             fields: {
+              businessCategory: 'Business category',
               success: 'Success state',
               action: 'Action type',
               actionPrefixes: 'Action groups',
@@ -457,8 +427,6 @@ describe('AuditLogsPage', () => {
           't-button': buttonStub,
           't-checkbox': checkboxStub,
           't-checkbox-group': checkboxGroupStub,
-          't-collapse': collapseStub,
-          't-collapse-panel': collapsePanelStub,
           't-drawer': drawerStub,
           't-space': passthroughStub,
           't-tag': tagStub,
@@ -511,8 +479,6 @@ describe('AuditLogsPage', () => {
           't-button': buttonStub,
           't-checkbox': checkboxStub,
           't-checkbox-group': checkboxGroupStub,
-          't-collapse': collapseStub,
-          't-collapse-panel': collapsePanelStub,
           't-drawer': drawerStub,
           't-space': passthroughStub,
           't-tag': tagStub,
@@ -671,10 +637,8 @@ describe('AuditLogsPage', () => {
       sort_by: 'created_at',
       sort_order: 'desc',
     });
-    expect(wrapper.text()).toContain('Business drilldown');
-    expect(wrapper.text()).toContain('Sensitive Operations');
-    expect(wrapper.text()).toContain('Read-only');
-    expect(wrapper.text()).toContain('Sensitive operations');
+    expect(wrapper.text()).toContain('Drilldown: Sensitive Operations');
+    expect(wrapper.text()).not.toContain('Condition:');
     expect(wrapper.text()).not.toContain('sensitive_operations');
   });
 
@@ -707,7 +671,7 @@ describe('AuditLogsPage', () => {
     });
 
     await wrapper.get('button').trigger('click');
-    const exitButton = wrapper.findAll('button').find((item) => item.text().includes('Exit business drilldown'));
+    const exitButton = wrapper.findAll('button').find((item) => item.text().includes('Exit drilldown'));
     expect(exitButton).toBeTruthy();
     await exitButton!.trigger('click');
     await flushPromises();
@@ -772,7 +736,7 @@ describe('AuditLogsPage', () => {
     expect(router.currentRoute.value.query).not.toHaveProperty('action_keywords');
   });
 
-  it('toggles the scope projection collapse without changing query state', async () => {
+  it('keeps single-condition drilldown compact without collapse scaffolding', async () => {
     getAuditLogsMock.mockResolvedValueOnce(
       createAuditLogsResponse({
         items: [],
@@ -802,19 +766,14 @@ describe('AuditLogsPage', () => {
       }),
     );
 
-    const { router, wrapper } = await mountPage({
+    const { wrapper } = await mountPage({
       preset: 'last_24h',
       scope: 'sensitive_operations',
     });
 
-    await wrapper.get('[data-testid="scope-collapse-toggle"]').trigger('click');
-    await flushPromises();
-
-    expect(router.currentRoute.value.query).toMatchObject({
-      preset: 'last_24h',
-      scope: 'sensitive_operations',
-    });
-    expect(getAuditLogsMock).toHaveBeenCalledTimes(1);
+    expect(wrapper.text()).not.toContain('Scope conditions');
+    expect(wrapper.text()).not.toContain('Collapse conditions');
+    expect(wrapper.text()).not.toContain('Show all conditions');
   });
 
   it('does not send an implicit preset when the route has no time range', async () => {

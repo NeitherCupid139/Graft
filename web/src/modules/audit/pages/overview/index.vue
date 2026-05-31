@@ -138,90 +138,19 @@
             :description="t('audit.overview.trend.emptyDescription')"
           />
           <div v-else class="audit-overview__trend-panel">
-            <div class="audit-overview__trend-legend" aria-label="trend legend">
-              <button
-                v-for="item in trendLegendItems"
-                :key="item.key"
-                class="audit-overview__trend-legend-item"
-                type="button"
-                @click="toggleTrendSeries(item.key)"
-              >
-                <i
-                  :class="['audit-overview__trend-legend-swatch', `audit-overview__trend-legend-swatch--${item.key}`]"
-                />
-                <i v-if="!trendSeriesState[item.key]" class="audit-overview__trend-legend-off" aria-hidden="true" />
-                {{ item.label }}
-              </button>
+            <div class="audit-overview__trend-metrics">
+              <article v-for="item in trendSummaryItems" :key="item.key" class="audit-overview__trend-metric">
+                <span>{{ item.label }}</span>
+                <strong>{{ item.value }}</strong>
+              </article>
             </div>
-            <div class="audit-overview__trend-chart">
-              <div class="audit-overview__trend-y-axis" aria-hidden="true">
-                <span v-for="marker in trendView.yAxisMarkers" :key="marker.key">{{ marker.label }}</span>
-              </div>
-              <div class="audit-overview__trend-plot">
-                <div
-                  v-for="marker in trendView.yAxisMarkers"
-                  :key="marker.key"
-                  class="audit-overview__trend-grid-line"
-                  :style="{ bottom: marker.offset }"
-                  aria-hidden="true"
-                />
-                <svg
-                  class="audit-overview__trend-lines"
-                  :viewBox="`0 0 ${trendView.svgWidth} ${trendView.svgHeight}`"
-                  preserveAspectRatio="none"
-                  aria-hidden="true"
-                >
-                  <polyline
-                    v-if="trendSeriesState.total"
-                    class="audit-overview__trend-line audit-overview__trend-line--total"
-                    :points="trendView.totalLine"
-                  />
-                  <polyline
-                    v-if="trendSeriesState.risk"
-                    class="audit-overview__trend-line audit-overview__trend-line--risk"
-                    :points="trendView.highRiskLine"
-                  />
-                  <polyline
-                    v-if="trendSeriesState.security"
-                    class="audit-overview__trend-line audit-overview__trend-line--security"
-                    :points="trendView.securityLine"
-                  />
-                </svg>
-                <div class="audit-overview__trend" :style="trendTrackStyle">
-                  <t-tooltip v-for="point in trendView.points" :key="point.key" placement="top" theme="default">
-                    <template #content>
-                      <div class="audit-overview__trend-tooltip">
-                        <strong>{{ point.tooltipLabel }}</strong>
-                        <span>{{ t('audit.overview.trend.totalValue', { value: point.total }) }}</span>
-                        <span>{{ t('audit.overview.trend.highRiskValue', { value: point.highRisk }) }}</span>
-                        <span>{{ t('audit.overview.trend.securityValue', { value: point.security }) }}</span>
-                        <span>{{ t('audit.overview.trend.highRiskRatio', { value: point.highRiskRatio }) }}</span>
-                      </div>
-                    </template>
-                    <div class="audit-overview__trend-point">
-                      <div class="audit-overview__trend-markers">
-                        <span
-                          v-if="trendSeriesState.total"
-                          class="audit-overview__trend-marker audit-overview__trend-marker--total"
-                          :style="{ bottom: point.totalOffset }"
-                        />
-                        <span
-                          v-if="trendSeriesState.risk"
-                          class="audit-overview__trend-marker audit-overview__trend-marker--risk"
-                          :style="{ bottom: point.highRiskOffset }"
-                        />
-                        <span
-                          v-if="trendSeriesState.security"
-                          class="audit-overview__trend-marker audit-overview__trend-marker--security"
-                          :style="{ bottom: point.securityOffset }"
-                        />
-                      </div>
-                      <strong>{{ point.axisLabel }}</strong>
-                    </div>
-                  </t-tooltip>
-                </div>
-              </div>
-            </div>
+            <div
+              ref="trendChartRef"
+              class="audit-overview__trend-chart"
+              data-audit-trend-chart="true"
+              role="img"
+              :aria-label="t('audit.overview.sections.trend')"
+            />
           </div>
         </governance-section>
 
@@ -264,8 +193,13 @@
   </div>
 </template>
 <script setup lang="ts">
+import { LineChart } from 'echarts/charts';
+import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components';
+import type { EChartsCoreOption } from 'echarts/core';
+import * as echarts from 'echarts/core';
+import { CanvasRenderer } from 'echarts/renderers';
 import { MessagePlugin } from 'tdesign-vue-next';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 
@@ -278,6 +212,7 @@ import { resolveLocalizedErrorMessage } from '@/modules/shared/localized-api-err
 import { GovernanceDashboardShell, GovernanceSection, GovernanceSummaryCard } from '@/shared/components/governance';
 import { ManagementEmptyState } from '@/shared/components/management';
 import { buildRecentHoursLocalRange, formatLocaleDateTime, localDateTimeToUtcIso } from '@/shared/observability';
+import { useSettingStore } from '@/store';
 import { createLogger } from '@/utils/logger';
 
 import { getAuditOverview } from '../../api/audit';
@@ -287,20 +222,19 @@ defineOptions({
   name: 'AuditOverviewIndex',
 });
 
-type TrendSeriesKey = 'total' | 'risk' | 'security';
+echarts.use([TooltipComponent, LegendComponent, GridComponent, LineChart, CanvasRenderer]);
 
 const { locale, t } = useI18n();
 const router = useRouter();
 const logger = createLogger('audit.overview');
+const settingStore = useSettingStore();
 const activeWindow = ref<AuditTimePreset>(AUDIT_TIME_PRESET.LAST_24H);
 const loading = ref(false);
 const errorMessage = ref('');
 const overview = ref<AuditOverviewResponse | null>(null);
-const trendSeriesState = ref<Record<TrendSeriesKey, boolean>>({
-  total: true,
-  risk: true,
-  security: true,
-});
+const trendChartRef = ref<HTMLDivElement | null>(null);
+let trendChart: echarts.ECharts | null = null;
+let trendChartResizeObserver: ResizeObserver | null = null;
 
 const timeRangeOptions = computed(() => [
   { label: t('audit.overview.timeRanges.24h'), value: AUDIT_TIME_PRESET.LAST_24H },
@@ -349,80 +283,57 @@ const sensitiveItems = computed(() =>
 
 const riskGroups = computed(() => overview.value?.risk_groups ?? []);
 const securityTimeline = computed(() => overview.value?.security_timeline ?? []);
+const securityEventCount = computed(() =>
+  (overview.value?.trend?.points ?? []).reduce((total, point) => total + (point.security_events ?? 0), 0),
+);
+const trendSummaryItems = computed(() => [
+  {
+    key: 'total',
+    label: t('audit.overview.trend.totalMetric'),
+    value: String(overview.value?.summary.total_logs ?? 0),
+  },
+  {
+    key: 'risk',
+    label: t('audit.overview.trend.highRiskMetric'),
+    value: String(overview.value?.summary.high_risk_events ?? 0),
+  },
+  {
+    key: 'security',
+    label: t('audit.overview.trend.securityMetric'),
+    value: String(securityEventCount.value),
+  },
+]);
 const trendView = computed(() => {
   const points = overview.value?.trend?.points ?? [];
-  const activePoints = points.filter(
-    (point) => point.total > 0 || point.failed > 0 || point.high_risk > 0 || point.security_events > 0,
-  );
-  const maxTotal = Math.max(...points.map((point) => point.total), 0);
-  const nonSparsePoints = activePoints.filter(
-    (point) => point.total > 1 || point.failed > 1 || point.high_risk > 0 || point.security_events > 0,
-  );
+  const activePoints = points.filter((point) => point.total > 0);
   const hasEnoughPoints = points.length >= 3;
-  const hasEnoughActivity = activePoints.length >= 3 && nonSparsePoints.length >= 3 && maxTotal > 1;
+  const hasEnoughActivity = activePoints.length >= 3;
 
   if (!hasEnoughPoints || !hasEnoughActivity) {
     return {
       isRenderable: false,
       points: [],
-      yAxisMarkers: [],
-      totalLine: '',
-      highRiskLine: '',
-      securityLine: '',
-      svgHeight: 220,
-      svgWidth: 100,
+      labels: [],
     };
   }
 
   const labelStep = resolveTrendLabelStep(points.length);
-  const yAxisMarkers = buildTrendAxisMarkers(maxTotal);
-  const svgHeight = 220;
-  const svgWidth = Math.max(points.length - 1, 1) * 100;
-  const segmentWidth = points.length > 1 ? svgWidth / (points.length - 1) : svgWidth;
-  const normalizedPoints = points.map((point, index) => {
-    const x = points.length > 1 ? index * segmentWidth : svgWidth / 2;
-    return {
-      key: `${point.bucket_start}-${point.bucket_end}`,
-      axisLabel: index % labelStep === 0 || index === points.length - 1 ? formatTrendAxisLabel(point.bucket_start) : '',
-      tooltipLabel: formatTrendTooltipLabel(point.bucket_start, point.bucket_end),
-      totalOffset: resolveTrendOffset(point.total, maxTotal),
-      highRiskOffset: resolveTrendOffset(point.high_risk, maxTotal),
-      securityOffset: resolveTrendOffset(point.security_events, maxTotal),
-      totalY: resolveTrendY(point.total, maxTotal, svgHeight),
-      highRiskY: resolveTrendY(point.high_risk, maxTotal, svgHeight),
-      securityY: resolveTrendY(point.security_events, maxTotal, svgHeight),
-      x,
-      total: point.total,
-      highRisk: point.high_risk,
-      security: point.security_events,
-      highRiskRatio: formatHighRiskRatio(point.high_risk, point.total),
-    };
-  });
+  const normalizedPoints = points.map((point, index) => ({
+    key: `${point.bucket_start}-${point.bucket_end}`,
+    axisLabel: index % labelStep === 0 || index === points.length - 1 ? formatTrendAxisLabel(point) : '',
+    tooltipLabel: formatTrendTooltipLabel(point.bucket_start, point.bucket_end),
+    total: point.total,
+    highRisk: point.high_risk,
+    security: point.security_events,
+  }));
 
   return {
     isRenderable: true,
     points: normalizedPoints,
-    yAxisMarkers,
-    totalLine: normalizedPoints.map((point) => `${point.x},${point.totalY}`).join(' '),
-    highRiskLine: normalizedPoints.map((point) => `${point.x},${point.highRiskY}`).join(' '),
-    securityLine: normalizedPoints.map((point) => `${point.x},${point.securityY}`).join(' '),
-    svgHeight,
-    svgWidth,
+    labels: normalizedPoints.map((point) => point.axisLabel),
   };
 });
 
-const trendTrackStyle = computed(() => {
-  const pointCount = Math.max(trendView.value.points.length, 1);
-  return {
-    gridTemplateColumns: `repeat(${pointCount}, minmax(0, 1fr))`,
-  };
-});
-
-const trendLegendItems = computed<Array<{ key: TrendSeriesKey; label: string }>>(() => [
-  { key: 'total', label: t('audit.overview.trend.legend.total') },
-  { key: 'risk', label: t('audit.overview.trend.legend.highRisk') },
-  { key: 'security', label: t('audit.overview.trend.legend.security') },
-]);
 const shortcuts = computed(() => [
   {
     key: 'failed',
@@ -575,8 +486,12 @@ function formatBucketLabel(value?: string) {
   return formatTrendDateTime(value, { month: '2-digit', day: '2-digit', hour: '2-digit' });
 }
 
-function formatTrendAxisLabel(value?: string) {
-  return formatTrendDateTime(value, { hour: '2-digit', minute: '2-digit' });
+function formatTrendAxisLabel(point: AuditOverviewResponse['trend']['points'][number]) {
+  const bucketUnit = overview.value?.trend?.bucket_unit;
+  if (bucketUnit === 'day') {
+    return formatTrendDateTime(point.bucket_start, { month: '2-digit', day: '2-digit' });
+  }
+  return formatBucketHourRange(point.bucket_start, point.bucket_end);
 }
 
 function formatTrendTooltipLabel(start?: string, end?: string) {
@@ -597,8 +512,207 @@ function resolveTrendLabelStep(pointCount: number) {
   return 3;
 }
 
-function toggleTrendSeries(key: TrendSeriesKey) {
-  trendSeriesState.value[key] = !trendSeriesState.value[key];
+function formatTrendValue(value: number) {
+  return String(value);
+}
+
+function resolveTrendColor(variableName: string, fallback: string) {
+  if (typeof window === 'undefined') {
+    return fallback;
+  }
+
+  const value = getComputedStyle(document.documentElement).getPropertyValue(variableName).trim();
+  return value || fallback;
+}
+
+function ensureTrendChart() {
+  if (!trendChartRef.value) {
+    return null;
+  }
+
+  if (!trendChart) {
+    trendChart = echarts.init(trendChartRef.value);
+  }
+
+  return trendChart;
+}
+
+function disposeTrendChart() {
+  trendChart?.dispose();
+  trendChart = null;
+}
+
+function buildTrendChartOption(): EChartsCoreOption {
+  const chartColors = settingStore.chartColors;
+  const points = trendView.value.points;
+  const totalLabel = t('audit.overview.trend.totalMetric');
+  const highRiskLabel = t('audit.overview.trend.highRiskMetric');
+  const securityLabel = t('audit.overview.trend.securityMetric');
+  const seriesColors = [
+    resolveTrendColor('--td-brand-color', '#0052D9'),
+    resolveTrendColor('--td-warning-color', '#ED7B2F'),
+    resolveTrendColor('--td-error-color', '#E34D59'),
+  ];
+
+  return {
+    color: seriesColors,
+    legend: {
+      top: 0,
+      itemWidth: 10,
+      itemHeight: 10,
+      textStyle: {
+        color: chartColors.textColor,
+      },
+      data: [totalLabel, highRiskLabel, securityLabel],
+    },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: chartColors.containerColor,
+      borderColor: chartColors.borderColor,
+      textStyle: {
+        color: chartColors.textColor,
+      },
+      formatter: (
+        params: Array<{ axisValue: string; axisValueLabel?: string; seriesName: string; color: string; data: number }>,
+      ) => {
+        const activePoint = points.find((point) => point.axisLabel === params[0]?.axisValue) ?? points[0];
+        const rows = params
+          .map((param) => {
+            return [
+              `<div style="display:flex;align-items:center;justify-content:space-between;gap:16px;">`,
+              `<span style="display:flex;align-items:center;gap:8px;">`,
+              `<i style="width:8px;height:8px;border-radius:999px;background:${param.color};display:inline-block;"></i>`,
+              `<span>${param.seriesName}</span>`,
+              `</span>`,
+              `<strong>${formatTrendValue(param.data)}</strong>`,
+              `</div>`,
+            ].join('');
+          })
+          .join('');
+
+        return [
+          `<div style="display:flex;flex-direction:column;gap:8px;">`,
+          `<strong>${activePoint?.tooltipLabel ?? params[0]?.axisValueLabel ?? ''}</strong>`,
+          rows,
+          `</div>`,
+        ].join('');
+      },
+    },
+    grid: {
+      left: '18px',
+      right: '18px',
+      top: '52px',
+      bottom: '20px',
+      containLabel: true,
+    },
+    xAxis: {
+      type: 'category',
+      data: trendView.value.labels,
+      axisLabel: {
+        color: chartColors.placeholderColor,
+      },
+      axisLine: {
+        lineStyle: {
+          color: chartColors.borderColor,
+        },
+      },
+      axisTick: {
+        show: false,
+      },
+    },
+    yAxis: {
+      type: 'value',
+      min: 0,
+      axisLabel: {
+        color: chartColors.placeholderColor,
+        formatter: (value: number) => formatTrendValue(value),
+      },
+      splitLine: {
+        lineStyle: {
+          color: chartColors.borderColor,
+        },
+      },
+    },
+    series: [
+      buildTrendSeries(
+        totalLabel,
+        points.map((point) => point.total),
+      ),
+      buildTrendSeries(
+        highRiskLabel,
+        points.map((point) => point.highRisk),
+      ),
+      buildTrendSeries(
+        securityLabel,
+        points.map((point) => point.security),
+      ),
+    ],
+  };
+}
+
+function buildTrendSeries(name: string, data: number[]) {
+  return {
+    name,
+    type: 'line',
+    smooth: true,
+    symbol: 'circle',
+    symbolSize: 7,
+    showSymbol: false,
+    lineStyle: {
+      width: 2.5,
+    },
+    areaStyle: {
+      opacity: 0.14,
+    },
+    emphasis: {
+      focus: 'series',
+      areaStyle: {
+        opacity: 0.18,
+      },
+    },
+    data,
+  };
+}
+
+async function syncTrendChart() {
+  if (!trendView.value.isRenderable) {
+    disposeTrendChart();
+    return;
+  }
+
+  await nextTick();
+  const chart = ensureTrendChart();
+  if (!chart) {
+    return;
+  }
+
+  chart.setOption(buildTrendChartOption(), true);
+  chart.resize({
+    width: trendChartRef.value?.clientWidth,
+    height: trendChartRef.value?.clientHeight,
+  });
+}
+
+function setupTrendChartResizeObserver() {
+  if (trendChartResizeObserver || typeof ResizeObserver === 'undefined') {
+    return;
+  }
+
+  trendChartResizeObserver = new ResizeObserver(() => {
+    trendChart?.resize({
+      width: trendChartRef.value?.clientWidth,
+      height: trendChartRef.value?.clientHeight,
+    });
+  });
+
+  if (trendChartRef.value) {
+    trendChartResizeObserver.observe(trendChartRef.value);
+  }
+}
+
+function teardownTrendChartResizeObserver() {
+  trendChartResizeObserver?.disconnect();
+  trendChartResizeObserver = null;
 }
 
 function buildFrozenOverviewWindow() {
@@ -623,36 +737,18 @@ function buildPresetLocalRange(preset: AuditTimePreset) {
   }
 }
 
-function resolveTrendOffset(value: number, maxTotal: number) {
-  if (value <= 0 || maxTotal <= 0) {
-    return '0%';
-  }
-  return `${(value / maxTotal) * 100}%`;
-}
-
-function resolveTrendY(value: number, maxTotal: number, svgHeight: number) {
-  if (maxTotal <= 0) {
-    return svgHeight;
+function formatBucketHourRange(start?: string, end?: string) {
+  const startDate = start ? new Date(start) : null;
+  const endDate = end ? new Date(end) : null;
+  if (!startDate || Number.isNaN(startDate.getTime())) {
+    return '-';
   }
 
-  return svgHeight - (Math.max(value, 0) / maxTotal) * svgHeight;
-}
-
-function buildTrendAxisMarkers(maxTotal: number) {
-  const midpoint = Math.ceil(maxTotal / 2);
-  return [
-    { key: 'max', label: String(maxTotal), offset: '100%' },
-    { key: 'mid', label: String(midpoint), offset: '50%' },
-    { key: 'min', label: '0', offset: '0%' },
-  ];
-}
-
-function formatHighRiskRatio(highRisk: number, total: number) {
-  if (total <= 0) {
-    return '0%';
+  const formatter = new Intl.DateTimeFormat(locale.value || undefined, { hour: '2-digit' });
+  if (!endDate || Number.isNaN(endDate.getTime())) {
+    return formatter.format(startDate);
   }
-
-  return `${Math.round((highRisk / total) * 100)}%`;
+  return `${formatter.format(startDate)}-${formatter.format(endDate)}`;
 }
 
 function formatTrendDateTime(value: string | undefined, timeOptions: Intl.DateTimeFormatOptions) {
@@ -682,8 +778,31 @@ watch(activeWindow, () => {
   void fetchOverview();
 });
 
+watch(
+  [
+    () => trendView.value,
+    () => locale.value,
+    () => settingStore.displayMode,
+    () => settingStore.brandTheme,
+    () => settingStore.chartColors.textColor,
+    () => settingStore.chartColors.placeholderColor,
+    () => settingStore.chartColors.borderColor,
+    () => settingStore.chartColors.containerColor,
+  ],
+  () => {
+    void syncTrendChart();
+  },
+  { deep: true },
+);
+
 onMounted(() => {
+  setupTrendChartResizeObserver();
   void fetchOverview();
+});
+
+onUnmounted(() => {
+  teardownTrendChartResizeObserver();
+  disposeTrendChart();
 });
 </script>
 <style scoped lang="less">
@@ -763,9 +882,33 @@ onMounted(() => {
 
 .audit-overview__shortcut {
   background: var(--td-bg-color-container);
+  color: var(--td-text-color-primary);
   cursor: pointer;
   text-align: left;
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    box-shadow 0.2s ease;
   width: 100%;
+}
+
+.audit-overview__shortcut strong {
+  color: var(--td-text-color-primary);
+}
+
+.audit-overview__shortcut:hover {
+  background: color-mix(in srgb, var(--td-brand-color-light) 14%, var(--td-bg-color-container) 86%);
+  border-color: color-mix(in srgb, var(--td-brand-color) 32%, var(--td-component-stroke) 68%);
+}
+
+.audit-overview__shortcut:focus-visible {
+  border-color: var(--td-brand-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--td-brand-color) 18%, transparent);
+  outline: none;
+}
+
+.audit-overview__shortcut:active {
+  background: color-mix(in srgb, var(--td-brand-color-light) 20%, var(--td-bg-color-container) 80%);
 }
 
 .audit-overview__summary-action,
@@ -786,7 +929,7 @@ onMounted(() => {
 
 .audit-overview__trend-panel,
 .audit-overview__trend-empty {
-  min-height: 240px;
+  min-height: 280px;
 }
 
 .audit-overview__trend-panel {
@@ -795,178 +938,37 @@ onMounted(() => {
   gap: 16px;
 }
 
-.audit-overview__trend-legend {
+.audit-overview__trend-metrics {
   display: flex;
   flex-wrap: wrap;
   gap: 16px;
 }
 
-.audit-overview__trend-legend-item {
-  align-items: center;
-  background: transparent;
-  border: 0;
+.audit-overview__trend-metric {
+  background: var(--td-bg-color-container);
+  border: 1px solid var(--td-component-stroke);
+  border-radius: var(--td-radius-medium);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 120px;
+  padding: 12px 14px;
+}
+
+.audit-overview__trend-metric span {
   color: var(--td-text-color-secondary);
-  display: inline-flex;
   font-size: 12px;
-  gap: 8px;
-  padding: 0;
-  position: relative;
 }
 
-.audit-overview__trend-legend-swatch {
-  border-radius: 999px;
-  display: inline-block;
-  height: 10px;
-  width: 10px;
-}
-
-.audit-overview__trend-legend-swatch--total {
-  background: color-mix(in srgb, var(--td-brand-color) 35%, white);
-}
-
-.audit-overview__trend-legend-swatch--risk {
-  background: var(--td-warning-color);
-}
-
-.audit-overview__trend-legend-swatch--security {
-  background: var(--td-error-color);
-}
-
-.audit-overview__trend-legend-off {
-  background: var(--td-text-color-placeholder);
-  block-size: 1px;
-  inline-size: 20px;
-  inset-inline-start: 0;
-  position: absolute;
-  top: 50%;
-  transform: rotate(-24deg);
+.audit-overview__trend-metric strong {
+  color: var(--td-text-color-primary);
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
 }
 
 .audit-overview__trend-chart {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: 40px minmax(0, 1fr);
-}
-
-.audit-overview__trend-y-axis {
-  color: var(--td-text-color-secondary);
-  display: flex;
-  flex-direction: column;
-  font-size: 12px;
-  justify-content: space-between;
-  padding-block: 4px 20px;
-}
-
-.audit-overview__trend-plot {
-  align-items: end;
-  display: flex;
-  min-width: 0;
-  position: relative;
-}
-
-.audit-overview__trend-grid-line {
-  border-top: 1px dashed var(--td-component-stroke);
-  inset-inline: 0;
-  position: absolute;
-}
-
-.audit-overview__trend {
-  align-items: end;
-  display: grid;
-  gap: 12px;
-  min-height: 220px;
-  position: relative;
+  min-height: 320px;
   width: 100%;
-  z-index: 2;
-}
-
-.audit-overview__trend-lines {
-  inset: 0 0 20px;
-  position: absolute;
-  z-index: 1;
-}
-
-.audit-overview__trend-line {
-  fill: none;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 3;
-}
-
-.audit-overview__trend-line--total {
-  stroke: color-mix(in srgb, var(--td-brand-color) 70%, white);
-}
-
-.audit-overview__trend-line--risk {
-  stroke: var(--td-warning-color);
-}
-
-.audit-overview__trend-line--security {
-  stroke: var(--td-error-color);
-}
-
-.audit-overview__trend-point {
-  align-items: center;
-  cursor: default;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 0;
-}
-
-.audit-overview__trend-markers {
-  height: 160px;
-  position: relative;
-  width: 100%;
-  z-index: 1;
-}
-
-.audit-overview__trend-marker {
-  block-size: 10px;
-  border: 2px solid var(--td-bg-color-container);
-  border-radius: 999px;
-  inline-size: 10px;
-  inset-inline-start: 50%;
-  position: absolute;
-  transform: translateX(-50%);
-}
-
-.audit-overview__trend-marker--total {
-  background: color-mix(in srgb, var(--td-brand-color) 70%, white);
-}
-
-.audit-overview__trend-marker--risk {
-  background: var(--td-warning-color);
-}
-
-.audit-overview__trend-marker--security {
-  background: var(--td-error-color);
-}
-
-.audit-overview__trend-point strong {
-  color: var(--td-text-color-secondary);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  line-height: 20px;
-  min-height: 20px;
-  text-align: center;
-}
-
-.audit-overview__trend-tooltip {
-  color: var(--td-text-color-anti);
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  max-width: 220px;
-}
-
-.audit-overview__trend-tooltip strong {
-  color: var(--td-text-color-anti);
-}
-
-.audit-overview__trend-tooltip span {
-  color: var(--td-text-color-anti);
-  font-variant-numeric: tabular-nums;
 }
 
 .audit-overview__timeline-item {
@@ -1011,7 +1013,7 @@ onMounted(() => {
   }
 
   .audit-overview__trend-chart {
-    grid-template-columns: 32px minmax(0, 1fr);
+    min-height: 280px;
   }
 }
 </style>
