@@ -17,6 +17,8 @@ export type AuditLogsRouteQuery = Partial<{
   action: string;
   action_prefix: string;
   source: string;
+  created_from: string;
+  created_to: string;
   occurred_from: string;
   occurred_to: string;
   resource_type: string;
@@ -48,8 +50,8 @@ export function parseAuditLogsRouteQuery(query: LocationQuery | AuditLogsRouteQu
     action: trimQueryValue(firstQueryValue(query.action)),
     action_prefix: trimQueryValue(firstQueryValue(query.action_prefix)),
     source: trimQueryValue(firstQueryValue(query.source)),
-    occurred_from: trimQueryValue(firstQueryValue(query.occurred_from)),
-    occurred_to: trimQueryValue(firstQueryValue(query.occurred_to)),
+    created_from: trimQueryValue(firstQueryValue(query.created_from ?? query.occurred_from)),
+    created_to: trimQueryValue(firstQueryValue(query.created_to ?? query.occurred_to)),
     resource_type: trimQueryValue(firstQueryValue(query.resource_type)),
     resource_name: trimQueryValue(firstQueryValue(query.resource_name)),
     resource_id: trimQueryValue(firstQueryValue(query.resource_id)),
@@ -108,8 +110,8 @@ function buildAuditEvidenceLocation(context: AuditEvidenceContext) {
     request_id: context.request_id,
     result: context.result,
     risk_level: context.risk_level,
-    occurred_from: context.created_from,
-    occurred_to: context.created_to,
+    created_from: context.created_from,
+    created_to: context.created_to,
   });
 }
 

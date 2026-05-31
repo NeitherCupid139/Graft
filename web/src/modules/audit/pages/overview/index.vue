@@ -13,6 +13,7 @@
               {{ option.label }}
             </t-radio-button>
           </t-radio-group>
+          <span class="audit-overview__window-label">{{ currentWindowLabel }}</span>
           <t-button theme="default" variant="outline" :loading="loading" @click="fetchOverview">
             {{ t('audit.overview.refresh') }}
           </t-button>
@@ -219,15 +220,6 @@
                 </div>
                 <div class="audit-overview__timeline-actions">
                   <t-button
-                    v-if="canOpenSecurityTimelineIncident(item)"
-                    size="small"
-                    theme="primary"
-                    variant="text"
-                    @click="openSecurityTimelineItem(item.incident_seed?.event_id)"
-                  >
-                    {{ t('audit.overview.actions.openIncident') }}
-                  </t-button>
-                  <t-button
                     v-if="item.request_id"
                     size="small"
                     theme="default"
@@ -246,13 +238,13 @@
   </div>
 </template>
 <script setup lang="ts">
-import { MessagePlugin, Tooltip as TTooltip } from 'tdesign-vue-next';
+import { MessagePlugin } from 'tdesign-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 
 import { buildAccessLogRequestLocation } from '@/modules/access-log/contract/deep-link';
-import { buildAuditIncidentLocation, buildAuditLogsLocation } from '@/modules/audit/contract/deep-link';
+import { buildAuditLogsLocation } from '@/modules/audit/contract/deep-link';
 import type { AuditPresetKey } from '@/modules/audit/contract/presets';
 import { resolveAuditPresetKey } from '@/modules/audit/contract/presets';
 import { openCorrelationErrorNotification, requestIdFromError } from '@/modules/audit/shared/correlation-actions';
@@ -262,7 +254,13 @@ import { ManagementEmptyState } from '@/shared/components/management';
 import { createLogger } from '@/utils/logger';
 
 import { getAuditOverview } from '../../api/audit';
-import type { AuditOverviewItem, AuditOverviewResponse, AuditOverviewWindow } from '../../types/audit';
+import type {
+  AuditOverviewItem,
+  AuditOverviewQuery,
+  AuditOverviewResponse,
+  AuditOverviewWindow,
+  AuditRiskLevel,
+} from '../../types/audit';
 
 defineOptions({
   name: 'AuditOverviewIndex',
@@ -275,6 +273,11 @@ const activeWindow = ref<AuditOverviewWindow>('24h');
 const loading = ref(false);
 const errorMessage = ref('');
 const overview = ref<AuditOverviewResponse | null>(null);
+const overviewWindow = ref<Required<AuditOverviewQuery>>({
+  window: '24h',
+  from: '',
+  to: '',
+});
 
 const timeRangeOptions = computed(() => [
   { label: t('audit.overview.timeRanges.24h'), value: '24h' as const },
@@ -379,6 +382,12 @@ const trendLegendItems = computed(() => [
   { key: 'risk', label: t('audit.overview.trend.legend.highRisk') },
   { key: 'security', label: t('audit.overview.trend.legend.security') },
 ]);
+const currentWindowLabel = computed(() =>
+  t('audit.overview.currentWindow', {
+    from: formatWindowDateTime(overviewWindow.value.from),
+    to: formatWindowDateTime(overviewWindow.value.to),
+  }),
+);
 
 const shortcuts = computed(() => [
   {
@@ -404,10 +413,6 @@ const shortcuts = computed(() => [
 const riskGroupActionLabel = computed(() => t('audit.overview.riskGroups.action'));
 const relatedRequestActionLabel = computed(() => t('audit.logList.drawer.actions.viewRelatedRequest'));
 
-function canOpenSecurityTimelineIncident(item: AuditOverviewResponse['security_timeline'][number]) {
-  return Boolean(item.incident_seed?.event_id);
-}
-
 function openShortcut(preset: AuditPresetKey) {
   void router.push(buildAuditLogsLocation({ preset, ...buildOverviewWindowQuery() }));
 }
@@ -416,10 +421,16 @@ function openSummary(key: string) {
   const windowQuery = buildOverviewWindowQuery();
   switch (key) {
     case 'failed':
-      void router.push(buildAuditLogsLocation({ result: 'FAILED', ...windowQuery }));
+      void router.push(
+        buildAuditLogsLocation({
+          preset: resolveAuditPresetKey('auth-failed'),
+          result: 'FAILED',
+          ...windowQuery,
+        }),
+      );
       return;
     case 'risk':
-      void router.push(buildAuditLogsLocation({ risk_level: 'HIGH', ...windowQuery }));
+      void router.push(buildAuditLogsLocation({ preset: resolveAuditPresetKey('high-risk'), ...windowQuery }));
       return;
     case 'sensitive':
       void router.push(buildAuditLogsLocation({ risk_level: 'HIGH', source: 'DOMAIN_EVENT', ...windowQuery }));
@@ -429,16 +440,14 @@ function openSummary(key: string) {
   }
 }
 
-function openRiskGroup(riskLevel: string) {
-  void router.push(buildAuditLogsLocation({ risk_level: riskLevel, ...buildOverviewWindowQuery() }));
-}
-
-function openSecurityTimelineItem(eventId?: number) {
-  if (!eventId) {
+function openRiskGroup(riskLevel: AuditRiskLevel) {
+  const query = buildOverviewWindowQuery();
+  if (riskLevel === 'CRITICAL') {
+    void router.push(buildAuditLogsLocation({ preset: resolveAuditPresetKey('high-risk'), ...query }));
     return;
   }
 
-  void router.push(buildAuditIncidentLocation(eventId));
+  void router.push(buildAuditLogsLocation({ risk_level: riskLevel, ...query }));
 }
 
 function openSecurityTimelineRequest(requestId?: string) {
@@ -452,9 +461,11 @@ function openSecurityTimelineRequest(requestId?: string) {
 async function fetchOverview() {
   loading.value = true;
   errorMessage.value = '';
+  const requestWindow = createOverviewWindow(activeWindow.value);
+  overviewWindow.value = requestWindow;
 
   try {
-    overview.value = await getAuditOverview({ window: activeWindow.value });
+    overview.value = await getAuditOverview({ window: requestWindow.window });
   } catch (error) {
     overview.value = null;
     logger.error('failed to fetch audit overview', error);
@@ -568,26 +579,26 @@ function formatTrendDateTime(value: string | undefined, timeOptions: Intl.DateTi
 }
 
 function formatTime(value?: string) {
-  if (!value) {
-    return '-';
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-  return new Intl.DateTimeFormat(locale.value || undefined, {
+  return formatLocaleDateTime(value, {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
-  }).format(date);
+  });
 }
 
 function buildOverviewWindowQuery() {
+  return {
+    created_from: overviewWindow.value.from,
+    created_to: overviewWindow.value.to,
+  };
+}
+
+function createOverviewWindow(window: AuditOverviewWindow) {
   const now = new Date();
   const startedAt = new Date(now);
 
-  switch (activeWindow.value) {
+  switch (window) {
     case '30d':
       startedAt.setUTCDate(startedAt.getUTCDate() - 30);
       break;
@@ -600,9 +611,34 @@ function buildOverviewWindowQuery() {
   }
 
   return {
-    occurred_from: startedAt.toISOString(),
-    occurred_to: now.toISOString(),
+    window,
+    from: startedAt.toISOString(),
+    to: now.toISOString(),
   };
+}
+
+function formatWindowDateTime(value?: string) {
+  return formatLocaleDateTime(value, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+}
+
+function formatLocaleDateTime(value: string | undefined, options: Intl.DateTimeFormatOptions) {
+  if (!value) {
+    return '-';
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat(locale.value || undefined, options).format(date);
 }
 
 watch(activeWindow, () => {
@@ -703,6 +739,12 @@ onMounted(() => {
   padding: 0;
   text-align: left;
   width: 100%;
+}
+
+.audit-overview__window-label {
+  color: var(--td-text-color-secondary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 
 .audit-overview__trend-panel,
@@ -829,14 +871,20 @@ onMounted(() => {
 }
 
 .audit-overview__trend-tooltip {
+  color: var(--td-text-color-anti);
   display: flex;
   flex-direction: column;
   gap: 4px;
   max-width: 220px;
 }
 
+.audit-overview__trend-tooltip strong {
+  color: var(--td-text-color-anti);
+}
+
 .audit-overview__trend-tooltip span {
-  color: var(--td-text-color-secondary);
+  color: var(--td-text-color-anti);
+  font-variant-numeric: tabular-nums;
 }
 
 .audit-overview__timeline-item {

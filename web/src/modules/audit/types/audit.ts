@@ -45,4 +45,6 @@ export type AuditLogQuery = {
 
 export type AuditOverviewQuery = {
   window?: AuditOverviewWindow;
+  from?: string;
+  to?: string;
 };

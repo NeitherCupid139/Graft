@@ -48,6 +48,7 @@
         "7d": "Last 7d",
         "30d": "Last 30d"
       },
+      "currentWindow": "Window: {from} - {to}",
       "itemResult": {
         "failed": "Failed",
         "denied": "Denied",
@@ -79,8 +80,8 @@
           "security": "Security events"
         },
         "totalValue": "Total {value}",
-        "highRiskValue": "High risk {value}",
-        "securityValue": "Security events {value}"
+        "highRiskValue": "High risk: {value}",
+        "securityValue": "Security events: {value}"
       },
       "stats": {
         "totalLogs": {
@@ -415,7 +416,6 @@
           "copyMetadataSuccess": "Metadata JSON copied",
           "copyMetadataFail": "Failed to copy metadata JSON",
           "backToMonitor": "Back to monitor",
-          "openIncident": "Open incident",
           "viewRelatedRequest": "View Related Request",
           "openRelatedEvents": "Open related events"
         },

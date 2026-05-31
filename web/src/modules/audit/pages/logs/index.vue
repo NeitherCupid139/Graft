@@ -323,7 +323,7 @@ function applyRouteFilters() {
     action: query.action || presetDefaults.action || '',
     actionPrefix: query.action_prefix || presetDefaults.actionPrefix || '',
     source: query.source || presetDefaults.source || '',
-    createdRange: query.occurred_from || query.occurred_to ? [query.occurred_from ?? '', query.occurred_to ?? ''] : [],
+    createdRange: query.created_from || query.created_to ? [query.created_from ?? '', query.created_to ?? ''] : [],
     resourceType: query.resource_type || presetDefaults.resourceType || '',
     resourceName: query.resource_name ?? '',
     resourceId: query.resource_id ?? '',
@@ -341,7 +341,7 @@ function applyRouteFilters() {
 }
 
 function buildRouteQuery() {
-  const [occurredFrom = '', occurredTo = ''] = filters.value.createdRange;
+  const [createdFrom = '', createdTo = ''] = filters.value.createdRange;
   const sorter = getSingleSorter(filters.value.sorters);
 
   return {
@@ -352,8 +352,8 @@ function buildRouteQuery() {
     action: filters.value.action,
     action_prefix: filters.value.actionPrefix,
     source: filters.value.source,
-    occurred_from: occurredFrom,
-    occurred_to: occurredTo,
+    created_from: createdFrom,
+    created_to: createdTo,
     resource_type: filters.value.resourceType,
     resource_name: filters.value.resourceName,
     resource_id: filters.value.resourceId,

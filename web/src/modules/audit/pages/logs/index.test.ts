@@ -326,8 +326,8 @@ describe('AuditLogsPage', () => {
   it('restores deep-link filters including created range and keeps backend request shape unchanged', async () => {
     const { wrapper } = await mountPage({
       username: 'alice',
-      occurred_from: '2026-05-01T10:00:00Z',
-      occurred_to: '2026-05-02T18:30:00Z',
+      created_from: '2026-05-01T10:00:00Z',
+      created_to: '2026-05-02T18:30:00Z',
       result: 'FAILED',
     });
 
@@ -344,6 +344,30 @@ describe('AuditLogsPage', () => {
       sort_by: 'created_at',
       sort_order: 'desc',
     });
+  });
+
+  it('accepts legacy occurred range query while normalizing route writes to created range', async () => {
+    const { replaceSpy, wrapper } = await mountPage({
+      occurred_from: '2026-05-01T10:00:00Z',
+      occurred_to: '2026-05-02T18:30:00Z',
+    });
+
+    expect(wrapper.get('[data-testid="audit-filter-model"]').text()).toContain(
+      '"createdRange":["2026-05-01T10:00:00Z","2026-05-02T18:30:00Z"]',
+    );
+
+    replaceSpy.mockClear();
+    await wrapper.get('[data-testid="audit-search"]').trigger('click');
+    await flushPromises();
+
+    expect(replaceSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: expect.objectContaining({
+          created_from: '2026-05-01T10:00:00Z',
+          created_to: '2026-05-02T18:30:00Z',
+        }),
+      }),
+    );
   });
 
   it('loads preset-backed records and opens the detail drawer', async () => {
@@ -438,8 +462,8 @@ describe('AuditLogsPage', () => {
         query: expect.objectContaining({
           username: 'route-admin',
           user_id: '7',
-          occurred_from: '2026-05-01T10:00:00Z',
-          occurred_to: '2026-05-02T18:30:00Z',
+          created_from: '2026-05-01T10:00:00Z',
+          created_to: '2026-05-02T18:30:00Z',
           preset: 'permission-denied',
           result: 'FAILED',
           sort_by: 'created_at',
@@ -450,8 +474,8 @@ describe('AuditLogsPage', () => {
     expect(router.currentRoute.value.query).toMatchObject({
       username: 'route-admin',
       user_id: '7',
-      occurred_from: '2026-05-01T10:00:00Z',
-      occurred_to: '2026-05-02T18:30:00Z',
+      created_from: '2026-05-01T10:00:00Z',
+      created_to: '2026-05-02T18:30:00Z',
       preset: 'permission-denied',
       result: 'FAILED',
       sort_by: 'created_at',

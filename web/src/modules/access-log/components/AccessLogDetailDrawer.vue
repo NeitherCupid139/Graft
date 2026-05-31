@@ -5,7 +5,7 @@
     :footer="false"
     destroy-on-close
     placement="right"
-    size="720px"
+    size="820px"
     @update:visible="$emit('update:visible', $event)"
   >
     <div v-if="record" class="access-log-detail">

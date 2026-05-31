@@ -197,9 +197,7 @@ const i18n = createI18n({
             shortcuts: 'Quick Links',
             riskWatch: 'Recent Risk',
           },
-          actions: {
-            openIncident: 'Open Incident',
-          },
+          currentWindow: 'Window: {from} - {to}',
           trend: {
             emptyTitle: 'Not enough risk events yet',
             emptyDescription: 'Trend analysis will appear after more audit events are collected.',
@@ -209,8 +207,8 @@ const i18n = createI18n({
               security: 'Security events',
             },
             totalValue: 'Total {value}',
-            highRiskValue: 'High risk {value}',
-            securityValue: 'Security events {value}',
+            highRiskValue: 'High risk: {value}',
+            securityValue: 'Security events: {value}',
           },
           stats: {
             totalLogs: { title: 'Audit Logs', unit: 'events', meta: 'all records' },
@@ -290,11 +288,12 @@ describe('AuditOverviewPage', () => {
         path: AUDIT_ROUTE_PATH.LOGS,
         query: expect.objectContaining({
           preset: 'auth-failed',
-          occurred_from: expect.any(String),
-          occurred_to: expect.any(String),
+          created_from: expect.any(String),
+          created_to: expect.any(String),
         }),
       }),
     );
+    expect(wrapper.text()).toContain('Window:');
   });
 
   it('renders the trend chart only when enough meaningful points are present', async () => {
@@ -377,6 +376,7 @@ describe('AuditOverviewPage', () => {
 
     await flushPromises();
 
+    expect(wrapper.text()).not.toContain('Open Incident');
     const timelineButton = wrapper.findAll('button').find((item) => item.text().includes('View Related Request'));
 
     expect(timelineButton).toBeTruthy();

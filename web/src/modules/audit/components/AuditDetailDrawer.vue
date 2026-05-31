@@ -5,7 +5,7 @@
     :footer="false"
     destroy-on-close
     placement="right"
-    size="640px"
+    size="820px"
     @update:visible="$emit('update:visible', $event)"
   >
     <div v-if="record" class="audit-detail">

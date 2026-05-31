@@ -48,6 +48,7 @@
         "7d": "最近 7 天",
         "30d": "最近 30 天"
       },
+      "currentWindow": "统计窗口：{from} - {to}",
       "itemResult": {
         "failed": "失败",
         "denied": "拒绝",
@@ -79,8 +80,8 @@
           "security": "安全事件"
         },
         "totalValue": "总量 {value}",
-        "highRiskValue": "高风险 {value}",
-        "securityValue": "安全事件 {value}"
+        "highRiskValue": "高风险：{value}",
+        "securityValue": "安全事件：{value}"
       },
       "stats": {
         "totalLogs": {
@@ -415,7 +416,6 @@
           "copyMetadataSuccess": "元数据 JSON 已复制",
           "copyMetadataFail": "复制元数据 JSON 失败",
           "backToMonitor": "返回监控",
-          "openIncident": "打开事件钻取",
           "viewRelatedRequest": "查看关联请求",
           "openRelatedEvents": "查看关联事件"
         },

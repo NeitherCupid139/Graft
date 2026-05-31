@@ -5,19 +5,16 @@
         <t-collapse-panel value="json">
           <template #header>
             <div class="log-json-panel__header">
-              <div class="log-json-panel__title-block">
-                <strong class="log-json-panel__title">{{ title }}</strong>
-                <span class="log-json-panel__toggle-text">{{ currentToggleLabel }}</span>
-              </div>
+              <strong class="log-json-panel__title">{{ title }}</strong>
             </div>
           </template>
           <template #headerRightContent>
-            <t-space size="8px">
-              <t-button size="small" theme="default" variant="text" @click.stop="toggleExpanded">
-                {{ currentToggleLabel }}
-              </t-button>
+            <t-space size="8px" align="center">
               <t-button v-if="!isEmpty" size="small" theme="default" variant="text" @click.stop="copyJson">
                 {{ copyLabel }}
+              </t-button>
+              <t-button size="small" theme="default" variant="text" @click.stop="toggleExpanded">
+                {{ currentToggleLabel }}
               </t-button>
             </t-space>
           </template>
@@ -106,19 +103,8 @@ async function copyJson() {
 .log-json-panel__header {
   align-items: center;
   display: flex;
-  width: 100%;
-}
-
-.log-json-panel__title-block {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
   min-width: 0;
-}
-
-.log-json-panel__toggle-text {
-  color: var(--td-text-color-secondary);
-  font-size: 12px;
+  width: 100%;
 }
 
 .log-json-panel__empty,
@@ -127,11 +113,12 @@ async function copyJson() {
   border: 1px solid var(--td-component-stroke);
   border-radius: var(--td-radius-medium);
   margin: 0;
-  max-height: 320px;
+  max-height: min(56vh, 560px);
   overflow: auto;
   overflow-wrap: anywhere;
-  padding: 12px;
+  padding: 10px 12px;
   white-space: pre-wrap;
+  width: 100%;
 }
 
 .log-json-panel__empty {
