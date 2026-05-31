@@ -320,10 +320,20 @@
         "exitAction": "退出业务钻取",
         "convertAction": "转换为普通筛选"
       },
+      "businessCategory": {
+        "failedOperations": "失败操作",
+        "highRiskOperations": "高风险操作",
+        "sensitiveOperations": "敏感操作",
+        "authFailures": "认证失败",
+        "permissionDenials": "权限拒绝",
+        "rbacChanges": "权限配置变更",
+        "criticalSecurity": "关键安全事件"
+      },
       "builder": {
         "title": "筛选字段",
         "hint": "选择一个字段后立即设置条件，已设置字段会显示为可移除标签。",
         "fields": {
+          "businessCategory": "业务分类",
           "success": "成功状态",
           "action": "操作类型",
           "actionPrefixes": "操作分类",
@@ -351,6 +361,7 @@
         "actionKeywordsPlaceholder": "输入操作关键词后回车",
         "successPlaceholder": "成功状态",
         "sourcePlaceholder": "事件类型",
+        "businessCategoryPlaceholder": "业务分类",
         "datePlaceholder": "时间范围",
         "resourceTypePlaceholder": "审计目标类型",
         "resourceTypesPlaceholder": "选择目标类型集合",

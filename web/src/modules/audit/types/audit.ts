@@ -20,6 +20,8 @@ export type DrilldownScopeProjectionItem = components['schemas']['drilldown-scop
 export type AuditLogConvertibleFilters = components['schemas']['audit-log-convertible-filters'];
 
 export type AuditTimePreset = components['schemas']['AuditOverviewResponse']['time_preset'];
+export type AuditBusinessCategory = components['schemas']['AuditBusinessCategory'];
+export type AuditDrilldownScope = components['schemas']['AuditDrilldownScope'];
 export type AuditRiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type AuditResult = 'SUCCESS' | 'FAILED' | 'DENIED' | 'ERROR';
 export type AuditSource = 'REQUEST' | 'SECURITY_EVENT' | 'DOMAIN_EVENT';
@@ -31,7 +33,7 @@ export type AuditLogQuery = {
   page?: number;
   page_size?: number;
   preset?: AuditTimePreset;
-  scope?: string;
+  scope?: components['schemas']['AuditDrilldownScope'];
   keyword?: string;
   actor?: string;
   actor_user_id?: number;
@@ -40,6 +42,7 @@ export type AuditLogQuery = {
   action_prefixes?: string[];
   action_keywords?: string[];
   source?: AuditSource;
+  business_category?: AuditBusinessCategory;
   resource_type?: string;
   resource_types?: string[];
   resource_id?: string;

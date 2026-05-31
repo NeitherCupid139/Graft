@@ -69,6 +69,7 @@ type ConvertibleFilters struct {
 	RiskLevels          []string `json:"risk_levels,omitempty"`
 	Preset              string   `json:"preset,omitempty"`
 	Source              string   `json:"source,omitempty"`
+	BusinessCategory    string   `json:"business_category,omitempty"`
 	Success             *bool    `json:"success,omitempty"`
 }
 

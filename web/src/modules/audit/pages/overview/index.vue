@@ -367,10 +367,7 @@ const shortcuts = computed(() => [
     title: t('audit.overview.shortcuts.failedAuth.title'),
     description: t('audit.overview.shortcuts.failedAuth.description'),
     query: buildOverviewAuditQuery({
-      success: 'false',
-      resource_types: 'auth,session',
-      action_keywords: 'auth,login',
-      request_path_prefixes: '/api/auth',
+      scope: AUDIT_DRILLDOWN_SCOPE.AUTH_FAILURES,
     }),
   },
   {
@@ -378,7 +375,7 @@ const shortcuts = computed(() => [
     title: t('audit.overview.shortcuts.rbacChanges.title'),
     description: t('audit.overview.shortcuts.rbacChanges.description'),
     query: buildOverviewAuditQuery({
-      action_prefixes: 'rbac.,role.,permission.',
+      scope: AUDIT_DRILLDOWN_SCOPE.RBAC_CHANGES,
     }),
   },
   {
@@ -408,10 +405,14 @@ function openShortcut(query: Record<string, string>) {
 function openSummary(key: string) {
   switch (key) {
     case 'failed':
-      void router.push(buildAuditLogsLocation(buildOverviewAuditQuery({ success: 'false' })));
+      void router.push(
+        buildAuditLogsLocation(buildOverviewAuditQuery({ scope: AUDIT_DRILLDOWN_SCOPE.FAILED_OPERATIONS })),
+      );
       return;
     case 'risk':
-      void router.push(buildAuditLogsLocation(buildOverviewAuditQuery({ risk_levels: 'HIGH,CRITICAL' })));
+      void router.push(
+        buildAuditLogsLocation(buildOverviewAuditQuery({ scope: AUDIT_DRILLDOWN_SCOPE.HIGH_RISK_OPERATIONS })),
+      );
       return;
     case 'sensitive':
       void router.push(
@@ -429,16 +430,10 @@ function openSummary(key: string) {
 
 function openRiskGroup(groupKey: string) {
   const riskGroupQueries: Record<string, Record<string, string>> = {
-    high_risk_operations: { risk_levels: 'HIGH,CRITICAL' },
-    auth_failures: {
-      success: 'false',
-      resource_types: 'auth,session',
-      action_keywords: 'auth,login',
-      request_path_prefixes: '/api/auth',
-    },
-    permission_denials: {
-      results: 'DENIED',
-    },
+    critical_security: { scope: AUDIT_DRILLDOWN_SCOPE.CRITICAL_SECURITY },
+    high_risk_operations: { scope: AUDIT_DRILLDOWN_SCOPE.HIGH_RISK_OPERATIONS },
+    auth_failures: { scope: AUDIT_DRILLDOWN_SCOPE.AUTH_FAILURES },
+    permission_denials: { scope: AUDIT_DRILLDOWN_SCOPE.PERMISSION_DENIALS },
   };
 
   void router.push(buildAuditLogsLocation(buildOverviewAuditQuery(groupKey ? (riskGroupQueries[groupKey] ?? {}) : {})));

@@ -222,6 +222,16 @@ const sourceOptions = computed<AuditFilterOption[]>(() => [
   { label: t('audit.common.source.DOMAIN_EVENT'), value: 'DOMAIN_EVENT' },
 ]);
 
+const businessCategoryOptions = computed<AuditFilterOption[]>(() => [
+  { label: t('audit.logList.businessCategory.failedOperations'), value: 'failed_operations' },
+  { label: t('audit.logList.businessCategory.highRiskOperations'), value: 'high_risk_operations' },
+  { label: t('audit.logList.businessCategory.sensitiveOperations'), value: 'sensitive_operations' },
+  { label: t('audit.logList.businessCategory.authFailures'), value: 'auth_failures' },
+  { label: t('audit.logList.businessCategory.permissionDenials'), value: 'permission_denials' },
+  { label: t('audit.logList.businessCategory.rbacChanges'), value: 'rbac_changes' },
+  { label: t('audit.logList.businessCategory.criticalSecurity'), value: 'critical_security' },
+]);
+
 const resourceTypeOptions = computed<AuditFilterOption[]>(() => [
   { label: t('audit.logList.filterOptions.userResource'), value: 'user' },
   { label: t('audit.logList.filterOptions.roleResource'), value: 'role' },
@@ -317,6 +327,13 @@ const definitions = computed<AuditFilterDefinition[]>(() => [
     fieldLabelKey: 'audit.logList.builder.fields.source',
     placeholderKey: 'audit.logList.filters.sourcePlaceholder',
     options: sourceOptions,
+  },
+  {
+    key: 'businessCategory',
+    kind: 'select',
+    fieldLabelKey: 'audit.logList.builder.fields.businessCategory',
+    placeholderKey: 'audit.logList.filters.businessCategoryPlaceholder',
+    options: businessCategoryOptions,
   },
   {
     key: 'actor',

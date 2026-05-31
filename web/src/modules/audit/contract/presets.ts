@@ -1,5 +1,4 @@
-import type { AuditClientFilterState } from '../shared/presentation';
-import type { AuditResult, AuditRiskLevel } from '../types/audit';
+import type { AuditBusinessCategory } from '../types/audit';
 
 export type AuditQuickPresetKey =
   | 'all'
@@ -25,57 +24,18 @@ const AUDIT_PRESET_DEFINITIONS: readonly AuditQuickPresetDefinition[] = [
   { key: 'high-risk', titleKey: 'audit.logList.presets.highRisk' },
 ] as const;
 
-const RBAC_ACTION_PREFIXES = ['rbac.', 'role.', 'permission.'] as const;
-const AUTH_RESOURCE_TYPES = ['auth', 'session'] as const;
-const AUTH_ACTION_KEYWORDS = ['auth', 'login'] as const;
-const AUTH_REQUEST_PATH_PREFIXES = ['/api/auth'] as const;
-const HIGH_RISK_LEVELS: AuditRiskLevel[] = ['HIGH', 'CRITICAL'];
-const PERMISSION_DENIED_RESULTS: AuditResult[] = ['DENIED'];
-
 export const AUDIT_DRILLDOWN_SCOPE = {
+  FAILED_OPERATIONS: 'failed_operations',
+  HIGH_RISK_OPERATIONS: 'high_risk_operations',
   SENSITIVE_OPERATIONS: 'sensitive_operations',
+  AUTH_FAILURES: 'auth_failures',
+  PERMISSION_DENIALS: 'permission_denials',
+  RBAC_CHANGES: 'rbac_changes',
+  CRITICAL_SECURITY: 'critical_security',
 } as const;
+
+export const AUDIT_BUSINESS_CATEGORY = AUDIT_DRILLDOWN_SCOPE satisfies Record<string, AuditBusinessCategory>;
 
 export function listAuditPresets() {
   return AUDIT_PRESET_DEFINITIONS;
-}
-
-export function applyAuditPresetFilters(
-  preset: AuditQuickPresetKey,
-  current: AuditClientFilterState,
-  createDefaultFilters: () => AuditClientFilterState,
-): AuditClientFilterState {
-  const base = createDefaultFilters();
-
-  const next: AuditClientFilterState = {
-    ...base,
-    keyword: current.keyword,
-    requestId: current.requestId,
-    sorters: current.sorters,
-  };
-
-  switch (preset) {
-    case 'failed-operations':
-      next.success = 'false';
-      return next;
-    case 'rbac-changes':
-      next.actionPrefixes = [...RBAC_ACTION_PREFIXES];
-      return next;
-    case 'permission-denied':
-      next.results = [...PERMISSION_DENIED_RESULTS];
-      return next;
-    case 'sensitive-ops':
-      return next;
-    case 'auth-failed':
-      next.success = 'false';
-      next.resourceTypes = [...AUTH_RESOURCE_TYPES];
-      next.actionKeywords = [...AUTH_ACTION_KEYWORDS];
-      next.requestPathPrefixes = [...AUTH_REQUEST_PATH_PREFIXES];
-      return next;
-    case 'high-risk':
-      next.riskLevels = [...HIGH_RISK_LEVELS];
-      return next;
-    default:
-      return next;
-  }
 }

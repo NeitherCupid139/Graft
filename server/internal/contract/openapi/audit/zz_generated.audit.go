@@ -518,6 +518,72 @@ func (e GetAuditLogsParamsPreset) Valid() bool {
 	}
 }
 
+// Defines values for GetAuditLogsParamsScope.
+const (
+	GetAuditLogsParamsScopeAuthFailures        GetAuditLogsParamsScope = "auth_failures"
+	GetAuditLogsParamsScopeCriticalSecurity    GetAuditLogsParamsScope = "critical_security"
+	GetAuditLogsParamsScopeFailedOperations    GetAuditLogsParamsScope = "failed_operations"
+	GetAuditLogsParamsScopeHighRiskOperations  GetAuditLogsParamsScope = "high_risk_operations"
+	GetAuditLogsParamsScopePermissionDenials   GetAuditLogsParamsScope = "permission_denials"
+	GetAuditLogsParamsScopeRbacChanges         GetAuditLogsParamsScope = "rbac_changes"
+	GetAuditLogsParamsScopeSensitiveOperations GetAuditLogsParamsScope = "sensitive_operations"
+)
+
+// Valid indicates whether the value is a known member of the GetAuditLogsParamsScope enum.
+func (e GetAuditLogsParamsScope) Valid() bool {
+	switch e {
+	case GetAuditLogsParamsScopeAuthFailures:
+		return true
+	case GetAuditLogsParamsScopeCriticalSecurity:
+		return true
+	case GetAuditLogsParamsScopeFailedOperations:
+		return true
+	case GetAuditLogsParamsScopeHighRiskOperations:
+		return true
+	case GetAuditLogsParamsScopePermissionDenials:
+		return true
+	case GetAuditLogsParamsScopeRbacChanges:
+		return true
+	case GetAuditLogsParamsScopeSensitiveOperations:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetAuditLogsParamsBusinessCategory.
+const (
+	GetAuditLogsParamsBusinessCategoryAuthFailures        GetAuditLogsParamsBusinessCategory = "auth_failures"
+	GetAuditLogsParamsBusinessCategoryCriticalSecurity    GetAuditLogsParamsBusinessCategory = "critical_security"
+	GetAuditLogsParamsBusinessCategoryFailedOperations    GetAuditLogsParamsBusinessCategory = "failed_operations"
+	GetAuditLogsParamsBusinessCategoryHighRiskOperations  GetAuditLogsParamsBusinessCategory = "high_risk_operations"
+	GetAuditLogsParamsBusinessCategoryPermissionDenials   GetAuditLogsParamsBusinessCategory = "permission_denials"
+	GetAuditLogsParamsBusinessCategoryRbacChanges         GetAuditLogsParamsBusinessCategory = "rbac_changes"
+	GetAuditLogsParamsBusinessCategorySensitiveOperations GetAuditLogsParamsBusinessCategory = "sensitive_operations"
+)
+
+// Valid indicates whether the value is a known member of the GetAuditLogsParamsBusinessCategory enum.
+func (e GetAuditLogsParamsBusinessCategory) Valid() bool {
+	switch e {
+	case GetAuditLogsParamsBusinessCategoryAuthFailures:
+		return true
+	case GetAuditLogsParamsBusinessCategoryCriticalSecurity:
+		return true
+	case GetAuditLogsParamsBusinessCategoryFailedOperations:
+		return true
+	case GetAuditLogsParamsBusinessCategoryHighRiskOperations:
+		return true
+	case GetAuditLogsParamsBusinessCategoryPermissionDenials:
+		return true
+	case GetAuditLogsParamsBusinessCategoryRbacChanges:
+		return true
+	case GetAuditLogsParamsBusinessCategorySensitiveOperations:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetAuditLogsParamsSource.
 const (
 	GetAuditLogsParamsSourceDOMAINEVENT   GetAuditLogsParamsSource = "DOMAIN_EVENT"
@@ -662,6 +728,39 @@ func (e GetAuditLogsParamsSortOrder) Valid() bool {
 	case Asc:
 		return true
 	case Desc:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetAuditLogs200JSONResponseBodyDataConvertibleFiltersBusinessCategory.
+const (
+	AuthFailures        GetAuditLogs200JSONResponseBodyDataConvertibleFiltersBusinessCategory = "auth_failures"
+	CriticalSecurity    GetAuditLogs200JSONResponseBodyDataConvertibleFiltersBusinessCategory = "critical_security"
+	FailedOperations    GetAuditLogs200JSONResponseBodyDataConvertibleFiltersBusinessCategory = "failed_operations"
+	HighRiskOperations  GetAuditLogs200JSONResponseBodyDataConvertibleFiltersBusinessCategory = "high_risk_operations"
+	PermissionDenials   GetAuditLogs200JSONResponseBodyDataConvertibleFiltersBusinessCategory = "permission_denials"
+	RbacChanges         GetAuditLogs200JSONResponseBodyDataConvertibleFiltersBusinessCategory = "rbac_changes"
+	SensitiveOperations GetAuditLogs200JSONResponseBodyDataConvertibleFiltersBusinessCategory = "sensitive_operations"
+)
+
+// Valid indicates whether the value is a known member of the GetAuditLogs200JSONResponseBodyDataConvertibleFiltersBusinessCategory enum.
+func (e GetAuditLogs200JSONResponseBodyDataConvertibleFiltersBusinessCategory) Valid() bool {
+	switch e {
+	case AuthFailures:
+		return true
+	case CriticalSecurity:
+		return true
+	case FailedOperations:
+		return true
+	case HighRiskOperations:
+		return true
+	case PermissionDenials:
+		return true
+	case RbacChanges:
+		return true
+	case SensitiveOperations:
 		return true
 	default:
 		return false
@@ -1283,27 +1382,30 @@ type GetAuditLogsParams struct {
 	Preset      *GetAuditLogsParamsPreset `form:"preset,omitempty" json:"preset,omitempty"`
 
 	// Scope Stable business drilldown scope. When present, scope-owned fields remain read-only until the client exits drilldown or converts to normal filters.
-	Scope               *string                         `form:"scope,omitempty" json:"scope,omitempty"`
-	ActionPrefix        *string                         `form:"action_prefix,omitempty" json:"action_prefix,omitempty"`
-	ActionPrefixes      *[]string                       `form:"action_prefixes,omitempty" json:"action_prefixes,omitempty"`
-	ActionKeywords      *[]string                       `form:"action_keywords,omitempty" json:"action_keywords,omitempty"`
-	Source              *GetAuditLogsParamsSource       `form:"source,omitempty" json:"source,omitempty"`
-	ResourceType        *string                         `form:"resource_type,omitempty" json:"resource_type,omitempty"`
-	ResourceTypes       *[]string                       `form:"resource_types,omitempty" json:"resource_types,omitempty"`
-	ResourceId          *string                         `form:"resource_id,omitempty" json:"resource_id,omitempty"`
-	ResourceName        *string                         `form:"resource_name,omitempty" json:"resource_name,omitempty"`
-	RequestPathPrefixes *[]string                       `form:"request_path_prefixes,omitempty" json:"request_path_prefixes,omitempty"`
-	RequestId           *string                         `form:"request_id,omitempty" json:"request_id,omitempty"`
-	SessionId           *string                         `form:"session_id,omitempty" json:"session_id,omitempty"`
-	Result              *GetAuditLogsParamsResult       `form:"result,omitempty" json:"result,omitempty"`
-	Results             *[]GetAuditLogsParamsResults    `form:"results,omitempty" json:"results,omitempty"`
-	RiskLevel           *GetAuditLogsParamsRiskLevel    `form:"risk_level,omitempty" json:"risk_level,omitempty"`
-	RiskLevels          *[]GetAuditLogsParamsRiskLevels `form:"risk_levels,omitempty" json:"risk_levels,omitempty"`
-	Success             *bool                           `form:"success,omitempty" json:"success,omitempty"`
-	CreatedFrom         *time.Time                      `form:"created_from,omitempty" json:"created_from,omitempty"`
-	CreatedTo           *time.Time                      `form:"created_to,omitempty" json:"created_to,omitempty"`
-	SortBy              *GetAuditLogsParamsSortBy       `form:"sort_by,omitempty" json:"sort_by,omitempty"`
-	SortOrder           *GetAuditLogsParamsSortOrder    `form:"sort_order,omitempty" json:"sort_order,omitempty"`
+	Scope *GetAuditLogsParamsScope `form:"scope,omitempty" json:"scope,omitempty"`
+
+	// BusinessCategory Backend-owned editable business category used by normal filters and scope conversion.
+	BusinessCategory    *GetAuditLogsParamsBusinessCategory `form:"business_category,omitempty" json:"business_category,omitempty"`
+	ActionPrefix        *string                             `form:"action_prefix,omitempty" json:"action_prefix,omitempty"`
+	ActionPrefixes      *[]string                           `form:"action_prefixes,omitempty" json:"action_prefixes,omitempty"`
+	ActionKeywords      *[]string                           `form:"action_keywords,omitempty" json:"action_keywords,omitempty"`
+	Source              *GetAuditLogsParamsSource           `form:"source,omitempty" json:"source,omitempty"`
+	ResourceType        *string                             `form:"resource_type,omitempty" json:"resource_type,omitempty"`
+	ResourceTypes       *[]string                           `form:"resource_types,omitempty" json:"resource_types,omitempty"`
+	ResourceId          *string                             `form:"resource_id,omitempty" json:"resource_id,omitempty"`
+	ResourceName        *string                             `form:"resource_name,omitempty" json:"resource_name,omitempty"`
+	RequestPathPrefixes *[]string                           `form:"request_path_prefixes,omitempty" json:"request_path_prefixes,omitempty"`
+	RequestId           *string                             `form:"request_id,omitempty" json:"request_id,omitempty"`
+	SessionId           *string                             `form:"session_id,omitempty" json:"session_id,omitempty"`
+	Result              *GetAuditLogsParamsResult           `form:"result,omitempty" json:"result,omitempty"`
+	Results             *[]GetAuditLogsParamsResults        `form:"results,omitempty" json:"results,omitempty"`
+	RiskLevel           *GetAuditLogsParamsRiskLevel        `form:"risk_level,omitempty" json:"risk_level,omitempty"`
+	RiskLevels          *[]GetAuditLogsParamsRiskLevels     `form:"risk_levels,omitempty" json:"risk_levels,omitempty"`
+	Success             *bool                               `form:"success,omitempty" json:"success,omitempty"`
+	CreatedFrom         *time.Time                          `form:"created_from,omitempty" json:"created_from,omitempty"`
+	CreatedTo           *time.Time                          `form:"created_to,omitempty" json:"created_to,omitempty"`
+	SortBy              *GetAuditLogsParamsSortBy           `form:"sort_by,omitempty" json:"sort_by,omitempty"`
+	SortOrder           *GetAuditLogsParamsSortOrder        `form:"sort_order,omitempty" json:"sort_order,omitempty"`
 
 	// XGraftLocale Explicit locale override header already supported by the runtime.
 	XGraftLocale *string `json:"X-Graft-Locale,omitempty"`
@@ -1315,6 +1417,12 @@ type GetAuditLogsParams struct {
 
 // GetAuditLogsParamsPreset defines parameters for GetAuditLogs.
 type GetAuditLogsParamsPreset string
+
+// GetAuditLogsParamsScope defines parameters for GetAuditLogs.
+type GetAuditLogsParamsScope string
+
+// GetAuditLogsParamsBusinessCategory defines parameters for GetAuditLogs.
+type GetAuditLogsParamsBusinessCategory string
 
 // GetAuditLogsParamsSource defines parameters for GetAuditLogs.
 type GetAuditLogsParamsSource string
@@ -1336,6 +1444,9 @@ type GetAuditLogsParamsSortBy string
 
 // GetAuditLogsParamsSortOrder defines parameters for GetAuditLogs.
 type GetAuditLogsParamsSortOrder string
+
+// GetAuditLogs200JSONResponseBodyDataConvertibleFiltersBusinessCategory defines parameters for GetAuditLogs.
+type GetAuditLogs200JSONResponseBodyDataConvertibleFiltersBusinessCategory string
 
 // GetAuditLogs200JSONResponseBodyDataConvertibleFiltersPreset defines parameters for GetAuditLogs.
 type GetAuditLogs200JSONResponseBodyDataConvertibleFiltersPreset string

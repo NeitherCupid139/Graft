@@ -926,6 +926,8 @@ export interface components {
     ReplaceUserRolesRequest: components['schemas']['replace-user-roles-request'];
     BatchUserRolesRequest: components['schemas']['batch-user-roles-request'];
     AuditLogListItem: components['schemas']['audit-log-list-item'];
+    AuditDrilldownScope: components['schemas']['audit-drilldown-scope'];
+    AuditBusinessCategory: components['schemas']['audit-business-category'];
     AuditLogListResponse: components['schemas']['audit-log-list-response'];
     EnvelopedAuditLogListResponse: components['schemas']['enveloped-audit-log-list-response'];
     AuditOverviewItem: components['schemas']['audit-overview-item'];
@@ -1249,6 +1251,24 @@ export interface components {
       user_ids: number[];
       role_ids: number[];
     };
+    /** @enum {string} */
+    'audit-drilldown-scope':
+      | 'failed_operations'
+      | 'high_risk_operations'
+      | 'sensitive_operations'
+      | 'auth_failures'
+      | 'permission_denials'
+      | 'rbac_changes'
+      | 'critical_security';
+    /** @enum {string} */
+    'audit-business-category':
+      | 'failed_operations'
+      | 'high_risk_operations'
+      | 'sensitive_operations'
+      | 'auth_failures'
+      | 'permission_denials'
+      | 'rbac_changes'
+      | 'critical_security';
     'audit-target': {
       /** @enum {string} */
       kind: 'resource' | 'actor' | 'request' | 'session' | 'incident';
@@ -1317,6 +1337,7 @@ export interface components {
       preset?: 'last_24h' | 'last_7d' | 'last_30d';
       /** @enum {string} */
       source?: 'REQUEST' | 'SECURITY_EVENT' | 'DOMAIN_EVENT';
+      business_category?: components['schemas']['audit-business-category'];
       success?: boolean;
       action_prefixes?: string[];
       action_keywords?: string[];
@@ -3992,7 +4013,9 @@ export interface operations {
         action?: string;
         preset?: 'last_24h' | 'last_7d' | 'last_30d';
         /** @description Stable business drilldown scope. When present, scope-owned fields remain read-only until the client exits drilldown or converts to normal filters. */
-        scope?: string;
+        scope?: components['schemas']['audit-drilldown-scope'];
+        /** @description Backend-owned editable business category used by normal filters and scope conversion. */
+        business_category?: components['schemas']['audit-business-category'];
         action_prefix?: string;
         action_prefixes?: string[];
         action_keywords?: string[];

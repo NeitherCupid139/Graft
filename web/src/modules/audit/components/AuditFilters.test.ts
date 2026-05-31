@@ -194,6 +194,7 @@ describe('AuditFilters', () => {
           actionKeywords: [],
           requestPathPrefixes: [],
           source: '',
+          businessCategory: '',
           createdRange: [],
           resourceType: '',
           resourceTypes: [],

@@ -186,8 +186,21 @@ const drawerStub = defineComponent({
 
 const collapseStub = defineComponent({
   name: 'TCollapseStub',
-  setup(_, { slots }) {
-    return () => h('div', slots.default?.());
+  props: ['value'],
+  emits: ['change'],
+  setup(props, { emit, slots }) {
+    return () =>
+      h('div', [
+        h(
+          'button',
+          {
+            'data-testid': 'scope-collapse-toggle',
+            onClick: () => emit('change', props.value?.length ? [] : ['projection']),
+          },
+          'toggle',
+        ),
+        slots.default?.(),
+      ]);
   },
 });
 
@@ -604,9 +617,7 @@ describe('AuditLogsPage', () => {
       page: 1,
       page_size: 10,
       preset: 'last_24h',
-      created_from: '2026-05-30T07:21:04.000Z',
-      created_to: '2026-05-31T07:21:04.000Z',
-      risk_levels: ['HIGH', 'CRITICAL'],
+      scope: 'high_risk_operations',
       sort_by: 'created_at',
       sort_order: 'desc',
     });
@@ -622,23 +633,23 @@ describe('AuditLogsPage', () => {
           scope: 'sensitive_operations',
           name: 'Sensitive Operations',
           description: 'Sensitive write actions',
-          owned_fields: ['action_keywords'],
+          owned_fields: ['business_category'],
         },
         scope_projection: {
           title: 'Sensitive Operations',
           items: [
             {
-              key: 'action_keywords',
-              label: 'Action keywords',
-              kind: 'string_list',
-              values: ['delete', 'reset', 'grant'],
+              key: 'business_category',
+              label: 'Business category',
+              kind: 'enum',
+              values: ['sensitive_operations'],
               locked: true,
             },
           ],
         },
         convertible_filters: {
           preset: 'last_24h',
-          action_keywords: ['delete', 'reset', 'grant'],
+          business_category: 'sensitive_operations',
         },
       }),
     );
@@ -659,7 +670,7 @@ describe('AuditLogsPage', () => {
     expect(wrapper.text()).toContain('Business drilldown');
     expect(wrapper.text()).toContain('Sensitive Operations');
     expect(wrapper.text()).toContain('Readonly');
-    expect(wrapper.text()).toContain('delete');
+    expect(wrapper.text()).toContain('sensitive_operations');
   });
 
   it('exits business drilldown by removing scope only', async () => {
@@ -671,7 +682,7 @@ describe('AuditLogsPage', () => {
           module: 'audit',
           scope: 'sensitive_operations',
           name: 'Sensitive Operations',
-          owned_fields: ['action_keywords'],
+          owned_fields: ['business_category'],
         },
         scope_projection: {
           title: 'Sensitive Operations',
@@ -679,7 +690,7 @@ describe('AuditLogsPage', () => {
         },
         convertible_filters: {
           preset: 'last_24h',
-          action_keywords: ['delete', 'reset', 'grant'],
+          business_category: 'sensitive_operations',
         },
       }),
     );
@@ -720,7 +731,7 @@ describe('AuditLogsPage', () => {
         },
         convertible_filters: {
           preset: 'last_24h',
-          action_keywords: ['delete', 'reset', 'grant'],
+          business_category: 'sensitive_operations',
         },
       }),
     );
@@ -737,7 +748,7 @@ describe('AuditLogsPage', () => {
 
     expect(router.currentRoute.value.query).toMatchObject({
       preset: 'last_24h',
-      action_keywords: 'delete,reset,grant',
+      business_category: 'sensitive_operations',
     });
     expect(router.currentRoute.value.query).not.toHaveProperty('scope');
   });
@@ -754,6 +765,51 @@ describe('AuditLogsPage', () => {
       scope: 'sensitive_operations',
     });
     expect(router.currentRoute.value.query).not.toHaveProperty('action_keywords');
+  });
+
+  it('toggles the scope projection collapse without changing query state', async () => {
+    getAuditLogsMock.mockResolvedValueOnce(
+      createAuditLogsResponse({
+        items: [],
+        total: 15,
+        applied_scope: {
+          module: 'audit',
+          scope: 'sensitive_operations',
+          name: 'Sensitive Operations',
+          owned_fields: ['business_category'],
+        },
+        scope_projection: {
+          title: 'Sensitive Operations',
+          items: [
+            {
+              key: 'business_category',
+              label: 'Business category',
+              kind: 'enum',
+              values: ['sensitive_operations'],
+              locked: true,
+            },
+          ],
+        },
+        convertible_filters: {
+          preset: 'last_24h',
+          business_category: 'sensitive_operations',
+        },
+      }),
+    );
+
+    const { router, wrapper } = await mountPage({
+      preset: 'last_24h',
+      scope: 'sensitive_operations',
+    });
+
+    await wrapper.get('[data-testid="scope-collapse-toggle"]').trigger('click');
+    await flushPromises();
+
+    expect(router.currentRoute.value.query).toMatchObject({
+      preset: 'last_24h',
+      scope: 'sensitive_operations',
+    });
+    expect(getAuditLogsMock).toHaveBeenCalledTimes(1);
   });
 
   it('does not send an implicit preset when the route has no time range', async () => {

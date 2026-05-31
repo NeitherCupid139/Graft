@@ -294,7 +294,11 @@ func bindAuditPreset(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParam
 
 func bindAuditScope(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParams, query *auditcore.ListQuery) string {
 	if raw := strings.TrimSpace(ginCtx.Query("scope")); raw != "" {
-		params.Scope = &raw
+		value := auditopenapi.GetAuditLogsParamsScope(raw)
+		if !value.Valid() {
+			return "scope"
+		}
+		params.Scope = &value
 		query.Scope = raw
 	}
 	return ""
@@ -332,6 +336,9 @@ func bindAuditStringSliceFilters(ginCtx *gin.Context, params *auditopenapi.GetAu
 }
 
 func bindAuditEnumFilters(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParams, query *auditcore.ListQuery) string {
+	if errField := bindAuditBusinessCategoryFilter(ginCtx, params, query); errField != "" {
+		return errField
+	}
 	if errField := bindAuditSourceFilter(ginCtx, params, query); errField != "" {
 		return errField
 	}
@@ -354,6 +361,33 @@ func bindAuditEnumFilters(ginCtx *gin.Context, params *auditopenapi.GetAuditLogs
 		query.RiskLevels = normalized
 	}
 	return ""
+}
+
+func bindAuditBusinessCategoryFilter(
+	ginCtx *gin.Context,
+	params *auditopenapi.GetAuditLogsParams,
+	query *auditcore.ListQuery,
+) string {
+	raw := strings.TrimSpace(ginCtx.Query("business_category"))
+	if raw == "" {
+		return ""
+	}
+
+	switch auditstore.AuditBusinessCategory(raw) {
+	case auditstore.AuditBusinessCategoryFailedOperations,
+		auditstore.AuditBusinessCategoryHighRiskOperations,
+		auditstore.AuditBusinessCategorySensitiveOperations,
+		auditstore.AuditBusinessCategoryAuthFailures,
+		auditstore.AuditBusinessCategoryPermissionDenials,
+		auditstore.AuditBusinessCategoryRBACChanges,
+		auditstore.AuditBusinessCategoryCriticalSecurity:
+		value := auditopenapi.GetAuditLogsParamsBusinessCategory(raw)
+		params.BusinessCategory = &value
+		query.BusinessCategory = auditstore.AuditBusinessCategory(raw)
+		return ""
+	default:
+		return "business_category"
+	}
 }
 
 func bindAuditSourceFilter(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParams, query *auditcore.ListQuery) string {

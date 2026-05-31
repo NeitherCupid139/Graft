@@ -59,6 +59,7 @@ type ListQuery struct {
 	ActionKeywords      []string
 	TimePreset          auditstore.AuditTimePreset
 	Source              auditstore.AuditSource
+	BusinessCategory    auditstore.AuditBusinessCategory
 	ResourceType        string
 	ResourceTypes       []string
 	ResourceID          string
@@ -192,6 +193,7 @@ func (s *Service) List(ctx context.Context, query ListQuery) (ListResult, error)
 		ActionKeywords:      normalizeAuditStringFilters(effectiveQuery.ActionKeywords),
 		TimePreset:          normalizeAuditTimePreset(effectiveQuery.TimePreset),
 		Source:              normalizeAuditSource(effectiveQuery.Source),
+		BusinessCategory:    normalizeAuditBusinessCategory(effectiveQuery.BusinessCategory),
 		ResourceType:        strings.TrimSpace(effectiveQuery.ResourceType),
 		ResourceTypes:       normalizeAuditStringFilters(effectiveQuery.ResourceTypes),
 		ResourceID:          strings.TrimSpace(effectiveQuery.ResourceID),
@@ -246,6 +248,9 @@ func (s *Service) resolveScope(
 	effectiveQuery := query
 	effectiveQuery.Scope = ""
 	effectiveQuery.ActionKeywords = mergeListQueryStringField(effectiveQuery.ActionKeywords, resolved.QueryPatch.ActionKeywords)
+	if resolved.QueryPatch.BusinessCategory != "" {
+		effectiveQuery.BusinessCategory = resolved.QueryPatch.BusinessCategory
+	}
 	return &resolved, effectiveQuery, nil
 }
 
@@ -315,6 +320,27 @@ func normalizeAuditSource(source auditstore.AuditSource) auditstore.AuditSource 
 		return auditstore.AuditSourceSecurityEvent
 	case auditstore.AuditSourceDomainEvent:
 		return auditstore.AuditSourceDomainEvent
+	default:
+		return ""
+	}
+}
+
+func normalizeAuditBusinessCategory(category auditstore.AuditBusinessCategory) auditstore.AuditBusinessCategory {
+	switch auditstore.AuditBusinessCategory(strings.TrimSpace(string(category))) {
+	case auditstore.AuditBusinessCategoryFailedOperations:
+		return auditstore.AuditBusinessCategoryFailedOperations
+	case auditstore.AuditBusinessCategoryHighRiskOperations:
+		return auditstore.AuditBusinessCategoryHighRiskOperations
+	case auditstore.AuditBusinessCategorySensitiveOperations:
+		return auditstore.AuditBusinessCategorySensitiveOperations
+	case auditstore.AuditBusinessCategoryAuthFailures:
+		return auditstore.AuditBusinessCategoryAuthFailures
+	case auditstore.AuditBusinessCategoryPermissionDenials:
+		return auditstore.AuditBusinessCategoryPermissionDenials
+	case auditstore.AuditBusinessCategoryRBACChanges:
+		return auditstore.AuditBusinessCategoryRBACChanges
+	case auditstore.AuditBusinessCategoryCriticalSecurity:
+		return auditstore.AuditBusinessCategoryCriticalSecurity
 	default:
 		return ""
 	}

@@ -1,0 +1,9 @@
+type: string
+enum:
+  - failed_operations
+  - high_risk_operations
+  - sensitive_operations
+  - auth_failures
+  - permission_denials
+  - rbac_changes
+  - critical_security

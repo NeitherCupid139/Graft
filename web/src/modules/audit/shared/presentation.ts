@@ -1,6 +1,7 @@
 import { formatLocaleDateTime } from '@/shared/observability';
 
 import type { AuditLogListItem } from '../types/audit';
+import type { AuditBusinessCategory } from '../types/audit';
 import type { AuditResult as AuditResultEnum, AuditRiskLevel as AuditRiskLevelEnum } from '../types/audit';
 import type { AuditSorter } from '../types/audit';
 
@@ -19,6 +20,7 @@ export type AuditClientFilterState = {
   actionKeywords: string[];
   requestPathPrefixes: string[];
   source: string;
+  businessCategory: '' | AuditBusinessCategory;
   createdRange: string[];
   resourceType: string;
   resourceTypes: string[];

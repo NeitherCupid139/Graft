@@ -73,6 +73,26 @@ const (
 	AuditResultError AuditResult = "ERROR"
 )
 
+// AuditBusinessCategory identifies backend-owned editable business semantics for audit list filtering.
+type AuditBusinessCategory string
+
+const (
+	// AuditBusinessCategoryFailedOperations represents failed operations in the active window.
+	AuditBusinessCategoryFailedOperations AuditBusinessCategory = "failed_operations"
+	// AuditBusinessCategoryHighRiskOperations represents high-risk operations in the active window.
+	AuditBusinessCategoryHighRiskOperations AuditBusinessCategory = "high_risk_operations"
+	// AuditBusinessCategorySensitiveOperations represents sensitive operations in the active window.
+	AuditBusinessCategorySensitiveOperations AuditBusinessCategory = "sensitive_operations"
+	// AuditBusinessCategoryAuthFailures represents authentication failures in the active window.
+	AuditBusinessCategoryAuthFailures AuditBusinessCategory = "auth_failures"
+	// AuditBusinessCategoryPermissionDenials represents permission denial activity in the active window.
+	AuditBusinessCategoryPermissionDenials AuditBusinessCategory = "permission_denials"
+	// AuditBusinessCategoryRBACChanges represents RBAC and permission-configuration changes in the active window.
+	AuditBusinessCategoryRBACChanges AuditBusinessCategory = "rbac_changes"
+	// AuditBusinessCategoryCriticalSecurity represents critical security activity in the active window.
+	AuditBusinessCategoryCriticalSecurity AuditBusinessCategory = "critical_security"
+)
+
 // AuditLog is the audit plugin's stable DTO for a persisted audit record.
 type AuditLog struct {
 	ID               uint64
@@ -194,6 +214,7 @@ type ListAuditLogsQuery struct {
 	ActionKeywords      []string
 	TimePreset          AuditTimePreset
 	Source              AuditSource
+	BusinessCategory    AuditBusinessCategory
 	ResourceType        string
 	ResourceTypes       []string
 	ResourceID          string

@@ -42,7 +42,11 @@
 
         <p class="audit-scope-card__hint">{{ t('audit.logList.scope.hint') }}</p>
 
-        <t-collapse v-if="scopeState.projection.items?.length" :value="scopePanelValue">
+        <t-collapse
+          v-if="scopeState.projection.items?.length"
+          :value="scopePanelValue"
+          @change="handleScopePanelChange"
+        >
           <t-collapse-panel value="projection" :header="t('audit.logList.scope.projectionTitle')">
             <div class="audit-scope-card__projection-list">
               <article
@@ -167,7 +171,7 @@ import {
   withMonitorOrigin,
 } from '../../contract/navigation';
 import {
-  applyAuditPresetFilters,
+  AUDIT_BUSINESS_CATEGORY,
   AUDIT_DRILLDOWN_SCOPE,
   type AuditQuickPresetKey,
   listAuditPresets,
@@ -177,6 +181,7 @@ import type { AuditFilterKey } from '../../shared/filter-definitions';
 import type { AuditClientFilterState } from '../../shared/presentation';
 import type {
   AppliedDrilldownScope,
+  AuditDrilldownScope,
   AuditLogConvertibleFilters,
   AuditLogListItem,
   AuditLogQuery,
@@ -209,10 +214,11 @@ const filters = ref<AuditClientFilterState>({
   ...createDefaultFilters(),
 });
 const routePreset = ref<AuditTimePreset | ''>('');
-const routeScope = ref('');
+const routeScope = ref<AuditDrilldownScope | ''>('');
 const appliedScope = ref<AppliedDrilldownScope | null>(null);
 const scopeProjection = ref<DrilldownScopeProjection | null>(null);
 const convertibleFilters = ref<AuditLogConvertibleFilters | null>(null);
+const scopePanelValue = ref<Array<string | number>>(['projection']);
 const applyingRoute = ref(false);
 const isRouteSyncActive = ref(true);
 const navigationContext = computed(() => resolveAuditNavigationContext(route.query));
@@ -228,7 +234,6 @@ const scopeState = computed(() =>
     : null,
 );
 const scopeOwnedFilterKeys = computed(() => mapOwnedFieldsToFilterKeys(appliedScope.value?.owned_fields ?? []));
-const scopePanelValue = computed(() => ['projection']);
 
 const presetViews = computed(() =>
   listAuditPresets().map((preset) => ({
@@ -313,6 +318,9 @@ function buildQuery(): AuditLogQuery {
   }
   if (filters.value.source) {
     query.source = filters.value.source as AuditLogQuery['source'];
+  }
+  if (filters.value.businessCategory) {
+    query.business_category = filters.value.businessCategory;
   }
   if (filters.value.resourceType) {
     query.resource_type = filters.value.resourceType;
@@ -407,18 +415,12 @@ async function fetchAuditLogs() {
 }
 
 function applyPreset(preset: AuditQuickPresetKey) {
-  if (preset === 'sensitive-ops') {
-    filters.value = createDefaultFilters();
-    routePreset.value = resolvePresetTimeWindow(preset);
-    routeScope.value = AUDIT_DRILLDOWN_SCOPE.SENSITIVE_OPERATIONS;
-    pagination.value.current = 1;
-    updateRouteQuery();
-    return;
-  }
-  filters.value = applyAuditPresetFilters(preset, filters.value, createDefaultFilters);
+  filters.value = createDefaultFilters();
   routePreset.value = resolvePresetTimeWindow(preset);
-  routeScope.value = '';
-  filters.value.createdRange = buildPresetCreatedRange(routePreset.value);
+  routeScope.value = resolveScopeForPreset(preset);
+  if (!routeScope.value) {
+    filters.value.createdRange = buildPresetCreatedRange(routePreset.value);
+  }
   pagination.value.current = 1;
   updateRouteQuery();
 }
@@ -465,6 +467,7 @@ function createDefaultFilters(): AuditClientFilterState {
     actionKeywords: [],
     requestPathPrefixes: [],
     source: '',
+    businessCategory: '',
     createdRange: [],
     resourceType: '',
     resourceTypes: [],
@@ -488,7 +491,7 @@ function openDetailDrawer(row: AuditLogListItem) {
 function applyRouteFilters() {
   const query = parseAuditLogsRouteQuery(route.query);
   routePreset.value = normalizePreset(query.preset);
-  routeScope.value = query.scope || '';
+  routeScope.value = normalizeScope(query.scope);
   const nextFilters: AuditClientFilterState = {
     ...createDefaultFilters(),
     keyword: query.keyword ?? '',
@@ -500,6 +503,7 @@ function applyRouteFilters() {
     actionKeywords: splitRouteList(query.action_keywords),
     requestPathPrefixes: splitRouteList(query.request_path_prefixes),
     source: query.source || '',
+    businessCategory: normalizeBusinessCategory(query.business_category),
     createdRange: normalizeRouteRangeForPageState([query.created_from ?? '', query.created_to ?? '']),
     resourceType: query.resource_type || '',
     resourceTypes: splitRouteList(query.resource_types),
@@ -535,6 +539,7 @@ function buildRouteQuery() {
     action_keywords: joinRouteList(filters.value.actionKeywords),
     request_path_prefixes: joinRouteList(filters.value.requestPathPrefixes),
     source: filters.value.source,
+    business_category: filters.value.businessCategory,
     created_from: createdFrom,
     created_to: createdTo,
     resource_type: filters.value.resourceType,
@@ -658,10 +663,41 @@ function normalizePreset(value?: string) {
     : '';
 }
 
+function normalizeScope(value?: string): AuditDrilldownScope | '' {
+  switch (value) {
+    case AUDIT_DRILLDOWN_SCOPE.FAILED_OPERATIONS:
+    case AUDIT_DRILLDOWN_SCOPE.HIGH_RISK_OPERATIONS:
+    case AUDIT_DRILLDOWN_SCOPE.SENSITIVE_OPERATIONS:
+    case AUDIT_DRILLDOWN_SCOPE.AUTH_FAILURES:
+    case AUDIT_DRILLDOWN_SCOPE.PERMISSION_DENIALS:
+    case AUDIT_DRILLDOWN_SCOPE.RBAC_CHANGES:
+    case AUDIT_DRILLDOWN_SCOPE.CRITICAL_SECURITY:
+      return value;
+    default:
+      return '';
+  }
+}
+
+function normalizeBusinessCategory(value?: string): AuditClientFilterState['businessCategory'] {
+  switch (value) {
+    case AUDIT_BUSINESS_CATEGORY.FAILED_OPERATIONS:
+    case AUDIT_BUSINESS_CATEGORY.HIGH_RISK_OPERATIONS:
+    case AUDIT_BUSINESS_CATEGORY.SENSITIVE_OPERATIONS:
+    case AUDIT_BUSINESS_CATEGORY.AUTH_FAILURES:
+    case AUDIT_BUSINESS_CATEGORY.PERMISSION_DENIALS:
+    case AUDIT_BUSINESS_CATEGORY.RBAC_CHANGES:
+    case AUDIT_BUSINESS_CATEGORY.CRITICAL_SECURITY:
+      return value;
+    default:
+      return '';
+  }
+}
+
 function applyConvertibleFilters(next: AuditLogConvertibleFilters) {
   filters.value = {
     ...filters.value,
     source: next.source ?? '',
+    businessCategory: normalizeBusinessCategory(next.business_category),
     success: next.success === true ? 'true' : next.success === false ? 'false' : 'all',
     actionPrefixes: next.action_prefixes ? [...next.action_prefixes] : [],
     actionKeywords: next.action_keywords ? [...next.action_keywords] : [],
@@ -677,6 +713,9 @@ function mapOwnedFieldsToFilterKeys(fields: string[]) {
 
   fields.forEach((field) => {
     switch (field) {
+      case 'business_category':
+        mapped.push('businessCategory');
+        break;
       case 'action_keywords':
         mapped.push('actionKeywords');
         break;
@@ -725,30 +764,69 @@ function joinRouteList(values: string[]) {
 }
 
 function inferPresetFromState(value: AuditClientFilterState, scope: string): AuditQuickPresetKey {
+  if (scope === AUDIT_DRILLDOWN_SCOPE.FAILED_OPERATIONS) {
+    return 'failed-operations';
+  }
+  if (scope === AUDIT_DRILLDOWN_SCOPE.RBAC_CHANGES) {
+    return 'rbac-changes';
+  }
+  if (scope === AUDIT_DRILLDOWN_SCOPE.PERMISSION_DENIALS) {
+    return 'permission-denied';
+  }
   if (scope === AUDIT_DRILLDOWN_SCOPE.SENSITIVE_OPERATIONS) {
     return 'sensitive-ops';
   }
-  if (
-    value.success === 'false' &&
-    value.resourceTypes.join(',') === 'auth,session' &&
-    value.actionKeywords.join(',') === 'auth,login' &&
-    value.requestPathPrefixes.join(',') === '/api/auth'
-  ) {
+  if (scope === AUDIT_DRILLDOWN_SCOPE.AUTH_FAILURES) {
     return 'auth-failed';
   }
-  if (value.success === 'false' && !value.actionKeywords.length && !value.resourceTypes.length) {
+  if (scope === AUDIT_DRILLDOWN_SCOPE.HIGH_RISK_OPERATIONS || scope === AUDIT_DRILLDOWN_SCOPE.CRITICAL_SECURITY) {
+    return 'high-risk';
+  }
+  if (value.businessCategory === AUDIT_BUSINESS_CATEGORY.FAILED_OPERATIONS) {
     return 'failed-operations';
   }
-  if (value.actionPrefixes.join(',') === 'rbac.,role.,permission.') {
+  if (value.businessCategory === AUDIT_BUSINESS_CATEGORY.RBAC_CHANGES) {
     return 'rbac-changes';
   }
-  if (value.results.join(',') === 'DENIED') {
+  if (value.businessCategory === AUDIT_BUSINESS_CATEGORY.PERMISSION_DENIALS) {
     return 'permission-denied';
   }
-  if (value.riskLevels.join(',') === 'HIGH,CRITICAL') {
+  if (value.businessCategory === AUDIT_BUSINESS_CATEGORY.SENSITIVE_OPERATIONS) {
+    return 'sensitive-ops';
+  }
+  if (value.businessCategory === AUDIT_BUSINESS_CATEGORY.AUTH_FAILURES) {
+    return 'auth-failed';
+  }
+  if (
+    value.businessCategory === AUDIT_BUSINESS_CATEGORY.HIGH_RISK_OPERATIONS ||
+    value.businessCategory === AUDIT_BUSINESS_CATEGORY.CRITICAL_SECURITY
+  ) {
     return 'high-risk';
   }
   return 'all';
+}
+
+function resolveScopeForPreset(preset: AuditQuickPresetKey): AuditDrilldownScope | '' {
+  switch (preset) {
+    case 'failed-operations':
+      return AUDIT_DRILLDOWN_SCOPE.FAILED_OPERATIONS;
+    case 'rbac-changes':
+      return AUDIT_DRILLDOWN_SCOPE.RBAC_CHANGES;
+    case 'permission-denied':
+      return AUDIT_DRILLDOWN_SCOPE.PERMISSION_DENIALS;
+    case 'sensitive-ops':
+      return AUDIT_DRILLDOWN_SCOPE.SENSITIVE_OPERATIONS;
+    case 'auth-failed':
+      return AUDIT_DRILLDOWN_SCOPE.AUTH_FAILURES;
+    case 'high-risk':
+      return AUDIT_DRILLDOWN_SCOPE.HIGH_RISK_OPERATIONS;
+    default:
+      return '';
+  }
+}
+
+function handleScopePanelChange(value: Array<string | number>) {
+  scopePanelValue.value = [...value];
 }
 
 function buildPresetCreatedRange(preset: AuditTimePreset | '') {

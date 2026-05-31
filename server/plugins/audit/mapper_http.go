@@ -107,6 +107,9 @@ func toConvertibleFiltersMap(filters *drilldown.ConvertibleFilters) map[string]a
 	if filters.Source != "" {
 		converted["source"] = filters.Source
 	}
+	if filters.BusinessCategory != "" {
+		converted["business_category"] = filters.BusinessCategory
+	}
 	if filters.Success != nil {
 		converted["success"] = *filters.Success
 	}

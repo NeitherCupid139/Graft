@@ -52,7 +52,13 @@ get:
       required: false
       description: Stable business drilldown scope. When present, scope-owned fields remain read-only until the client exits drilldown or converts to normal filters.
       schema:
-        type: string
+        $ref: ../components/schemas/audit-drilldown-scope.yaml
+    - name: business_category
+      in: query
+      required: false
+      description: Backend-owned editable business category used by normal filters and scope conversion.
+      schema:
+        $ref: ../components/schemas/audit-business-category.yaml
     - name: action_prefix
       in: query
       required: false

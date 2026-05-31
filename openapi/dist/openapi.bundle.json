@@ -4318,7 +4318,16 @@
             "required": false,
             "description": "Stable business drilldown scope. When present, scope-owned fields remain read-only until the client exits drilldown or converts to normal filters.",
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/audit-drilldown-scope"
+            }
+          },
+          {
+            "name": "business_category",
+            "in": "query",
+            "required": false,
+            "description": "Backend-owned editable business category used by normal filters and scope conversion.",
+            "schema": {
+              "$ref": "#/components/schemas/audit-business-category"
             }
           },
           {
@@ -5388,6 +5397,12 @@
       },
       "AuditLogListItem": {
         "$ref": "#/components/schemas/audit-log-list-item"
+      },
+      "AuditDrilldownScope": {
+        "$ref": "#/components/schemas/audit-drilldown-scope"
+      },
+      "AuditBusinessCategory": {
+        "$ref": "#/components/schemas/audit-business-category"
       },
       "AuditLogListResponse": {
         "$ref": "#/components/schemas/audit-log-list-response"
@@ -6471,6 +6486,30 @@
           }
         }
       },
+      "audit-drilldown-scope": {
+        "type": "string",
+        "enum": [
+          "failed_operations",
+          "high_risk_operations",
+          "sensitive_operations",
+          "auth_failures",
+          "permission_denials",
+          "rbac_changes",
+          "critical_security"
+        ]
+      },
+      "audit-business-category": {
+        "type": "string",
+        "enum": [
+          "failed_operations",
+          "high_risk_operations",
+          "sensitive_operations",
+          "auth_failures",
+          "permission_denials",
+          "rbac_changes",
+          "critical_security"
+        ]
+      },
       "audit-target": {
         "type": "object",
         "required": [
@@ -6716,6 +6755,9 @@
               "SECURITY_EVENT",
               "DOMAIN_EVENT"
             ]
+          },
+          "business_category": {
+            "$ref": "#/components/schemas/audit-business-category"
           },
           "success": {
             "type": "boolean"

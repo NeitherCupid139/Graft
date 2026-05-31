@@ -266,16 +266,16 @@ func TestServiceListResolvesScopeAndExposesMetadata(t *testing.T) {
 				Module:      "audit",
 				Scope:       "sensitive_operations",
 				Name:        "敏感操作",
-				OwnedFields: []string{"action_keywords"},
+				OwnedFields: []string{"business_category"},
 			},
 			Projection: drilldown.ScopeProjection{
 				Title: "敏感操作",
 			},
 			ConvertibleFilters: drilldown.ConvertibleFilters{
-				ActionKeywords: []string{"delete", "reset"},
+				BusinessCategory: "sensitive_operations",
 			},
 			QueryPatch: ListQuery{
-				ActionKeywords: []string{"delete", "reset"},
+				BusinessCategory: auditstore.AuditBusinessCategorySensitiveOperations,
 			},
 		}},
 	)
@@ -296,8 +296,8 @@ func TestServiceListResolvesScopeAndExposesMetadata(t *testing.T) {
 		t.Fatalf("list audit logs with scope: %v", err)
 	}
 
-	if repo.listQuery.ActionKeywords == nil || len(repo.listQuery.ActionKeywords) != 2 {
-		t.Fatalf("expected resolved action keywords, got %#v", repo.listQuery.ActionKeywords)
+	if repo.listQuery.BusinessCategory != auditstore.AuditBusinessCategorySensitiveOperations {
+		t.Fatalf("expected resolved business category, got %#v", repo.listQuery.BusinessCategory)
 	}
 	if result.AppliedScope == nil || result.AppliedScope.Scope != "sensitive_operations" {
 		t.Fatalf("expected applied scope metadata, got %#v", result.AppliedScope)
@@ -305,7 +305,7 @@ func TestServiceListResolvesScopeAndExposesMetadata(t *testing.T) {
 	if result.ScopeProjection == nil || result.ScopeProjection.Title != "敏感操作" {
 		t.Fatalf("expected scope projection, got %#v", result.ScopeProjection)
 	}
-	if result.ConvertibleFilters == nil || len(result.ConvertibleFilters.ActionKeywords) != 2 {
+	if result.ConvertibleFilters == nil || result.ConvertibleFilters.BusinessCategory != "sensitive_operations" {
 		t.Fatalf("expected convertible filters, got %#v", result.ConvertibleFilters)
 	}
 }

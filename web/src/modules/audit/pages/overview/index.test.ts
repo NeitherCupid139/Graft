@@ -387,7 +387,7 @@ describe('AuditOverviewPage', () => {
     expect(routerMocks.push).toHaveBeenCalledWith({
       path: AUDIT_ROUTE_PATH.LOGS,
       query: expect.objectContaining({
-        success: 'false',
+        scope: 'failed_operations',
         created_from: expect.any(String),
         created_to: expect.any(String),
       }),
@@ -406,7 +406,7 @@ describe('AuditOverviewPage', () => {
     expect(routerMocks.push).toHaveBeenCalledWith({
       path: AUDIT_ROUTE_PATH.LOGS,
       query: expect.objectContaining({
-        risk_levels: 'HIGH,CRITICAL',
+        scope: 'high_risk_operations',
         created_from: expect.any(String),
         created_to: expect.any(String),
       }),
@@ -450,7 +450,7 @@ describe('AuditOverviewPage', () => {
     expect(routerMocks.push).toHaveBeenCalledWith({
       path: AUDIT_ROUTE_PATH.LOGS,
       query: expect.objectContaining({
-        risk_levels: 'HIGH,CRITICAL',
+        scope: 'high_risk_operations',
         created_from: expect.any(String),
         created_to: expect.any(String),
       }),

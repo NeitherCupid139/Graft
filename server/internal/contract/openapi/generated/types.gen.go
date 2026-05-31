@@ -12,6 +12,72 @@ const (
 	RefreshCookieScopes refreshCookieContextKey = "refreshCookie.Scopes"
 )
 
+// Defines values for AuditBusinessCategory.
+const (
+	AuditBusinessCategoryAuthFailures        AuditBusinessCategory = "auth_failures"
+	AuditBusinessCategoryCriticalSecurity    AuditBusinessCategory = "critical_security"
+	AuditBusinessCategoryFailedOperations    AuditBusinessCategory = "failed_operations"
+	AuditBusinessCategoryHighRiskOperations  AuditBusinessCategory = "high_risk_operations"
+	AuditBusinessCategoryPermissionDenials   AuditBusinessCategory = "permission_denials"
+	AuditBusinessCategoryRbacChanges         AuditBusinessCategory = "rbac_changes"
+	AuditBusinessCategorySensitiveOperations AuditBusinessCategory = "sensitive_operations"
+)
+
+// Valid indicates whether the value is a known member of the AuditBusinessCategory enum.
+func (e AuditBusinessCategory) Valid() bool {
+	switch e {
+	case AuditBusinessCategoryAuthFailures:
+		return true
+	case AuditBusinessCategoryCriticalSecurity:
+		return true
+	case AuditBusinessCategoryFailedOperations:
+		return true
+	case AuditBusinessCategoryHighRiskOperations:
+		return true
+	case AuditBusinessCategoryPermissionDenials:
+		return true
+	case AuditBusinessCategoryRbacChanges:
+		return true
+	case AuditBusinessCategorySensitiveOperations:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AuditDrilldownScope.
+const (
+	AuditDrilldownScopeAuthFailures        AuditDrilldownScope = "auth_failures"
+	AuditDrilldownScopeCriticalSecurity    AuditDrilldownScope = "critical_security"
+	AuditDrilldownScopeFailedOperations    AuditDrilldownScope = "failed_operations"
+	AuditDrilldownScopeHighRiskOperations  AuditDrilldownScope = "high_risk_operations"
+	AuditDrilldownScopePermissionDenials   AuditDrilldownScope = "permission_denials"
+	AuditDrilldownScopeRbacChanges         AuditDrilldownScope = "rbac_changes"
+	AuditDrilldownScopeSensitiveOperations AuditDrilldownScope = "sensitive_operations"
+)
+
+// Valid indicates whether the value is a known member of the AuditDrilldownScope enum.
+func (e AuditDrilldownScope) Valid() bool {
+	switch e {
+	case AuditDrilldownScopeAuthFailures:
+		return true
+	case AuditDrilldownScopeCriticalSecurity:
+		return true
+	case AuditDrilldownScopeFailedOperations:
+		return true
+	case AuditDrilldownScopeHighRiskOperations:
+		return true
+	case AuditDrilldownScopePermissionDenials:
+		return true
+	case AuditDrilldownScopeRbacChanges:
+		return true
+	case AuditDrilldownScopeSensitiveOperations:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AuditEvidenceContextResult.
 const (
 	AuditEvidenceContextResultDENIED  AuditEvidenceContextResult = "DENIED"
@@ -183,6 +249,96 @@ func (e AuditIncidentResponseIncidentRiskLevel) Valid() bool {
 	case AuditIncidentResponseIncidentRiskLevelLOW:
 		return true
 	case AuditIncidentResponseIncidentRiskLevelMEDIUM:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AuditLogConvertibleFiltersPreset.
+const (
+	AuditLogConvertibleFiltersPresetLast24h AuditLogConvertibleFiltersPreset = "last_24h"
+	AuditLogConvertibleFiltersPresetLast30d AuditLogConvertibleFiltersPreset = "last_30d"
+	AuditLogConvertibleFiltersPresetLast7d  AuditLogConvertibleFiltersPreset = "last_7d"
+)
+
+// Valid indicates whether the value is a known member of the AuditLogConvertibleFiltersPreset enum.
+func (e AuditLogConvertibleFiltersPreset) Valid() bool {
+	switch e {
+	case AuditLogConvertibleFiltersPresetLast24h:
+		return true
+	case AuditLogConvertibleFiltersPresetLast30d:
+		return true
+	case AuditLogConvertibleFiltersPresetLast7d:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AuditLogConvertibleFiltersResults.
+const (
+	AuditLogConvertibleFiltersResultsDENIED  AuditLogConvertibleFiltersResults = "DENIED"
+	AuditLogConvertibleFiltersResultsERROR   AuditLogConvertibleFiltersResults = "ERROR"
+	AuditLogConvertibleFiltersResultsFAILED  AuditLogConvertibleFiltersResults = "FAILED"
+	AuditLogConvertibleFiltersResultsSUCCESS AuditLogConvertibleFiltersResults = "SUCCESS"
+)
+
+// Valid indicates whether the value is a known member of the AuditLogConvertibleFiltersResults enum.
+func (e AuditLogConvertibleFiltersResults) Valid() bool {
+	switch e {
+	case AuditLogConvertibleFiltersResultsDENIED:
+		return true
+	case AuditLogConvertibleFiltersResultsERROR:
+		return true
+	case AuditLogConvertibleFiltersResultsFAILED:
+		return true
+	case AuditLogConvertibleFiltersResultsSUCCESS:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AuditLogConvertibleFiltersRiskLevels.
+const (
+	AuditLogConvertibleFiltersRiskLevelsCRITICAL AuditLogConvertibleFiltersRiskLevels = "CRITICAL"
+	AuditLogConvertibleFiltersRiskLevelsHIGH     AuditLogConvertibleFiltersRiskLevels = "HIGH"
+	AuditLogConvertibleFiltersRiskLevelsLOW      AuditLogConvertibleFiltersRiskLevels = "LOW"
+	AuditLogConvertibleFiltersRiskLevelsMEDIUM   AuditLogConvertibleFiltersRiskLevels = "MEDIUM"
+)
+
+// Valid indicates whether the value is a known member of the AuditLogConvertibleFiltersRiskLevels enum.
+func (e AuditLogConvertibleFiltersRiskLevels) Valid() bool {
+	switch e {
+	case AuditLogConvertibleFiltersRiskLevelsCRITICAL:
+		return true
+	case AuditLogConvertibleFiltersRiskLevelsHIGH:
+		return true
+	case AuditLogConvertibleFiltersRiskLevelsLOW:
+		return true
+	case AuditLogConvertibleFiltersRiskLevelsMEDIUM:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AuditLogConvertibleFiltersSource.
+const (
+	AuditLogConvertibleFiltersSourceDOMAINEVENT   AuditLogConvertibleFiltersSource = "DOMAIN_EVENT"
+	AuditLogConvertibleFiltersSourceREQUEST       AuditLogConvertibleFiltersSource = "REQUEST"
+	AuditLogConvertibleFiltersSourceSECURITYEVENT AuditLogConvertibleFiltersSource = "SECURITY_EVENT"
+)
+
+// Valid indicates whether the value is a known member of the AuditLogConvertibleFiltersSource enum.
+func (e AuditLogConvertibleFiltersSource) Valid() bool {
+	switch e {
+	case AuditLogConvertibleFiltersSourceDOMAINEVENT:
+		return true
+	case AuditLogConvertibleFiltersSourceREQUEST:
+		return true
+	case AuditLogConvertibleFiltersSourceSECURITYEVENT:
 		return true
 	default:
 		return false
@@ -816,60 +972,21 @@ func (e GetAuditLogsParamsPreset) Valid() bool {
 	}
 }
 
-// Defines values for GetAuditLogsParamsSummary.
-const (
-	FailedOperations    GetAuditLogsParamsSummary = "failed-operations"
-	SensitiveOperations GetAuditLogsParamsSummary = "sensitive-operations"
-)
-
-// Valid indicates whether the value is a known member of the GetAuditLogsParamsSummary enum.
-func (e GetAuditLogsParamsSummary) Valid() bool {
-	switch e {
-	case FailedOperations:
-		return true
-	case SensitiveOperations:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for GetAuditLogsParamsRiskGroup.
-const (
-	AuthFailures       GetAuditLogsParamsRiskGroup = "auth_failures"
-	HighRiskOperations GetAuditLogsParamsRiskGroup = "high_risk_operations"
-	PermissionDenials  GetAuditLogsParamsRiskGroup = "permission_denials"
-)
-
-// Valid indicates whether the value is a known member of the GetAuditLogsParamsRiskGroup enum.
-func (e GetAuditLogsParamsRiskGroup) Valid() bool {
-	switch e {
-	case AuthFailures:
-		return true
-	case HighRiskOperations:
-		return true
-	case PermissionDenials:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for GetAuditLogsParamsSource.
 const (
-	DOMAINEVENT   GetAuditLogsParamsSource = "DOMAIN_EVENT"
-	REQUEST       GetAuditLogsParamsSource = "REQUEST"
-	SECURITYEVENT GetAuditLogsParamsSource = "SECURITY_EVENT"
+	GetAuditLogsParamsSourceDOMAINEVENT   GetAuditLogsParamsSource = "DOMAIN_EVENT"
+	GetAuditLogsParamsSourceREQUEST       GetAuditLogsParamsSource = "REQUEST"
+	GetAuditLogsParamsSourceSECURITYEVENT GetAuditLogsParamsSource = "SECURITY_EVENT"
 )
 
 // Valid indicates whether the value is a known member of the GetAuditLogsParamsSource enum.
 func (e GetAuditLogsParamsSource) Valid() bool {
 	switch e {
-	case DOMAINEVENT:
+	case GetAuditLogsParamsSourceDOMAINEVENT:
 		return true
-	case REQUEST:
+	case GetAuditLogsParamsSourceREQUEST:
 		return true
-	case SECURITYEVENT:
+	case GetAuditLogsParamsSourceSECURITYEVENT:
 		return true
 	default:
 		return false
@@ -902,22 +1019,22 @@ func (e GetAuditLogsParamsResult) Valid() bool {
 
 // Defines values for GetAuditLogsParamsResults.
 const (
-	DENIED  GetAuditLogsParamsResults = "DENIED"
-	ERROR   GetAuditLogsParamsResults = "ERROR"
-	FAILED  GetAuditLogsParamsResults = "FAILED"
-	SUCCESS GetAuditLogsParamsResults = "SUCCESS"
+	GetAuditLogsParamsResultsDENIED  GetAuditLogsParamsResults = "DENIED"
+	GetAuditLogsParamsResultsERROR   GetAuditLogsParamsResults = "ERROR"
+	GetAuditLogsParamsResultsFAILED  GetAuditLogsParamsResults = "FAILED"
+	GetAuditLogsParamsResultsSUCCESS GetAuditLogsParamsResults = "SUCCESS"
 )
 
 // Valid indicates whether the value is a known member of the GetAuditLogsParamsResults enum.
 func (e GetAuditLogsParamsResults) Valid() bool {
 	switch e {
-	case DENIED:
+	case GetAuditLogsParamsResultsDENIED:
 		return true
-	case ERROR:
+	case GetAuditLogsParamsResultsERROR:
 		return true
-	case FAILED:
+	case GetAuditLogsParamsResultsFAILED:
 		return true
-	case SUCCESS:
+	case GetAuditLogsParamsResultsSUCCESS:
 		return true
 	default:
 		return false
@@ -950,22 +1067,22 @@ func (e GetAuditLogsParamsRiskLevel) Valid() bool {
 
 // Defines values for GetAuditLogsParamsRiskLevels.
 const (
-	CRITICAL GetAuditLogsParamsRiskLevels = "CRITICAL"
-	HIGH     GetAuditLogsParamsRiskLevels = "HIGH"
-	LOW      GetAuditLogsParamsRiskLevels = "LOW"
-	MEDIUM   GetAuditLogsParamsRiskLevels = "MEDIUM"
+	GetAuditLogsParamsRiskLevelsCRITICAL GetAuditLogsParamsRiskLevels = "CRITICAL"
+	GetAuditLogsParamsRiskLevelsHIGH     GetAuditLogsParamsRiskLevels = "HIGH"
+	GetAuditLogsParamsRiskLevelsLOW      GetAuditLogsParamsRiskLevels = "LOW"
+	GetAuditLogsParamsRiskLevelsMEDIUM   GetAuditLogsParamsRiskLevels = "MEDIUM"
 )
 
 // Valid indicates whether the value is a known member of the GetAuditLogsParamsRiskLevels enum.
 func (e GetAuditLogsParamsRiskLevels) Valid() bool {
 	switch e {
-	case CRITICAL:
+	case GetAuditLogsParamsRiskLevelsCRITICAL:
 		return true
-	case HIGH:
+	case GetAuditLogsParamsRiskLevelsHIGH:
 		return true
-	case LOW:
+	case GetAuditLogsParamsRiskLevelsLOW:
 		return true
-	case MEDIUM:
+	case GetAuditLogsParamsRiskLevelsMEDIUM:
 		return true
 	default:
 		return false
@@ -1007,19 +1124,19 @@ func (e GetAuditLogsParamsSortOrder) Valid() bool {
 
 // Defines values for GetAuditOverviewParamsPreset.
 const (
-	Last24h GetAuditOverviewParamsPreset = "last_24h"
-	Last30d GetAuditOverviewParamsPreset = "last_30d"
-	Last7d  GetAuditOverviewParamsPreset = "last_7d"
+	GetAuditOverviewParamsPresetLast24h GetAuditOverviewParamsPreset = "last_24h"
+	GetAuditOverviewParamsPresetLast30d GetAuditOverviewParamsPreset = "last_30d"
+	GetAuditOverviewParamsPresetLast7d  GetAuditOverviewParamsPreset = "last_7d"
 )
 
 // Valid indicates whether the value is a known member of the GetAuditOverviewParamsPreset enum.
 func (e GetAuditOverviewParamsPreset) Valid() bool {
 	switch e {
-	case Last24h:
+	case GetAuditOverviewParamsPresetLast24h:
 		return true
-	case Last30d:
+	case GetAuditOverviewParamsPresetLast30d:
 		return true
-	case Last7d:
+	case GetAuditOverviewParamsPresetLast7d:
 		return true
 	default:
 		return false
@@ -1112,6 +1229,21 @@ type ApiEnvelope struct {
 	// TraceId Mirrors the request id contract used by the current runtime.
 	TraceId string `json:"traceId"`
 }
+
+// AppliedDrilldownScope defines model for applied-drilldown-scope.
+type AppliedDrilldownScope struct {
+	Description *string   `json:"description,omitempty"`
+	Module      string    `json:"module"`
+	Name        string    `json:"name"`
+	OwnedFields *[]string `json:"owned_fields,omitempty"`
+	Scope       string    `json:"scope"`
+}
+
+// AuditBusinessCategory defines model for audit-business-category.
+type AuditBusinessCategory string
+
+// AuditDrilldownScope defines model for audit-drilldown-scope.
+type AuditDrilldownScope string
 
 // AuditEvidenceContext Optional audit evidence filters used to correlate evidence links and narrow audit investigation context.
 type AuditEvidenceContext struct {
@@ -1233,6 +1365,32 @@ type AuditIncidentResponse struct {
 // AuditIncidentResponseIncidentRiskLevel defines model for AuditIncidentResponse.Incident.RiskLevel.
 type AuditIncidentResponseIncidentRiskLevel string
 
+// AuditLogConvertibleFilters defines model for audit-log-convertible-filters.
+type AuditLogConvertibleFilters struct {
+	ActionKeywords      *[]string                               `json:"action_keywords,omitempty"`
+	ActionPrefixes      *[]string                               `json:"action_prefixes,omitempty"`
+	BusinessCategory    *AuditBusinessCategory                  `json:"business_category,omitempty"`
+	Preset              *AuditLogConvertibleFiltersPreset       `json:"preset,omitempty"`
+	RequestPathPrefixes *[]string                               `json:"request_path_prefixes,omitempty"`
+	ResourceTypes       *[]string                               `json:"resource_types,omitempty"`
+	Results             *[]AuditLogConvertibleFiltersResults    `json:"results,omitempty"`
+	RiskLevels          *[]AuditLogConvertibleFiltersRiskLevels `json:"risk_levels,omitempty"`
+	Source              *AuditLogConvertibleFiltersSource       `json:"source,omitempty"`
+	Success             *bool                                   `json:"success,omitempty"`
+}
+
+// AuditLogConvertibleFiltersPreset defines model for AuditLogConvertibleFilters.Preset.
+type AuditLogConvertibleFiltersPreset string
+
+// AuditLogConvertibleFiltersResults defines model for AuditLogConvertibleFilters.Results.
+type AuditLogConvertibleFiltersResults string
+
+// AuditLogConvertibleFiltersRiskLevels defines model for AuditLogConvertibleFilters.RiskLevels.
+type AuditLogConvertibleFiltersRiskLevels string
+
+// AuditLogConvertibleFiltersSource defines model for AuditLogConvertibleFilters.Source.
+type AuditLogConvertibleFiltersSource string
+
 // AuditLogListItem defines model for audit-log-list-item.
 type AuditLogListItem struct {
 	Action           string                     `json:"action"`
@@ -1274,10 +1432,13 @@ type AuditLogListItemSource string
 
 // AuditLogListResponse defines model for audit-log-list-response.
 type AuditLogListResponse struct {
-	Items    []AuditLogListItem `json:"items"`
-	Page     int                `json:"page"`
-	PageSize int                `json:"page_size"`
-	Total    int                `json:"total"`
+	AppliedScope       *AppliedDrilldownScope      `json:"applied_scope,omitempty"`
+	ConvertibleFilters *AuditLogConvertibleFilters `json:"convertible_filters,omitempty"`
+	Items              []AuditLogListItem          `json:"items"`
+	Page               int                         `json:"page"`
+	PageSize           int                         `json:"page_size"`
+	ScopeProjection    *DrilldownScopeProjection   `json:"scope_projection,omitempty"`
+	Total              int                         `json:"total"`
 }
 
 // AuditOverviewItem defines model for audit-overview-item.
@@ -1453,6 +1614,22 @@ type CreateUserRequest struct {
 	// Password Initial password. The current server policy requires at least 12 characters and both letters and digits.
 	Password string `json:"password"`
 	Username string `json:"username"`
+}
+
+// DrilldownScopeProjection defines model for drilldown-scope-projection.
+type DrilldownScopeProjection struct {
+	Description *string                         `json:"description,omitempty"`
+	Items       *[]DrilldownScopeProjectionItem `json:"items,omitempty"`
+	Title       string                          `json:"title"`
+}
+
+// DrilldownScopeProjectionItem defines model for drilldown-scope-projection-item.
+type DrilldownScopeProjectionItem struct {
+	Key    string    `json:"key"`
+	Kind   string    `json:"kind"`
+	Label  string    `json:"label"`
+	Locked bool      `json:"locked"`
+	Values *[]string `json:"values,omitempty"`
 }
 
 // EnvelopedAccessLogDetailResponse defines model for enveloped-access-log-detail-response.
@@ -2294,13 +2471,19 @@ type GetAuditIncidentParams struct {
 
 // GetAuditLogsParams defines parameters for GetAuditLogs.
 type GetAuditLogsParams struct {
-	Page                *int                            `form:"page,omitempty" json:"page,omitempty"`
-	PageSize            *int                            `form:"page_size,omitempty" json:"page_size,omitempty"`
-	ActorUserId         *int64                          `form:"actor_user_id,omitempty" json:"actor_user_id,omitempty"`
-	Action              *string                         `form:"action,omitempty" json:"action,omitempty"`
-	Preset              *GetAuditLogsParamsPreset       `form:"preset,omitempty" json:"preset,omitempty"`
-	Summary             *GetAuditLogsParamsSummary      `form:"summary,omitempty" json:"summary,omitempty"`
-	RiskGroup           *GetAuditLogsParamsRiskGroup    `form:"risk_group,omitempty" json:"risk_group,omitempty"`
+	Page        *int                      `form:"page,omitempty" json:"page,omitempty"`
+	PageSize    *int                      `form:"page_size,omitempty" json:"page_size,omitempty"`
+	ActorUserId *int64                    `form:"actor_user_id,omitempty" json:"actor_user_id,omitempty"`
+	Keyword     *string                   `form:"keyword,omitempty" json:"keyword,omitempty"`
+	Actor       *string                   `form:"actor,omitempty" json:"actor,omitempty"`
+	Action      *string                   `form:"action,omitempty" json:"action,omitempty"`
+	Preset      *GetAuditLogsParamsPreset `form:"preset,omitempty" json:"preset,omitempty"`
+
+	// Scope Stable business drilldown scope. When present, scope-owned fields remain read-only until the client exits drilldown or converts to normal filters.
+	Scope *AuditDrilldownScope `form:"scope,omitempty" json:"scope,omitempty"`
+
+	// BusinessCategory Backend-owned editable business category used by normal filters and scope conversion.
+	BusinessCategory    *AuditBusinessCategory          `form:"business_category,omitempty" json:"business_category,omitempty"`
 	ActionPrefix        *string                         `form:"action_prefix,omitempty" json:"action_prefix,omitempty"`
 	ActionPrefixes      *[]string                       `form:"action_prefixes,omitempty" json:"action_prefixes,omitempty"`
 	ActionKeywords      *[]string                       `form:"action_keywords,omitempty" json:"action_keywords,omitempty"`
@@ -2311,6 +2494,7 @@ type GetAuditLogsParams struct {
 	ResourceName        *string                         `form:"resource_name,omitempty" json:"resource_name,omitempty"`
 	RequestPathPrefixes *[]string                       `form:"request_path_prefixes,omitempty" json:"request_path_prefixes,omitempty"`
 	RequestId           *string                         `form:"request_id,omitempty" json:"request_id,omitempty"`
+	SessionId           *string                         `form:"session_id,omitempty" json:"session_id,omitempty"`
 	Result              *GetAuditLogsParamsResult       `form:"result,omitempty" json:"result,omitempty"`
 	Results             *[]GetAuditLogsParamsResults    `form:"results,omitempty" json:"results,omitempty"`
 	RiskLevel           *GetAuditLogsParamsRiskLevel    `form:"risk_level,omitempty" json:"risk_level,omitempty"`
@@ -2331,12 +2515,6 @@ type GetAuditLogsParams struct {
 
 // GetAuditLogsParamsPreset defines parameters for GetAuditLogs.
 type GetAuditLogsParamsPreset string
-
-// GetAuditLogsParamsSummary defines parameters for GetAuditLogs.
-type GetAuditLogsParamsSummary string
-
-// GetAuditLogsParamsRiskGroup defines parameters for GetAuditLogs.
-type GetAuditLogsParamsRiskGroup string
 
 // GetAuditLogsParamsSource defines parameters for GetAuditLogs.
 type GetAuditLogsParamsSource string

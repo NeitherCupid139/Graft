@@ -19,6 +19,7 @@ export type AuditLogsRouteQuery = Partial<{
   action_prefixes: string;
   action_keywords: string;
   source: string;
+  business_category: string;
   created_from: string;
   created_to: string;
   resource_type: string;
@@ -56,6 +57,7 @@ export function parseAuditLogsRouteQuery(query: LocationQuery | AuditLogsRouteQu
     action_prefixes: trimQueryValue(firstQueryValue(query.action_prefixes)),
     action_keywords: trimQueryValue(firstQueryValue(query.action_keywords)),
     source: trimQueryValue(firstQueryValue(query.source)),
+    business_category: trimQueryValue(firstQueryValue(query.business_category)),
     created_from: trimQueryValue(firstQueryValue(query.created_from)),
     created_to: trimQueryValue(firstQueryValue(query.created_to)),
     resource_type: trimQueryValue(firstQueryValue(query.resource_type)),

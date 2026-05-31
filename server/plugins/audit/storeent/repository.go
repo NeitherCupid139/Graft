@@ -481,6 +481,7 @@ func buildAuditLogFilters(query auditstore.ListAuditLogsQuery) (string, []any) {
 	addPrefixAnyFilter(&clauses, &args, "action", query.ActionPrefixes)
 	addKeywordAnyFilter(&clauses, &args, "action", query.ActionKeywords)
 	addScalarFilter(add, sourceWhereClause(), string(query.Source))
+	addBusinessCategoryFilter(&clauses, query.BusinessCategory)
 	addScalarFilter(add, "resource_type = $%d", query.ResourceType)
 	addAnyScalarFilter(&clauses, &args, "resource_type", query.ResourceTypes)
 	addScalarFilter(add, "resource_id = $%d", query.ResourceID)
@@ -554,6 +555,10 @@ func highRiskWhereClause() string {
 	return highRiskOperationsWhereClause()
 }
 
+func failedOperationsWhereClause() string {
+	return `success = false`
+}
+
 func sensitiveOperationsWhereClause() string {
 	keywords := sensitiveOperationAuthorityKeywords()
 	orClauses := make([]string, 0, len(keywords))
@@ -583,6 +588,52 @@ func permissionDenialsWhereClause() string {
 		OR LOWER(message) LIKE '%permission%'
 	)
 `
+}
+
+func rbacChangesWhereClause() string {
+	return `(
+		LOWER(action) LIKE 'rbac.%'
+		OR LOWER(action) LIKE 'role.%'
+		OR LOWER(action) LIKE 'permission.%'
+	)`
+}
+
+func criticalSecurityWhereClause() string {
+	return `
+	success = false AND (
+		` + overviewMetadataStatusCodeSQL + ` = '403'
+		OR (
+			COALESCE(NULLIF(metadata ->> 'status_code', ''), '') <> ''
+			AND REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+				metadata ->> 'status_code',
+				'0', ''
+			), '1', ''), '2', ''), '3', ''), '4', ''), '5', ''), '6', ''), '7', ''), '8', ''), '9', '') = ''
+			AND CAST(metadata ->> 'status_code' AS INTEGER) >= 500
+		)
+		OR COALESCE(metadata ->> 'error_kind', '') = 'system'
+		OR COALESCE(metadata ->> 'error', '') <> ''
+	)
+`
+}
+
+func addBusinessCategoryFilter(clauses *[]string, category auditstore.AuditBusinessCategory) {
+	switch category {
+	case auditstore.AuditBusinessCategoryFailedOperations:
+		*clauses = append(*clauses, "("+failedOperationsWhereClause()+")")
+	case auditstore.AuditBusinessCategoryHighRiskOperations:
+		*clauses = append(*clauses, highRiskOperationsWhereClause())
+	case auditstore.AuditBusinessCategorySensitiveOperations:
+		*clauses = append(*clauses, sensitiveOperationsWhereClause())
+	case auditstore.AuditBusinessCategoryAuthFailures:
+		*clauses = append(*clauses, "("+authFailuresWhereClause()+")")
+	case auditstore.AuditBusinessCategoryPermissionDenials:
+		*clauses = append(*clauses, "("+permissionDenialsWhereClause()+")")
+	case auditstore.AuditBusinessCategoryRBACChanges:
+		*clauses = append(*clauses, "("+rbacChangesWhereClause()+")")
+	case auditstore.AuditBusinessCategoryCriticalSecurity:
+		*clauses = append(*clauses, "("+criticalSecurityWhereClause()+")")
+	default:
+	}
 }
 
 func addScalarFilter(add func(string, any), format string, value string) {

@@ -320,10 +320,20 @@
         "exitAction": "Exit business drilldown",
         "convertAction": "Convert to normal filters"
       },
+      "businessCategory": {
+        "failedOperations": "Failed operations",
+        "highRiskOperations": "High-risk operations",
+        "sensitiveOperations": "Sensitive operations",
+        "authFailures": "Authentication failures",
+        "permissionDenials": "Permission denials",
+        "rbacChanges": "Permission configuration changes",
+        "criticalSecurity": "Critical security"
+      },
       "builder": {
         "title": "Filter fields",
         "hint": "Choose a field and set its value. Active conditions appear as removable tags.",
         "fields": {
+          "businessCategory": "Business category",
           "success": "Success state",
           "action": "Action type",
           "actionPrefixes": "Action groups",
@@ -351,6 +361,7 @@
         "actionKeywordsPlaceholder": "Type an action keyword and press Enter",
         "successPlaceholder": "Success state",
         "sourcePlaceholder": "Event type",
+        "businessCategoryPlaceholder": "Business category",
         "datePlaceholder": "Time range",
         "resourceTypePlaceholder": "Audit target type",
         "resourceTypesPlaceholder": "Select target type set",

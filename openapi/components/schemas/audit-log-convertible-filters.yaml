@@ -6,6 +6,8 @@ properties:
   source:
     type: string
     enum: [REQUEST, SECURITY_EVENT, DOMAIN_EVENT]
+  business_category:
+    $ref: ./audit-business-category.yaml
   success:
     type: boolean
   action_prefixes:
