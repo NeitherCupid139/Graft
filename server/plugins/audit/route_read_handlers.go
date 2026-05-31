@@ -57,6 +57,12 @@ func handleListAuditLogs(
 
 		result, err := reader.List(ginCtx, query)
 		if err != nil {
+			if errors.Is(err, auditstore.ErrConflictingDrilldownFilter) {
+				httpx.AbortLocalizedError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument.String(), map[string]any{
+					"field": "summary/risk_group",
+				})
+				return
+			}
 			logger.Error("list audit logs failed",
 				zap.String("plugin", pluginName),
 				zap.Error(err),
@@ -200,6 +206,9 @@ func bindGeneratedAuditListParams(
 	if field := bindAuditPreset(ginCtx, &params, &query); field != "" {
 		return params, query, field
 	}
+	if field := bindAuditDrilldown(ginCtx, &params, &query); field != "" {
+		return params, query, field
+	}
 	if field := rejectLegacyAuditScope(ginCtx); field != "" {
 		return params, query, field
 	}
@@ -277,6 +286,28 @@ func bindAuditPreset(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParam
 		}
 		params.Preset = &value
 		query.TimePreset = auditstore.AuditTimePreset(raw)
+	}
+
+	return ""
+}
+
+func bindAuditDrilldown(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParams, query *auditcore.ListQuery) string {
+	if raw := strings.TrimSpace(ginCtx.Query("summary")); raw != "" {
+		value := auditopenapi.GetAuditLogsParamsSummary(raw)
+		if !value.Valid() {
+			return "summary"
+		}
+		params.Summary = &value
+		query.Summary = auditstore.AuditDrilldownSummary(raw)
+	}
+
+	if raw := strings.TrimSpace(ginCtx.Query("risk_group")); raw != "" {
+		value := auditopenapi.GetAuditLogsParamsRiskGroup(raw)
+		if !value.Valid() {
+			return "risk_group"
+		}
+		params.RiskGroup = &value
+		query.RiskGroup = auditstore.AuditDrilldownRiskGroup(raw)
 	}
 
 	return ""

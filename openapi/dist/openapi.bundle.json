@@ -4284,11 +4284,75 @@
             }
           },
           {
+            "name": "preset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "last_24h",
+                "last_7d",
+                "last_30d"
+              ]
+            }
+          },
+          {
+            "name": "summary",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "sensitive-operations",
+                "failed-operations"
+              ]
+            }
+          },
+          {
+            "name": "risk_group",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "high_risk_operations",
+                "auth_failures",
+                "permission_denials"
+              ]
+            }
+          },
+          {
             "name": "action_prefix",
             "in": "query",
             "required": false,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "action_prefixes",
+            "in": "query",
+            "required": false,
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "action_keywords",
+            "in": "query",
+            "required": false,
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           },
           {
@@ -4313,6 +4377,19 @@
             }
           },
           {
+            "name": "resource_types",
+            "in": "query",
+            "required": false,
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
             "name": "resource_id",
             "in": "query",
             "required": false,
@@ -4326,6 +4403,19 @@
             "required": false,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "request_path_prefixes",
+            "in": "query",
+            "required": false,
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           },
           {
@@ -4351,6 +4441,25 @@
             }
           },
           {
+            "name": "results",
+            "in": "query",
+            "required": false,
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "SUCCESS",
+                  "FAILED",
+                  "DENIED",
+                  "ERROR"
+                ]
+              }
+            }
+          },
+          {
             "name": "risk_level",
             "in": "query",
             "required": false,
@@ -4362,6 +4471,25 @@
                 "HIGH",
                 "CRITICAL"
               ]
+            }
+          },
+          {
+            "name": "risk_levels",
+            "in": "query",
+            "required": false,
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "LOW",
+                  "MEDIUM",
+                  "HIGH",
+                  "CRITICAL"
+                ]
+              }
             }
           },
           {
@@ -4478,17 +4606,17 @@
             "$ref": "#/components/parameters/request-id-header"
           },
           {
-            "name": "window",
+            "name": "preset",
             "in": "query",
             "required": false,
             "schema": {
               "type": "string",
               "enum": [
-                "24h",
-                "7d",
-                "30d"
+                "last_24h",
+                "last_7d",
+                "last_30d"
               ],
-              "default": "24h"
+              "default": "last_24h"
             }
           }
         ],
@@ -4938,6 +5066,22 @@
             }
           },
           {
+            "name": "started_from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "started_to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
             "name": "occurred_from",
             "in": "query",
             "schema": {
@@ -4959,6 +5103,7 @@
             "schema": {
               "type": "string",
               "enum": [
+                "started_at",
                 "occurred_at",
                 "duration_ms",
                 "status_code"
@@ -6605,7 +6750,7 @@
       "audit-overview-response": {
         "type": "object",
         "required": [
-          "window",
+          "time_preset",
           "summary",
           "risk_groups",
           "trend",
@@ -6615,12 +6760,12 @@
           "sensitive_operations"
         ],
         "properties": {
-          "window": {
+          "time_preset": {
             "type": "string",
             "enum": [
-              "24h",
-              "7d",
-              "30d"
+              "last_24h",
+              "last_7d",
+              "last_30d"
             ]
           },
           "summary": {
@@ -7822,6 +7967,7 @@
           "client_ip",
           "user_agent",
           "username",
+          "started_at",
           "occurred_at"
         ],
         "properties": {
@@ -7874,6 +8020,10 @@
             "type": "integer",
             "format": "int64",
             "nullable": true
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
           },
           "occurred_at": {
             "type": "string",

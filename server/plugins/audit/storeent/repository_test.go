@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"math"
 	"strings"
 	"testing"
@@ -359,6 +360,167 @@ func TestRepositoryListAuditLogsRejectsInvalidPagination(t *testing.T) {
 	}
 }
 
+func TestRepositoryListAuditLogsDrilldownSemanticsAlignWithOverview(t *testing.T) {
+	db := openTestDB(t)
+	repo, err := NewRepository(db, nil)
+	if err != nil {
+		t.Fatalf("new repository: %v", err)
+	}
+
+	ctx := context.Background()
+	now := time.Now().UTC()
+	seedAuditOverviewDrilldownLogs(ctx, t, repo, now)
+
+	overview, err := repo.ReadAuditOverview(ctx, auditstore.AuditTimePresetLast24Hours)
+	if err != nil {
+		t.Fatalf("read audit overview: %v", err)
+	}
+
+	for _, tc := range drilldownOverviewExpectationCases(overview) {
+		assertAuditLogDrilldownCount(ctx, t, repo, tc.name, tc.query, tc.want)
+	}
+}
+
+type auditDrilldownExpectation struct {
+	name  string
+	query auditstore.ListAuditLogsQuery
+	want  int
+}
+
+func seedAuditOverviewDrilldownLogs(
+	ctx context.Context,
+	t *testing.T,
+	repo auditstore.AuditRepository,
+	now time.Time,
+) {
+	t.Helper()
+
+	seed := []auditstore.CreateAuditLogInput{
+		{
+			Action:       "user.password.reset",
+			ResourceType: "user",
+			ResourceID:   "7",
+			ResourceName: "Alice",
+			Success:      true,
+			RequestID:    "req-reset",
+			Message:      "password reset",
+			Metadata:     json.RawMessage(`{"request_path":"/api/users/7/reset-password","status_code":200}`),
+			CreatedAt:    now.Add(-20 * time.Minute),
+		},
+		{
+			Action:       "auth.login_failed",
+			ResourceType: "auth",
+			ResourceID:   "session-1",
+			ResourceName: "login",
+			Success:      false,
+			RequestID:    "req-auth",
+			Message:      "common.invalid_argument",
+			Metadata:     json.RawMessage(`{"request_path":"/api/auth/login","status_code":401}`),
+			CreatedAt:    now.Add(-15 * time.Minute),
+		},
+		{
+			Action:       "rbac.role.delete",
+			ResourceType: "role",
+			ResourceID:   "12",
+			ResourceName: "ops-admin",
+			Success:      false,
+			RequestID:    "req-denied",
+			Message:      "common.forbidden",
+			Metadata:     json.RawMessage(`{"request_path":"/api/roles/12/delete","status_code":403}`),
+			CreatedAt:    now.Add(-10 * time.Minute),
+		},
+	}
+
+	for _, item := range seed {
+		if _, err := repo.CreateAuditLog(ctx, item); err != nil {
+			t.Fatalf("seed audit log: %v", err)
+		}
+	}
+}
+
+func drilldownOverviewExpectationCases(overview auditstore.AuditOverview) []auditDrilldownExpectation {
+	return []auditDrilldownExpectation{
+		{
+			name: "summary sensitive operations",
+			query: auditstore.ListAuditLogsQuery{
+				TimePreset: auditstore.AuditTimePresetLast24Hours,
+				Summary:    auditstore.AuditDrilldownSummarySensitiveOperations,
+				Limit:      20,
+				Offset:     0,
+			},
+			want: overview.Summary.SensitiveOperations,
+		},
+		{
+			name: "summary failed operations",
+			query: auditstore.ListAuditLogsQuery{
+				TimePreset: auditstore.AuditTimePresetLast24Hours,
+				Summary:    auditstore.AuditDrilldownSummaryFailedOperations,
+				Limit:      20,
+				Offset:     0,
+			},
+			want: overview.Summary.FailedOperations,
+		},
+		{
+			name: "risk group auth failures",
+			query: auditstore.ListAuditLogsQuery{
+				TimePreset: auditstore.AuditTimePresetLast24Hours,
+				RiskGroup:  auditstore.AuditDrilldownRiskGroupAuthFailures,
+				Limit:      20,
+				Offset:     0,
+			},
+			want: len(overview.FailedAuth),
+		},
+		{
+			name: "risk group permission denials",
+			query: auditstore.ListAuditLogsQuery{
+				TimePreset: auditstore.AuditTimePresetLast24Hours,
+				RiskGroup:  auditstore.AuditDrilldownRiskGroupPermissionDenials,
+				Limit:      20,
+				Offset:     0,
+			},
+			want: len(overview.PermissionDenied),
+		},
+	}
+}
+
+func assertAuditLogDrilldownCount(
+	ctx context.Context,
+	t *testing.T,
+	repo auditstore.AuditRepository,
+	name string,
+	query auditstore.ListAuditLogsQuery,
+	want int,
+) {
+	t.Helper()
+
+	result, err := repo.ListAuditLogs(ctx, query)
+	if err != nil {
+		t.Fatalf("%s: list audit logs: %v", name, err)
+	}
+	if result.Total != want || len(result.Items) != want {
+		t.Fatalf("%s: expected %d matching logs, got total=%d items=%d", name, want, result.Total, len(result.Items))
+	}
+}
+
+func TestRepositoryListAuditLogsRejectsConflictingDrilldownFilters(t *testing.T) {
+	db := openTestDB(t)
+	repo, err := NewRepository(db, nil)
+	if err != nil {
+		t.Fatalf("new repository: %v", err)
+	}
+
+	success := true
+	_, err = repo.ListAuditLogs(context.Background(), auditstore.ListAuditLogsQuery{
+		Summary: auditstore.AuditDrilldownSummaryFailedOperations,
+		Success: &success,
+		Limit:   10,
+		Offset:  0,
+	})
+	if !errors.Is(err, auditstore.ErrConflictingDrilldownFilter) {
+		t.Fatalf("expected conflicting drilldown error, got %v", err)
+	}
+}
+
 func TestRepositoryReadIncidentCorrelatesBoundedContext(t *testing.T) {
 	db := openTestDB(t)
 	base := time.Date(2026, 5, 29, 12, 0, 0, 0, time.UTC)
@@ -644,8 +806,8 @@ func TestRepositoryListAuditPolicyRulesOrdersByPriority(t *testing.T) {
 
 func TestOverviewSQLUsesPostgresJSONBExtraction(t *testing.T) {
 	for name, clause := range map[string]string{
-		"failed auth":       overviewFailedAuthWhere,
-		"permission denied": overviewPermissionDeniedWhere,
+		"failed auth":       authFailuresWhereClause(),
+		"permission denied": permissionDenialsWhereClause(),
 	} {
 		if strings.Contains(clause, "json_extract(") {
 			t.Fatalf("%s clause should not use sqlite json_extract: %s", name, clause)

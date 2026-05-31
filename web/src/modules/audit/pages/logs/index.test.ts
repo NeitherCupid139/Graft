@@ -1,5 +1,5 @@
 import { flushPromises, mount } from '@vue/test-utils';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineComponent, h } from 'vue';
 import { createI18n } from 'vue-i18n';
 import { createMemoryHistory, createRouter } from 'vue-router';
@@ -334,6 +334,10 @@ describe('AuditLogsPage', () => {
     auditApiMocks.getAuditLogs.mockClear();
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   async function mountPage(initialQuery: Record<string, string> = { preset: 'last_24h', results: 'DENIED' }) {
     const router = createRouter({
       history: createMemoryHistory(),
@@ -430,6 +434,25 @@ describe('AuditLogsPage', () => {
     await flushPromises();
     expect(wrapper.text()).toContain('true');
     expect(wrapper.text()).toContain('req-1');
+  });
+
+  it('restores a visible created range from preset-only routes without changing the backend query contract', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-31T07:21:04Z'));
+
+    const { wrapper } = await mountPage({ preset: 'last_24h', results: 'DENIED' });
+
+    expect(wrapper.get('[data-testid="audit-filter-model"]').text()).toContain(
+      '"createdRange":["2026-05-30 15:21:04","2026-05-31 15:21:04"]',
+    );
+    expect(auditApiMocks.getAuditLogs).toHaveBeenLastCalledWith({
+      page: 1,
+      page_size: 10,
+      preset: 'last_24h',
+      results: ['DENIED'],
+      sort_by: 'created_at',
+      sort_order: 'desc',
+    });
   });
 
   it('keeps monitor return context when syncing log filters', async () => {
@@ -605,10 +628,36 @@ describe('AuditLogsPage', () => {
         }),
       }),
     );
+    expect(replaceSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: expect.not.objectContaining({
+          created_from: expect.anything(),
+          created_to: expect.anything(),
+        }),
+      }),
+    );
+  });
+
+  it('preserves explicit created range over preset-derived display state', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-31T07:21:04Z'));
+
+    const { wrapper } = await mountPage({
+      preset: 'last_24h',
+      created_from: '2026-05-01T10:00:00Z',
+      created_to: '2026-05-02T18:30:00Z',
+    });
+
+    expect(wrapper.get('[data-testid="audit-filter-model"]').text()).toContain(
+      '"createdRange":["2026-05-01 18:00:00","2026-05-03 02:30:00"]',
+    );
+    expect(wrapper.get('[data-testid="audit-filter-model"]').text()).not.toContain(
+      '"createdRange":["2026-05-30 15:21:04","2026-05-31 15:21:04"]',
+    );
   });
 
   it('preserves failed-operations explicit filters from overview drilldown', async () => {
-    const { replaceSpy, wrapper } = await mountPage({ preset: 'last_24h', success: 'false' });
+    const { replaceSpy, wrapper } = await mountPage({ preset: 'last_24h', summary: 'failed-operations' });
 
     replaceSpy.mockClear();
     await wrapper.get('[data-testid="audit-search"]').trigger('click');
@@ -618,14 +667,14 @@ describe('AuditLogsPage', () => {
       expect.objectContaining({
         query: expect.objectContaining({
           preset: 'last_24h',
-          success: 'false',
+          summary: 'failed-operations',
         }),
       }),
     );
     expect(auditApiMocks.getAuditLogs).toHaveBeenLastCalledWith(
       expect.objectContaining({
         preset: 'last_24h',
-        success: false,
+        summary: 'failed-operations',
       }),
     );
   });
@@ -638,6 +687,23 @@ describe('AuditLogsPage', () => {
       expect.objectContaining({
         preset: 'last_24h',
         action_prefixes: ['rbac.', 'role.', 'permission.'],
+      }),
+    );
+  });
+
+  it('forwards canonical summary and risk group route params to the backend query', async () => {
+    const { wrapper } = await mountPage({
+      preset: 'last_24h',
+      summary: 'failed-operations',
+      risk_group: 'high_risk_operations',
+    });
+
+    expect(wrapper.get('[data-testid="audit-filter-model"]').text()).toContain('"createdRange"');
+    expect(auditApiMocks.getAuditLogs).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        preset: 'last_24h',
+        summary: 'failed-operations',
+        risk_group: 'high_risk_operations',
       }),
     );
   });

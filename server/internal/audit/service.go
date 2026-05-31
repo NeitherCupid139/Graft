@@ -54,6 +54,8 @@ type ListQuery struct {
 	ActionPrefixes []string
 	ActionKeywords []string
 	TimePreset   auditstore.AuditTimePreset
+	Summary      auditstore.AuditDrilldownSummary
+	RiskGroup    auditstore.AuditDrilldownRiskGroup
 	Source       auditstore.AuditSource
 	ResourceType string
 	ResourceTypes []string
@@ -162,6 +164,8 @@ func (s *Service) List(ctx context.Context, query ListQuery) (ListResult, error)
 		ActionPrefixes: normalizeAuditStringFilters(query.ActionPrefixes),
 		ActionKeywords: normalizeAuditStringFilters(query.ActionKeywords),
 		TimePreset:   normalizeAuditTimePreset(query.TimePreset),
+		Summary:      normalizeAuditDrilldownSummary(query.Summary),
+		RiskGroup:    normalizeAuditDrilldownRiskGroup(query.RiskGroup),
 		Source:       normalizeAuditSource(query.Source),
 		ResourceType: strings.TrimSpace(query.ResourceType),
 		ResourceTypes: normalizeAuditStringFilters(query.ResourceTypes),
@@ -267,6 +271,30 @@ func normalizeAuditTimePreset(value auditstore.AuditTimePreset) auditstore.Audit
 		return auditstore.AuditTimePresetLast7Days
 	case auditstore.AuditTimePresetLast30Days:
 		return auditstore.AuditTimePresetLast30Days
+	default:
+		return ""
+	}
+}
+
+func normalizeAuditDrilldownSummary(value auditstore.AuditDrilldownSummary) auditstore.AuditDrilldownSummary {
+	switch auditstore.AuditDrilldownSummary(strings.TrimSpace(string(value))) {
+	case auditstore.AuditDrilldownSummarySensitiveOperations:
+		return auditstore.AuditDrilldownSummarySensitiveOperations
+	case auditstore.AuditDrilldownSummaryFailedOperations:
+		return auditstore.AuditDrilldownSummaryFailedOperations
+	default:
+		return ""
+	}
+}
+
+func normalizeAuditDrilldownRiskGroup(value auditstore.AuditDrilldownRiskGroup) auditstore.AuditDrilldownRiskGroup {
+	switch auditstore.AuditDrilldownRiskGroup(strings.TrimSpace(string(value))) {
+	case auditstore.AuditDrilldownRiskGroupHighRiskOperations:
+		return auditstore.AuditDrilldownRiskGroupHighRiskOperations
+	case auditstore.AuditDrilldownRiskGroupAuthFailures:
+		return auditstore.AuditDrilldownRiskGroupAuthFailures
+	case auditstore.AuditDrilldownRiskGroupPermissionDenials:
+		return auditstore.AuditDrilldownRiskGroupPermissionDenials
 	default:
 		return ""
 	}

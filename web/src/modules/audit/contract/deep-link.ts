@@ -10,6 +10,8 @@ type AuditEvidenceContext = components['schemas']['AuditEvidenceContext'];
 
 export type AuditLogsRouteQuery = Partial<{
   preset: string;
+  summary: string;
+  risk_group: string;
   keyword: string;
   actor: string;
   user_id: string;
@@ -50,6 +52,8 @@ function firstQueryValue(value: LocationQueryValue | LocationQueryValue[] | unde
 export function parseAuditLogsRouteQuery(query: LocationQuery | AuditLogsRouteQuery): AuditLogsRouteQuery {
   return {
     preset: trimQueryValue(firstQueryValue(query.preset)),
+    summary: trimQueryValue(firstQueryValue(query.summary)),
+    risk_group: trimQueryValue(firstQueryValue(query.risk_group)),
     keyword: trimQueryValue(firstQueryValue(query.keyword)),
     actor: trimQueryValue(firstQueryValue(query.actor)),
     user_id: trimQueryValue(firstQueryValue(query.user_id)),

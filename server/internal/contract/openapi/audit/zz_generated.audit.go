@@ -518,6 +518,45 @@ func (e GetAuditLogsParamsPreset) Valid() bool {
 	}
 }
 
+// Defines values for GetAuditLogsParamsSummary.
+const (
+	FailedOperations    GetAuditLogsParamsSummary = "failed-operations"
+	SensitiveOperations GetAuditLogsParamsSummary = "sensitive-operations"
+)
+
+// Valid indicates whether the value is a known member of the GetAuditLogsParamsSummary enum.
+func (e GetAuditLogsParamsSummary) Valid() bool {
+	switch e {
+	case FailedOperations:
+		return true
+	case SensitiveOperations:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetAuditLogsParamsRiskGroup.
+const (
+	AuthFailures       GetAuditLogsParamsRiskGroup = "auth_failures"
+	HighRiskOperations GetAuditLogsParamsRiskGroup = "high_risk_operations"
+	PermissionDenials  GetAuditLogsParamsRiskGroup = "permission_denials"
+)
+
+// Valid indicates whether the value is a known member of the GetAuditLogsParamsRiskGroup enum.
+func (e GetAuditLogsParamsRiskGroup) Valid() bool {
+	switch e {
+	case AuthFailures:
+		return true
+	case HighRiskOperations:
+		return true
+	case PermissionDenials:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetAuditLogsParamsSource.
 const (
 	GetAuditLogsParamsSourceDOMAINEVENT   GetAuditLogsParamsSource = "DOMAIN_EVENT"
@@ -1189,6 +1228,8 @@ type GetAuditLogsParams struct {
 	ActorUserId         *int64                          `form:"actor_user_id,omitempty" json:"actor_user_id,omitempty"`
 	Action              *string                         `form:"action,omitempty" json:"action,omitempty"`
 	Preset              *GetAuditLogsParamsPreset       `form:"preset,omitempty" json:"preset,omitempty"`
+	Summary             *GetAuditLogsParamsSummary      `form:"summary,omitempty" json:"summary,omitempty"`
+	RiskGroup           *GetAuditLogsParamsRiskGroup    `form:"risk_group,omitempty" json:"risk_group,omitempty"`
 	ActionPrefix        *string                         `form:"action_prefix,omitempty" json:"action_prefix,omitempty"`
 	ActionPrefixes      *[]string                       `form:"action_prefixes,omitempty" json:"action_prefixes,omitempty"`
 	ActionKeywords      *[]string                       `form:"action_keywords,omitempty" json:"action_keywords,omitempty"`
@@ -1219,6 +1260,12 @@ type GetAuditLogsParams struct {
 
 // GetAuditLogsParamsPreset defines parameters for GetAuditLogs.
 type GetAuditLogsParamsPreset string
+
+// GetAuditLogsParamsSummary defines parameters for GetAuditLogs.
+type GetAuditLogsParamsSummary string
+
+// GetAuditLogsParamsRiskGroup defines parameters for GetAuditLogs.
+type GetAuditLogsParamsRiskGroup string
 
 // GetAuditLogsParamsSource defines parameters for GetAuditLogs.
 type GetAuditLogsParamsSource string

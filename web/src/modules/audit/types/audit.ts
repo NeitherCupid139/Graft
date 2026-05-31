@@ -27,6 +27,8 @@ export type AuditLogQuery = {
   page?: number;
   page_size?: number;
   preset?: AuditTimePreset;
+  summary?: string;
+  risk_group?: string;
   actor_user_id?: number;
   action?: string;
   action_prefix?: string;

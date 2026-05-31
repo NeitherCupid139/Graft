@@ -54,7 +54,13 @@ func (r *memoryAuditRepository) CreateAuditLog(_ context.Context, input store.Cr
 	return record, nil
 }
 
-func (r *memoryAuditRepository) ListAuditLogs(_ context.Context, _ store.ListAuditLogsQuery) (store.ListAuditLogsResult, error) {
+func (r *memoryAuditRepository) ListAuditLogs(_ context.Context, query store.ListAuditLogsQuery) (store.ListAuditLogsResult, error) {
+	if query.Summary == store.AuditDrilldownSummaryFailedOperations && query.Success != nil {
+		return store.ListAuditLogsResult{}, store.ErrConflictingDrilldownFilter
+	}
+	if query.Summary != "" && query.RiskGroup != "" {
+		return store.ListAuditLogsResult{}, store.ErrConflictingDrilldownFilter
+	}
 	return store.ListAuditLogsResult{Items: append([]store.AuditLog(nil), r.items...), Total: len(r.items)}, nil
 }
 
@@ -296,6 +302,20 @@ func TestRequestAuditMiddlewareCapturesLocalizedErrorKey(t *testing.T) {
 	}
 	if repo.items[0].Message != "common.invalid_argument" {
 		t.Fatalf("expected stable error message key, got %q", repo.items[0].Message)
+	}
+}
+
+func TestAuditLogsRouteRejectsConflictingDrilldownFilters(t *testing.T) {
+	repo := &memoryAuditRepository{}
+	_, engine, _ := newPluginTestContext(t, repo)
+
+	request := httptest.NewRequest(http.MethodGet, "/api/audit/logs?summary=failed-operations&success=true", nil)
+	request.Header.Set("Authorization", "Bearer token")
+	recorder := httptest.NewRecorder()
+	engine.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", recorder.Code)
 	}
 }
 

@@ -3954,6 +3954,8 @@ export interface operations {
         actor_user_id?: number;
         action?: string;
         preset?: 'last_24h' | 'last_7d' | 'last_30d';
+        summary?: 'sensitive-operations' | 'failed-operations';
+        risk_group?: 'high_risk_operations' | 'auth_failures' | 'permission_denials';
         action_prefix?: string;
         action_prefixes?: string[];
         action_keywords?: string[];

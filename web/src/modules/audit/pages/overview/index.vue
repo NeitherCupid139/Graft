@@ -407,19 +407,13 @@ function openShortcut(query: Record<string, string>) {
 function openSummary(key: string) {
   switch (key) {
     case 'failed':
-      void router.push(buildAuditLogsLocation(buildOverviewAuditQuery({ success: 'false' })));
+      void router.push(buildAuditLogsLocation(buildOverviewAuditQuery({ summary: 'failed-operations' })));
       return;
     case 'risk':
-      void router.push(buildAuditLogsLocation(buildOverviewAuditQuery({ risk_levels: 'HIGH,CRITICAL' })));
+      void router.push(buildAuditLogsLocation(buildOverviewAuditQuery({ risk_group: 'high_risk_operations' })));
       return;
     case 'sensitive':
-      void router.push(
-        buildAuditLogsLocation(
-          buildOverviewAuditQuery({
-            action_keywords: 'delete,reset,grant,assign,revoke,remove,replace,update_role,update_permission',
-          }),
-        ),
-      );
+      void router.push(buildAuditLogsLocation(buildOverviewAuditQuery({ summary: 'sensitive-operations' })));
       return;
     default:
       void router.push(buildAuditLogsLocation(buildOverviewAuditQuery({})));
@@ -427,21 +421,7 @@ function openSummary(key: string) {
 }
 
 function openRiskGroup(groupKey: string) {
-  const queryByGroupKey: Record<string, Record<string, string>> = {
-    critical_security: { results: 'DENIED,ERROR' },
-    high_risk_operations: {
-      action_keywords: 'delete,reset,grant,assign,revoke,remove,replace,update_role,update_permission',
-    },
-    auth_failures: {
-      success: 'false',
-      resource_types: 'auth,session',
-      action_keywords: 'auth,login',
-      request_path_prefixes: '/api/auth',
-    },
-    permission_denials: { results: 'DENIED' },
-  };
-
-  void router.push(buildAuditLogsLocation(buildOverviewAuditQuery(queryByGroupKey[groupKey] || {})));
+  void router.push(buildAuditLogsLocation(buildOverviewAuditQuery(groupKey ? { risk_group: groupKey } : {})));
 }
 
 function openSecurityTimelineRequest(requestId?: string) {

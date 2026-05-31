@@ -11,6 +11,8 @@ import (
 var (
 	// ErrIncidentNotFound indicates that the requested audit-owned incident seed does not exist.
 	ErrIncidentNotFound = errors.New("audit incident not found")
+	// ErrConflictingDrilldownFilter indicates canonical drilldown semantics were combined with overlapping explicit filters.
+	ErrConflictingDrilldownFilter = errors.New("conflicting audit drilldown filters")
 )
 
 // AuditSource identifies where one audit candidate originated.
@@ -71,6 +73,28 @@ const (
 	AuditResultDenied AuditResult = "DENIED"
 	// AuditResultError marks operations that failed because of system-level errors.
 	AuditResultError AuditResult = "ERROR"
+)
+
+// AuditDrilldownSummary identifies one server-owned overview summary drilldown semantic.
+type AuditDrilldownSummary string
+
+const (
+	// AuditDrilldownSummarySensitiveOperations selects overview-sensitive operations.
+	AuditDrilldownSummarySensitiveOperations AuditDrilldownSummary = "sensitive-operations"
+	// AuditDrilldownSummaryFailedOperations selects overview failed operations.
+	AuditDrilldownSummaryFailedOperations AuditDrilldownSummary = "failed-operations"
+)
+
+// AuditDrilldownRiskGroup identifies one server-owned overview risk-group drilldown semantic.
+type AuditDrilldownRiskGroup string
+
+const (
+	// AuditDrilldownRiskGroupHighRiskOperations selects overview high-risk operations.
+	AuditDrilldownRiskGroupHighRiskOperations AuditDrilldownRiskGroup = "high_risk_operations"
+	// AuditDrilldownRiskGroupAuthFailures selects overview auth failures.
+	AuditDrilldownRiskGroupAuthFailures AuditDrilldownRiskGroup = "auth_failures"
+	// AuditDrilldownRiskGroupPermissionDenials selects overview permission denials.
+	AuditDrilldownRiskGroupPermissionDenials AuditDrilldownRiskGroup = "permission_denials"
 )
 
 // AuditLog is the audit plugin's stable DTO for a persisted audit record.
@@ -191,6 +215,8 @@ type ListAuditLogsQuery struct {
 	ActionPrefixes []string
 	ActionKeywords []string
 	TimePreset   AuditTimePreset
+	Summary      AuditDrilldownSummary
+	RiskGroup    AuditDrilldownRiskGroup
 	Source       AuditSource
 	ResourceType string
 	ResourceTypes []string

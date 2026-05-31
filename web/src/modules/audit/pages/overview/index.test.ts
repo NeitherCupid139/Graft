@@ -210,6 +210,11 @@ const i18n = createI18n({
             highRiskValue: 'High risk: {value}',
             securityValue: 'Security events: {value}',
           },
+          riskGroups: {
+            criticalSecurity: 'Critical Security Failures',
+            meta: '{count} events in the current window',
+            action: 'View related events',
+          },
           stats: {
             totalLogs: { title: 'Audit Log Count', unit: 'events', meta: 'all records' },
             failedWindow: { title: 'Security Failure Count', unit: 'events', meta: 'current window' },
@@ -239,7 +244,7 @@ const i18n = createI18n({
           },
         },
         common: {
-          risk: { HIGH: 'High' },
+          risk: { HIGH: 'High', CRITICAL: 'Critical' },
           source: { SECURITY_EVENT: 'Security Event' },
         },
       },
@@ -323,7 +328,102 @@ describe('AuditOverviewPage', () => {
       path: AUDIT_ROUTE_PATH.LOGS,
       query: {
         preset: 'last_24h',
-        success: 'false',
+        summary: 'failed-operations',
+      },
+    });
+  });
+
+  it('opens the high-risk summary card with canonical summary query params', async () => {
+    routerMocks.push.mockClear();
+
+    const wrapper = mount(AuditOverviewPage, {
+      global: {
+        plugins: [i18n],
+        stubs: {
+          'governance-dashboard-shell': passthroughStub,
+          'governance-section': passthroughStub,
+          'governance-summary-card': passthroughStub,
+          'management-empty-state': passthroughStub,
+          't-button': buttonStub,
+          't-radio-group': radioGroupStub,
+          't-radio-button': radioButtonStub,
+          't-space': passthroughStub,
+          't-tag': tagStub,
+          't-timeline': passthroughStub,
+          't-timeline-item': passthroughStub,
+        },
+      },
+    });
+
+    await flushPromises();
+
+    await wrapper.findAll('button[type="button"]')[2]!.trigger('click');
+
+    expect(routerMocks.push).toHaveBeenCalledWith({
+      path: AUDIT_ROUTE_PATH.LOGS,
+      query: {
+        preset: 'last_24h',
+        risk_group: 'high_risk_operations',
+      },
+    });
+  });
+
+  it('opens risk groups with canonical risk_group query params', async () => {
+    routerMocks.push.mockClear();
+    auditApiMocks.getAuditOverview.mockResolvedValueOnce({
+      time_preset: 'last_24h',
+      summary: {
+        total_logs: 12,
+        failed_operations: 3,
+        high_risk_events: 5,
+        sensitive_operations: 4,
+      },
+      failed_auth: [],
+      permission_denied: [],
+      security_timeline: [],
+      risk_groups: [
+        {
+          key: 'high_risk_operations',
+          label_key: 'audit.overview.riskGroups.criticalSecurity',
+          count: 3,
+          risk_level: 'CRITICAL',
+        },
+      ],
+      trend: { bucket_unit: 'hour', bucket_size: 1, points: [] },
+      sensitive_operations: [],
+    });
+
+    const wrapper = mount(AuditOverviewPage, {
+      global: {
+        plugins: [i18n],
+        stubs: {
+          'governance-dashboard-shell': passthroughStub,
+          'governance-section': passthroughStub,
+          'governance-summary-card': passthroughStub,
+          'management-empty-state': passthroughStub,
+          't-button': buttonStub,
+          't-radio-group': radioGroupStub,
+          't-radio-button': radioButtonStub,
+          't-space': passthroughStub,
+          't-tag': tagStub,
+          't-timeline': passthroughStub,
+          't-timeline-item': passthroughStub,
+        },
+      },
+    });
+
+    await flushPromises();
+
+    const riskGroupButton = wrapper.findAll('button').find((item) => item.text().includes('View related events'));
+
+    expect(riskGroupButton).toBeTruthy();
+    await riskGroupButton!.trigger('click');
+
+    expect(routerMocks.push).toHaveBeenCalledWith({
+      path: AUDIT_ROUTE_PATH.LOGS,
+      query: {
+        preset: 'last_24h',
+        risk_group: 'high_risk_operations',
       },
     });
   });

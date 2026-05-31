@@ -220,6 +220,29 @@ func TestServiceListPreservesExplicitPreset(t *testing.T) {
 	}
 }
 
+func TestServiceListPreservesCanonicalDrilldownFilters(t *testing.T) {
+	repo := &stubAuditRepository{}
+	service, err := NewService(repo)
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	_, err = service.List(context.Background(), ListQuery{
+		Summary:   auditstore.AuditDrilldownSummaryFailedOperations,
+		RiskGroup: auditstore.AuditDrilldownRiskGroupAuthFailures,
+	})
+	if err != nil {
+		t.Fatalf("list audit logs: %v", err)
+	}
+
+	if repo.listQuery.Summary != auditstore.AuditDrilldownSummaryFailedOperations {
+		t.Fatalf("expected summary to be preserved, got %q", repo.listQuery.Summary)
+	}
+	if repo.listQuery.RiskGroup != auditstore.AuditDrilldownRiskGroupAuthFailures {
+		t.Fatalf("expected risk group to be preserved, got %q", repo.listQuery.RiskGroup)
+	}
+}
+
 func TestServiceListPropagatesRepositoryError(t *testing.T) {
 	repo := &stubAuditRepository{listErr: errors.New("boom")}
 	service, err := NewService(repo)

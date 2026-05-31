@@ -143,14 +143,11 @@ func (r *repository) CreateAuditLog(ctx context.Context, input auditstore.Create
 
 // ListAuditLogs returns a stable page of audit records plus total count.
 func (r *repository) ListAuditLogs(ctx context.Context, query auditstore.ListAuditLogsQuery) (auditstore.ListAuditLogsResult, error) {
+	if err := validateListAuditLogsQuery(query); err != nil {
+		return auditstore.ListAuditLogsResult{}, err
+	}
 	if r == nil || r.db == nil {
 		return auditstore.ListAuditLogsResult{}, errors.New("audit repository is unavailable")
-	}
-	if query.Limit <= 0 {
-		return auditstore.ListAuditLogsResult{}, fmt.Errorf("list audit logs: invalid limit %d", query.Limit)
-	}
-	if query.Offset < 0 {
-		return auditstore.ListAuditLogsResult{}, fmt.Errorf("list audit logs: invalid offset %d", query.Offset)
 	}
 
 	whereSQL, args := buildAuditLogFilters(query)
@@ -249,15 +246,15 @@ func (r *repository) ReadAuditOverview(ctx context.Context, preset auditstore.Au
 		return auditstore.AuditOverview{}, err
 	}
 
-	failedAuth, err := r.readAuditOverviewItems(ctx, args, overviewFailedAuthWhere)
+	failedAuth, err := r.readAuditOverviewItems(ctx, args, authFailuresWhereClause())
 	if err != nil {
 		return auditstore.AuditOverview{}, err
 	}
-	permissionDenied, err := r.readAuditOverviewItems(ctx, args, overviewPermissionDeniedWhere)
+	permissionDenied, err := r.readAuditOverviewItems(ctx, args, permissionDenialsWhereClause())
 	if err != nil {
 		return auditstore.AuditOverview{}, err
 	}
-	sensitiveOps, err := r.readAuditOverviewItems(ctx, args, overviewSensitiveOpsWhere)
+	sensitiveOps, err := r.readAuditOverviewItems(ctx, args, sensitiveOperationsWhereClause())
 	if err != nil {
 		return auditstore.AuditOverview{}, err
 	}
@@ -477,6 +474,7 @@ func buildAuditLogFilters(query auditstore.ListAuditLogsQuery) (string, []any) {
 	}
 
 	addAuditPresetRange(&clauses, &args, query)
+	addDrilldownFilters(&clauses, query)
 	addUint64Filter(&clauses, &args, "actor_user_id = $%d", query.ActorUserID)
 	addScalarFilter(add, "action = $%d", query.Action)
 	addPrefixFilter(add, "action LIKE $%d ESCAPE '\\'", query.ActionPrefix)
@@ -501,6 +499,92 @@ func buildAuditLogFilters(query auditstore.ListAuditLogsQuery) (string, []any) {
 	}
 
 	return " WHERE " + strings.Join(clauses, " AND "), args
+}
+
+func validateListAuditLogsQuery(query auditstore.ListAuditLogsQuery) error {
+	if query.Limit <= 0 {
+		return fmt.Errorf("list audit logs: invalid limit %d", query.Limit)
+	}
+	if query.Offset < 0 {
+		return fmt.Errorf("list audit logs: invalid offset %d", query.Offset)
+	}
+
+	return validateDrilldownFilters(query)
+}
+
+func validateDrilldownFilters(query auditstore.ListAuditLogsQuery) error {
+	if query.Summary != "" && query.RiskGroup != "" {
+		return fmt.Errorf("%w: summary and risk_group cannot be combined", auditstore.ErrConflictingDrilldownFilter)
+	}
+
+	if err := validateSummaryDrilldownFilters(query); err != nil {
+		return err
+	}
+	if err := validateRiskGroupDrilldownFilters(query); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func validateSummaryDrilldownFilters(query auditstore.ListAuditLogsQuery) error {
+	switch query.Summary {
+	case auditstore.AuditDrilldownSummaryFailedOperations:
+		if query.Success != nil || query.Result != "" || len(query.Results) > 0 {
+			return fmt.Errorf("%w: summary conflicts with success/result filters", auditstore.ErrConflictingDrilldownFilter)
+		}
+	case auditstore.AuditDrilldownSummarySensitiveOperations:
+		if hasActionOrRiskFilters(query) {
+			return fmt.Errorf("%w: summary conflicts with action/risk filters", auditstore.ErrConflictingDrilldownFilter)
+		}
+	}
+
+	return nil
+}
+
+func validateRiskGroupDrilldownFilters(query auditstore.ListAuditLogsQuery) error {
+	switch query.RiskGroup {
+	case auditstore.AuditDrilldownRiskGroupHighRiskOperations:
+		if query.Success != nil || hasActionOrRiskFilters(query) {
+			return fmt.Errorf("%w: risk_group conflicts with success/action/risk filters", auditstore.ErrConflictingDrilldownFilter)
+		}
+	case auditstore.AuditDrilldownRiskGroupAuthFailures:
+		if hasAuthSemanticConflicts(query) {
+			return fmt.Errorf("%w: risk_group conflicts with auth semantic filters", auditstore.ErrConflictingDrilldownFilter)
+		}
+	case auditstore.AuditDrilldownRiskGroupPermissionDenials:
+		if hasResultConflicts(query) {
+			return fmt.Errorf("%w: risk_group conflicts with denial semantic filters", auditstore.ErrConflictingDrilldownFilter)
+		}
+	}
+
+	return nil
+}
+
+func hasActionOrRiskFilters(query auditstore.ListAuditLogsQuery) bool {
+	return query.RiskLevel != "" || len(query.RiskLevels) > 0 ||
+		query.Action != "" || query.ActionPrefix != "" ||
+		len(query.ActionPrefixes) > 0 || len(query.ActionKeywords) > 0
+}
+
+func hasAuthSemanticConflicts(query auditstore.ListAuditLogsQuery) bool {
+	return query.Success != nil || query.Source != "" || query.ResourceType != "" ||
+		len(query.ResourceTypes) > 0 || len(query.RequestPathPrefixes) > 0 ||
+		hasResultConflicts(query)
+}
+
+func hasResultConflicts(query auditstore.ListAuditLogsQuery) bool {
+	return query.Result != "" || len(query.Results) > 0
+}
+
+func addDrilldownFilters(clauses *[]string, query auditstore.ListAuditLogsQuery) {
+	if clause := drilldownSummaryWhereClause(query.Summary); clause != "" {
+		*clauses = append(*clauses, "("+clause+")")
+		return
+	}
+	if clause := drilldownRiskGroupWhereClause(query.RiskGroup); clause != "" {
+		*clauses = append(*clauses, "("+clause+")")
+	}
 }
 
 func addAuditPresetRange(clauses *[]string, args *[]any, query auditstore.ListAuditLogsQuery) {
@@ -544,6 +628,10 @@ func highRiskWhereClause() string {
 	return highRiskOperationsWhereClause()
 }
 
+func failedOperationsWhereClause() string {
+	return `NOT success`
+}
+
 func sensitiveOperationsWhereClause() string {
 	return `(
 		LOWER(action) LIKE '%delete%'
@@ -554,6 +642,52 @@ func sensitiveOperationsWhereClause() string {
 		OR LOWER(action) LIKE '%remove%'
 		OR LOWER(action) LIKE '%replace%'
 	)`
+}
+
+func authFailuresWhereClause() string {
+	return `
+	success = false AND (
+		LOWER(action) LIKE '%auth%'
+		OR resource_type = 'auth'
+		OR resource_type = 'session'
+		OR LOWER(` + overviewMetadataRequestPathSQL + `) LIKE '/api/auth%'
+	)
+`
+}
+
+func permissionDenialsWhereClause() string {
+	return `
+	success = false AND (
+		` + overviewMetadataStatusCodeSQL + ` = '403'
+		OR message = 'common.forbidden'
+		OR LOWER(message) LIKE '%forbidden%'
+		OR LOWER(message) LIKE '%permission%'
+	)
+`
+}
+
+func drilldownSummaryWhereClause(summary auditstore.AuditDrilldownSummary) string {
+	switch summary {
+	case auditstore.AuditDrilldownSummarySensitiveOperations:
+		return sensitiveOperationsWhereClause()
+	case auditstore.AuditDrilldownSummaryFailedOperations:
+		return failedOperationsWhereClause()
+	default:
+		return ""
+	}
+}
+
+func drilldownRiskGroupWhereClause(riskGroup auditstore.AuditDrilldownRiskGroup) string {
+	switch riskGroup {
+	case auditstore.AuditDrilldownRiskGroupHighRiskOperations:
+		return highRiskOperationsWhereClause()
+	case auditstore.AuditDrilldownRiskGroupAuthFailures:
+		return authFailuresWhereClause()
+	case auditstore.AuditDrilldownRiskGroupPermissionDenials:
+		return permissionDenialsWhereClause()
+	default:
+		return ""
+	}
 }
 
 func addScalarFilter(add func(string, any), format string, value string) {
@@ -1455,34 +1589,6 @@ var (
 	overviewMetadataStatusCodeSQL  = metadataTextValueSQL("metadata", "status_code")
 )
 
-const overviewSensitiveOpsWhere = `
-	LOWER(action) LIKE '%delete%'
-	OR LOWER(action) LIKE '%reset%'
-	OR LOWER(action) LIKE '%grant%'
-	OR LOWER(action) LIKE '%assign%'
-	OR LOWER(action) LIKE '%revoke%'
-	OR LOWER(action) LIKE '%remove%'
-	OR LOWER(action) LIKE '%replace%'
-`
-
-var overviewFailedAuthWhere = `
-	success = false AND (
-		LOWER(action) LIKE '%auth%'
-		OR resource_type = 'auth'
-		OR resource_type = 'session'
-		OR LOWER(` + overviewMetadataRequestPathSQL + `) LIKE '/api/auth%'
-	)
-`
-
-var overviewPermissionDeniedWhere = `
-	success = false AND (
-		` + overviewMetadataStatusCodeSQL + ` = '403'
-		OR message = 'common.forbidden'
-		OR LOWER(message) LIKE '%forbidden%'
-		OR LOWER(message) LIKE '%permission%'
-	)
-`
-
 //nolint:gosec // Query text is assembled from fixed SQL fragments; all dynamic values stay parameterized.
 var overviewRiskGroupsSQL = `
 SELECT key, label_key, risk_level, count
@@ -1531,7 +1637,7 @@ FROM (
 		'auth_failures',
 		'audit.overview.riskGroups.authFailures',
 		'HIGH',
-		COUNT(*) FILTER (WHERE ` + overviewFailedAuthWhere + `)
+		COUNT(*) FILTER (WHERE ` + authFailuresWhereClause() + `)
 	FROM audit_logs
 	WHERE created_at >= $1
 	UNION ALL
@@ -1539,7 +1645,7 @@ FROM (
 		'permission_denials',
 		'audit.overview.riskGroups.permissionDenials',
 		'CRITICAL',
-		COUNT(*) FILTER (WHERE ` + overviewPermissionDeniedWhere + `)
+		COUNT(*) FILTER (WHERE ` + permissionDenialsWhereClause() + `)
 	FROM audit_logs
 	WHERE created_at >= $1
 ) groups
