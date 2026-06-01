@@ -21,10 +21,9 @@
       "emptyTitle": "No access logs",
       "emptyDescription": "Adjust filters and try again.",
       "emptyRequestDescription": "No retained access log matches this request ID. The request may be outside the current access-log retention window.",
-      "emptyTraceDescription": "No retained access log matches this trace ID. The correlated request may have expired from access-log retention.",
       "detailTitle": "Request Detail",
-      "searchPlaceholder": "Search request ID, trace ID, path, or username",
-      "tableHint": "The table keeps core request facts visible. Open the drawer for the full request context."
+      "searchPlaceholder": "Search request ID, path, or username",
+      "tableHint": "The table defaults to request start time. Open the drawer or enable the completed-time column for the full timeline."
     },
     "actions": {
       "search": "Search",
@@ -33,7 +32,6 @@
       "detail": "Detail",
       "viewRelatedAuditRecords": "View Related Audit Records",
       "openAuditByRequestId": "Open Audit Search By Request ID",
-      "openAuditByTraceId": "Open Audit Search By Trace ID",
       "copy": "Copy",
       "copySuccess": "Copied",
       "copyFail": "Copy failed"
@@ -50,7 +48,6 @@
     },
     "filters": {
       "requestId": "Request ID",
-      "traceId": "Trace ID",
       "userId": "User ID",
       "user": "User",
       "method": "Method",
@@ -60,11 +57,13 @@
       "statusCode": "Status Code",
       "durationMin": "Min Duration",
       "durationMax": "Max Duration",
-      "occurredRange": "Time Range",
+      "startedRange": "Request Start Time",
+      "occurredRange": "Request Completed Time",
       "sortBy": "Sort By",
       "sortOrder": "Sort Order",
       "pathMatchExact": "Exact",
       "pathMatchPrefix": "Prefix",
+      "sortStartedAt": "Started At",
       "sortOccurredAt": "Occurred At",
       "sortDuration": "Duration",
       "sortStatusCode": "Status Code",
@@ -81,8 +80,8 @@
       "title": "Filters",
       "hint": "Add only the conditions you need instead of filling a large static form.",
       "fields": {
+        "time": "Time",
         "requestId": "Request ID",
-        "traceId": "Trace ID",
         "userId": "User ID",
         "username": "Username",
         "method": "Method",
@@ -93,7 +92,8 @@
       }
     },
     "columns": {
-      "occurredAt": "Time",
+      "startedAt": "Started At",
+      "occurredAt": "Completed At",
       "method": "Method",
       "path": "Path",
       "statusCode": "Status Code",
@@ -116,7 +116,6 @@
       "network": "Network",
       "size": "Transfer Size",
       "requestId": "Request ID",
-      "traceId": "Trace ID",
       "route": "Route Template",
       "relatedAudit": "Related Audit Investigation",
       "clientIp": "Client IP",
@@ -124,9 +123,14 @@
       "requestSize": "Request Size",
       "responseSize": "Response Size",
       "userId": "User ID",
-      "username": "Username",
+      "user": "Username",
       "context": "Full Request Context",
-      "toggleContext": "Expand full request context JSON"
+      "expandContext": "Expand full request context JSON",
+      "collapseContext": "Collapse full request context JSON",
+      "copyContext": "Copy JSON",
+      "copyContextSuccess": "Request context JSON copied",
+      "copyContextFail": "Failed to copy request context JSON",
+      "contextEmpty": "No full request context is available for this request."
     }
   }
 }

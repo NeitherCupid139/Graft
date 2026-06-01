@@ -71,23 +71,30 @@
         "action": "View related events"
       },
       "trend": {
-        "pointMeta": "Total {total} / High risk {highRisk} / Security {security}"
+        "emptyTitle": "Not enough risk events yet",
+        "emptyDescription": "Trend analysis will appear after more audit events are collected.",
+        "totalMetric": "Total events",
+        "highRiskMetric": "High risk",
+        "securityMetric": "Security events",
+        "totalValue": "Total {value}",
+        "highRiskValue": "High risk: {value}",
+        "securityValue": "Security events: {value}"
       },
       "stats": {
         "totalLogs": {
-          "title": "Audit Logs",
+          "title": "Audit Log Count",
           "unit": "events",
-          "meta": "window",
+          "meta": "all records",
           "values": {
             "24h": "4,812",
             "7d": "26,430",
             "30d": "101,208"
           }
         },
-        "failedToday": {
-          "title": "Security Failures Today",
+        "failedWindow": {
+          "title": "Security Failure Count",
           "unit": "events",
-          "meta": "watch",
+          "meta": "current window",
           "values": {
             "24h": "37",
             "7d": "126",
@@ -95,9 +102,9 @@
           }
         },
         "highRisk": {
-          "title": "High-Risk Events",
+          "title": "High-Risk Event Count",
           "unit": "items",
-          "meta": "failed or abnormal",
+          "meta": "current window",
           "values": {
             "24h": "12",
             "7d": "41",
@@ -105,9 +112,9 @@
           }
         },
         "sensitiveOps": {
-          "title": "Sensitive Audit Operations",
+          "title": "Sensitive Operation Count",
           "unit": "actions",
-          "meta": "write path",
+          "meta": "current window",
           "values": {
             "24h": "28",
             "7d": "94",
@@ -174,8 +181,8 @@
           "description": "Review failed sign-ins, token failures, and other authentication audit events"
         },
         "rbacChanges": {
-          "title": "Open RBAC Changes",
-          "description": "Review role, permission, and assignment audit events"
+          "title": "Open Permission Configuration Changes",
+          "description": "Review role, permission, resource, and menu configuration changes"
         },
         "sensitiveOps": {
           "title": "Open Sensitive Operations",
@@ -194,7 +201,7 @@
           "tag": "Auth failure"
         },
         "rbacWindow": {
-          "title": "Sensitive operations still active during RBAC change window",
+          "title": "Sensitive operations still active during permission configuration changes",
           "description": "Session and permission writes continued after role grants.",
           "tag": "Needs review"
         }
@@ -274,8 +281,6 @@
       "retry": "Retry",
       "detail": "Detail",
       "more": "More",
-      "summary": "{count} security audit records shown",
-      "tableHint": "The table shows only policy-matched security audit events. Request chain and permission context move to the detail drawer.",
       "reasonFallback": "No additional reason",
       "footerTotal": "{count} audit events total",
       "footerFiltered": "{count} records matched on this page",
@@ -288,8 +293,9 @@
       "presets": {
         "label": "Quick filters",
         "all": "All",
+        "failedOperations": "Failed Operations",
         "todayAnomalies": "Today's Security Anomalies",
-        "rbacChanges": "RBAC Changes",
+        "rbacChanges": "Permission Configuration Changes",
         "permissionDenied": "Permission Denied",
         "sensitiveOps": "Sensitive Operations",
         "authFailed": "Auth Failed",
@@ -303,19 +309,42 @@
         "showAdvanced": "Advanced Filters",
         "hideAdvanced": "Hide Advanced"
       },
+      "scope": {
+        "drilldownTag": "Drilldown: {name}",
+        "conditionInline": "Condition: {condition}",
+        "exitAction": "Exit drilldown",
+        "convertAction": "Convert to normal filters",
+        "unknownValue": "Unnamed condition"
+      },
+      "businessCategory": {
+        "failedOperations": "Failed operations",
+        "highRiskOperations": "High-risk operations",
+        "sensitiveOperations": "Sensitive operations",
+        "authFailures": "Authentication failures",
+        "permissionDenials": "Permission denials",
+        "rbacChanges": "Permission configuration changes",
+        "criticalSecurity": "Critical security"
+      },
       "builder": {
         "title": "Filter fields",
         "hint": "Choose a field and set its value. Active conditions appear as removable tags.",
         "fields": {
+          "businessCategory": "Business category",
+          "success": "Success state",
           "action": "Action type",
+          "actionPrefixes": "Action groups",
+          "actionKeywords": "Action keywords",
           "result": "Result",
+          "results": "Result set",
           "riskLevel": "Risk level",
+          "riskLevels": "Risk level set",
           "source": "Event type",
           "actor": "Actor",
           "resourceName": "Audit target",
           "resourceType": "Target type",
+          "resourceTypes": "Target type set",
+          "requestPathPrefixes": "Request path prefixes",
           "requestId": "Request ID",
-          "traceId": "Trace ID",
           "session": "Session ID",
           "resourceId": "Resource ID"
         }
@@ -324,16 +353,23 @@
         "keywordPlaceholder": "Search actions, users, targets, request ID...",
         "actorPlaceholder": "Actor",
         "actionPlaceholder": "Action type",
+        "actionPrefixesPlaceholder": "Select action groups",
+        "actionKeywordsPlaceholder": "Type an action keyword and press Enter",
+        "successPlaceholder": "Success state",
         "sourcePlaceholder": "Event type",
+        "businessCategoryPlaceholder": "Business category",
         "datePlaceholder": "Time range",
         "resourceTypePlaceholder": "Audit target type",
+        "resourceTypesPlaceholder": "Select target type set",
         "resourceNamePlaceholder": "Audit target / target name",
         "resourceIdPlaceholder": "Resource ID",
         "resultPlaceholder": "Result",
+        "resultsPlaceholder": "Select result set",
         "riskPlaceholder": "Risk level",
+        "riskLevelsPlaceholder": "Select risk level set",
         "sessionPlaceholder": "Session ID",
-        "requestIdPlaceholder": "Troubleshooting ID / Request ID",
-        "traceIdPlaceholder": "Trace ID"
+        "requestIdPlaceholder": "Request ID",
+        "requestPathPrefixesPlaceholder": "Type a request path prefix and press Enter"
       },
       "sort": {
         "title": "Sort",
@@ -349,8 +385,12 @@
         "allSource": "All event types",
         "allResourceTypes": "All target types",
         "auth": "Authentication",
+        "authPrefix": "Authentication actions",
+        "rbacPrefix": "Permission configuration actions",
         "role": "Role",
+        "rolePrefix": "Role actions",
         "permission": "Permission",
+        "permissionPrefix": "Permission actions",
         "session": "Session",
         "userResource": "User",
         "roleResource": "Role",
@@ -371,7 +411,7 @@
         "action": "Action",
         "actor": "Actor",
         "resource": "Audit Target",
-        "correlation": "Troubleshooting ID",
+        "correlation": "Request ID",
         "result": "Result",
         "risk": "Risk",
         "createdAt": "Time"
@@ -391,31 +431,28 @@
           "result": "Result",
           "reason": "Reason / Notes",
           "requestId": "Request ID",
-          "traceId": "Trace ID",
           "sessionId": "Session ID",
           "ip": "IP",
           "userAgent": "User-Agent",
           "method": "Method",
           "path": "Path",
-          "status": "Status",
-          "latency": "Latency"
+          "status": "Status"
         },
         "actions": {
           "copyRequestId": "Copy",
           "copyRequestIdSuccess": "Request ID copied",
           "copyRequestIdFail": "Failed to copy Request ID",
-          "copyTraceId": "Copy",
-          "copySuccess": "Trace ID copied",
-          "copyFail": "Failed to copy Trace ID",
-          "toggleMetadata": "Show raw metadata",
+          "expandMetadata": "Expand raw metadata",
+          "collapseMetadata": "Collapse raw metadata",
+          "copyMetadata": "Copy JSON",
+          "copyMetadataSuccess": "Metadata JSON copied",
+          "copyMetadataFail": "Failed to copy metadata JSON",
           "backToMonitor": "Back to monitor",
-          "openIncident": "Open incident",
           "viewRelatedRequest": "View Related Request",
-          "openAccessLogByTraceId": "Open Access Log By Trace ID",
           "openRelatedEvents": "Open related events"
         },
         "related": {
-          "sameRequest": "Same Request Chain",
+          "sameRequest": "Same Request ID",
           "sameActor": "Recent Actions by Actor",
           "sameResource": "Recent Changes on Audit Target",
           "empty": "No more related records in the current list"
@@ -423,24 +460,46 @@
         "risk": {
           "failedOperation": "Failed operation",
           "sensitiveOperation": "Sensitive write",
-          "requestTrace": "Request trace available"
-        }
+          "requestTrace": "Request available"
+        },
+        "metadataEmpty": "No metadata is available for this event."
       }
     },
     "correlation": {
       "errorTitle": "Operation failed",
       "requestIdLabel": "Request ID:",
-      "traceIdLabel": "Trace ID:",
       "copyRequestIdAction": "Copy",
       "viewAuditAction": "View Audit",
       "copyRequestIdSuccessTitle": "Request ID copied",
       "copyRequestIdSuccessContent": "The request ID is ready for troubleshooting.",
       "copyRequestIdErrorTitle": "Copy failed",
       "copyRequestIdErrorContent": "Unable to copy the request ID from this browser.",
-      "idLabel": "Troubleshooting ID: {id}",
-      "hintRequestOnly": "Troubleshooting ID: {requestId}",
-      "hintTraceOnly": "Troubleshooting ID: {traceId}",
-      "hintRequestAndTrace": "Troubleshooting ID: {requestId} / Trace: {traceId}"
+      "idLabel": "Request ID: {id}",
+      "hintRequestOnly": "Request ID: {requestId}"
+    },
+    "actionLabel": {
+      "auth": {
+        "failed": "Authentication Failed",
+        "token": {
+          "expired": "Token Expired"
+        }
+      },
+      "rbac": {
+        "role": {
+          "permissions": {
+            "replace": "Update Role Permissions",
+            "add": "Add Role Permissions",
+            "remove": "Remove Role Permissions"
+          },
+          "delete": "Delete Role",
+          "assign": "Assign Role"
+        }
+      },
+      "user": {
+        "password": {
+          "reset": "Reset User Password"
+        }
+      }
     }
   }
 }

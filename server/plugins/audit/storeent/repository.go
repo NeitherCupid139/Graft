@@ -51,8 +51,7 @@ const overviewTrendThreeDayDuration = 72 * time.Hour
 const overviewTrendTwoHourDuration = 2 * time.Hour
 const incidentCorrelationWindow = 30 * time.Minute
 const incidentCandidateScanLimit = 200
-
-var sensitiveAuditActionKeywords = []string{"delete", "reset", "grant", "assign", "revoke", "remove", "replace", "update_role", "update_permission"}
+const sqlLikeEscapeClause = " ESCAPE '\\'"
 
 // NewRepository 基于共享连接池构建 audit 插件的 SQL repository。
 func NewRepository(db *sql.DB, monitorEvidence pluginapi.MonitorIncidentEvidenceService) (auditstore.AuditRepository, error) {
@@ -143,14 +142,11 @@ func (r *repository) CreateAuditLog(ctx context.Context, input auditstore.Create
 
 // ListAuditLogs returns a stable page of audit records plus total count.
 func (r *repository) ListAuditLogs(ctx context.Context, query auditstore.ListAuditLogsQuery) (auditstore.ListAuditLogsResult, error) {
+	if err := validateListAuditLogsQuery(query); err != nil {
+		return auditstore.ListAuditLogsResult{}, err
+	}
 	if r == nil || r.db == nil {
 		return auditstore.ListAuditLogsResult{}, errors.New("audit repository is unavailable")
-	}
-	if query.Limit <= 0 {
-		return auditstore.ListAuditLogsResult{}, fmt.Errorf("list audit logs: invalid limit %d", query.Limit)
-	}
-	if query.Offset < 0 {
-		return auditstore.ListAuditLogsResult{}, fmt.Errorf("list audit logs: invalid offset %d", query.Offset)
 	}
 
 	whereSQL, args := buildAuditLogFilters(query)
@@ -223,13 +219,13 @@ func buildAuditLogOrderBy(query auditstore.ListAuditLogsQuery) string {
 }
 
 // ReadAuditOverview aggregates real overview data from the settled audit log table.
-func (r *repository) ReadAuditOverview(ctx context.Context, window auditstore.OverviewWindow) (auditstore.AuditOverview, error) {
+func (r *repository) ReadAuditOverview(ctx context.Context, preset auditstore.AuditTimePreset) (auditstore.AuditOverview, error) {
 	if r == nil || r.db == nil {
 		return auditstore.AuditOverview{}, errors.New("audit repository is unavailable")
 	}
 
 	now := time.Now().UTC()
-	startedAt := overviewWindowStart(now, window)
+	startedAt := auditPresetStart(now, preset)
 	args := []any{startedAt}
 
 	summary, err := r.readAuditOverviewSummary(ctx, args)
@@ -240,7 +236,7 @@ func (r *repository) ReadAuditOverview(ctx context.Context, window auditstore.Ov
 	if err != nil {
 		return auditstore.AuditOverview{}, err
 	}
-	trend, err := r.readOverviewTrend(ctx, window, startedAt, now)
+	trend, err := r.readOverviewTrend(ctx, preset, startedAt, now)
 	if err != nil {
 		return auditstore.AuditOverview{}, err
 	}
@@ -249,21 +245,21 @@ func (r *repository) ReadAuditOverview(ctx context.Context, window auditstore.Ov
 		return auditstore.AuditOverview{}, err
 	}
 
-	failedAuth, err := r.readAuditOverviewItems(ctx, args, overviewFailedAuthWhere)
+	failedAuth, err := r.readAuditOverviewItems(ctx, args, authFailuresWhereClause())
 	if err != nil {
 		return auditstore.AuditOverview{}, err
 	}
-	permissionDenied, err := r.readAuditOverviewItems(ctx, args, overviewPermissionDeniedWhere)
+	permissionDenied, err := r.readAuditOverviewItems(ctx, args, permissionDenialsWhereClause())
 	if err != nil {
 		return auditstore.AuditOverview{}, err
 	}
-	sensitiveOps, err := r.readAuditOverviewItems(ctx, args, overviewSensitiveOpsWhere)
+	sensitiveOps, err := r.readAuditOverviewItems(ctx, args, sensitiveOperationsWhereClause())
 	if err != nil {
 		return auditstore.AuditOverview{}, err
 	}
 
 	return auditstore.AuditOverview{
-		Window:           window,
+		TimePreset:       preset,
 		Summary:          summary,
 		RiskGroups:       riskGroups,
 		Trend:            trend,
@@ -476,17 +472,28 @@ func buildAuditLogFilters(query auditstore.ListAuditLogsQuery) (string, []any) {
 		clauses = append(clauses, fmt.Sprintf(format, len(args)))
 	}
 
+	addAuditPresetRange(&clauses, &args, query)
 	addUint64Filter(&clauses, &args, "actor_user_id = $%d", query.ActorUserID)
+	addKeywordFilter(&clauses, &args, query.Keyword)
+	addActorFilter(&clauses, &args, query.Actor)
 	addScalarFilter(add, "action = $%d", query.Action)
-	addPrefixFilter(add, "action LIKE $%d ESCAPE '\\'", query.ActionPrefix)
+	addPrefixFilter(add, "action LIKE $%d"+sqlLikeEscapeClause, query.ActionPrefix)
+	addPrefixAnyFilter(&clauses, &args, "action", query.ActionPrefixes)
+	addKeywordAnyFilter(&clauses, &args, "action", query.ActionKeywords)
 	addScalarFilter(add, sourceWhereClause(), string(query.Source))
+	addBusinessCategoryFilter(&clauses, query.BusinessCategory)
 	addScalarFilter(add, "resource_type = $%d", query.ResourceType)
+	addAnyScalarFilter(&clauses, &args, "resource_type", query.ResourceTypes)
 	addScalarFilter(add, "resource_id = $%d", query.ResourceID)
 	addScalarFilter(add, "resource_name = $%d", query.ResourceName)
+	addPrefixAnyJSONMetadataFilter(&clauses, &args, "request_path", query.RequestPathPrefixes)
 	addBoolFilter(&clauses, &args, "success = $%d", query.Success)
+	addScalarJSONMetadataFilter(&clauses, &args, "session_id", query.SessionID)
 	addScalarFilter(add, "request_id = $%d", query.RequestID)
 	addScalarFilter(add, auditResultWhereClause(), string(query.Result))
+	addAnyExpressionFilter(&clauses, &args, auditResultWhereClause(), auditResultValues(query.Results))
 	addScalarFilter(add, riskLevelWhereClause(), string(query.RiskLevel))
+	addAnyExpressionFilter(&clauses, &args, riskLevelWhereClause(), auditRiskLevelValues(query.RiskLevels))
 	addTimeFilter(&clauses, &args, "created_at >= $%d", query.CreatedFrom)
 	addTimeFilter(&clauses, &args, "created_at <= $%d", query.CreatedTo)
 	if len(clauses) == 0 {
@@ -494,6 +501,152 @@ func buildAuditLogFilters(query auditstore.ListAuditLogsQuery) (string, []any) {
 	}
 
 	return " WHERE " + strings.Join(clauses, " AND "), args
+}
+
+func validateListAuditLogsQuery(query auditstore.ListAuditLogsQuery) error {
+	if query.Limit <= 0 {
+		return fmt.Errorf("list audit logs: invalid limit %d", query.Limit)
+	}
+	if query.Offset < 0 {
+		return fmt.Errorf("list audit logs: invalid offset %d", query.Offset)
+	}
+	if query.TimePreset != "" && !isSupportedAuditTimePreset(query.TimePreset) {
+		return fmt.Errorf("list audit logs: invalid time preset %q", query.TimePreset)
+	}
+
+	return nil
+}
+
+func isSupportedAuditTimePreset(preset auditstore.AuditTimePreset) bool {
+	switch preset {
+	case auditstore.AuditTimePresetLast24Hours,
+		auditstore.AuditTimePresetLast7Days,
+		auditstore.AuditTimePresetLast30Days:
+		return true
+	default:
+		return false
+	}
+}
+
+func addAuditPresetRange(clauses *[]string, args *[]any, query auditstore.ListAuditLogsQuery) {
+	if query.CreatedFrom != nil || query.CreatedTo != nil {
+		return
+	}
+	if query.TimePreset == "" {
+		return
+	}
+
+	now := time.Now().UTC()
+	startedAt := auditPresetStart(now, query.TimePreset)
+	addTimeFilter(clauses, args, "created_at >= $%d", &startedAt)
+}
+
+func auditPresetStart(now time.Time, preset auditstore.AuditTimePreset) time.Time {
+	switch preset {
+	case auditstore.AuditTimePresetLast24Hours:
+		return now.Add(-24 * time.Hour)
+	case auditstore.AuditTimePresetLast7Days:
+		return now.Add(-7 * 24 * time.Hour)
+	case auditstore.AuditTimePresetLast30Days:
+		return now.Add(-30 * 24 * time.Hour)
+	default:
+		return time.Time{}
+	}
+}
+
+func highRiskOperationsWhereClause() string {
+	return `(
+		success = false
+		OR LOWER(action) LIKE '%delete%'
+		OR LOWER(action) LIKE '%reset%'
+		OR LOWER(action) LIKE '%grant%'
+		OR LOWER(action) LIKE '%assign%'
+		OR LOWER(action) LIKE '%revoke%'
+		OR LOWER(action) LIKE '%remove%'
+		OR LOWER(action) LIKE '%replace%'
+	)`
+}
+
+func highRiskWhereClause() string {
+	return highRiskOperationsWhereClause()
+}
+
+func failedOperationsWhereClause() string {
+	return `success = false`
+}
+
+func sensitiveOperationsWhereClause() string {
+	keywords := sensitiveOperationAuthorityKeywords()
+	orClauses := make([]string, 0, len(keywords))
+	for _, keyword := range keywords {
+		orClauses = append(orClauses, fmt.Sprintf("LOWER(action) LIKE '%%%s%%'", strings.ToLower(keyword)))
+	}
+	return "(" + strings.Join(orClauses, "\n\t\tOR ") + ")"
+}
+
+func authFailuresWhereClause() string {
+	return `
+	success = false AND (
+		LOWER(action) LIKE '%auth%'
+		OR resource_type = 'auth'
+		OR resource_type = 'session'
+		OR LOWER(` + overviewMetadataRequestPathSQL + `) LIKE '/api/auth%'
+	)
+`
+}
+
+func permissionDenialsWhereClause() string {
+	return `
+	success = false AND (
+		` + overviewMetadataStatusCodeSQL + ` = '403'
+		OR message = 'common.forbidden'
+		OR LOWER(message) LIKE '%forbidden%'
+		OR LOWER(message) LIKE '%permission%'
+	)
+`
+}
+
+func rbacChangesWhereClause() string {
+	return `(
+		LOWER(action) LIKE 'rbac.%'
+		OR LOWER(action) LIKE 'role.%'
+		OR LOWER(action) LIKE 'permission.%'
+	)`
+}
+
+func criticalSecurityWhereClause() string {
+	return `
+	success = false AND (
+		` + overviewMetadataStatusCodeSQL + ` = '403'
+		OR (
+			COALESCE(NULLIF(metadata ->> 'status_code', ''), '') <> ''
+			AND metadata ->> 'status_code' ~ '^[0-9]{1,5}$'
+			AND CAST(metadata ->> 'status_code' AS INTEGER) >= 500
+		)
+		OR COALESCE(metadata ->> 'error_kind', '') = 'system'
+		OR COALESCE(metadata ->> 'error', '') <> ''
+	)
+`
+}
+
+func addBusinessCategoryFilter(clauses *[]string, category auditstore.AuditBusinessCategory) {
+	switch category {
+	case auditstore.AuditBusinessCategoryFailedOperations:
+		*clauses = append(*clauses, "("+failedOperationsWhereClause()+")")
+	case auditstore.AuditBusinessCategoryHighRiskOperations:
+		*clauses = append(*clauses, highRiskOperationsWhereClause())
+	case auditstore.AuditBusinessCategorySensitiveOperations:
+		*clauses = append(*clauses, sensitiveOperationsWhereClause())
+	case auditstore.AuditBusinessCategoryAuthFailures:
+		*clauses = append(*clauses, "("+authFailuresWhereClause()+")")
+	case auditstore.AuditBusinessCategoryPermissionDenials:
+		*clauses = append(*clauses, "("+permissionDenialsWhereClause()+")")
+	case auditstore.AuditBusinessCategoryRBACChanges:
+		*clauses = append(*clauses, "("+rbacChangesWhereClause()+")")
+	case auditstore.AuditBusinessCategoryCriticalSecurity:
+		*clauses = append(*clauses, "("+criticalSecurityWhereClause()+")")
+	default:
+	}
 }
 
 func addScalarFilter(add func(string, any), format string, value string) {
@@ -509,6 +662,155 @@ func addPrefixFilter(add func(string, any), format string, value string) {
 	}
 
 	add(format, escapeLikePattern(value)+"%")
+}
+
+func addPrefixAnyFilter(clauses *[]string, args *[]any, column string, values []string) {
+	if len(values) == 0 {
+		return
+	}
+
+	orClauses := make([]string, 0, len(values))
+	for _, value := range values {
+		*args = append(*args, escapeLikePattern(value)+"%")
+		orClauses = append(orClauses, fmt.Sprintf("%s LIKE $%d%s", column, len(*args), sqlLikeEscapeClause))
+	}
+	*clauses = append(*clauses, "("+strings.Join(orClauses, " OR ")+")")
+}
+
+func addKeywordAnyFilter(clauses *[]string, args *[]any, column string, values []string) {
+	if len(values) == 0 {
+		return
+	}
+
+	orClauses := make([]string, 0, len(values))
+	for _, value := range values {
+		*args = append(*args, "%"+escapeLikePattern(strings.ToLower(value))+"%")
+		orClauses = append(orClauses, fmt.Sprintf("LOWER(%s) LIKE $%d%s", column, len(*args), sqlLikeEscapeClause))
+	}
+	*clauses = append(*clauses, "("+strings.Join(orClauses, " OR ")+")")
+}
+
+func addKeywordFilter(clauses *[]string, args *[]any, value string) {
+	if strings.TrimSpace(value) == "" {
+		return
+	}
+
+	pattern := "%" + escapeLikePattern(strings.ToLower(strings.TrimSpace(value))) + "%"
+	fields := []string{
+		"LOWER(action)",
+		"LOWER(request_id)",
+		"LOWER(message)",
+		"LOWER(resource_type)",
+		"LOWER(resource_id)",
+		"LOWER(resource_name)",
+		"LOWER(actor_username)",
+		"LOWER(actor_display_name)",
+		fmt.Sprintf("LOWER(COALESCE(metadata ->> '%s', ''))", "request_path"),
+	}
+	orClauses := make([]string, 0, len(fields))
+	for _, field := range fields {
+		*args = append(*args, pattern)
+		orClauses = append(orClauses, fmt.Sprintf("%s LIKE $%d%s", field, len(*args), sqlLikeEscapeClause))
+	}
+	*clauses = append(*clauses, "("+strings.Join(orClauses, " OR ")+")")
+}
+
+func addActorFilter(clauses *[]string, args *[]any, value string) {
+	if strings.TrimSpace(value) == "" {
+		return
+	}
+
+	pattern := "%" + escapeLikePattern(strings.ToLower(strings.TrimSpace(value))) + "%"
+	fields := []string{
+		"LOWER(actor_username)",
+		"LOWER(actor_display_name)",
+	}
+	orClauses := make([]string, 0, len(fields))
+	for _, field := range fields {
+		*args = append(*args, pattern)
+		orClauses = append(orClauses, fmt.Sprintf("%s LIKE $%d%s", field, len(*args), sqlLikeEscapeClause))
+	}
+	*clauses = append(*clauses, "("+strings.Join(orClauses, " OR ")+")")
+}
+
+func addAnyScalarFilter(clauses *[]string, args *[]any, column string, values []string) {
+	if len(values) == 0 {
+		return
+	}
+
+	orClauses := make([]string, 0, len(values))
+	for _, value := range values {
+		*args = append(*args, value)
+		orClauses = append(orClauses, fmt.Sprintf("%s = $%d", column, len(*args)))
+	}
+	*clauses = append(*clauses, "("+strings.Join(orClauses, " OR ")+")")
+}
+
+func addPrefixAnyJSONMetadataFilter(clauses *[]string, args *[]any, key string, values []string) {
+	if len(values) == 0 {
+		return
+	}
+
+	orClauses := make([]string, 0, len(values))
+	for _, value := range values {
+		*args = append(*args, escapeLikePattern(strings.ToLower(value))+"%")
+		orClauses = append(
+			orClauses,
+			fmt.Sprintf("LOWER(COALESCE(metadata ->> '%s', '')) LIKE $%d%s", key, len(*args), sqlLikeEscapeClause),
+		)
+	}
+	*clauses = append(*clauses, "("+strings.Join(orClauses, " OR ")+")")
+}
+
+func addScalarJSONMetadataFilter(clauses *[]string, args *[]any, key string, value string) {
+	if strings.TrimSpace(value) == "" {
+		return
+	}
+	*args = append(*args, strings.TrimSpace(value))
+	*clauses = append(*clauses, fmt.Sprintf("COALESCE(metadata ->> '%s', '') = $%d", key, len(*args)))
+}
+
+func addAnyExpressionFilter(clauses *[]string, args *[]any, expression string, values []string) {
+	if len(values) == 0 {
+		return
+	}
+
+	orClauses := make([]string, 0, len(values))
+	for _, value := range values {
+		*args = append(*args, value)
+		orClauses = append(orClauses, fmt.Sprintf(expression, len(*args)))
+	}
+	*clauses = append(*clauses, "("+strings.Join(orClauses, " OR ")+")")
+}
+
+func auditResultValues(values []auditstore.AuditResult) []string {
+	if len(values) == 0 {
+		return nil
+	}
+
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		if value == "" {
+			continue
+		}
+		result = append(result, string(value))
+	}
+	return result
+}
+
+func auditRiskLevelValues(values []auditstore.AuditRiskLevel) []string {
+	if len(values) == 0 {
+		return nil
+	}
+
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		if value == "" {
+			continue
+		}
+		result = append(result, string(value))
+	}
+	return result
 }
 
 func escapeLikePattern(value string) string {
@@ -1134,7 +1436,7 @@ func classifyAuditRiskLevel(record auditstore.AuditLog) auditstore.AuditRiskLeve
 	if containsAny(action, []string{"reset_password", "update_permission", "update_role", "assign_role", "token_revoke"}) {
 		return auditstore.AuditRiskLevelCritical
 	}
-	if record.Result == auditstore.AuditResultFailed || containsAny(action, sensitiveAuditActionKeywords) {
+	if record.Result == auditstore.AuditResultFailed || sensitiveOperationMatch(action) {
 		return auditstore.AuditRiskLevelHigh
 	}
 	if containsAny(action, []string{"login_failed", "login", "permission", "role", "auth"}) {
@@ -1150,6 +1452,14 @@ func containsAny(source string, keywords []string) bool {
 		}
 	}
 	return false
+}
+
+func sensitiveOperationAuthorityKeywords() []string {
+	return []string{"delete", "reset", "grant", "assign", "revoke", "remove", "replace"}
+}
+
+func sensitiveOperationMatch(action string) bool {
+	return containsAny(action, sensitiveOperationAuthorityKeywords())
 }
 
 func normalizeAuditTargetType(resourceType string) string {
@@ -1252,28 +1562,15 @@ func sourceWhereClause() string {
 	return `COALESCE(metadata ->> 'auditSource', metadata ->> 'audit_source', '') = $%d`
 }
 
-const overviewSummarySQL = `
+var overviewSummarySQL = `
 SELECT
 	COUNT(*) AS total_logs,
 	COUNT(*) FILTER (WHERE success = false) AS failed_operations,
 	COUNT(*) FILTER (
-		WHERE success = false
-		   OR LOWER(action) LIKE '%delete%'
-		   OR LOWER(action) LIKE '%reset%'
-		   OR LOWER(action) LIKE '%grant%'
-		   OR LOWER(action) LIKE '%assign%'
-		   OR LOWER(action) LIKE '%revoke%'
-		   OR LOWER(action) LIKE '%remove%'
-		   OR LOWER(action) LIKE '%replace%'
+		WHERE ` + highRiskWhereClause() + `
 	) AS high_risk_events,
 	COUNT(*) FILTER (
-		WHERE LOWER(action) LIKE '%delete%'
-		   OR LOWER(action) LIKE '%reset%'
-		   OR LOWER(action) LIKE '%grant%'
-		   OR LOWER(action) LIKE '%assign%'
-		   OR LOWER(action) LIKE '%revoke%'
-		   OR LOWER(action) LIKE '%remove%'
-		   OR LOWER(action) LIKE '%replace%'
+		WHERE ` + sensitiveOperationsWhereClause() + `
 	) AS sensitive_operations
 FROM audit_logs
 WHERE created_at >= $1
@@ -1309,45 +1606,6 @@ var (
 	overviewMetadataRequestPathSQL = metadataTextValueSQL("metadata", "request_path")
 	overviewMetadataStatusCodeSQL  = metadataTextValueSQL("metadata", "status_code")
 )
-
-const overviewSensitiveOpsWhere = `
-	LOWER(action) LIKE '%delete%'
-	OR LOWER(action) LIKE '%reset%'
-	OR LOWER(action) LIKE '%grant%'
-	OR LOWER(action) LIKE '%assign%'
-	OR LOWER(action) LIKE '%revoke%'
-	OR LOWER(action) LIKE '%remove%'
-	OR LOWER(action) LIKE '%replace%'
-`
-
-var overviewFailedAuthWhere = `
-	success = false AND (
-		LOWER(action) LIKE '%auth%'
-		OR resource_type = 'auth'
-		OR resource_type = 'session'
-		OR LOWER(` + overviewMetadataRequestPathSQL + `) LIKE '/api/auth%'
-	)
-`
-
-var overviewPermissionDeniedWhere = `
-	success = false AND (
-		` + overviewMetadataStatusCodeSQL + ` = '403'
-		OR message = 'common.forbidden'
-		OR LOWER(message) LIKE '%forbidden%'
-		OR LOWER(message) LIKE '%permission%'
-	)
-`
-
-func overviewWindowStart(now time.Time, window auditstore.OverviewWindow) time.Time {
-	switch window {
-	case auditstore.OverviewWindow7Days:
-		return now.Add(-7 * 24 * time.Hour)
-	case auditstore.OverviewWindow30Days:
-		return now.Add(-30 * 24 * time.Hour)
-	default:
-		return now.Add(-24 * time.Hour)
-	}
-}
 
 //nolint:gosec // Query text is assembled from fixed SQL fragments; all dynamic values stay parameterized.
 var overviewRiskGroupsSQL = `
@@ -1397,7 +1655,7 @@ FROM (
 		'auth_failures',
 		'audit.overview.riskGroups.authFailures',
 		'HIGH',
-		COUNT(*) FILTER (WHERE ` + overviewFailedAuthWhere + `)
+		COUNT(*) FILTER (WHERE ` + authFailuresWhereClause() + `)
 	FROM audit_logs
 	WHERE created_at >= $1
 	UNION ALL
@@ -1405,7 +1663,7 @@ FROM (
 		'permission_denials',
 		'audit.overview.riskGroups.permissionDenials',
 		'CRITICAL',
-		COUNT(*) FILTER (WHERE ` + overviewPermissionDeniedWhere + `)
+		COUNT(*) FILTER (WHERE ` + permissionDenialsWhereClause() + `)
 	FROM audit_logs
 	WHERE created_at >= $1
 ) groups
@@ -1484,11 +1742,11 @@ func (r *repository) readOverviewRiskGroups(ctx context.Context, args []any) ([]
 
 func (r *repository) readOverviewTrend(
 	ctx context.Context,
-	window auditstore.OverviewWindow,
+	preset auditstore.AuditTimePreset,
 	startedAt time.Time,
 	now time.Time,
 ) (auditstore.OverviewTrend, error) {
-	bucketUnit, bucketSize, step := overviewTrendConfig(window)
+	bucketUnit, bucketSize, step := overviewTrendConfig(preset)
 	//nolint:gosec // step comes from overviewTrendConfig and is limited to fixed internal interval literals.
 	seriesSQL := fmt.Sprintf(`
 SELECT
@@ -1671,11 +1929,11 @@ func scanAuditTrendRecord(scanner interface {
 	return record, nil
 }
 
-func overviewTrendConfig(window auditstore.OverviewWindow) (string, int, string) {
-	switch window {
-	case auditstore.OverviewWindow7Days:
+func overviewTrendConfig(preset auditstore.AuditTimePreset) (string, int, string) {
+	switch preset {
+	case auditstore.AuditTimePresetLast7Days:
 		return "day", overviewTrendDayBucketSize, overviewTrendDayStep
-	case auditstore.OverviewWindow30Days:
+	case auditstore.AuditTimePresetLast30Days:
 		return "day", overviewTrendThreeDayBucketSize, overviewTrendThreeDayStep
 	default:
 		return "hour", overviewTrendTwoHourBucketSize, overviewTrendTwoHourStep

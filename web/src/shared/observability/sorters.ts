@@ -25,6 +25,19 @@ export function getSingleSorter<Field extends string>(sorters: QuerySorter<Field
   return sorters[0] ?? null;
 }
 
+function getSingleSorterSelection<Field extends string>(sorters: QuerySorter<Field>[]) {
+  const sorter = getSingleSorter(sorters);
+  return {
+    sorter,
+    field: sorter?.field ?? '',
+    direction: sorter?.direction ?? '',
+  };
+}
+
+export function useSingleSorterSelection<Field extends string>(sorters: () => QuerySorter<Field>[]) {
+  return getSingleSorterSelection(sorters());
+}
+
 function buildSingleSorterTagLabel<Field extends string>(
   sorter: QuerySorter<Field> | null,
   options: Array<SortOption<Field>>,

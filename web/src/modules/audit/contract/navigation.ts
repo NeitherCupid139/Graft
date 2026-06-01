@@ -1,6 +1,6 @@
 import type { LocationQuery, RouteLocationAsPathGeneric } from 'vue-router';
 
-import { buildAccessLogRequestLocation, buildAccessLogTraceLocation } from '@/modules/access-log/contract/deep-link';
+import { buildAccessLogRequestLocation } from '@/modules/access-log/contract/deep-link';
 import {
   buildMonitorLocationFromOrigin,
   buildMonitorOriginQuery,
@@ -10,7 +10,7 @@ import {
 } from '@/modules/monitor/contract/navigation';
 
 import type { AuditLogListItem } from '../types/audit';
-import { buildAuditIncidentLocation, buildAuditLogsLocation, buildAuditRequestLocation } from './deep-link';
+import { buildAuditLogsLocation, buildAuditRequestLocation } from './deep-link';
 
 export type AuditNavigationContext = {
   monitorOrigin: MonitorOriginContext | null;
@@ -44,13 +44,6 @@ export function withMonitorOrigin(
   };
 }
 
-export function buildAuditIncidentLocationWithOrigin(
-  eventId: number | string,
-  monitorOrigin?: MonitorOriginContext | null,
-): RouteLocationWithQuery {
-  return withMonitorOrigin(buildAuditIncidentLocation(eventId) as RouteLocationWithQuery, monitorOrigin);
-}
-
 function buildAuditRequestLocationWithOrigin(
   requestId: string,
   monitorOrigin?: MonitorOriginContext | null,
@@ -65,13 +58,6 @@ export function buildAccessLogRequestLocationWithOrigin(
   return withMonitorOrigin(buildAccessLogRequestLocation(requestId) as RouteLocationWithQuery, monitorOrigin);
 }
 
-export function buildAccessLogTraceLocationWithOrigin(
-  traceId: string,
-  monitorOrigin?: MonitorOriginContext | null,
-): RouteLocationWithQuery {
-  return withMonitorOrigin(buildAccessLogTraceLocation(traceId) as RouteLocationWithQuery, monitorOrigin);
-}
-
 export function buildAuditLogsLocationWithOrigin(
   query: Parameters<typeof buildAuditLogsLocation>[0],
   monitorOrigin?: MonitorOriginContext | null,
@@ -84,11 +70,10 @@ export function buildAuditRelatedActorLocation(
   actorUserId?: number | string | null,
   monitorOrigin?: MonitorOriginContext | null,
 ): RouteLocationWithQuery {
+  void actorUserId;
   return buildAuditLogsLocationWithOrigin(
     {
       actor,
-      username: actor,
-      user_id: actorUserId === null || actorUserId === undefined ? '' : String(actorUserId),
     },
     monitorOrigin,
   );

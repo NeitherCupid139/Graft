@@ -24,8 +24,8 @@
     >
       <template #action="{ row }">
         <div class="stack-cell">
-          <strong>{{ row.action }}</strong>
-          <span class="stack-cell__secondary">{{ sourceLabel(row, t) }}</span>
+          <strong>{{ actionTitle(row, t) }}</strong>
+          <span class="stack-cell__secondary">{{ actionCategoryLabel(row, t) }}</span>
         </div>
       </template>
 
@@ -110,6 +110,8 @@ import {
 import { LogIdText } from '@/shared/observability';
 
 import {
+  actionCategoryLabel,
+  actionTitle,
   actorLabel,
   actorSecondaryLabel,
   formatAuditTimestamp,
@@ -120,17 +122,16 @@ import {
   resultTone,
   riskLabel,
   riskTone,
-  sourceLabel,
 } from '../shared/presentation';
 import type { AuditLogListItem } from '../types/audit';
 
 const props = defineProps<{
-  description: string;
+  description?: string;
   footerSummary: string;
   loading?: boolean;
   localFilterActive?: boolean;
   rows: AuditLogListItem[];
-  summary: string;
+  summary?: string;
   total: number;
   visibleColumnKeys?: string[];
 }>();

@@ -44,6 +44,9 @@
       <template #request_id="{ row }">
         <log-id-text :display-value="row.request_id || '-'" :tooltip="row.request_id || '-'" />
       </template>
+      <template #started_at="{ row }">
+        <span>{{ formatCompactDateTime(row.started_at, locale) }}</span>
+      </template>
       <template #occurred_at="{ row }">
         <span>{{ formatCompactDateTime(row.occurred_at, locale) }}</span>
       </template>
@@ -118,13 +121,14 @@ const { t, locale } = useI18n();
 const columns = computed<TdBaseTableProps['columns']>(() => {
   void locale.value;
   const allColumns: TdBaseTableProps['columns'] = [
-    createTimeColumn(t('accessLog.columns.occurredAt'), 'occurred_at', 176),
+    createTimeColumn(t('accessLog.columns.startedAt'), 'started_at', 176),
     createTextColumn(t('accessLog.columns.method'), 'method', { width: 110, fixed: 'left' }),
     createTextColumn(t('accessLog.columns.path'), 'path', { minWidth: 320 }),
     createTextColumn(t('accessLog.columns.statusCode'), 'status_code', { width: 110 }),
     createTextColumn(t('accessLog.columns.durationMs'), 'duration_ms', { width: 120 }),
     createTextColumn(t('accessLog.columns.user'), 'user', { width: 190 }),
     createTextColumn(t('accessLog.columns.requestId'), 'request_id', { width: 240 }),
+    createTimeColumn(t('accessLog.columns.occurredAt'), 'occurred_at', 176),
     createActionColumn(t('accessLog.columns.operation'), 104),
   ];
 

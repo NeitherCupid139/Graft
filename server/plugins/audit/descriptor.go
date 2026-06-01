@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	auditcore "graft/server/internal/audit"
+	"graft/server/internal/drilldown"
 	"graft/server/internal/plugin"
 	"graft/server/plugins/audit/storeent"
 )
@@ -32,7 +34,16 @@ func NewDescriptor() plugin.Descriptor {
 				return nil, fmt.Errorf("build audit repository: %w", err)
 			}
 
-			return NewPlugin(repo)
+			drilldownRepo, err := drilldown.NewRepository(sqlDB)
+			if err != nil {
+				return nil, fmt.Errorf("build drilldown repository: %w", err)
+			}
+			drilldownService, err := drilldown.NewService[auditcore.ListQuery, auditcore.ListQuery](drilldownRepo, newAuditScopeResolver())
+			if err != nil {
+				return nil, fmt.Errorf("build drilldown service: %w", err)
+			}
+
+			return NewPluginWithDrilldown(repo, drilldownService)
 		}),
 	}
 }

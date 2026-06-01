@@ -1,18 +1,94 @@
 import { flushPromises, mount } from '@vue/test-utils';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineComponent, h } from 'vue';
 import { createI18n } from 'vue-i18n';
 
 import { AUDIT_ROUTE_PATH } from '../../contract/paths';
+import type { AuditOverviewResponse } from '../../types/audit';
 import AuditOverviewPage from './index.vue';
 
-const routerMocks = vi.hoisted(() => ({
-  push: vi.fn(),
+const { getAuditOverviewMock } = vi.hoisted(() => ({
+  getAuditOverviewMock: vi.fn(),
 }));
 
-const auditApiMocks = vi.hoisted(() => ({
-  getAuditOverview: vi.fn(async () => ({
-    window: '24h',
+const chartMocks = vi.hoisted(() => {
+  const setOption = vi.fn();
+  const resize = vi.fn();
+  const dispose = vi.fn();
+  const init = vi.fn(() => ({
+    setOption,
+    resize,
+    dispose,
+  }));
+
+  return {
+    init,
+    setOption,
+    resize,
+    dispose,
+  };
+});
+
+const resizeObserverMocks = vi.hoisted(() => {
+  const observe = vi.fn();
+  const disconnect = vi.fn();
+  let callback: ResizeObserverCallback | null = null;
+
+  class ResizeObserverMock {
+    constructor(nextCallback: ResizeObserverCallback) {
+      callback = nextCallback;
+    }
+
+    observe = observe;
+    disconnect = disconnect;
+  }
+
+  return {
+    ResizeObserverMock,
+    observe,
+    disconnect,
+    trigger() {
+      callback?.([], {} as ResizeObserver);
+    },
+  };
+});
+
+const settingStoreMock = vi.hoisted(() => ({
+  displayMode: 'light',
+  brandTheme: '#0052D9',
+  chartColors: {
+    textColor: 'rgba(0, 0, 0, 0.9)',
+    placeholderColor: 'rgba(0, 0, 0, 0.35)',
+    borderColor: '#dcdcdc',
+    containerColor: '#ffffff',
+  },
+}));
+
+const routerMocks = {
+  push: vi.fn(),
+};
+
+function createTrendPoint(
+  bucketStart: string,
+  bucketEnd: string,
+  total: number,
+  failed: number,
+  highRisk: number,
+  securityEvents: number,
+): NonNullable<AuditOverviewResponse['trend']>['points'][number] {
+  return {
+    bucket_start: bucketStart,
+    bucket_end: bucketEnd,
+    total,
+    failed,
+    high_risk: highRisk,
+    security_events: securityEvents,
+  };
+}
+
+function createAuditOverviewResponse(): AuditOverviewResponse {
+  return {
+    time_preset: 'last_24h',
     summary: {
       total_logs: 12,
       failed_operations: 3,
@@ -73,11 +149,11 @@ const auditApiMocks = vi.hoisted(() => ({
         created_at: '2026-05-27T08:10:00Z',
       },
     ],
-  })),
-}));
+  };
+}
 
 vi.mock('../../api/audit', () => ({
-  getAuditOverview: auditApiMocks.getAuditOverview,
+  getAuditOverview: getAuditOverviewMock,
 }));
 
 vi.mock('@/modules/shared/localized-api-error', () => ({
@@ -90,11 +166,24 @@ vi.mock('@/utils/logger', () => ({
   }),
 }));
 
+vi.mock('@/store', () => ({
+  useSettingStore: () => settingStoreMock,
+}));
+
 vi.mock('vue-router', () => ({
   useRouter: () => ({
     push: routerMocks.push,
   }),
 }));
+
+vi.mock('echarts/core', async () => {
+  const actual = await vi.importActual<typeof import('echarts/core')>('echarts/core');
+  return {
+    ...actual,
+    init: chartMocks.init,
+    use: vi.fn(),
+  };
+});
 
 const passthroughStub = defineComponent({
   name: 'PassthroughStub',
@@ -107,17 +196,50 @@ const passthroughStub = defineComponent({
         props.value,
         props.valueAside,
         JSON.stringify(props.items),
+        slots.summary?.(),
         slots.default?.(),
         slots.actions?.(),
       ]);
   },
 });
 
+const shellStub = defineComponent({
+  name: 'GovernanceDashboardShellStub',
+  props: ['eyebrow', 'title', 'description'],
+  setup(props, { slots }) {
+    return () =>
+      h('div', { 'data-page-type': 'overview-dashboard' }, [
+        props.eyebrow,
+        props.title,
+        props.description,
+        slots.actions?.(),
+        slots.summary?.(),
+        slots.default?.(),
+      ]);
+  },
+});
+
+const sectionStub = defineComponent({
+  name: 'GovernanceSectionStub',
+  props: ['title'],
+  setup(props, { slots }) {
+    return () => h('section', [props.title, slots.default?.()]);
+  },
+});
+
+const summaryCardStub = defineComponent({
+  name: 'GovernanceSummaryCardStub',
+  props: ['title', 'value', 'valueAside'],
+  setup(props) {
+    return () => h('div', [props.title, props.value, props.valueAside]);
+  },
+});
+
 const buttonStub = defineComponent({
   name: 'TButtonStub',
   emits: ['click'],
-  setup(_, { emit, slots }) {
-    return () => h('button', { onClick: () => emit('click') }, slots.default?.());
+  setup(_, { emit, slots, attrs }) {
+    return () => h('button', { ...attrs, onClick: () => emit('click') }, slots.default?.());
   },
 });
 
@@ -136,10 +258,39 @@ const radioButtonStub = defineComponent({
   },
 });
 
+const spaceStub = defineComponent({
+  name: 'TSpaceStub',
+  setup(_, { slots }) {
+    return () => h('div', slots.default?.());
+  },
+});
+
 const tagStub = defineComponent({
   name: 'TTagStub',
   setup(_, { slots }) {
     return () => h('span', slots.default?.());
+  },
+});
+
+const tooltipStub = defineComponent({
+  name: 'TTooltipStub',
+  setup(_, { slots }) {
+    return () => h('div', [slots.content?.(), slots.default?.()]);
+  },
+});
+
+const timelineStub = defineComponent({
+  name: 'TTimelineStub',
+  setup(_, { slots }) {
+    return () => h('div', slots.default?.());
+  },
+});
+
+const timelineItemStub = defineComponent({
+  name: 'TTimelineItemStub',
+  props: ['label', 'dotColor'],
+  setup(props, { slots }) {
+    return () => h('div', [props.label, props.dotColor, slots.default?.()]);
   },
 });
 
@@ -176,11 +327,26 @@ const i18n = createI18n({
             shortcuts: 'Quick Links',
             riskWatch: 'Recent Risk',
           },
+          trend: {
+            emptyTitle: 'Not enough risk events yet',
+            emptyDescription: 'Trend analysis will appear after more audit events are collected.',
+            totalMetric: 'Total events',
+            highRiskMetric: 'High risk',
+            securityMetric: 'Security events',
+            totalValue: 'Total {value}',
+            highRiskValue: 'High risk: {value}',
+            securityValue: 'Security events: {value}',
+          },
+          riskGroups: {
+            criticalSecurity: 'Critical Security Failures',
+            meta: '{count} events in the current window',
+            action: 'View related events',
+          },
           stats: {
-            totalLogs: { title: 'Audit Logs', unit: 'events', meta: 'window' },
-            failedToday: { title: 'Security Failures Today', unit: 'events', meta: 'watch' },
-            highRisk: { title: 'High-Risk Events', unit: 'items', meta: 'failed' },
-            sensitiveOps: { title: 'Sensitive Audit Operations', unit: 'actions', meta: 'write' },
+            totalLogs: { title: 'Audit Log Count', unit: 'events', meta: 'all records' },
+            failedWindow: { title: 'Security Failure Count', unit: 'events', meta: 'current window' },
+            highRisk: { title: 'High-Risk Event Count', unit: 'items', meta: 'current window' },
+            sensitiveOps: { title: 'Sensitive Operation Count', unit: 'actions', meta: 'current window' },
           },
           shortcuts: {
             failedAuth: {
@@ -188,8 +354,8 @@ const i18n = createI18n({
               description: 'Review failed sign-ins, token failures, and other authentication audit events',
             },
             rbacChanges: {
-              title: 'Open RBAC Changes',
-              description: 'Review role, permission, and assignment audit events',
+              title: 'Open Permission Configuration Changes',
+              description: 'Review role, permission, resource, and menu configuration changes',
             },
             sensitiveOps: {
               title: 'Open Sensitive Operations',
@@ -197,8 +363,15 @@ const i18n = createI18n({
             },
           },
         },
+        logList: {
+          drawer: {
+            actions: {
+              viewRelatedRequest: 'View Related Request',
+            },
+          },
+        },
         common: {
-          risk: { HIGH: 'High' },
+          risk: { HIGH: 'High', CRITICAL: 'Critical' },
           source: { SECURITY_EVENT: 'Security Event' },
         },
       },
@@ -206,30 +379,52 @@ const i18n = createI18n({
   },
 });
 
-describe('AuditOverviewPage', () => {
-  it('renders the streamlined workbench overview and opens a quick link with canonical preset keys', async () => {
-    const wrapper = mount(AuditOverviewPage, {
-      global: {
-        plugins: [i18n],
-        stubs: {
-          'governance-dashboard-shell': passthroughStub,
-          'governance-section': passthroughStub,
-          'governance-summary-card': passthroughStub,
-          'management-empty-state': passthroughStub,
-          't-button': buttonStub,
-          't-radio-group': radioGroupStub,
-          't-radio-button': radioButtonStub,
-          't-space': passthroughStub,
-          't-tag': tagStub,
-          't-timeline': passthroughStub,
-          't-timeline-item': passthroughStub,
-        },
+function mountOverview() {
+  return mount(AuditOverviewPage, {
+    global: {
+      plugins: [i18n],
+      stubs: {
+        'governance-dashboard-shell': shellStub,
+        'governance-section': sectionStub,
+        'governance-summary-card': summaryCardStub,
+        'management-empty-state': passthroughStub,
+        't-button': buttonStub,
+        't-radio-group': radioGroupStub,
+        't-radio-button': radioButtonStub,
+        't-space': spaceStub,
+        't-tag': tagStub,
+        't-tooltip': tooltipStub,
+        't-timeline': timelineStub,
+        't-timeline-item': timelineItemStub,
       },
-    });
+    },
+  });
+}
+
+describe('AuditOverviewPage', () => {
+  beforeEach(() => {
+    getAuditOverviewMock.mockReset();
+    getAuditOverviewMock.mockResolvedValue(createAuditOverviewResponse());
+    routerMocks.push.mockReset();
+    chartMocks.init.mockClear();
+    chartMocks.setOption.mockClear();
+    chartMocks.resize.mockClear();
+    chartMocks.dispose.mockClear();
+    resizeObserverMocks.observe.mockClear();
+    resizeObserverMocks.disconnect.mockClear();
+    vi.stubGlobal('ResizeObserver', resizeObserverMocks.ResizeObserverMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('renders the streamlined workbench overview and opens a quick link with canonical filter keys', async () => {
+    const wrapper = mountOverview();
 
     await flushPromises();
 
-    expect(auditApiMocks.getAuditOverview).toHaveBeenCalledWith({ window: '24h' });
+    expect(getAuditOverviewMock).toHaveBeenCalledWith({ preset: 'last_24h' });
     expect(wrapper.attributes('data-page-type')).toBe('overview-dashboard');
     expect(wrapper.text()).toContain('Security Audit Overview');
     expect(wrapper.text()).toContain('excluding health checks, monitor polling, and page-load noise');
@@ -238,45 +433,300 @@ describe('AuditOverviewPage', () => {
     expect(wrapper.text()).toContain('Recent Sensitive Audit Events');
     expect(wrapper.text()).toContain('Quick Links');
     expect(wrapper.text()).toContain('Refresh');
+    expect(wrapper.text()).toContain('Not enough risk events yet');
+    expect(wrapper.text()).toContain('Trend analysis will appear after more audit events are collected.');
 
     await wrapper.get('button[type="button"]').trigger('click');
-    expect(routerMocks.push).toHaveBeenCalledWith({
-      path: AUDIT_ROUTE_PATH.LOGS,
-      query: {
-        preset: 'auth-failed',
-      },
-    });
+    const firstQuery = routerMocks.push.mock.calls[0]?.[0]?.query ?? {};
+    expect(routerMocks.push).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: AUDIT_ROUTE_PATH.LOGS,
+        query: expect.objectContaining({
+          created_from: expect.any(String),
+          created_to: expect.any(String),
+        }),
+      }),
+    );
+    expect(firstQuery).not.toHaveProperty('preset');
   });
 
-  it('navigates security timeline items to the canonical audit incident drilldown', async () => {
-    const wrapper = mount(AuditOverviewPage, {
-      global: {
-        plugins: [i18n],
-        stubs: {
-          'governance-dashboard-shell': passthroughStub,
-          'governance-section': passthroughStub,
-          'governance-summary-card': passthroughStub,
-          'management-empty-state': passthroughStub,
-          't-button': buttonStub,
-          't-radio-group': radioGroupStub,
-          't-radio-button': radioButtonStub,
-          't-space': passthroughStub,
-          't-tag': tagStub,
-          't-timeline': passthroughStub,
-          't-timeline-item': passthroughStub,
-        },
-      },
-    });
+  it('opens the failed summary card with explicit failed-operation filters', async () => {
+    routerMocks.push.mockClear();
+
+    const wrapper = mountOverview();
 
     await flushPromises();
 
-    const timelineButton = wrapper.findAll('button[type="button"]').find((item) => item.text().includes('auth.failed'));
+    await wrapper.findAll('button[type="button"]')[1]!.trigger('click');
+
+    expect(routerMocks.push).toHaveBeenCalledWith({
+      path: AUDIT_ROUTE_PATH.LOGS,
+      query: expect.objectContaining({
+        scope: 'failed_operations',
+        created_from: expect.any(String),
+        created_to: expect.any(String),
+      }),
+    });
+  });
+
+  it('opens the high-risk summary card with canonical summary query params', async () => {
+    routerMocks.push.mockClear();
+
+    const wrapper = mountOverview();
+
+    await flushPromises();
+
+    await wrapper.findAll('button[type="button"]')[2]!.trigger('click');
+
+    expect(routerMocks.push).toHaveBeenCalledWith({
+      path: AUDIT_ROUTE_PATH.LOGS,
+      query: expect.objectContaining({
+        scope: 'high_risk_operations',
+        created_from: expect.any(String),
+        created_to: expect.any(String),
+      }),
+    });
+  });
+
+  it('opens risk groups with canonical visible audit filters', async () => {
+    routerMocks.push.mockClear();
+    getAuditOverviewMock.mockResolvedValueOnce({
+      time_preset: 'last_24h',
+      summary: {
+        total_logs: 12,
+        failed_operations: 3,
+        high_risk_events: 5,
+        sensitive_operations: 4,
+      },
+      failed_auth: [],
+      permission_denied: [],
+      security_timeline: [],
+      risk_groups: [
+        {
+          key: 'high_risk_operations',
+          label_key: 'audit.overview.riskGroups.criticalSecurity',
+          count: 3,
+          risk_level: 'CRITICAL',
+        },
+      ],
+      trend: { bucket_unit: 'hour', bucket_size: 1, points: [] },
+      sensitive_operations: [],
+    });
+
+    const wrapper = mountOverview();
+
+    await flushPromises();
+
+    const riskGroupButton = wrapper.findAll('button').find((item) => item.text().includes('View related events'));
+
+    expect(riskGroupButton).toBeTruthy();
+    await riskGroupButton!.trigger('click');
+
+    expect(routerMocks.push).toHaveBeenCalledWith({
+      path: AUDIT_ROUTE_PATH.LOGS,
+      query: expect.objectContaining({
+        scope: 'high_risk_operations',
+        created_from: expect.any(String),
+        created_to: expect.any(String),
+      }),
+    });
+  });
+
+  it('opens sensitive summary with the same keyword scope used by overview counters', async () => {
+    routerMocks.push.mockClear();
+
+    const wrapper = mountOverview();
+
+    await flushPromises();
+
+    await wrapper.findAll('button[type="button"]')[3]!.trigger('click');
+
+    expect(routerMocks.push).toHaveBeenCalledWith({
+      path: AUDIT_ROUTE_PATH.LOGS,
+      query: expect.objectContaining({
+        scope: 'sensitive_operations',
+        created_from: expect.any(String),
+        created_to: expect.any(String),
+      }),
+    });
+  });
+
+  it('uses the updated overview stat labels', async () => {
+    const wrapper = mountOverview();
+
+    await flushPromises();
+
+    const summaryCards = wrapper
+      .findAllComponents({ name: 'GovernanceSummaryCardStub' })
+      .map((item) => item.props('title'))
+      .filter((value) => typeof value === 'string');
+
+    expect(summaryCards).toContain('Audit Log Count');
+    expect(summaryCards).toContain('Security Failure Count');
+    expect(summaryCards).toContain('High-Risk Event Count');
+    expect(summaryCards).toContain('Sensitive Operation Count');
+  });
+
+  it('renders the trend chart only when enough meaningful points are present', async () => {
+    const overviewWithTrend: AuditOverviewResponse = {
+      time_preset: 'last_24h',
+      summary: {
+        total_logs: 18,
+        failed_operations: 4,
+        high_risk_events: 6,
+        sensitive_operations: 5,
+      },
+      failed_auth: [],
+      permission_denied: [],
+      security_timeline: [],
+      risk_groups: [],
+      trend: {
+        bucket_unit: 'hour',
+        bucket_size: 1,
+        points: [
+          createTrendPoint('2026-05-27T08:00:00Z', '2026-05-27T09:00:00Z', 4, 1, 1, 1),
+          createTrendPoint('2026-05-27T09:00:00Z', '2026-05-27T10:00:00Z', 7, 2, 3, 2),
+          createTrendPoint('2026-05-27T10:00:00Z', '2026-05-27T11:00:00Z', 5, 1, 2, 1),
+        ],
+      },
+      sensitive_operations: [],
+    };
+
+    getAuditOverviewMock.mockResolvedValueOnce(overviewWithTrend);
+
+    const wrapper = mountOverview();
+
+    await flushPromises();
+
+    expect(wrapper.text()).not.toContain('Not enough risk events yet');
+    expect(wrapper.text()).toContain('Total events');
+    expect(wrapper.text()).toContain('High risk');
+    expect(wrapper.text()).toContain('Security events');
+    expect(wrapper.find('[data-audit-trend-chart="true"]').exists()).toBe(true);
+    expect(chartMocks.init).toHaveBeenCalledTimes(1);
+    expect(chartMocks.setOption).toHaveBeenCalled();
+
+    const option = chartMocks.setOption.mock.calls.at(-1)?.[0];
+    expect(option?.series).toHaveLength(3);
+    expect(option?.series?.map((item: { name: string }) => item.name)).toEqual([
+      'Total events',
+      'High risk',
+      'Security events',
+    ]);
+    expect(option?.series?.[0]?.data).toEqual([4, 7, 5]);
+    expect(option?.series?.[1]?.data).toEqual([1, 3, 2]);
+    expect(option?.series?.[2]?.data).toEqual([1, 2, 1]);
+    expect(option?.yAxis?.axisLabel?.formatter(12)).toBe('12');
+    expect(
+      option?.tooltip?.formatter([
+        {
+          axisValue: '2026-05-27T08:00:00Z-2026-05-27T09:00:00Z',
+          axisValueLabel: '05/27',
+          seriesName: 'Total events',
+          color: '#0052D9',
+          data: 4,
+        },
+        {
+          axisValue: '2026-05-27T08:00:00Z-2026-05-27T09:00:00Z',
+          axisValueLabel: '05/27',
+          seriesName: 'High risk',
+          color: '#ED7B2F',
+          data: 1,
+        },
+        {
+          axisValue: '2026-05-27T08:00:00Z-2026-05-27T09:00:00Z',
+          axisValueLabel: '05/27',
+          seriesName: 'Security events',
+          color: '#E34D59',
+          data: 1,
+        },
+      ]),
+    ).toContain('Total events');
+    expect(option?.xAxis?.axisLabel?.formatter('2026-05-27T08:00:00Z-2026-05-27T09:00:00Z')).not.toBe('');
+  });
+
+  it('registers resize observation after the chart container appears', async () => {
+    getAuditOverviewMock.mockResolvedValueOnce({
+      ...createAuditOverviewResponse(),
+      trend: {
+        bucket_unit: 'hour',
+        bucket_size: 1,
+        points: [
+          createTrendPoint('2026-05-27T08:00:00Z', '2026-05-27T09:00:00Z', 4, 1, 1, 1),
+          createTrendPoint('2026-05-27T09:00:00Z', '2026-05-27T10:00:00Z', 7, 2, 3, 2),
+          createTrendPoint('2026-05-27T10:00:00Z', '2026-05-27T11:00:00Z', 5, 1, 2, 1),
+        ],
+      },
+    });
+
+    mountOverview();
+
+    await flushPromises();
+
+    expect(resizeObserverMocks.observe).toHaveBeenCalled();
+  });
+
+  it('keeps the chart hidden when not enough non-empty buckets are present', async () => {
+    getAuditOverviewMock.mockResolvedValueOnce({
+      ...createAuditOverviewResponse(),
+      trend: {
+        bucket_unit: 'hour',
+        bucket_size: 1,
+        points: [
+          createTrendPoint('2026-05-27T08:00:00Z', '2026-05-27T09:00:00Z', 0, 0, 0, 0),
+          createTrendPoint('2026-05-27T09:00:00Z', '2026-05-27T10:00:00Z', 4, 1, 4, 1),
+          createTrendPoint('2026-05-27T10:00:00Z', '2026-05-27T11:00:00Z', 0, 0, 0, 0),
+        ],
+      },
+    });
+
+    const wrapper = mountOverview();
+
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('Not enough risk events yet');
+    expect(chartMocks.init).not.toHaveBeenCalled();
+  });
+
+  it('uses quantity-based y-axis instead of percentage labels', async () => {
+    getAuditOverviewMock.mockResolvedValueOnce({
+      ...createAuditOverviewResponse(),
+      trend: {
+        bucket_unit: 'hour',
+        bucket_size: 1,
+        points: [
+          createTrendPoint('2026-05-27T08:00:00Z', '2026-05-27T09:00:00Z', 4, 1, 3, 1),
+          createTrendPoint('2026-05-27T09:00:00Z', '2026-05-27T10:00:00Z', 12, 2, 7, 2),
+          createTrendPoint('2026-05-27T10:00:00Z', '2026-05-27T11:00:00Z', 9, 1, 5, 1),
+        ],
+      },
+    });
+
+    mountOverview();
+
+    await flushPromises();
+
+    const option = chartMocks.setOption.mock.calls.at(-1)?.[0];
+    expect(option?.yAxis?.axisLabel?.formatter(9)).toBe('9');
+    expect(JSON.stringify(option)).not.toContain('%');
+  });
+
+  it('navigates security timeline items with the current request CTA-only interaction', async () => {
+    const wrapper = mountOverview();
+
+    await flushPromises();
+
+    expect(wrapper.text()).not.toContain('Open Incident');
+    const timelineButton = wrapper.findAll('button').find((item) => item.text().includes('View Related Request'));
 
     expect(timelineButton).toBeTruthy();
     await timelineButton!.trigger('click');
 
     expect(routerMocks.push).toHaveBeenLastCalledWith({
-      path: '/audit/incidents/42',
+      path: '/logs/access',
+      query: {
+        request_id: 'req-incident-42',
+      },
     });
   });
 });

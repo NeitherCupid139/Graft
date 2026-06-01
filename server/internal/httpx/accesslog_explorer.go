@@ -224,6 +224,7 @@ type accessLogDetailResponse struct {
 	Username     string  `json:"username"`
 	RequestSize  *int64  `json:"request_size,omitempty"`
 	ResponseSize *int64  `json:"response_size,omitempty"`
+	StartedAt    string  `json:"started_at"`
 	OccurredAt   string  `json:"occurred_at"`
 }
 
@@ -257,6 +258,7 @@ func toAccessLogDetailResponse(record AccessLog) accessLogDetailResponse {
 		Username:     record.Username,
 		RequestSize:  cloneInt64Pointer(record.RequestSize),
 		ResponseSize: cloneInt64Pointer(record.ResponseSize),
+		StartedAt:    record.StartedAt.UTC().Format(time.RFC3339),
 		OccurredAt:   record.OccurredAt.UTC().Format(time.RFC3339),
 	}
 }
@@ -275,6 +277,8 @@ var accessLogAllowedListQueryKeys = map[string]struct{}{
 	"status_code":     {},
 	"duration_min_ms": {},
 	"duration_max_ms": {},
+	"started_from":    {},
+	"started_to":      {},
 	"occurred_from":   {},
 	"occurred_to":     {},
 	"sort_by":         {},
@@ -384,26 +388,66 @@ func bindAccessLogNumericFilters(ctx *gin.Context, query *AccessLogListQuery) st
 }
 
 func bindAccessLogTimeFilters(ctx *gin.Context, query *AccessLogListQuery) string {
-	if queryValue := strings.TrimSpace(ctx.Query("occurred_from")); queryValue != "" {
-		value, convErr := time.Parse(time.RFC3339, queryValue)
-		if convErr != nil {
-			return "occurred_from"
-		}
-		query.OccurredFrom = &value
+	if invalidKey := bindPrimaryAccessLogTimeFilters(ctx, query); invalidKey != "" {
+		return invalidKey
 	}
 
-	if queryValue := strings.TrimSpace(ctx.Query("occurred_to")); queryValue != "" {
-		value, convErr := time.Parse(time.RFC3339, queryValue)
-		if convErr != nil {
-			return "occurred_to"
-		}
-		query.OccurredTo = &value
+	if invalidKey := bindLegacyAccessLogTimeFilters(ctx, query); invalidKey != "" {
+		return invalidKey
 	}
 
 	return ""
 }
 
 func bindAccessLogOrdering(ctx *gin.Context, query *AccessLogListQuery) string {
+	if invalidKey := bindAccessLogPathMatch(ctx, query); invalidKey != "" {
+		return invalidKey
+	}
+
+	if invalidKey := bindAccessLogSortBy(ctx, query); invalidKey != "" {
+		return invalidKey
+	}
+
+	if invalidKey := bindAccessLogSortOrder(ctx, query); invalidKey != "" {
+		return invalidKey
+	}
+
+	return ""
+}
+
+func bindPrimaryAccessLogTimeFilters(ctx *gin.Context, query *AccessLogListQuery) string {
+	startedFrom, invalidKey := parseOptionalRFC3339QueryValue(ctx, "started_from")
+	if invalidKey != "" {
+		return invalidKey
+	}
+	query.StartedFrom = startedFrom
+
+	startedTo, invalidKey := parseOptionalRFC3339QueryValue(ctx, "started_to")
+	if invalidKey != "" {
+		return invalidKey
+	}
+	query.StartedTo = startedTo
+
+	occurredFrom, invalidKey := parseOptionalRFC3339QueryValue(ctx, "occurred_from")
+	if invalidKey != "" {
+		return invalidKey
+	}
+	query.OccurredFrom = occurredFrom
+
+	occurredTo, invalidKey := parseOptionalRFC3339QueryValue(ctx, "occurred_to")
+	if invalidKey != "" {
+		return invalidKey
+	}
+	query.OccurredTo = occurredTo
+
+	return ""
+}
+
+func bindLegacyAccessLogTimeFilters(_ *gin.Context, _ *AccessLogListQuery) string {
+	return ""
+}
+
+func bindAccessLogPathMatch(ctx *gin.Context, query *AccessLogListQuery) string {
 	pathMatch := strings.TrimSpace(ctx.Query("path_match"))
 	switch pathMatch {
 	case "", string(AccessLogPathMatchExact):
@@ -414,9 +458,15 @@ func bindAccessLogOrdering(ctx *gin.Context, query *AccessLogListQuery) string {
 		return "path_match"
 	}
 
+	return ""
+}
+
+func bindAccessLogSortBy(ctx *gin.Context, query *AccessLogListQuery) string {
 	sortBy := strings.TrimSpace(ctx.Query("sort_by"))
 	switch AccessLogSortField(sortBy) {
-	case "", AccessLogSortOccurredAt:
+	case "", AccessLogSortStartedAt:
+		query.SortBy = AccessLogSortStartedAt
+	case AccessLogSortOccurredAt:
 		query.SortBy = AccessLogSortOccurredAt
 	case AccessLogSortDurationMS, AccessLogSortStatusCode:
 		query.SortBy = AccessLogSortField(sortBy)
@@ -424,6 +474,10 @@ func bindAccessLogOrdering(ctx *gin.Context, query *AccessLogListQuery) string {
 		return "sort_by"
 	}
 
+	return ""
+}
+
+func bindAccessLogSortOrder(ctx *gin.Context, query *AccessLogListQuery) string {
 	sortOrder := strings.TrimSpace(ctx.Query("sort_order"))
 	switch AccessLogSortOrder(sortOrder) {
 	case "", AccessLogSortOrderDesc:
@@ -435,6 +489,20 @@ func bindAccessLogOrdering(ctx *gin.Context, query *AccessLogListQuery) string {
 	}
 
 	return ""
+}
+
+func parseOptionalRFC3339QueryValue(ctx *gin.Context, key string) (*time.Time, string) {
+	queryValue := strings.TrimSpace(ctx.Query(key))
+	if queryValue == "" {
+		return nil, ""
+	}
+
+	value, err := time.Parse(time.RFC3339, queryValue)
+	if err != nil {
+		return nil, key
+	}
+
+	return &value, ""
 }
 
 func rejectUnknownAccessLogListQueryKeys(ctx *gin.Context) string {

@@ -127,6 +127,7 @@ func TestRepositoryCreateAndListAuditLogs(t *testing.T) {
 
 	result, err := repo.ListAuditLogs(ctx, auditstore.ListAuditLogsQuery{
 		ResourceType: "user",
+		TimePreset:   auditstore.AuditTimePresetLast30Days,
 		Limit:        10,
 		Offset:       0,
 	})
@@ -144,6 +145,53 @@ func TestRepositoryCreateAndListAuditLogs(t *testing.T) {
 	}
 	if string(result.Items[1].Metadata) != `{"field":"display"}` {
 		t.Fatalf("expected metadata to round-trip, got %s", result.Items[1].Metadata)
+	}
+}
+
+func TestRepositoryListAuditLogsDoesNotApplyImplicitTimePreset(t *testing.T) {
+	db := openTestDB(t)
+	repo, err := NewRepository(db, nil)
+	if err != nil {
+		t.Fatalf("new repository: %v", err)
+	}
+
+	ctx := context.Background()
+	oldCreatedAt := time.Now().UTC().Add(-45 * 24 * time.Hour)
+	recentCreatedAt := time.Now().UTC().Add(-2 * time.Hour)
+	for _, item := range []auditstore.CreateAuditLogInput{
+		{
+			Action:       "audit.old",
+			ResourceType: "user",
+			ResourceID:   "1",
+			Success:      true,
+			RequestID:    "req-old",
+			CreatedAt:    oldCreatedAt,
+		},
+		{
+			Action:       "audit.recent",
+			ResourceType: "user",
+			ResourceID:   "2",
+			Success:      true,
+			RequestID:    "req-recent",
+			CreatedAt:    recentCreatedAt,
+		},
+	} {
+		if _, err := repo.CreateAuditLog(ctx, item); err != nil {
+			t.Fatalf("seed audit log: %v", err)
+		}
+	}
+
+	result, err := repo.ListAuditLogs(ctx, auditstore.ListAuditLogsQuery{
+		ResourceType: "user",
+		Limit:        10,
+		Offset:       0,
+	})
+	if err != nil {
+		t.Fatalf("list audit logs: %v", err)
+	}
+
+	if result.Total != 2 || len(result.Items) != 2 {
+		t.Fatalf("expected both old and recent logs without implicit preset, got %#v", result)
 	}
 }
 
@@ -221,6 +269,7 @@ func TestRepositoryListAuditLogsSupportsActionPrefix(t *testing.T) {
 
 	result, err := repo.ListAuditLogs(ctx, auditstore.ListAuditLogsQuery{
 		ActionPrefix: "rbac.",
+		TimePreset:   auditstore.AuditTimePresetLast30Days,
 		Limit:        10,
 		Offset:       0,
 	})
@@ -272,11 +321,12 @@ func TestRepositoryListAuditLogsAppliesFilters(t *testing.T) {
 	}
 
 	result, err := repo.ListAuditLogs(ctx, auditstore.ListAuditLogsQuery{
-		Action:    "user.update",
-		Success:   &success,
-		RequestID: "req-keep",
-		Limit:     10,
-		Offset:    0,
+		Action:     "user.update",
+		Success:    &success,
+		RequestID:  "req-keep",
+		TimePreset: auditstore.AuditTimePresetLast30Days,
+		Limit:      10,
+		Offset:     0,
 	})
 	if err != nil {
 		t.Fatalf("list filtered audit logs: %v", err)
@@ -306,6 +356,110 @@ func TestRepositoryListAuditLogsRejectsInvalidPagination(t *testing.T) {
 	_, err = repo.ListAuditLogs(ctx, auditstore.ListAuditLogsQuery{Limit: 10, Offset: -1})
 	if err == nil || !strings.Contains(err.Error(), "invalid offset") {
 		t.Fatalf("expected invalid offset error, got %v", err)
+	}
+}
+
+func TestRepositoryListAuditLogsSupportsCanonicalFilters(t *testing.T) {
+	db := openTestDB(t)
+	repo, err := NewRepository(db, nil)
+	if err != nil {
+		t.Fatalf("new repository: %v", err)
+	}
+
+	ctx := context.Background()
+	now := time.Now().UTC()
+	seedAuditOverviewDrilldownLogs(ctx, t, repo, now)
+
+	result, err := repo.ListAuditLogs(ctx, auditstore.ListAuditLogsQuery{
+		TimePreset: auditstore.AuditTimePresetLast24Hours,
+		Keyword:    "ops-admin",
+		Limit:      20,
+		Offset:     0,
+	})
+	if err != nil {
+		t.Fatalf("keyword filter: list audit logs: %v", err)
+	}
+	if result.Total != 1 || len(result.Items) != 1 || result.Items[0].RequestID != "req-denied" {
+		t.Fatalf("keyword filter: unexpected result %#v", result)
+	}
+
+	result, err = repo.ListAuditLogs(ctx, auditstore.ListAuditLogsQuery{
+		TimePreset: auditstore.AuditTimePresetLast24Hours,
+		Actor:      "alice",
+		Limit:      20,
+		Offset:     0,
+	})
+	if err != nil {
+		t.Fatalf("actor filter: list audit logs: %v", err)
+	}
+	if result.Total != 1 || len(result.Items) != 1 || result.Items[0].RequestID != "req-reset" {
+		t.Fatalf("actor filter: unexpected result %#v", result)
+	}
+
+	result, err = repo.ListAuditLogs(ctx, auditstore.ListAuditLogsQuery{
+		TimePreset: auditstore.AuditTimePresetLast24Hours,
+		SessionID:  "session-1",
+		Limit:      20,
+		Offset:     0,
+	})
+	if err != nil {
+		t.Fatalf("session filter: list audit logs: %v", err)
+	}
+	if result.Total != 1 || len(result.Items) != 1 || result.Items[0].RequestID != "req-auth" {
+		t.Fatalf("session filter: unexpected result %#v", result)
+	}
+}
+
+func seedAuditOverviewDrilldownLogs(
+	ctx context.Context,
+	t *testing.T,
+	repo auditstore.AuditRepository,
+	now time.Time,
+) {
+	t.Helper()
+
+	seed := []auditstore.CreateAuditLogInput{
+		{
+			ActorUsername:    "alice",
+			ActorDisplayName: "Alice",
+			Action:           "user.password.reset",
+			ResourceType:     "user",
+			ResourceID:       "7",
+			ResourceName:     "Alice",
+			Success:          true,
+			RequestID:        "req-reset",
+			Message:          "password reset",
+			Metadata:         json.RawMessage(`{"request_path":"/api/users/7/reset-password","status_code":200}`),
+			CreatedAt:        now.Add(-20 * time.Minute),
+		},
+		{
+			Action:       "auth.login_failed",
+			ResourceType: "auth",
+			ResourceID:   "session-1",
+			ResourceName: "login",
+			Success:      false,
+			RequestID:    "req-auth",
+			Message:      "common.invalid_argument",
+			Metadata:     json.RawMessage(`{"request_path":"/api/auth/login","status_code":401,"session_id":"session-1"}`),
+			CreatedAt:    now.Add(-15 * time.Minute),
+		},
+		{
+			Action:       "rbac.role.delete",
+			ResourceType: "role",
+			ResourceID:   "12",
+			ResourceName: "ops-admin",
+			Success:      false,
+			RequestID:    "req-denied",
+			Message:      "common.forbidden",
+			Metadata:     json.RawMessage(`{"request_path":"/api/roles/12/delete","status_code":403}`),
+			CreatedAt:    now.Add(-10 * time.Minute),
+		},
+	}
+
+	for _, item := range seed {
+		if _, err := repo.CreateAuditLog(ctx, item); err != nil {
+			t.Fatalf("seed audit log: %v", err)
+		}
 	}
 }
 
@@ -435,16 +589,16 @@ func assertIncidentCorrelation(t *testing.T, incident auditstore.AuditIncident, 
 
 func TestBuildAuditTargetPromotesIncidentTargets(t *testing.T) {
 	record := auditstore.AuditLog{
-		ID:          42,
-		Source:      auditstore.AuditSourceSecurityEvent,
-		Action:      "auth.failed",
+		ID:           42,
+		Source:       auditstore.AuditSourceSecurityEvent,
+		Action:       "auth.failed",
 		ResourceType: "AUTH",
-		ResourceID:  "console",
+		ResourceID:   "console",
 		ResourceName: "Console",
-		Result:      auditstore.AuditResultFailed,
-		RiskLevel:   auditstore.AuditRiskLevelHigh,
-		TargetType:  "AUTH",
-		TargetLabel: "Console",
+		Result:       auditstore.AuditResultFailed,
+		RiskLevel:    auditstore.AuditRiskLevelHigh,
+		TargetType:   "AUTH",
+		TargetLabel:  "Console",
 	}
 
 	target := buildAuditTarget(record)
@@ -517,7 +671,7 @@ func TestRepositoryReadAuditOverview(t *testing.T) {
 		}
 	}
 
-	overview, err := repo.ReadAuditOverview(ctx, auditstore.OverviewWindow24Hours)
+	overview, err := repo.ReadAuditOverview(ctx, auditstore.AuditTimePresetLast24Hours)
 	if err != nil {
 		t.Fatalf("read audit overview: %v", err)
 	}
@@ -528,8 +682,8 @@ func TestRepositoryReadAuditOverview(t *testing.T) {
 func assertOverviewSummary(t *testing.T, overview auditstore.AuditOverview) {
 	t.Helper()
 
-	if overview.Window != auditstore.OverviewWindow24Hours {
-		t.Fatalf("expected 24h window, got %q", overview.Window)
+	if overview.TimePreset != auditstore.AuditTimePresetLast24Hours {
+		t.Fatalf("expected last_24h preset, got %q", overview.TimePreset)
 	}
 	if overview.Summary.TotalLogs != 4 || overview.Summary.FailedOperations != 3 {
 		t.Fatalf("unexpected overview summary: %#v", overview.Summary)
@@ -594,8 +748,8 @@ func TestRepositoryListAuditPolicyRulesOrdersByPriority(t *testing.T) {
 
 func TestOverviewSQLUsesPostgresJSONBExtraction(t *testing.T) {
 	for name, clause := range map[string]string{
-		"failed auth":       overviewFailedAuthWhere,
-		"permission denied": overviewPermissionDeniedWhere,
+		"failed auth":       authFailuresWhereClause(),
+		"permission denied": permissionDenialsWhereClause(),
 	} {
 		if strings.Contains(clause, "json_extract(") {
 			t.Fatalf("%s clause should not use sqlite json_extract: %s", name, clause)
@@ -620,5 +774,40 @@ func TestRiskLevelWhereClauseKeepsEscapedLikePatterns(t *testing.T) {
 	}
 	if !strings.Contains(clause, "(metadata ->> 'status_code')::int >= 500") {
 		t.Fatalf("expected 5xx branch in risk level clause, got %s", clause)
+	}
+}
+
+func TestBuildAuditLogFiltersUsesSingleBackslashLikeEscape(t *testing.T) {
+	whereSQL, args := buildAuditLogFilters(auditstore.ListAuditLogsQuery{
+		ActionPrefix:        `audit\prefix`,
+		ActionKeywords:      []string{`grant_%`},
+		RequestPathPrefixes: []string{`/api/a_b%`},
+		Limit:               20,
+		Offset:              0,
+	})
+
+	if strings.Contains(whereSQL, `ESCAPE '\\\\'`) {
+		t.Fatalf("unexpected doubled escape clause in where SQL: %s", whereSQL)
+	}
+	if count := strings.Count(whereSQL, sqlLikeEscapeClause); count != 3 {
+		t.Fatalf("expected three single-backslash escape clauses, got %d in %s", count, whereSQL)
+	}
+
+	wantArgs := []string{
+		`audit\\prefix%`,
+		`%grant\_\%%`,
+		`/api/a\_b\%%`,
+	}
+	if len(args) < len(wantArgs) {
+		t.Fatalf("expected at least %d args, got %d (%#v)", len(wantArgs), len(args), args)
+	}
+	for index, want := range wantArgs {
+		got, ok := args[index].(string)
+		if !ok {
+			t.Fatalf("expected string arg at index %d, got %#v", index, args[index])
+		}
+		if got != want {
+			t.Fatalf("unexpected arg at index %d: got %q want %q", index, got, want)
+		}
 	}
 }

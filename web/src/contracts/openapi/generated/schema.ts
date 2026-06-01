@@ -926,6 +926,8 @@ export interface components {
     ReplaceUserRolesRequest: components['schemas']['replace-user-roles-request'];
     BatchUserRolesRequest: components['schemas']['batch-user-roles-request'];
     AuditLogListItem: components['schemas']['audit-log-list-item'];
+    AuditDrilldownScope: components['schemas']['audit-drilldown-scope'];
+    AuditBusinessCategory: components['schemas']['audit-business-category'];
     AuditLogListResponse: components['schemas']['audit-log-list-response'];
     EnvelopedAuditLogListResponse: components['schemas']['enveloped-audit-log-list-response'];
     AuditOverviewItem: components['schemas']['audit-overview-item'];
@@ -1249,6 +1251,24 @@ export interface components {
       user_ids: number[];
       role_ids: number[];
     };
+    /** @enum {string} */
+    'audit-drilldown-scope':
+      | 'failed_operations'
+      | 'high_risk_operations'
+      | 'sensitive_operations'
+      | 'auth_failures'
+      | 'permission_denials'
+      | 'rbac_changes'
+      | 'critical_security';
+    /** @enum {string} */
+    'audit-business-category':
+      | 'failed_operations'
+      | 'high_risk_operations'
+      | 'sensitive_operations'
+      | 'auth_failures'
+      | 'permission_denials'
+      | 'rbac_changes'
+      | 'critical_security';
     'audit-target': {
       /** @enum {string} */
       kind: 'resource' | 'actor' | 'request' | 'session' | 'incident';
@@ -1293,11 +1313,47 @@ export interface components {
       /** Format: date-time */
       created_at: string;
     };
+    'applied-drilldown-scope': {
+      module: string;
+      scope: string;
+      name: string;
+      description?: string;
+      owned_fields?: string[];
+    };
+    'drilldown-scope-projection-item': {
+      key: string;
+      label_key: string;
+      kind: string;
+      values?: string[];
+      locked: boolean;
+    };
+    'drilldown-scope-projection': {
+      title: string;
+      description?: string;
+      items?: components['schemas']['drilldown-scope-projection-item'][];
+    };
+    'audit-log-convertible-filters': {
+      /** @enum {string} */
+      preset?: 'last_24h' | 'last_7d' | 'last_30d';
+      /** @enum {string} */
+      source?: 'REQUEST' | 'SECURITY_EVENT' | 'DOMAIN_EVENT';
+      business_category?: components['schemas']['audit-business-category'];
+      success?: boolean;
+      action_prefixes?: string[];
+      action_keywords?: string[];
+      resource_types?: string[];
+      request_path_prefixes?: string[];
+      results?: ('SUCCESS' | 'FAILED' | 'DENIED' | 'ERROR')[];
+      risk_levels?: ('LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL')[];
+    };
     'audit-log-list-response': {
       items: components['schemas']['audit-log-list-item'][];
       total: number;
       page: number;
       page_size: number;
+      applied_scope?: components['schemas']['applied-drilldown-scope'];
+      scope_projection?: components['schemas']['drilldown-scope-projection'];
+      convertible_filters?: components['schemas']['audit-log-convertible-filters'];
     };
     'enveloped-audit-log-list-response': components['schemas']['api-envelope'] & {
       data?: components['schemas']['audit-log-list-response'];
@@ -1332,7 +1388,7 @@ export interface components {
     };
     'audit-overview-response': {
       /** @enum {string} */
-      window: '24h' | '7d' | '30d';
+      time_preset: 'last_24h' | 'last_7d' | 'last_30d';
       summary: components['schemas']['audit-overview-summary'];
       risk_groups: {
         key: string;
@@ -1823,6 +1879,8 @@ export interface components {
       request_size?: number | null;
       /** Format: int64 */
       response_size?: number | null;
+      /** Format: date-time */
+      started_at: string;
       /** Format: date-time */
       occurred_at: string;
     };
@@ -3950,15 +4008,29 @@ export interface operations {
         page?: number;
         page_size?: number;
         actor_user_id?: number;
+        keyword?: string;
+        actor?: string;
         action?: string;
+        preset?: 'last_24h' | 'last_7d' | 'last_30d';
+        /** @description Stable business drilldown scope. When present, scope-owned fields remain read-only until the client exits drilldown or converts to normal filters. */
+        scope?: components['schemas']['audit-drilldown-scope'];
+        /** @description Backend-owned editable business category used by normal filters and scope conversion. */
+        business_category?: components['schemas']['audit-business-category'];
         action_prefix?: string;
+        action_prefixes?: string[];
+        action_keywords?: string[];
         source?: 'REQUEST' | 'SECURITY_EVENT' | 'DOMAIN_EVENT';
         resource_type?: string;
+        resource_types?: string[];
         resource_id?: string;
         resource_name?: string;
+        request_path_prefixes?: string[];
         request_id?: string;
+        session_id?: string;
         result?: 'SUCCESS' | 'FAILED' | 'DENIED' | 'ERROR';
+        results?: ('SUCCESS' | 'FAILED' | 'DENIED' | 'ERROR')[];
         risk_level?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+        risk_levels?: ('LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL')[];
         success?: boolean;
         created_from?: string;
         created_to?: string;
@@ -3989,7 +4061,7 @@ export interface operations {
           'application/json': components['schemas']['enveloped-audit-log-list-response'];
         };
       };
-      /** @description Invalid list filter or pagination query. */
+      /** @description Invalid list filter, scope conflict, disabled scope, or pagination query. */
       400: {
         headers: {
           'X-Request-Id': components['headers']['request-id'];
@@ -4007,7 +4079,7 @@ export interface operations {
   getAuditOverview: {
     parameters: {
       query?: {
-        window?: '24h' | '7d' | '30d';
+        preset?: 'last_24h' | 'last_7d' | 'last_30d';
       };
       header?: {
         /** @description Explicit locale override header already supported by the runtime. */
@@ -4143,9 +4215,11 @@ export interface operations {
         status_code?: number;
         duration_min_ms?: number;
         duration_max_ms?: number;
+        started_from?: string;
+        started_to?: string;
         occurred_from?: string;
         occurred_to?: string;
-        sort_by?: 'occurred_at' | 'duration_ms' | 'status_code';
+        sort_by?: 'started_at' | 'occurred_at' | 'duration_ms' | 'status_code';
         sort_order?: 'asc' | 'desc';
       };
       header?: {

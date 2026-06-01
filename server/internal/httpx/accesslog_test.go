@@ -190,6 +190,21 @@ func TestNewServerPreservesIncomingTraceIDForRootRoutes(t *testing.T) {
 }
 
 func TestNewAccessLogMiddlewarePersistsAuthenticatedCanonicalFieldsAndRedactsSensitiveValues(t *testing.T) {
+	repo, recorder := runAuthenticatedAccessLogMiddlewareRequest(t)
+
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d", http.StatusCreated, recorder.Code)
+	}
+	if len(repo.created) != 1 {
+		t.Fatalf("expected one persisted access log, got %d", len(repo.created))
+	}
+
+	assertAccessLogRecordMatchesAuthenticatedLogin(t, repo.created[0])
+}
+
+func runAuthenticatedAccessLogMiddlewareRequest(t *testing.T) (*stubAccessLogRepository, *httptest.ResponseRecorder) {
+	t.Helper()
+
 	repo := &stubAccessLogRepository{}
 	server := NewServer(zap.NewNop(), repo)
 
@@ -211,30 +226,58 @@ func TestNewAccessLogMiddlewarePersistsAuthenticatedCanonicalFieldsAndRedactsSen
 	recorder := httptest.NewRecorder()
 	server.Engine().ServeHTTP(recorder, request)
 
-	if recorder.Code != http.StatusCreated {
-		t.Fatalf("expected status %d, got %d", http.StatusCreated, recorder.Code)
-	}
-	if len(repo.created) != 1 {
-		t.Fatalf("expected one persisted access log, got %d", len(repo.created))
-	}
+	return repo, recorder
+}
 
-	record := repo.created[0]
+func assertAccessLogRecordMatchesAuthenticatedLogin(t *testing.T, record CreateAccessLogInput) {
+	t.Helper()
+
+	assertCanonicalAccessLogRouteFields(t, record)
+	assertAuthenticatedAccessLogUserFields(t, record)
+	assertAccessLogRequestMetadata(t, record)
+	assertAccessLogTimestamps(t, record)
+}
+
+func assertCanonicalAccessLogRouteFields(t *testing.T, record CreateAccessLogInput) {
+	t.Helper()
+
 	if record.Method != http.MethodPost || record.Path != "/login" || record.Route != "/login" {
 		t.Fatalf("expected canonical route fields, got %#v", record)
 	}
+}
+
+func assertAuthenticatedAccessLogUserFields(t *testing.T, record CreateAccessLogInput) {
+	t.Helper()
+
 	if record.UserID == nil || *record.UserID != 7 || record.Username != "alice" {
 		t.Fatalf("expected authenticated user fields, got %#v", record)
 	}
+}
+
+func assertAccessLogRequestMetadata(t *testing.T, record CreateAccessLogInput) {
+	t.Helper()
+
 	if record.RequestSize == nil || *record.RequestSize != 321 {
 		t.Fatalf("expected request size 321, got %#v", record.RequestSize)
 	}
 	if record.UserAgent != "curl token=[REDACTED]" {
 		t.Fatalf("expected redacted user agent, got %q", record.UserAgent)
 	}
+	if record.Path != "/login" {
+		t.Fatalf("expected path to omit query string, got %q", record.Path)
+	}
+}
+
+func assertAccessLogTimestamps(t *testing.T, record CreateAccessLogInput) {
+	t.Helper()
+
+	if record.StartedAt.IsZero() {
+		t.Fatalf("expected started_at to be set, got %#v", record.StartedAt)
+	}
 	if record.OccurredAt.IsZero() {
 		t.Fatalf("expected occurred_at to be set, got %#v", record.OccurredAt)
 	}
-	if record.Path != "/login" {
-		t.Fatalf("expected path to omit query string, got %q", record.Path)
+	if record.StartedAt.After(record.OccurredAt) {
+		t.Fatalf("expected started_at to be <= occurred_at, got started=%s occurred=%s", record.StartedAt, record.OccurredAt)
 	}
 }

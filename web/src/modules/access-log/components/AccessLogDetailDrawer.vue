@@ -5,13 +5,17 @@
     :footer="false"
     destroy-on-close
     placement="right"
-    size="720px"
+    size="820px"
     @update:visible="$emit('update:visible', $event)"
   >
     <div v-if="record" class="access-log-detail">
       <section class="access-log-detail__section">
         <h4>{{ t('accessLog.detail.basic') }}</h4>
         <div class="access-log-detail__grid">
+          <div class="access-log-detail__item">
+            <span>{{ t('accessLog.columns.startedAt') }}</span
+            ><strong>{{ formatCompactDateTime(record.started_at, locale) }}</strong>
+          </div>
           <div class="access-log-detail__item">
             <span>{{ t('accessLog.columns.occurredAt') }}</span
             ><strong>{{ formatCompactDateTime(record.occurred_at, locale) }}</strong>
@@ -41,21 +45,6 @@
             <div class="access-log-detail__copy-line">
               <strong class="access-log-detail__mono">{{ record.request_id }}</strong>
               <t-button size="small" theme="default" variant="text" @click="copyValue(record.request_id)">
-                {{ t('accessLog.actions.copy') }}
-              </t-button>
-            </div>
-          </div>
-          <div class="access-log-detail__item access-log-detail__item--full">
-            <span>{{ t('accessLog.detail.traceId') }}</span>
-            <div class="access-log-detail__copy-line">
-              <strong class="access-log-detail__mono">{{ record.trace_id || '-' }}</strong>
-              <t-button
-                v-if="record.trace_id"
-                size="small"
-                theme="default"
-                variant="text"
-                @click="copyValue(record.trace_id)"
-              >
                 {{ t('accessLog.actions.copy') }}
               </t-button>
             </div>
@@ -99,13 +88,16 @@
         </div>
       </section>
 
-      <section class="access-log-detail__section">
-        <h4>{{ t('accessLog.detail.context') }}</h4>
-        <details class="access-log-detail__context">
-          <summary>{{ t('accessLog.detail.toggleContext') }}</summary>
-          <pre>{{ JSON.stringify(record, null, 2) }}</pre>
-        </details>
-      </section>
+      <log-json-panel
+        :title="t('accessLog.detail.context')"
+        :expand-label="t('accessLog.detail.expandContext')"
+        :collapse-label="t('accessLog.detail.collapseContext')"
+        :copy-label="t('accessLog.detail.copyContext')"
+        :copy-success-label="t('accessLog.detail.copyContextSuccess')"
+        :copy-fail-label="t('accessLog.detail.copyContextFail')"
+        :empty-text="t('accessLog.detail.contextEmpty')"
+        :value="record"
+      />
 
       <section v-if="relatedActions.length" class="access-log-detail__section">
         <h4>{{ t('accessLog.detail.relatedAudit') }}</h4>
@@ -131,9 +123,9 @@ import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 
-import { buildAuditRequestLocation, buildAuditTraceLocation } from '@/modules/audit/contract/deep-link';
+import { buildAuditRequestLocation } from '@/modules/audit/contract/deep-link';
 import { formatCompactDateTime } from '@/shared/components/management';
-import { copyText } from '@/shared/observability';
+import { copyText, LogJsonPanel } from '@/shared/observability';
 
 import { accessLogPathSecondary, accessLogUserPrimary, accessLogUserSecondary } from '../shared/presentation';
 import type { AccessLogItem } from '../types/access-log';
@@ -162,13 +154,6 @@ const relatedActions = computed(() => {
       key: 'audit-request',
       label: t('accessLog.actions.viewRelatedAuditRecords'),
       onClick: () => void router.push(buildAuditRequestLocation(record.request_id)),
-    });
-  }
-  if (record.trace_id) {
-    actions.push({
-      key: 'audit-trace',
-      label: t('accessLog.actions.openAuditByTraceId'),
-      onClick: () => void router.push(buildAuditTraceLocation(record.trace_id)),
     });
   }
   return actions;
@@ -229,25 +214,6 @@ async function copyValue(value: string) {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-}
-
-.access-log-detail__context {
-  background: var(--td-bg-color-page);
-  border: 1px solid var(--td-component-border);
-  border-radius: 12px;
-  padding: 12px;
-}
-
-.access-log-detail__context summary {
-  cursor: pointer;
-  margin-bottom: 8px;
-}
-
-.access-log-detail__context pre {
-  margin: 0;
-  overflow: auto;
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
 }
 
 .access-log-detail__mono {

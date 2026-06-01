@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -37,6 +39,9 @@ var devServeRunner = runServe
 var devAirRunner = func(cmd *cobra.Command, configPath string) error {
 	return runBackendCommand(cmd, "go", "tool", "air", "-c", configPath)
 }
+
+var devAirModuleRootResolver = resolveBackendModuleRoot
+var devAirTargetFinder = findDevAirTargets
 
 // newDevCommand 创建本地开发显式编排命令。
 //
@@ -111,7 +116,16 @@ func runDev(cmd *cobra.Command, args []string, opts devOptions) error {
 
 // runDevAir 启动基于 Air 的本地热重载循环。
 func runDevAir(cmd *cobra.Command, opts devAirOptions) error {
-	if err := devAirRunner(cmd, opts.configPath); err != nil {
+	configPath, err := resolveDevAirConfigPath(opts.configPath)
+	if err != nil {
+		return fmt.Errorf("resolve Air config path: %w", err)
+	}
+
+	if err := ensureDevAirIsSingleInstance(configPath); err != nil {
+		return err
+	}
+
+	if err := devAirRunner(cmd, configPath); err != nil {
 		if errors.Is(err, context.Canceled) {
 			return nil
 		}
@@ -119,4 +133,51 @@ func runDevAir(cmd *cobra.Command, opts devAirOptions) error {
 	}
 
 	return nil
+}
+
+func resolveDevAirConfigPath(configPath string) (string, error) {
+	moduleRoot, err := devAirModuleRootResolver()
+	if err != nil {
+		return "", fmt.Errorf("resolve backend module root: %w", err)
+	}
+
+	return normalizeDevAirConfigPath(moduleRoot, configPath), nil
+}
+
+func ensureDevAirIsSingleInstance(configPath string) error {
+	if runtime.GOOS != "linux" {
+		return nil
+	}
+
+	moduleRoot, err := devAirModuleRootResolver()
+	if err != nil {
+		return fmt.Errorf("resolve backend module root: %w", err)
+	}
+
+	servePIDs, airPIDs, err := devAirTargetFinder(moduleRoot, configPath)
+	if err != nil {
+		return fmt.Errorf("inspect running Air processes: %w", err)
+	}
+	if len(servePIDs) == 0 && len(airPIDs) == 0 {
+		return nil
+	}
+
+	return fmt.Errorf(
+		"another Air live reload session is already running for %s (serve=%s air=%s); stop it with `graft dev stop-air` before starting a new one",
+		moduleRoot,
+		formatDevPIDs(servePIDs),
+		formatDevPIDs(airPIDs),
+	)
+}
+
+func formatDevPIDs(pids []int) string {
+	if len(pids) == 0 {
+		return "none"
+	}
+
+	parts := make([]string, 0, len(pids))
+	for _, pid := range pids {
+		parts = append(parts, fmt.Sprintf("%d", pid))
+	}
+	return strings.Join(parts, ",")
 }

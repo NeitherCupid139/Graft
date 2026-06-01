@@ -1,6 +1,7 @@
 import { formatLocaleDateTime } from '@/shared/observability';
 
 import type { AuditLogListItem } from '../types/audit';
+import type { AuditBusinessCategory } from '../types/audit';
 import type { AuditResult as AuditResultEnum, AuditRiskLevel as AuditRiskLevelEnum } from '../types/audit';
 import type { AuditSorter } from '../types/audit';
 
@@ -12,19 +13,25 @@ export type AuditResultValue = 'all' | AuditResultEnum;
 export type AuditClientFilterState = {
   keyword: string;
   actor: string;
-  actorUserId: string;
+  success: 'all' | 'true' | 'false';
   action: string;
   actionPrefix: string;
+  actionPrefixes: string[];
+  actionKeywords: string[];
+  requestPathPrefixes: string[];
   source: string;
+  businessCategory: '' | AuditBusinessCategory;
   createdRange: string[];
   resourceType: string;
+  resourceTypes: string[];
   resourceName: string;
   resourceId: string;
   result: AuditResultValue;
+  results: AuditResultEnum[];
   riskLevel: 'all' | AuditRiskValue;
+  riskLevels: AuditRiskLevelEnum[];
   session: string;
   requestId: string;
-  traceId: string;
   sorters: AuditSorter[];
 };
 
@@ -62,12 +69,8 @@ export function resourceDetailLabel(row: AuditLogListItem, t: Translate) {
   );
 }
 
-export function traceIdForRecord(row: AuditLogListItem) {
-  return row.trace_id || metadataLookup(row, 'trace_id') || row.request_id || '-';
-}
-
 export function requestIdForRecord(row: AuditLogListItem) {
-  return row.request_id || metadataLookup(row, 'request_id') || traceIdForRecord(row);
+  return row.request_id || metadataLookup(row, 'request_id') || '-';
 }
 
 export function sessionIdForRecord(row: AuditLogListItem) {
@@ -108,6 +111,24 @@ export function sourceLabel(row: AuditLogListItem, t: Translate) {
   return t(`audit.common.source.${row.source || sourceForRecord(row)}`);
 }
 
+function translateIfPresent(t: Translate, key: string, fallback: string) {
+  const translated = t(key);
+  return translated === key ? fallback : translated;
+}
+
+export function actionCategoryLabel(row: AuditLogListItem, t: Translate) {
+  return sourceLabel(row, t);
+}
+
+export function actionTitle(row: AuditLogListItem, t: Translate) {
+  const actionKey = row.action?.trim();
+  if (!actionKey) {
+    return t('audit.common.unknownResource');
+  }
+
+  return translateIfPresent(t, `audit.actionLabel.${actionKey}`, actionCategoryLabel(row, t));
+}
+
 export function metadataLookup(row: AuditLogListItem, key: string) {
   const metadata = row.metadata;
   if (!metadata || typeof metadata !== 'object' || !(key in metadata)) {
@@ -116,14 +137,6 @@ export function metadataLookup(row: AuditLogListItem, key: string) {
 
   const value = metadata[key];
   return typeof value === 'string' || typeof value === 'number' ? String(value) : JSON.stringify(value);
-}
-
-export function metadataDetail(metadata: AuditLogListItem['metadata']) {
-  if (!metadata || typeof metadata !== 'object' || Object.keys(metadata).length === 0) {
-    return '-';
-  }
-
-  return JSON.stringify(metadata, null, 2);
 }
 
 export function isSensitiveAction(row: AuditLogListItem) {
@@ -192,97 +205,4 @@ function targetTypeLabel(value?: string | null) {
 
 export function formatAuditTimestamp(value?: string | null, locale?: string) {
   return formatLocaleDateTime(value, locale);
-}
-
-function includesText(source: string, search: string) {
-  return source.toLowerCase().includes(search.trim().toLowerCase());
-}
-
-export function matchesAuditRow(row: AuditLogListItem, filters: AuditClientFilterState, t: Translate) {
-  const keyword = filters.keyword.trim().toLowerCase();
-  const actor = filters.actor.trim().toLowerCase();
-  const actorUserId = filters.actorUserId.trim();
-  const action = filters.action.trim().toLowerCase();
-  const actionPrefix = filters.actionPrefix.trim().toLowerCase();
-  const source = filters.source.trim().toUpperCase();
-  const resourceType = filters.resourceType.trim().toLowerCase();
-  const resourceName = filters.resourceName.trim().toLowerCase();
-  const resourceId = filters.resourceId.trim().toLowerCase();
-  const session = filters.session.trim().toLowerCase();
-  const requestId = filters.requestId.trim().toLowerCase();
-  const traceId = filters.traceId.trim().toLowerCase();
-
-  if (keyword) {
-    const keywordSource = [
-      row.action,
-      row.request_id,
-      row.trace_id,
-      row.message,
-      actorLabel(row, t),
-      resourceLabel(row, t),
-      row.resource_type,
-      row.resource_id,
-    ]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase();
-
-    if (!keywordSource.includes(keyword)) {
-      return false;
-    }
-  }
-
-  if (actor && !includesText(`${actorLabel(row, t)} ${actorSecondaryLabel(row)}`, actor)) {
-    return false;
-  }
-
-  if (actorUserId && String(row.actor_user_id ?? '') !== actorUserId) {
-    return false;
-  }
-
-  if (action && !includesText(row.action, action)) {
-    return false;
-  }
-
-  if (actionPrefix && !row.action.toLowerCase().startsWith(actionPrefix)) {
-    return false;
-  }
-
-  if (source && (row.source || sourceForRecord(row)) !== source) {
-    return false;
-  }
-
-  if (resourceType && !includesText(row.resource_type || row.target_type || '', resourceType)) {
-    return false;
-  }
-
-  if (resourceName && !includesText(`${resourceDetailLabel(row, t)} ${row.message}`, resourceName)) {
-    return false;
-  }
-
-  if (resourceId && !includesText(row.resource_id || '', resourceId)) {
-    return false;
-  }
-
-  if (filters.result !== 'all' && row.result !== filters.result) {
-    return false;
-  }
-
-  if (filters.riskLevel !== 'all' && (row.risk_level || 'LOW') !== filters.riskLevel) {
-    return false;
-  }
-
-  if (session && !includesText(sessionIdForRecord(row), session)) {
-    return false;
-  }
-
-  if (requestId && !includesText(requestIdForRecord(row), requestId)) {
-    return false;
-  }
-
-  if (traceId && !includesText(traceIdForRecord(row), traceId)) {
-    return false;
-  }
-
-  return true;
 }

@@ -15,7 +15,6 @@ export type CorrelationActionsOptions = {
   title: string;
   message: string;
   requestId?: string;
-  traceId?: string;
   translate: Translate;
 };
 
@@ -41,9 +40,7 @@ async function copyCorrelationRequestId(requestId: string) {
 }
 
 export function openCorrelationErrorNotification(options: CorrelationActionsOptions) {
-  const requestId = normalizeText(options.requestId) || normalizeText(options.traceId);
-  const traceId = normalizeText(options.traceId);
-  const showTraceId = traceId && traceId !== requestId;
+  const requestId = normalizeText(options.requestId);
 
   return NotifyPlugin.error({
     title: options.title,
@@ -54,9 +51,6 @@ export function openCorrelationErrorNotification(options: CorrelationActionsOpti
         h('p', options.message),
         requestId
           ? h('p', [h('strong', `${options.translate('audit.correlation.requestIdLabel')} `), h('span', requestId)])
-          : null,
-        showTraceId
-          ? h('p', [h('strong', `${options.translate('audit.correlation.traceIdLabel')} `), h('span', traceId)])
           : null,
       ]),
     footer: requestId

@@ -33,6 +33,7 @@ func (e GetAccessLogsParamsPathMatch) Valid() bool {
 const (
 	DurationMs GetAccessLogsParamsSortBy = "duration_ms"
 	OccurredAt GetAccessLogsParamsSortBy = "occurred_at"
+	StartedAt  GetAccessLogsParamsSortBy = "started_at"
 	StatusCode GetAccessLogsParamsSortBy = "status_code"
 )
 
@@ -42,6 +43,8 @@ func (e GetAccessLogsParamsSortBy) Valid() bool {
 	case DurationMs:
 		return true
 	case OccurredAt:
+		return true
+	case StartedAt:
 		return true
 	case StatusCode:
 		return true
@@ -224,6 +227,8 @@ type GetAccessLogsParams struct {
 	StatusCode    *int                          `form:"status_code,omitempty" json:"status_code,omitempty"`
 	DurationMinMs *int64                        `form:"duration_min_ms,omitempty" json:"duration_min_ms,omitempty"`
 	DurationMaxMs *int64                        `form:"duration_max_ms,omitempty" json:"duration_max_ms,omitempty"`
+	StartedFrom   *time.Time                    `form:"started_from,omitempty" json:"started_from,omitempty"`
+	StartedTo     *time.Time                    `form:"started_to,omitempty" json:"started_to,omitempty"`
 	OccurredFrom  *time.Time                    `form:"occurred_from,omitempty" json:"occurred_from,omitempty"`
 	OccurredTo    *time.Time                    `form:"occurred_to,omitempty" json:"occurred_to,omitempty"`
 	SortBy        *GetAccessLogsParamsSortBy    `form:"sort_by,omitempty" json:"sort_by,omitempty"`

@@ -71,23 +71,30 @@
         "action": "查看相关事件"
       },
       "trend": {
-        "pointMeta": "总量 {total} / 高风险 {highRisk} / 安全事件 {security}"
+        "emptyTitle": "暂无足够风险事件数据",
+        "emptyDescription": "产生更多审计事件后将展示趋势分析。",
+        "totalMetric": "总事件",
+        "highRiskMetric": "高风险",
+        "securityMetric": "安全事件",
+        "totalValue": "总量 {value}",
+        "highRiskValue": "高风险：{value}",
+        "securityValue": "安全事件：{value}"
       },
       "stats": {
         "totalLogs": {
-          "title": "审计日志总数",
+          "title": "审计日志数",
           "unit": "条",
-          "meta": "当前窗口",
+          "meta": "全量",
           "values": {
             "24h": "4,812",
             "7d": "26,430",
             "30d": "101,208"
           }
         },
-        "failedToday": {
-          "title": "今日安全失败事件",
+        "failedWindow": {
+          "title": "安全失败事件数",
           "unit": "次",
-          "meta": "需关注",
+          "meta": "当前窗口",
           "values": {
             "24h": "37",
             "7d": "126",
@@ -95,9 +102,9 @@
           }
         },
         "highRisk": {
-          "title": "高风险事件",
+          "title": "高风险事件数",
           "unit": "条",
-          "meta": "失败或异常",
+          "meta": "当前窗口",
           "values": {
             "24h": "12",
             "7d": "41",
@@ -105,9 +112,9 @@
           }
         },
         "sensitiveOps": {
-          "title": "敏感操作审计次数",
+          "title": "敏感操作数",
           "unit": "次",
-          "meta": "写操作",
+          "meta": "当前窗口",
           "values": {
             "24h": "28",
             "7d": "94",
@@ -174,8 +181,8 @@
           "description": "查看失败登录、令牌失效等认证失败审计事件"
         },
         "rbacChanges": {
-          "title": "查看 RBAC 变更",
-          "description": "查看角色、权限与授权变更相关的审计事件"
+          "title": "查看权限配置变更",
+          "description": "查看角色、权限、资源、菜单等配置调整记录"
         },
         "sensitiveOps": {
           "title": "查看敏感操作",
@@ -194,7 +201,7 @@
           "tag": "认证失败"
         },
         "rbacWindow": {
-          "title": "RBAC 变更窗口仍有敏感操作",
+          "title": "权限配置调整期间仍有敏感操作",
           "description": "角色授权后仍有会话与权限类写操作进入日志。",
           "tag": "持续复核"
         }
@@ -274,8 +281,6 @@
       "retry": "重试",
       "detail": "详情",
       "more": "更多",
-      "summary": "当前展示 {count} 条安全审计记录",
-      "tableHint": "列表仅展示策略命中的安全审计事件，请求链路与权限上下文收口到详情抽屉。",
       "reasonFallback": "无补充原因",
       "footerTotal": "共 {count} 条审计事件",
       "footerFiltered": "当前页匹配 {count} 条记录",
@@ -288,8 +293,9 @@
       "presets": {
         "label": "快捷筛选",
         "all": "全部",
+        "failedOperations": "失败操作",
         "todayAnomalies": "今日安全异常",
-        "rbacChanges": "RBAC 变更",
+        "rbacChanges": "权限配置变更",
         "permissionDenied": "权限拒绝",
         "sensitiveOps": "敏感操作",
         "authFailed": "认证失败",
@@ -303,19 +309,42 @@
         "showAdvanced": "高级筛选",
         "hideAdvanced": "收起高级筛选"
       },
+      "scope": {
+        "drilldownTag": "钻取：{name}",
+        "conditionInline": "条件：{condition}",
+        "exitAction": "退出钻取",
+        "convertAction": "转换为普通筛选",
+        "unknownValue": "未命名条件"
+      },
+      "businessCategory": {
+        "failedOperations": "失败操作",
+        "highRiskOperations": "高风险操作",
+        "sensitiveOperations": "敏感操作",
+        "authFailures": "认证失败",
+        "permissionDenials": "权限拒绝",
+        "rbacChanges": "权限配置变更",
+        "criticalSecurity": "关键安全事件"
+      },
       "builder": {
         "title": "筛选字段",
         "hint": "选择一个字段后立即设置条件，已设置字段会显示为可移除标签。",
         "fields": {
+          "businessCategory": "业务分类",
+          "success": "成功状态",
           "action": "操作类型",
+          "actionPrefixes": "操作分类",
+          "actionKeywords": "操作关键词",
           "result": "结果",
+          "results": "结果集合",
           "riskLevel": "风险等级",
+          "riskLevels": "风险等级集合",
           "source": "事件类型",
           "actor": "操作人",
           "resourceName": "审计目标",
           "resourceType": "目标类型",
-          "requestId": "Request ID",
-          "traceId": "Trace ID",
+          "resourceTypes": "目标类型集合",
+          "requestPathPrefixes": "请求路径前缀",
+          "requestId": "请求 ID",
           "session": "Session ID",
           "resourceId": "资源 ID"
         }
@@ -324,16 +353,23 @@
         "keywordPlaceholder": "搜索操作、用户、目标对象、请求ID...",
         "actorPlaceholder": "操作者",
         "actionPlaceholder": "操作类型",
+        "actionPrefixesPlaceholder": "选择操作分类",
+        "actionKeywordsPlaceholder": "输入操作关键词后回车",
+        "successPlaceholder": "成功状态",
         "sourcePlaceholder": "事件类型",
+        "businessCategoryPlaceholder": "业务分类",
         "datePlaceholder": "时间范围",
         "resourceTypePlaceholder": "审计目标类型",
+        "resourceTypesPlaceholder": "选择目标类型集合",
         "resourceNamePlaceholder": "审计目标 / 目标名称",
         "resourceIdPlaceholder": "资源 ID",
         "resultPlaceholder": "结果",
+        "resultsPlaceholder": "选择结果集合",
         "riskPlaceholder": "风险等级",
+        "riskLevelsPlaceholder": "选择风险等级集合",
         "sessionPlaceholder": "Session ID",
-        "requestIdPlaceholder": "排障编号 / Request ID",
-        "traceIdPlaceholder": "Trace ID"
+        "requestIdPlaceholder": "请求 ID",
+        "requestPathPrefixesPlaceholder": "输入请求路径前缀后回车"
       },
       "sort": {
         "title": "排序",
@@ -349,8 +385,12 @@
         "allSource": "全部事件类型",
         "allResourceTypes": "全部目标类型",
         "auth": "认证",
+        "authPrefix": "认证动作",
+        "rbacPrefix": "权限配置动作",
         "role": "角色",
+        "rolePrefix": "角色动作",
         "permission": "权限",
+        "permissionPrefix": "权限动作",
         "session": "会话",
         "userResource": "用户",
         "roleResource": "角色",
@@ -371,7 +411,7 @@
         "action": "操作",
         "actor": "操作者",
         "resource": "审计目标",
-        "correlation": "排障编号",
+        "correlation": "请求 ID",
         "result": "结果",
         "risk": "风险等级",
         "createdAt": "时间"
@@ -391,31 +431,28 @@
           "result": "结果",
           "reason": "原因 / 说明",
           "requestId": "请求 ID",
-          "traceId": "链路 ID",
           "sessionId": "会话 ID",
           "ip": "IP",
           "userAgent": "用户代理",
           "method": "请求方法",
           "path": "请求路径",
-          "status": "状态码",
-          "latency": "耗时"
+          "status": "状态码"
         },
         "actions": {
           "copyRequestId": "复制",
           "copyRequestIdSuccess": "请求 ID 已复制",
           "copyRequestIdFail": "复制请求 ID 失败",
-          "copyTraceId": "复制",
-          "copySuccess": "链路 ID 已复制",
-          "copyFail": "复制链路 ID 失败",
-          "toggleMetadata": "展开原始元数据",
+          "expandMetadata": "展开原始元数据",
+          "collapseMetadata": "收起原始元数据",
+          "copyMetadata": "复制 JSON",
+          "copyMetadataSuccess": "元数据 JSON 已复制",
+          "copyMetadataFail": "复制元数据 JSON 失败",
           "backToMonitor": "返回监控",
-          "openIncident": "打开事件钻取",
           "viewRelatedRequest": "查看关联请求",
-          "openAccessLogByTraceId": "按 Trace ID 打开访问日志",
           "openRelatedEvents": "查看关联事件"
         },
         "related": {
-          "sameRequest": "同 Request Chain",
+          "sameRequest": "同请求 ID 关联事件",
           "sameActor": "同操作者最近操作",
           "sameResource": "同审计目标最近变更",
           "empty": "当前列表中没有更多关联记录"
@@ -423,24 +460,46 @@
         "risk": {
           "failedOperation": "失败操作",
           "sensitiveOperation": "敏感写操作",
-          "requestTrace": "可关联请求链"
-        }
+          "requestTrace": "可关联请求"
+        },
+        "metadataEmpty": "当前事件没有可展示的元数据。"
       }
     },
     "correlation": {
       "errorTitle": "操作失败",
-      "requestIdLabel": "Request ID：",
-      "traceIdLabel": "Trace ID：",
+      "requestIdLabel": "请求 ID：",
       "copyRequestIdAction": "复制",
       "viewAuditAction": "查看审计",
-      "copyRequestIdSuccessTitle": "Request ID 已复制",
+      "copyRequestIdSuccessTitle": "请求 ID 已复制",
       "copyRequestIdSuccessContent": "可直接用于后续排障调查。",
       "copyRequestIdErrorTitle": "复制失败",
-      "copyRequestIdErrorContent": "当前浏览器无法复制 Request ID。",
-      "idLabel": "排障编号：{id}",
-      "hintRequestOnly": "排障编号：{requestId}",
-      "hintTraceOnly": "排障编号：{traceId}",
-      "hintRequestAndTrace": "排障编号：{requestId} / Trace：{traceId}"
+      "copyRequestIdErrorContent": "当前浏览器无法复制请求 ID。",
+      "idLabel": "请求 ID：{id}",
+      "hintRequestOnly": "请求 ID：{requestId}"
+    },
+    "actionLabel": {
+      "auth": {
+        "failed": "认证失败",
+        "token": {
+          "expired": "令牌失效"
+        }
+      },
+      "rbac": {
+        "role": {
+          "permissions": {
+            "replace": "更新角色权限",
+            "add": "添加角色权限",
+            "remove": "移除角色权限"
+          },
+          "delete": "删除角色",
+          "assign": "分配角色"
+        }
+      },
+      "user": {
+        "password": {
+          "reset": "重置用户密码"
+        }
+      }
     }
   }
 }

@@ -497,6 +497,93 @@ func (e GetAuditIncident500JSONResponseBodySuccess) Valid() bool {
 	}
 }
 
+// Defines values for GetAuditLogsParamsPreset.
+const (
+	GetAuditLogsParamsPresetLast24h GetAuditLogsParamsPreset = "last_24h"
+	GetAuditLogsParamsPresetLast30d GetAuditLogsParamsPreset = "last_30d"
+	GetAuditLogsParamsPresetLast7d  GetAuditLogsParamsPreset = "last_7d"
+)
+
+// Valid indicates whether the value is a known member of the GetAuditLogsParamsPreset enum.
+func (e GetAuditLogsParamsPreset) Valid() bool {
+	switch e {
+	case GetAuditLogsParamsPresetLast24h:
+		return true
+	case GetAuditLogsParamsPresetLast30d:
+		return true
+	case GetAuditLogsParamsPresetLast7d:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetAuditLogsParamsScope.
+const (
+	GetAuditLogsParamsScopeAuthFailures        GetAuditLogsParamsScope = "auth_failures"
+	GetAuditLogsParamsScopeCriticalSecurity    GetAuditLogsParamsScope = "critical_security"
+	GetAuditLogsParamsScopeFailedOperations    GetAuditLogsParamsScope = "failed_operations"
+	GetAuditLogsParamsScopeHighRiskOperations  GetAuditLogsParamsScope = "high_risk_operations"
+	GetAuditLogsParamsScopePermissionDenials   GetAuditLogsParamsScope = "permission_denials"
+	GetAuditLogsParamsScopeRbacChanges         GetAuditLogsParamsScope = "rbac_changes"
+	GetAuditLogsParamsScopeSensitiveOperations GetAuditLogsParamsScope = "sensitive_operations"
+)
+
+// Valid indicates whether the value is a known member of the GetAuditLogsParamsScope enum.
+func (e GetAuditLogsParamsScope) Valid() bool {
+	switch e {
+	case GetAuditLogsParamsScopeAuthFailures:
+		return true
+	case GetAuditLogsParamsScopeCriticalSecurity:
+		return true
+	case GetAuditLogsParamsScopeFailedOperations:
+		return true
+	case GetAuditLogsParamsScopeHighRiskOperations:
+		return true
+	case GetAuditLogsParamsScopePermissionDenials:
+		return true
+	case GetAuditLogsParamsScopeRbacChanges:
+		return true
+	case GetAuditLogsParamsScopeSensitiveOperations:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetAuditLogsParamsBusinessCategory.
+const (
+	GetAuditLogsParamsBusinessCategoryAuthFailures        GetAuditLogsParamsBusinessCategory = "auth_failures"
+	GetAuditLogsParamsBusinessCategoryCriticalSecurity    GetAuditLogsParamsBusinessCategory = "critical_security"
+	GetAuditLogsParamsBusinessCategoryFailedOperations    GetAuditLogsParamsBusinessCategory = "failed_operations"
+	GetAuditLogsParamsBusinessCategoryHighRiskOperations  GetAuditLogsParamsBusinessCategory = "high_risk_operations"
+	GetAuditLogsParamsBusinessCategoryPermissionDenials   GetAuditLogsParamsBusinessCategory = "permission_denials"
+	GetAuditLogsParamsBusinessCategoryRbacChanges         GetAuditLogsParamsBusinessCategory = "rbac_changes"
+	GetAuditLogsParamsBusinessCategorySensitiveOperations GetAuditLogsParamsBusinessCategory = "sensitive_operations"
+)
+
+// Valid indicates whether the value is a known member of the GetAuditLogsParamsBusinessCategory enum.
+func (e GetAuditLogsParamsBusinessCategory) Valid() bool {
+	switch e {
+	case GetAuditLogsParamsBusinessCategoryAuthFailures:
+		return true
+	case GetAuditLogsParamsBusinessCategoryCriticalSecurity:
+		return true
+	case GetAuditLogsParamsBusinessCategoryFailedOperations:
+		return true
+	case GetAuditLogsParamsBusinessCategoryHighRiskOperations:
+		return true
+	case GetAuditLogsParamsBusinessCategoryPermissionDenials:
+		return true
+	case GetAuditLogsParamsBusinessCategoryRbacChanges:
+		return true
+	case GetAuditLogsParamsBusinessCategorySensitiveOperations:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetAuditLogsParamsSource.
 const (
 	GetAuditLogsParamsSourceDOMAINEVENT   GetAuditLogsParamsSource = "DOMAIN_EVENT"
@@ -542,6 +629,30 @@ func (e GetAuditLogsParamsResult) Valid() bool {
 	}
 }
 
+// Defines values for GetAuditLogsParamsResults.
+const (
+	GetAuditLogsParamsResultsDENIED  GetAuditLogsParamsResults = "DENIED"
+	GetAuditLogsParamsResultsERROR   GetAuditLogsParamsResults = "ERROR"
+	GetAuditLogsParamsResultsFAILED  GetAuditLogsParamsResults = "FAILED"
+	GetAuditLogsParamsResultsSUCCESS GetAuditLogsParamsResults = "SUCCESS"
+)
+
+// Valid indicates whether the value is a known member of the GetAuditLogsParamsResults enum.
+func (e GetAuditLogsParamsResults) Valid() bool {
+	switch e {
+	case GetAuditLogsParamsResultsDENIED:
+		return true
+	case GetAuditLogsParamsResultsERROR:
+		return true
+	case GetAuditLogsParamsResultsFAILED:
+		return true
+	case GetAuditLogsParamsResultsSUCCESS:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetAuditLogsParamsRiskLevel.
 const (
 	GetAuditLogsParamsRiskLevelCRITICAL GetAuditLogsParamsRiskLevel = "CRITICAL"
@@ -560,6 +671,30 @@ func (e GetAuditLogsParamsRiskLevel) Valid() bool {
 	case GetAuditLogsParamsRiskLevelLOW:
 		return true
 	case GetAuditLogsParamsRiskLevelMEDIUM:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetAuditLogsParamsRiskLevels.
+const (
+	GetAuditLogsParamsRiskLevelsCRITICAL GetAuditLogsParamsRiskLevels = "CRITICAL"
+	GetAuditLogsParamsRiskLevelsHIGH     GetAuditLogsParamsRiskLevels = "HIGH"
+	GetAuditLogsParamsRiskLevelsLOW      GetAuditLogsParamsRiskLevels = "LOW"
+	GetAuditLogsParamsRiskLevelsMEDIUM   GetAuditLogsParamsRiskLevels = "MEDIUM"
+)
+
+// Valid indicates whether the value is a known member of the GetAuditLogsParamsRiskLevels enum.
+func (e GetAuditLogsParamsRiskLevels) Valid() bool {
+	switch e {
+	case GetAuditLogsParamsRiskLevelsCRITICAL:
+		return true
+	case GetAuditLogsParamsRiskLevelsHIGH:
+		return true
+	case GetAuditLogsParamsRiskLevelsLOW:
+		return true
+	case GetAuditLogsParamsRiskLevelsMEDIUM:
 		return true
 	default:
 		return false
@@ -593,6 +728,129 @@ func (e GetAuditLogsParamsSortOrder) Valid() bool {
 	case Asc:
 		return true
 	case Desc:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetAuditLogs200JSONResponseBodyDataConvertibleFiltersBusinessCategory.
+const (
+	AuthFailures        GetAuditLogs200JSONResponseBodyDataConvertibleFiltersBusinessCategory = "auth_failures"
+	CriticalSecurity    GetAuditLogs200JSONResponseBodyDataConvertibleFiltersBusinessCategory = "critical_security"
+	FailedOperations    GetAuditLogs200JSONResponseBodyDataConvertibleFiltersBusinessCategory = "failed_operations"
+	HighRiskOperations  GetAuditLogs200JSONResponseBodyDataConvertibleFiltersBusinessCategory = "high_risk_operations"
+	PermissionDenials   GetAuditLogs200JSONResponseBodyDataConvertibleFiltersBusinessCategory = "permission_denials"
+	RbacChanges         GetAuditLogs200JSONResponseBodyDataConvertibleFiltersBusinessCategory = "rbac_changes"
+	SensitiveOperations GetAuditLogs200JSONResponseBodyDataConvertibleFiltersBusinessCategory = "sensitive_operations"
+)
+
+// Valid indicates whether the value is a known member of the GetAuditLogs200JSONResponseBodyDataConvertibleFiltersBusinessCategory enum.
+func (e GetAuditLogs200JSONResponseBodyDataConvertibleFiltersBusinessCategory) Valid() bool {
+	switch e {
+	case AuthFailures:
+		return true
+	case CriticalSecurity:
+		return true
+	case FailedOperations:
+		return true
+	case HighRiskOperations:
+		return true
+	case PermissionDenials:
+		return true
+	case RbacChanges:
+		return true
+	case SensitiveOperations:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetAuditLogs200JSONResponseBodyDataConvertibleFiltersPreset.
+const (
+	GetAuditLogs200JSONResponseBodyDataConvertibleFiltersPresetLast24h GetAuditLogs200JSONResponseBodyDataConvertibleFiltersPreset = "last_24h"
+	GetAuditLogs200JSONResponseBodyDataConvertibleFiltersPresetLast30d GetAuditLogs200JSONResponseBodyDataConvertibleFiltersPreset = "last_30d"
+	GetAuditLogs200JSONResponseBodyDataConvertibleFiltersPresetLast7d  GetAuditLogs200JSONResponseBodyDataConvertibleFiltersPreset = "last_7d"
+)
+
+// Valid indicates whether the value is a known member of the GetAuditLogs200JSONResponseBodyDataConvertibleFiltersPreset enum.
+func (e GetAuditLogs200JSONResponseBodyDataConvertibleFiltersPreset) Valid() bool {
+	switch e {
+	case GetAuditLogs200JSONResponseBodyDataConvertibleFiltersPresetLast24h:
+		return true
+	case GetAuditLogs200JSONResponseBodyDataConvertibleFiltersPresetLast30d:
+		return true
+	case GetAuditLogs200JSONResponseBodyDataConvertibleFiltersPresetLast7d:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetAuditLogs200JSONResponseBodyDataConvertibleFiltersResults.
+const (
+	GetAuditLogs200JSONResponseBodyDataConvertibleFiltersResultsDENIED  GetAuditLogs200JSONResponseBodyDataConvertibleFiltersResults = "DENIED"
+	GetAuditLogs200JSONResponseBodyDataConvertibleFiltersResultsERROR   GetAuditLogs200JSONResponseBodyDataConvertibleFiltersResults = "ERROR"
+	GetAuditLogs200JSONResponseBodyDataConvertibleFiltersResultsFAILED  GetAuditLogs200JSONResponseBodyDataConvertibleFiltersResults = "FAILED"
+	GetAuditLogs200JSONResponseBodyDataConvertibleFiltersResultsSUCCESS GetAuditLogs200JSONResponseBodyDataConvertibleFiltersResults = "SUCCESS"
+)
+
+// Valid indicates whether the value is a known member of the GetAuditLogs200JSONResponseBodyDataConvertibleFiltersResults enum.
+func (e GetAuditLogs200JSONResponseBodyDataConvertibleFiltersResults) Valid() bool {
+	switch e {
+	case GetAuditLogs200JSONResponseBodyDataConvertibleFiltersResultsDENIED:
+		return true
+	case GetAuditLogs200JSONResponseBodyDataConvertibleFiltersResultsERROR:
+		return true
+	case GetAuditLogs200JSONResponseBodyDataConvertibleFiltersResultsFAILED:
+		return true
+	case GetAuditLogs200JSONResponseBodyDataConvertibleFiltersResultsSUCCESS:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetAuditLogs200JSONResponseBodyDataConvertibleFiltersRiskLevels.
+const (
+	GetAuditLogs200JSONResponseBodyDataConvertibleFiltersRiskLevelsCRITICAL GetAuditLogs200JSONResponseBodyDataConvertibleFiltersRiskLevels = "CRITICAL"
+	GetAuditLogs200JSONResponseBodyDataConvertibleFiltersRiskLevelsHIGH     GetAuditLogs200JSONResponseBodyDataConvertibleFiltersRiskLevels = "HIGH"
+	GetAuditLogs200JSONResponseBodyDataConvertibleFiltersRiskLevelsLOW      GetAuditLogs200JSONResponseBodyDataConvertibleFiltersRiskLevels = "LOW"
+	GetAuditLogs200JSONResponseBodyDataConvertibleFiltersRiskLevelsMEDIUM   GetAuditLogs200JSONResponseBodyDataConvertibleFiltersRiskLevels = "MEDIUM"
+)
+
+// Valid indicates whether the value is a known member of the GetAuditLogs200JSONResponseBodyDataConvertibleFiltersRiskLevels enum.
+func (e GetAuditLogs200JSONResponseBodyDataConvertibleFiltersRiskLevels) Valid() bool {
+	switch e {
+	case GetAuditLogs200JSONResponseBodyDataConvertibleFiltersRiskLevelsCRITICAL:
+		return true
+	case GetAuditLogs200JSONResponseBodyDataConvertibleFiltersRiskLevelsHIGH:
+		return true
+	case GetAuditLogs200JSONResponseBodyDataConvertibleFiltersRiskLevelsLOW:
+		return true
+	case GetAuditLogs200JSONResponseBodyDataConvertibleFiltersRiskLevelsMEDIUM:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetAuditLogs200JSONResponseBodyDataConvertibleFiltersSource.
+const (
+	GetAuditLogs200JSONResponseBodyDataConvertibleFiltersSourceDOMAINEVENT   GetAuditLogs200JSONResponseBodyDataConvertibleFiltersSource = "DOMAIN_EVENT"
+	GetAuditLogs200JSONResponseBodyDataConvertibleFiltersSourceREQUEST       GetAuditLogs200JSONResponseBodyDataConvertibleFiltersSource = "REQUEST"
+	GetAuditLogs200JSONResponseBodyDataConvertibleFiltersSourceSECURITYEVENT GetAuditLogs200JSONResponseBodyDataConvertibleFiltersSource = "SECURITY_EVENT"
+)
+
+// Valid indicates whether the value is a known member of the GetAuditLogs200JSONResponseBodyDataConvertibleFiltersSource enum.
+func (e GetAuditLogs200JSONResponseBodyDataConvertibleFiltersSource) Valid() bool {
+	switch e {
+	case GetAuditLogs200JSONResponseBodyDataConvertibleFiltersSourceDOMAINEVENT:
+		return true
+	case GetAuditLogs200JSONResponseBodyDataConvertibleFiltersSourceREQUEST:
+		return true
+	case GetAuditLogs200JSONResponseBodyDataConvertibleFiltersSourceSECURITYEVENT:
 		return true
 	default:
 		return false
@@ -755,21 +1013,21 @@ func (e GetAuditLogs500JSONResponseBodySuccess) Valid() bool {
 	}
 }
 
-// Defines values for GetAuditOverviewParamsWindow.
+// Defines values for GetAuditOverviewParamsPreset.
 const (
-	GetAuditOverviewParamsWindowN24h GetAuditOverviewParamsWindow = "24h"
-	GetAuditOverviewParamsWindowN30d GetAuditOverviewParamsWindow = "30d"
-	GetAuditOverviewParamsWindowN7d  GetAuditOverviewParamsWindow = "7d"
+	GetAuditOverviewParamsPresetLast24h GetAuditOverviewParamsPreset = "last_24h"
+	GetAuditOverviewParamsPresetLast30d GetAuditOverviewParamsPreset = "last_30d"
+	GetAuditOverviewParamsPresetLast7d  GetAuditOverviewParamsPreset = "last_7d"
 )
 
-// Valid indicates whether the value is a known member of the GetAuditOverviewParamsWindow enum.
-func (e GetAuditOverviewParamsWindow) Valid() bool {
+// Valid indicates whether the value is a known member of the GetAuditOverviewParamsPreset enum.
+func (e GetAuditOverviewParamsPreset) Valid() bool {
 	switch e {
-	case GetAuditOverviewParamsWindowN24h:
+	case GetAuditOverviewParamsPresetLast24h:
 		return true
-	case GetAuditOverviewParamsWindowN30d:
+	case GetAuditOverviewParamsPresetLast30d:
 		return true
-	case GetAuditOverviewParamsWindowN7d:
+	case GetAuditOverviewParamsPresetLast7d:
 		return true
 	default:
 		return false
@@ -913,19 +1171,40 @@ func (e GetAuditOverview200JSONResponseBodyDataSecurityTimelineSource) Valid() b
 
 // Defines values for GetAuditOverview200JSONResponseBodyDataSensitiveOperationsSource.
 const (
-	DOMAINEVENT   GetAuditOverview200JSONResponseBodyDataSensitiveOperationsSource = "DOMAIN_EVENT"
-	REQUEST       GetAuditOverview200JSONResponseBodyDataSensitiveOperationsSource = "REQUEST"
-	SECURITYEVENT GetAuditOverview200JSONResponseBodyDataSensitiveOperationsSource = "SECURITY_EVENT"
+	GetAuditOverview200JSONResponseBodyDataSensitiveOperationsSourceDOMAINEVENT   GetAuditOverview200JSONResponseBodyDataSensitiveOperationsSource = "DOMAIN_EVENT"
+	GetAuditOverview200JSONResponseBodyDataSensitiveOperationsSourceREQUEST       GetAuditOverview200JSONResponseBodyDataSensitiveOperationsSource = "REQUEST"
+	GetAuditOverview200JSONResponseBodyDataSensitiveOperationsSourceSECURITYEVENT GetAuditOverview200JSONResponseBodyDataSensitiveOperationsSource = "SECURITY_EVENT"
 )
 
 // Valid indicates whether the value is a known member of the GetAuditOverview200JSONResponseBodyDataSensitiveOperationsSource enum.
 func (e GetAuditOverview200JSONResponseBodyDataSensitiveOperationsSource) Valid() bool {
 	switch e {
-	case DOMAINEVENT:
+	case GetAuditOverview200JSONResponseBodyDataSensitiveOperationsSourceDOMAINEVENT:
 		return true
-	case REQUEST:
+	case GetAuditOverview200JSONResponseBodyDataSensitiveOperationsSourceREQUEST:
 		return true
-	case SECURITYEVENT:
+	case GetAuditOverview200JSONResponseBodyDataSensitiveOperationsSourceSECURITYEVENT:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetAuditOverview200JSONResponseBodyDataTimePreset.
+const (
+	GetAuditOverview200JSONResponseBodyDataTimePresetLast24h GetAuditOverview200JSONResponseBodyDataTimePreset = "last_24h"
+	GetAuditOverview200JSONResponseBodyDataTimePresetLast30d GetAuditOverview200JSONResponseBodyDataTimePreset = "last_30d"
+	GetAuditOverview200JSONResponseBodyDataTimePresetLast7d  GetAuditOverview200JSONResponseBodyDataTimePreset = "last_7d"
+)
+
+// Valid indicates whether the value is a known member of the GetAuditOverview200JSONResponseBodyDataTimePreset enum.
+func (e GetAuditOverview200JSONResponseBodyDataTimePreset) Valid() bool {
+	switch e {
+	case GetAuditOverview200JSONResponseBodyDataTimePresetLast24h:
+		return true
+	case GetAuditOverview200JSONResponseBodyDataTimePresetLast30d:
+		return true
+	case GetAuditOverview200JSONResponseBodyDataTimePresetLast7d:
 		return true
 	default:
 		return false
@@ -944,27 +1223,6 @@ func (e GetAuditOverview200JSONResponseBodyDataTrendBucketUnit) Valid() bool {
 	case Day:
 		return true
 	case Hour:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for GetAuditOverview200JSONResponseBodyDataWindow.
-const (
-	GetAuditOverview200JSONResponseBodyDataWindowN24h GetAuditOverview200JSONResponseBodyDataWindow = "24h"
-	GetAuditOverview200JSONResponseBodyDataWindowN30d GetAuditOverview200JSONResponseBodyDataWindow = "30d"
-	GetAuditOverview200JSONResponseBodyDataWindowN7d  GetAuditOverview200JSONResponseBodyDataWindow = "7d"
-)
-
-// Valid indicates whether the value is a known member of the GetAuditOverview200JSONResponseBodyDataWindow enum.
-func (e GetAuditOverview200JSONResponseBodyDataWindow) Valid() bool {
-	switch e {
-	case GetAuditOverview200JSONResponseBodyDataWindowN24h:
-		return true
-	case GetAuditOverview200JSONResponseBodyDataWindowN30d:
-		return true
-	case GetAuditOverview200JSONResponseBodyDataWindowN7d:
 		return true
 	default:
 		return false
@@ -1115,23 +1373,39 @@ type GetAuditIncident500JSONResponseBodySuccess bool
 
 // GetAuditLogsParams defines parameters for GetAuditLogs.
 type GetAuditLogsParams struct {
-	Page         *int                         `form:"page,omitempty" json:"page,omitempty"`
-	PageSize     *int                         `form:"page_size,omitempty" json:"page_size,omitempty"`
-	ActorUserId  *int64                       `form:"actor_user_id,omitempty" json:"actor_user_id,omitempty"`
-	Action       *string                      `form:"action,omitempty" json:"action,omitempty"`
-	ActionPrefix *string                      `form:"action_prefix,omitempty" json:"action_prefix,omitempty"`
-	Source       *GetAuditLogsParamsSource    `form:"source,omitempty" json:"source,omitempty"`
-	ResourceType *string                      `form:"resource_type,omitempty" json:"resource_type,omitempty"`
-	ResourceId   *string                      `form:"resource_id,omitempty" json:"resource_id,omitempty"`
-	ResourceName *string                      `form:"resource_name,omitempty" json:"resource_name,omitempty"`
-	RequestId    *string                      `form:"request_id,omitempty" json:"request_id,omitempty"`
-	Result       *GetAuditLogsParamsResult    `form:"result,omitempty" json:"result,omitempty"`
-	RiskLevel    *GetAuditLogsParamsRiskLevel `form:"risk_level,omitempty" json:"risk_level,omitempty"`
-	Success      *bool                        `form:"success,omitempty" json:"success,omitempty"`
-	CreatedFrom  *time.Time                   `form:"created_from,omitempty" json:"created_from,omitempty"`
-	CreatedTo    *time.Time                   `form:"created_to,omitempty" json:"created_to,omitempty"`
-	SortBy       *GetAuditLogsParamsSortBy    `form:"sort_by,omitempty" json:"sort_by,omitempty"`
-	SortOrder    *GetAuditLogsParamsSortOrder `form:"sort_order,omitempty" json:"sort_order,omitempty"`
+	Page        *int                      `form:"page,omitempty" json:"page,omitempty"`
+	PageSize    *int                      `form:"page_size,omitempty" json:"page_size,omitempty"`
+	ActorUserId *int64                    `form:"actor_user_id,omitempty" json:"actor_user_id,omitempty"`
+	Keyword     *string                   `form:"keyword,omitempty" json:"keyword,omitempty"`
+	Actor       *string                   `form:"actor,omitempty" json:"actor,omitempty"`
+	Action      *string                   `form:"action,omitempty" json:"action,omitempty"`
+	Preset      *GetAuditLogsParamsPreset `form:"preset,omitempty" json:"preset,omitempty"`
+
+	// Scope Stable business drilldown scope. When present, scope-owned fields remain read-only until the client exits drilldown or converts to normal filters.
+	Scope *GetAuditLogsParamsScope `form:"scope,omitempty" json:"scope,omitempty"`
+
+	// BusinessCategory Backend-owned editable business category used by normal filters and scope conversion.
+	BusinessCategory    *GetAuditLogsParamsBusinessCategory `form:"business_category,omitempty" json:"business_category,omitempty"`
+	ActionPrefix        *string                             `form:"action_prefix,omitempty" json:"action_prefix,omitempty"`
+	ActionPrefixes      *[]string                           `form:"action_prefixes,omitempty" json:"action_prefixes,omitempty"`
+	ActionKeywords      *[]string                           `form:"action_keywords,omitempty" json:"action_keywords,omitempty"`
+	Source              *GetAuditLogsParamsSource           `form:"source,omitempty" json:"source,omitempty"`
+	ResourceType        *string                             `form:"resource_type,omitempty" json:"resource_type,omitempty"`
+	ResourceTypes       *[]string                           `form:"resource_types,omitempty" json:"resource_types,omitempty"`
+	ResourceId          *string                             `form:"resource_id,omitempty" json:"resource_id,omitempty"`
+	ResourceName        *string                             `form:"resource_name,omitempty" json:"resource_name,omitempty"`
+	RequestPathPrefixes *[]string                           `form:"request_path_prefixes,omitempty" json:"request_path_prefixes,omitempty"`
+	RequestId           *string                             `form:"request_id,omitempty" json:"request_id,omitempty"`
+	SessionId           *string                             `form:"session_id,omitempty" json:"session_id,omitempty"`
+	Result              *GetAuditLogsParamsResult           `form:"result,omitempty" json:"result,omitempty"`
+	Results             *[]GetAuditLogsParamsResults        `form:"results,omitempty" json:"results,omitempty"`
+	RiskLevel           *GetAuditLogsParamsRiskLevel        `form:"risk_level,omitempty" json:"risk_level,omitempty"`
+	RiskLevels          *[]GetAuditLogsParamsRiskLevels     `form:"risk_levels,omitempty" json:"risk_levels,omitempty"`
+	Success             *bool                               `form:"success,omitempty" json:"success,omitempty"`
+	CreatedFrom         *time.Time                          `form:"created_from,omitempty" json:"created_from,omitempty"`
+	CreatedTo           *time.Time                          `form:"created_to,omitempty" json:"created_to,omitempty"`
+	SortBy              *GetAuditLogsParamsSortBy           `form:"sort_by,omitempty" json:"sort_by,omitempty"`
+	SortOrder           *GetAuditLogsParamsSortOrder        `form:"sort_order,omitempty" json:"sort_order,omitempty"`
 
 	// XGraftLocale Explicit locale override header already supported by the runtime.
 	XGraftLocale *string `json:"X-Graft-Locale,omitempty"`
@@ -1141,20 +1415,50 @@ type GetAuditLogsParams struct {
 	XRequestId *string `json:"X-Request-Id,omitempty"`
 }
 
+// GetAuditLogsParamsPreset defines parameters for GetAuditLogs.
+type GetAuditLogsParamsPreset string
+
+// GetAuditLogsParamsScope defines parameters for GetAuditLogs.
+type GetAuditLogsParamsScope string
+
+// GetAuditLogsParamsBusinessCategory defines parameters for GetAuditLogs.
+type GetAuditLogsParamsBusinessCategory string
+
 // GetAuditLogsParamsSource defines parameters for GetAuditLogs.
 type GetAuditLogsParamsSource string
 
 // GetAuditLogsParamsResult defines parameters for GetAuditLogs.
 type GetAuditLogsParamsResult string
 
+// GetAuditLogsParamsResults defines parameters for GetAuditLogs.
+type GetAuditLogsParamsResults string
+
 // GetAuditLogsParamsRiskLevel defines parameters for GetAuditLogs.
 type GetAuditLogsParamsRiskLevel string
+
+// GetAuditLogsParamsRiskLevels defines parameters for GetAuditLogs.
+type GetAuditLogsParamsRiskLevels string
 
 // GetAuditLogsParamsSortBy defines parameters for GetAuditLogs.
 type GetAuditLogsParamsSortBy string
 
 // GetAuditLogsParamsSortOrder defines parameters for GetAuditLogs.
 type GetAuditLogsParamsSortOrder string
+
+// GetAuditLogs200JSONResponseBodyDataConvertibleFiltersBusinessCategory defines parameters for GetAuditLogs.
+type GetAuditLogs200JSONResponseBodyDataConvertibleFiltersBusinessCategory string
+
+// GetAuditLogs200JSONResponseBodyDataConvertibleFiltersPreset defines parameters for GetAuditLogs.
+type GetAuditLogs200JSONResponseBodyDataConvertibleFiltersPreset string
+
+// GetAuditLogs200JSONResponseBodyDataConvertibleFiltersResults defines parameters for GetAuditLogs.
+type GetAuditLogs200JSONResponseBodyDataConvertibleFiltersResults string
+
+// GetAuditLogs200JSONResponseBodyDataConvertibleFiltersRiskLevels defines parameters for GetAuditLogs.
+type GetAuditLogs200JSONResponseBodyDataConvertibleFiltersRiskLevels string
+
+// GetAuditLogs200JSONResponseBodyDataConvertibleFiltersSource defines parameters for GetAuditLogs.
+type GetAuditLogs200JSONResponseBodyDataConvertibleFiltersSource string
 
 // GetAuditLogs200JSONResponseBodyDataItemsResult defines parameters for GetAuditLogs.
 type GetAuditLogs200JSONResponseBodyDataItemsResult string
@@ -1182,7 +1486,7 @@ type GetAuditLogs500JSONResponseBodySuccess bool
 
 // GetAuditOverviewParams defines parameters for GetAuditOverview.
 type GetAuditOverviewParams struct {
-	Window *GetAuditOverviewParamsWindow `form:"window,omitempty" json:"window,omitempty"`
+	Preset *GetAuditOverviewParamsPreset `form:"preset,omitempty" json:"preset,omitempty"`
 
 	// XGraftLocale Explicit locale override header already supported by the runtime.
 	XGraftLocale *string `json:"X-Graft-Locale,omitempty"`
@@ -1192,8 +1496,8 @@ type GetAuditOverviewParams struct {
 	XRequestId *string `json:"X-Request-Id,omitempty"`
 }
 
-// GetAuditOverviewParamsWindow defines parameters for GetAuditOverview.
-type GetAuditOverviewParamsWindow string
+// GetAuditOverviewParamsPreset defines parameters for GetAuditOverview.
+type GetAuditOverviewParamsPreset string
 
 // GetAuditOverview200JSONResponseBodyDataFailedAuthSource defines parameters for GetAuditOverview.
 type GetAuditOverview200JSONResponseBodyDataFailedAuthSource string
@@ -1216,11 +1520,11 @@ type GetAuditOverview200JSONResponseBodyDataSecurityTimelineSource string
 // GetAuditOverview200JSONResponseBodyDataSensitiveOperationsSource defines parameters for GetAuditOverview.
 type GetAuditOverview200JSONResponseBodyDataSensitiveOperationsSource string
 
+// GetAuditOverview200JSONResponseBodyDataTimePreset defines parameters for GetAuditOverview.
+type GetAuditOverview200JSONResponseBodyDataTimePreset string
+
 // GetAuditOverview200JSONResponseBodyDataTrendBucketUnit defines parameters for GetAuditOverview.
 type GetAuditOverview200JSONResponseBodyDataTrendBucketUnit string
-
-// GetAuditOverview200JSONResponseBodyDataWindow defines parameters for GetAuditOverview.
-type GetAuditOverview200JSONResponseBodyDataWindow string
 
 // GetAuditOverview200JSONResponseBodySuccess defines parameters for GetAuditOverview.
 type GetAuditOverview200JSONResponseBodySuccess bool

@@ -5,14 +5,14 @@
     :footer="false"
     destroy-on-close
     placement="right"
-    size="640px"
+    size="820px"
     @update:visible="$emit('update:visible', $event)"
   >
     <div v-if="record" class="audit-detail">
       <section class="audit-detail__hero">
         <div>
-          <strong>{{ record.action }}</strong>
-          <p>{{ record.message || t('audit.logList.drawer.messageFallback') }}</p>
+          <strong>{{ actionTitle(record, t) }}</strong>
+          <p>{{ heroDescription }}</p>
         </div>
         <t-tag :theme="riskTone(record)" variant="light-outline">{{ riskLabel(record, t) }}</t-tag>
       </section>
@@ -54,15 +54,6 @@
             </div>
           </div>
           <div class="audit-detail__item">
-            <span>{{ t('audit.logList.drawer.fields.traceId') }}</span>
-            <div class="audit-detail__copy-line">
-              <strong class="audit-detail__mono">{{ traceIdForRecord(record) }}</strong>
-              <t-button size="small" theme="default" variant="text" @click="copyTraceId(record)">
-                {{ t('audit.logList.drawer.actions.copyTraceId') }}
-              </t-button>
-            </div>
-          </div>
-          <div class="audit-detail__item">
             <span>{{ t('audit.logList.drawer.fields.sessionId') }}</span>
             <strong class="audit-detail__mono">{{ sessionIdForRecord(record) }}</strong>
           </div>
@@ -96,10 +87,6 @@
               record.status_code || metadataLookup(record, 'status_code') || metadataLookup(record, 'status') || '-'
             }}</strong>
           </div>
-          <div class="audit-detail__item">
-            <span>{{ t('audit.logList.drawer.fields.latency') }}</span>
-            <strong>{{ metadataLookup(record, 'latency') || '-' }}</strong>
-          </div>
         </div>
       </section>
 
@@ -115,9 +102,6 @@
           >
             {{ t('audit.logList.drawer.actions.backToMonitor') }}
           </t-button>
-          <t-button v-if="incidentLocation" size="small" theme="default" variant="outline" @click="openIncident">
-            {{ t('audit.logList.drawer.actions.openIncident') }}
-          </t-button>
           <t-button
             v-if="requestIdForRecord(record) !== '-'"
             size="small"
@@ -126,15 +110,6 @@
             @click="openRelatedRequest"
           >
             {{ t('audit.logList.drawer.actions.viewRelatedRequest') }}
-          </t-button>
-          <t-button
-            v-if="traceIdForRecord(record) !== '-'"
-            size="small"
-            theme="default"
-            variant="outline"
-            @click="openRelatedTrace"
-          >
-            {{ t('audit.logList.drawer.actions.openAccessLogByTraceId') }}
           </t-button>
           <t-button v-if="record" size="small" theme="default" variant="outline" @click="openRelatedRecord">
             {{ t('audit.logList.drawer.actions.openRelatedEvents') }}
@@ -193,13 +168,16 @@
         </div>
       </section>
 
-      <section class="audit-detail__section">
-        <h4>{{ t('audit.logList.drawer.sections.metadata') }}</h4>
-        <details class="audit-detail__metadata">
-          <summary>{{ t('audit.logList.drawer.actions.toggleMetadata') }}</summary>
-          <pre class="audit-detail__code">{{ metadataDetail(record.metadata) }}</pre>
-        </details>
-      </section>
+      <log-json-panel
+        :title="t('audit.logList.drawer.sections.metadata')"
+        :expand-label="t('audit.logList.drawer.actions.expandMetadata')"
+        :collapse-label="t('audit.logList.drawer.actions.collapseMetadata')"
+        :copy-label="t('audit.logList.drawer.actions.copyMetadata')"
+        :copy-success-label="t('audit.logList.drawer.actions.copyMetadataSuccess')"
+        :copy-fail-label="t('audit.logList.drawer.actions.copyMetadataFail')"
+        :empty-text="t('audit.logList.drawer.metadataEmpty')"
+        :value="record.metadata"
+      />
     </div>
   </t-drawer>
 </template>
@@ -211,21 +189,19 @@ import { useRouter } from 'vue-router';
 
 import type { MonitorOriginContext } from '@/modules/monitor/contract/navigation';
 import { buildMonitorLocationFromOrigin } from '@/modules/monitor/contract/navigation';
-import { copyText } from '@/shared/observability';
+import { copyText, LogJsonPanel } from '@/shared/observability';
 
 import {
   buildAccessLogRequestLocationWithOrigin,
-  buildAccessLogTraceLocationWithOrigin,
-  buildAuditIncidentLocationWithOrigin,
   buildAuditRelatedActorLocation,
   buildAuditRelatedRecordLocation,
   buildAuditRelatedResourceLocation,
 } from '../contract/navigation';
 import {
+  actionTitle,
   actorLabel,
   formatAuditTimestamp,
   isSensitiveAction,
-  metadataDetail,
   metadataLookup,
   reasonForRecord,
   requestIdForRecord,
@@ -236,7 +212,6 @@ import {
   riskTone,
   sessionIdForRecord,
   sourceLabel,
-  traceIdForRecord,
 } from '../shared/presentation';
 import type { AuditLogListItem } from '../types/audit';
 
@@ -254,23 +229,19 @@ defineEmits<{
 const { t, locale } = useI18n();
 const router = useRouter();
 
-async function copyTraceId(record: AuditLogListItem) {
-  const traceId = traceIdForRecord(record);
-  if (!traceId || traceId === '-') {
-    return;
+const heroDescription = computed(() => {
+  const record = props.record;
+  if (!record) {
+    return t('audit.logList.drawer.messageFallback');
   }
 
-  try {
-    const copied = await copyText(traceId);
-    if (!copied) {
-      MessagePlugin.error(t('audit.logList.drawer.actions.copyFail'));
-      return;
-    }
-    MessagePlugin.success(t('audit.logList.drawer.actions.copySuccess'));
-  } catch {
-    MessagePlugin.error(t('audit.logList.drawer.actions.copyFail'));
+  const summary = reasonForRecord(record, t).trim();
+  if (summary && summary !== actionTitle(record, t)) {
+    return summary;
   }
-}
+
+  return sourceLabel(record, t);
+});
 
 async function copyRequestId(record: AuditLogListItem) {
   const requestId = requestIdForRecord(record);
@@ -290,18 +261,6 @@ async function copyRequestId(record: AuditLogListItem) {
   }
 }
 
-const incidentLocation = computed(() => {
-  const target = props.record?.target;
-  if (target?.kind !== 'incident') {
-    return null;
-  }
-
-  const eventId = Number(target.id);
-  return Number.isFinite(eventId) && eventId > 0
-    ? buildAuditIncidentLocationWithOrigin(eventId, props.monitorOrigin)
-    : null;
-});
-
 const monitorReturnLocation = computed(() =>
   props.monitorOrigin ? buildMonitorLocationFromOrigin(props.monitorOrigin) : null,
 );
@@ -312,14 +271,6 @@ function openMonitorContext() {
   }
 
   void router.push(monitorReturnLocation.value);
-}
-
-function openIncident() {
-  if (!incidentLocation.value) {
-    return;
-  }
-
-  void router.push(incidentLocation.value);
 }
 
 function openRelatedRecord() {
@@ -345,15 +296,6 @@ function openRelatedRequest() {
   }
 
   void router.push(buildAccessLogRequestLocationWithOrigin(requestId, props.monitorOrigin));
-}
-
-function openRelatedTrace() {
-  const traceId = props.record ? traceIdForRecord(props.record) : '-';
-  if (!traceId || traceId === '-') {
-    return;
-  }
-
-  void router.push(buildAccessLogTraceLocationWithOrigin(traceId, props.monitorOrigin));
 }
 
 function openRelatedActor(row: AuditLogListItem) {
@@ -508,21 +450,7 @@ const sameResourceRows = computed(() => {
 }
 
 .audit-detail__tags {
-  grid-template-columns: repeat(auto-fit, minmax(120px, max-content));
-}
-
-.audit-detail__code {
-  background: var(--td-bg-color-container-hover);
-  border: 1px solid var(--td-component-stroke);
-  border-radius: var(--td-radius-medium);
-  margin: 0;
-  overflow: auto;
-  padding: 12px;
-}
-
-.audit-detail__metadata summary {
-  cursor: pointer;
-  margin-bottom: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(0, max-content));
 }
 
 @media (width <= 768px) {

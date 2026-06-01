@@ -1,96 +1,41 @@
-import type { AuditClientFilterState } from '../shared/presentation';
+import type { AuditBusinessCategory } from '../types/audit';
 
-export type AuditPresetKey =
+export type AuditQuickPresetKey =
   | 'all'
-  | 'today-anomalies'
+  | 'failed-operations'
   | 'rbac-changes'
   | 'permission-denied'
   | 'sensitive-ops'
   | 'auth-failed'
   | 'high-risk';
 
-export type AuditPresetDefinition = {
-  key: AuditPresetKey;
+export type AuditQuickPresetDefinition = {
+  key: AuditQuickPresetKey;
   titleKey: string;
-  defaults: Partial<AuditClientFilterState>;
 };
 
-const AUDIT_PRESET_DEFINITIONS: readonly AuditPresetDefinition[] = [
-  {
-    key: 'all',
-    titleKey: 'audit.logList.presets.all',
-    defaults: {},
-  },
-  {
-    key: 'today-anomalies',
-    titleKey: 'audit.logList.presets.todayAnomalies',
-    defaults: {
-      source: 'SECURITY_EVENT',
-      result: 'ERROR',
-      riskLevel: 'HIGH',
-    },
-  },
-  {
-    key: 'rbac-changes',
-    titleKey: 'audit.logList.presets.rbacChanges',
-    defaults: {
-      actionPrefix: 'rbac.',
-    },
-  },
-  {
-    key: 'permission-denied',
-    titleKey: 'audit.logList.presets.permissionDenied',
-    defaults: {
-      source: 'SECURITY_EVENT',
-      result: 'DENIED',
-      riskLevel: 'CRITICAL',
-    },
-  },
-  {
-    key: 'sensitive-ops',
-    titleKey: 'audit.logList.presets.sensitiveOps',
-    defaults: {
-      riskLevel: 'HIGH',
-    },
-  },
-  {
-    key: 'auth-failed',
-    titleKey: 'audit.logList.presets.authFailed',
-    defaults: {
-      source: 'REQUEST',
-      result: 'FAILED',
-      resourceType: 'auth',
-      riskLevel: 'HIGH',
-    },
-  },
-  {
-    key: 'high-risk',
-    titleKey: 'audit.logList.presets.highRisk',
-    defaults: {
-      source: 'SECURITY_EVENT',
-      riskLevel: 'CRITICAL',
-    },
-  },
+const AUDIT_PRESET_DEFINITIONS: readonly AuditQuickPresetDefinition[] = [
+  { key: 'all', titleKey: 'audit.logList.presets.all' },
+  { key: 'failed-operations', titleKey: 'audit.logList.presets.failedOperations' },
+  { key: 'rbac-changes', titleKey: 'audit.logList.presets.rbacChanges' },
+  { key: 'permission-denied', titleKey: 'audit.logList.presets.permissionDenied' },
+  { key: 'sensitive-ops', titleKey: 'audit.logList.presets.sensitiveOps' },
+  { key: 'auth-failed', titleKey: 'audit.logList.presets.authFailed' },
+  { key: 'high-risk', titleKey: 'audit.logList.presets.highRisk' },
 ] as const;
 
-const AUDIT_PRESET_KEY_SET = new Set<AuditPresetKey>(AUDIT_PRESET_DEFINITIONS.map((preset) => preset.key));
+export const AUDIT_DRILLDOWN_SCOPE = {
+  FAILED_OPERATIONS: 'failed_operations',
+  HIGH_RISK_OPERATIONS: 'high_risk_operations',
+  SENSITIVE_OPERATIONS: 'sensitive_operations',
+  AUTH_FAILURES: 'auth_failures',
+  PERMISSION_DENIALS: 'permission_denials',
+  RBAC_CHANGES: 'rbac_changes',
+  CRITICAL_SECURITY: 'critical_security',
+} as const;
 
-const AUDIT_PRESET_ALIASES: Record<string, AuditPresetKey> = {
-  'failed-auth': 'auth-failed',
-};
+export const AUDIT_BUSINESS_CATEGORY = AUDIT_DRILLDOWN_SCOPE satisfies Record<string, AuditBusinessCategory>;
 
 export function listAuditPresets() {
   return AUDIT_PRESET_DEFINITIONS;
-}
-
-export function getAuditPresetDefaults(key: AuditPresetKey): Partial<AuditClientFilterState> {
-  return AUDIT_PRESET_DEFINITIONS.find((preset) => preset.key === key)?.defaults ?? {};
-}
-
-export function resolveAuditPresetKey(value: string): AuditPresetKey {
-  if (AUDIT_PRESET_KEY_SET.has(value as AuditPresetKey)) {
-    return value as AuditPresetKey;
-  }
-
-  return AUDIT_PRESET_ALIASES[value] ?? 'all';
 }

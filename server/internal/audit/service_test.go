@@ -7,13 +7,14 @@ import (
 	"testing"
 	"time"
 
+	"graft/server/internal/drilldown"
 	auditstore "graft/server/plugins/audit/store"
 )
 
 type stubAuditRepository struct {
 	createdInput auditstore.CreateAuditLogInput
 	listQuery    auditstore.ListAuditLogsQuery
-	overviewWnd  auditstore.OverviewWindow
+	overviewWnd  auditstore.AuditTimePreset
 	incidentID   uint64
 	policyRules  []auditstore.AuditPolicyRule
 	createResult auditstore.AuditLog
@@ -46,7 +47,7 @@ func (r *stubAuditRepository) ListAuditLogs(_ context.Context, query auditstore.
 	return r.listResult, nil
 }
 
-func (r *stubAuditRepository) ReadAuditOverview(_ context.Context, window auditstore.OverviewWindow) (auditstore.AuditOverview, error) {
+func (r *stubAuditRepository) ReadAuditOverview(_ context.Context, window auditstore.AuditTimePreset) (auditstore.AuditOverview, error) {
 	r.overviewWnd = window
 	if r.overviewErr != nil {
 		return auditstore.AuditOverview{}, r.overviewErr
@@ -193,8 +194,175 @@ func TestServiceListNormalizesPagination(t *testing.T) {
 	if repo.listQuery.Action != "user.create" || repo.listQuery.ResourceType != "user" || repo.listQuery.RequestID != "req-1" {
 		t.Fatalf("expected trimmed filters, got %#v", repo.listQuery)
 	}
+	if repo.listQuery.TimePreset != "" {
+		t.Fatalf("expected list query preset to stay empty by default, got %q", repo.listQuery.TimePreset)
+	}
 	if result.Page != defaultPage || result.PageSize != maxPageSize || result.Total != 42 || len(result.Items) != 1 {
 		t.Fatalf("unexpected list result %#v", result)
+	}
+}
+
+func TestServiceListPreservesExplicitPreset(t *testing.T) {
+	repo := &stubAuditRepository{}
+	service, err := NewService(repo)
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	_, err = service.List(context.Background(), ListQuery{
+		TimePreset: auditstore.AuditTimePresetLast24Hours,
+	})
+	if err != nil {
+		t.Fatalf("list audit logs: %v", err)
+	}
+
+	if repo.listQuery.TimePreset != auditstore.AuditTimePresetLast24Hours {
+		t.Fatalf("expected explicit preset to be preserved, got %q", repo.listQuery.TimePreset)
+	}
+}
+
+type stubDrilldownRepo struct {
+	metadata drilldown.ScopeMetadata
+	err      error
+}
+
+func (r stubDrilldownRepo) GetScope(context.Context, string, string) (drilldown.ScopeMetadata, error) {
+	if r.err != nil {
+		return drilldown.ScopeMetadata{}, r.err
+	}
+	return r.metadata, nil
+}
+
+type stubListQueryResolver struct {
+	resolved drilldown.ResolvedScope[ListQuery]
+	err      error
+}
+
+func (r stubListQueryResolver) Resolve(
+	context.Context,
+	drilldown.ScopeMetadata,
+	ListQuery,
+) (drilldown.ResolvedScope[ListQuery], error) {
+	if r.err != nil {
+		return drilldown.ResolvedScope[ListQuery]{}, r.err
+	}
+	return r.resolved, nil
+}
+
+func TestServiceListResolvesScopeAndExposesMetadata(t *testing.T) {
+	repo := &stubAuditRepository{listResult: auditstore.ListAuditLogsResult{Total: 15}}
+	drilldownService, err := drilldown.NewService[ListQuery, ListQuery](
+		stubDrilldownRepo{metadata: drilldown.ScopeMetadata{
+			Module:       "audit",
+			Scope:        "sensitive_operations",
+			Name:         "敏感操作",
+			TargetType:   "log_query",
+			TargetModule: "audit",
+			TargetPage:   "audit_logs",
+			Enabled:      true,
+		}},
+		stubListQueryResolver{resolved: drilldown.ResolvedScope[ListQuery]{
+			Applied: drilldown.AppliedScope{
+				Module:      "audit",
+				Scope:       "sensitive_operations",
+				Name:        "敏感操作",
+				OwnedFields: []string{"business_category"},
+			},
+			Projection: drilldown.ScopeProjection{
+				Title: "敏感操作",
+			},
+			ConvertibleFilters: drilldown.ConvertibleFilters{
+				BusinessCategory: "sensitive_operations",
+			},
+			QueryPatch: ListQuery{
+				BusinessCategory: auditstore.AuditBusinessCategorySensitiveOperations,
+			},
+		}},
+	)
+	if err != nil {
+		t.Fatalf("new drilldown service: %v", err)
+	}
+
+	service, err := NewServiceWithDrilldown(repo, drilldownService)
+	if err != nil {
+		t.Fatalf("new service with drilldown: %v", err)
+	}
+
+	result, err := service.List(context.Background(), ListQuery{
+		Scope:      "sensitive_operations",
+		TimePreset: auditstore.AuditTimePresetLast24Hours,
+	})
+	if err != nil {
+		t.Fatalf("list audit logs with scope: %v", err)
+	}
+
+	if repo.listQuery.BusinessCategory != auditstore.AuditBusinessCategorySensitiveOperations {
+		t.Fatalf("expected resolved business category, got %#v", repo.listQuery.BusinessCategory)
+	}
+	if result.AppliedScope == nil || result.AppliedScope.Scope != "sensitive_operations" {
+		t.Fatalf("expected applied scope metadata, got %#v", result.AppliedScope)
+	}
+	if result.ScopeProjection == nil || result.ScopeProjection.Title != "敏感操作" {
+		t.Fatalf("expected scope projection, got %#v", result.ScopeProjection)
+	}
+	if result.ConvertibleFilters == nil || result.ConvertibleFilters.BusinessCategory != "sensitive_operations" {
+		t.Fatalf("expected convertible filters, got %#v", result.ConvertibleFilters)
+	}
+}
+
+func TestServiceListRejectsScopeConflict(t *testing.T) {
+	repo := &stubAuditRepository{}
+	drilldownService, err := drilldown.NewService[ListQuery, ListQuery](
+		stubDrilldownRepo{metadata: drilldown.ScopeMetadata{
+			Module:       "audit",
+			Scope:        "sensitive_operations",
+			Name:         "敏感操作",
+			TargetType:   "log_query",
+			TargetModule: "audit",
+			TargetPage:   "audit_logs",
+			Enabled:      true,
+		}},
+		stubListQueryResolver{err: drilldown.ErrScopeConflict},
+	)
+	if err != nil {
+		t.Fatalf("new drilldown service: %v", err)
+	}
+
+	service, err := NewServiceWithDrilldown(repo, drilldownService)
+	if err != nil {
+		t.Fatalf("new service with drilldown: %v", err)
+	}
+
+	_, err = service.List(context.Background(), ListQuery{Scope: "sensitive_operations"})
+	if !errors.Is(err, drilldown.ErrScopeConflict) {
+		t.Fatalf("expected scope conflict, got %v", err)
+	}
+}
+
+func TestServiceListPreservesCanonicalFilters(t *testing.T) {
+	repo := &stubAuditRepository{}
+	service, err := NewService(repo)
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	_, err = service.List(context.Background(), ListQuery{
+		Keyword:   " login ",
+		Actor:     " alice ",
+		SessionID: " session-1 ",
+	})
+	if err != nil {
+		t.Fatalf("list audit logs: %v", err)
+	}
+
+	if repo.listQuery.Keyword != "login" {
+		t.Fatalf("expected keyword to be preserved, got %q", repo.listQuery.Keyword)
+	}
+	if repo.listQuery.Actor != "alice" {
+		t.Fatalf("expected actor to be preserved, got %q", repo.listQuery.Actor)
+	}
+	if repo.listQuery.SessionID != "session-1" {
+		t.Fatalf("expected session id to be preserved, got %q", repo.listQuery.SessionID)
 	}
 }
 
@@ -206,14 +374,14 @@ func TestServiceListPropagatesRepositoryError(t *testing.T) {
 	}
 
 	_, err = service.List(context.Background(), ListQuery{})
-	if err == nil || err.Error() != "boom" {
+	if err == nil || err.Error() != "list audit logs: boom" {
 		t.Fatalf("expected repository error, got %v", err)
 	}
 }
 
-func TestServiceOverviewDelegatesWindowWithoutNormalization(t *testing.T) {
+func TestServiceOverviewNormalizesPreset(t *testing.T) {
 	repo := &stubAuditRepository{
-		overview: auditstore.AuditOverview{Window: "custom"},
+		overview: auditstore.AuditOverview{TimePreset: auditstore.AuditTimePresetLast24Hours},
 	}
 	service, err := NewService(repo)
 	if err != nil {
@@ -224,8 +392,8 @@ func TestServiceOverviewDelegatesWindowWithoutNormalization(t *testing.T) {
 	if err != nil {
 		t.Fatalf("overview: %v", err)
 	}
-	if repo.overviewWnd != "custom" {
-		t.Fatalf("expected raw window to be delegated, got %q", repo.overviewWnd)
+	if repo.overviewWnd != auditstore.AuditTimePresetLast24Hours {
+		t.Fatalf("expected preset to normalize to last_24h, got %q", repo.overviewWnd)
 	}
 }
 

@@ -1,0 +1,12 @@
+type: object
+required:
+  - title
+properties:
+  title:
+    type: string
+  description:
+    type: string
+  items:
+    type: array
+    items:
+      $ref: ./drilldown-scope-projection-item.yaml

@@ -74,6 +74,7 @@ func buildAccessLogRecord(ctx *gin.Context, requestID string, traceID string, st
 		UserAgent:    sanitizeAccessLogFreeText(strings.TrimSpace(ctx.Request.UserAgent())),
 		RequestSize:  currentRequestSize(ctx),
 		ResponseSize: currentResponseSize(ctx),
+		StartedAt:    startedAt.UTC(),
 		OccurredAt:   time.Now().UTC(),
 	}
 

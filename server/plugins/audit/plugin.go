@@ -13,6 +13,7 @@ import (
 
 	auditcore "graft/server/internal/audit"
 	"graft/server/internal/container"
+	"graft/server/internal/drilldown"
 	"graft/server/internal/eventbus"
 	"graft/server/internal/httpx"
 	"graft/server/internal/plugin"
@@ -34,6 +35,24 @@ const eventMetadataExtraFields = 3
 // NewPlugin 创建最小审计插件。
 func NewPlugin(repo auditstore.AuditRepository) (*Plugin, error) {
 	recorder, err := auditcore.NewService(repo)
+	if err != nil {
+		return nil, err
+	}
+
+	pluginInstance := &Plugin{recorder: recorder}
+	if binder, ok := repo.(incidentMonitorEvidenceBinder); ok {
+		pluginInstance.monitorBinder = binder
+	}
+
+	return pluginInstance, nil
+}
+
+// NewPluginWithDrilldown creates the audit plugin with a drilldown-enabled read service.
+func NewPluginWithDrilldown(
+	repo auditstore.AuditRepository,
+	drilldownService *drilldown.Service[auditcore.ListQuery, auditcore.ListQuery],
+) (*Plugin, error) {
+	recorder, err := auditcore.NewServiceWithDrilldown(repo, drilldownService)
 	if err != nil {
 		return nil, err
 	}

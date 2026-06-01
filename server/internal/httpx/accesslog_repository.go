@@ -38,6 +38,7 @@ type AccessLog struct {
 	Username     string
 	RequestSize  *int64
 	ResponseSize *int64
+	StartedAt    time.Time
 	OccurredAt   time.Time
 }
 
@@ -56,6 +57,7 @@ type CreateAccessLogInput struct {
 	Username     string
 	RequestSize  *int64
 	ResponseSize *int64
+	StartedAt    time.Time
 	OccurredAt   time.Time
 }
 
@@ -86,6 +88,8 @@ type AccessLogListQuery struct {
 	StatusCode    *int
 	DurationMinMS *int64
 	DurationMaxMS *int64
+	StartedFrom   *time.Time
+	StartedTo     *time.Time
 	OccurredFrom  *time.Time
 	OccurredTo    *time.Time
 	SortBy        AccessLogSortField
@@ -114,6 +118,8 @@ const (
 type AccessLogSortField string
 
 const (
+	// AccessLogSortStartedAt 按请求开始时间排序。
+	AccessLogSortStartedAt AccessLogSortField = "started_at"
 	// AccessLogSortOccurredAt 按发生时间排序。
 	AccessLogSortOccurredAt AccessLogSortField = "occurred_at"
 	// AccessLogSortDurationMS 按耗时排序。
@@ -285,6 +291,7 @@ func (r *accessLogRepository) GetAccessLogByID(ctx context.Context, id uint64) (
 		username,
 		request_size,
 		response_size,
+		started_at,
 		occurred_at
 	FROM access_logs WHERE id = ` + r.placeholder(1)
 
@@ -325,6 +332,7 @@ func (r *accessLogRepository) createAccessLog(
 		nullableString(record.Username),
 		nullableInt64(record.RequestSize),
 		nullableInt64(record.ResponseSize),
+		record.StartedAt,
 		record.OccurredAt,
 	}
 
@@ -342,6 +350,7 @@ func (r *accessLogRepository) createAccessLog(
 		username,
 		request_size,
 		response_size,
+		started_at,
 		occurred_at
 	) VALUES (%s) RETURNING id`, r.placeholders(len(args)))
 
@@ -391,8 +400,16 @@ func normalizeCreateAccessLogInput(input CreateAccessLogInput) AccessLog {
 		Username:     strings.TrimSpace(input.Username),
 		RequestSize:  cloneInt64Pointer(input.RequestSize),
 		ResponseSize: cloneInt64Pointer(input.ResponseSize),
+		StartedAt:    normalizeStartedAt(input.StartedAt, input.OccurredAt),
 		OccurredAt:   normalizeOccurredAt(input.OccurredAt),
 	}
+}
+
+func normalizeStartedAt(startedAt time.Time, occurredAt time.Time) time.Time {
+	if startedAt.IsZero() {
+		return normalizeOccurredAt(occurredAt)
+	}
+	return startedAt.UTC()
 }
 
 func normalizeOccurredAt(occurredAt time.Time) time.Time {
@@ -451,10 +468,10 @@ func normalizeAccessLogPathMatchMode(mode AccessLogPathMatchMode) AccessLogPathM
 
 func normalizeAccessLogSortField(field AccessLogSortField) AccessLogSortField {
 	switch field {
-	case AccessLogSortDurationMS, AccessLogSortStatusCode:
+	case AccessLogSortStartedAt, AccessLogSortOccurredAt, AccessLogSortDurationMS, AccessLogSortStatusCode:
 		return field
 	default:
-		return AccessLogSortOccurredAt
+		return AccessLogSortStartedAt
 	}
 }
 
@@ -467,6 +484,8 @@ func normalizeAccessLogSortOrder(order AccessLogSortOrder) AccessLogSortOrder {
 
 func accessLogSortColumn(field AccessLogSortField) string {
 	switch field {
+	case AccessLogSortStartedAt:
+		return "started_at"
 	case AccessLogSortDurationMS:
 		return "duration_ms"
 	case AccessLogSortStatusCode:
@@ -510,6 +529,7 @@ func (r *accessLogRepository) buildAccessLogListSelectQuery(
 		username,
 		request_size,
 		response_size,
+		started_at,
 		occurred_at
 	FROM access_logs`)
 	builder.WriteString(whereSQL)
@@ -538,6 +558,8 @@ func (r *accessLogRepository) buildAccessLogWhereClause(query AccessLogListQuery
 	appendAccessLogOptionalIntFilter(&conditions, &args, r, "status_code =", query.StatusCode)
 	appendAccessLogOptionalInt64Filter(&conditions, &args, r, "duration_ms >=", query.DurationMinMS)
 	appendAccessLogOptionalInt64Filter(&conditions, &args, r, "duration_ms <=", query.DurationMaxMS)
+	appendAccessLogOptionalTimeFilter(&conditions, &args, r, "started_at >=", query.StartedFrom)
+	appendAccessLogOptionalTimeFilter(&conditions, &args, r, "started_at <=", query.StartedTo)
 	appendAccessLogOptionalTimeFilter(&conditions, &args, r, "occurred_at >=", query.OccurredFrom)
 	appendAccessLogOptionalTimeFilter(&conditions, &args, r, "occurred_at <=", query.OccurredTo)
 
@@ -661,6 +683,7 @@ func scanAccessLog(scanner accessLogScanner) (AccessLog, error) {
 		username     sql.NullString
 		requestSize  sql.NullInt64
 		responseSize sql.NullInt64
+		startedAt    time.Time
 		record       AccessLog
 	)
 
@@ -679,6 +702,7 @@ func scanAccessLog(scanner accessLogScanner) (AccessLog, error) {
 		&username,
 		&requestSize,
 		&responseSize,
+		&startedAt,
 		&record.OccurredAt,
 	); err != nil {
 		return AccessLog{}, err
@@ -703,6 +727,7 @@ func scanAccessLog(scanner accessLogScanner) (AccessLog, error) {
 		value := responseSize.Int64
 		record.ResponseSize = &value
 	}
+	record.StartedAt = startedAt.UTC()
 	record.OccurredAt = record.OccurredAt.UTC()
 
 	return record, nil

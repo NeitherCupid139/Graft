@@ -73,6 +73,26 @@ const (
 	AuditResultError AuditResult = "ERROR"
 )
 
+// AuditBusinessCategory identifies backend-owned editable business semantics for audit list filtering.
+type AuditBusinessCategory string
+
+const (
+	// AuditBusinessCategoryFailedOperations represents failed operations in the active window.
+	AuditBusinessCategoryFailedOperations AuditBusinessCategory = "failed_operations"
+	// AuditBusinessCategoryHighRiskOperations represents high-risk operations in the active window.
+	AuditBusinessCategoryHighRiskOperations AuditBusinessCategory = "high_risk_operations"
+	// AuditBusinessCategorySensitiveOperations represents sensitive operations in the active window.
+	AuditBusinessCategorySensitiveOperations AuditBusinessCategory = "sensitive_operations"
+	// AuditBusinessCategoryAuthFailures represents authentication failures in the active window.
+	AuditBusinessCategoryAuthFailures AuditBusinessCategory = "auth_failures"
+	// AuditBusinessCategoryPermissionDenials represents permission denial activity in the active window.
+	AuditBusinessCategoryPermissionDenials AuditBusinessCategory = "permission_denials"
+	// AuditBusinessCategoryRBACChanges represents RBAC and permission-configuration changes in the active window.
+	AuditBusinessCategoryRBACChanges AuditBusinessCategory = "rbac_changes"
+	// AuditBusinessCategoryCriticalSecurity represents critical security activity in the active window.
+	AuditBusinessCategoryCriticalSecurity AuditBusinessCategory = "critical_security"
+)
+
 // AuditLog is the audit plugin's stable DTO for a persisted audit record.
 type AuditLog struct {
 	ID               uint64
@@ -185,23 +205,34 @@ type AuditPolicyDecision struct {
 
 // ListAuditLogsQuery describes the audit plugin's stable repository-side query contract.
 type ListAuditLogsQuery struct {
-	ActorUserID  *uint64
-	Action       string
-	ActionPrefix string
-	Source       AuditSource
-	ResourceType string
-	ResourceID   string
-	ResourceName string
-	Success      *bool
-	RequestID    string
-	Result       AuditResult
-	RiskLevel    AuditRiskLevel
-	CreatedFrom  *time.Time
-	CreatedTo    *time.Time
-	SortBy       string
-	SortOrder    string
-	Limit        int
-	Offset       int
+	ActorUserID         *uint64
+	Keyword             string
+	Actor               string
+	Action              string
+	ActionPrefix        string
+	ActionPrefixes      []string
+	ActionKeywords      []string
+	TimePreset          AuditTimePreset
+	Source              AuditSource
+	BusinessCategory    AuditBusinessCategory
+	ResourceType        string
+	ResourceTypes       []string
+	ResourceID          string
+	ResourceName        string
+	RequestPathPrefixes []string
+	Success             *bool
+	SessionID           string
+	RequestID           string
+	Result              AuditResult
+	Results             []AuditResult
+	RiskLevel           AuditRiskLevel
+	RiskLevels          []AuditRiskLevel
+	CreatedFrom         *time.Time
+	CreatedTo           *time.Time
+	SortBy              string
+	SortOrder           string
+	Limit               int
+	Offset              int
 }
 
 // ListAuditLogsResult returns a bounded page plus total count for future API pagination.
@@ -210,16 +241,16 @@ type ListAuditLogsResult struct {
 	Total int
 }
 
-// OverviewWindow identifies the supported overview aggregation window.
-type OverviewWindow string
+// AuditTimePreset identifies the supported relative time preset.
+type AuditTimePreset string
 
 const (
-	// OverviewWindow24Hours selects the trailing 24-hour overview window.
-	OverviewWindow24Hours OverviewWindow = "24h"
-	// OverviewWindow7Days selects the trailing 7-day overview window.
-	OverviewWindow7Days OverviewWindow = "7d"
-	// OverviewWindow30Days selects the trailing 30-day overview window.
-	OverviewWindow30Days OverviewWindow = "30d"
+	// AuditTimePresetLast24Hours selects the trailing 24-hour window.
+	AuditTimePresetLast24Hours AuditTimePreset = "last_24h"
+	// AuditTimePresetLast7Days selects the trailing 7-day window.
+	AuditTimePresetLast7Days AuditTimePreset = "last_7d"
+	// AuditTimePresetLast30Days selects the trailing 30-day window.
+	AuditTimePresetLast30Days AuditTimePreset = "last_30d"
 )
 
 // OverviewSummary aggregates audit activity counts for the selected window.
@@ -290,7 +321,7 @@ type OverviewSecurityTimelineItem struct {
 
 // AuditOverview groups window-level counters with the recent slices used by the overview page.
 type AuditOverview struct {
-	Window           OverviewWindow
+	TimePreset       AuditTimePreset
 	Summary          OverviewSummary
 	RiskGroups       []OverviewRiskGroup
 	Trend            OverviewTrend
@@ -416,7 +447,7 @@ type AuditIncident struct {
 type AuditRepository interface {
 	CreateAuditLog(ctx context.Context, input CreateAuditLogInput) (AuditLog, error)
 	ListAuditLogs(ctx context.Context, query ListAuditLogsQuery) (ListAuditLogsResult, error)
-	ReadAuditOverview(ctx context.Context, window OverviewWindow) (AuditOverview, error)
+	ReadAuditOverview(ctx context.Context, preset AuditTimePreset) (AuditOverview, error)
 	ReadIncident(ctx context.Context, eventID uint64) (AuditIncident, error)
 	ListAuditPolicyRules(ctx context.Context) ([]AuditPolicyRule, error)
 }

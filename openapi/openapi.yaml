@@ -189,6 +189,10 @@ components:
       $ref: ./components/schemas/batch-user-roles-request.yaml
     AuditLogListItem:
       $ref: ./components/schemas/audit-log-list-item.yaml
+    AuditDrilldownScope:
+      $ref: ./components/schemas/audit-drilldown-scope.yaml
+    AuditBusinessCategory:
+      $ref: ./components/schemas/audit-business-category.yaml
     AuditLogListResponse:
       $ref: ./components/schemas/audit-log-list-response.yaml
     EnvelopedAuditLogListResponse:

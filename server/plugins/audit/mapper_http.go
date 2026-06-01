@@ -7,25 +7,123 @@ import (
 	"time"
 
 	generated "graft/server/internal/contract/openapi/generated"
+	"graft/server/internal/drilldown"
 	auditstore "graft/server/plugins/audit/store"
 )
 
-func toAuditLogListResponse(result auditListResult) (generated.AuditLogListResponse, error) {
+func toAuditLogListResponse(result auditListResult) (map[string]any, error) {
 	items := make([]generated.AuditLogListItem, 0, len(result.Items))
 	for _, item := range result.Items {
 		converted, err := toAuditLogListItem(item)
 		if err != nil {
-			return generated.AuditLogListResponse{}, err
+			return nil, err
 		}
 		items = append(items, converted)
 	}
 
-	return generated.AuditLogListResponse{
-		Items:    items,
-		Total:    result.Total,
-		Page:     result.Page,
-		PageSize: result.PageSize,
-	}, nil
+	response := map[string]any{
+		"items":     items,
+		"total":     result.Total,
+		"page":      result.Page,
+		"page_size": result.PageSize,
+	}
+	if applied := toAppliedScopeMap(result.AppliedScope); applied != nil {
+		response["applied_scope"] = applied
+	}
+	if projection := toScopeProjectionMap(result.ScopeProjection); projection != nil {
+		response["scope_projection"] = projection
+	}
+	if filters := toConvertibleFiltersMap(result.ConvertibleFilters); filters != nil {
+		response["convertible_filters"] = filters
+	}
+	return response, nil
+}
+
+func toAppliedScopeMap(scope *drilldown.AppliedScope) map[string]any {
+	if scope == nil {
+		return nil
+	}
+
+	entry := map[string]any{
+		"module": scope.Module,
+		"scope":  scope.Scope,
+		"name":   scope.Name,
+	}
+	if scope.Description != "" {
+		entry["description"] = scope.Description
+	}
+	if len(scope.OwnedFields) > 0 {
+		entry["owned_fields"] = append([]string(nil), scope.OwnedFields...)
+	}
+	return entry
+}
+
+func toScopeProjectionMap(projection *drilldown.ScopeProjection) map[string]any {
+	if projection == nil {
+		return nil
+	}
+
+	items := make([]map[string]any, 0, len(projection.Items))
+	for _, item := range projection.Items {
+		entry := map[string]any{
+			"key":       item.Key,
+			"label_key": item.LabelKey,
+			"kind":      item.Kind,
+			"locked":    item.Locked,
+		}
+		if len(item.Values) > 0 {
+			entry["values"] = append([]string(nil), item.Values...)
+		}
+		items = append(items, entry)
+	}
+
+	entry := map[string]any{
+		"title": projection.Title,
+	}
+	if projection.Description != "" {
+		entry["description"] = projection.Description
+	}
+	if len(items) > 0 {
+		entry["items"] = items
+	}
+	return entry
+}
+
+func toConvertibleFiltersMap(filters *drilldown.ConvertibleFilters) map[string]any {
+	if filters == nil {
+		return nil
+	}
+
+	converted := map[string]any{}
+	addStringSliceField(converted, "action_keywords", filters.ActionKeywords)
+	addStringSliceField(converted, "action_prefixes", filters.ActionPrefixes)
+	addStringSliceField(converted, "resource_types", filters.ResourceTypes)
+	addStringSliceField(converted, "request_path_prefixes", filters.RequestPathPrefixes)
+	addStringSliceField(converted, "results", filters.Results)
+	addStringSliceField(converted, "risk_levels", filters.RiskLevels)
+	if filters.Preset != "" {
+		converted["preset"] = filters.Preset
+	}
+	if filters.Source != "" {
+		converted["source"] = filters.Source
+	}
+	if filters.BusinessCategory != "" {
+		converted["business_category"] = filters.BusinessCategory
+	}
+	if filters.Success != nil {
+		converted["success"] = *filters.Success
+	}
+	if len(converted) == 0 {
+		return nil
+	}
+	return converted
+}
+
+func addStringSliceField(target map[string]any, key string, values []string) {
+	if len(values) == 0 {
+		return
+	}
+	target[key] = append([]string(nil), values...)
 }
 
 func toAuditOverviewResponse(result auditOverviewResult) (map[string]any, error) {
@@ -84,7 +182,7 @@ func toAuditOverviewResponse(result auditOverviewResult) (map[string]any, error)
 	}
 
 	return map[string]any{
-		"window": string(result.Window),
+		"time_preset": string(result.TimePreset),
 		"summary": map[string]any{
 			"total_logs":           result.Summary.TotalLogs,
 			"failed_operations":    result.Summary.FailedOperations,

@@ -4276,6 +4276,22 @@
             }
           },
           {
+            "name": "keyword",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "actor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "action",
             "in": "query",
             "required": false,
@@ -4284,11 +4300,68 @@
             }
           },
           {
+            "name": "preset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "last_24h",
+                "last_7d",
+                "last_30d"
+              ]
+            }
+          },
+          {
+            "name": "scope",
+            "in": "query",
+            "required": false,
+            "description": "Stable business drilldown scope. When present, scope-owned fields remain read-only until the client exits drilldown or converts to normal filters.",
+            "schema": {
+              "$ref": "#/components/schemas/audit-drilldown-scope"
+            }
+          },
+          {
+            "name": "business_category",
+            "in": "query",
+            "required": false,
+            "description": "Backend-owned editable business category used by normal filters and scope conversion.",
+            "schema": {
+              "$ref": "#/components/schemas/audit-business-category"
+            }
+          },
+          {
             "name": "action_prefix",
             "in": "query",
             "required": false,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "action_prefixes",
+            "in": "query",
+            "required": false,
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "action_keywords",
+            "in": "query",
+            "required": false,
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           },
           {
@@ -4313,6 +4386,19 @@
             }
           },
           {
+            "name": "resource_types",
+            "in": "query",
+            "required": false,
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
             "name": "resource_id",
             "in": "query",
             "required": false,
@@ -4329,7 +4415,28 @@
             }
           },
           {
+            "name": "request_path_prefixes",
+            "in": "query",
+            "required": false,
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
             "name": "request_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "session_id",
             "in": "query",
             "required": false,
             "schema": {
@@ -4351,6 +4458,25 @@
             }
           },
           {
+            "name": "results",
+            "in": "query",
+            "required": false,
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "SUCCESS",
+                  "FAILED",
+                  "DENIED",
+                  "ERROR"
+                ]
+              }
+            }
+          },
+          {
             "name": "risk_level",
             "in": "query",
             "required": false,
@@ -4362,6 +4488,25 @@
                 "HIGH",
                 "CRITICAL"
               ]
+            }
+          },
+          {
+            "name": "risk_levels",
+            "in": "query",
+            "required": false,
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "LOW",
+                  "MEDIUM",
+                  "HIGH",
+                  "CRITICAL"
+                ]
+              }
             }
           },
           {
@@ -4436,7 +4581,7 @@
             }
           },
           "400": {
-            "description": "Invalid list filter or pagination query.",
+            "description": "Invalid list filter, scope conflict, disabled scope, or pagination query.",
             "headers": {
               "X-Request-Id": {
                 "$ref": "#/components/headers/request-id"
@@ -4478,17 +4623,17 @@
             "$ref": "#/components/parameters/request-id-header"
           },
           {
-            "name": "window",
+            "name": "preset",
             "in": "query",
             "required": false,
             "schema": {
               "type": "string",
               "enum": [
-                "24h",
-                "7d",
-                "30d"
+                "last_24h",
+                "last_7d",
+                "last_30d"
               ],
-              "default": "24h"
+              "default": "last_24h"
             }
           }
         ],
@@ -4938,6 +5083,22 @@
             }
           },
           {
+            "name": "started_from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "started_to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
             "name": "occurred_from",
             "in": "query",
             "schema": {
@@ -4959,6 +5120,7 @@
             "schema": {
               "type": "string",
               "enum": [
+                "started_at",
                 "occurred_at",
                 "duration_ms",
                 "status_code"
@@ -5235,6 +5397,12 @@
       },
       "AuditLogListItem": {
         "$ref": "#/components/schemas/audit-log-list-item"
+      },
+      "AuditDrilldownScope": {
+        "$ref": "#/components/schemas/audit-drilldown-scope"
+      },
+      "AuditBusinessCategory": {
+        "$ref": "#/components/schemas/audit-business-category"
       },
       "AuditLogListResponse": {
         "$ref": "#/components/schemas/audit-log-list-response"
@@ -6318,6 +6486,30 @@
           }
         }
       },
+      "audit-drilldown-scope": {
+        "type": "string",
+        "enum": [
+          "failed_operations",
+          "high_risk_operations",
+          "sensitive_operations",
+          "auth_failures",
+          "permission_denials",
+          "rbac_changes",
+          "critical_security"
+        ]
+      },
+      "audit-business-category": {
+        "type": "string",
+        "enum": [
+          "failed_operations",
+          "high_risk_operations",
+          "sensitive_operations",
+          "auth_failures",
+          "permission_denials",
+          "rbac_changes",
+          "critical_security"
+        ]
+      },
       "audit-target": {
         "type": "object",
         "required": [
@@ -6468,6 +6660,158 @@
           }
         }
       },
+      "applied-drilldown-scope": {
+        "type": "object",
+        "required": [
+          "module",
+          "scope",
+          "name"
+        ],
+        "properties": {
+          "module": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "owned_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "drilldown-scope-projection-item": {
+        "type": "object",
+        "required": [
+          "key",
+          "label",
+          "kind",
+          "locked"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "locked": {
+            "type": "boolean"
+          }
+        }
+      },
+      "drilldown-scope-projection": {
+        "type": "object",
+        "required": [
+          "title"
+        ],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/drilldown-scope-projection-item"
+            }
+          }
+        }
+      },
+      "audit-log-convertible-filters": {
+        "type": "object",
+        "properties": {
+          "preset": {
+            "type": "string",
+            "enum": [
+              "last_24h",
+              "last_7d",
+              "last_30d"
+            ]
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "REQUEST",
+              "SECURITY_EVENT",
+              "DOMAIN_EVENT"
+            ]
+          },
+          "business_category": {
+            "$ref": "#/components/schemas/audit-business-category"
+          },
+          "success": {
+            "type": "boolean"
+          },
+          "action_prefixes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "action_keywords": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "resource_types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "request_path_prefixes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "SUCCESS",
+                "FAILED",
+                "DENIED",
+                "ERROR"
+              ]
+            }
+          },
+          "risk_levels": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "LOW",
+                "MEDIUM",
+                "HIGH",
+                "CRITICAL"
+              ]
+            }
+          }
+        }
+      },
       "audit-log-list-response": {
         "type": "object",
         "required": [
@@ -6491,6 +6835,15 @@
           },
           "page_size": {
             "type": "integer"
+          },
+          "applied_scope": {
+            "$ref": "#/components/schemas/applied-drilldown-scope"
+          },
+          "scope_projection": {
+            "$ref": "#/components/schemas/drilldown-scope-projection"
+          },
+          "convertible_filters": {
+            "$ref": "#/components/schemas/audit-log-convertible-filters"
           }
         }
       },
@@ -6605,7 +6958,7 @@
       "audit-overview-response": {
         "type": "object",
         "required": [
-          "window",
+          "time_preset",
           "summary",
           "risk_groups",
           "trend",
@@ -6615,12 +6968,12 @@
           "sensitive_operations"
         ],
         "properties": {
-          "window": {
+          "time_preset": {
             "type": "string",
             "enum": [
-              "24h",
-              "7d",
-              "30d"
+              "last_24h",
+              "last_7d",
+              "last_30d"
             ]
           },
           "summary": {
@@ -7822,6 +8175,7 @@
           "client_ip",
           "user_agent",
           "username",
+          "started_at",
           "occurred_at"
         ],
         "properties": {
@@ -7874,6 +8228,10 @@
             "type": "integer",
             "format": "int64",
             "nullable": true
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
           },
           "occurred_at": {
             "type": "string",

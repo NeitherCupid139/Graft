@@ -16,9 +16,31 @@
         </template>
       </management-page-header>
 
+      <section v-if="scopeState" class="audit-scope-banner">
+        <div class="audit-scope-banner__main">
+          <div class="audit-scope-banner__summary">
+            <t-tag theme="primary" variant="light-outline" size="small">
+              {{ t('audit.logList.scope.drilldownTag', { name: scopeState.appliedScope.name }) }}
+            </t-tag>
+            <span v-if="primaryScopeCondition" class="audit-scope-banner__condition">
+              {{ t('audit.logList.scope.conditionInline', { condition: primaryScopeCondition }) }}
+            </span>
+          </div>
+        </div>
+        <div class="audit-scope-banner__actions">
+          <t-button theme="primary" variant="outline" size="small" @click="convertScopeToFilters">
+            {{ t('audit.logList.scope.convertAction') }}
+          </t-button>
+          <t-button theme="default" variant="text" size="small" @click="exitDrilldown">
+            {{ t('audit.logList.scope.exitAction') }}
+          </t-button>
+        </div>
+      </section>
+
       <audit-filters
         v-model="filters"
         :active-preset="activePreset"
+        :locked-fields="scopeOwnedFilterKeys"
         :loading="loading"
         :presets="presetViews"
         @apply-preset="applyPreset"
@@ -43,12 +65,10 @@
         v-else
         v-model:current="pagination.current"
         v-model:page-size="pagination.pageSize"
-        :description="t('audit.logList.tableHint')"
         :footer-summary="footerSummary"
         :loading="loading"
         :local-filter-active="hasClientOnlyFilters"
         :rows="displayRows"
-        :summary="tableSummary"
         :total="tableTotal"
         :visible-column-keys="visibleColumnKeys"
         @detail="openDetailDrawer"
@@ -82,30 +102,51 @@
 </template>
 <script setup lang="ts">
 import { MessagePlugin } from 'tdesign-vue-next';
-import { computed, ref, watch } from 'vue';
+import { computed, onActivated, onDeactivated, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 
 import { resolveLocalizedErrorMessage } from '@/modules/shared/localized-api-error';
 import { ManagementEmptyState, ManagementPageContent, ManagementPageHeader } from '@/shared/components/management';
 import { describeCorrelationId, formatMessageWithCorrelation } from '@/shared/correlation';
-import { createSingleSorter, getSingleSorter } from '@/shared/observability';
+import {
+  buildRecentHoursLocalRange,
+  createSingleSorter,
+  getSingleSorter,
+  localDateTimeToUtcIso,
+  normalizePageStateRangeForRoute,
+  normalizeRouteRangeForPageState,
+} from '@/shared/observability';
 import { createLogger } from '@/utils/logger';
 
 import { getAuditLogs } from '../../api/audit';
 import AuditDetailDrawer from '../../components/AuditDetailDrawer.vue';
 import AuditFilters from '../../components/AuditFilters.vue';
 import AuditTable from '../../components/AuditTable.vue';
+import { AUDIT_BOOTSTRAP_ROUTE } from '../../contract/bootstrap';
 import { buildAuditLogsLocation, parseAuditLogsRouteQuery } from '../../contract/deep-link';
 import {
   buildMonitorReturnLocation,
   resolveAuditNavigationContext,
   withMonitorOrigin,
 } from '../../contract/navigation';
-import { getAuditPresetDefaults, listAuditPresets, resolveAuditPresetKey } from '../../contract/presets';
+import {
+  AUDIT_BUSINESS_CATEGORY,
+  AUDIT_DRILLDOWN_SCOPE,
+  type AuditQuickPresetKey,
+  listAuditPresets,
+} from '../../contract/presets';
+import { AUDIT_TIME_PRESET, type AuditTimePreset } from '../../contract/time-presets';
+import type { AuditFilterKey } from '../../shared/filter-definitions';
 import type { AuditClientFilterState } from '../../shared/presentation';
-import { matchesAuditRow } from '../../shared/presentation';
-import type { AuditLogListItem, AuditLogQuery } from '../../types/audit';
+import type {
+  AppliedDrilldownScope,
+  AuditDrilldownScope,
+  AuditLogConvertibleFilters,
+  AuditLogListItem,
+  AuditLogQuery,
+  DrilldownScopeProjection,
+} from '../../types/audit';
 
 defineOptions({
   name: 'AuditLogListIndex',
@@ -120,7 +161,6 @@ const loading = ref(false);
 const listError = ref('');
 const rows = ref<AuditLogListItem[]>([]);
 const total = ref(0);
-const activePreset = ref(resolveAuditPresetKey(''));
 const detailDrawerVisible = ref(false);
 const detailRecord = ref<AuditLogListItem | null>(null);
 const latestRequestSeq = ref(0);
@@ -133,9 +173,26 @@ const pagination = ref({
 const filters = ref<AuditClientFilterState>({
   ...createDefaultFilters(),
 });
+const routePreset = ref<AuditTimePreset | ''>('');
+const routeScope = ref<AuditDrilldownScope | ''>('');
+const appliedScope = ref<AppliedDrilldownScope | null>(null);
+const scopeProjection = ref<DrilldownScopeProjection | null>(null);
+const convertibleFilters = ref<AuditLogConvertibleFilters | null>(null);
 const applyingRoute = ref(false);
+const isRouteSyncActive = ref(true);
 const navigationContext = computed(() => resolveAuditNavigationContext(route.query));
 const monitorReturnLocation = computed(() => buildMonitorReturnLocation(route.query));
+const activePreset = computed(() => inferPresetFromState(filters.value, routeScope.value));
+const scopeState = computed(() =>
+  appliedScope.value && scopeProjection.value
+    ? {
+        appliedScope: appliedScope.value,
+        projection: scopeProjection.value,
+        convertibleFilters: convertibleFilters.value,
+      }
+    : null,
+);
+const scopeOwnedFilterKeys = computed(() => mapOwnedFieldsToFilterKeys(appliedScope.value?.owned_fields ?? []));
 
 const presetViews = computed(() =>
   listAuditPresets().map((preset) => ({
@@ -143,6 +200,24 @@ const presetViews = computed(() =>
     title: t(preset.titleKey),
   })),
 );
+const localizedScopeProjectionItems = computed(() =>
+  (scopeState.value?.projection.items ?? []).map((item) => ({
+    ...item,
+    localizedValues: (item.values ?? [])
+      .map((value) => formatScopeProjectionValue(item.key, value))
+      .filter((value, index, values) => Boolean(value) && values.indexOf(value) === index),
+  })),
+);
+const scopeConditionTags = computed(() =>
+  localizedScopeProjectionItems.value.flatMap((item) => {
+    const values = item.localizedValues.filter(Boolean);
+    if (item.key === 'business_category' && values.length === 1) {
+      return [];
+    }
+    return values.map((value) => `${t(item.label_key)}=${value}`);
+  }),
+);
+const primaryScopeCondition = computed(() => scopeConditionTags.value[0] ?? '');
 const columnSettingOptions = computed(() => [
   { label: t('audit.logList.columns.action'), value: 'action' },
   { label: t('audit.logList.columns.actor'), value: 'actor' },
@@ -153,26 +228,40 @@ const columnSettingOptions = computed(() => [
   { label: t('audit.logList.columns.createdAt'), value: 'created_at' },
 ]);
 
-const hasClientOnlyFilters = computed(() =>
-  Boolean(
-    filters.value.keyword ||
-    filters.value.actor ||
-    filters.value.actorUserId ||
-    filters.value.resourceId ||
-    filters.value.session ||
-    filters.value.requestId ||
-    filters.value.traceId,
-  ),
-);
+const hasClientOnlyFilters = computed(() => false);
 
-const displayRows = computed(() => rows.value.filter((row) => matchesAuditRow(row, filters.value, t)));
-const tableTotal = computed(() => (hasClientOnlyFilters.value ? displayRows.value.length : total.value));
-const tableSummary = computed(() => t('audit.logList.summary', { count: displayRows.value.length }));
+const displayRows = computed(() => rows.value);
+const tableTotal = computed(() => total.value);
 const footerSummary = computed(() =>
   hasClientOnlyFilters.value
     ? t('audit.logList.footerFiltered', { count: displayRows.value.length })
     : t('audit.logList.footerTotal', { count: total.value }),
 );
+
+const isCurrentAuditLogsRoute = computed(
+  () => route.path === buildAuditLogsLocation({}).path || route.name === AUDIT_BOOTSTRAP_ROUTE.LOG_LIST.routeName,
+);
+
+function serializeRouteQuery(query: Record<string, unknown> | undefined) {
+  return JSON.stringify(query ?? {});
+}
+
+function canSyncAuditRoute(reason: string) {
+  const allowed = isRouteSyncActive.value && isCurrentAuditLogsRoute.value;
+
+  if (!allowed) {
+    logger.debug('skip audit route sync while page is inactive or route changed', {
+      reason,
+      routePath: route.path,
+      routeName: route.name,
+      isRouteSyncActive: isRouteSyncActive.value,
+      isCurrentAuditLogsRoute: isCurrentAuditLogsRoute.value,
+      query: route.query,
+    });
+  }
+
+  return allowed;
+}
 
 function buildQuery(): AuditLogQuery {
   const sorter = getSingleSorter(filters.value.sorters);
@@ -180,41 +269,78 @@ function buildQuery(): AuditLogQuery {
     page: pagination.value.current,
     page_size: pagination.value.pageSize,
   };
-
+  if (routePreset.value) {
+    query.preset = routePreset.value;
+  }
+  if (routeScope.value) {
+    query.scope = routeScope.value;
+  }
+  if (filters.value.keyword) {
+    query.keyword = filters.value.keyword;
+  }
+  if (filters.value.actor) {
+    query.actor = filters.value.actor;
+  }
   if (filters.value.action) {
     query.action = filters.value.action;
   }
   if (filters.value.actionPrefix) {
     query.action_prefix = filters.value.actionPrefix;
   }
+  if (filters.value.actionPrefixes.length) {
+    query.action_prefixes = [...filters.value.actionPrefixes];
+  }
+  if (filters.value.actionKeywords.length) {
+    query.action_keywords = [...filters.value.actionKeywords];
+  }
   if (filters.value.source) {
     query.source = filters.value.source as AuditLogQuery['source'];
+  }
+  if (filters.value.businessCategory) {
+    query.business_category = filters.value.businessCategory;
   }
   if (filters.value.resourceType) {
     query.resource_type = filters.value.resourceType;
   }
+  if (filters.value.resourceTypes.length) {
+    query.resource_types = [...filters.value.resourceTypes];
+  }
   if (filters.value.resourceName) {
     query.resource_name = filters.value.resourceName;
+  }
+  if (filters.value.requestId) {
+    query.request_id = filters.value.requestId;
   }
   if (filters.value.resourceId) {
     query.resource_id = filters.value.resourceId;
   }
-  if (filters.value.requestId) {
-    query.request_id = filters.value.requestId;
-  } else if (filters.value.traceId) {
-    query.request_id = filters.value.traceId;
-  }
   if (filters.value.result !== 'all') {
     query.result = filters.value.result;
+  }
+  if (filters.value.results.length) {
+    query.results = [...filters.value.results];
   }
   if (filters.value.riskLevel !== 'all') {
     query.risk_level = filters.value.riskLevel;
   }
-  if (filters.value.createdRange[0]) {
-    query.created_from = toISOStringOrRaw(filters.value.createdRange[0]);
+  if (filters.value.riskLevels.length) {
+    query.risk_levels = [...filters.value.riskLevels];
   }
-  if (filters.value.createdRange[1]) {
-    query.created_to = toISOStringOrRaw(filters.value.createdRange[1]);
+  if (filters.value.success !== 'all') {
+    query.success = filters.value.success === 'true';
+  }
+  if (filters.value.session) {
+    query.session_id = filters.value.session;
+  }
+  if (filters.value.requestPathPrefixes.length) {
+    query.request_path_prefixes = [...filters.value.requestPathPrefixes];
+  }
+  const explicitCreatedRange = filters.value.createdRange;
+  if (explicitCreatedRange[0]) {
+    query.created_from = localDateTimeToUtcIso(explicitCreatedRange[0]);
+  }
+  if (explicitCreatedRange[1]) {
+    query.created_to = localDateTimeToUtcIso(explicitCreatedRange[1]);
   }
   if (sorter?.field) {
     query.sort_by = sorter.field;
@@ -238,15 +364,21 @@ async function fetchAuditLogs() {
     }
     rows.value = response.items;
     total.value = response.total;
+    appliedScope.value = response.applied_scope ?? null;
+    scopeProjection.value = response.scope_projection ?? null;
+    convertibleFilters.value = response.convertible_filters ?? null;
   } catch (error) {
     if (requestSeq !== latestRequestSeq.value) {
       return;
     }
     rows.value = [];
     total.value = 0;
+    appliedScope.value = null;
+    scopeProjection.value = null;
+    convertibleFilters.value = null;
     logger.error('failed to fetch audit logs', error);
     listError.value = resolveLocalizedErrorMessage(t, error, t('audit.logList.loadFailed'));
-    const correlationId = filters.value.requestId || filters.value.traceId;
+    const correlationId = filters.value.requestId;
     MessagePlugin.error(
       correlationId
         ? formatMessageWithCorrelation(listError.value, describeCorrelationId(t, correlationId))
@@ -259,14 +391,13 @@ async function fetchAuditLogs() {
   }
 }
 
-function applyPreset(preset: typeof activePreset.value) {
-  activePreset.value = preset;
-  filters.value = {
-    ...createDefaultFilters(),
-    ...getAuditPresetDefaults(preset),
-    sorters: filters.value.sorters,
-  };
-
+function applyPreset(preset: AuditQuickPresetKey) {
+  filters.value = createDefaultFilters();
+  routePreset.value = resolvePresetTimeWindow(preset);
+  routeScope.value = resolveScopeForPreset(preset);
+  if (!routeScope.value) {
+    filters.value.createdRange = buildPresetCreatedRange(routePreset.value);
+  }
   pagination.value.current = 1;
   updateRouteQuery();
 }
@@ -278,7 +409,26 @@ function handleSearch() {
 
 function resetFilters() {
   filters.value = createDefaultFilters();
-  activePreset.value = 'all';
+  routePreset.value = '';
+  routeScope.value = '';
+  pagination.value.current = 1;
+  updateRouteQuery();
+}
+
+function exitDrilldown() {
+  routeScope.value = '';
+  pagination.value.current = 1;
+  updateRouteQuery();
+}
+
+function convertScopeToFilters() {
+  if (!convertibleFilters.value) {
+    return;
+  }
+
+  routeScope.value = '';
+  routePreset.value = convertibleFilters.value.preset ?? routePreset.value;
+  applyConvertibleFilters(convertibleFilters.value);
   pagination.value.current = 1;
   updateRouteQuery();
 }
@@ -287,19 +437,25 @@ function createDefaultFilters(): AuditClientFilterState {
   return {
     keyword: '',
     actor: '',
-    actorUserId: '',
+    success: 'all',
     action: '',
     actionPrefix: '',
+    actionPrefixes: [],
+    actionKeywords: [],
+    requestPathPrefixes: [],
     source: '',
+    businessCategory: '',
     createdRange: [],
     resourceType: '',
+    resourceTypes: [],
     resourceName: '',
     resourceId: '',
     result: 'all',
+    results: [],
     riskLevel: 'all',
+    riskLevels: [],
     session: '',
     requestId: '',
-    traceId: '',
     sorters: createSingleSorter('created_at', 'desc'),
   };
 }
@@ -309,64 +465,70 @@ function openDetailDrawer(row: AuditLogListItem) {
   detailDrawerVisible.value = true;
 }
 
-function toISOStringOrRaw(value: string) {
-  const date = new Date(value.replace(' ', 'T'));
-  return Number.isNaN(date.getTime()) ? value : date.toISOString();
-}
-
 function applyRouteFilters() {
   const query = parseAuditLogsRouteQuery(route.query);
-  const nextPreset = resolveAuditPresetKey(query.preset ?? '');
-  const presetDefaults = getAuditPresetDefaults(nextPreset);
+  routePreset.value = normalizePreset(query.preset);
+  routeScope.value = normalizeScope(query.scope);
   const nextFilters: AuditClientFilterState = {
     ...createDefaultFilters(),
-    ...presetDefaults,
     keyword: query.keyword ?? '',
-    actor: query.username || query.actor || '',
-    actorUserId: query.user_id ?? '',
-    action: query.action || presetDefaults.action || '',
-    actionPrefix: query.action_prefix || presetDefaults.actionPrefix || '',
-    source: query.source || presetDefaults.source || '',
-    createdRange: query.occurred_from || query.occurred_to ? [query.occurred_from ?? '', query.occurred_to ?? ''] : [],
-    resourceType: query.resource_type || presetDefaults.resourceType || '',
+    actor: query.actor ?? '',
+    success: query.success === 'true' ? 'true' : query.success === 'false' ? 'false' : 'all',
+    action: query.action || '',
+    actionPrefix: query.action_prefix || '',
+    actionPrefixes: splitRouteList(query.action_prefixes),
+    actionKeywords: splitRouteList(query.action_keywords),
+    requestPathPrefixes: splitRouteList(query.request_path_prefixes),
+    source: query.source || '',
+    businessCategory: normalizeBusinessCategory(query.business_category),
+    createdRange: normalizeRouteRangeForPageState([query.created_from ?? '', query.created_to ?? '']),
+    resourceType: query.resource_type || '',
+    resourceTypes: splitRouteList(query.resource_types),
     resourceName: query.resource_name ?? '',
     resourceId: query.resource_id ?? '',
-    result: (query.result as AuditClientFilterState['result']) || presetDefaults.result || 'all',
-    riskLevel: (query.risk_level as AuditClientFilterState['riskLevel']) || presetDefaults.riskLevel || 'all',
+    result: (query.result as AuditClientFilterState['result']) || 'all',
+    results: splitRouteList(query.results) as AuditClientFilterState['results'],
+    riskLevel: (query.risk_level as AuditClientFilterState['riskLevel']) || 'all',
+    riskLevels: splitRouteList(query.risk_levels) as AuditClientFilterState['riskLevels'],
     session: query.session ?? '',
     requestId: query.request_id ?? '',
-    traceId: query.trace_id ?? '',
     sorters: query.sort_by
       ? createSingleSorter('created_at', normalizeSortOrder(query.sort_order || 'desc'))
       : filters.value.sorters,
   };
-
   filters.value = nextFilters;
-  activePreset.value = nextPreset;
 }
 
 function buildRouteQuery() {
-  const [occurredFrom = '', occurredTo = ''] = filters.value.createdRange;
+  const explicitCreatedRange = filters.value.createdRange;
+  const [createdFrom = '', createdTo = ''] = normalizePageStateRangeForRoute(explicitCreatedRange);
   const sorter = getSingleSorter(filters.value.sorters);
 
   return {
-    preset: activePreset.value === 'all' ? '' : activePreset.value,
+    preset: routePreset.value,
+    scope: routeScope.value,
     keyword: filters.value.keyword,
-    username: filters.value.actor,
-    user_id: filters.value.actorUserId,
+    actor: filters.value.actor,
+    success: filters.value.success === 'all' ? '' : filters.value.success,
     action: filters.value.action,
     action_prefix: filters.value.actionPrefix,
+    action_prefixes: joinRouteList(filters.value.actionPrefixes),
+    action_keywords: joinRouteList(filters.value.actionKeywords),
+    request_path_prefixes: joinRouteList(filters.value.requestPathPrefixes),
     source: filters.value.source,
-    occurred_from: occurredFrom,
-    occurred_to: occurredTo,
+    business_category: filters.value.businessCategory,
+    created_from: createdFrom,
+    created_to: createdTo,
     resource_type: filters.value.resourceType,
+    resource_types: joinRouteList(filters.value.resourceTypes),
     resource_name: filters.value.resourceName,
     resource_id: filters.value.resourceId,
     result: filters.value.result === 'all' ? '' : filters.value.result,
+    results: joinRouteList(filters.value.results),
     risk_level: filters.value.riskLevel === 'all' ? '' : filters.value.riskLevel,
+    risk_levels: joinRouteList(filters.value.riskLevels),
     session: filters.value.session,
     request_id: filters.value.requestId,
-    trace_id: filters.value.traceId,
     sort_by: sorter?.field ?? '',
     sort_order: sorter?.field ? (sorter.direction ?? '') : '',
   };
@@ -376,6 +538,9 @@ async function updateRouteQuery() {
   if (applyingRoute.value) {
     return;
   }
+  if (!canSyncAuditRoute('interactive-filter-sync')) {
+    return;
+  }
 
   const nextLocation = withMonitorOrigin(
     buildAuditLogsLocation(buildRouteQuery()),
@@ -383,28 +548,77 @@ async function updateRouteQuery() {
   );
   const currentLocation = withMonitorOrigin(buildAuditLogsLocation(route.query), navigationContext.value.monitorOrigin);
 
-  if (JSON.stringify(nextLocation.query) === JSON.stringify(currentLocation.query)) {
+  if (serializeRouteQuery(nextLocation.query) === serializeRouteQuery(currentLocation.query)) {
     await fetchAuditLogs();
     return;
   }
 
+  logger.debug('replace audit route query from interactive filters', {
+    reason: 'interactive-filter-sync',
+    routePath: route.path,
+    routeName: route.name,
+    currentQuery: currentLocation.query,
+    nextQuery: nextLocation.query,
+  });
   await router.replace(nextLocation);
+}
+
+async function syncFromCurrentRoute(reason: string) {
+  logger.debug('observe route query change for audit logs', {
+    reason,
+    routePath: route.path,
+    routeName: route.name,
+    isRouteSyncActive: isRouteSyncActive.value,
+    isCurrentAuditLogsRoute: isCurrentAuditLogsRoute.value,
+    applyingRoute: applyingRoute.value,
+    query: route.query,
+  });
+  if (!canSyncAuditRoute(reason)) {
+    return;
+  }
+
+  applyingRoute.value = true;
+  try {
+    applyRouteFilters();
+  } finally {
+    applyingRoute.value = false;
+  }
+  pagination.value.current = 1;
+  const canonicalLocation = withMonitorOrigin(
+    buildAuditLogsLocation(buildRouteQuery()),
+    navigationContext.value.monitorOrigin,
+  );
+  const currentLocation = withMonitorOrigin(buildAuditLogsLocation(route.query), navigationContext.value.monitorOrigin);
+  if (serializeRouteQuery(canonicalLocation.query) !== serializeRouteQuery(currentLocation.query)) {
+    logger.debug('canonicalize audit route query after route change', {
+      reason,
+      routePath: route.path,
+      routeName: route.name,
+      currentQuery: currentLocation.query,
+      canonicalQuery: canonicalLocation.query,
+    });
+    await router.replace(canonicalLocation);
+    return;
+  }
+  await fetchAuditLogs();
 }
 
 watch(
   () => route.query,
   async () => {
-    applyingRoute.value = true;
-    try {
-      applyRouteFilters();
-    } finally {
-      applyingRoute.value = false;
-    }
-    pagination.value.current = 1;
-    await fetchAuditLogs();
+    await syncFromCurrentRoute('route-query-watch');
   },
   { immediate: true },
 );
+
+onActivated(() => {
+  isRouteSyncActive.value = true;
+  void syncFromCurrentRoute('route-activated');
+});
+
+onDeactivated(() => {
+  isRouteSyncActive.value = false;
+});
 
 function returnToMonitor() {
   if (!monitorReturnLocation.value) {
@@ -416,6 +630,241 @@ function returnToMonitor() {
 
 function normalizeSortOrder(value: string) {
   return value === 'asc' ? 'asc' : 'desc';
+}
+
+function normalizePreset(value?: string) {
+  return value === AUDIT_TIME_PRESET.LAST_24H ||
+    value === AUDIT_TIME_PRESET.LAST_7D ||
+    value === AUDIT_TIME_PRESET.LAST_30D
+    ? value
+    : '';
+}
+
+function normalizeScope(value?: string): AuditDrilldownScope | '' {
+  switch (value) {
+    case AUDIT_DRILLDOWN_SCOPE.FAILED_OPERATIONS:
+    case AUDIT_DRILLDOWN_SCOPE.HIGH_RISK_OPERATIONS:
+    case AUDIT_DRILLDOWN_SCOPE.SENSITIVE_OPERATIONS:
+    case AUDIT_DRILLDOWN_SCOPE.AUTH_FAILURES:
+    case AUDIT_DRILLDOWN_SCOPE.PERMISSION_DENIALS:
+    case AUDIT_DRILLDOWN_SCOPE.RBAC_CHANGES:
+    case AUDIT_DRILLDOWN_SCOPE.CRITICAL_SECURITY:
+      return value;
+    default:
+      return '';
+  }
+}
+
+function normalizeBusinessCategory(value?: string): AuditClientFilterState['businessCategory'] {
+  switch (value) {
+    case AUDIT_BUSINESS_CATEGORY.FAILED_OPERATIONS:
+    case AUDIT_BUSINESS_CATEGORY.HIGH_RISK_OPERATIONS:
+    case AUDIT_BUSINESS_CATEGORY.SENSITIVE_OPERATIONS:
+    case AUDIT_BUSINESS_CATEGORY.AUTH_FAILURES:
+    case AUDIT_BUSINESS_CATEGORY.PERMISSION_DENIALS:
+    case AUDIT_BUSINESS_CATEGORY.RBAC_CHANGES:
+    case AUDIT_BUSINESS_CATEGORY.CRITICAL_SECURITY:
+      return value;
+    default:
+      return '';
+  }
+}
+
+function applyConvertibleFilters(next: AuditLogConvertibleFilters) {
+  filters.value = {
+    ...filters.value,
+    source: next.source ?? '',
+    businessCategory: normalizeBusinessCategory(next.business_category),
+    success: next.success === true ? 'true' : next.success === false ? 'false' : 'all',
+    actionPrefixes: next.action_prefixes ? [...next.action_prefixes] : [],
+    actionKeywords: next.action_keywords ? [...next.action_keywords] : [],
+    resourceTypes: next.resource_types ? [...next.resource_types] : [],
+    requestPathPrefixes: next.request_path_prefixes ? [...next.request_path_prefixes] : [],
+    results: next.results ? [...next.results] : [],
+    riskLevels: next.risk_levels ? [...next.risk_levels] : [],
+  };
+}
+
+function mapOwnedFieldsToFilterKeys(fields: string[]) {
+  const mapped: AuditFilterKey[] = [];
+
+  fields.forEach((field) => {
+    switch (field) {
+      case 'business_category':
+        mapped.push('businessCategory');
+        break;
+      case 'action_keywords':
+        mapped.push('actionKeywords');
+        break;
+      case 'action_prefixes':
+        mapped.push('actionPrefixes');
+        break;
+      case 'resource_types':
+        mapped.push('resourceTypes');
+        break;
+      case 'request_path_prefixes':
+        mapped.push('requestPathPrefixes');
+        break;
+      case 'results':
+        mapped.push('results');
+        break;
+      case 'risk_levels':
+        mapped.push('riskLevels');
+        break;
+      case 'source':
+        mapped.push('source');
+        break;
+      case 'success':
+        mapped.push('success');
+        break;
+      default:
+        break;
+    }
+  });
+
+  return mapped;
+}
+
+function splitRouteList(value: string | undefined) {
+  if (!value) {
+    return [];
+  }
+
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function joinRouteList(values: string[]) {
+  return values.length ? values.join(',') : '';
+}
+
+function inferPresetFromState(value: AuditClientFilterState, scope: string): AuditQuickPresetKey {
+  if (scope === AUDIT_DRILLDOWN_SCOPE.FAILED_OPERATIONS) {
+    return 'failed-operations';
+  }
+  if (scope === AUDIT_DRILLDOWN_SCOPE.RBAC_CHANGES) {
+    return 'rbac-changes';
+  }
+  if (scope === AUDIT_DRILLDOWN_SCOPE.PERMISSION_DENIALS) {
+    return 'permission-denied';
+  }
+  if (scope === AUDIT_DRILLDOWN_SCOPE.SENSITIVE_OPERATIONS) {
+    return 'sensitive-ops';
+  }
+  if (scope === AUDIT_DRILLDOWN_SCOPE.AUTH_FAILURES) {
+    return 'auth-failed';
+  }
+  if (scope === AUDIT_DRILLDOWN_SCOPE.HIGH_RISK_OPERATIONS || scope === AUDIT_DRILLDOWN_SCOPE.CRITICAL_SECURITY) {
+    return 'high-risk';
+  }
+  if (value.businessCategory === AUDIT_BUSINESS_CATEGORY.FAILED_OPERATIONS) {
+    return 'failed-operations';
+  }
+  if (value.businessCategory === AUDIT_BUSINESS_CATEGORY.RBAC_CHANGES) {
+    return 'rbac-changes';
+  }
+  if (value.businessCategory === AUDIT_BUSINESS_CATEGORY.PERMISSION_DENIALS) {
+    return 'permission-denied';
+  }
+  if (value.businessCategory === AUDIT_BUSINESS_CATEGORY.SENSITIVE_OPERATIONS) {
+    return 'sensitive-ops';
+  }
+  if (value.businessCategory === AUDIT_BUSINESS_CATEGORY.AUTH_FAILURES) {
+    return 'auth-failed';
+  }
+  if (
+    value.businessCategory === AUDIT_BUSINESS_CATEGORY.HIGH_RISK_OPERATIONS ||
+    value.businessCategory === AUDIT_BUSINESS_CATEGORY.CRITICAL_SECURITY
+  ) {
+    return 'high-risk';
+  }
+  return 'all';
+}
+
+function resolveScopeForPreset(preset: AuditQuickPresetKey): AuditDrilldownScope | '' {
+  switch (preset) {
+    case 'failed-operations':
+      return AUDIT_DRILLDOWN_SCOPE.FAILED_OPERATIONS;
+    case 'rbac-changes':
+      return AUDIT_DRILLDOWN_SCOPE.RBAC_CHANGES;
+    case 'permission-denied':
+      return AUDIT_DRILLDOWN_SCOPE.PERMISSION_DENIALS;
+    case 'sensitive-ops':
+      return AUDIT_DRILLDOWN_SCOPE.SENSITIVE_OPERATIONS;
+    case 'auth-failed':
+      return AUDIT_DRILLDOWN_SCOPE.AUTH_FAILURES;
+    case 'high-risk':
+      return AUDIT_DRILLDOWN_SCOPE.HIGH_RISK_OPERATIONS;
+    default:
+      return '';
+  }
+}
+
+function buildPresetCreatedRange(preset: AuditTimePreset | '') {
+  const now = new Date();
+  switch (preset) {
+    case 'last_24h':
+      return buildRecentHoursLocalRange(now, 24);
+    case 'last_7d':
+      return buildRecentHoursLocalRange(now, 24 * 7);
+    case 'last_30d':
+      return buildRecentHoursLocalRange(now, 24 * 30);
+    default:
+      return [];
+  }
+}
+
+function resolvePresetTimeWindow(preset: AuditQuickPresetKey): AuditTimePreset | '' {
+  return preset === 'all' ? '' : AUDIT_TIME_PRESET.LAST_24H;
+}
+
+function formatScopeProjectionValue(key: string, value: string) {
+  const normalized = value.trim();
+  if (!normalized) {
+    return '';
+  }
+
+  if (key === 'business_category') {
+    switch (normalized) {
+      case AUDIT_BUSINESS_CATEGORY.FAILED_OPERATIONS:
+        return resolveNonRedundantScopeValue(t('audit.logList.businessCategory.failedOperations'), 'business_category');
+      case AUDIT_BUSINESS_CATEGORY.HIGH_RISK_OPERATIONS:
+        return resolveNonRedundantScopeValue(
+          t('audit.logList.businessCategory.highRiskOperations'),
+          'business_category',
+        );
+      case AUDIT_BUSINESS_CATEGORY.SENSITIVE_OPERATIONS:
+        return resolveNonRedundantScopeValue(
+          t('audit.logList.businessCategory.sensitiveOperations'),
+          'business_category',
+        );
+      case AUDIT_BUSINESS_CATEGORY.AUTH_FAILURES:
+        return resolveNonRedundantScopeValue(t('audit.logList.businessCategory.authFailures'), 'business_category');
+      case AUDIT_BUSINESS_CATEGORY.PERMISSION_DENIALS:
+        return resolveNonRedundantScopeValue(
+          t('audit.logList.businessCategory.permissionDenials'),
+          'business_category',
+        );
+      case AUDIT_BUSINESS_CATEGORY.RBAC_CHANGES:
+        return resolveNonRedundantScopeValue(t('audit.logList.businessCategory.rbacChanges'), 'business_category');
+      case AUDIT_BUSINESS_CATEGORY.CRITICAL_SECURITY:
+        return resolveNonRedundantScopeValue(t('audit.logList.businessCategory.criticalSecurity'), 'business_category');
+      default:
+        return t('audit.logList.scope.unknownValue');
+    }
+  }
+
+  return normalized;
+}
+
+function resolveNonRedundantScopeValue(localizedValue: string, key: string) {
+  const localizedLabel = key === 'business_category' ? t('audit.logList.builder.fields.businessCategory') : '';
+  if (localizedLabel && localizedLabel === localizedValue) {
+    return '';
+  }
+  return localizedValue;
 }
 </script>
 <style scoped lang="less">
@@ -431,6 +880,52 @@ function normalizeSortOrder(value: string) {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.audit-scope-banner {
+  align-items: center;
+  background: color-mix(in srgb, var(--td-brand-color-light) 22%, var(--td-bg-color-container) 78%);
+  border: 1px solid var(--td-component-stroke);
+  border-radius: var(--td-radius-medium);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 8px 12px;
+}
+
+.audit-scope-banner__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.audit-scope-banner__summary,
+.audit-scope-banner__actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.audit-scope-banner__condition {
+  color: var(--td-text-color-secondary);
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.audit-scope-banner__actions {
+  flex-shrink: 0;
+  justify-content: flex-end;
+}
+
+@media (width <= 768px) {
+  .audit-scope-banner {
+    flex-direction: column;
+  }
+
+  .audit-scope-banner__actions {
+    width: 100%;
+  }
 }
 
 .column-grid {

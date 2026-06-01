@@ -11,6 +11,7 @@ required:
   - client_ip
   - user_agent
   - username
+  - started_at
   - occurred_at
 properties:
   id:
@@ -49,6 +50,9 @@ properties:
     type: integer
     format: int64
     nullable: true
+  started_at:
+    type: string
+    format: date-time
   occurred_at:
     type: string
     format: date-time

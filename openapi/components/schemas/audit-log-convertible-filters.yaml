@@ -1,0 +1,38 @@
+type: object
+properties:
+  preset:
+    type: string
+    enum: [last_24h, last_7d, last_30d]
+  source:
+    type: string
+    enum: [REQUEST, SECURITY_EVENT, DOMAIN_EVENT]
+  business_category:
+    $ref: ./audit-business-category.yaml
+  success:
+    type: boolean
+  action_prefixes:
+    type: array
+    items:
+      type: string
+  action_keywords:
+    type: array
+    items:
+      type: string
+  resource_types:
+    type: array
+    items:
+      type: string
+  request_path_prefixes:
+    type: array
+    items:
+      type: string
+  results:
+    type: array
+    items:
+      type: string
+      enum: [SUCCESS, FAILED, DENIED, ERROR]
+  risk_levels:
+    type: array
+    items:
+      type: string
+      enum: [LOW, MEDIUM, HIGH, CRITICAL]

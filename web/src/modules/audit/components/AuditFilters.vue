@@ -34,11 +34,11 @@
           <t-tag
             v-for="tag in activeFilterTags"
             :key="tag.key"
-            closable
+            :closable="!isLocked(tag.key)"
             max-width="240"
             theme="primary"
             variant="light-outline"
-            @close="tag.key === 'sorter' ? clearSorter() : clearField(tag.key)"
+            @close="isLocked(tag.key) ? undefined : tag.key === 'sorter' ? clearSorter() : clearField(tag.key)"
           >
             {{ tag.label }}
           </t-tag>
@@ -89,27 +89,45 @@
                     type="button"
                     @click="selectDefinition(definition.key)"
                   >
-                    {{ definition.fieldLabel }}
+                    {{ t(definition.fieldLabelKey) }}
                   </button>
                 </div>
 
                 <div v-if="selectedDefinition" class="audit-filter-builder__editor">
                   <div class="audit-filter-builder__editor-title">
-                    {{ selectedDefinition.fieldLabel }}
+                    {{ t(selectedDefinition.fieldLabelKey) }}
                   </div>
                   <t-select
                     v-if="selectedDefinition.kind === 'select'"
                     :model-value="selectValue(selectedDefinition.key)"
                     clearable
-                    :options="selectedDefinition.options"
-                    :placeholder="selectedDefinition.placeholder"
+                    :options="selectedDefinition.options.value"
+                    :placeholder="t(selectedDefinition.placeholderKey)"
                     @update:model-value="updateField(selectedDefinition.key, normalizeSelectValue($event))"
+                  />
+                  <t-select
+                    v-else-if="selectedDefinition.kind === 'multi-select'"
+                    :model-value="multiSelectValue(selectedDefinition.key)"
+                    clearable
+                    filterable
+                    multiple
+                    :min-collapsed-num="2"
+                    :options="selectedDefinition.options.value"
+                    :placeholder="t(selectedDefinition.placeholderKey)"
+                    @update:model-value="updateField(selectedDefinition.key, normalizeMultiSelectValue($event))"
+                  />
+                  <t-tag-input
+                    v-else-if="selectedDefinition.kind === 'tag-input'"
+                    :model-value="tagInputValue(selectedDefinition.key)"
+                    clearable
+                    :input-props="{ placeholder: t(selectedDefinition.placeholderKey) }"
+                    @update:model-value="updateField(selectedDefinition.key, normalizeTagInputValue($event))"
                   />
                   <t-input
                     v-else
                     :model-value="textValue(selectedDefinition.key)"
                     clearable
-                    :placeholder="selectedDefinition.placeholder"
+                    :placeholder="t(selectedDefinition.placeholderKey)"
                     @update:model-value="updateField(selectedDefinition.key, normalizeTextValue($event))"
                   />
                 </div>
@@ -143,51 +161,37 @@ import { useI18n } from 'vue-i18n';
 
 import { ManagementToolbar } from '@/shared/components/management';
 import {
-  getSingleSorter,
   normalizeSingleSorterDirection,
   normalizeSingleSorterField,
   prependSingleSorterTag,
+  useSingleSorterSelection,
 } from '@/shared/observability';
 
-import type { AuditPresetKey } from '../contract/presets';
+import type { AuditQuickPresetKey } from '../contract/presets';
+import type {
+  AuditFilterDefinition,
+  AuditFilterKey,
+  AuditFilterOption,
+  AuditMultiSelectFilterKey,
+  AuditSingleSelectFilterKey,
+  AuditTagInputFilterKey,
+  AuditTextFilterKey,
+} from '../shared/filter-definitions';
 import type { AuditClientFilterState } from '../shared/presentation';
 import type { AuditSortBy, AuditSortOrder } from '../types/audit';
 
-type FilterKey = Exclude<keyof AuditClientFilterState, 'keyword' | 'createdRange' | 'sorters'>;
-type SelectFilterKey = 'action' | 'source' | 'resourceType' | 'result' | 'riskLevel';
-type TextFilterKey = Exclude<FilterKey, SelectFilterKey>;
-
-type FilterOption = {
-  label: string;
-  value: string;
-};
-
-type BaseDefinition<Key extends FilterKey> = {
-  key: Key;
-  fieldLabel: string;
-  placeholder: string;
-};
-
-type SelectDefinition = BaseDefinition<SelectFilterKey> & {
-  kind: 'select';
-  options: FilterOption[];
-};
-
-type TextDefinition = BaseDefinition<TextFilterKey> & {
-  kind: 'text';
-};
-
-type FilterDefinition = SelectDefinition | TextDefinition;
+type FilterTag = { key: AuditFilterKey; label: string };
 
 const props = defineProps<{
-  activePreset: AuditPresetKey;
+  activePreset: AuditQuickPresetKey;
+  lockedFields?: AuditFilterKey[];
   loading?: boolean;
   modelValue: AuditClientFilterState;
-  presets: { key: AuditPresetKey; title: string }[];
+  presets: { key: AuditQuickPresetKey; title: string }[];
 }>();
 
 const emit = defineEmits<{
-  (e: 'apply-preset', preset: AuditPresetKey): void;
+  (e: 'apply-preset', preset: AuditQuickPresetKey): void;
   (e: 'reset'): void;
   (e: 'search'): void;
   (e: 'update:modelValue', value: AuditClientFilterState): void;
@@ -196,145 +200,220 @@ const emit = defineEmits<{
 const { t } = useI18n();
 
 const builderVisible = ref(false);
-const selectedDefinitionKey = ref<FilterKey>('actor');
+const selectedDefinitionKey = ref<AuditFilterKey>('actor');
 
-const actionOptions = computed<FilterOption[]>(() => [
+const actionOptions = computed<AuditFilterOption[]>(() => [
   { label: t('audit.logList.filterOptions.auth'), value: 'auth' },
   { label: t('audit.logList.filterOptions.role'), value: 'role' },
   { label: t('audit.logList.filterOptions.permission'), value: 'permission' },
   { label: t('audit.logList.filterOptions.session'), value: 'session' },
 ]);
 
-const sourceOptions = computed<FilterOption[]>(() => [
+const actionPrefixOptions = computed<AuditFilterOption[]>(() => [
+  { label: t('audit.logList.filterOptions.authPrefix'), value: 'auth.' },
+  { label: t('audit.logList.filterOptions.rbacPrefix'), value: 'rbac.' },
+  { label: t('audit.logList.filterOptions.rolePrefix'), value: 'role.' },
+  { label: t('audit.logList.filterOptions.permissionPrefix'), value: 'permission.' },
+]);
+
+const sourceOptions = computed<AuditFilterOption[]>(() => [
   { label: t('audit.common.source.REQUEST'), value: 'REQUEST' },
   { label: t('audit.common.source.SECURITY_EVENT'), value: 'SECURITY_EVENT' },
   { label: t('audit.common.source.DOMAIN_EVENT'), value: 'DOMAIN_EVENT' },
 ]);
 
-const resourceTypeOptions = computed<FilterOption[]>(() => [
+const businessCategoryOptions = computed<AuditFilterOption[]>(() => [
+  { label: t('audit.logList.businessCategory.failedOperations'), value: 'failed_operations' },
+  { label: t('audit.logList.businessCategory.highRiskOperations'), value: 'high_risk_operations' },
+  { label: t('audit.logList.businessCategory.sensitiveOperations'), value: 'sensitive_operations' },
+  { label: t('audit.logList.businessCategory.authFailures'), value: 'auth_failures' },
+  { label: t('audit.logList.businessCategory.permissionDenials'), value: 'permission_denials' },
+  { label: t('audit.logList.businessCategory.rbacChanges'), value: 'rbac_changes' },
+  { label: t('audit.logList.businessCategory.criticalSecurity'), value: 'critical_security' },
+]);
+
+const resourceTypeOptions = computed<AuditFilterOption[]>(() => [
   { label: t('audit.logList.filterOptions.userResource'), value: 'user' },
   { label: t('audit.logList.filterOptions.roleResource'), value: 'role' },
   { label: t('audit.logList.filterOptions.permissionResource'), value: 'permission' },
   { label: t('audit.logList.filterOptions.authResource'), value: 'auth' },
 ]);
 
-const resultOptions = computed<FilterOption[]>(() => [
+const resultOptions = computed<AuditFilterOption[]>(() => [
   { label: t('audit.logList.filterOptions.SUCCESS'), value: 'SUCCESS' },
   { label: t('audit.logList.filterOptions.FAILED'), value: 'FAILED' },
   { label: t('audit.logList.filterOptions.DENIED'), value: 'DENIED' },
   { label: t('audit.logList.filterOptions.ERROR'), value: 'ERROR' },
 ]);
 
-const riskOptions = computed<FilterOption[]>(() => [
+const successOptions = computed<AuditFilterOption[]>(() => [
+  { label: t('audit.logList.filterOptions.SUCCESS'), value: 'true' },
+  { label: t('audit.logList.filterOptions.FAILED'), value: 'false' },
+]);
+
+const riskOptions = computed<AuditFilterOption[]>(() => [
   { label: t('audit.logList.filterOptions.LOW'), value: 'LOW' },
   { label: t('audit.logList.filterOptions.MEDIUM'), value: 'MEDIUM' },
   { label: t('audit.logList.filterOptions.HIGH'), value: 'HIGH' },
   { label: t('audit.logList.filterOptions.CRITICAL'), value: 'CRITICAL' },
 ]);
-const sortFieldOptions = computed<FilterOption[]>(() => [
+const sortFieldOptions = computed<AuditFilterOption[]>(() => [
   { label: t('audit.logList.sort.createdAt'), value: 'created_at' },
 ]);
-const sortDirectionOptions = computed<FilterOption[]>(() => [
+const sortDirectionOptions = computed<AuditFilterOption[]>(() => [
   { label: t('audit.logList.sort.desc'), value: 'desc' },
   { label: t('audit.logList.sort.asc'), value: 'asc' },
 ]);
 
-const definitions = computed<FilterDefinition[]>(() => [
+const definitions = computed<AuditFilterDefinition[]>(() => [
   {
     key: 'action',
     kind: 'select',
-    fieldLabel: t('audit.logList.builder.fields.action'),
-    placeholder: t('audit.logList.filters.actionPlaceholder'),
-    options: actionOptions.value,
+    fieldLabelKey: 'audit.logList.builder.fields.action',
+    placeholderKey: 'audit.logList.filters.actionPlaceholder',
+    options: actionOptions,
+  },
+  {
+    key: 'actionPrefixes',
+    kind: 'multi-select',
+    fieldLabelKey: 'audit.logList.builder.fields.actionPrefixes',
+    placeholderKey: 'audit.logList.filters.actionPrefixesPlaceholder',
+    options: actionPrefixOptions,
+  },
+  {
+    key: 'actionKeywords',
+    kind: 'tag-input',
+    fieldLabelKey: 'audit.logList.builder.fields.actionKeywords',
+    placeholderKey: 'audit.logList.filters.actionKeywordsPlaceholder',
   },
   {
     key: 'result',
     kind: 'select',
-    fieldLabel: t('audit.logList.builder.fields.result'),
-    placeholder: t('audit.logList.filters.resultPlaceholder'),
-    options: resultOptions.value,
+    fieldLabelKey: 'audit.logList.builder.fields.result',
+    placeholderKey: 'audit.logList.filters.resultPlaceholder',
+    options: resultOptions,
+  },
+  {
+    key: 'results',
+    kind: 'multi-select',
+    fieldLabelKey: 'audit.logList.builder.fields.results',
+    placeholderKey: 'audit.logList.filters.resultsPlaceholder',
+    options: resultOptions,
   },
   {
     key: 'riskLevel',
     kind: 'select',
-    fieldLabel: t('audit.logList.builder.fields.riskLevel'),
-    placeholder: t('audit.logList.filters.riskPlaceholder'),
-    options: riskOptions.value,
+    fieldLabelKey: 'audit.logList.builder.fields.riskLevel',
+    placeholderKey: 'audit.logList.filters.riskPlaceholder',
+    options: riskOptions,
+  },
+  {
+    key: 'riskLevels',
+    kind: 'multi-select',
+    fieldLabelKey: 'audit.logList.builder.fields.riskLevels',
+    placeholderKey: 'audit.logList.filters.riskLevelsPlaceholder',
+    options: riskOptions,
+  },
+  {
+    key: 'success',
+    kind: 'select',
+    fieldLabelKey: 'audit.logList.builder.fields.success',
+    placeholderKey: 'audit.logList.filters.successPlaceholder',
+    options: successOptions,
   },
   {
     key: 'source',
     kind: 'select',
-    fieldLabel: t('audit.logList.builder.fields.source'),
-    placeholder: t('audit.logList.filters.sourcePlaceholder'),
-    options: sourceOptions.value,
+    fieldLabelKey: 'audit.logList.builder.fields.source',
+    placeholderKey: 'audit.logList.filters.sourcePlaceholder',
+    options: sourceOptions,
+  },
+  {
+    key: 'businessCategory',
+    kind: 'select',
+    fieldLabelKey: 'audit.logList.builder.fields.businessCategory',
+    placeholderKey: 'audit.logList.filters.businessCategoryPlaceholder',
+    options: businessCategoryOptions,
   },
   {
     key: 'actor',
     kind: 'text',
-    fieldLabel: t('audit.logList.builder.fields.actor'),
-    placeholder: t('audit.logList.filters.actorPlaceholder'),
+    fieldLabelKey: 'audit.logList.builder.fields.actor',
+    placeholderKey: 'audit.logList.filters.actorPlaceholder',
   },
   {
     key: 'resourceName',
     kind: 'text',
-    fieldLabel: t('audit.logList.builder.fields.resourceName'),
-    placeholder: t('audit.logList.filters.resourceNamePlaceholder'),
+    fieldLabelKey: 'audit.logList.builder.fields.resourceName',
+    placeholderKey: 'audit.logList.filters.resourceNamePlaceholder',
   },
   {
     key: 'resourceType',
     kind: 'select',
-    fieldLabel: t('audit.logList.builder.fields.resourceType'),
-    placeholder: t('audit.logList.filters.resourceTypePlaceholder'),
-    options: resourceTypeOptions.value,
+    fieldLabelKey: 'audit.logList.builder.fields.resourceType',
+    placeholderKey: 'audit.logList.filters.resourceTypePlaceholder',
+    options: resourceTypeOptions,
+  },
+  {
+    key: 'resourceTypes',
+    kind: 'multi-select',
+    fieldLabelKey: 'audit.logList.builder.fields.resourceTypes',
+    placeholderKey: 'audit.logList.filters.resourceTypesPlaceholder',
+    options: resourceTypeOptions,
+  },
+  {
+    key: 'requestPathPrefixes',
+    kind: 'tag-input',
+    fieldLabelKey: 'audit.logList.builder.fields.requestPathPrefixes',
+    placeholderKey: 'audit.logList.filters.requestPathPrefixesPlaceholder',
   },
   {
     key: 'requestId',
     kind: 'text',
-    fieldLabel: t('audit.logList.builder.fields.requestId'),
-    placeholder: t('audit.logList.filters.requestIdPlaceholder'),
-  },
-  {
-    key: 'traceId',
-    kind: 'text',
-    fieldLabel: t('audit.logList.builder.fields.traceId'),
-    placeholder: t('audit.logList.filters.traceIdPlaceholder'),
+    fieldLabelKey: 'audit.logList.builder.fields.requestId',
+    placeholderKey: 'audit.logList.filters.requestIdPlaceholder',
   },
   {
     key: 'session',
     kind: 'text',
-    fieldLabel: t('audit.logList.builder.fields.session'),
-    placeholder: t('audit.logList.filters.sessionPlaceholder'),
+    fieldLabelKey: 'audit.logList.builder.fields.session',
+    placeholderKey: 'audit.logList.filters.sessionPlaceholder',
   },
   {
     key: 'resourceId',
     kind: 'text',
-    fieldLabel: t('audit.logList.builder.fields.resourceId'),
-    placeholder: t('audit.logList.filters.resourceIdPlaceholder'),
+    fieldLabelKey: 'audit.logList.builder.fields.resourceId',
+    placeholderKey: 'audit.logList.filters.resourceIdPlaceholder',
   },
 ]);
 
-const definitionMap = computed(() => new Map(definitions.value.map((item) => [item.key, item])));
+const definitionMap = computed<Map<AuditFilterKey, AuditFilterDefinition>>(
+  () => new Map(definitions.value.map((item) => [item.key, item])),
+);
 const selectedDefinition = computed(() => definitionMap.value.get(selectedDefinitionKey.value));
-const activeSorter = computed(() => getSingleSorter(props.modelValue.sorters));
-const sortFieldValue = computed(() => activeSorter.value?.field ?? '');
-const sortDirectionValue = computed(() => activeSorter.value?.direction ?? '');
+const activeSorterSelection = computed(() => useSingleSorterSelection(() => props.modelValue.sorters));
+const activeSorter = computed(() => activeSorterSelection.value.sorter);
+const sortFieldValue = computed(() => activeSorterSelection.value.field);
+const sortDirectionValue = computed(() => activeSorterSelection.value.direction);
 
 const availableDefinitions = computed(() =>
   definitions.value.filter(
     (definition) =>
-      !isFieldActive(definition.key) ||
-      definition.key === selectedDefinitionKey.value ||
+      (!isLocked(definition.key) && !isFieldActive(definition.key)) ||
+      (!isLocked(definition.key) && definition.key === selectedDefinitionKey.value) ||
       activeFilterTags.value.some((tag) => tag.key === definition.key),
   ),
 );
 
 const activeFilterTags = computed(() => {
-  const filterTags = definitions.value
-    .map((definition) => {
-      const label = buildTagLabel(definition);
-      return label ? { key: definition.key, label } : null;
-    })
-    .filter((item): item is { key: FilterKey; label: string } => Boolean(item));
+  const filterTags: FilterTag[] = [];
+
+  definitions.value.forEach((definition) => {
+    const label = buildTagLabel(definition);
+    if (label) {
+      filterTags.push({ key: definition.key, label });
+    }
+  });
 
   return prependSingleSorterTag(
     filterTags,
@@ -350,27 +429,64 @@ const dateRangePlaceholder = computed(() => [
 ]);
 
 function updateField<Key extends keyof AuditClientFilterState>(key: Key, value: AuditClientFilterState[Key]) {
+  if (isLocked(key as AuditFilterKey)) {
+    return;
+  }
   emit('update:modelValue', {
     ...props.modelValue,
     [key]: value,
   });
 }
 
-function selectDefinition(key: FilterKey) {
+function selectDefinition(key: AuditFilterKey) {
+  if (isLocked(key)) {
+    return;
+  }
   selectedDefinitionKey.value = key;
 }
 
-function isFieldActive(key: FilterKey) {
+function isLocked(key: AuditFilterKey | 'sorter') {
+  if (key === 'sorter') {
+    return false;
+  }
+  return props.lockedFields?.includes(key) ?? false;
+}
+
+function isFieldActive(key: AuditFilterKey) {
   const value = props.modelValue[key];
   if (key === 'result' || key === 'riskLevel') {
     return value !== 'all';
   }
+  if (key === 'success') {
+    return value !== 'all';
+  }
+  if (Array.isArray(value)) {
+    return value.length > 0;
+  }
   return typeof value === 'string' ? Boolean(value.trim()) : Boolean(value);
 }
 
-function buildTagLabel(definition: FilterDefinition) {
+function buildTagLabel(definition: AuditFilterDefinition) {
   const value = props.modelValue[definition.key];
+  if (definition.kind === 'multi-select') {
+    if (!Array.isArray(value) || value.length === 0) {
+      return '';
+    }
+    return `${t(definition.fieldLabelKey)}：${value.map((item) => optionLabel(definition.options.value, String(item))).join('、')}`;
+  }
+
+  if (definition.kind === 'tag-input') {
+    if (!Array.isArray(value) || value.length === 0) {
+      return '';
+    }
+    return `${t(definition.fieldLabelKey)}：${value.join('、')}`;
+  }
+
   if (definition.key === 'result' || definition.key === 'riskLevel') {
+    if (value === 'all') {
+      return '';
+    }
+  } else if (definition.key === 'success') {
     if (value === 'all') {
       return '';
     }
@@ -378,21 +494,43 @@ function buildTagLabel(definition: FilterDefinition) {
     return '';
   }
 
-  const display = definition.kind === 'select' ? optionLabel(definition.options, String(value)) : String(value);
-  return `${definition.fieldLabel}：${display}`;
+  if (definition.kind !== 'select') {
+    return '';
+  }
+
+  const display = optionLabel(definition.options.value, String(value));
+  return `${t(definition.fieldLabelKey)}：${display}`;
 }
 
-function optionLabel(options: FilterOption[], value: string) {
+function optionLabel(options: AuditFilterOption[], value: string) {
   return options.find((option) => option.value === value)?.label || value;
 }
 
-function clearField(key: FilterKey) {
+function clearField(key: AuditFilterKey) {
+  if (isLocked(key)) {
+    return;
+  }
   if (key === 'result') {
     updateField(key, 'all' as AuditClientFilterState[typeof key]);
     return;
   }
   if (key === 'riskLevel') {
     updateField(key, 'all' as AuditClientFilterState[typeof key]);
+    return;
+  }
+  if (key === 'success') {
+    updateField(key, 'all' as AuditClientFilterState[typeof key]);
+    return;
+  }
+  if (
+    key === 'actionPrefixes' ||
+    key === 'actionKeywords' ||
+    key === 'requestPathPrefixes' ||
+    key === 'resourceTypes' ||
+    key === 'results' ||
+    key === 'riskLevels'
+  ) {
+    updateField(key, [] as AuditClientFilterState[typeof key]);
     return;
   }
   updateField(key, '' as AuditClientFilterState[typeof key]);
@@ -405,13 +543,21 @@ function clearSorter() {
   });
 }
 
-function textValue(key: TextFilterKey) {
+function textValue(key: AuditTextFilterKey) {
   return props.modelValue[key];
 }
 
-function selectValue(key: SelectFilterKey) {
+function selectValue(key: AuditSingleSelectFilterKey) {
   const value = props.modelValue[key];
   return value === 'all' ? '' : value;
+}
+
+function multiSelectValue(key: AuditMultiSelectFilterKey) {
+  return props.modelValue[key];
+}
+
+function tagInputValue(key: AuditTagInputFilterKey) {
+  return props.modelValue[key];
 }
 
 function normalizeTextValue(value: string | number | undefined) {
@@ -420,6 +566,22 @@ function normalizeTextValue(value: string | number | undefined) {
 
 function normalizeSelectValue(value: string | number | Array<string | number> | undefined) {
   return typeof value === 'string' ? value : '';
+}
+
+function normalizeStringArray(value: Array<string | number> | undefined) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map((item) => String(item).trim()).filter(Boolean);
+}
+
+function normalizeMultiSelectValue(value: string | number | Array<string | number> | undefined) {
+  return Array.isArray(value) ? normalizeStringArray(value) : [];
+}
+
+function normalizeTagInputValue(value: Array<string | number> | undefined) {
+  return normalizeStringArray(value);
 }
 
 function updateSortField(value: string | number | Array<string | number> | undefined) {

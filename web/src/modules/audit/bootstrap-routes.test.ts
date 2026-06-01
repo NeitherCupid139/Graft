@@ -11,6 +11,7 @@ describe('audit bootstrap route registrations', () => {
         ...AUDIT_BOOTSTRAP_ROUTE.OVERVIEW,
         meta: expect.objectContaining({
           domain: 'audit',
+          tabGroup: 'audit-overview',
           dashboard: true,
           pageKind: 'overview',
         }),
@@ -19,6 +20,7 @@ describe('audit bootstrap route registrations', () => {
         ...AUDIT_BOOTSTRAP_ROUTE.LOG_LIST,
         meta: expect.objectContaining({
           domain: 'audit',
+          tabGroup: 'audit-logs',
           pageKind: 'list',
         }),
       }),
@@ -26,9 +28,18 @@ describe('audit bootstrap route registrations', () => {
         ...AUDIT_BOOTSTRAP_ROUTE.INCIDENT_DETAIL,
         meta: expect.objectContaining({
           domain: 'audit',
+          tabGroup: 'audit-incident',
           pageKind: 'detail',
         }),
       }),
     ]);
+  });
+
+  it('keeps overview and logs on distinct tab identities', () => {
+    expect(auditBootstrapRouteRegistrations[0]?.meta?.tabGroup).not.toBe(
+      auditBootstrapRouteRegistrations[1]?.meta?.tabGroup,
+    );
+    expect(auditBootstrapRouteRegistrations[0]?.menuPath).toBe('/audit/overview');
+    expect(auditBootstrapRouteRegistrations[1]?.menuPath).toBe('/audit/logs');
   });
 });

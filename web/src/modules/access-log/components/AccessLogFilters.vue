@@ -10,16 +10,6 @@
             :placeholder="t('accessLog.page.searchPlaceholder')"
             @update:model-value="updateField('keyword', normalizeTextValue($event))"
           />
-          <t-date-range-picker
-            :model-value="modelValue.occurredRange"
-            allow-input
-            clearable
-            class="access-log-filters__date"
-            enable-time-picker
-            format="YYYY-MM-DD HH:mm:ss"
-            :placeholder="dateRangePlaceholder"
-            @update:model-value="updateField('occurredRange', $event)"
-          />
           <div class="access-log-filters__actions">
             <t-button theme="primary" :loading="loading" @click="$emit('search')">
               {{ t('accessLog.actions.search') }}
@@ -101,8 +91,36 @@
                   <div class="access-log-filter-builder__editor-title">
                     {{ selectedDefinition.fieldLabel }}
                   </div>
+                  <div v-if="selectedDefinition.kind === 'date-range'" class="access-log-filter-builder__time-group">
+                    <div class="access-log-filter-builder__time-field">
+                      <div class="access-log-filter-builder__time-label">{{ t('accessLog.filters.startedRange') }}</div>
+                      <t-date-range-picker
+                        :model-value="modelValue.startedRange"
+                        allow-input
+                        clearable
+                        enable-time-picker
+                        format="YYYY-MM-DD HH:mm:ss"
+                        :placeholder="selectedDefinition.startedPlaceholder"
+                        @update:model-value="updateStartedRange"
+                      />
+                    </div>
+                    <div class="access-log-filter-builder__time-field">
+                      <div class="access-log-filter-builder__time-label">
+                        {{ t('accessLog.filters.occurredRange') }}
+                      </div>
+                      <t-date-range-picker
+                        :model-value="modelValue.occurredRange"
+                        allow-input
+                        clearable
+                        enable-time-picker
+                        format="YYYY-MM-DD HH:mm:ss"
+                        :placeholder="selectedDefinition.occurredPlaceholder"
+                        @update:model-value="updateOccurredRange"
+                      />
+                    </div>
+                  </div>
                   <t-select
-                    v-if="selectedDefinition.kind === 'select'"
+                    v-else-if="selectedDefinition.kind === 'select'"
                     :model-value="props.modelValue[selectedDefinition.key]"
                     clearable
                     :options="selectedDefinition.options"
@@ -168,16 +186,27 @@ type AccessLogPresetKey =
   | 'slowRequests'
   | 'currentUser'
   | 'lastHour';
-type FilterKey = Exclude<keyof AccessLogFilterState, 'keyword' | 'occurredRange' | 'pathMatch' | 'route' | 'sorters'>;
+type FilterKey = Exclude<keyof AccessLogFilterState, 'keyword' | 'pathMatch' | 'route' | 'sorters' | 'occurredRange'>;
 type SelectFilterKey = 'method';
-
-type FilterDefinition = {
-  key: FilterKey;
+type BaseFilterDefinition<Key extends FilterKey> = {
+  key: Key;
   fieldLabel: string;
-  kind: 'select' | 'text';
-  placeholder: string;
-  options?: Array<{ label: string; value: string }>;
 };
+type TextFilterDefinition = BaseFilterDefinition<Exclude<FilterKey, 'startedRange' | 'method'>> & {
+  kind: 'text';
+  placeholder: string;
+};
+type SelectFilterDefinition = BaseFilterDefinition<'method'> & {
+  kind: 'select';
+  placeholder: string;
+  options: Array<{ label: string; value: string }>;
+};
+type DateRangeFilterDefinition = BaseFilterDefinition<'startedRange'> & {
+  kind: 'date-range';
+  startedPlaceholder: string[];
+  occurredPlaceholder: string[];
+};
+type FilterDefinition = TextFilterDefinition | SelectFilterDefinition | DateRangeFilterDefinition;
 
 const props = defineProps<{
   activePreset: AccessLogPresetKey;
@@ -196,12 +225,13 @@ const emit = defineEmits<{
 const { t } = useI18n();
 
 const builderVisible = ref(false);
-const selectedDefinitionKey = ref<FilterKey>('requestId');
+const selectedDefinitionKey = ref<FilterKey>('startedRange');
 
 const methodOptions = computed(() =>
   ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map((value) => ({ label: value, value })),
 );
 const sortByOptions = computed(() => [
+  { label: t('accessLog.filters.sortStartedAt'), value: 'started_at' },
   { label: t('accessLog.filters.sortOccurredAt'), value: 'occurred_at' },
   { label: t('accessLog.filters.sortDuration'), value: 'duration_ms' },
   { label: t('accessLog.filters.sortStatusCode'), value: 'status_code' },
@@ -213,16 +243,17 @@ const sortOrderOptions = computed(() => [
 
 const definitions = computed<FilterDefinition[]>(() => [
   {
+    key: 'startedRange',
+    kind: 'date-range',
+    fieldLabel: t('accessLog.builder.fields.time'),
+    startedPlaceholder: [t('accessLog.filters.startedRange'), t('accessLog.filters.startedRange')],
+    occurredPlaceholder: [t('accessLog.filters.occurredRange'), t('accessLog.filters.occurredRange')],
+  },
+  {
     key: 'requestId',
     kind: 'text',
     fieldLabel: t('accessLog.builder.fields.requestId'),
     placeholder: t('accessLog.filters.requestId'),
-  },
-  {
-    key: 'traceId',
-    kind: 'text',
-    fieldLabel: t('accessLog.builder.fields.traceId'),
-    placeholder: t('accessLog.filters.traceId'),
   },
   {
     key: 'userId',
@@ -275,14 +306,32 @@ const selectedDefinition = computed(() =>
 const activeSorter = computed(() => getSingleSorter(props.modelValue.sorters));
 const sortFieldValue = computed(() => activeSorter.value?.field ?? '');
 const sortDirectionValue = computed(() => activeSorter.value?.direction ?? '');
-const dateRangePlaceholder = computed(() => [
-  t('accessLog.filters.occurredRange'),
-  t('accessLog.filters.occurredRange'),
-]);
 
 const activeFilterTags = computed(() => {
   const filterTags = definitions.value
     .map((definition) => {
+      if (definition.key === 'startedRange') {
+        const tags: Array<{ key: FilterKey | 'occurredRange'; label: string }> = [];
+        const [startedFrom = '', startedTo = ''] = props.modelValue.startedRange;
+        const [occurredFrom = '', occurredTo = ''] = props.modelValue.occurredRange;
+
+        if (startedFrom || startedTo) {
+          tags.push({
+            key: definition.key,
+            label: `${t('accessLog.filters.startedRange')}：${[startedFrom, startedTo].filter(Boolean).join(' ~ ')}`,
+          });
+        }
+
+        if (occurredFrom || occurredTo) {
+          tags.push({
+            key: 'occurredRange',
+            label: `${t('accessLog.filters.occurredRange')}：${[occurredFrom, occurredTo].filter(Boolean).join(' ~ ')}`,
+          });
+        }
+
+        return tags;
+      }
+
       const rawValue = props.modelValue[definition.key];
       const value = typeof rawValue === 'string' ? rawValue.trim() : rawValue;
       if (!value) {
@@ -290,11 +339,12 @@ const activeFilterTags = computed(() => {
       }
       const label =
         definition.kind === 'select'
-          ? definition.options?.find((option) => option.value === value)?.label || String(value)
+          ? definition.options.find((option) => option.value === value)?.label || String(value)
           : String(value);
       return { key: definition.key, label: `${definition.fieldLabel}：${label}` };
     })
-    .filter((item): item is { key: FilterKey; label: string } => Boolean(item));
+    .flat()
+    .filter((item): item is { key: FilterKey | 'occurredRange'; label: string } => Boolean(item));
 
   return prependSingleSorterTag(filterTags, activeSorter.value, sortByOptions.value, t('accessLog.sort.tagPrefix'));
 });
@@ -310,7 +360,21 @@ function updateSelectField(key: SelectFilterKey, value: string | number | Array<
   updateField(key, normalizeSelect(value));
 }
 
-function clearField(key: FilterKey | 'sorter') {
+function updateStartedRange(value: string[] | undefined) {
+  emit('update:modelValue', {
+    ...props.modelValue,
+    startedRange: Array.isArray(value) ? value : [],
+  });
+}
+
+function updateOccurredRange(value: string[] | undefined) {
+  emit('update:modelValue', {
+    ...props.modelValue,
+    occurredRange: Array.isArray(value) ? value : [],
+  });
+}
+
+function clearField(key: FilterKey | 'occurredRange' | 'sorter') {
   if (key === 'sorter') {
     emit('update:modelValue', {
       ...props.modelValue,
@@ -320,6 +384,20 @@ function clearField(key: FilterKey | 'sorter') {
   }
   if (key === 'method') {
     updateField('method', '');
+    return;
+  }
+  if (key === 'startedRange') {
+    emit('update:modelValue', {
+      ...props.modelValue,
+      startedRange: [],
+    });
+    return;
+  }
+  if (key === 'occurredRange') {
+    emit('update:modelValue', {
+      ...props.modelValue,
+      occurredRange: [],
+    });
     return;
   }
   updateField(key, '');
@@ -338,7 +416,7 @@ function normalizeSelect(value: string | number | Array<string | number> | undef
 }
 
 function normalizeSortBy(value: string): AccessLogSortBy {
-  return value === 'duration_ms' || value === 'status_code' ? value : 'occurred_at';
+  return value === 'occurred_at' || value === 'duration_ms' || value === 'status_code' ? value : 'started_at';
 }
 
 function normalizeSortOrder(value: string): AccessLogSortOrder {
@@ -380,11 +458,6 @@ void (null as unknown as AccessLogPathMatch);
 
 .access-log-filters__keyword {
   flex: 1 1 340px;
-  min-width: 240px;
-}
-
-.access-log-filters__date {
-  flex: 0 1 360px;
   min-width: 240px;
 }
 
@@ -437,7 +510,7 @@ void (null as unknown as AccessLogPathMatch);
 .access-log-filter-builder {
   display: grid;
   gap: 16px;
-  grid-template-columns: minmax(160px, 200px) minmax(220px, 320px);
+  grid-template-columns: minmax(160px, 200px) minmax(280px, 360px);
   padding: 8px;
 }
 
@@ -492,6 +565,24 @@ void (null as unknown as AccessLogPathMatch);
   box-shadow: inset 0 0 0 1px var(--td-brand-color-focus);
 }
 
+.access-log-filter-builder__time-group {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.access-log-filter-builder__time-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.access-log-filter-builder__time-label {
+  color: var(--td-text-color-primary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .access-log-filter-builder__editor {
   display: flex;
   flex-direction: column;
@@ -522,7 +613,6 @@ void (null as unknown as AccessLogPathMatch);
   }
 
   .access-log-filters__keyword,
-  .access-log-filters__date,
   .access-log-filters__actions,
   .access-log-filters__sort-row,
   .access-log-filters__preset-row {

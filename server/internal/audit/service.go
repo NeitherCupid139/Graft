@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"graft/server/internal/drilldown"
 	auditstore "graft/server/plugins/audit/store"
 )
 
@@ -46,31 +47,46 @@ type RecordInput struct {
 
 // ListQuery describes the service-layer read shape used by future API pagination/filtering.
 type ListQuery struct {
-	Page         int
-	PageSize     int
-	ActorUserID  *uint64
-	Action       string
-	ActionPrefix string
-	Source       auditstore.AuditSource
-	ResourceType string
-	ResourceID   string
-	ResourceName string
-	Success      *bool
-	RequestID    string
-	Result       auditstore.AuditResult
-	RiskLevel    auditstore.AuditRiskLevel
-	CreatedFrom  *time.Time
-	CreatedTo    *time.Time
-	SortBy       string
-	SortOrder    string
+	Page                int
+	PageSize            int
+	Scope               string
+	ActorUserID         *uint64
+	Keyword             string
+	Actor               string
+	Action              string
+	ActionPrefix        string
+	ActionPrefixes      []string
+	ActionKeywords      []string
+	TimePreset          auditstore.AuditTimePreset
+	Source              auditstore.AuditSource
+	BusinessCategory    auditstore.AuditBusinessCategory
+	ResourceType        string
+	ResourceTypes       []string
+	ResourceID          string
+	ResourceName        string
+	RequestPathPrefixes []string
+	Success             *bool
+	SessionID           string
+	RequestID           string
+	Result              auditstore.AuditResult
+	Results             []auditstore.AuditResult
+	RiskLevel           auditstore.AuditRiskLevel
+	RiskLevels          []auditstore.AuditRiskLevel
+	CreatedFrom         *time.Time
+	CreatedTo           *time.Time
+	SortBy              string
+	SortOrder           string
 }
 
 // ListResult contains one page of audit records plus the total count.
 type ListResult struct {
-	Items    []auditstore.AuditLog
-	Total    int
-	Page     int
-	PageSize int
+	Items              []auditstore.AuditLog
+	Total              int
+	Page               int
+	PageSize           int
+	AppliedScope       *drilldown.AppliedScope
+	ScopeProjection    *drilldown.ScopeProjection
+	ConvertibleFilters *drilldown.ConvertibleFilters
 }
 
 // OverviewResult contains the read model for the audit overview page.
@@ -81,7 +97,8 @@ type IncidentResult = auditstore.AuditIncident
 
 // Service writes and queries audit records through the plugin-owned repository boundary.
 type Service struct {
-	repo auditstore.AuditRepository
+	repo      auditstore.AuditRepository
+	drilldown *drilldown.Service[ListQuery, ListQuery]
 }
 
 // NewService creates the audit service.
@@ -91,6 +108,19 @@ func NewService(repo auditstore.AuditRepository) (*Service, error) {
 	}
 
 	return &Service{repo: repo}, nil
+}
+
+// NewServiceWithDrilldown creates the audit service with an optional drilldown scope resolver.
+func NewServiceWithDrilldown(
+	repo auditstore.AuditRepository,
+	drilldownService *drilldown.Service[ListQuery, ListQuery],
+) (*Service, error) {
+	service, err := NewService(repo)
+	if err != nil {
+		return nil, err
+	}
+	service.drilldown = drilldownService
+	return service, nil
 }
 
 // Record writes one audit record after normalizing stable fields and redacting sensitive data.
@@ -148,35 +178,120 @@ func (s *Service) List(ctx context.Context, query ListQuery) (ListResult, error)
 		pageSize = maxPageSize
 	}
 
-	result, err := s.repo.ListAuditLogs(ctx, auditstore.ListAuditLogsQuery{
-		ActorUserID:  query.ActorUserID,
-		Action:       strings.TrimSpace(query.Action),
-		ActionPrefix: strings.TrimSpace(query.ActionPrefix),
-		Source:       normalizeAuditSource(query.Source),
-		ResourceType: strings.TrimSpace(query.ResourceType),
-		ResourceID:   strings.TrimSpace(query.ResourceID),
-		ResourceName: strings.TrimSpace(query.ResourceName),
-		Success:      query.Success,
-		RequestID:    strings.TrimSpace(query.RequestID),
-		Result:       normalizeAuditResult(query.Result),
-		RiskLevel:    normalizeAuditRiskLevel(query.RiskLevel),
-		CreatedFrom:  query.CreatedFrom,
-		CreatedTo:    query.CreatedTo,
-		SortBy:       normalizeAuditSortBy(query.SortBy),
-		SortOrder:    normalizeAuditSortOrder(query.SortOrder),
-		Limit:        pageSize,
-		Offset:       (page - 1) * pageSize,
-	})
+	resolvedScope, effectiveQuery, err := s.resolveScope(ctx, query)
 	if err != nil {
-		return ListResult{}, err
+		return ListResult{}, fmt.Errorf("resolve audit list scope: %w", err)
 	}
 
-	return ListResult{
+	result, err := s.repo.ListAuditLogs(ctx, auditstore.ListAuditLogsQuery{
+		ActorUserID:         effectiveQuery.ActorUserID,
+		Keyword:             strings.TrimSpace(effectiveQuery.Keyword),
+		Actor:               strings.TrimSpace(effectiveQuery.Actor),
+		Action:              strings.TrimSpace(effectiveQuery.Action),
+		ActionPrefix:        strings.TrimSpace(effectiveQuery.ActionPrefix),
+		ActionPrefixes:      normalizeAuditStringFilters(effectiveQuery.ActionPrefixes),
+		ActionKeywords:      normalizeAuditStringFilters(effectiveQuery.ActionKeywords),
+		TimePreset:          normalizeAuditTimePreset(effectiveQuery.TimePreset),
+		Source:              normalizeAuditSource(effectiveQuery.Source),
+		BusinessCategory:    normalizeAuditBusinessCategory(effectiveQuery.BusinessCategory),
+		ResourceType:        strings.TrimSpace(effectiveQuery.ResourceType),
+		ResourceTypes:       normalizeAuditStringFilters(effectiveQuery.ResourceTypes),
+		ResourceID:          strings.TrimSpace(effectiveQuery.ResourceID),
+		ResourceName:        strings.TrimSpace(effectiveQuery.ResourceName),
+		RequestPathPrefixes: normalizeAuditStringFilters(effectiveQuery.RequestPathPrefixes),
+		Success:             effectiveQuery.Success,
+		SessionID:           strings.TrimSpace(effectiveQuery.SessionID),
+		RequestID:           strings.TrimSpace(effectiveQuery.RequestID),
+		Result:              normalizeAuditResult(effectiveQuery.Result),
+		Results:             normalizeAuditResults(effectiveQuery.Results),
+		RiskLevel:           normalizeAuditRiskLevel(effectiveQuery.RiskLevel),
+		RiskLevels:          normalizeAuditRiskLevels(effectiveQuery.RiskLevels),
+		CreatedFrom:         normalizeAuditCreatedFrom(effectiveQuery.CreatedFrom),
+		CreatedTo:           normalizeAuditCreatedTo(effectiveQuery.CreatedTo),
+		SortBy:              normalizeAuditSortBy(effectiveQuery.SortBy),
+		SortOrder:           normalizeAuditSortOrder(effectiveQuery.SortOrder),
+		Limit:               pageSize,
+		Offset:              (page - 1) * pageSize,
+	})
+	if err != nil {
+		return ListResult{}, fmt.Errorf("list audit logs: %w", err)
+	}
+
+	listResult := ListResult{
 		Items:    result.Items,
 		Total:    result.Total,
 		Page:     page,
 		PageSize: pageSize,
-	}, nil
+	}
+	if resolvedScope != nil {
+		listResult.AppliedScope = &resolvedScope.Applied
+		listResult.ScopeProjection = &resolvedScope.Projection
+		convertible := resolvedScope.ConvertibleFilters
+		listResult.ConvertibleFilters = &convertible
+	}
+	return listResult, nil
+}
+
+func (s *Service) resolveScope(
+	ctx context.Context,
+	query ListQuery,
+) (*drilldown.ResolvedScope[ListQuery], ListQuery, error) {
+	if s == nil || s.drilldown == nil || strings.TrimSpace(query.Scope) == "" {
+		return nil, query, nil
+	}
+
+	resolved, err := s.drilldown.ResolveScope(ctx, "audit", "audit_logs", query.Scope, query)
+	if err != nil {
+		return nil, query, err
+	}
+
+	effectiveQuery := query
+	effectiveQuery.Scope = ""
+	effectiveQuery.ActionKeywords = mergeListQueryStringField(effectiveQuery.ActionKeywords, resolved.QueryPatch.ActionKeywords)
+	if resolved.QueryPatch.BusinessCategory != "" {
+		effectiveQuery.BusinessCategory = resolved.QueryPatch.BusinessCategory
+	}
+	return &resolved, effectiveQuery, nil
+}
+
+func mergeListQueryStringField(base []string, patch []string) []string {
+	if len(patch) == 0 {
+		return base
+	}
+	if len(base) == 0 {
+		return append([]string(nil), patch...)
+	}
+
+	merged := append([]string(nil), base...)
+	for _, value := range patch {
+		exists := false
+		for _, current := range merged {
+			if current == value {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			merged = append(merged, value)
+		}
+	}
+	return merged
+}
+
+func normalizeAuditCreatedFrom(value *time.Time) *time.Time {
+	if value == nil || value.IsZero() {
+		return nil
+	}
+	normalized := value.UTC()
+	return &normalized
+}
+
+func normalizeAuditCreatedTo(value *time.Time) *time.Time {
+	if value == nil || value.IsZero() {
+		return nil
+	}
+	normalized := value.UTC()
+	return &normalized
 }
 
 func normalizeAuditSortBy(value string) string {
@@ -210,6 +325,70 @@ func normalizeAuditSource(source auditstore.AuditSource) auditstore.AuditSource 
 	}
 }
 
+func normalizeAuditBusinessCategory(category auditstore.AuditBusinessCategory) auditstore.AuditBusinessCategory {
+	switch auditstore.AuditBusinessCategory(strings.TrimSpace(string(category))) {
+	case auditstore.AuditBusinessCategoryFailedOperations:
+		return auditstore.AuditBusinessCategoryFailedOperations
+	case auditstore.AuditBusinessCategoryHighRiskOperations:
+		return auditstore.AuditBusinessCategoryHighRiskOperations
+	case auditstore.AuditBusinessCategorySensitiveOperations:
+		return auditstore.AuditBusinessCategorySensitiveOperations
+	case auditstore.AuditBusinessCategoryAuthFailures:
+		return auditstore.AuditBusinessCategoryAuthFailures
+	case auditstore.AuditBusinessCategoryPermissionDenials:
+		return auditstore.AuditBusinessCategoryPermissionDenials
+	case auditstore.AuditBusinessCategoryRBACChanges:
+		return auditstore.AuditBusinessCategoryRBACChanges
+	case auditstore.AuditBusinessCategoryCriticalSecurity:
+		return auditstore.AuditBusinessCategoryCriticalSecurity
+	default:
+		return ""
+	}
+}
+
+func normalizeAuditStringFilters(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+
+	normalized := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		normalized = append(normalized, trimmed)
+	}
+	if len(normalized) == 0 {
+		return nil
+	}
+	return normalized
+}
+
+func normalizeAuditTimePreset(value auditstore.AuditTimePreset) auditstore.AuditTimePreset {
+	switch auditstore.AuditTimePreset(strings.TrimSpace(string(value))) {
+	case auditstore.AuditTimePresetLast24Hours:
+		return auditstore.AuditTimePresetLast24Hours
+	case auditstore.AuditTimePresetLast7Days:
+		return auditstore.AuditTimePresetLast7Days
+	case auditstore.AuditTimePresetLast30Days:
+		return auditstore.AuditTimePresetLast30Days
+	default:
+		return ""
+	}
+}
+
+func normalizeAuditOverviewTimePreset(value auditstore.AuditTimePreset) auditstore.AuditTimePreset {
+	switch auditstore.AuditTimePreset(strings.TrimSpace(string(value))) {
+	case auditstore.AuditTimePresetLast7Days:
+		return auditstore.AuditTimePresetLast7Days
+	case auditstore.AuditTimePresetLast30Days:
+		return auditstore.AuditTimePresetLast30Days
+	default:
+		return auditstore.AuditTimePresetLast24Hours
+	}
+}
+
 func normalizeAuditResult(result auditstore.AuditResult) auditstore.AuditResult {
 	switch auditstore.AuditResult(strings.ToUpper(strings.TrimSpace(string(result)))) {
 	case auditstore.AuditResultSuccess:
@@ -223,6 +402,25 @@ func normalizeAuditResult(result auditstore.AuditResult) auditstore.AuditResult 
 	default:
 		return ""
 	}
+}
+
+func normalizeAuditResults(results []auditstore.AuditResult) []auditstore.AuditResult {
+	if len(results) == 0 {
+		return nil
+	}
+
+	normalized := make([]auditstore.AuditResult, 0, len(results))
+	for _, result := range results {
+		value := normalizeAuditResult(result)
+		if value == "" {
+			continue
+		}
+		normalized = append(normalized, value)
+	}
+	if len(normalized) == 0 {
+		return nil
+	}
+	return normalized
 }
 
 func normalizeAuditRiskLevel(level auditstore.AuditRiskLevel) auditstore.AuditRiskLevel {
@@ -240,13 +438,32 @@ func normalizeAuditRiskLevel(level auditstore.AuditRiskLevel) auditstore.AuditRi
 	}
 }
 
+func normalizeAuditRiskLevels(levels []auditstore.AuditRiskLevel) []auditstore.AuditRiskLevel {
+	if len(levels) == 0 {
+		return nil
+	}
+
+	normalized := make([]auditstore.AuditRiskLevel, 0, len(levels))
+	for _, level := range levels {
+		value := normalizeAuditRiskLevel(level)
+		if value == "" {
+			continue
+		}
+		normalized = append(normalized, value)
+	}
+	if len(normalized) == 0 {
+		return nil
+	}
+	return normalized
+}
+
 // Overview returns the aggregated overview payload for the selected window.
-func (s *Service) Overview(ctx context.Context, window auditstore.OverviewWindow) (OverviewResult, error) {
+func (s *Service) Overview(ctx context.Context, preset auditstore.AuditTimePreset) (OverviewResult, error) {
 	if s == nil || s.repo == nil {
 		return OverviewResult{}, ErrAuditServiceUnavailable
 	}
 
-	return s.repo.ReadAuditOverview(ctx, window)
+	return s.repo.ReadAuditOverview(ctx, normalizeAuditOverviewTimePreset(preset))
 }
 
 // Incident returns the audit-owned incident drilldown for one stable seed event.

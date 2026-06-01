@@ -40,13 +40,7 @@
           type="button"
           @click="openSummary(item.key)"
         >
-          <governance-summary-card
-            kind="activity"
-            :title="item.title"
-            :value="item.value"
-            :description="item.meta"
-            :value-aside="item.unit"
-          />
+          <governance-summary-card kind="activity" :title="item.title" :value="item.value" :value-aside="item.unit" />
         </button>
       </template>
 
@@ -110,7 +104,7 @@
                   <t-tag :theme="riskTheme(group.risk_level)" variant="light-outline" size="small">
                     {{ t(`audit.common.risk.${group.risk_level}`) }}
                   </t-tag>
-                  <t-button size="small" theme="primary" variant="text" @click="openRiskGroup(group.risk_level)">
+                  <t-button size="small" theme="primary" variant="text" @click="openRiskGroup(group.key)">
                     {{ riskGroupActionLabel }}
                   </t-button>
                 </div>
@@ -125,7 +119,7 @@
                 :key="entry.key"
                 class="audit-overview__shortcut"
                 type="button"
-                @click="openShortcut(entry.preset)"
+                @click="openShortcut(entry.query)"
               >
                 <strong>{{ entry.title }}</strong>
                 <span>{{ entry.description }}</span>
@@ -137,34 +131,26 @@
 
       <section class="audit-overview__grid audit-overview__grid--bottom">
         <governance-section :title="t('audit.overview.sections.trend')">
-          <div class="audit-overview__trend-scroll">
-            <div class="audit-overview__trend" :style="trendTrackStyle">
-              <t-tooltip v-for="point in trendPoints" :key="point.key" placement="top" theme="default">
-                <template #content>
-                  <div class="audit-overview__trend-tooltip">
-                    <strong>{{ point.tooltipLabel }}</strong>
-                    <span>{{ t('audit.overview.trend.pointMeta', point.meta) }}</span>
-                  </div>
-                </template>
-                <div class="audit-overview__trend-point">
-                  <div class="audit-overview__trend-bars">
-                    <div
-                      class="audit-overview__trend-bar audit-overview__trend-bar--total"
-                      :style="{ height: point.totalHeight }"
-                    />
-                    <div
-                      class="audit-overview__trend-bar audit-overview__trend-bar--risk"
-                      :style="{ height: point.highRiskHeight }"
-                    />
-                    <div
-                      class="audit-overview__trend-bar audit-overview__trend-bar--security"
-                      :style="{ height: point.securityHeight }"
-                    />
-                  </div>
-                  <strong>{{ point.axisLabel }}</strong>
-                </div>
-              </t-tooltip>
+          <management-empty-state
+            v-if="!trendView.isRenderable"
+            class="audit-overview__trend-empty"
+            :title="t('audit.overview.trend.emptyTitle')"
+            :description="t('audit.overview.trend.emptyDescription')"
+          />
+          <div v-else class="audit-overview__trend-panel">
+            <div class="audit-overview__trend-metrics">
+              <article v-for="item in trendSummaryItems" :key="item.key" class="audit-overview__trend-metric">
+                <span>{{ item.label }}</span>
+                <strong>{{ item.value }}</strong>
+              </article>
             </div>
+            <div
+              ref="trendChartRef"
+              class="audit-overview__trend-chart"
+              data-audit-trend-chart="true"
+              role="img"
+              :aria-label="t('audit.overview.sections.trend')"
+            />
           </div>
         </governance-section>
 
@@ -176,11 +162,7 @@
               :label="formatTime(item.created_at)"
               :dot-color="timelineDotColor(item.risk_level)"
             >
-              <button
-                class="audit-overview__timeline-item audit-overview__timeline-item--button"
-                type="button"
-                @click="openSecurityTimelineItem(item.incident_seed?.event_id)"
-              >
+              <div class="audit-overview__timeline-item">
                 <strong>{{ item.action }}</strong>
                 <p>{{ item.resource_name || item.resource_type || t('audit.common.unknownResource') }}</p>
                 <div class="audit-overview__timeline-meta">
@@ -191,16 +173,18 @@
                     {{ t(`audit.common.source.${item.source}`) }}
                   </t-tag>
                 </div>
-              </button>
-              <t-button
-                v-if="item.request_id"
-                size="small"
-                theme="default"
-                variant="text"
-                @click.stop="openSecurityTimelineRequest(item.request_id)"
-              >
-                {{ relatedRequestActionLabel }}
-              </t-button>
+                <div class="audit-overview__timeline-actions">
+                  <t-button
+                    v-if="item.request_id"
+                    size="small"
+                    theme="default"
+                    variant="text"
+                    @click="openSecurityTimelineRequest(item.request_id)"
+                  >
+                    {{ relatedRequestActionLabel }}
+                  </t-button>
+                </div>
+              </div>
             </t-timeline-item>
           </t-timeline>
         </governance-section>
@@ -209,40 +193,53 @@
   </div>
 </template>
 <script setup lang="ts">
-import { MessagePlugin, Tooltip as TTooltip } from 'tdesign-vue-next';
-import { computed, onMounted, ref, watch } from 'vue';
+import { LineChart } from 'echarts/charts';
+import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components';
+import type { EChartsCoreOption } from 'echarts/core';
+import * as echarts from 'echarts/core';
+import { CanvasRenderer } from 'echarts/renderers';
+import { MessagePlugin } from 'tdesign-vue-next';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 
 import { buildAccessLogRequestLocation } from '@/modules/access-log/contract/deep-link';
-import { buildAuditIncidentLocation, buildAuditLogsLocation } from '@/modules/audit/contract/deep-link';
-import type { AuditPresetKey } from '@/modules/audit/contract/presets';
-import { resolveAuditPresetKey } from '@/modules/audit/contract/presets';
+import { buildAuditLogsLocation } from '@/modules/audit/contract/deep-link';
+import { AUDIT_DRILLDOWN_SCOPE } from '@/modules/audit/contract/presets';
+import { AUDIT_TIME_PRESET, type AuditTimePreset } from '@/modules/audit/contract/time-presets';
 import { openCorrelationErrorNotification, requestIdFromError } from '@/modules/audit/shared/correlation-actions';
 import { resolveLocalizedErrorMessage } from '@/modules/shared/localized-api-error';
 import { GovernanceDashboardShell, GovernanceSection, GovernanceSummaryCard } from '@/shared/components/governance';
 import { ManagementEmptyState } from '@/shared/components/management';
+import { buildRecentHoursLocalRange, formatLocaleDateTime, localDateTimeToUtcIso } from '@/shared/observability';
+import { useSettingStore } from '@/store';
 import { createLogger } from '@/utils/logger';
 
 import { getAuditOverview } from '../../api/audit';
-import type { AuditOverviewItem, AuditOverviewResponse, AuditOverviewWindow } from '../../types/audit';
+import type { AuditOverviewItem, AuditOverviewResponse } from '../../types/audit';
 
 defineOptions({
   name: 'AuditOverviewIndex',
 });
 
+echarts.use([TooltipComponent, LegendComponent, GridComponent, LineChart, CanvasRenderer]);
+
 const { locale, t } = useI18n();
 const router = useRouter();
 const logger = createLogger('audit.overview');
-const activeWindow = ref<AuditOverviewWindow>('24h');
+const settingStore = useSettingStore();
+const activeWindow = ref<AuditTimePreset>(AUDIT_TIME_PRESET.LAST_24H);
 const loading = ref(false);
 const errorMessage = ref('');
 const overview = ref<AuditOverviewResponse | null>(null);
+const trendChartRef = ref<HTMLDivElement | null>(null);
+let trendChart: echarts.ECharts | null = null;
+let trendChartResizeObserver: ResizeObserver | null = null;
 
 const timeRangeOptions = computed(() => [
-  { label: t('audit.overview.timeRanges.24h'), value: '24h' as const },
-  { label: t('audit.overview.timeRanges.7d'), value: '7d' as const },
-  { label: t('audit.overview.timeRanges.30d'), value: '30d' as const },
+  { label: t('audit.overview.timeRanges.24h'), value: AUDIT_TIME_PRESET.LAST_24H },
+  { label: t('audit.overview.timeRanges.7d'), value: AUDIT_TIME_PRESET.LAST_7D },
+  { label: t('audit.overview.timeRanges.30d'), value: AUDIT_TIME_PRESET.LAST_30D },
 ]);
 
 const stats = computed(() => [
@@ -251,28 +248,24 @@ const stats = computed(() => [
     title: t('audit.overview.stats.totalLogs.title'),
     value: String(overview.value?.summary.total_logs ?? 0),
     unit: t('audit.overview.stats.totalLogs.unit'),
-    meta: t('audit.overview.stats.totalLogs.meta'),
   },
   {
     key: 'failed',
-    title: t('audit.overview.stats.failedToday.title'),
+    title: t('audit.overview.stats.failedWindow.title'),
     value: String(overview.value?.summary.failed_operations ?? 0),
-    unit: t('audit.overview.stats.failedToday.unit'),
-    meta: t('audit.overview.stats.failedToday.meta'),
+    unit: t('audit.overview.stats.failedWindow.unit'),
   },
   {
     key: 'risk',
     title: t('audit.overview.stats.highRisk.title'),
     value: String(overview.value?.summary.high_risk_events ?? 0),
     unit: t('audit.overview.stats.highRisk.unit'),
-    meta: t('audit.overview.stats.highRisk.meta'),
   },
   {
     key: 'sensitive',
     title: t('audit.overview.stats.sensitiveOps.title'),
     value: String(overview.value?.summary.sensitive_operations ?? 0),
     unit: t('audit.overview.stats.sensitiveOps.unit'),
-    meta: t('audit.overview.stats.sensitiveOps.meta'),
   },
 ]);
 
@@ -290,30 +283,52 @@ const sensitiveItems = computed(() =>
 
 const riskGroups = computed(() => overview.value?.risk_groups ?? []);
 const securityTimeline = computed(() => overview.value?.security_timeline ?? []);
-const trendPoints = computed(() => {
+const securityEventCount = computed(() =>
+  (overview.value?.trend?.points ?? []).reduce((total, point) => total + (point.security_events ?? 0), 0),
+);
+const trendSummaryItems = computed(() => [
+  {
+    key: 'total',
+    label: t('audit.overview.trend.totalMetric'),
+    value: String(overview.value?.summary.total_logs ?? 0),
+  },
+  {
+    key: 'risk',
+    label: t('audit.overview.trend.highRiskMetric'),
+    value: String(overview.value?.summary.high_risk_events ?? 0),
+  },
+  {
+    key: 'security',
+    label: t('audit.overview.trend.securityMetric'),
+    value: String(securityEventCount.value),
+  },
+]);
+const trendView = computed(() => {
   const points = overview.value?.trend?.points ?? [];
-  const maxTotal = Math.max(...points.map((point) => point.total), 1);
+  const activePoints = points.filter((point) => point.total > 0);
+  const hasEnoughPoints = points.length >= 3;
+  const hasEnoughActivity = activePoints.length >= 3;
+
+  if (!hasEnoughPoints || !hasEnoughActivity) {
+    return {
+      isRenderable: false,
+      points: [],
+    };
+  }
+
   const labelStep = resolveTrendLabelStep(points.length);
-
-  return points.map((point, index) => ({
+  const normalizedPoints = points.map((point, index) => ({
     key: `${point.bucket_start}-${point.bucket_end}`,
-    axisLabel: index % labelStep === 0 || index === points.length - 1 ? formatTrendAxisLabel(point.bucket_start) : '',
+    axisLabel: index % labelStep === 0 || index === points.length - 1 ? formatTrendAxisLabel(point) : '',
     tooltipLabel: formatTrendTooltipLabel(point.bucket_start, point.bucket_end),
-    totalHeight: `${Math.max((point.total / maxTotal) * 100, 8)}%`,
-    highRiskHeight: `${Math.max((point.high_risk / maxTotal) * 100, point.high_risk > 0 ? 8 : 0)}%`,
-    securityHeight: `${Math.max((point.security_events / maxTotal) * 100, point.security_events > 0 ? 8 : 0)}%`,
-    meta: {
-      total: point.total,
-      highRisk: point.high_risk,
-      security: point.security_events,
-    },
+    total: point.total,
+    highRisk: point.high_risk,
+    security: point.security_events,
   }));
-});
 
-const trendTrackStyle = computed(() => {
-  const pointCount = Math.max(trendPoints.value.length, 1);
   return {
-    minWidth: `${Math.max(pointCount * 72, 320)}px`,
+    isRenderable: true,
+    points: normalizedPoints,
   };
 });
 
@@ -322,55 +337,77 @@ const shortcuts = computed(() => [
     key: 'failed',
     title: t('audit.overview.shortcuts.failedAuth.title'),
     description: t('audit.overview.shortcuts.failedAuth.description'),
-    preset: resolveAuditPresetKey('failed-auth'),
+    query: buildOverviewAuditQuery({
+      scope: AUDIT_DRILLDOWN_SCOPE.AUTH_FAILURES,
+    }),
   },
   {
     key: 'rbac',
     title: t('audit.overview.shortcuts.rbacChanges.title'),
     description: t('audit.overview.shortcuts.rbacChanges.description'),
-    preset: resolveAuditPresetKey('rbac-changes'),
+    query: buildOverviewAuditQuery({
+      scope: AUDIT_DRILLDOWN_SCOPE.RBAC_CHANGES,
+    }),
   },
   {
     key: 'sensitive',
     title: t('audit.overview.shortcuts.sensitiveOps.title'),
     description: t('audit.overview.shortcuts.sensitiveOps.description'),
-    preset: resolveAuditPresetKey('sensitive-ops'),
+    query: buildOverviewAuditQuery({
+      scope: AUDIT_DRILLDOWN_SCOPE.SENSITIVE_OPERATIONS,
+    }),
   },
 ]);
 
 const riskGroupActionLabel = computed(() => t('audit.overview.riskGroups.action'));
 const relatedRequestActionLabel = computed(() => t('audit.logList.drawer.actions.viewRelatedRequest'));
 
-function openShortcut(preset: AuditPresetKey) {
-  void router.push(buildAuditLogsLocation({ preset }));
+function buildOverviewAuditQuery(query: Record<string, string>) {
+  return {
+    ...buildFrozenOverviewWindow(),
+    ...query,
+  };
+}
+
+function openShortcut(query: Record<string, string>) {
+  void router.push(buildAuditLogsLocation(query));
 }
 
 function openSummary(key: string) {
   switch (key) {
     case 'failed':
-      void router.push(buildAuditLogsLocation({ result: 'FAILED' }));
+      void router.push(
+        buildAuditLogsLocation(buildOverviewAuditQuery({ scope: AUDIT_DRILLDOWN_SCOPE.FAILED_OPERATIONS })),
+      );
       return;
     case 'risk':
-      void router.push(buildAuditLogsLocation({ risk_level: 'HIGH' }));
+      void router.push(
+        buildAuditLogsLocation(buildOverviewAuditQuery({ scope: AUDIT_DRILLDOWN_SCOPE.HIGH_RISK_OPERATIONS })),
+      );
       return;
     case 'sensitive':
-      void router.push(buildAuditLogsLocation({ risk_level: 'HIGH', source: 'DOMAIN_EVENT' }));
+      void router.push(
+        buildAuditLogsLocation(
+          buildOverviewAuditQuery({
+            scope: AUDIT_DRILLDOWN_SCOPE.SENSITIVE_OPERATIONS,
+          }),
+        ),
+      );
       return;
     default:
-      void router.push(buildAuditLogsLocation({}));
+      void router.push(buildAuditLogsLocation(buildOverviewAuditQuery({})));
   }
 }
 
-function openRiskGroup(riskLevel: string) {
-  void router.push(buildAuditLogsLocation({ risk_level: riskLevel }));
-}
+function openRiskGroup(groupKey: string) {
+  const riskGroupQueries: Record<string, Record<string, string>> = {
+    critical_security: { scope: AUDIT_DRILLDOWN_SCOPE.CRITICAL_SECURITY },
+    high_risk_operations: { scope: AUDIT_DRILLDOWN_SCOPE.HIGH_RISK_OPERATIONS },
+    auth_failures: { scope: AUDIT_DRILLDOWN_SCOPE.AUTH_FAILURES },
+    permission_denials: { scope: AUDIT_DRILLDOWN_SCOPE.PERMISSION_DENIALS },
+  };
 
-function openSecurityTimelineItem(eventId?: number) {
-  if (!eventId) {
-    return;
-  }
-
-  void router.push(buildAuditIncidentLocation(eventId));
+  void router.push(buildAuditLogsLocation(buildOverviewAuditQuery(groupKey ? (riskGroupQueries[groupKey] ?? {}) : {})));
 }
 
 function openSecurityTimelineRequest(requestId?: string) {
@@ -386,7 +423,7 @@ async function fetchOverview() {
   errorMessage.value = '';
 
   try {
-    overview.value = await getAuditOverview({ window: activeWindow.value });
+    overview.value = await getAuditOverview({ preset: activeWindow.value });
   } catch (error) {
     overview.value = null;
     logger.error('failed to fetch audit overview', error);
@@ -447,8 +484,12 @@ function formatBucketLabel(value?: string) {
   return formatTrendDateTime(value, { month: '2-digit', day: '2-digit', hour: '2-digit' });
 }
 
-function formatTrendAxisLabel(value?: string) {
-  return formatTrendDateTime(value, { hour: '2-digit', minute: '2-digit' });
+function formatTrendAxisLabel(point: AuditOverviewResponse['trend']['points'][number]) {
+  const bucketUnit = overview.value?.trend?.bucket_unit;
+  if (bucketUnit === 'day') {
+    return formatTrendDateTime(point.bucket_start, { month: '2-digit', day: '2-digit' });
+  }
+  return formatBucketHourRange(point.bucket_start, point.bucket_end);
 }
 
 function formatTrendTooltipLabel(start?: string, end?: string) {
@@ -469,6 +510,252 @@ function resolveTrendLabelStep(pointCount: number) {
   return 3;
 }
 
+function formatTrendValue(value: number) {
+  return String(value);
+}
+
+function resolveTrendColor(variableName: string, fallback: string) {
+  if (typeof window === 'undefined') {
+    return fallback;
+  }
+
+  const value = getComputedStyle(document.documentElement).getPropertyValue(variableName).trim();
+  return value || fallback;
+}
+
+function ensureTrendChart() {
+  if (!trendChartRef.value) {
+    return null;
+  }
+
+  if (!trendChart) {
+    trendChart = echarts.init(trendChartRef.value);
+  }
+
+  return trendChart;
+}
+
+function disposeTrendChart() {
+  trendChart?.dispose();
+  trendChart = null;
+}
+
+function buildTrendChartOption(): EChartsCoreOption {
+  const chartColors = settingStore.chartColors;
+  const points = trendView.value.points;
+  const totalLabel = t('audit.overview.trend.totalMetric');
+  const highRiskLabel = t('audit.overview.trend.highRiskMetric');
+  const securityLabel = t('audit.overview.trend.securityMetric');
+  const seriesColors = [
+    resolveTrendColor('--td-brand-color', '#0052D9'),
+    resolveTrendColor('--td-warning-color', '#ED7B2F'),
+    resolveTrendColor('--td-error-color', '#E34D59'),
+  ];
+
+  return {
+    color: seriesColors,
+    legend: {
+      top: 0,
+      itemWidth: 10,
+      itemHeight: 10,
+      textStyle: {
+        color: chartColors.textColor,
+      },
+      data: [totalLabel, highRiskLabel, securityLabel],
+    },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: chartColors.containerColor,
+      borderColor: chartColors.borderColor,
+      textStyle: {
+        color: chartColors.textColor,
+      },
+      formatter: (
+        params: Array<{ axisValue: string; axisValueLabel?: string; seriesName: string; color: string; data: number }>,
+      ) => {
+        const activePoint = points.find((point) => point.key === params[0]?.axisValue) ?? points[0];
+        const rows = params
+          .map((param) => {
+            return [
+              `<div style="display:flex;align-items:center;justify-content:space-between;gap:16px;">`,
+              `<span style="display:flex;align-items:center;gap:8px;">`,
+              `<i style="width:8px;height:8px;border-radius:999px;background:${param.color};display:inline-block;"></i>`,
+              `<span>${param.seriesName}</span>`,
+              `</span>`,
+              `<strong>${formatTrendValue(param.data)}</strong>`,
+              `</div>`,
+            ].join('');
+          })
+          .join('');
+
+        return [
+          `<div style="display:flex;flex-direction:column;gap:8px;">`,
+          `<strong>${activePoint?.tooltipLabel ?? params[0]?.axisValueLabel ?? ''}</strong>`,
+          rows,
+          `</div>`,
+        ].join('');
+      },
+    },
+    grid: {
+      left: '18px',
+      right: '18px',
+      top: '52px',
+      bottom: '20px',
+      containLabel: true,
+    },
+    xAxis: {
+      type: 'category',
+      data: points.map((point) => point.key),
+      axisLabel: {
+        color: chartColors.placeholderColor,
+        formatter: (value: string) => points.find((point) => point.key === value)?.axisLabel ?? '',
+      },
+      axisLine: {
+        lineStyle: {
+          color: chartColors.borderColor,
+        },
+      },
+      axisTick: {
+        show: false,
+      },
+    },
+    yAxis: {
+      type: 'value',
+      min: 0,
+      axisLabel: {
+        color: chartColors.placeholderColor,
+        formatter: (value: number) => formatTrendValue(value),
+      },
+      splitLine: {
+        lineStyle: {
+          color: chartColors.borderColor,
+        },
+      },
+    },
+    series: [
+      buildTrendSeries(
+        totalLabel,
+        points.map((point) => point.total),
+      ),
+      buildTrendSeries(
+        highRiskLabel,
+        points.map((point) => point.highRisk),
+      ),
+      buildTrendSeries(
+        securityLabel,
+        points.map((point) => point.security),
+      ),
+    ],
+  };
+}
+
+function buildTrendSeries(name: string, data: number[]) {
+  return {
+    name,
+    type: 'line',
+    smooth: true,
+    symbol: 'circle',
+    symbolSize: 7,
+    showSymbol: false,
+    lineStyle: {
+      width: 2.5,
+    },
+    areaStyle: {
+      opacity: 0.14,
+    },
+    emphasis: {
+      focus: 'series',
+      areaStyle: {
+        opacity: 0.18,
+      },
+    },
+    data,
+  };
+}
+
+async function syncTrendChart() {
+  if (!trendView.value.isRenderable) {
+    disposeTrendChart();
+    return;
+  }
+
+  await nextTick();
+  const chart = ensureTrendChart();
+  if (!chart) {
+    return;
+  }
+  setupTrendChartResizeObserver();
+  observeTrendChartResize();
+
+  chart.setOption(buildTrendChartOption(), true);
+  chart.resize({
+    width: trendChartRef.value?.clientWidth,
+    height: trendChartRef.value?.clientHeight,
+  });
+}
+
+function setupTrendChartResizeObserver() {
+  if (trendChartResizeObserver || typeof ResizeObserver === 'undefined') {
+    return;
+  }
+
+  trendChartResizeObserver = new ResizeObserver(() => {
+    trendChart?.resize({
+      width: trendChartRef.value?.clientWidth,
+      height: trendChartRef.value?.clientHeight,
+    });
+  });
+}
+
+function observeTrendChartResize() {
+  if (!trendChartResizeObserver || !trendChartRef.value) {
+    return;
+  }
+  trendChartResizeObserver.disconnect();
+  trendChartResizeObserver.observe(trendChartRef.value);
+}
+
+function teardownTrendChartResizeObserver() {
+  trendChartResizeObserver?.disconnect();
+  trendChartResizeObserver = null;
+}
+
+function buildFrozenOverviewWindow() {
+  const [createdFrom = '', createdTo = ''] = buildPresetLocalRange(activeWindow.value);
+  return {
+    created_from: createdFrom ? localDateTimeToUtcIso(createdFrom) : '',
+    created_to: createdTo ? localDateTimeToUtcIso(createdTo) : '',
+  };
+}
+
+function buildPresetLocalRange(preset: AuditTimePreset) {
+  const now = new Date();
+  switch (preset) {
+    case AUDIT_TIME_PRESET.LAST_24H:
+      return buildRecentHoursLocalRange(now, 24);
+    case AUDIT_TIME_PRESET.LAST_7D:
+      return buildRecentHoursLocalRange(now, 24 * 7);
+    case AUDIT_TIME_PRESET.LAST_30D:
+      return buildRecentHoursLocalRange(now, 24 * 30);
+    default:
+      return [];
+  }
+}
+
+function formatBucketHourRange(start?: string, end?: string) {
+  const startDate = start ? new Date(start) : null;
+  const endDate = end ? new Date(end) : null;
+  if (!startDate || Number.isNaN(startDate.getTime())) {
+    return '-';
+  }
+
+  const formatter = new Intl.DateTimeFormat(locale.value || undefined, { hour: '2-digit' });
+  if (!endDate || Number.isNaN(endDate.getTime())) {
+    return formatter.format(startDate);
+  }
+  return `${formatter.format(startDate)}-${formatter.format(endDate)}`;
+}
+
 function formatTrendDateTime(value: string | undefined, timeOptions: Intl.DateTimeFormatOptions) {
   if (!value) {
     return '-';
@@ -484,27 +771,43 @@ function formatTrendDateTime(value: string | undefined, timeOptions: Intl.DateTi
 }
 
 function formatTime(value?: string) {
-  if (!value) {
-    return '-';
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-  return new Intl.DateTimeFormat(locale.value || undefined, {
+  return formatLocaleDateTime(value, locale.value, {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
-  }).format(date);
+  });
 }
 
 watch(activeWindow, () => {
   void fetchOverview();
 });
 
+watch(
+  [
+    () => trendView.value,
+    () => locale.value,
+    () => settingStore.displayMode,
+    () => settingStore.brandTheme,
+    () => settingStore.chartColors.textColor,
+    () => settingStore.chartColors.placeholderColor,
+    () => settingStore.chartColors.borderColor,
+    () => settingStore.chartColors.containerColor,
+  ],
+  () => {
+    void syncTrendChart();
+  },
+  { deep: true },
+);
+
 onMounted(() => {
+  setupTrendChartResizeObserver();
   void fetchOverview();
+});
+
+onUnmounted(() => {
+  teardownTrendChartResizeObserver();
+  disposeTrendChart();
 });
 </script>
 <style scoped lang="less">
@@ -584,9 +887,33 @@ onMounted(() => {
 
 .audit-overview__shortcut {
   background: var(--td-bg-color-container);
+  color: var(--td-text-color-primary);
   cursor: pointer;
   text-align: left;
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    box-shadow 0.2s ease;
   width: 100%;
+}
+
+.audit-overview__shortcut strong {
+  color: var(--td-text-color-primary);
+}
+
+.audit-overview__shortcut:hover {
+  background: color-mix(in srgb, var(--td-brand-color-light) 14%, var(--td-bg-color-container) 86%);
+  border-color: color-mix(in srgb, var(--td-brand-color) 32%, var(--td-component-stroke) 68%);
+}
+
+.audit-overview__shortcut:focus-visible {
+  border-color: var(--td-brand-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--td-brand-color) 18%, transparent);
+  outline: none;
+}
+
+.audit-overview__shortcut:active {
+  background: color-mix(in srgb, var(--td-brand-color-light) 20%, var(--td-bg-color-container) 80%);
 }
 
 .audit-overview__summary-action,
@@ -599,76 +926,65 @@ onMounted(() => {
   width: 100%;
 }
 
-.audit-overview__trend-scroll {
-  overflow-x: auto;
-  padding-bottom: 4px;
-}
-
-.audit-overview__trend {
-  align-items: end;
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(56px, 1fr));
-  min-height: 240px;
-}
-
-.audit-overview__trend-point {
-  align-items: center;
-  cursor: default;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 0;
-}
-
-.audit-overview__trend-bars {
-  align-items: end;
-  display: flex;
-  gap: 4px;
-  height: 160px;
-}
-
-.audit-overview__trend-bar {
-  border-radius: 999px 999px 0 0;
-  min-height: 0;
-  width: 10px;
-}
-
-.audit-overview__trend-bar--total {
-  background: color-mix(in srgb, var(--td-brand-color) 35%, white);
-}
-
-.audit-overview__trend-bar--risk {
-  background: var(--td-warning-color);
-}
-
-.audit-overview__trend-bar--security {
-  background: var(--td-error-color);
-}
-
-.audit-overview__trend-point strong {
+.audit-overview__window-label {
   color: var(--td-text-color-secondary);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
-  line-height: 20px;
-  min-height: 20px;
-  text-align: center;
 }
 
-.audit-overview__trend-tooltip {
+.audit-overview__trend-panel,
+.audit-overview__trend-empty {
+  min-height: 280px;
+}
+
+.audit-overview__trend-panel {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  max-width: 220px;
+  gap: 16px;
 }
 
-.audit-overview__trend-tooltip span {
+.audit-overview__trend-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.audit-overview__trend-metric {
+  background: var(--td-bg-color-container);
+  border: 1px solid var(--td-component-stroke);
+  border-radius: var(--td-radius-medium);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 120px;
+  padding: 12px 14px;
+}
+
+.audit-overview__trend-metric span {
   color: var(--td-text-color-secondary);
+  font-size: 12px;
+}
+
+.audit-overview__trend-metric strong {
+  color: var(--td-text-color-primary);
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.audit-overview__trend-chart {
+  min-height: 320px;
+  width: 100%;
 }
 
 .audit-overview__timeline-item {
   display: flex;
   flex-direction: column;
+  gap: 8px;
+}
+
+.audit-overview__timeline-actions {
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -699,6 +1015,10 @@ onMounted(() => {
 
   .audit-overview__watch-actions {
     width: 100%;
+  }
+
+  .audit-overview__trend-chart {
+    min-height: 280px;
   }
 }
 </style>
