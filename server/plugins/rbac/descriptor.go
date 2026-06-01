@@ -9,18 +9,14 @@ import (
 )
 
 const (
-	pluginID      = "rbac"
-	pluginVersion = "0.1.0"
+	moduleID = "rbac"
 )
 
-var pluginDependencies = []string{"user"}
-
-// NewDescriptor exposes the RBAC plugin's stable metadata and builder.
-func NewDescriptor() plugin.Descriptor {
-	return plugin.Descriptor{
-		ID:            pluginID,
-		PluginVersion: pluginVersion,
-		Dependencies:  append([]string(nil), pluginDependencies...),
+// NewModuleSpec exposes the RBAC module's stable compile-time metadata and builder.
+func NewModuleSpec() plugin.ModuleSpec {
+	return plugin.ModuleSpec{
+		ID:            moduleID,
+		Dependencies:  []string{"user"},
 		MigrationPath: []string{"plugins/rbac/migrations"},
 		Builder: plugin.BuilderFunc(func(ctx plugin.BuildContext) (plugin.Plugin, error) {
 			sqlDB, err := plugin.ResolveService[*sql.DB](ctx.Services, (*sql.DB)(nil))

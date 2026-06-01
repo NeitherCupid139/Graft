@@ -1804,7 +1804,6 @@ export interface components {
      *       "name": "monitor",
      *       "status": "healthy",
      *       "status_detail": "Runtime metadata is present and platform signals are healthy",
-     *       "version": "0.1.0",
      *       "depends_on": [
      *         "user",
      *         "rbac"
@@ -1816,7 +1815,6 @@ export interface components {
       name: string;
       status: string;
       status_detail: string;
-      version: string;
       depends_on: string[];
       missing_dependencies?: string[];
     };
@@ -4034,8 +4032,8 @@ export interface operations {
         success?: boolean;
         created_from?: string;
         created_to?: string;
-        sort_by?: 'created_at';
-        sort_order?: 'asc' | 'desc';
+        /** @description Repeated priority-ordered sort expression using `field:dir` semantics such as `created_at:desc`. */
+        sort?: string[];
       };
       header?: {
         /** @description Explicit locale override header already supported by the runtime. */
@@ -4205,22 +4203,29 @@ export interface operations {
         page?: number;
         page_size?: number;
         request_id?: string;
-        trace_id?: string;
         user_id?: number;
         username?: string;
         method?: string;
         path?: string;
+        /** @description Canonical fuzzy match applied to `request_id`, `path`, and `username`. */
+        keyword?: string;
         path_match?: 'exact' | 'prefix';
         route?: string;
         status_code?: number;
+        /** @description Repeated status-code group filter for builder presets. */
+        status_group?: ('4xx' | '5xx')[];
         duration_min_ms?: number;
         duration_max_ms?: number;
+        /** @description Inclusive canonical request-time lower bound on `started_at`. */
         started_from?: string;
+        /** @description Inclusive canonical request-time upper bound on `started_at`. */
         started_to?: string;
+        /** @description Optional completed-time lower bound on `occurred_at` for secondary filtering. */
         occurred_from?: string;
+        /** @description Optional completed-time upper bound on `occurred_at` for secondary filtering. */
         occurred_to?: string;
-        sort_by?: 'started_at' | 'occurred_at' | 'duration_ms' | 'status_code';
-        sort_order?: 'asc' | 'desc';
+        /** @description Repeated priority-ordered sort expression using `field:dir` semantics such as `started_at:desc`. */
+        sort?: string[];
       };
       header?: {
         /** @description Explicit locale override header already supported by the runtime. */

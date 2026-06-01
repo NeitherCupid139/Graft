@@ -11,11 +11,11 @@ import (
 	userplugin "graft/server/plugins/user"
 )
 
-var generatedDescriptors = []plugin.Descriptor{
-	auditplugin.NewDescriptor(),
-	authplugin.NewDescriptor(),
-	monitorplugin.NewDescriptor(),
-	rbacplugin.NewDescriptor(),
-	schedulerplugin.NewDescriptor(),
-	userplugin.NewDescriptor(),
+var generatedModuleSpecs = []plugin.ModuleSpec{
+	auditplugin.NewModuleSpec(),
+	authplugin.NewModuleSpec(),
+	monitorplugin.NewModuleSpec(),
+	rbacplugin.NewModuleSpec(),
+	schedulerplugin.NewModuleSpec(),
+	userplugin.NewModuleSpec(),
 }

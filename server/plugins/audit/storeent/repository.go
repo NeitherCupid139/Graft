@@ -211,8 +211,13 @@ func (r *repository) ListAuditLogs(ctx context.Context, query auditstore.ListAud
 }
 
 func buildAuditLogOrderBy(query auditstore.ListAuditLogsQuery) string {
-	if query.SortBy == "created_at" && query.SortOrder == "asc" {
-		return "ORDER BY created_at ASC, id ASC"
+	for _, raw := range query.Sorts {
+		switch strings.TrimSpace(raw) {
+		case "created_at:asc":
+			return "ORDER BY created_at ASC, id ASC"
+		case "created_at:desc":
+			return "ORDER BY created_at DESC, id DESC"
+		}
 	}
 
 	return "ORDER BY created_at DESC, id DESC"
@@ -512,6 +517,13 @@ func validateListAuditLogsQuery(query auditstore.ListAuditLogsQuery) error {
 	}
 	if query.TimePreset != "" && !isSupportedAuditTimePreset(query.TimePreset) {
 		return fmt.Errorf("list audit logs: invalid time preset %q", query.TimePreset)
+	}
+	for _, raw := range query.Sorts {
+		switch strings.TrimSpace(raw) {
+		case "created_at:asc", "created_at:desc":
+		default:
+			return fmt.Errorf("list audit logs: invalid sort %q", raw)
+		}
 	}
 
 	return nil

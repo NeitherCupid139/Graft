@@ -701,39 +701,6 @@ func (e GetAuditLogsParamsRiskLevels) Valid() bool {
 	}
 }
 
-// Defines values for GetAuditLogsParamsSortBy.
-const (
-	CreatedAt GetAuditLogsParamsSortBy = "created_at"
-)
-
-// Valid indicates whether the value is a known member of the GetAuditLogsParamsSortBy enum.
-func (e GetAuditLogsParamsSortBy) Valid() bool {
-	switch e {
-	case CreatedAt:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for GetAuditLogsParamsSortOrder.
-const (
-	Asc  GetAuditLogsParamsSortOrder = "asc"
-	Desc GetAuditLogsParamsSortOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the GetAuditLogsParamsSortOrder enum.
-func (e GetAuditLogsParamsSortOrder) Valid() bool {
-	switch e {
-	case Asc:
-		return true
-	case Desc:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for GetAuditLogs200JSONResponseBodyDataConvertibleFiltersBusinessCategory.
 const (
 	AuthFailures        GetAuditLogs200JSONResponseBodyDataConvertibleFiltersBusinessCategory = "auth_failures"
@@ -1404,8 +1371,9 @@ type GetAuditLogsParams struct {
 	Success             *bool                               `form:"success,omitempty" json:"success,omitempty"`
 	CreatedFrom         *time.Time                          `form:"created_from,omitempty" json:"created_from,omitempty"`
 	CreatedTo           *time.Time                          `form:"created_to,omitempty" json:"created_to,omitempty"`
-	SortBy              *GetAuditLogsParamsSortBy           `form:"sort_by,omitempty" json:"sort_by,omitempty"`
-	SortOrder           *GetAuditLogsParamsSortOrder        `form:"sort_order,omitempty" json:"sort_order,omitempty"`
+
+	// Sort Repeated priority-ordered sort expression using `field:dir` semantics such as `created_at:desc`.
+	Sort *[]string `form:"sort,omitempty" json:"sort,omitempty"`
 
 	// XGraftLocale Explicit locale override header already supported by the runtime.
 	XGraftLocale *string `json:"X-Graft-Locale,omitempty"`
@@ -1438,12 +1406,6 @@ type GetAuditLogsParamsRiskLevel string
 
 // GetAuditLogsParamsRiskLevels defines parameters for GetAuditLogs.
 type GetAuditLogsParamsRiskLevels string
-
-// GetAuditLogsParamsSortBy defines parameters for GetAuditLogs.
-type GetAuditLogsParamsSortBy string
-
-// GetAuditLogsParamsSortOrder defines parameters for GetAuditLogs.
-type GetAuditLogsParamsSortOrder string
 
 // GetAuditLogs200JSONResponseBodyDataConvertibleFiltersBusinessCategory defines parameters for GetAuditLogs.
 type GetAuditLogs200JSONResponseBodyDataConvertibleFiltersBusinessCategory string

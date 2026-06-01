@@ -1,14 +1,18 @@
 export { copyText } from './copy';
 export { default as LogIdText } from './LogIdText.vue';
 export { default as LogJsonPanel } from './LogJsonPanel.vue';
-export type { QuerySorter, SortDirection } from './sorters';
+export type { QuerySorter, SortDirection, SorterState } from './sorters';
 export {
+  appendSorterToState,
   createSingleSorter,
-  getSingleSorter,
-  normalizeSingleSorterDirection,
-  normalizeSingleSorterField,
-  prependSingleSorterTag,
-  useSingleSorterSelection,
+  decodeSorters,
+  encodeSorters,
+  moveSorterInState,
+  normalizeSorters,
+  prependSorterTags,
+  removeSorterFromState,
+  withSorterDirectionFromInput,
+  withSorterFieldFromInput,
 } from './sorters';
 export { formatLocaleDateTime } from './time';
 export {
@@ -18,3 +22,5 @@ export {
   normalizePageStateRangeForRoute,
   normalizeRouteRangeForPageState,
 } from './time-range';
+export type { TrendAxisPoint, TrendAxisPreset } from './trend-axis';
+export { buildTrendAxisLabels, formatTrendTooltipDateTime } from './trend-axis';

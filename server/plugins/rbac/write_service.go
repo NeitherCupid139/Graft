@@ -527,11 +527,11 @@ func (w managementWriter) publishAudit(ctx context.Context, event pluginapi.Audi
 	event.Operator = currentRBACAuditOperator(ctx)
 	if err := w.auditBus.Publish(ctx, eventbus.Event{
 		Name:    pluginapi.AuditRecordEventName,
-		Source:  pluginID,
+		Source:  moduleID,
 		Payload: event,
 	}); err != nil && w.logger != nil {
 		w.logger.Warn("publish rbac audit event failed",
-			zap.String("plugin", pluginID),
+			zap.String("plugin", moduleID),
 			zap.String("action", strings.TrimSpace(event.Action)),
 			zap.Error(err),
 		)

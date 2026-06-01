@@ -12,8 +12,8 @@ const (
 	testFilePerm = 0o600
 )
 
-// TestCollectPluginPackagesSortsDeterministically 验证生成输入会按稳定顺序排序。
-func TestCollectPluginPackagesSortsDeterministically(t *testing.T) {
+// TestCollectModulePackagesSortsDeterministically 验证生成输入会按稳定顺序排序。
+func TestCollectModulePackagesSortsDeterministically(t *testing.T) {
 	root := t.TempDir()
 	for _, name := range []string{"user", "audit", "rbac"} {
 		dir := filepath.Join(root, name)
@@ -25,7 +25,7 @@ func TestCollectPluginPackagesSortsDeterministically(t *testing.T) {
 		}
 	}
 
-	packages, err := collectPluginPackages(root)
+	packages, err := collectModulePackages(root)
 	if err != nil {
 		t.Fatalf("collect packages: %v", err)
 	}
@@ -47,15 +47,15 @@ func TestCollectPluginPackagesSortsDeterministically(t *testing.T) {
 	}
 }
 
-// TestCollectPluginPackagesRejectsMissingDescriptor 验证缺少描述符接线文件会直接失败。
-func TestCollectPluginPackagesRejectsMissingDescriptor(t *testing.T) {
+// TestCollectModulePackagesRejectsMissingDescriptor 验证缺少描述符接线文件会直接失败。
+func TestCollectModulePackagesRejectsMissingDescriptor(t *testing.T) {
 	root := t.TempDir()
 	dir := filepath.Join(root, "user")
 	if err := os.MkdirAll(dir, testDirPerm); err != nil {
 		t.Fatalf("mkdir plugin dir: %v", err)
 	}
 
-	_, err := collectPluginPackages(root)
+	_, err := collectModulePackages(root)
 	if err == nil {
 		t.Fatal("expected missing descriptor error")
 	}
@@ -64,9 +64,9 @@ func TestCollectPluginPackagesRejectsMissingDescriptor(t *testing.T) {
 	}
 }
 
-// TestRenderGeneratedFileIncludesSortedDescriptors 验证生成文件内容稳定且包含描述符入口。
+// TestRenderGeneratedFileIncludesSortedModuleSpecs 验证生成文件内容稳定且包含模块定义入口。
 func TestRenderGeneratedFileIncludesSortedDescriptors(t *testing.T) {
-	content, err := renderGeneratedFile([]pluginPackage{
+	content, err := renderGeneratedFile([]modulePackage{
 		{importAlias: "auditplugin", importPath: "graft/server/plugins/audit"},
 		{importAlias: "userplugin", importPath: "graft/server/plugins/user"},
 	})
@@ -80,14 +80,14 @@ func TestRenderGeneratedFileIncludesSortedDescriptors(t *testing.T) {
 		"package pluginregistry",
 		"auditplugin \"graft/server/plugins/audit\"",
 		"userplugin \"graft/server/plugins/user\"",
-		"auditplugin.NewDescriptor()",
-		"userplugin.NewDescriptor()",
+		"auditplugin.NewModuleSpec()",
+		"userplugin.NewModuleSpec()",
 	} {
 		if !strings.Contains(source, snippet) {
 			t.Fatalf("expected generated source to contain %q, got:\n%s", snippet, source)
 		}
 	}
-	if strings.Index(source, "auditplugin.NewDescriptor()") > strings.Index(source, "userplugin.NewDescriptor()") {
-		t.Fatalf("expected generated descriptors to remain sorted, got:\n%s", source)
+	if strings.Index(source, "auditplugin.NewModuleSpec()") > strings.Index(source, "userplugin.NewModuleSpec()") {
+		t.Fatalf("expected generated module specs to remain sorted, got:\n%s", source)
 	}
 }

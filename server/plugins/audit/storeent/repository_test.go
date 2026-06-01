@@ -195,6 +195,36 @@ func TestRepositoryListAuditLogsDoesNotApplyImplicitTimePreset(t *testing.T) {
 	}
 }
 
+func TestRepositoryListAuditLogsSupportsExplicitAscendingSort(t *testing.T) {
+	db := openTestDB(t)
+	repo, err := NewRepository(db, nil)
+	if err != nil {
+		t.Fatalf("new repository: %v", err)
+	}
+
+	ctx := context.Background()
+	base := time.Date(2026, 5, 27, 12, 0, 0, 0, time.UTC)
+	for index, input := range []auditstore.CreateAuditLogInput{
+		{Action: "audit.second", RequestID: "req-2", CreatedAt: base.Add(time.Minute)},
+		{Action: "audit.first", RequestID: "req-1", CreatedAt: base},
+	} {
+		if _, err := repo.CreateAuditLog(ctx, input); err != nil {
+			t.Fatalf("seed audit log %d: %v", index, err)
+		}
+	}
+
+	result, err := repo.ListAuditLogs(ctx, auditstore.ListAuditLogsQuery{
+		Limit: 10,
+		Sorts: []string{"created_at:asc"},
+	})
+	if err != nil {
+		t.Fatalf("list audit logs with asc sort: %v", err)
+	}
+	if len(result.Items) != 2 || result.Items[0].RequestID != "req-1" || result.Items[1].RequestID != "req-2" {
+		t.Fatalf("expected ascending created_at order, got %#v", result.Items)
+	}
+}
+
 func TestRepositoryCreateAuditLogRejectsActorUserIDOutsideBigIntRange(t *testing.T) {
 	db := openTestDB(t)
 	repo, err := NewRepository(db, nil)

@@ -5,9 +5,19 @@ export type QuerySorter<Field extends string = string> = {
   direction?: SortDirection;
 };
 
-type SortOption<Field extends string> = {
+export type SorterState<Field extends string, TState extends { sorters: QuerySorter<Field>[] }> = TState;
+
+export type SortOption<Field extends string> = {
   label: string;
   value: Field;
+};
+
+export type SorterUiState<Field extends string> = {
+  sortAddDisabled: boolean;
+  sortFieldOptionsByIndex: Array<SortOption<Field>[]>;
+  sortMoveDownDisabled: boolean[];
+  sortMoveUpDisabled: boolean[];
+  sorters: QuerySorter<Field>[];
 };
 
 export function createSingleSorter<Field extends string>(
@@ -21,76 +31,276 @@ export function createSingleSorter<Field extends string>(
   return [{ field, direction }];
 }
 
-export function getSingleSorter<Field extends string>(sorters: QuerySorter<Field>[]) {
-  return sorters[0] ?? null;
+export function normalizeSorters<Field extends string>(
+  sorters: QuerySorter<Field>[],
+  sortOptions: Array<SortOption<Field>>,
+): QuerySorter<Field>[] {
+  const allowedFields = new Set(sortOptions.map((option) => option.value));
+  const usedFields = new Set<Field>();
+  const normalized: QuerySorter<Field>[] = [];
+
+  sorters.forEach((sorter) => {
+    const field = String(sorter?.field || '').trim() as Field | '';
+    if (!field || !allowedFields.has(field) || usedFields.has(field)) {
+      return;
+    }
+
+    usedFields.add(field);
+    normalized.push({
+      field,
+      direction: sorter.direction === 'asc' ? 'asc' : 'desc',
+    });
+  });
+
+  return normalized;
 }
 
-function getSingleSorterSelection<Field extends string>(sorters: QuerySorter<Field>[]) {
-  const sorter = getSingleSorter(sorters);
+function hasAvailableSortField<Field extends string>(
+  sorters: QuerySorter<Field>[],
+  sortOptions: Array<SortOption<Field>>,
+) {
+  return getNextAvailableSortField(sorters, sortOptions) !== null;
+}
+
+function getNextAvailableSortField<Field extends string>(
+  sorters: QuerySorter<Field>[],
+  sortOptions: Array<SortOption<Field>>,
+) {
+  const normalized = normalizeSorters(sorters, sortOptions);
+  const usedFields = new Set(normalized.map((sorter) => sorter.field));
+
+  return sortOptions.find((option) => !usedFields.has(option.value)) ?? null;
+}
+
+function buildSortFieldOptionsByIndex<Field extends string>(
+  sorters: QuerySorter<Field>[],
+  sortOptions: Array<SortOption<Field>>,
+) {
+  const normalized = normalizeSorters(sorters, sortOptions);
+
+  return normalized.map((sorter, index) => {
+    const usedByOthers = new Set(
+      normalized.filter((_, sorterIndex) => sorterIndex !== index).map((item) => item.field),
+    );
+
+    return sortOptions.filter((option) => option.value === sorter.field || !usedByOthers.has(option.value));
+  });
+}
+
+function isMoveUpDisabled<Field extends string>(sorters: QuerySorter<Field>[], index: number) {
+  return sorters.length <= 1 || index <= 0 || index >= sorters.length;
+}
+
+function isMoveDownDisabled<Field extends string>(sorters: QuerySorter<Field>[], index: number) {
+  return sorters.length <= 1 || index < 0 || index >= sorters.length - 1;
+}
+
+export function buildSorterUiState<Field extends string>(
+  sorters: QuerySorter<Field>[],
+  sortOptions: Array<SortOption<Field>>,
+): SorterUiState<Field> {
+  const normalized = normalizeSorters(sorters, sortOptions);
+
   return {
-    sorter,
-    field: sorter?.field ?? '',
-    direction: sorter?.direction ?? '',
+    sorters: normalized,
+    sortFieldOptionsByIndex: buildSortFieldOptionsByIndex(normalized, sortOptions),
+    sortAddDisabled: !hasAvailableSortField(normalized, sortOptions),
+    sortMoveUpDisabled: normalized.map((_, index) => isMoveUpDisabled(normalized, index)),
+    sortMoveDownDisabled: normalized.map((_, index) => isMoveDownDisabled(normalized, index)),
   };
 }
 
-export function useSingleSorterSelection<Field extends string>(sorters: () => QuerySorter<Field>[]) {
-  return getSingleSorterSelection(sorters());
+function withUpdatedSorters<Field extends string, TState extends { sorters: QuerySorter<Field>[] }>(
+  state: TState,
+  sorters: QuerySorter<Field>[],
+): TState {
+  return {
+    ...state,
+    sorters,
+  };
 }
 
-function buildSingleSorterTagLabel<Field extends string>(
-  sorter: QuerySorter<Field> | null,
-  options: Array<SortOption<Field>>,
-  prefix: string,
-) {
-  if (!sorter) {
-    return '';
+export function appendSorterToState<Field extends string, TState extends { sorters: QuerySorter<Field>[] }>(
+  state: TState,
+  sortOptions: Array<SortOption<Field>>,
+): TState {
+  const normalized = normalizeSorters(state.sorters, sortOptions);
+  const nextOption = getNextAvailableSortField(normalized, sortOptions);
+
+  if (!nextOption) {
+    return withUpdatedSorters(state, normalized);
   }
 
-  const fieldLabel = options.find((option) => option.value === sorter.field)?.label;
-  const arrow = sorter.direction === 'asc' ? '↑' : sorter.direction === 'desc' ? '↓' : '';
-  return `${prefix}：${[fieldLabel, arrow].filter(Boolean).join(' ')}`;
+  return withUpdatedSorters(state, [
+    ...normalized,
+    {
+      field: nextOption.value,
+      direction: 'desc',
+    },
+  ]);
 }
 
-export function prependSingleSorterTag<Key extends string, Field extends string>(
-  tags: Array<{ key: Key; label: string }>,
-  sorter: QuerySorter<Field> | null,
+export function removeSorterFromState<Field extends string, TState extends { sorters: QuerySorter<Field>[] }>(
+  state: TState,
+  index: number,
+  sortOptions: Array<SortOption<Field>>,
+): TState {
+  const normalized = normalizeSorters(state.sorters, sortOptions);
+  return withUpdatedSorters(
+    state,
+    normalizeSorters(
+      normalized.filter((_, sorterIndex) => sorterIndex !== index),
+      sortOptions,
+    ),
+  );
+}
+
+export function moveSorterInState<Field extends string, TState extends { sorters: QuerySorter<Field>[] }>(
+  state: TState,
+  index: number,
+  direction: -1 | 1,
+  sortOptions: Array<SortOption<Field>>,
+): TState {
+  const normalized = normalizeSorters(state.sorters, sortOptions);
+  const disabled = direction === -1 ? isMoveUpDisabled(normalized, index) : isMoveDownDisabled(normalized, index);
+
+  if (disabled) {
+    return withUpdatedSorters(state, normalized);
+  }
+
+  const targetIndex = index + direction;
+  const nextSorters = [...normalized];
+  const [item] = nextSorters.splice(index, 1);
+  nextSorters.splice(targetIndex, 0, item);
+  return withUpdatedSorters(state, nextSorters);
+}
+
+export function withSorterFieldFromInput<Field extends string, TState extends { sorters: QuerySorter<Field>[] }>(
+  state: TState,
+  index: number,
+  value: string | number | Array<string | number> | undefined,
+  normalizeField: (value: string) => Field | '',
+  sortOptions: Array<SortOption<Field>>,
+  fallbackDirection: SortDirection = 'desc',
+): TState {
+  const normalized = normalizeSorters(state.sorters, sortOptions);
+  if (index < 0 || index >= normalized.length) {
+    return withUpdatedSorters(state, normalized);
+  }
+  const field = typeof value === 'string' ? normalizeField(value) : '';
+
+  if (!field) {
+    return removeSorterFromState(withUpdatedSorters(state, normalized), index, sortOptions);
+  }
+
+  const duplicated = normalized.some((sorter, sorterIndex) => sorterIndex !== index && sorter.field === field);
+  if (duplicated) {
+    return withUpdatedSorters(state, normalized);
+  }
+
+  const nextSorters = [...normalized];
+  nextSorters[index] = {
+    field,
+    direction: nextSorters[index]?.direction ?? fallbackDirection,
+  };
+
+  return withUpdatedSorters(state, normalizeSorters(nextSorters, sortOptions));
+}
+
+export function withSorterDirectionFromInput<Field extends string, TState extends { sorters: QuerySorter<Field>[] }>(
+  state: TState,
+  index: number,
+  value: string | number | Array<string | number> | undefined,
+  normalizeDirection: (value: string) => SortDirection,
+  sortOptions: Array<SortOption<Field>>,
+): TState {
+  const normalized = normalizeSorters(state.sorters, sortOptions);
+  const sorter = normalized[index];
+
+  if (!sorter) {
+    return withUpdatedSorters(state, normalized);
+  }
+
+  const nextSorters = [...normalized];
+  nextSorters[index] = {
+    field: sorter.field,
+    direction: normalizeDirection(typeof value === 'string' ? value : ''),
+  };
+
+  return withUpdatedSorters(state, nextSorters);
+}
+
+function buildSorterTagLabel<Field extends string>(
+  sorter: QuerySorter<Field>,
   options: Array<SortOption<Field>>,
   prefix: string,
-): Array<{ key: Key | 'sorter'; label: string }> {
-  if (!sorter) {
+  index: number,
+) {
+  const fieldLabel = options.find((option) => option.value === sorter.field)?.label ?? sorter.field;
+  const arrow = sorter.direction === 'asc' ? '↑' : '↓';
+  return `${prefix} ${index + 1}: ${[fieldLabel, arrow].filter(Boolean).join(' ')}`;
+}
+
+export function prependSorterTags<Key extends string, Field extends string>(
+  tags: Array<{ key: Key; label: string; closable?: boolean }>,
+  sorters: QuerySorter<Field>[],
+  options: Array<SortOption<Field>>,
+  prefix: string,
+): Array<{ key: Key | `sorter:${number}`; label: string; closable?: boolean }> {
+  const normalized = normalizeSorters(sorters, options);
+  if (!normalized.length) {
     return tags;
   }
 
-  return [{ key: 'sorter', label: buildSingleSorterTagLabel(sorter, options, prefix) }, ...tags];
+  return [
+    ...normalized.map((sorter, index) => ({
+      key: `sorter:${index}` as const,
+      label: buildSorterTagLabel(sorter, options, prefix, index),
+      closable: true,
+    })),
+    ...tags,
+  ];
 }
 
-export function normalizeSingleSorterField<Field extends string>(
-  value: string | number | Array<string | number> | undefined,
-  currentDirection: SortDirection | undefined,
-  normalizeField: (value: string) => Field,
-) {
-  const candidate = typeof value === 'string' ? value : '';
-  if (!candidate) {
-    return createSingleSorter<Field>();
-  }
+export function encodeSorters<Field extends string>(sorters: QuerySorter<Field>[], options?: Array<SortOption<Field>>) {
+  const normalized = options ? normalizeSorters(sorters, options) : sorters;
 
-  return createSingleSorter(normalizeField(candidate), currentDirection ?? 'desc');
+  return normalized
+    .map((sorter) => {
+      const field = String(sorter.field || '').trim();
+      if (!field) {
+        return '';
+      }
+
+      const direction = sorter.direction === 'asc' ? 'asc' : 'desc';
+      return `${field}:${direction}`;
+    })
+    .filter(Boolean);
 }
 
-export function normalizeSingleSorterDirection<Field extends string>(
-  value: string | number | Array<string | number> | undefined,
-  currentField: Field | undefined,
+export function decodeSorters<Field extends string>(
+  rawValue: string | string[] | undefined,
+  normalizeField: (value: string) => Field | '',
   normalizeDirection: (value: string) => SortDirection,
 ) {
-  if (!currentField) {
-    return createSingleSorter<Field>();
-  }
+  const values = Array.isArray(rawValue) ? rawValue : rawValue ? [rawValue] : [];
 
-  const candidate = typeof value === 'string' ? value : '';
-  if (!candidate) {
-    return createSingleSorter(currentField);
-  }
+  return values.reduce<QuerySorter<Field>[]>((acc, value) => {
+    const candidate = value.trim();
+    if (!candidate) {
+      return acc;
+    }
 
-  return createSingleSorter(currentField, normalizeDirection(candidate));
+    const [rawField = '', rawDirection = 'desc'] = candidate.split(':');
+    const field = normalizeField(rawField.trim());
+    if (!field) {
+      return acc;
+    }
+
+    acc.push({
+      field,
+      direction: normalizeDirection(rawDirection.trim() || 'desc'),
+    });
+    return acc;
+  }, []);
 }

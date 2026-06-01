@@ -2,14 +2,11 @@ package scheduler
 
 import "graft/server/internal/plugin"
 
-// NewDescriptor exposes the scheduler plugin's stable metadata and builder.
-func NewDescriptor() plugin.Descriptor {
-	instance := NewPlugin()
-
-	return plugin.Descriptor{
-		ID:            instance.Name(),
-		PluginVersion: instance.Version(),
-		Dependencies:  append([]string(nil), instance.DependsOn()...),
-		Builder:       plugin.BuilderFunc(func(plugin.BuildContext) (plugin.Plugin, error) { return NewPlugin(), nil }),
+// NewModuleSpec exposes the scheduler module's stable compile-time metadata and builder.
+func NewModuleSpec() plugin.ModuleSpec {
+	return plugin.ModuleSpec{
+		ID:           moduleID,
+		Dependencies: nil,
+		Builder:      plugin.BuilderFunc(func(plugin.BuildContext) (plugin.Plugin, error) { return NewPlugin(), nil }),
 	}
 }

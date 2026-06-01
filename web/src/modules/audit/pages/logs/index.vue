@@ -112,10 +112,12 @@ import { describeCorrelationId, formatMessageWithCorrelation } from '@/shared/co
 import {
   buildRecentHoursLocalRange,
   createSingleSorter,
-  getSingleSorter,
+  decodeSorters,
+  encodeSorters,
   localDateTimeToUtcIso,
   normalizePageStateRangeForRoute,
   normalizeRouteRangeForPageState,
+  normalizeSorters,
 } from '@/shared/observability';
 import { createLogger } from '@/utils/logger';
 
@@ -145,6 +147,7 @@ import type {
   AuditLogConvertibleFilters,
   AuditLogListItem,
   AuditLogQuery,
+  AuditSortBy,
   DrilldownScopeProjection,
 } from '../../types/audit';
 
@@ -180,6 +183,7 @@ const scopeProjection = ref<DrilldownScopeProjection | null>(null);
 const convertibleFilters = ref<AuditLogConvertibleFilters | null>(null);
 const applyingRoute = ref(false);
 const isRouteSyncActive = ref(true);
+const routeHydrated = ref(false);
 const navigationContext = computed(() => resolveAuditNavigationContext(route.query));
 const monitorReturnLocation = computed(() => buildMonitorReturnLocation(route.query));
 const activePreset = computed(() => inferPresetFromState(filters.value, routeScope.value));
@@ -200,6 +204,7 @@ const presetViews = computed(() =>
     title: t(preset.titleKey),
   })),
 );
+const sortOptions = computed(() => [{ label: t('audit.logList.sort.createdAt'), value: 'created_at' as const }]);
 const localizedScopeProjectionItems = computed(() =>
   (scopeState.value?.projection.items ?? []).map((item) => ({
     ...item,
@@ -264,7 +269,7 @@ function canSyncAuditRoute(reason: string) {
 }
 
 function buildQuery(): AuditLogQuery {
-  const sorter = getSingleSorter(filters.value.sorters);
+  const normalizedSorters = normalizeSorters(filters.value.sorters, sortOptions.value);
   const query: AuditLogQuery = {
     page: pagination.value.current,
     page_size: pagination.value.pageSize,
@@ -342,11 +347,9 @@ function buildQuery(): AuditLogQuery {
   if (explicitCreatedRange[1]) {
     query.created_to = localDateTimeToUtcIso(explicitCreatedRange[1]);
   }
-  if (sorter?.field) {
-    query.sort_by = sorter.field;
-    if (sorter.direction) {
-      query.sort_order = sorter.direction;
-    }
+  const encodedSorters = encodeSorters(normalizedSorters, sortOptions.value);
+  if (encodedSorters.length) {
+    query.sort = encodedSorters;
   }
 
   return query;
@@ -394,10 +397,8 @@ async function fetchAuditLogs() {
 function applyPreset(preset: AuditQuickPresetKey) {
   filters.value = createDefaultFilters();
   routePreset.value = resolvePresetTimeWindow(preset);
-  routeScope.value = resolveScopeForPreset(preset);
-  if (!routeScope.value) {
-    filters.value.createdRange = buildPresetCreatedRange(routePreset.value);
-  }
+  routeScope.value = '';
+  applyQuickPresetFilters(preset);
   pagination.value.current = 1;
   updateRouteQuery();
 }
@@ -410,7 +411,7 @@ function handleSearch() {
 function resetFilters() {
   filters.value = createDefaultFilters();
   routePreset.value = '';
-  routeScope.value = '';
+  routeScope.value = scopeState.value ? routeScope.value : '';
   pagination.value.current = 1;
   updateRouteQuery();
 }
@@ -492,17 +493,22 @@ function applyRouteFilters() {
     riskLevels: splitRouteList(query.risk_levels) as AuditClientFilterState['riskLevels'],
     session: query.session ?? '',
     requestId: query.request_id ?? '',
-    sorters: query.sort_by
-      ? createSingleSorter('created_at', normalizeSortOrder(query.sort_order || 'desc'))
-      : filters.value.sorters,
+    sorters: (() => {
+      const parsed = normalizeSorters(
+        decodeSorters(query.sort, normalizeSortField, normalizeSortOrder),
+        sortOptions.value,
+      );
+      return parsed.length ? parsed : createSingleSorter('created_at', 'desc');
+    })(),
   };
   filters.value = nextFilters;
+  routeHydrated.value = true;
 }
 
 function buildRouteQuery() {
+  const normalizedSorters = normalizeSorters(filters.value.sorters, sortOptions.value);
   const explicitCreatedRange = filters.value.createdRange;
   const [createdFrom = '', createdTo = ''] = normalizePageStateRangeForRoute(explicitCreatedRange);
-  const sorter = getSingleSorter(filters.value.sorters);
 
   return {
     preset: routePreset.value,
@@ -529,8 +535,7 @@ function buildRouteQuery() {
     risk_levels: joinRouteList(filters.value.riskLevels),
     session: filters.value.session,
     request_id: filters.value.requestId,
-    sort_by: sorter?.field ?? '',
-    sort_order: sorter?.field ? (sorter.direction ?? '') : '',
+    sort: encodeSorters(normalizedSorters, sortOptions.value),
   };
 }
 
@@ -630,6 +635,10 @@ function returnToMonitor() {
 
 function normalizeSortOrder(value: string) {
   return value === 'asc' ? 'asc' : 'desc';
+}
+
+function normalizeSortField(value: string): AuditSortBy | '' {
+  return value === 'created_at' ? 'created_at' : '';
 }
 
 function normalizePreset(value?: string) {
@@ -783,22 +792,34 @@ function inferPresetFromState(value: AuditClientFilterState, scope: string): Aud
   return 'all';
 }
 
-function resolveScopeForPreset(preset: AuditQuickPresetKey): AuditDrilldownScope | '' {
+function applyQuickPresetFilters(preset: AuditQuickPresetKey) {
+  const createdRange = buildPresetCreatedRange(routePreset.value);
+  filters.value.createdRange = createdRange;
+
   switch (preset) {
     case 'failed-operations':
-      return AUDIT_DRILLDOWN_SCOPE.FAILED_OPERATIONS;
+      filters.value.result = 'FAILED';
+      filters.value.businessCategory = AUDIT_BUSINESS_CATEGORY.FAILED_OPERATIONS;
+      return;
     case 'rbac-changes':
-      return AUDIT_DRILLDOWN_SCOPE.RBAC_CHANGES;
+      filters.value.businessCategory = AUDIT_BUSINESS_CATEGORY.RBAC_CHANGES;
+      return;
     case 'permission-denied':
-      return AUDIT_DRILLDOWN_SCOPE.PERMISSION_DENIALS;
+      filters.value.result = 'DENIED';
+      filters.value.businessCategory = AUDIT_BUSINESS_CATEGORY.PERMISSION_DENIALS;
+      return;
     case 'sensitive-ops':
-      return AUDIT_DRILLDOWN_SCOPE.SENSITIVE_OPERATIONS;
+      filters.value.businessCategory = AUDIT_BUSINESS_CATEGORY.SENSITIVE_OPERATIONS;
+      return;
     case 'auth-failed':
-      return AUDIT_DRILLDOWN_SCOPE.AUTH_FAILURES;
+      filters.value.businessCategory = AUDIT_BUSINESS_CATEGORY.AUTH_FAILURES;
+      return;
     case 'high-risk':
-      return AUDIT_DRILLDOWN_SCOPE.HIGH_RISK_OPERATIONS;
+      filters.value.riskLevels = ['HIGH', 'CRITICAL'];
+      filters.value.businessCategory = AUDIT_BUSINESS_CATEGORY.HIGH_RISK_OPERATIONS;
+      return;
     default:
-      return '';
+      return;
   }
 }
 

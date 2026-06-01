@@ -30,6 +30,7 @@ const (
 	accessLogRouteItemParam = "id"
 	accessLogMenuRootOrder  = 210
 	accessLogMenuListOrder  = 211
+	accessLogSortPartCount  = 2
 )
 
 type accessLogReadGuard struct {
@@ -268,6 +269,7 @@ var accessLogAllowedListQueryKeys = map[string]struct{}{
 	"page_size":       {},
 	"request_id":      {},
 	"trace_id":        {},
+	"keyword":         {},
 	"user_id":         {},
 	"username":        {},
 	"method":          {},
@@ -275,14 +277,15 @@ var accessLogAllowedListQueryKeys = map[string]struct{}{
 	"path_match":      {},
 	"route":           {},
 	"status_code":     {},
+	"status_group":    {},
 	"duration_min_ms": {},
 	"duration_max_ms": {},
 	"started_from":    {},
 	"started_to":      {},
 	"occurred_from":   {},
 	"occurred_to":     {},
-	"sort_by":         {},
-	"sort_order":      {},
+	"sort":            {},
+	"sort[]":          {},
 }
 
 func bindAccessLogListQuery(ctx *gin.Context) (AccessLogListQuery, string) {
@@ -345,6 +348,7 @@ func bindAccessLogPagination(ctx *gin.Context, query *AccessLogListQuery) string
 func bindAccessLogIdentityFilters(ctx *gin.Context, query *AccessLogListQuery) {
 	query.RequestID = strings.TrimSpace(ctx.Query("request_id"))
 	query.TraceID = strings.TrimSpace(ctx.Query("trace_id"))
+	query.Keyword = strings.TrimSpace(ctx.Query("keyword"))
 	query.Username = strings.TrimSpace(ctx.Query("username"))
 	query.Method = strings.TrimSpace(ctx.Query("method"))
 	query.Path = strings.TrimSpace(ctx.Query("path"))
@@ -404,11 +408,10 @@ func bindAccessLogOrdering(ctx *gin.Context, query *AccessLogListQuery) string {
 		return invalidKey
 	}
 
-	if invalidKey := bindAccessLogSortBy(ctx, query); invalidKey != "" {
+	if invalidKey := bindAccessLogStatusGroups(ctx, query); invalidKey != "" {
 		return invalidKey
 	}
-
-	if invalidKey := bindAccessLogSortOrder(ctx, query); invalidKey != "" {
+	if invalidKey := bindAccessLogSorts(ctx, query); invalidKey != "" {
 		return invalidKey
 	}
 
@@ -461,34 +464,67 @@ func bindAccessLogPathMatch(ctx *gin.Context, query *AccessLogListQuery) string 
 	return ""
 }
 
-func bindAccessLogSortBy(ctx *gin.Context, query *AccessLogListQuery) string {
-	sortBy := strings.TrimSpace(ctx.Query("sort_by"))
-	switch AccessLogSortField(sortBy) {
-	case "", AccessLogSortStartedAt:
-		query.SortBy = AccessLogSortStartedAt
-	case AccessLogSortOccurredAt:
-		query.SortBy = AccessLogSortOccurredAt
-	case AccessLogSortDurationMS, AccessLogSortStatusCode:
-		query.SortBy = AccessLogSortField(sortBy)
-	default:
-		return "sort_by"
+func bindAccessLogStatusGroups(ctx *gin.Context, query *AccessLogListQuery) string {
+	rawValues := ctx.QueryArray("status_group")
+	if len(rawValues) == 0 {
+		return ""
 	}
 
+	groups := make([]AccessLogStatusGroup, 0, len(rawValues))
+	for _, raw := range rawValues {
+		switch AccessLogStatusGroup(strings.TrimSpace(raw)) {
+		case AccessLogStatusGroup4xx:
+			groups = append(groups, AccessLogStatusGroup4xx)
+		case AccessLogStatusGroup5xx:
+			groups = append(groups, AccessLogStatusGroup5xx)
+		default:
+			return "status_group"
+		}
+	}
+	query.StatusGroups = groups
 	return ""
 }
 
-func bindAccessLogSortOrder(ctx *gin.Context, query *AccessLogListQuery) string {
-	sortOrder := strings.TrimSpace(ctx.Query("sort_order"))
-	switch AccessLogSortOrder(sortOrder) {
-	case "", AccessLogSortOrderDesc:
-		query.SortOrder = AccessLogSortOrderDesc
-	case AccessLogSortOrderAsc:
-		query.SortOrder = AccessLogSortOrderAsc
-	default:
-		return "sort_order"
+func bindAccessLogSorts(ctx *gin.Context, query *AccessLogListQuery) string {
+	rawSorts := queryArrayCompat(ctx, "sort")
+	if len(rawSorts) == 0 {
+		return ""
 	}
 
+	sorts := make([]AccessLogSort, 0, len(rawSorts))
+	for _, raw := range rawSorts {
+		parts := strings.Split(strings.TrimSpace(raw), ":")
+		if len(parts) != accessLogSortPartCount {
+			return "sort"
+		}
+		field := normalizeAccessLogSortField(AccessLogSortField(strings.TrimSpace(parts[0])))
+		if field == "" {
+			return "sort"
+		}
+		order := strings.ToLower(strings.TrimSpace(parts[1]))
+		if order != string(AccessLogSortOrderAsc) && order != string(AccessLogSortOrderDesc) {
+			return "sort"
+		}
+		sorts = append(sorts, AccessLogSort{
+			Field: field,
+			Order: AccessLogSortOrder(order),
+		})
+	}
+	query.Sorts = sorts
 	return ""
+}
+
+func queryArrayCompat(ctx *gin.Context, key string) []string {
+	values := ctx.QueryArray(key)
+	bracketValues := ctx.QueryArray(key + "[]")
+	if len(bracketValues) == 0 {
+		return values
+	}
+
+	combined := make([]string, 0, len(values)+len(bracketValues))
+	combined = append(combined, values...)
+	combined = append(combined, bracketValues...)
+	return combined
 }
 
 func parseOptionalRFC3339QueryValue(ctx *gin.Context, key string) (*time.Time, string) {

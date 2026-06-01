@@ -52,8 +52,8 @@ func TestDescriptorsStayAlignedWithPluginDirectories(t *testing.T) {
 	}
 	sort.Strings(want)
 
-	got := make([]string, 0, len(Descriptors()))
-	for _, descriptor := range Descriptors() {
+	got := make([]string, 0, len(ModuleSpecs()))
+	for _, descriptor := range ModuleSpecs() {
 		got = append(got, descriptor.Name())
 	}
 	sort.Strings(got)

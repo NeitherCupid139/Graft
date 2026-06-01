@@ -85,15 +85,17 @@ It must not own:
 | --- | --- | --- | --- | --- | --- | --- |
 | `request_id` | exact | no | no | no | no | highest-confidence correlation lookup |
 | `trace_id` | no separate field | no | no | alias-only | yes as separate authority | MVP `trace_id=request_id`; explorer must not create a second backend field |
-| `keyword` | no canonical MVP authority | no | not approved | no | yes | avoid frontend-owned fuzzy contract across heterogeneous fields |
+| `keyword` | yes | no | bounded canonical search | no | no | backend-owned bounded search across `request_id`、`path`、`username` |
 | `user_id` | exact | no | no | no | no | stable authenticated correlation |
 | `username` | exact | no | bounded contains/prefix not approved | no | no | exact match only in canonical MVP contract |
 | `method` | exact or bounded set | no | no | no | no | canonical HTTP transport fact |
 | `path` | exact or canonical prefix | no | no | no | no | backend-owned path semantics only |
 | `route` | exact | no | no | no | no | route template is more stable than raw path for grouped troubleshooting |
 | `status_code` | exact or bounded set | yes | no | no | no | supports operator filtering and secondary sort |
+| `status_group` | bounded set | no | no | no | no | approved grouped status filter for operator presets; current values are `4xx` and `5xx` |
 | `duration_ms` | range | yes | no | no | no | range filter is canonical; free-form fuzzy search is not |
-| `occurred_at` / time range | bounded range | yes | no | no | no | timeline authority anchor |
+| `started_at` / time range | bounded range | yes | no | no | no | canonical request timeline authority anchor |
+| `occurred_at` | bounded secondary range | yes | no | no | no | completed-time refinement only |
 | `client_ip` | not approved in this topic | no | no | yes | no | sensitive/high-cardinality; keep display-only until explicit authz and privacy decision |
 | `user_agent` | not approved in this topic | no | no | yes | no | noisy/high-cardinality; display-only |
 | `request_size` | not approved in this topic | no | no | yes | no | presentational until real operator need is approved |
@@ -117,23 +119,30 @@ It must not own:
   - exact match or bounded set match
 - `duration_ms`
   - inclusive numeric range
+- `started_from` / `started_to`
+  - inclusive canonical time range on `started_at`
 - `occurred_from` / `occurred_to`
-  - inclusive time range on `occurred_at`
+  - inclusive secondary time range on `occurred_at`
 
 Forbidden query surfaces:
 
-- free-form keyword search across mixed fields
 - arbitrary JSON filter blobs
 - metadata key search
 - audit-only fields such as `action`, `resource_type`, `risk_level`, `result`
 - monitor-only fields such as anomaly key, incident seed, trend dimension
 - frontend route/origin/preset semantics as backend query fields
 
+Clarification:
+
+- frontend route/query authority must not expose `trace_id` as a canonical explorer filter
+- backend may still retain a bounded `trace_id` storage/filter capability for direct API or internal troubleshooting, but that capability is not part of the `web` canonical query truth
+
 ## 6. Sort Authority Matrix
 
 | Field | Allowed | Default | Reason |
 | --- | --- | --- | --- |
-| `occurred_at` | yes | yes, `desc` | timeline-first operator workflow |
+| `started_at` | yes | yes, `desc` | canonical request-start timeline |
+| `occurred_at` | yes, as secondary filter | yes | completed-time refinement |
 | `duration_ms` | yes | no | useful for slow-request triage |
 | `status_code` | yes | no | useful for error clustering within a bounded window |
 | `request_id` | no | no | exact lookup field, not meaningful list ordering |
@@ -146,7 +155,9 @@ Forbidden query surfaces:
 
 Sort rules:
 
-- default sort is `occurred_at desc`
+- default sort is `started_at desc`
+- canonical wire shape uses repeated `sort=field:dir` params
+- sort param order is the priority order
 - secondary stable tie-break should remain backend-owned
 - unsupported sort fields must be rejected, not ignored silently
 
@@ -286,7 +297,6 @@ Rejected UX patterns for canonical v1:
 
 - dashboard-first access-log page
 - tag-builder-only query model as the primary surface
-- free-form keyword search as the primary contract
 - frontend-owned local pagination over a partial dataset
 - embedding incident or anomaly read models directly into the access-log table
 

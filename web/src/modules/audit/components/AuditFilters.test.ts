@@ -5,71 +5,32 @@ import { createI18n } from 'vue-i18n';
 
 import AuditFilters from './AuditFilters.vue';
 
-const buttonStub = defineComponent({
-  name: 'TButtonStub',
-  emits: ['click'],
-  setup(_, { attrs, emit, slots }) {
-    return () => h('button', { ...attrs, onClick: () => emit('click') }, slots.default?.());
-  },
-});
-
-const tagStub = defineComponent({
-  name: 'TTagStub',
-  emits: ['close'],
-  setup(_, { slots }) {
-    return () => h('div', [h('span', slots.default?.())]);
-  },
-});
-
-const passthroughStub = defineComponent({
-  name: 'PassthroughStub',
-  setup(_, { slots }) {
-    return () => h('div', [slots.default?.(), slots.content?.()]);
-  },
-});
-
-const inputStub = defineComponent({
-  name: 'TInputStub',
-  props: ['modelValue', 'placeholder'],
-  emits: ['update:modelValue'],
+const logFilterBuilderStub = defineComponent({
+  name: 'LogFilterBuilderStub',
+  props: [
+    'keywordPlaceholder',
+    'tags',
+    'fields',
+    'sorters',
+    'sortAddDisabled',
+    'sortFieldOptionsByIndex',
+    'sortMoveUpDisabled',
+    'sortMoveDownDisabled',
+  ],
+  emits: ['close-tag'],
   setup(props, { emit }) {
     return () =>
-      h('input', {
-        value: props.modelValue,
-        placeholder: props.placeholder,
-        onInput: (event: Event) => emit('update:modelValue', (event.target as HTMLInputElement).value),
-      });
-  },
-});
-
-const dateRangeStub = defineComponent({
-  name: 'TDateRangePickerStub',
-  props: ['modelValue'],
-  emits: ['update:modelValue'],
-  setup() {
-    return () => h('div', 'date-range');
-  },
-});
-
-const selectStub = defineComponent({
-  name: 'TSelectStub',
-  props: ['modelValue', 'multiple', 'options', 'placeholder'],
-  emits: ['update:modelValue'],
-  setup(props) {
-    return () =>
-      h(
-        'div',
-        JSON.stringify({ modelValue: props.modelValue, multiple: props.multiple, placeholder: props.placeholder }),
-      );
-  },
-});
-
-const tagInputStub = defineComponent({
-  name: 'TTagInputStub',
-  props: ['modelValue', 'inputProps'],
-  emits: ['update:modelValue'],
-  setup(props) {
-    return () => h('div', JSON.stringify({ modelValue: props.modelValue, inputProps: props.inputProps }));
+      h('div', [
+        h('span', { 'data-testid': 'keyword-placeholder' }, props.keywordPlaceholder),
+        h('span', { 'data-testid': 'tags' }, JSON.stringify(props.tags)),
+        h('span', { 'data-testid': 'fields' }, JSON.stringify(props.fields)),
+        h('span', { 'data-testid': 'sorters' }, JSON.stringify(props.sorters)),
+        h('span', { 'data-testid': 'sort-add-disabled' }, String(props.sortAddDisabled)),
+        h('span', { 'data-testid': 'sort-field-options' }, JSON.stringify(props.sortFieldOptionsByIndex)),
+        h('span', { 'data-testid': 'sort-move-up-disabled' }, JSON.stringify(props.sortMoveUpDisabled)),
+        h('span', { 'data-testid': 'sort-move-down-disabled' }, JSON.stringify(props.sortMoveDownDisabled)),
+        h('button', { 'data-testid': 'close-sorter', onClick: () => emit('close-tag', 'sorter:0') }),
+      ]);
   },
 });
 
@@ -87,21 +48,25 @@ const i18n = createI18n({
           },
         },
         logList: {
-          presets: {
-            label: '快捷筛选',
-            all: '全部',
-            failedOperations: '失败操作',
-            highRisk: '高风险',
-          },
+          presets: { label: '快捷筛选' },
           actions: {
             search: '查询',
             reset: '重置',
             addFilter: '添加筛选条件',
+            addSorter: '添加排序项',
+            removeSorter: '移除排序项',
+            moveSorterUp: '上移',
+            moveSorterDown: '下移',
           },
           builder: {
             title: '筛选字段',
             hint: 'hint',
+            groups: {
+              filters: '筛选条件',
+            },
             fields: {
+              timeRange: '时间范围',
+              sorterBuilder: '排序方式',
               success: '成功状态',
               action: '操作类型',
               actionPrefixes: '操作分类',
@@ -119,31 +84,13 @@ const i18n = createI18n({
               requestId: '请求 ID',
               session: 'Session ID',
               resourceId: '资源 ID',
+              businessCategory: '业务分类',
             },
           },
           filters: {
             keywordPlaceholder: '搜索操作、用户、目标对象、请求ID...',
-            actionPlaceholder: '操作类型',
-            actionPrefixesPlaceholder: '选择操作分类',
-            actionKeywordsPlaceholder: '输入操作关键词后回车',
-            successPlaceholder: '成功状态',
-            resultPlaceholder: '结果',
-            resultsPlaceholder: '选择结果集合',
-            riskPlaceholder: '风险等级',
-            riskLevelsPlaceholder: '选择风险等级集合',
-            sourcePlaceholder: '事件类型',
-            actorPlaceholder: '操作者',
-            resourceNamePlaceholder: '审计目标',
-            resourceTypePlaceholder: '目标类型',
-            resourceTypesPlaceholder: '选择目标类型集合',
-            requestIdPlaceholder: '请求 ID',
-            sessionPlaceholder: 'Session ID',
-            resourceIdPlaceholder: '资源 ID',
-            requestPathPrefixesPlaceholder: '输入请求路径前缀后回车',
-            datePlaceholder: '时间范围',
           },
           sort: {
-            title: '排序',
             tagPrefix: '排序',
             fieldPlaceholder: '排序字段',
             directionPlaceholder: '排序方向',
@@ -173,6 +120,15 @@ const i18n = createI18n({
             HIGH: '高风险',
             CRITICAL: '严重',
           },
+          businessCategory: {
+            failedOperations: '失败操作',
+            highRiskOperations: '高风险操作',
+            sensitiveOperations: '敏感操作',
+            authFailures: '认证失败',
+            permissionDenials: '权限拒绝',
+            rbacChanges: '权限配置变更',
+            criticalSecurity: '关键安全事件',
+          },
         },
       },
     },
@@ -180,7 +136,7 @@ const i18n = createI18n({
 });
 
 describe('AuditFilters', () => {
-  it('renders keyword search placeholder and active filter tags, and clears a tag through the same state model', async () => {
+  it('passes keyword placeholder and active tags to the shared builder', () => {
     const wrapper = mount(AuditFilters, {
       props: {
         activePreset: 'all',
@@ -208,68 +164,120 @@ describe('AuditFilters', () => {
           requestId: '',
           sorters: [{ field: 'created_at', direction: 'desc' }],
         },
-        presets: [
-          { key: 'all', title: '全部' },
-          { key: 'high-risk', title: '高风险' },
-        ],
+        presets: [{ key: 'all', title: '全部' }],
       },
       global: {
         plugins: [i18n],
         stubs: {
-          'management-toolbar': passthroughStub,
-          't-button': buttonStub,
-          't-tag': tagStub,
-          't-input': inputStub,
-          't-popup': passthroughStub,
-          't-date-range-picker': dateRangeStub,
-          't-select': selectStub,
-          't-tag-input': tagInputStub,
+          LogFilterBuilder: logFilterBuilderStub,
         },
       },
     });
 
-    expect(wrapper.find('input').attributes('placeholder')).toBe('搜索操作、用户、目标对象、请求ID...');
-    expect(wrapper.text()).toContain('排序：创建时间 ↓');
-    expect(wrapper.text()).toContain('结果：业务失败');
-    expect(wrapper.text()).toContain('操作分类：权限配置动作、角色动作');
-    expect(wrapper.text()).toContain('结果集合：权限拒绝');
-    expect(wrapper.text()).toContain('风险等级集合：高风险、严重');
+    expect(wrapper.get('[data-testid="keyword-placeholder"]').text()).toBe('搜索操作、用户、目标对象、请求ID...');
 
-    const tags = wrapper.findAllComponents(tagStub);
-    tags[0]?.vm.$emit('close');
-    tags[1]?.vm.$emit('close');
-    tags[2]?.vm.$emit('close');
-    tags[3]?.vm.$emit('close');
+    const tags = JSON.parse(wrapper.get('[data-testid="tags"]').text());
+    expect(tags.map((tag: { label: string }) => tag.label)).toContain('排序 1: 创建时间 ↓');
+    expect(tags.map((tag: { label: string }) => tag.label)).toContain('结果：业务失败');
+    expect(tags.map((tag: { label: string }) => tag.label)).toContain('操作分类：权限配置动作、角色动作');
+    expect(tags.map((tag: { label: string }) => tag.label)).toContain('结果集合：权限拒绝');
+    expect(tags.map((tag: { label: string }) => tag.label)).toContain('风险等级集合：高风险、严重');
+  });
 
-    const updates = (wrapper.emitted('update:modelValue')?.map((entry) => entry[0]) ?? []) as Array<
-      Record<string, unknown>
-    >;
+  it('removes sorter through shared builder tag close event', async () => {
+    const wrapper = mount(AuditFilters, {
+      props: {
+        activePreset: 'all',
+        modelValue: {
+          keyword: '',
+          actor: '',
+          success: 'all',
+          action: '',
+          actionPrefix: '',
+          actionPrefixes: [],
+          actionKeywords: [],
+          requestPathPrefixes: [],
+          source: '',
+          businessCategory: '',
+          createdRange: [],
+          resourceType: '',
+          resourceTypes: [],
+          resourceName: '',
+          resourceId: '',
+          result: 'all',
+          results: [],
+          riskLevel: 'all',
+          riskLevels: [],
+          session: '',
+          requestId: '',
+          sorters: [{ field: 'created_at', direction: 'desc' }],
+        },
+        presets: [],
+      },
+      global: {
+        plugins: [i18n],
+        stubs: {
+          LogFilterBuilder: logFilterBuilderStub,
+        },
+      },
+    });
 
-    expect(updates[0]).toMatchObject({
+    await wrapper.get('[data-testid="close-sorter"]').trigger('click');
+
+    expect(wrapper.emitted('update:modelValue')?.[0]?.[0]).toMatchObject({
       sorters: [],
     });
-    expect(updates).toContainEqual(
-      expect.objectContaining({
-        result: 'all',
-      }),
-    );
-    expect(updates).toContainEqual(
-      expect.objectContaining({
-        actionPrefixes: [],
-      }),
-    );
-    expect(updates).toContainEqual(
-      expect.objectContaining({
-        results: [],
-      }),
-    );
-    expect(updates).not.toContainEqual(
-      expect.objectContaining({
-        actor: '',
-      }),
-    );
-    expect(updates.find((item) => item.result === 'all')).toMatchObject({
-      result: 'all',
+  });
+
+  it('normalizes duplicate created_at sorters and hard-disables add and move controls', () => {
+    const wrapper = mount(AuditFilters, {
+      props: {
+        activePreset: 'all',
+        modelValue: {
+          keyword: '',
+          actor: '',
+          success: 'all',
+          action: '',
+          actionPrefix: '',
+          actionPrefixes: [],
+          actionKeywords: [],
+          requestPathPrefixes: [],
+          source: '',
+          businessCategory: '',
+          createdRange: [],
+          resourceType: '',
+          resourceTypes: [],
+          resourceName: '',
+          resourceId: '',
+          result: 'all',
+          results: [],
+          riskLevel: 'all',
+          riskLevels: [],
+          session: '',
+          requestId: '',
+          sorters: [
+            { field: 'created_at', direction: 'desc' },
+            { field: 'created_at', direction: 'asc' },
+          ],
+        },
+        presets: [],
+      },
+      global: {
+        plugins: [i18n],
+        stubs: {
+          LogFilterBuilder: logFilterBuilderStub,
+        },
+      },
     });
+
+    expect(JSON.parse(wrapper.get('[data-testid="sorters"]').text())).toEqual([
+      { field: 'created_at', direction: 'desc' },
+    ]);
+    expect(wrapper.get('[data-testid="sort-add-disabled"]').text()).toBe('true');
+    expect(JSON.parse(wrapper.get('[data-testid="sort-field-options"]').text())).toEqual([
+      [{ label: '创建时间', value: 'created_at' }],
+    ]);
+    expect(JSON.parse(wrapper.get('[data-testid="sort-move-up-disabled"]').text())).toEqual([true]);
+    expect(JSON.parse(wrapper.get('[data-testid="sort-move-down-disabled"]').text())).toEqual([true]);
   });
 });

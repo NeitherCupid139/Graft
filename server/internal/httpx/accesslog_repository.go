@@ -20,6 +20,11 @@ const (
 	accessLogMaxPageSize                            = 100
 	accessLogListClauseCapacity                     = 10
 	accessLogListOffsetArgCount                     = 2
+	accessLogKeywordClauseCount                     = 3
+	accessLogStatus4xxMin                           = 400
+	accessLogStatus4xxMax                           = 499
+	accessLogStatus5xxMin                           = 500
+	accessLogStatus5xxMax                           = 599
 )
 
 // AccessLog describes one persisted canonical access-log record.
@@ -79,6 +84,7 @@ type AccessLogListQuery struct {
 	PageSize      int
 	RequestID     string
 	TraceID       string
+	Keyword       string
 	UserID        *uint64
 	Username      string
 	Method        string
@@ -86,14 +92,14 @@ type AccessLogListQuery struct {
 	PathMatchMode AccessLogPathMatchMode
 	Route         string
 	StatusCode    *int
+	StatusGroups  []AccessLogStatusGroup
 	DurationMinMS *int64
 	DurationMaxMS *int64
 	StartedFrom   *time.Time
 	StartedTo     *time.Time
 	OccurredFrom  *time.Time
 	OccurredTo    *time.Time
-	SortBy        AccessLogSortField
-	SortOrder     AccessLogSortOrder
+	Sorts         []AccessLogSort
 }
 
 // AccessLogListResult 承载访问日志列表查询的分页结果。
@@ -137,6 +143,22 @@ const (
 	// AccessLogSortOrderDesc 表示降序。
 	AccessLogSortOrderDesc AccessLogSortOrder = "desc"
 )
+
+// AccessLogStatusGroup 约束 access-log explorer 支持的状态码分组。
+type AccessLogStatusGroup string
+
+const (
+	// AccessLogStatusGroup4xx 表示 400-499 的客户端错误状态码。
+	AccessLogStatusGroup4xx AccessLogStatusGroup = "4xx"
+	// AccessLogStatusGroup5xx 表示 500-599 的服务端错误状态码。
+	AccessLogStatusGroup5xx AccessLogStatusGroup = "5xx"
+)
+
+// AccessLogSort 表示一个稳定的优先级排序项。
+type AccessLogSort struct {
+	Field AccessLogSortField
+	Order AccessLogSortOrder
+}
 
 type accessLogRepository struct {
 	db      *sql.DB
@@ -424,13 +446,14 @@ func normalizeAccessLogListQuery(query AccessLogListQuery) AccessLogListQuery {
 	query.PageSize = normalizePageSize(query.PageSize)
 	query.RequestID = strings.TrimSpace(query.RequestID)
 	query.TraceID = strings.TrimSpace(query.TraceID)
+	query.Keyword = strings.TrimSpace(query.Keyword)
 	query.Username = strings.TrimSpace(query.Username)
 	query.Method = strings.TrimSpace(query.Method)
 	query.Path = sanitizeAccessLogPath(query.Path)
 	query.Route = sanitizeAccessLogRoute(query.Route)
 	query.PathMatchMode = normalizeAccessLogPathMatchMode(query.PathMatchMode)
-	query.SortBy = normalizeAccessLogSortField(query.SortBy)
-	query.SortOrder = normalizeAccessLogSortOrder(query.SortOrder)
+	query.StatusGroups = normalizeAccessLogStatusGroups(query.StatusGroups)
+	query.Sorts = normalizeAccessLogSorts(query.Sorts)
 	return query
 }
 
@@ -466,20 +489,76 @@ func normalizeAccessLogPathMatchMode(mode AccessLogPathMatchMode) AccessLogPathM
 	return AccessLogPathMatchExact
 }
 
-func normalizeAccessLogSortField(field AccessLogSortField) AccessLogSortField {
-	switch field {
-	case AccessLogSortStartedAt, AccessLogSortOccurredAt, AccessLogSortDurationMS, AccessLogSortStatusCode:
-		return field
-	default:
-		return AccessLogSortStartedAt
-	}
-}
-
 func normalizeAccessLogSortOrder(order AccessLogSortOrder) AccessLogSortOrder {
 	if order == AccessLogSortOrderAsc {
 		return AccessLogSortOrderAsc
 	}
 	return AccessLogSortOrderDesc
+}
+
+func normalizeAccessLogSortField(field AccessLogSortField) AccessLogSortField {
+	switch field {
+	case AccessLogSortStartedAt:
+		return AccessLogSortStartedAt
+	case AccessLogSortDurationMS:
+		return AccessLogSortDurationMS
+	case AccessLogSortStatusCode:
+		return AccessLogSortStatusCode
+	case AccessLogSortOccurredAt:
+		return AccessLogSortOccurredAt
+	default:
+		return ""
+	}
+}
+
+func normalizeAccessLogStatusGroups(groups []AccessLogStatusGroup) []AccessLogStatusGroup {
+	if len(groups) == 0 {
+		return nil
+	}
+
+	normalized := make([]AccessLogStatusGroup, 0, len(groups))
+	for _, group := range groups {
+		switch AccessLogStatusGroup(strings.TrimSpace(string(group))) {
+		case AccessLogStatusGroup4xx:
+			normalized = appendAccessLogStatusGroup(normalized, AccessLogStatusGroup4xx)
+		case AccessLogStatusGroup5xx:
+			normalized = appendAccessLogStatusGroup(normalized, AccessLogStatusGroup5xx)
+		}
+	}
+	return normalized
+}
+
+func appendAccessLogStatusGroup(groups []AccessLogStatusGroup, value AccessLogStatusGroup) []AccessLogStatusGroup {
+	for _, current := range groups {
+		if current == value {
+			return groups
+		}
+	}
+	return append(groups, value)
+}
+
+func normalizeAccessLogSorts(sorts []AccessLogSort) []AccessLogSort {
+	if len(sorts) == 0 {
+		return nil
+	}
+
+	normalized := make([]AccessLogSort, 0, len(sorts))
+	seen := make(map[AccessLogSortField]struct{}, len(sorts))
+	for _, sort := range sorts {
+		field := normalizeAccessLogSortField(sort.Field)
+		if field == "" {
+			continue
+		}
+		if _, exists := seen[field]; exists {
+			continue
+		}
+		seen[field] = struct{}{}
+		normalized = append(normalized, AccessLogSort{
+			Field: field,
+			Order: normalizeAccessLogSortOrder(sort.Order),
+		})
+	}
+	return normalized
 }
 
 func accessLogSortColumn(field AccessLogSortField) string {
@@ -491,21 +570,17 @@ func accessLogSortColumn(field AccessLogSortField) string {
 	case AccessLogSortStatusCode:
 		return "status_code"
 	case AccessLogSortOccurredAt:
-		fallthrough
-	default:
 		return "occurred_at"
+	default:
+		return ""
 	}
 }
 
 func accessLogSortDirection(order AccessLogSortOrder) string {
-	switch order {
-	case AccessLogSortOrderAsc:
+	if normalizeAccessLogSortOrder(order) == AccessLogSortOrderAsc {
 		return "ASC"
-	case AccessLogSortOrderDesc:
-		fallthrough
-	default:
-		return "DESC"
 	}
+	return "DESC"
 }
 
 func (r *accessLogRepository) buildAccessLogListSelectQuery(
@@ -533,15 +608,34 @@ func (r *accessLogRepository) buildAccessLogListSelectQuery(
 		occurred_at
 	FROM access_logs`)
 	builder.WriteString(whereSQL)
-	builder.WriteString(" ORDER BY ")
-	builder.WriteString(accessLogSortColumn(query.SortBy))
 	builder.WriteByte(' ')
-	builder.WriteString(accessLogSortDirection(query.SortOrder))
-	builder.WriteString(", id DESC LIMIT ")
+	builder.WriteString(buildAccessLogOrderByClause(query.Sorts))
+	builder.WriteString(" LIMIT ")
 	builder.WriteString(r.placeholder(filterArgCount + 1))
 	builder.WriteString(" OFFSET ")
 	builder.WriteString(r.placeholder(filterArgCount + accessLogListOffsetArgCount))
 	return builder.String()
+}
+
+func buildAccessLogOrderByClause(sorts []AccessLogSort) string {
+	normalized := normalizeAccessLogSorts(sorts)
+	if len(normalized) == 0 {
+		return "ORDER BY occurred_at DESC, id DESC"
+	}
+
+	clauses := make([]string, 0, len(normalized)+1)
+	for _, sort := range normalized {
+		column := accessLogSortColumn(sort.Field)
+		if column == "" {
+			continue
+		}
+		clauses = append(clauses, column+" "+accessLogSortDirection(sort.Order))
+	}
+	if len(clauses) == 0 {
+		return "ORDER BY occurred_at DESC, id DESC"
+	}
+	clauses = append(clauses, "id DESC")
+	return "ORDER BY " + strings.Join(clauses, ", ")
 }
 
 func (r *accessLogRepository) buildAccessLogWhereClause(query AccessLogListQuery) (string, []any) {
@@ -549,13 +643,15 @@ func (r *accessLogRepository) buildAccessLogWhereClause(query AccessLogListQuery
 	args := make([]any, 0, accessLogListClauseCapacity)
 
 	appendAccessLogEqualityFilter(&conditions, &args, r, "request_id =", query.RequestID)
-	appendAccessLogEqualityFilter(&conditions, &args, r, "request_id =", query.TraceID)
+	appendAccessLogEqualityFilter(&conditions, &args, r, "trace_id =", query.TraceID)
+	appendAccessLogKeywordFilter(&conditions, &args, r, query.Keyword)
 	appendAccessLogOptionalUint64Filter(&conditions, &args, r, "user_id =", query.UserID)
 	appendAccessLogEqualityFilter(&conditions, &args, r, "username =", query.Username)
 	appendAccessLogEqualityFilter(&conditions, &args, r, "method =", query.Method)
 	appendAccessLogPathFilter(&conditions, &args, r, query)
 	appendAccessLogEqualityFilter(&conditions, &args, r, "route =", query.Route)
 	appendAccessLogOptionalIntFilter(&conditions, &args, r, "status_code =", query.StatusCode)
+	appendAccessLogStatusGroupFilter(&conditions, &args, r, query.StatusGroups)
 	appendAccessLogOptionalInt64Filter(&conditions, &args, r, "duration_ms >=", query.DurationMinMS)
 	appendAccessLogOptionalInt64Filter(&conditions, &args, r, "duration_ms <=", query.DurationMaxMS)
 	appendAccessLogOptionalTimeFilter(&conditions, &args, r, "started_at >=", query.StartedFrom)
@@ -657,6 +753,64 @@ func appendAccessLogPathFilter(
 		return
 	}
 	appendAccessLogEqualityFilter(conditions, args, repo, "path =", query.Path)
+}
+
+func appendAccessLogKeywordFilter(
+	conditions *[]string,
+	args *[]any,
+	repo *accessLogRepository,
+	keyword string,
+) {
+	trimmed := strings.ToLower(strings.TrimSpace(keyword))
+	if trimmed == "" {
+		return
+	}
+
+	pattern := "%" + escapeAccessLogLikePattern(trimmed) + "%"
+	orClauses := make([]string, 0, accessLogKeywordClauseCount)
+	for _, expression := range []string{
+		"LOWER(request_id) LIKE %s ESCAPE '\\'",
+		"LOWER(path) LIKE %s ESCAPE '\\'",
+		"LOWER(COALESCE(username, '')) LIKE %s ESCAPE '\\'",
+	} {
+		*args = append(*args, pattern)
+		orClauses = append(orClauses, fmt.Sprintf(expression, repo.placeholder(len(*args))))
+	}
+	*conditions = append(*conditions, "("+strings.Join(orClauses, " OR ")+")")
+}
+
+func appendAccessLogStatusGroupFilter(
+	conditions *[]string,
+	args *[]any,
+	repo *accessLogRepository,
+	groups []AccessLogStatusGroup,
+) {
+	if len(groups) == 0 {
+		return
+	}
+
+	orClauses := make([]string, 0, len(groups))
+	for _, group := range groups {
+		switch group {
+		case AccessLogStatusGroup4xx:
+			*args = append(*args, accessLogStatus4xxMin, accessLogStatus4xxMax)
+			orClauses = append(orClauses, fmt.Sprintf(
+				"(status_code >= %s AND status_code <= %s)",
+				repo.placeholder(len(*args)-1),
+				repo.placeholder(len(*args)),
+			))
+		case AccessLogStatusGroup5xx:
+			*args = append(*args, accessLogStatus5xxMin, accessLogStatus5xxMax)
+			orClauses = append(orClauses, fmt.Sprintf(
+				"(status_code >= %s AND status_code <= %s)",
+				repo.placeholder(len(*args)-1),
+				repo.placeholder(len(*args)),
+			))
+		}
+	}
+	if len(orClauses) > 0 {
+		*conditions = append(*conditions, "("+strings.Join(orClauses, " OR ")+")")
+	}
 }
 
 func escapeAccessLogLikePattern(value string) string {

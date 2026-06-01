@@ -48,28 +48,13 @@ func NewPlugin(userRepo userstore.UserRepository, authRepo userstore.AuthReposit
 	}
 }
 
-// Name 返回插件的稳定标识。
-func (p *Plugin) Name() string {
-	return pluginID
-}
-
-// Version 返回当前示例插件版本。
-func (p *Plugin) Version() string {
-	return pluginVersion
-}
-
-// DependsOn 返回当前插件的依赖列表。
-func (p *Plugin) DependsOn() []string {
-	return nil
-}
-
 // Register 声明用户插件需要的权限、菜单、路由和公开服务。
 func (p *Plugin) Register(ctx *plugin.Context) error {
 	if err := registerMessages(ctx.I18n); err != nil {
 		return err
 	}
-	registerUserPermissions(ctx.PermissionRegistry, p.Name())
-	registerUserMenu(ctx.MenuRegistry, p.Name())
+	registerUserPermissions(ctx.PermissionRegistry, moduleID)
+	registerUserMenu(ctx.MenuRegistry, moduleID)
 
 	services, err := p.registerServices(ctx)
 	if err != nil {
@@ -80,7 +65,7 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 		ctx.I18n,
 		services.auth,
 		p.routeAuthorizer,
-		httpx.NewSecurityAuditPublisher(ctx.EventBus, ctx.Logger, pluginID),
+		httpx.NewSecurityAuditPublisher(ctx.EventBus, ctx.Logger, moduleID),
 	)
 	authGroup := ctx.Router.Group(authcontract.AuthGroup)
 	guards.restrictedSession = newRestrictedSessionGuard(
@@ -88,7 +73,7 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 		services.auth,
 		authGroup.BasePath(),
 	)
-	if err := registerUserRoutes(ctx, p.Name(), services.user, services.auth, guards); err != nil {
+	if err := registerUserRoutes(ctx, moduleID, services.user, services.auth, guards); err != nil {
 		return err
 	}
 
@@ -524,11 +509,11 @@ func (s userService) publishAudit(ctx context.Context, event pluginapi.AuditEven
 	event.Operator = currentAuditOperator(ctx)
 	if err := s.auditBus.Publish(ctx, eventbus.Event{
 		Name:    pluginapi.AuditRecordEventName,
-		Source:  pluginID,
+		Source:  moduleID,
 		Payload: event,
 	}); err != nil && s.logger != nil {
 		s.logger.Warn("publish user audit event failed",
-			zap.String("plugin", pluginID),
+			zap.String("plugin", moduleID),
 			zap.String("action", strings.TrimSpace(event.Action)),
 			zap.Error(err),
 		)

@@ -11,18 +11,14 @@ import (
 )
 
 const (
-	pluginID      = "audit"
-	pluginVersion = "0.1.0"
+	moduleID = "audit"
 )
 
-var pluginDependencies = []string{"user", "rbac"}
-
-// NewDescriptor exposes the audit plugin's stable metadata and builder.
-func NewDescriptor() plugin.Descriptor {
-	return plugin.Descriptor{
-		ID:            pluginID,
-		PluginVersion: pluginVersion,
-		Dependencies:  append([]string(nil), pluginDependencies...),
+// NewModuleSpec exposes the audit module's stable compile-time metadata and builder.
+func NewModuleSpec() plugin.ModuleSpec {
+	return plugin.ModuleSpec{
+		ID:            moduleID,
+		Dependencies:  []string{"user", "rbac"},
 		MigrationPath: []string{"plugins/audit/migrations"},
 		Builder: plugin.BuilderFunc(func(ctx plugin.BuildContext) (plugin.Plugin, error) {
 			sqlDB, err := plugin.ResolveService[*sql.DB](ctx.Services, (*sql.DB)(nil))

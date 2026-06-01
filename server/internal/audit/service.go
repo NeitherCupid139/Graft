@@ -15,9 +15,10 @@ import (
 )
 
 const (
-	defaultPage     = 1
-	defaultPageSize = 20
-	maxPageSize     = 200
+	defaultPage        = 1
+	defaultPageSize    = 20
+	maxPageSize        = 200
+	auditSortPartCount = 2
 )
 
 var (
@@ -74,8 +75,7 @@ type ListQuery struct {
 	RiskLevels          []auditstore.AuditRiskLevel
 	CreatedFrom         *time.Time
 	CreatedTo           *time.Time
-	SortBy              string
-	SortOrder           string
+	Sorts               []string
 }
 
 // ListResult contains one page of audit records plus the total count.
@@ -208,8 +208,7 @@ func (s *Service) List(ctx context.Context, query ListQuery) (ListResult, error)
 		RiskLevels:          normalizeAuditRiskLevels(effectiveQuery.RiskLevels),
 		CreatedFrom:         normalizeAuditCreatedFrom(effectiveQuery.CreatedFrom),
 		CreatedTo:           normalizeAuditCreatedTo(effectiveQuery.CreatedTo),
-		SortBy:              normalizeAuditSortBy(effectiveQuery.SortBy),
-		SortOrder:           normalizeAuditSortOrder(effectiveQuery.SortOrder),
+		Sorts:               normalizeAuditSorts(effectiveQuery.Sorts),
 		Limit:               pageSize,
 		Offset:              (page - 1) * pageSize,
 	})
@@ -294,22 +293,47 @@ func normalizeAuditCreatedTo(value *time.Time) *time.Time {
 	return &normalized
 }
 
-func normalizeAuditSortBy(value string) string {
-	if strings.TrimSpace(value) == "created_at" {
-		return "created_at"
+func normalizeAuditSorts(values []string) []string {
+	if len(values) == 0 {
+		return nil
 	}
-	return ""
+
+	normalized := make([]string, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for _, raw := range values {
+		value := strings.TrimSpace(raw)
+		if value == "" {
+			continue
+		}
+		field, order, ok := ParseAuditSortExpressionForBinding(value)
+		if !ok {
+			continue
+		}
+		if _, exists := seen[field]; exists {
+			continue
+		}
+		seen[field] = struct{}{}
+		key := field + ":" + order
+		normalized = append(normalized, key)
+	}
+	return normalized
 }
 
-func normalizeAuditSortOrder(value string) string {
-	normalized := strings.ToLower(strings.TrimSpace(value))
-	if normalized == "asc" {
-		return "asc"
+// ParseAuditSortExpressionForBinding validates the stable `field:dir` audit sort contract.
+func ParseAuditSortExpressionForBinding(value string) (string, string, bool) {
+	parts := strings.Split(strings.TrimSpace(value), ":")
+	if len(parts) != auditSortPartCount {
+		return "", "", false
 	}
-	if normalized == "desc" {
-		return "desc"
+	field := strings.TrimSpace(parts[0])
+	order := strings.ToLower(strings.TrimSpace(parts[1]))
+	if field != "created_at" {
+		return "", "", false
 	}
-	return ""
+	if order != "asc" && order != "desc" {
+		return "", "", false
+	}
+	return field, order, true
 }
 
 func normalizeAuditSource(source auditstore.AuditSource) auditstore.AuditSource {

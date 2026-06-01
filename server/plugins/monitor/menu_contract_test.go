@@ -11,7 +11,7 @@ func TestRegisterMonitorMenuIncludesThreeLevelEntries(t *testing.T) {
 	t.Parallel()
 
 	registry := menu.NewRegistry()
-	registerMonitorMenu(registry, pluginID)
+	registerMonitorMenu(registry, moduleID)
 
 	menus := registry.Items()
 	if len(menus) != 4 {
