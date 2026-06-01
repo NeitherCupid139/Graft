@@ -35,6 +35,10 @@
       "search": "Search",
       "reset": "Reset",
       "addFilter": "Add Filter",
+      "addSorter": "Add Sort Item",
+      "removeSorter": "Remove Sort Item",
+      "moveSorterUp": "Move Up",
+      "moveSorterDown": "Move Down",
       "detail": "Detail",
       "viewRelatedAuditRecords": "View Related Audit Records",
       "openAuditByRequestId": "Open Audit Search By Request ID",
@@ -63,7 +67,8 @@
       "statusCode": "Status Code",
       "durationMin": "Min Duration",
       "durationMax": "Max Duration",
-      "startedRange": "Request Time",
+      "startedRange": "Request Start Time",
+      "occurredRange": "Request End Time",
       "sortBy": "Sort By",
       "sortOrder": "Sort Order",
       "pathMatchExact": "Exact",
@@ -101,7 +106,9 @@
         "path": "Path",
         "statusCode": "Status Code",
         "durationMinMs": "Min Duration",
-        "durationMaxMs": "Max Duration"
+        "durationMaxMs": "Max Duration",
+        "timeRange": "Time Range",
+        "sorterBuilder": "Sort"
       }
     },
     "columns": {

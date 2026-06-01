@@ -312,6 +312,10 @@
         "reset": "Reset",
         "backToMonitor": "Back to monitor",
         "addFilter": "Add filter",
+        "addSorter": "Add Sort Item",
+        "removeSorter": "Remove Sort Item",
+        "moveSorterUp": "Move Up",
+        "moveSorterDown": "Move Down",
         "showAdvanced": "Advanced Filters",
         "hideAdvanced": "Hide Advanced"
       },
@@ -345,6 +349,8 @@
           "sortBy": "Sort by {field} {direction}"
         },
         "fields": {
+          "timeRange": "Time Range",
+          "sorterBuilder": "Sort",
           "businessCategory": "Business category",
           "success": "Success state",
           "action": "Action type",

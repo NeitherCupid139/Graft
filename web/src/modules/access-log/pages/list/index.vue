@@ -90,6 +90,7 @@ import {
   localDateTimeToUtcIso,
   normalizePageStateRangeForRoute,
   normalizeRouteRangeForPageState,
+  normalizeSorters,
 } from '@/shared/observability';
 import { createLogger as createModuleLogger } from '@/utils/logger';
 
@@ -146,6 +147,12 @@ const presetViews = computed(() => [
   { key: 'currentUser' as const, title: t('accessLog.presets.currentUser') },
   { key: 'lastHour' as const, title: t('accessLog.presets.lastHour') },
 ]);
+const sortOptions = computed(() => [
+  { label: t('accessLog.filters.sortStartedAt'), value: 'started_at' as const },
+  { label: t('accessLog.filters.sortOccurredAt'), value: 'occurred_at' as const },
+  { label: t('accessLog.filters.sortDuration'), value: 'duration_ms' as const },
+  { label: t('accessLog.filters.sortStatusCode'), value: 'status_code' as const },
+]);
 const columnSettingOptions = computed(() => [
   { label: t('accessLog.columns.occurredAt'), value: 'occurred_at' },
   { label: t('accessLog.columns.method'), value: 'method' },
@@ -184,18 +191,20 @@ function createDefaultFilters(): AccessLogFilterState {
     durationMinMs: '',
     durationMaxMs: '',
     startedRange: [],
+    occurredRange: [],
     sorters: createSingleSorter('started_at', 'desc'),
   };
 }
 
 function buildQuery(): AccessLogQuery {
+  const normalizedSorters = normalizeSorters(filters.value.sorters, sortOptions.value);
   const query: AccessLogQuery = {
     page: pagination.value.current,
     page_size: pagination.value.pageSize,
     path_match: filters.value.pathMatch,
   };
 
-  const encodedSorters = encodeSorters(filters.value.sorters);
+  const encodedSorters = encodeSorters(normalizedSorters, sortOptions.value);
   if (encodedSorters.length) {
     query.sort = encodedSorters;
   }
@@ -216,6 +225,8 @@ function buildQuery(): AccessLogQuery {
   if (filters.value.durationMaxMs) query.duration_max_ms = Number(filters.value.durationMaxMs);
   if (filters.value.startedRange[0]) query.started_from = localDateTimeToUtcIso(filters.value.startedRange[0]);
   if (filters.value.startedRange[1]) query.started_to = localDateTimeToUtcIso(filters.value.startedRange[1]);
+  if (filters.value.occurredRange[0]) query.occurred_from = localDateTimeToUtcIso(filters.value.occurredRange[0]);
+  if (filters.value.occurredRange[1]) query.occurred_to = localDateTimeToUtcIso(filters.value.occurredRange[1]);
   return query;
 }
 
@@ -311,6 +322,8 @@ function applyRouteFilters() {
     duration_max_ms: durationMaxMs = '',
     started_from: startedFrom = '',
     started_to: startedTo = '',
+    occurred_from: occurredFrom = '',
+    occurred_to: occurredTo = '',
     sort = [],
   } = parseAccessLogRouteQuery(route.query);
   const parsedSorters = decodeSorters(sort, normalizeSortBy, normalizeSortOrder);
@@ -329,14 +342,20 @@ function applyRouteFilters() {
     durationMinMs,
     durationMaxMs,
     startedRange: normalizeRouteRangeForPageState([startedFrom, startedTo]),
-    sorters: parsedSorters.length ? parsedSorters : routeHydrated.value ? [] : createSingleSorter('started_at', 'desc'),
+    occurredRange: normalizeRouteRangeForPageState([occurredFrom, occurredTo]),
+    sorters: (() => {
+      const normalized = normalizeSorters(parsedSorters, sortOptions.value);
+      return normalized.length ? normalized : createSingleSorter('started_at', 'desc');
+    })(),
   };
   deepLinkCorrelation.value = requestId ? 'requestId' : null;
   routeHydrated.value = true;
 }
 
 function buildRouteQuery() {
+  const normalizedSorters = normalizeSorters(filters.value.sorters, sortOptions.value);
   const [startedFrom = '', startedTo = ''] = normalizePageStateRangeForRoute(filters.value.startedRange);
+  const [occurredFrom = '', occurredTo = ''] = normalizePageStateRangeForRoute(filters.value.occurredRange);
   const isGroupedStatusCode = filters.value.statusCode === '4xx' || filters.value.statusCode === '5xx';
   return buildAccessLogLocation({
     keyword: filters.value.keyword,
@@ -353,7 +372,9 @@ function buildRouteQuery() {
     duration_max_ms: filters.value.durationMaxMs,
     started_from: startedFrom,
     started_to: startedTo,
-    sort: encodeSorters(filters.value.sorters),
+    occurred_from: occurredFrom,
+    occurred_to: occurredTo,
+    sort: encodeSorters(normalizedSorters, sortOptions.value),
   });
 }
 
@@ -377,6 +398,8 @@ async function updateRouteQuery() {
   const currentDurationMaxMs = typeof route.query.duration_max_ms === 'string' ? route.query.duration_max_ms : '';
   const currentStartedFrom = typeof route.query.started_from === 'string' ? route.query.started_from : '';
   const currentStartedTo = typeof route.query.started_to === 'string' ? route.query.started_to : '';
+  const currentOccurredFrom = typeof route.query.occurred_from === 'string' ? route.query.occurred_from : '';
+  const currentOccurredTo = typeof route.query.occurred_to === 'string' ? route.query.occurred_to : '';
   const currentSort = Array.isArray(route.query.sort)
     ? route.query.sort.map((item) => String(item))
     : typeof route.query.sort === 'string'
@@ -400,6 +423,8 @@ async function updateRouteQuery() {
     currentDurationMaxMs === (nextQuery.duration_max_ms ?? '') &&
     currentStartedFrom === (nextQuery.started_from ?? '') &&
     currentStartedTo === (nextQuery.started_to ?? '') &&
+    currentOccurredFrom === (nextQuery.occurred_from ?? '') &&
+    currentOccurredTo === (nextQuery.occurred_to ?? '') &&
     JSON.stringify(currentSort) === JSON.stringify(nextSort)
   ) {
     await fetchAccessLogs();
@@ -459,6 +484,8 @@ watch(
     route.query.duration_max_ms,
     route.query.started_from,
     route.query.started_to,
+    route.query.occurred_from,
+    route.query.occurred_to,
     route.query.sort,
   ],
   () => {

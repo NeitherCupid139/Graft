@@ -46,5 +46,6 @@ export type AccessLogFilterState = {
   durationMinMs: string;
   durationMaxMs: string;
   startedRange: string[];
+  occurredRange: string[];
   sorters: AccessLogSorter[];
 };

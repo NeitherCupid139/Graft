@@ -3,14 +3,16 @@ export { default as LogIdText } from './LogIdText.vue';
 export { default as LogJsonPanel } from './LogJsonPanel.vue';
 export type { QuerySorter, SortDirection, SorterState } from './sorters';
 export {
-  appendSorter,
+  appendSorterToState,
   createSingleSorter,
   decodeSorters,
   encodeSorters,
+  moveSorterInState,
+  normalizeSorters,
   prependSorterTags,
+  removeSorterFromState,
   withSorterDirectionFromInput,
   withSorterFieldFromInput,
-  withUpdatedSorters,
 } from './sorters';
 export { formatLocaleDateTime } from './time';
 export {

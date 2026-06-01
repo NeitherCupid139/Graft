@@ -721,7 +721,7 @@ describe('AuditLogsPage', () => {
     expect(router.currentRoute.value.query).not.toHaveProperty('scope');
   });
 
-  it('maps the sensitive quick preset to scope mode instead of action keywords', async () => {
+  it('maps the sensitive quick preset to normal filters instead of drilldown scope', async () => {
     const { router, wrapper } = await mountPage();
     getAuditLogsMock.mockClear();
 
@@ -730,8 +730,9 @@ describe('AuditLogsPage', () => {
 
     expect(router.currentRoute.value.query).toMatchObject({
       preset: 'last_24h',
-      scope: 'sensitive_operations',
+      business_category: 'sensitive_operations',
     });
+    expect(router.currentRoute.value.query).not.toHaveProperty('scope');
     expect(router.currentRoute.value.query).not.toHaveProperty('action_keywords');
   });
 
@@ -970,6 +971,7 @@ describe('AuditLogsPage', () => {
       resource_type: 'user',
       resource_name: 'Graft Admin',
       resource_id: '1',
+      sort: ['created_at:desc'],
     });
   });
 });

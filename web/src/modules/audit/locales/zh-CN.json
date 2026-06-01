@@ -312,6 +312,10 @@
         "reset": "重置",
         "backToMonitor": "返回监控",
         "addFilter": "添加筛选条件",
+        "addSorter": "添加排序项",
+        "removeSorter": "移除排序项",
+        "moveSorterUp": "上移",
+        "moveSorterDown": "下移",
         "showAdvanced": "高级筛选",
         "hideAdvanced": "收起高级筛选"
       },
@@ -345,6 +349,8 @@
           "sortBy": "按{field}{direction}"
         },
         "fields": {
+          "timeRange": "时间范围",
+          "sorterBuilder": "排序方式",
           "businessCategory": "业务分类",
           "success": "成功状态",
           "action": "操作类型",

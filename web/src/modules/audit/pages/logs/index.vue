@@ -117,6 +117,7 @@ import {
   localDateTimeToUtcIso,
   normalizePageStateRangeForRoute,
   normalizeRouteRangeForPageState,
+  normalizeSorters,
 } from '@/shared/observability';
 import { createLogger } from '@/utils/logger';
 
@@ -203,6 +204,7 @@ const presetViews = computed(() =>
     title: t(preset.titleKey),
   })),
 );
+const sortOptions = computed(() => [{ label: t('audit.logList.sort.createdAt'), value: 'created_at' as const }]);
 const localizedScopeProjectionItems = computed(() =>
   (scopeState.value?.projection.items ?? []).map((item) => ({
     ...item,
@@ -267,6 +269,7 @@ function canSyncAuditRoute(reason: string) {
 }
 
 function buildQuery(): AuditLogQuery {
+  const normalizedSorters = normalizeSorters(filters.value.sorters, sortOptions.value);
   const query: AuditLogQuery = {
     page: pagination.value.current,
     page_size: pagination.value.pageSize,
@@ -344,7 +347,7 @@ function buildQuery(): AuditLogQuery {
   if (explicitCreatedRange[1]) {
     query.created_to = localDateTimeToUtcIso(explicitCreatedRange[1]);
   }
-  const encodedSorters = encodeSorters(filters.value.sorters);
+  const encodedSorters = encodeSorters(normalizedSorters, sortOptions.value);
   if (encodedSorters.length) {
     query.sort = encodedSorters;
   }
@@ -395,7 +398,11 @@ function applyPreset(preset: AuditQuickPresetKey) {
   filters.value = createDefaultFilters();
   routePreset.value = resolvePresetTimeWindow(preset);
   routeScope.value = resolveScopeForPreset(preset);
-  if (!routeScope.value) {
+  if (preset === 'sensitive-ops') {
+    filters.value.businessCategory = AUDIT_BUSINESS_CATEGORY.SENSITIVE_OPERATIONS;
+    filters.value.createdRange = buildPresetCreatedRange(routePreset.value);
+    routeScope.value = '';
+  } else if (!routeScope.value) {
     filters.value.createdRange = buildPresetCreatedRange(routePreset.value);
   }
   pagination.value.current = 1;
@@ -410,7 +417,7 @@ function handleSearch() {
 function resetFilters() {
   filters.value = createDefaultFilters();
   routePreset.value = '';
-  routeScope.value = '';
+  routeScope.value = scopeState.value ? routeScope.value : '';
   pagination.value.current = 1;
   updateRouteQuery();
 }
@@ -493,11 +500,11 @@ function applyRouteFilters() {
     session: query.session ?? '',
     requestId: query.request_id ?? '',
     sorters: (() => {
-      const parsed = decodeSorters(query.sort, normalizeSortField, normalizeSortOrder);
-      if (parsed.length) {
-        return parsed;
-      }
-      return routeHydrated.value ? [] : createSingleSorter('created_at', 'desc');
+      const parsed = normalizeSorters(
+        decodeSorters(query.sort, normalizeSortField, normalizeSortOrder),
+        sortOptions.value,
+      );
+      return parsed.length ? parsed : createSingleSorter('created_at', 'desc');
     })(),
   };
   filters.value = nextFilters;
@@ -505,6 +512,7 @@ function applyRouteFilters() {
 }
 
 function buildRouteQuery() {
+  const normalizedSorters = normalizeSorters(filters.value.sorters, sortOptions.value);
   const explicitCreatedRange = filters.value.createdRange;
   const [createdFrom = '', createdTo = ''] = normalizePageStateRangeForRoute(explicitCreatedRange);
 
@@ -533,7 +541,7 @@ function buildRouteQuery() {
     risk_levels: joinRouteList(filters.value.riskLevels),
     session: filters.value.session,
     request_id: filters.value.requestId,
-    sort: encodeSorters(filters.value.sorters),
+    sort: encodeSorters(normalizedSorters, sortOptions.value),
   };
 }
 
@@ -799,7 +807,7 @@ function resolveScopeForPreset(preset: AuditQuickPresetKey): AuditDrilldownScope
     case 'permission-denied':
       return AUDIT_DRILLDOWN_SCOPE.PERMISSION_DENIALS;
     case 'sensitive-ops':
-      return AUDIT_DRILLDOWN_SCOPE.SENSITIVE_OPERATIONS;
+      return '';
     case 'auth-failed':
       return AUDIT_DRILLDOWN_SCOPE.AUTH_FAILURES;
     case 'high-risk':

@@ -17,6 +17,8 @@ export type AccessLogRouteQuery = Partial<{
   duration_max_ms: string;
   started_from: string;
   started_to: string;
+  occurred_from: string;
+  occurred_to: string;
   sort: string | string[];
 }>;
 
@@ -35,6 +37,8 @@ const ACCESS_LOG_QUERY_KEYS = [
   'duration_max_ms',
   'started_from',
   'started_to',
+  'occurred_from',
+  'occurred_to',
 ] as const;
 type AccessLogQueryKey = (typeof ACCESS_LOG_QUERY_KEYS)[number];
 

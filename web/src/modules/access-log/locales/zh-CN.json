@@ -35,6 +35,10 @@
       "search": "查询",
       "reset": "重置",
       "addFilter": "添加筛选条件",
+      "addSorter": "添加排序项",
+      "removeSorter": "移除排序项",
+      "moveSorterUp": "上移",
+      "moveSorterDown": "下移",
       "detail": "详情",
       "viewRelatedAuditRecords": "查看关联审计记录",
       "openAuditByRequestId": "按请求 ID 打开审计搜索",
@@ -63,7 +67,8 @@
       "statusCode": "状态码",
       "durationMin": "最小时长",
       "durationMax": "最大时长",
-      "startedRange": "请求时间",
+      "startedRange": "请求开始时间",
+      "occurredRange": "请求结束时间",
       "sortBy": "排序字段",
       "sortOrder": "排序方向",
       "pathMatchExact": "精确",
@@ -101,7 +106,9 @@
         "path": "路径",
         "statusCode": "状态码",
         "durationMinMs": "最小耗时",
-        "durationMaxMs": "最大耗时"
+        "durationMaxMs": "最大耗时",
+        "timeRange": "时间范围",
+        "sorterBuilder": "排序方式"
       }
     },
     "columns": {

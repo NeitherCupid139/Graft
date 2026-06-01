@@ -5,67 +5,38 @@ import { createI18n } from 'vue-i18n';
 
 import AccessLogFilters from './AccessLogFilters.vue';
 
-const buttonStub = defineComponent({
-  name: 'TButtonStub',
-  inheritAttrs: false,
-  emits: ['click'],
-  setup(_, { attrs, emit, slots }) {
-    return () => h('button', { ...attrs, onClick: () => emit('click') }, slots.default?.());
-  },
-});
-
-const tagStub = defineComponent({
-  name: 'TTagStub',
-  emits: ['close'],
-  setup(_, { slots, emit }) {
-    return () => h('button', { type: 'button', onClick: () => emit('close') }, [h('span', slots.default?.())]);
-  },
-});
-
-const passthroughStub = defineComponent({
-  name: 'PassthroughStub',
-  setup(_, { slots }) {
-    return () => h('div', [slots.default?.(), slots.content?.()]);
-  },
-});
-
-const inputStub = defineComponent({
-  name: 'TInputStub',
-  inheritAttrs: false,
-  props: ['modelValue', 'placeholder'],
-  emits: ['update:modelValue'],
+const logFilterBuilderStub = defineComponent({
+  name: 'LogFilterBuilderStub',
+  props: [
+    'keyword',
+    'keywordPlaceholder',
+    'tags',
+    'timeFields',
+    'fields',
+    'sorters',
+    'sortAddDisabled',
+    'sortFieldOptionsByIndex',
+    'sortMoveUpDisabled',
+    'sortMoveDownDisabled',
+    'removeSorterLabel',
+    'moveUpLabel',
+    'moveDownLabel',
+  ],
+  emits: ['close-tag'],
   setup(props, { emit }) {
     return () =>
-      h('input', {
-        value: props.modelValue,
-        placeholder: props.placeholder,
-        onInput: (event: Event) => emit('update:modelValue', (event.target as HTMLInputElement).value),
-      });
-  },
-});
-
-const dateRangeStub = defineComponent({
-  name: 'TDateRangePickerStub',
-  inheritAttrs: false,
-  props: ['modelValue', 'placeholder'],
-  emits: ['update:modelValue'],
-  setup(props, { emit }) {
-    return () =>
-      h('button', {
-        type: 'button',
-        'data-placeholder': Array.isArray(props.placeholder) ? props.placeholder.join('|') : props.placeholder,
-        onClick: () => emit('update:modelValue', ['2026-05-31 10:00:00', '2026-05-31 11:00:00']),
-      });
-  },
-});
-
-const selectStub = defineComponent({
-  name: 'TSelectStub',
-  inheritAttrs: false,
-  props: ['modelValue'],
-  emits: ['update:modelValue'],
-  setup() {
-    return () => h('div', 'select');
+      h('div', [
+        h('span', { 'data-testid': 'keyword-placeholder' }, props.keywordPlaceholder),
+        h('span', { 'data-testid': 'tags' }, JSON.stringify(props.tags)),
+        h('span', { 'data-testid': 'time-fields' }, JSON.stringify(props.timeFields)),
+        h('span', { 'data-testid': 'fields' }, JSON.stringify(props.fields)),
+        h('span', { 'data-testid': 'sorters' }, JSON.stringify(props.sorters)),
+        h('span', { 'data-testid': 'sort-add-disabled' }, String(props.sortAddDisabled)),
+        h('span', { 'data-testid': 'sort-field-options' }, JSON.stringify(props.sortFieldOptionsByIndex)),
+        h('span', { 'data-testid': 'sort-move-up-disabled' }, JSON.stringify(props.sortMoveUpDisabled)),
+        h('span', { 'data-testid': 'sort-move-down-disabled' }, JSON.stringify(props.sortMoveDownDisabled)),
+        h('button', { 'data-testid': 'close-sorter', onClick: () => emit('close-tag', 'sorter:0') }),
+      ]);
   },
 });
 
@@ -75,23 +46,18 @@ const i18n = createI18n({
   messages: {
     'zh-CN': {
       accessLog: {
-        time: {
-          last24h: '最近 24 小时',
-          last7d: '最近 7 天',
-          last30d: '最近 30 天',
-          custom: '自定义时间范围',
-        },
         page: { searchPlaceholder: '搜索请求 ID、路径、用户名' },
-        actions: { search: '查询', reset: '重置', addFilter: '添加筛选条件' },
-        presets: { label: '快捷筛选' },
-        sort: {
-          title: '排序',
-          tagPrefix: '排序',
-          fieldPlaceholder: '排序字段',
-          directionPlaceholder: '排序方向',
+        actions: {
+          search: '查询',
+          reset: '重置',
+          addFilter: '添加筛选条件',
+          addSorter: '添加排序项',
+          removeSorter: '移除排序项',
+          moveSorterUp: '上移',
+          moveSorterDown: '下移',
         },
+        presets: { label: '快捷筛选' },
         filters: {
-          startedRange: '请求时间',
           requestId: '请求 ID',
           userId: '用户 ID',
           username: '用户名',
@@ -100,6 +66,8 @@ const i18n = createI18n({
           statusCode: '状态码',
           durationMin: '最小时长',
           durationMax: '最大时长',
+          startedRange: '请求开始时间',
+          occurredRange: '请求结束时间',
           sortStartedAt: '请求开始时间',
           sortOccurredAt: '发生时间',
           sortDuration: '耗时',
@@ -107,17 +75,16 @@ const i18n = createI18n({
           sortAsc: '升序',
           sortDesc: '降序',
         },
+        sort: {
+          tagPrefix: '排序',
+          fieldPlaceholder: '排序字段',
+          directionPlaceholder: '排序方向',
+        },
         builder: {
           title: '筛选条件',
           hint: 'hint',
           groups: {
-            time: '时间范围',
             filters: '筛选条件',
-            sort: '排序方式',
-          },
-          summary: {
-            customTime: '{range}',
-            sortBy: '按{field}{direction}',
           },
           fields: {
             requestId: '请求 ID',
@@ -128,6 +95,8 @@ const i18n = createI18n({
             statusCode: '状态码',
             durationMinMs: '最小耗时',
             durationMaxMs: '最大耗时',
+            timeRange: '时间范围',
+            sorterBuilder: '排序方式',
           },
         },
       },
@@ -136,13 +105,14 @@ const i18n = createI18n({
 });
 
 describe('AccessLogFilters', () => {
-  it('renders one sorter tag and clears the whole sorter at once', async () => {
+  it('passes unified tags and time fields to the shared builder', () => {
     const wrapper = mount(AccessLogFilters, {
       props: {
         activePreset: 'all',
         modelValue: {
           keyword: '',
-          startedRange: [],
+          startedRange: ['2026-05-31 10:00:00', '2026-05-31 11:00:00'],
+          occurredRange: ['2026-05-31 10:30:00', '2026-05-31 11:30:00'],
           requestId: 'req-1',
           userId: '',
           username: '',
@@ -160,36 +130,37 @@ describe('AccessLogFilters', () => {
       global: {
         plugins: [i18n],
         stubs: {
-          'management-toolbar': passthroughStub,
-          't-button': buttonStub,
-          't-tag': tagStub,
-          't-input': inputStub,
-          't-popup': passthroughStub,
-          't-date-range-picker': dateRangeStub,
-          't-select': selectStub,
+          LogFilterBuilder: logFilterBuilderStub,
         },
       },
     });
 
-    expect(wrapper.find('input').attributes('placeholder')).toBe('搜索请求 ID、路径、用户名');
-    expect(wrapper.text()).toContain('排序 1：发生时间 ↓');
-    expect(wrapper.text()).toContain('请求 ID：req-1');
+    expect(wrapper.get('[data-testid="keyword-placeholder"]').text()).toBe('搜索请求 ID、路径、用户名');
 
-    const tags = wrapper.findAllComponents(tagStub);
-    await tags[0]?.trigger('click');
+    const tags = JSON.parse(wrapper.get('[data-testid="tags"]').text());
+    expect(tags.map((tag: { label: string }) => tag.label)).toContain('排序 1：发生时间 ↓');
+    expect(tags.map((tag: { label: string }) => tag.label)).toContain('请求 ID：req-1');
+    expect(tags.map((tag: { label: string }) => tag.label)).toContain(
+      '请求开始时间：2026-05-31 10:00:00 ~ 2026-05-31 11:00:00',
+    );
+    expect(tags.map((tag: { label: string }) => tag.label)).toContain(
+      '请求结束时间：2026-05-31 10:30:00 ~ 2026-05-31 11:30:00',
+    );
 
-    expect(wrapper.emitted('update:modelValue')?.[0]?.[0]).toMatchObject({
-      sorters: [],
-    });
+    const timeFields = JSON.parse(wrapper.get('[data-testid="time-fields"]').text());
+    expect(timeFields).toHaveLength(2);
+    expect(timeFields[0].label).toBe('请求开始时间');
+    expect(timeFields[1].label).toBe('请求结束时间');
   });
 
-  it('renders unified request time summary and started range tag', () => {
+  it('normalizes duplicate sorters and disables add when all fields are used', () => {
     const wrapper = mount(AccessLogFilters, {
       props: {
         activePreset: 'all',
         modelValue: {
           keyword: '',
-          startedRange: ['2026-05-31 10:00:00', '2026-05-31 11:00:00'],
+          startedRange: [],
+          occurredRange: [],
           requestId: '',
           userId: '',
           username: '',
@@ -200,25 +171,77 @@ describe('AccessLogFilters', () => {
           statusCode: '',
           durationMinMs: '',
           durationMaxMs: '',
-          sorters: [],
+          sorters: [
+            { field: 'started_at', direction: 'desc' },
+            { field: 'started_at', direction: 'asc' },
+            { field: 'occurred_at', direction: 'asc' },
+            { field: 'duration_ms', direction: 'desc' },
+            { field: 'status_code', direction: 'asc' },
+          ],
         },
         presets: [],
       },
       global: {
         plugins: [i18n],
         stubs: {
-          'management-toolbar': passthroughStub,
-          't-button': buttonStub,
-          't-tag': tagStub,
-          't-input': inputStub,
-          't-popup': passthroughStub,
-          't-date-range-picker': dateRangeStub,
-          't-select': selectStub,
+          LogFilterBuilder: logFilterBuilderStub,
         },
       },
     });
 
-    expect(wrapper.text()).toContain('2026-05-31 10:00:00 ~ 2026-05-31 11:00:00');
-    expect(wrapper.text()).toContain('时间范围：');
+    expect(JSON.parse(wrapper.get('[data-testid="sorters"]').text())).toHaveLength(4);
+    expect(wrapper.get('[data-testid="sort-add-disabled"]').text()).toBe('true');
+    expect(JSON.parse(wrapper.get('[data-testid="sort-field-options"]').text())[0]).toEqual([
+      { label: '请求开始时间', value: 'started_at' },
+    ]);
+    expect(JSON.parse(wrapper.get('[data-testid="sort-move-up-disabled"]').text())).toEqual([
+      true,
+      false,
+      false,
+      false,
+    ]);
+    expect(JSON.parse(wrapper.get('[data-testid="sort-move-down-disabled"]').text())).toEqual([
+      false,
+      false,
+      false,
+      true,
+    ]);
+  });
+
+  it('clears one sorter when the shared builder closes sorter tag', async () => {
+    const wrapper = mount(AccessLogFilters, {
+      props: {
+        activePreset: 'all',
+        modelValue: {
+          keyword: '',
+          startedRange: [],
+          occurredRange: [],
+          requestId: '',
+          userId: '',
+          username: '',
+          method: '',
+          path: '',
+          pathMatch: 'exact',
+          route: '',
+          statusCode: '',
+          durationMinMs: '',
+          durationMaxMs: '',
+          sorters: [{ field: 'occurred_at', direction: 'desc' }],
+        },
+        presets: [],
+      },
+      global: {
+        plugins: [i18n],
+        stubs: {
+          LogFilterBuilder: logFilterBuilderStub,
+        },
+      },
+    });
+
+    await wrapper.get('[data-testid="close-sorter"]').trigger('click');
+
+    expect(wrapper.emitted('update:modelValue')?.[0]?.[0]).toMatchObject({
+      sorters: [],
+    });
   });
 });
