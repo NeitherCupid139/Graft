@@ -31,17 +31,17 @@ func NewPlugin(repository rbacstore.Repository) *Plugin {
 
 // Name 返回插件稳定标识。
 func (p *Plugin) Name() string {
-	return pluginID
+	return moduleID
 }
 
 // Version 返回当前插件版本。
 func (p *Plugin) Version() string {
-	return pluginVersion
+	return moduleVersion
 }
 
 // DependsOn 声明当前最小授权插件依赖用户插件已完成认证主体解析。
 func (p *Plugin) DependsOn() []string {
-	return append([]string(nil), pluginDependencies...)
+	return append([]string(nil), moduleDependencies...)
 }
 
 // Register 注册跨插件可复用的授权服务。
@@ -106,7 +106,7 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 	}
 
 	routeAuthorizer := authorizer{rbac: repository}
-	publisher := httpx.NewSecurityAuditPublisher(ctx.EventBus, ctx.Logger, pluginID)
+	publisher := httpx.NewSecurityAuditPublisher(ctx.EventBus, ctx.Logger, moduleID)
 	registerManagementRoutes(
 		ctx,
 		p.Name(),

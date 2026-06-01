@@ -64,7 +64,7 @@ func TestCollectModulePackagesRejectsMissingDescriptor(t *testing.T) {
 	}
 }
 
-// TestRenderGeneratedFileIncludesSortedDescriptors 验证生成文件内容稳定且包含描述符入口。
+// TestRenderGeneratedFileIncludesSortedModuleSpecs 验证生成文件内容稳定且包含模块定义入口。
 func TestRenderGeneratedFileIncludesSortedDescriptors(t *testing.T) {
 	content, err := renderGeneratedFile([]modulePackage{
 		{importAlias: "auditplugin", importPath: "graft/server/plugins/audit"},
@@ -80,14 +80,14 @@ func TestRenderGeneratedFileIncludesSortedDescriptors(t *testing.T) {
 		"package pluginregistry",
 		"auditplugin \"graft/server/plugins/audit\"",
 		"userplugin \"graft/server/plugins/user\"",
-		"auditplugin.NewDescriptor()",
-		"userplugin.NewDescriptor()",
+		"auditplugin.NewModuleSpec()",
+		"userplugin.NewModuleSpec()",
 	} {
 		if !strings.Contains(source, snippet) {
 			t.Fatalf("expected generated source to contain %q, got:\n%s", snippet, source)
 		}
 	}
-	if strings.Index(source, "auditplugin.NewDescriptor()") > strings.Index(source, "userplugin.NewDescriptor()") {
-		t.Fatalf("expected generated descriptors to remain sorted, got:\n%s", source)
+	if strings.Index(source, "auditplugin.NewModuleSpec()") > strings.Index(source, "userplugin.NewModuleSpec()") {
+		t.Fatalf("expected generated module specs to remain sorted, got:\n%s", source)
 	}
 }

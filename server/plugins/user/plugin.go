@@ -50,12 +50,12 @@ func NewPlugin(userRepo userstore.UserRepository, authRepo userstore.AuthReposit
 
 // Name 返回插件的稳定标识。
 func (p *Plugin) Name() string {
-	return pluginID
+	return moduleID
 }
 
 // Version 返回当前示例插件版本。
 func (p *Plugin) Version() string {
-	return pluginVersion
+	return moduleVersion
 }
 
 // DependsOn 返回当前插件的依赖列表。
@@ -80,7 +80,7 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 		ctx.I18n,
 		services.auth,
 		p.routeAuthorizer,
-		httpx.NewSecurityAuditPublisher(ctx.EventBus, ctx.Logger, pluginID),
+		httpx.NewSecurityAuditPublisher(ctx.EventBus, ctx.Logger, moduleID),
 	)
 	authGroup := ctx.Router.Group(authcontract.AuthGroup)
 	guards.restrictedSession = newRestrictedSessionGuard(
@@ -524,11 +524,11 @@ func (s userService) publishAudit(ctx context.Context, event pluginapi.AuditEven
 	event.Operator = currentAuditOperator(ctx)
 	if err := s.auditBus.Publish(ctx, eventbus.Event{
 		Name:    pluginapi.AuditRecordEventName,
-		Source:  pluginID,
+		Source:  moduleID,
 		Payload: event,
 	}); err != nil && s.logger != nil {
 		s.logger.Warn("publish user audit event failed",
-			zap.String("plugin", pluginID),
+			zap.String("plugin", moduleID),
 			zap.String("action", strings.TrimSpace(event.Action)),
 			zap.Error(err),
 		)

@@ -94,26 +94,26 @@ func TestManagerOrderedRejectsDependencyCycle(t *testing.T) {
 	}
 }
 
-// TestOrderDescriptorsIsIndependentFromInputOrder 验证描述符排序不依赖生成输入顺序。
-func TestOrderDescriptorsIsIndependentFromInputOrder(t *testing.T) {
-	input := []Descriptor{
-		{ID: "scheduler", PluginVersion: "0.1.0", Builder: BuilderFunc(func(BuildContext) (Plugin, error) {
+// TestOrderModuleSpecsIsIndependentFromInputOrder 验证模块定义排序不依赖生成输入顺序。
+func TestOrderModuleSpecsIsIndependentFromInputOrder(t *testing.T) {
+	input := []ModuleSpec{
+		{ID: "scheduler", ModuleVersion: "0.1.0", Builder: BuilderFunc(func(BuildContext) (Plugin, error) {
 			return testPlugin{name: "scheduler", version: "0.1.0"}, nil
 		})},
-		{ID: "rbac", PluginVersion: "0.1.0", Dependencies: []string{"user"}, Builder: BuilderFunc(func(BuildContext) (Plugin, error) {
+		{ID: "rbac", ModuleVersion: "0.1.0", Dependencies: []string{"user"}, Builder: BuilderFunc(func(BuildContext) (Plugin, error) {
 			return testPlugin{name: "rbac", version: "0.1.0", dependsOn: []string{"user"}}, nil
 		})},
-		{ID: "audit", PluginVersion: "0.1.0", Builder: BuilderFunc(func(BuildContext) (Plugin, error) {
+		{ID: "audit", ModuleVersion: "0.1.0", Builder: BuilderFunc(func(BuildContext) (Plugin, error) {
 			return testPlugin{name: "audit", version: "0.1.0"}, nil
 		})},
-		{ID: "user", PluginVersion: "0.1.0", Builder: BuilderFunc(func(BuildContext) (Plugin, error) {
+		{ID: "user", ModuleVersion: "0.1.0", Builder: BuilderFunc(func(BuildContext) (Plugin, error) {
 			return testPlugin{name: "user", version: "0.1.0"}, nil
 		})},
 	}
 
-	ordered, err := OrderDescriptors(input)
+	ordered, err := OrderModuleSpecs(input)
 	if err != nil {
-		t.Fatalf("order descriptors: %v", err)
+		t.Fatalf("order module specs: %v", err)
 	}
 
 	got := make([]string, 0, len(ordered))
@@ -127,12 +127,12 @@ func TestOrderDescriptorsIsIndependentFromInputOrder(t *testing.T) {
 	}
 }
 
-// TestDescriptorBuildWrapsCanonicalMetadata 验证描述符构造出的运行时插件以
-// 描述符元数据为 canonical truth。
-func TestDescriptorBuildWrapsCanonicalMetadata(t *testing.T) {
-	descriptor := Descriptor{
+// TestModuleSpecBuildWrapsCanonicalMetadata 验证模块定义构造出的运行时插件以
+// 模块定义元数据为 canonical truth。
+func TestModuleSpecBuildWrapsCanonicalMetadata(t *testing.T) {
+	descriptor := ModuleSpec{
 		ID:            "rbac",
-		PluginVersion: "0.2.0",
+		ModuleVersion: "0.2.0",
 		Dependencies:  []string{"user"},
 		Builder: BuilderFunc(func(BuildContext) (Plugin, error) {
 			return testPlugin{name: "rbac", version: "0.2.0", dependsOn: []string{"user"}}, nil
@@ -155,12 +155,12 @@ func TestDescriptorBuildWrapsCanonicalMetadata(t *testing.T) {
 	}
 }
 
-// TestDescriptorBuildRejectsRuntimeMetadataDrift 验证运行时插件元数据一旦偏离
-// 描述符真相就会在构造阶段被阻断。
-func TestDescriptorBuildRejectsRuntimeMetadataDrift(t *testing.T) {
-	descriptor := Descriptor{
+// TestModuleSpecBuildRejectsRuntimeMetadataDrift 验证运行时插件元数据一旦偏离
+// 模块定义真相就会在构造阶段被阻断。
+func TestModuleSpecBuildRejectsRuntimeMetadataDrift(t *testing.T) {
+	descriptor := ModuleSpec{
 		ID:            "rbac",
-		PluginVersion: "0.2.0",
+		ModuleVersion: "0.2.0",
 		Dependencies:  []string{"user"},
 		Builder: BuilderFunc(func(BuildContext) (Plugin, error) {
 			return testPlugin{name: "rbac-v2", version: "0.2.0", dependsOn: []string{"user"}}, nil
@@ -169,21 +169,21 @@ func TestDescriptorBuildRejectsRuntimeMetadataDrift(t *testing.T) {
 
 	_, err := descriptor.Build(BuildContext{})
 	if err == nil {
-		t.Fatal("expected descriptor metadata drift error")
+		t.Fatal("expected module spec metadata drift error")
 	}
-	if !strings.Contains(err.Error(), "does not match descriptor") {
-		t.Fatalf("expected descriptor mismatch error, got %v", err)
+	if !strings.Contains(err.Error(), "does not match module spec") {
+		t.Fatalf("expected module spec mismatch error, got %v", err)
 	}
 }
 
 func TestNewRuntimeMetadataPreservesOrderedDescriptorSnapshot(t *testing.T) {
-	metadata := NewRuntimeMetadata([]Descriptor{
-		{ID: "audit", PluginVersion: "0.1.0"},
-		{ID: "user", PluginVersion: "0.2.0"},
-		{ID: "rbac", PluginVersion: "0.3.0", Dependencies: []string{"user"}},
+	metadata := NewRuntimeMetadata([]ModuleSpec{
+		{ID: "audit", ModuleVersion: "0.1.0"},
+		{ID: "user", ModuleVersion: "0.2.0"},
+		{ID: "rbac", ModuleVersion: "0.3.0", Dependencies: []string{"user"}},
 	})
 
-	got := metadata.OrderedPluginDescriptors()
+	got := metadata.OrderedModuleDescriptors()
 	expected := []DescriptorSnapshot{
 		{Name: "audit", Version: "0.1.0"},
 		{Name: "user", Version: "0.2.0"},
@@ -196,7 +196,7 @@ func TestNewRuntimeMetadataPreservesOrderedDescriptorSnapshot(t *testing.T) {
 	got[0].Name = "mutated"
 	got[2].DependsOn[0] = "mutated"
 
-	unchanged := metadata.OrderedPluginDescriptors()
+	unchanged := metadata.OrderedModuleDescriptors()
 	if !reflect.DeepEqual(unchanged, expected) {
 		t.Fatalf("expected runtime metadata to remain immutable, got %v", unchanged)
 	}

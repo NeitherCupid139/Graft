@@ -102,14 +102,14 @@ func NewRuntime() (*Runtime, error) {
 
 	runtime.registerCoreRoutes(runtime.server.Engine())
 
-	orderedDescriptors, err := pluginregistry.OrderedDescriptors()
+	orderedDescriptors, err := pluginregistry.OrderedModuleSpecs()
 	if err != nil {
 		_ = runtime.closeCoreResources()
 		return nil, fmt.Errorf("order runtime plugin descriptors: %w", err)
 	}
 	runtime.runtimeMetadata = plugin.NewRuntimeMetadata(orderedDescriptors)
 
-	plugins, err := pluginregistry.BuildPlugins(plugin.BuildContext{
+	plugins, err := pluginregistry.BuildModules(plugin.BuildContext{
 		Services: runtime.services,
 	})
 	if err != nil {

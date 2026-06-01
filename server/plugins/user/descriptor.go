@@ -11,15 +11,15 @@ import (
 )
 
 const (
-	pluginID      = "user"
-	pluginVersion = "0.1.0"
+	moduleID      = "user"
+	moduleVersion = "0.1.0"
 )
 
-// NewDescriptor exposes the user module's stable compile-time metadata and builder under historical plugin naming.
-func NewDescriptor() plugin.Descriptor {
-	return plugin.Descriptor{
-		ID:            pluginID,
-		PluginVersion: pluginVersion,
+// NewModuleSpec exposes the user module's stable compile-time metadata and builder.
+func NewModuleSpec() plugin.ModuleSpec {
+	return plugin.ModuleSpec{
+		ID:            moduleID,
+		ModuleVersion: moduleVersion,
 		Dependencies:  nil,
 		MigrationPath: []string{"plugins/user/migrations"},
 		Builder: plugin.BuilderFunc(func(ctx plugin.BuildContext) (plugin.Plugin, error) {

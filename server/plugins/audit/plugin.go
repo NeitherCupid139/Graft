@@ -67,17 +67,17 @@ func NewPluginWithDrilldown(
 
 // Name 返回插件稳定标识。
 func (p *Plugin) Name() string {
-	return pluginID
+	return moduleID
 }
 
 // Version 返回当前插件版本。
 func (p *Plugin) Version() string {
-	return pluginVersion
+	return moduleVersion
 }
 
 // DependsOn 返回当前插件依赖列表。
 func (p *Plugin) DependsOn() []string {
-	return append([]string(nil), pluginDependencies...)
+	return append([]string(nil), moduleDependencies...)
 }
 
 // Register 挂载 HTTP 自动审计、受权查询路由与 event bus 主动审计接线。
@@ -114,7 +114,7 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 		payload, err := resolveAuditEventPayload(event.Payload)
 		if err != nil {
 			logger.Error("drop malformed audit event payload",
-				zap.String("plugin", pluginID),
+				zap.String("plugin", moduleID),
 				zap.String("event", pluginapi.AuditRecordEventName),
 				zap.Error(fmt.Errorf("unexpected audit event payload type %T", event.Payload)),
 			)
@@ -123,7 +123,7 @@ func (p *Plugin) Register(ctx *plugin.Context) error {
 
 		if err := recordEvent(eventCtx, logger, p.recorder, payload); err != nil {
 			logger.Error("write active audit log failed",
-				zap.String("plugin", pluginID),
+				zap.String("plugin", moduleID),
 				zap.String("event", pluginapi.AuditRecordEventName),
 				zap.String("action", strings.TrimSpace(payload.Action)),
 				zap.Error(err),
@@ -183,7 +183,7 @@ func requestAuditMiddleware(logger *zap.Logger, recorder *auditcore.Service) gin
 			)
 		} else if !recorded {
 			logger.Debug("skip request audit candidate by policy",
-				zap.String("plugin", pluginID),
+				zap.String("plugin", moduleID),
 				zap.String("method", candidate.RequestMethod),
 				zap.String("path", candidate.RequestPath),
 			)
@@ -205,7 +205,7 @@ func recordEvent(ctx context.Context, logger *zap.Logger, recorder *auditcore.Se
 	}
 
 	logger.Warn("skip security audit candidate by policy",
-		zap.String("plugin", pluginID),
+		zap.String("plugin", moduleID),
 		zap.String("action", candidate.Action),
 		zap.String("eventType", candidate.EventType),
 		zap.String("path", candidate.RequestPath),

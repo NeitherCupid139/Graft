@@ -18,8 +18,8 @@ type RuntimeMetadata struct {
 	orderedModuleDescriptors []DescriptorSnapshot
 }
 
-// NewRuntimeMetadata 从有序描述符集合构造运行时元数据快照。
-func NewRuntimeMetadata(descriptors []Descriptor) RuntimeMetadata {
+// NewRuntimeMetadata 从有序模块定义集合构造运行时元数据快照。
+func NewRuntimeMetadata(descriptors []ModuleSpec) RuntimeMetadata {
 	snapshots := make([]DescriptorSnapshot, 0, len(descriptors))
 	for _, descriptor := range descriptors {
 		snapshots = append(snapshots, DescriptorSnapshot{
@@ -32,8 +32,8 @@ func NewRuntimeMetadata(descriptors []Descriptor) RuntimeMetadata {
 	return RuntimeMetadata{orderedModuleDescriptors: snapshots}
 }
 
-// OrderedPluginDescriptors 返回运行时可见的 canonical 有序描述符快照。
-func (m RuntimeMetadata) OrderedPluginDescriptors() []DescriptorSnapshot {
+// OrderedModuleDescriptors 返回运行时可见的 canonical 有序描述符快照。
+func (m RuntimeMetadata) OrderedModuleDescriptors() []DescriptorSnapshot {
 	snapshots := make([]DescriptorSnapshot, 0, len(m.orderedModuleDescriptors))
 	for _, descriptor := range m.orderedModuleDescriptors {
 		snapshots = append(snapshots, DescriptorSnapshot{

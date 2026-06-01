@@ -41,11 +41,11 @@ func TestBuildServerStatusResponseIncludesCurrentSliceFields(t *testing.T) {
 				Env:  " prod ",
 			},
 		},
-		RuntimeMetadata: plugin.NewRuntimeMetadata([]plugin.Descriptor{
-			{ID: "audit", PluginVersion: "0.1.0"},
-			{ID: "user", PluginVersion: "0.2.0"},
-			{ID: "rbac", PluginVersion: "0.3.0", Dependencies: []string{"user"}},
-			{ID: pluginID, PluginVersion: pluginVersion, Dependencies: []string{"user", "rbac"}},
+		RuntimeMetadata: plugin.NewRuntimeMetadata([]plugin.ModuleSpec{
+			{ID: "audit", ModuleVersion: "0.1.0"},
+			{ID: "user", ModuleVersion: "0.2.0"},
+			{ID: "rbac", ModuleVersion: "0.3.0", Dependencies: []string{"user"}},
+			{ID: moduleID, ModuleVersion: moduleVersion, Dependencies: []string{"user", "rbac"}},
 		}),
 	}, pluginWithStartedAt(db, startedAt), monitorcontract.TrendRange10Minutes, stableRuntimeSnapshot())
 	if err != nil {
@@ -126,10 +126,10 @@ func TestRuntimePluginSummariesFollowPlatformStatus(t *testing.T) {
 	t.Parallel()
 
 	pluginCtx := &plugin.Context{
-		RuntimeMetadata: plugin.NewRuntimeMetadata([]plugin.Descriptor{
-			{ID: "user", PluginVersion: "0.2.0"},
-			{ID: "rbac", PluginVersion: "0.3.0", Dependencies: []string{"user"}},
-			{ID: pluginID, PluginVersion: pluginVersion, Dependencies: []string{"user", "rbac"}},
+		RuntimeMetadata: plugin.NewRuntimeMetadata([]plugin.ModuleSpec{
+			{ID: "user", ModuleVersion: "0.2.0"},
+			{ID: "rbac", ModuleVersion: "0.3.0", Dependencies: []string{"user"}},
+			{ID: moduleID, ModuleVersion: moduleVersion, Dependencies: []string{"user", "rbac"}},
 		}),
 	}
 
@@ -141,7 +141,7 @@ func TestRuntimePluginSummariesFollowPlatformStatus(t *testing.T) {
 	assertPluginSummaries(t, healthy, []generated.ServerStatusPlugin{
 		{Name: "user", Status: statusHealthy, StatusDetail: "Runtime metadata is present and platform signals are healthy", Version: "0.2.0", DependsOn: nil},
 		{Name: "rbac", Status: statusHealthy, StatusDetail: "Runtime metadata is present and platform signals are healthy", Version: "0.3.0", DependsOn: []string{"user"}},
-		{Name: pluginID, Status: statusHealthy, StatusDetail: "Runtime metadata is present and platform signals are healthy", Version: pluginVersion, DependsOn: []string{"user", "rbac"}},
+		{Name: moduleID, Status: statusHealthy, StatusDetail: "Runtime metadata is present and platform signals are healthy", Version: moduleVersion, DependsOn: []string{"user", "rbac"}},
 	})
 
 	degraded := runtimePluginSummaries(
@@ -152,7 +152,7 @@ func TestRuntimePluginSummariesFollowPlatformStatus(t *testing.T) {
 	assertPluginSummaries(t, degraded, []generated.ServerStatusPlugin{
 		{Name: "user", Status: statusDegraded, StatusDetail: "Runtime metadata is present, but shared runtime signals are degraded", Version: "0.2.0", DependsOn: nil},
 		{Name: "rbac", Status: statusDegraded, StatusDetail: "Runtime metadata is present, but shared runtime signals are degraded", Version: "0.3.0", DependsOn: []string{"user"}},
-		{Name: pluginID, Status: statusDegraded, StatusDetail: "Runtime metadata is present, but shared runtime signals are degraded", Version: pluginVersion, DependsOn: []string{"user", "rbac"}},
+		{Name: moduleID, Status: statusDegraded, StatusDetail: "Runtime metadata is present, but shared runtime signals are degraded", Version: moduleVersion, DependsOn: []string{"user", "rbac"}},
 	})
 }
 
@@ -160,9 +160,9 @@ func TestRuntimePluginSummariesDegradeWhenDependencyMetadataIsMissing(t *testing
 	t.Parallel()
 
 	pluginCtx := &plugin.Context{
-		RuntimeMetadata: plugin.NewRuntimeMetadata([]plugin.Descriptor{
-			{ID: "audit", PluginVersion: "0.1.0"},
-			{ID: pluginID, PluginVersion: pluginVersion, Dependencies: []string{"user", "rbac"}},
+		RuntimeMetadata: plugin.NewRuntimeMetadata([]plugin.ModuleSpec{
+			{ID: "audit", ModuleVersion: "0.1.0"},
+			{ID: moduleID, ModuleVersion: moduleVersion, Dependencies: []string{"user", "rbac"}},
 		}),
 	}
 
@@ -175,10 +175,10 @@ func TestRuntimePluginSummariesDegradeWhenDependencyMetadataIsMissing(t *testing
 	assertPluginSummaries(t, actual, []generated.ServerStatusPlugin{
 		{Name: "audit", Status: statusHealthy, StatusDetail: "Runtime metadata is present and platform signals are healthy", Version: "0.1.0", DependsOn: nil},
 		{
-			Name:                pluginID,
+			Name:                moduleID,
 			Status:              statusDegraded,
 			StatusDetail:        "Missing runtime dependencies: user, rbac",
-			Version:             pluginVersion,
+			Version:             moduleVersion,
 			DependsOn:           []string{"user", "rbac"},
 			MissingDependencies: stringSlicePointer("user", "rbac"),
 		},
@@ -581,7 +581,7 @@ func assertCurrentSlicePluginSummaries(t *testing.T, actual []generated.ServerSt
 		{Name: "audit", Status: statusHealthy, StatusDetail: "Runtime metadata is present and platform signals are healthy", Version: "0.1.0", DependsOn: nil},
 		{Name: "user", Status: statusHealthy, StatusDetail: "Runtime metadata is present and platform signals are healthy", Version: "0.2.0", DependsOn: nil},
 		{Name: "rbac", Status: statusHealthy, StatusDetail: "Runtime metadata is present and platform signals are healthy", Version: "0.3.0", DependsOn: []string{"user"}},
-		{Name: pluginID, Status: statusHealthy, StatusDetail: "Runtime metadata is present and platform signals are healthy", Version: pluginVersion, DependsOn: []string{"user", "rbac"}},
+		{Name: moduleID, Status: statusHealthy, StatusDetail: "Runtime metadata is present and platform signals are healthy", Version: moduleVersion, DependsOn: []string{"user", "rbac"}},
 	})
 }
 

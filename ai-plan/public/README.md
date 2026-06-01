@@ -84,6 +84,19 @@ Overlay note:
     - `ai-plan/public/module-oriented-modular-monolith`
   - Next-session prompt: `Re-run startup preflight from root AGENTS.md. Governance source: root AGENTS.md. Task class: cross-boundary. Recovery source: parent topic module-oriented-modular-monolith. Owned scope: server/internal/plugin/**, server/internal/pluginregistry/**, server/plugins/*/descriptor.go, ai-plan/design/项目设计.md, ai-plan/design/插件与依赖注入设计.md, ai-plan/public/module-oriented-modular-monolith/**, ai-plan/public/README.md, and only the minimum additional authority files required by exported symbol or path migration analysis. Treat module-oriented-modular-monolith as archive-ready evidence and open a new bounded topic only as module-symbol-and-path-authority-migration; do not continue this wording-migration loop in place.`
 
+- `module-symbol-and-path-authority-migration`
+  - Status: `archive-ready`
+  - Recovery status: completed the bounded cross-boundary authority-inventory and candidate-validation topic for exported symbol and path migration follow-up after the archived wording-only topic.
+  - Scope outcome:
+    - established `module-oriented-modular-monolith` as archive-ready parent evidence instead of continuing that loop in place
+    - inventoried the in-scope rename classes across `server/internal/plugin/**`, `server/internal/pluginregistry/**`, `server/plugins/*/descriptor.go`, and the runtime consumer edge in `server/internal/app/runtime.go`
+    - directly disproved the pre-approved descriptor candidate slice with package-scoped Go validation, so no Go rename landed
+    - recorded why `server/internal/app/runtime.go` is the minimum additional authority file required by runtime-consumer analysis
+    - left exported symbols, runtime-consumer names, generator constants, package paths, physical directories, import paths, migration strings, and package-scoped plugin-local constants deferred to future new-topic-only work
+  - Topic directory:
+    - `ai-plan/public/module-symbol-and-path-authority-migration`
+  - Next-session prompt: `Re-run startup preflight from root AGENTS.md. Governance source: root AGENTS.md. Task class: cross-boundary. Recovery source: parent topic module-symbol-and-path-authority-migration. Owned scope: server/internal/plugin/**, server/internal/pluginregistry/**, server/plugins/*/descriptor.go, ai-plan/design/项目设计.md, ai-plan/design/插件与依赖注入设计.md, ai-plan/public/module-symbol-and-path-authority-migration/**, ai-plan/public/README.md, server/internal/app/runtime.go, and only the minimum additional authority files required by a new bounded follow-up. Treat module-symbol-and-path-authority-migration as archive-ready evidence and open a new bounded topic only if the repository explicitly decides to attempt one deferred rename class at its true authority owner; do not resume this closed loop in place.`
+
 - `phase-d-log-explorer-authority-definition`
   - Status: `archive-ready`
   - Recovery status: completed the bounded governance-only authority-definition topic for future `Log Explorer`.

@@ -20,7 +20,7 @@ func newRouteGuards(
 	authFlow pluginapi.AuthFlowService,
 	apiBasePath string,
 ) routeGuards {
-	publisher := httpx.NewSecurityAuditPublisher(ctx.EventBus, ctx.Logger, pluginID)
+	publisher := httpx.NewSecurityAuditPublisher(ctx.EventBus, ctx.Logger, moduleID)
 	return routeGuards{
 		authenticated:          httpx.RequirePermission(ctx.I18n, authService, nil, "", publisher),
 		requiredPasswordChange: newRequiredPasswordChangeGuard(ctx.I18n, authFlow),

@@ -100,52 +100,51 @@ func ResolveService[T any](resolver container.Resolver, key any) (T, error) {
 	return resolved, nil
 }
 
-// Descriptor 定义历史命名下的 compile-time 模块元数据与运行时构造入口。
+// ModuleSpec 定义历史命名下的 compile-time 模块元数据与运行时构造入口。
 //
-// Descriptor 是未来生成式 module registry 的稳定输入。当前仍保留
-// `plugin.Descriptor` 这个符号名以兼容现有代码；其 canonical 语义是
-// compile-time module descriptor。它收敛模块名、版本、依赖与迁移目录等
+// ModuleSpec 是生成式 module registry 的稳定输入。它收敛模块名、版本、
+// 依赖与迁移目录等
 // 最小元数据，并把真正的运行时实例化动作交给 Builder。
-type Descriptor struct {
+type ModuleSpec struct {
 	ID            string
-	PluginVersion string
+	ModuleVersion string
 	Dependencies  []string
 	MigrationPath []string
 	Builder       Builder
 }
 
-// Name 返回描述符的稳定模块标识。
-func (d Descriptor) Name() string {
+// Name 返回模块定义的稳定模块标识。
+func (d ModuleSpec) Name() string {
 	return strings.TrimSpace(d.ID)
 }
 
-// Version 返回描述符声明的模块版本。
+// Version 返回模块定义声明的模块版本。
 //
 // 当前版本值只作为诊断元数据，不承载独立模块版本生命周期治理。
-func (d Descriptor) Version() string {
-	return strings.TrimSpace(d.PluginVersion)
+func (d ModuleSpec) Version() string {
+	return strings.TrimSpace(d.ModuleVersion)
 }
 
-// DependsOn 返回描述符声明的模块依赖列表。
-func (d Descriptor) DependsOn() []string {
+// DependsOn 返回模块定义声明的模块依赖列表。
+func (d ModuleSpec) DependsOn() []string {
 	return trimStringsPreserveDuplicates(d.Dependencies)
 }
 
-// MigrationDirs 返回描述符声明的模块自有迁移目录。
-func (d Descriptor) MigrationDirs() []string {
+// MigrationDirs 返回模块定义声明的模块自有迁移目录。
+func (d ModuleSpec) MigrationDirs() []string {
 	return trimNonEmptyStrings(d.MigrationPath)
 }
 
-// Validate 校验描述符的最小 compile-time 元数据完整性。
-func (d Descriptor) Validate() error {
+// Validate 校验模块定义的最小 compile-time 元数据完整性。
+func (d ModuleSpec) Validate() error {
 	if d.Name() == "" {
-		return errors.New("plugin descriptor name is required")
+		return errors.New("module spec name is required")
 	}
 	if d.Version() == "" {
-		return fmt.Errorf("plugin descriptor %s version is required", d.Name())
+		return fmt.Errorf("module spec %s version is required", d.Name())
 	}
 	if d.Builder == nil {
-		return fmt.Errorf("plugin descriptor %s builder is required", d.Name())
+		return fmt.Errorf("module spec %s builder is required", d.Name())
 	}
 	if _, err := normalizeDependencies(d.Name(), d.DependsOn()); err != nil {
 		return err
@@ -154,25 +153,25 @@ func (d Descriptor) Validate() error {
 	return nil
 }
 
-// Build 根据描述符构造一个运行时模块实例，并校验运行时元数据没有偏离
-// compile-time 描述符的 canonical truth。
-func (d Descriptor) Build(ctx BuildContext) (Plugin, error) {
+// Build 根据模块定义构造一个运行时模块实例，并校验运行时元数据没有偏离
+// compile-time 模块定义的 canonical truth。
+func (d ModuleSpec) Build(ctx BuildContext) (Plugin, error) {
 	if err := d.Validate(); err != nil {
 		return nil, err
 	}
 
 	built, err := d.Builder.Build(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("build plugin %s: %w", d.Name(), err)
+		return nil, fmt.Errorf("build module %s: %w", d.Name(), err)
 	}
 	if built == nil {
-		return nil, fmt.Errorf("build plugin %s: builder returned nil plugin", d.Name())
+		return nil, fmt.Errorf("build module %s: builder returned nil plugin", d.Name())
 	}
-	if err := ensureBuiltPluginMatchesDescriptor(d, built); err != nil {
+	if err := ensureBuiltPluginMatchesModuleSpec(d, built); err != nil {
 		return nil, err
 	}
 
-	return describedPlugin{descriptor: d, delegate: built}, nil
+	return describedPlugin{moduleSpec: d, delegate: built}, nil
 }
 
 // Context 向模块暴露允许使用的显式运行时句柄。
@@ -251,29 +250,29 @@ func (m *Manager) Ordered() ([]Plugin, error) {
 	return orderByDependencies(m.plugins)
 }
 
-// OrderDescriptors 按依赖关系返回稳定的描述符顺序。
+// OrderModuleSpecs 按依赖关系返回稳定的模块定义顺序。
 //
 // 它复用与运行时模块相同的拓扑排序规则，使 compile-time registry 和
 // runtime lifecycle 使用同一套依赖真相，而不是各自维护第二份排序逻辑。
-func OrderDescriptors(descriptors []Descriptor) ([]Descriptor, error) {
+func OrderModuleSpecs(descriptors []ModuleSpec) ([]ModuleSpec, error) {
 	return orderByDependencies(descriptors)
 }
 
 type describedPlugin struct {
-	descriptor Descriptor
+	moduleSpec ModuleSpec
 	delegate   Plugin
 }
 
 func (p describedPlugin) Name() string {
-	return p.descriptor.Name()
+	return p.moduleSpec.Name()
 }
 
 func (p describedPlugin) Version() string {
-	return p.descriptor.Version()
+	return p.moduleSpec.Version()
 }
 
 func (p describedPlugin) DependsOn() []string {
-	return p.descriptor.DependsOn()
+	return p.moduleSpec.DependsOn()
 }
 
 func (p describedPlugin) Register(ctx *Context) error {
@@ -288,17 +287,17 @@ func (p describedPlugin) Shutdown(ctx *Context) error {
 	return p.delegate.Shutdown(ctx)
 }
 
-func ensureBuiltPluginMatchesDescriptor(descriptor Descriptor, built Plugin) error {
+func ensureBuiltPluginMatchesModuleSpec(descriptor ModuleSpec, built Plugin) error {
 	if name := strings.TrimSpace(built.Name()); name != descriptor.Name() {
 		return fmt.Errorf(
-			"build plugin %s: runtime plugin name %q does not match descriptor",
+			"build module %s: runtime plugin name %q does not match module spec",
 			descriptor.Name(),
 			name,
 		)
 	}
 	if version := strings.TrimSpace(built.Version()); version != descriptor.Version() {
 		return fmt.Errorf(
-			"build plugin %s: runtime plugin version %q does not match descriptor",
+			"build module %s: runtime plugin version %q does not match module spec",
 			descriptor.Name(),
 			version,
 		)
@@ -310,11 +309,11 @@ func ensureBuiltPluginMatchesDescriptor(descriptor Descriptor, built Plugin) err
 	}
 	actualDependencies, err := normalizeDependencies(descriptor.Name(), built.DependsOn())
 	if err != nil {
-		return fmt.Errorf("build plugin %s: invalid runtime dependencies: %w", descriptor.Name(), err)
+		return fmt.Errorf("build module %s: invalid runtime dependencies: %w", descriptor.Name(), err)
 	}
 	if !sameStringSet(expectedDependencies, actualDependencies) {
 		return fmt.Errorf(
-			"build plugin %s: runtime dependencies %v do not match descriptor %v",
+			"build module %s: runtime dependencies %v do not match module spec %v",
 			descriptor.Name(),
 			actualDependencies,
 			expectedDependencies,

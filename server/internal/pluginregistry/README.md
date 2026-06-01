@@ -8,7 +8,7 @@
 
 这个模块负责：
 
-* 暴露生成后的 `plugin.Descriptor` 集合
+* 暴露生成后的 `plugin.ModuleSpec` 集合
 * 按依赖关系构造运行时模块实例
 * 汇总当前 owner-aligned 默认迁移目录集合
 * 提供唯一允许的集中接线文件 `generated.go`
@@ -39,5 +39,5 @@
 
 ## 维护提示
 
-新增 backend module 时，先在历史目录 `server/plugins/<name>/descriptor.go` 暴露 `NewDescriptor()`，再运行
+新增 backend module 时，先在历史目录 `server/plugins/<name>/descriptor.go` 暴露 `NewModuleSpec()`，再运行
 `go generate ./internal/pluginregistry` 更新 `generated.go`。除生成产物外，不要再手写中心化模块列表。

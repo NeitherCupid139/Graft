@@ -14,7 +14,7 @@ func TestDescriptorDependenciesMatchRuntimePlugin(t *testing.T) {
 		t.Fatalf("NewPlugin() error = %v", err)
 	}
 
-	descriptor := NewDescriptor()
+	descriptor := NewModuleSpec()
 	if !reflect.DeepEqual(descriptor.DependsOn(), instance.DependsOn()) {
 		t.Fatalf("descriptor dependencies = %v, runtime dependencies = %v", descriptor.DependsOn(), instance.DependsOn())
 	}

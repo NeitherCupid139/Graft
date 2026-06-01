@@ -13,12 +13,11 @@ import (
 )
 
 const (
-	modulePath         = "graft/server"
-	pluginRegistryRoot = "internal/pluginregistry"
-	pluginsDirName     = "plugins"
-	descriptorFile     = "descriptor.go"
-	generatedFileName  = "generated.go"
-	generatedFilePerm  = 0o600
+	modulePath        = "graft/server"
+	pluginsDirName    = "plugins"
+	descriptorFile    = "descriptor.go"
+	generatedFileName = "generated.go"
+	generatedFilePerm = 0o600
 )
 
 type modulePackage struct {
@@ -93,9 +92,9 @@ func renderGeneratedFile(packages []modulePackage) ([]byte, error) {
 		_, _ = fmt.Fprintf(&buffer, "\t%s %q\n", current.importAlias, current.importPath)
 	}
 	buffer.WriteString(")\n\n")
-	buffer.WriteString("var generatedDescriptors = []plugin.Descriptor{\n")
+	buffer.WriteString("var generatedModuleSpecs = []plugin.ModuleSpec{\n")
 	for _, current := range packages {
-		_, _ = fmt.Fprintf(&buffer, "\t%s.NewDescriptor(),\n", current.importAlias)
+		_, _ = fmt.Fprintf(&buffer, "\t%s.NewModuleSpec(),\n", current.importAlias)
 	}
 	buffer.WriteString("}\n")
 

@@ -20,19 +20,19 @@ const HistoricalSharedMigrationDir = "internal/ent/migrate/migrations"
 const accessLogMigrationDir = "internal/httpx/migrations"
 const drilldownMigrationDir = "internal/drilldown/migrations"
 
-// Descriptors 返回 compile-time 生成的插件描述符快照。
-func Descriptors() []plugin.Descriptor {
-	return append([]plugin.Descriptor(nil), generatedDescriptors...)
+// ModuleSpecs 返回 compile-time 生成的模块定义快照。
+func ModuleSpecs() []plugin.ModuleSpec {
+	return append([]plugin.ModuleSpec(nil), generatedModuleSpecs...)
 }
 
-// OrderedDescriptors 返回按依赖关系排序后的描述符集合。
-func OrderedDescriptors() ([]plugin.Descriptor, error) {
-	return plugin.OrderDescriptors(Descriptors())
+// OrderedModuleSpecs 返回按依赖关系排序后的模块定义集合。
+func OrderedModuleSpecs() ([]plugin.ModuleSpec, error) {
+	return plugin.OrderModuleSpecs(ModuleSpecs())
 }
 
-// BuildPlugins 根据 compile-time 描述符构造运行时插件集合。
-func BuildPlugins(buildCtx plugin.BuildContext) ([]plugin.Plugin, error) {
-	ordered, err := OrderedDescriptors()
+// BuildModules 根据 compile-time 模块定义构造运行时插件集合。
+func BuildModules(buildCtx plugin.BuildContext) ([]plugin.Plugin, error) {
+	ordered, err := OrderedModuleSpecs()
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +41,7 @@ func BuildPlugins(buildCtx plugin.BuildContext) ([]plugin.Plugin, error) {
 	for _, descriptor := range ordered {
 		instance, err := descriptor.Build(buildCtx)
 		if err != nil {
-			return nil, fmt.Errorf("build plugin %s: %w", descriptor.Name(), err)
+			return nil, fmt.Errorf("build module %s: %w", descriptor.Name(), err)
 		}
 
 		built = append(built, instance)
@@ -60,7 +60,7 @@ func CoreMigrationDirs() []string {
 // 默认链路先展开 live core-owned 目录，再按依赖排序展开 plugin-owned 目录，
 // 避免 CLI 再手写第二份迁移顺序真相。
 func MigrationDirs() ([]string, error) {
-	ordered, err := OrderedDescriptors()
+	ordered, err := OrderedModuleSpecs()
 	if err != nil {
 		return nil, err
 	}

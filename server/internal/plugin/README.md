@@ -14,7 +14,7 @@
 这个模块负责：
 
 * 定义模块生命周期接口
-* 定义 `plugin.Descriptor` 与 `plugin.Builder` 这条历史命名下的 compile-time module 接线边界
+* 定义 `plugin.ModuleSpec` 与 `plugin.Builder` 这条历史命名下的 compile-time module 接线边界
 * 暴露模块可见的运行时上下文
 * 按依赖关系排序模块
 

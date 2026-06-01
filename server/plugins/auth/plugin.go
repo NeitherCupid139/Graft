@@ -19,12 +19,12 @@ func NewPlugin() *Plugin {
 
 // Name 返回插件稳定标识。
 func (p *Plugin) Name() string {
-	return pluginID
+	return moduleID
 }
 
 // Version 返回当前插件版本。
 func (p *Plugin) Version() string {
-	return pluginVersion
+	return moduleVersion
 }
 
 // DependsOn 返回当前插件依赖列表。

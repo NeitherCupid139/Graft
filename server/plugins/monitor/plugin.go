@@ -126,17 +126,17 @@ func NewPlugin() *Plugin {
 
 // Name returns the stable plugin identifier.
 func (p *Plugin) Name() string {
-	return pluginID
+	return moduleID
 }
 
 // Version returns the current plugin version.
 func (p *Plugin) Version() string {
-	return pluginVersion
+	return moduleVersion
 }
 
 // DependsOn returns the plugin dependencies.
 func (p *Plugin) DependsOn() []string {
-	return append([]string(nil), pluginDependencies...)
+	return append([]string(nil), moduleDependencies...)
 }
 
 // Register declares menu, permission, routes, and i18n messages.
@@ -914,7 +914,7 @@ func runtimePluginSummaries(
 		return nil
 	}
 
-	descriptors := pluginCtx.RuntimeMetadata.OrderedPluginDescriptors()
+	descriptors := pluginCtx.RuntimeMetadata.OrderedModuleDescriptors()
 	available := make(map[string]struct{}, len(descriptors))
 	for _, descriptor := range descriptors {
 		name := strings.TrimSpace(descriptor.Name)
