@@ -512,8 +512,7 @@ describe('AuditLogsPage', () => {
       result: 'FAILED',
       created_from: '2026-05-01T10:00:00.000Z',
       created_to: '2026-05-02T18:30:00.000Z',
-      sort_by: 'created_at',
-      sort_order: 'desc',
+      sort: ['created_at:desc'],
     });
   });
 
@@ -525,8 +524,7 @@ describe('AuditLogsPage', () => {
         created_from: '2026-05-30T07:21:04.000Z',
         created_to: '2026-05-31T07:21:04.000Z',
         results: ['DENIED'],
-        sort_by: 'created_at',
-        sort_order: 'desc',
+        sort: ['created_at:desc'],
       }),
     );
     expect(wrapper.text()).not.toContain('security audit records shown');
@@ -591,8 +589,7 @@ describe('AuditLogsPage', () => {
       page_size: 10,
       preset: 'last_24h',
       scope: 'high_risk_operations',
-      sort_by: 'created_at',
-      sort_order: 'desc',
+      sort: ['created_at:desc'],
     });
   });
 
@@ -637,8 +634,7 @@ describe('AuditLogsPage', () => {
       page_size: 10,
       preset: 'last_24h',
       scope: 'sensitive_operations',
-      sort_by: 'created_at',
-      sort_order: 'desc',
+      sort: ['created_at:desc'],
     });
     expect(wrapper.text()).toContain('Drilldown: Sensitive Operations');
     expect(wrapper.text()).not.toContain('Condition:');
@@ -785,8 +781,7 @@ describe('AuditLogsPage', () => {
     expect(getAuditLogsMock).toHaveBeenLastCalledWith({
       page: 1,
       page_size: 10,
-      sort_by: 'created_at',
-      sort_order: 'desc',
+      sort: ['created_at:desc'],
     });
     expect(wrapper.text()).toContain('req-1');
   });
@@ -810,8 +805,7 @@ describe('AuditLogsPage', () => {
           created_from: expectedCreatedFrom,
           created_to: expectedCreatedTo,
           result: 'FAILED',
-          sort_by: 'created_at',
-          sort_order: 'asc',
+          sort: ['created_at:asc'],
         }),
       }),
     );
@@ -820,16 +814,14 @@ describe('AuditLogsPage', () => {
       created_from: expectedCreatedFrom,
       created_to: expectedCreatedTo,
       result: 'FAILED',
-      sort_by: 'created_at',
-      sort_order: 'asc',
+      sort: ['created_at:asc'],
     });
     expect(getAuditLogsMock).toHaveBeenLastCalledWith(
       expect.objectContaining({
         result: 'FAILED',
         created_from: expectedCreatedFrom,
         created_to: expectedCreatedTo,
-        sort_by: 'created_at',
-        sort_order: 'asc',
+        sort: ['created_at:asc'],
       }),
     );
   });
@@ -887,8 +879,7 @@ describe('AuditLogsPage', () => {
       created_from: '2026-05-03T10:00:00.000Z',
       created_to: '2026-05-04T18:30:00.000Z',
       results: ['DENIED'],
-      sort_by: 'created_at',
-      sort_order: 'desc',
+      sort: ['created_at:desc'],
     });
   });
 
@@ -910,8 +901,7 @@ describe('AuditLogsPage', () => {
       preset: 'last_24h',
       created_from: '2026-05-03T10:00:00.000Z',
       created_to: '2026-05-04T18:30:00.000Z',
-      sort_by: 'created_at',
-      sort_order: 'desc',
+      sort: ['created_at:desc'],
     });
     expect(router.currentRoute.value.query).not.toHaveProperty('summary');
     expect(router.currentRoute.value.query).not.toHaveProperty('risk_group');
@@ -980,8 +970,6 @@ describe('AuditLogsPage', () => {
       resource_type: 'user',
       resource_name: 'Graft Admin',
       resource_id: '1',
-      sort_by: 'created_at',
-      sort_order: 'desc',
     });
   });
 });

@@ -180,6 +180,44 @@ func handleReadAuditIncident(
 
 type auditReadGeneratedHandler struct{}
 
+var auditAllowedListQueryKeys = map[string]struct{}{
+	"page":                  {},
+	"page_size":             {},
+	"actor_user_id":         {},
+	"keyword":               {},
+	"actor":                 {},
+	"action":                {},
+	"preset":                {},
+	"scope":                 {},
+	"business_category":     {},
+	"action_prefix":         {},
+	"action_prefixes":       {},
+	"action_prefixes[]":     {},
+	"action_keywords":       {},
+	"action_keywords[]":     {},
+	"source":                {},
+	"resource_type":         {},
+	"resource_types":        {},
+	"resource_types[]":      {},
+	"resource_id":           {},
+	"resource_name":         {},
+	"request_path_prefixes": {},
+	"request_path_prefixes[]": {},
+	"request_id":            {},
+	"session_id":            {},
+	"result":                {},
+	"results":               {},
+	"results[]":             {},
+	"risk_level":            {},
+	"risk_levels":           {},
+	"risk_levels[]":         {},
+	"success":               {},
+	"created_from":          {},
+	"created_to":            {},
+	"sort":                  {},
+	"sort[]":                {},
+}
+
 func (h auditReadGeneratedHandler) GetAuditLogs(params auditopenapi.GetAuditLogsParams) {
 	_ = h
 	_ = params
@@ -225,6 +263,9 @@ func bindGeneratedAuditListParams(
 		return params, query, field
 	}
 	if field := bindAuditSort(ginCtx, &params, &query); field != "" {
+		return params, query, field
+	}
+	if field := rejectUnknownAuditListQueryKeys(ginCtx); field != "" {
 		return params, query, field
 	}
 
@@ -592,29 +633,30 @@ func bindAuditCreatedRange(ginCtx *gin.Context, params *auditopenapi.GetAuditLog
 }
 
 func bindAuditSort(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParams, query *auditcore.ListQuery) string {
-	sortBy := strings.TrimSpace(ginCtx.Query("sort_by"))
-	if sortBy != "" {
-		if sortBy != "created_at" {
-			return "sort_by"
-		}
-		sortByValue := auditopenapi.GetAuditLogsParamsSortBy(sortBy)
-		params.SortBy = &sortByValue
-		query.SortBy = sortBy
+	rawValues := queryArrayCompat(ginCtx, "sort")
+	if len(rawValues) == 0 {
+		return ""
 	}
 
-	sortOrder := strings.TrimSpace(ginCtx.Query("sort_order"))
-	if sortOrder != "" {
-		if sortBy == "" {
-			return "sort_order"
+	sorts := make([]string, 0, len(rawValues))
+	for _, raw := range rawValues {
+		field, order, ok := auditcore.ParseAuditSortExpressionForBinding(raw)
+		if !ok {
+			return "sort"
 		}
-		if sortOrder != "asc" && sortOrder != "desc" {
-			return "sort_order"
-		}
-		sortOrderValue := auditopenapi.GetAuditLogsParamsSortOrder(sortOrder)
-		params.SortOrder = &sortOrderValue
-		query.SortOrder = sortOrder
+		sorts = append(sorts, field+":"+order)
 	}
+	params.Sort = &sorts
+	query.Sorts = sorts
+	return ""
+}
 
+func rejectUnknownAuditListQueryKeys(ginCtx *gin.Context) string {
+	for key := range ginCtx.Request.URL.Query() {
+		if _, ok := auditAllowedListQueryKeys[key]; !ok {
+			return key
+		}
+	}
 	return ""
 }
 

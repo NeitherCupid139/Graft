@@ -412,6 +412,34 @@ func TestAuditLogsRouteAcceptsBracketedArrayFilters(t *testing.T) {
 	}
 }
 
+func TestAuditLogsRouteAcceptsRepeatedSortParams(t *testing.T) {
+	repo := &memoryAuditRepository{}
+	_, engine, _ := newPluginTestContext(t, repo)
+
+	request := httptest.NewRequest(http.MethodGet, "/api/audit/logs?sort=created_at:desc", nil)
+	request.Header.Set("Authorization", "Bearer token")
+	recorder := httptest.NewRecorder()
+	engine.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", recorder.Code)
+	}
+}
+
+func TestAuditLogsRouteRejectsUnknownQueryKeys(t *testing.T) {
+	repo := &memoryAuditRepository{}
+	_, engine, _ := newPluginTestContext(t, repo)
+
+	request := httptest.NewRequest(http.MethodGet, "/api/audit/logs?sort_by=created_at", nil)
+	request.Header.Set("Authorization", "Bearer token")
+	recorder := httptest.NewRecorder()
+	engine.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", recorder.Code)
+	}
+}
+
 func TestAuditLogsRouteAcceptsRegisteredDrilldownScopes(t *testing.T) {
 	repo := &memoryAuditRepository{}
 	scopes := []string{

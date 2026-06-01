@@ -20,35 +20,6 @@
           </div>
         </div>
 
-        <div v-if="summaryText" class="audit-filters__summary">
-          {{ summaryText }}
-        </div>
-
-        <section class="audit-filters__group">
-          <div class="audit-filters__group-header">
-            <span class="audit-filters__group-title">{{ t('audit.logList.builder.groups.time') }}</span>
-          </div>
-          <div class="audit-filters__group-body">
-            <t-select
-              :model-value="selectedTimePreset"
-              class="audit-filters__time-preset"
-              :options="timePresetOptions"
-              @update:model-value="updateTimePreset($event)"
-            />
-            <t-date-range-picker
-              v-if="selectedTimePreset === 'custom'"
-              :model-value="modelValue.createdRange"
-              allow-input
-              clearable
-              class="audit-filters__date"
-              enable-time-picker
-              format="YYYY-MM-DD HH:mm:ss"
-              :placeholder="dateRangePlaceholder"
-              @update:model-value="updateField('createdRange', $event)"
-            />
-          </div>
-        </section>
-
         <section class="audit-filters__group">
           <div class="audit-filters__group-header">
             <span class="audit-filters__group-title">{{ t('audit.logList.builder.groups.filters') }}</span>
@@ -119,36 +90,69 @@
                       @update:model-value="updateField(selectedDefinition.key, normalizeTextValue($event))"
                     />
                   </div>
+
+                  <div class="audit-filter-builder__time-group">
+                    <div class="audit-filter-builder__time-field">
+                      <span class="audit-filter-builder__time-label">
+                        {{ t('audit.logList.builder.groups.time') }}
+                      </span>
+                      <t-select
+                        :model-value="selectedTimePreset"
+                        class="audit-filters__time-preset"
+                        :options="timePresetOptions"
+                        @update:model-value="updateTimePreset($event)"
+                      />
+                      <t-date-range-picker
+                        v-if="selectedTimePreset === 'custom'"
+                        :model-value="modelValue.createdRange"
+                        allow-input
+                        clearable
+                        class="audit-filters__date"
+                        enable-time-picker
+                        format="YYYY-MM-DD HH:mm:ss"
+                        :placeholder="dateRangePlaceholder"
+                        @update:model-value="updateField('createdRange', $event)"
+                      />
+                    </div>
+
+                    <div class="audit-filter-builder__time-field">
+                      <span class="audit-filter-builder__time-label">
+                        {{ t('audit.logList.builder.groups.sort') }}
+                      </span>
+                      <div class="audit-filter-builder__sort-list">
+                        <div
+                          v-for="(sorter, index) in modelValue.sorters"
+                          :key="`sort-row-${index}`"
+                          class="audit-filter-builder__sort-row"
+                        >
+                          <t-select
+                            :model-value="sorter.field"
+                            clearable
+                            :options="sortFieldOptions"
+                            :placeholder="t('audit.logList.sort.fieldPlaceholder')"
+                            @update:model-value="updateSortField(index, $event)"
+                          />
+                          <t-select
+                            :model-value="sorter.direction ?? 'desc'"
+                            :options="sortDirectionOptions"
+                            :placeholder="t('audit.logList.sort.directionPlaceholder')"
+                            @update:model-value="updateSortDirection(index, $event)"
+                          />
+                          <t-button variant="text" theme="default" size="small" @click="removeSorter(index)">
+                            {{ t('audit.logList.actions.removeFilter') }}
+                          </t-button>
+                        </div>
+                      </div>
+                      <t-button theme="default" variant="outline" size="small" @click="addSorter">
+                        {{ t('audit.logList.actions.addFilter') }}
+                      </t-button>
+                    </div>
+                  </div>
                 </div>
               </template>
 
               <t-button theme="default" variant="dashed"> + {{ t('audit.logList.actions.addFilter') }} </t-button>
             </t-popup>
-          </div>
-        </section>
-
-        <section class="audit-filters__group">
-          <div class="audit-filters__group-header">
-            <span class="audit-filters__group-title">{{ t('audit.logList.builder.groups.sort') }}</span>
-          </div>
-          <div class="audit-filters__group-body audit-filters__group-body--sort">
-            <t-select
-              :model-value="sortFieldValue"
-              clearable
-              class="audit-filters__sort-select"
-              :options="sortFieldOptions"
-              :placeholder="t('audit.logList.sort.fieldPlaceholder')"
-              @update:model-value="updateSortField($event)"
-            />
-            <t-select
-              v-if="sortFieldValue"
-              :model-value="sortDirectionValue"
-              clearable
-              class="audit-filters__sort-select"
-              :options="sortDirectionOptions"
-              :placeholder="t('audit.logList.sort.directionPlaceholder')"
-              @update:model-value="updateSortDirection($event)"
-            />
           </div>
         </section>
 
@@ -174,7 +178,7 @@
             max-width="240"
             theme="primary"
             variant="light-outline"
-            @close="isLocked(tag.key) ? undefined : tag.key === 'sorter' ? clearSorter() : clearField(tag.key)"
+            @close="closeTag(tag.key)"
           >
             {{ tag.label }}
           </t-tag>
@@ -189,12 +193,12 @@ import { useI18n } from 'vue-i18n';
 
 import { ManagementToolbar } from '@/shared/components/management';
 import {
+  appendSorter,
   buildRecentHoursLocalRange,
-  joinQuerySummary,
-  normalizeSingleSorterDirection,
-  normalizeSingleSorterField,
-  prependSingleSorterTag,
-  useSingleSorterSelection,
+  prependSorterTags,
+  withSorterDirectionFromInput,
+  withSorterFieldFromInput,
+  withUpdatedSorters,
 } from '@/shared/observability';
 
 import type { AuditQuickPresetKey } from '../contract/presets';
@@ -211,7 +215,8 @@ import type {
 import type { AuditClientFilterState } from '../shared/presentation';
 import type { AuditSortBy, AuditSortOrder } from '../types/audit';
 
-type FilterTag = { key: AuditFilterKey; label: string };
+type FilterTagKey = AuditFilterKey | 'createdRange' | `sorter:${number}`;
+type FilterTag = { key: FilterTagKey; label: string };
 type TimePresetSelection = AuditTimePreset | 'custom';
 
 const props = defineProps<{
@@ -429,10 +434,6 @@ const definitionMap = computed<Map<AuditFilterKey, AuditFilterDefinition>>(
   () => new Map(definitions.value.map((item) => [item.key, item])),
 );
 const selectedDefinition = computed(() => definitionMap.value.get(selectedDefinitionKey.value));
-const activeSorterSelection = computed(() => useSingleSorterSelection(() => props.modelValue.sorters));
-const activeSorter = computed(() => activeSorterSelection.value.sorter);
-const sortFieldValue = computed(() => activeSorterSelection.value.field);
-const sortDirectionValue = computed(() => activeSorterSelection.value.direction);
 const selectedTimePreset = computed<TimePresetSelection>(() => {
   const [from, to] = props.modelValue.createdRange;
   if (!from || !to) {
@@ -456,33 +457,6 @@ const selectedTimePreset = computed<TimePresetSelection>(() => {
 
   return 'custom';
 });
-const summaryText = computed(() => {
-  const timeLabel =
-    selectedTimePreset.value === 'custom'
-      ? props.modelValue.createdRange.length
-        ? t('audit.logList.builder.summary.customTime', { range: props.modelValue.createdRange.join(' ~ ') })
-        : ''
-      : (timePresetOptions.value.find((option) => option.value === selectedTimePreset.value)?.label ?? '');
-  const resultLabel =
-    props.modelValue.result !== 'all'
-      ? t('audit.logList.builder.summary.result', {
-          value:
-            resultOptions.value.find((option) => option.value === props.modelValue.result)?.label ??
-            props.modelValue.result,
-        })
-      : '';
-  const sortLabel = activeSorter.value
-    ? t('audit.logList.builder.summary.sortBy', {
-        field:
-          sortFieldOptions.value.find((option) => option.value === activeSorter.value?.field)?.label ??
-          activeSorter.value.field,
-        direction: activeSorter.value.direction === 'asc' ? t('audit.logList.sort.asc') : t('audit.logList.sort.desc'),
-      })
-    : '';
-
-  return joinQuerySummary([timeLabel, resultLabel, sortLabel]);
-});
-
 const availableDefinitions = computed(() =>
   definitions.value.filter(
     (definition) =>
@@ -502,9 +476,12 @@ const activeFilterTags = computed(() => {
     }
   });
 
-  return prependSingleSorterTag(
-    filterTags,
-    activeSorter.value,
+  const timeTag = buildTimeTag();
+  const withTime = timeTag ? [{ key: 'createdRange' as const, label: timeTag }, ...filterTags] : filterTags;
+
+  return prependSorterTags(
+    withTime,
+    props.modelValue.sorters,
     sortFieldOptions.value,
     t('audit.logList.sort.tagPrefix'),
   );
@@ -545,11 +522,11 @@ function selectDefinition(key: AuditFilterKey) {
   selectedDefinitionKey.value = key;
 }
 
-function isLocked(key: AuditFilterKey | 'sorter') {
-  if (key === 'sorter') {
+function isLocked(key: FilterTagKey) {
+  if (key === 'createdRange' || key.startsWith('sorter:')) {
     return false;
   }
-  return props.lockedFields?.includes(key) ?? false;
+  return props.lockedFields?.includes(key as AuditFilterKey) ?? false;
 }
 
 function isFieldActive(key: AuditFilterKey) {
@@ -582,6 +559,13 @@ function buildTagLabel(definition: AuditFilterDefinition) {
     return `${t(definition.fieldLabelKey)}：${value.join('、')}`;
   }
 
+  if (definition.kind === 'text') {
+    if (typeof value !== 'string' || !value.trim()) {
+      return '';
+    }
+    return `${t(definition.fieldLabelKey)}：${value.trim()}`;
+  }
+
   if (definition.key === 'result' || definition.key === 'riskLevel') {
     if (value === 'all') {
       return '';
@@ -591,10 +575,6 @@ function buildTagLabel(definition: AuditFilterDefinition) {
       return '';
     }
   } else if (typeof value === 'string' && !value.trim()) {
-    return '';
-  }
-
-  if (definition.kind !== 'select') {
     return '';
   }
 
@@ -636,10 +616,38 @@ function clearField(key: AuditFilterKey) {
   updateField(key, '' as AuditClientFilterState[typeof key]);
 }
 
-function clearSorter() {
+function closeTag(key: FilterTag['key']) {
+  if (key === 'createdRange') {
+    updateField('createdRange', []);
+    return;
+  }
+
+  if (key.startsWith('sorter:')) {
+    removeSorter(Number(key.split(':')[1] || 0));
+    return;
+  }
+
+  if (isLocked(key)) {
+    return;
+  }
+
+  if (!key.startsWith('sorter:')) {
+    clearField(key as AuditFilterKey);
+  }
+}
+
+function addSorter() {
+  const defaultField = sortFieldOptions.value[0]?.value as AuditSortBy | undefined;
+  emit(
+    'update:modelValue',
+    withUpdatedSorters(props.modelValue, appendSorter(props.modelValue.sorters, defaultField, 'desc')),
+  );
+}
+
+function removeSorter(index: number) {
   emit('update:modelValue', {
     ...props.modelValue,
-    sorters: [],
+    sorters: props.modelValue.sorters.filter((_, sorterIndex) => sorterIndex !== index),
   });
 }
 
@@ -684,26 +692,32 @@ function normalizeTagInputValue(value: Array<string | number> | undefined) {
   return normalizeStringArray(value);
 }
 
-function updateSortField(value: string | number | Array<string | number> | undefined) {
-  emit('update:modelValue', {
-    ...props.modelValue,
-    sorters: normalizeSingleSorterField(value, activeSorter.value?.direction, normalizeSortField),
-  });
+function updateSortField(index: number, value: string | number | Array<string | number> | undefined) {
+  emit('update:modelValue', withSorterFieldFromInput(props.modelValue, index, value, normalizeSortField, 'desc'));
 }
 
-function updateSortDirection(value: string | number | Array<string | number> | undefined) {
-  emit('update:modelValue', {
-    ...props.modelValue,
-    sorters: normalizeSingleSorterDirection(value, activeSorter.value?.field, normalizeSortDirection),
-  });
+function updateSortDirection(index: number, value: string | number | Array<string | number> | undefined) {
+  emit('update:modelValue', withSorterDirectionFromInput(props.modelValue, index, value, normalizeSortDirection));
 }
 
-function normalizeSortField(value: string): AuditSortBy {
-  return value === 'created_at' ? 'created_at' : 'created_at';
+function normalizeSortField(value: string): AuditSortBy | '' {
+  return value === 'created_at' ? 'created_at' : '';
 }
 
 function normalizeSortDirection(value: string): AuditSortOrder {
   return value === 'asc' ? 'asc' : 'desc';
+}
+
+function buildTimeTag() {
+  if (!props.modelValue.createdRange.length) {
+    return '';
+  }
+
+  if (selectedTimePreset.value === 'custom') {
+    return `${t('audit.logList.builder.groups.time')}：${props.modelValue.createdRange.join(' ~ ')}`;
+  }
+
+  return `${t('audit.logList.builder.groups.time')}：${timePresetOptions.value.find((option) => option.value === selectedTimePreset.value)?.label ?? ''}`;
 }
 </script>
 <style scoped lang="less">
@@ -738,11 +752,6 @@ function normalizeSortDirection(value: string): AuditSortOrder {
   display: flex;
   gap: 12px;
   margin-left: auto;
-}
-
-.audit-filters__summary {
-  color: var(--td-text-color-secondary);
-  font-size: 13px;
 }
 
 .audit-filters__group {
@@ -782,10 +791,6 @@ function normalizeSortDirection(value: string): AuditSortOrder {
 .audit-filters__preset-row {
   flex: 1 1 auto;
   min-width: 0;
-}
-
-.audit-filters__sort-select {
-  min-width: 160px;
 }
 
 .audit-filters__preset-label {
@@ -853,6 +858,36 @@ function normalizeSortDirection(value: string): AuditSortOrder {
   color: var(--td-text-color-primary);
   font-size: 13px;
   font-weight: 600;
+}
+
+.audit-filter-builder__time-group {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.audit-filter-builder__time-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.audit-filter-builder__time-label {
+  color: var(--td-text-color-primary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.audit-filter-builder__sort-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.audit-filter-builder__sort-row {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
 }
 
 @media (width <= 960px) {

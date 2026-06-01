@@ -85,7 +85,8 @@ import {
   buildRecentHoursLocalRange,
   buildTodayLocalRange,
   createSingleSorter,
-  getSingleSorter,
+  decodeSorters,
+  encodeSorters,
   localDateTimeToUtcIso,
   normalizePageStateRangeForRoute,
   normalizeRouteRangeForPageState,
@@ -134,6 +135,7 @@ const pagination = ref({
 });
 const filters = ref<AccessLogFilterState>(createDefaultFilters());
 const deepLinkCorrelation = ref<'requestId' | null>(null);
+const routeHydrated = ref(false);
 
 const presetViews = computed(() => [
   { key: 'all' as const, title: t('accessLog.presets.all') },
@@ -155,12 +157,7 @@ const columnSettingOptions = computed(() => [
 ]);
 
 const hasClientOnlyFilters = computed(() =>
-  Boolean(
-    filters.value.keyword ||
-    (filters.value.username && filters.value.username !== authSessionStore.userInfo.username) ||
-    filters.value.statusCode === '400' ||
-    filters.value.statusCode === '500',
-  ),
+  Boolean(filters.value.username && filters.value.username !== authSessionStore.userInfo.username),
 );
 const displayRows = computed(() => rows.value.filter((row) => matchesClientFilters(row, filters.value)));
 const tableTotal = computed(() => (hasClientOnlyFilters.value ? displayRows.value.length : total.value));
@@ -192,27 +189,27 @@ function createDefaultFilters(): AccessLogFilterState {
 }
 
 function buildQuery(): AccessLogQuery {
-  const sorter = getSingleSorter(filters.value.sorters);
   const query: AccessLogQuery = {
     page: pagination.value.current,
     page_size: pagination.value.pageSize,
     path_match: filters.value.pathMatch,
   };
 
-  if (sorter?.field) {
-    query.sort_by = sorter.field;
-    if (sorter.direction) {
-      query.sort_order = sorter.direction;
-    }
+  const encodedSorters = encodeSorters(filters.value.sorters);
+  if (encodedSorters.length) {
+    query.sort = encodedSorters;
   }
 
+  if (filters.value.keyword) query.keyword = filters.value.keyword;
   if (filters.value.requestId) query.request_id = filters.value.requestId;
   if (filters.value.userId) query.user_id = Number(filters.value.userId);
   if (filters.value.username) query.username = filters.value.username;
   if (filters.value.method) query.method = filters.value.method;
   if (filters.value.path) query.path = filters.value.path;
   if (filters.value.route) query.route = filters.value.route;
-  if (filters.value.statusCode && filters.value.statusCode !== '400' && filters.value.statusCode !== '500') {
+  if (filters.value.statusCode === '4xx' || filters.value.statusCode === '5xx') {
+    query.status_group = filters.value.statusCode;
+  } else if (filters.value.statusCode) {
     query.status_code = Number(filters.value.statusCode);
   }
   if (filters.value.durationMinMs) query.duration_min_ms = Number(filters.value.durationMinMs);
@@ -280,12 +277,12 @@ function buildPresetFilters(preset: AccessLogPresetKey): Partial<AccessLogFilter
   const currentUsername = authSessionStore.userInfo.username;
   switch (preset) {
     case 'todayErrors': {
-      return { statusCode: '400', startedRange: buildTodayLocalRange(now) };
+      return { statusCode: '4xx', startedRange: buildTodayLocalRange(now) };
     }
     case 'status4xx':
-      return { statusCode: '400' };
+      return { statusCode: '4xx' };
     case 'status5xx':
-      return { statusCode: '500' };
+      return { statusCode: '5xx' };
     case 'slowRequests':
       return { durationMinMs: '3000' };
     case 'currentUser':
@@ -300,38 +297,63 @@ function buildPresetFilters(preset: AccessLogPresetKey): Partial<AccessLogFilter
 
 function applyRouteFilters() {
   const {
+    keyword = '',
     request_id: requestId = '',
     user_id: userId = '',
     username = '',
+    method = '',
+    path = '',
+    path_match: pathMatch = '',
+    route: routeValue = '',
+    status_code: statusCode = '',
+    status_group: statusGroup = '',
+    duration_min_ms: durationMinMs = '',
+    duration_max_ms: durationMaxMs = '',
     started_from: startedFrom = '',
     started_to: startedTo = '',
-    sort_by: sortBy = '',
-    sort_order: sortOrder = '',
+    sort = [],
   } = parseAccessLogRouteQuery(route.query);
+  const parsedSorters = decodeSorters(sort, normalizeSortBy, normalizeSortOrder);
+  const nextStatusCode = statusGroup || statusCode;
   filters.value = {
     ...filters.value,
+    keyword,
     requestId,
     userId,
     username,
+    method,
+    path,
+    pathMatch: pathMatch === 'prefix' ? 'prefix' : 'exact',
+    route: routeValue,
+    statusCode: nextStatusCode,
+    durationMinMs,
+    durationMaxMs,
     startedRange: normalizeRouteRangeForPageState([startedFrom, startedTo]),
-    sorters: sortBy
-      ? createSingleSorter(normalizeSortBy(sortBy), normalizeSortOrder(sortOrder || 'desc'))
-      : filters.value.sorters,
+    sorters: parsedSorters.length ? parsedSorters : routeHydrated.value ? [] : createSingleSorter('started_at', 'desc'),
   };
   deepLinkCorrelation.value = requestId ? 'requestId' : null;
+  routeHydrated.value = true;
 }
 
 function buildRouteQuery() {
-  const sorter = getSingleSorter(filters.value.sorters);
   const [startedFrom = '', startedTo = ''] = normalizePageStateRangeForRoute(filters.value.startedRange);
+  const isGroupedStatusCode = filters.value.statusCode === '4xx' || filters.value.statusCode === '5xx';
   return buildAccessLogLocation({
+    keyword: filters.value.keyword,
     request_id: filters.value.requestId,
     user_id: filters.value.userId,
     username: filters.value.username,
+    method: filters.value.method,
+    path: filters.value.path,
+    path_match: filters.value.pathMatch === 'prefix' ? filters.value.pathMatch : '',
+    route: filters.value.route,
+    status_code: isGroupedStatusCode ? '' : filters.value.statusCode,
+    status_group: isGroupedStatusCode ? filters.value.statusCode : '',
+    duration_min_ms: filters.value.durationMinMs,
+    duration_max_ms: filters.value.durationMaxMs,
     started_from: startedFrom,
     started_to: startedTo,
-    sort_by: sorter?.field ?? '',
-    sort_order: sorter?.field ? (sorter.direction ?? '') : '',
+    sort: encodeSorters(filters.value.sorters),
   });
 }
 
@@ -341,23 +363,44 @@ async function updateRouteQuery() {
   }
 
   const targetLocation = buildRouteQuery();
+  const currentKeyword = typeof route.query.keyword === 'string' ? route.query.keyword : '';
   const currentRequestId = typeof route.query.request_id === 'string' ? route.query.request_id : '';
   const currentUserId = typeof route.query.user_id === 'string' ? route.query.user_id : '';
   const currentUsername = typeof route.query.username === 'string' ? route.query.username : '';
+  const currentMethod = typeof route.query.method === 'string' ? route.query.method : '';
+  const currentPath = typeof route.query.path === 'string' ? route.query.path : '';
+  const currentPathMatch = typeof route.query.path_match === 'string' ? route.query.path_match : '';
+  const currentRouteValue = typeof route.query.route === 'string' ? route.query.route : '';
+  const currentStatusCode = typeof route.query.status_code === 'string' ? route.query.status_code : '';
+  const currentStatusGroup = typeof route.query.status_group === 'string' ? route.query.status_group : '';
+  const currentDurationMinMs = typeof route.query.duration_min_ms === 'string' ? route.query.duration_min_ms : '';
+  const currentDurationMaxMs = typeof route.query.duration_max_ms === 'string' ? route.query.duration_max_ms : '';
   const currentStartedFrom = typeof route.query.started_from === 'string' ? route.query.started_from : '';
   const currentStartedTo = typeof route.query.started_to === 'string' ? route.query.started_to : '';
-  const currentSortBy = typeof route.query.sort_by === 'string' ? route.query.sort_by : '';
-  const currentSortOrder = typeof route.query.sort_order === 'string' ? route.query.sort_order : '';
-  const nextQuery = targetLocation.query as Record<string, string>;
+  const currentSort = Array.isArray(route.query.sort)
+    ? route.query.sort.map((item) => String(item))
+    : typeof route.query.sort === 'string'
+      ? [route.query.sort]
+      : [];
+  const nextQuery = targetLocation.query as Record<string, string | string[]>;
+  const nextSort = Array.isArray(nextQuery.sort) ? nextQuery.sort : nextQuery.sort ? [nextQuery.sort] : [];
 
   if (
+    currentKeyword === (nextQuery.keyword ?? '') &&
     currentRequestId === (nextQuery.request_id ?? '') &&
     currentUserId === (nextQuery.user_id ?? '') &&
     currentUsername === (nextQuery.username ?? '') &&
+    currentMethod === (nextQuery.method ?? '') &&
+    currentPath === (nextQuery.path ?? '') &&
+    currentPathMatch === (nextQuery.path_match ?? '') &&
+    currentRouteValue === (nextQuery.route ?? '') &&
+    currentStatusCode === (nextQuery.status_code ?? '') &&
+    currentStatusGroup === (nextQuery.status_group ?? '') &&
+    currentDurationMinMs === (nextQuery.duration_min_ms ?? '') &&
+    currentDurationMaxMs === (nextQuery.duration_max_ms ?? '') &&
     currentStartedFrom === (nextQuery.started_from ?? '') &&
     currentStartedTo === (nextQuery.started_to ?? '') &&
-    currentSortBy === (nextQuery.sort_by ?? '') &&
-    currentSortOrder === (nextQuery.sort_order ?? '')
+    JSON.stringify(currentSort) === JSON.stringify(nextSort)
   ) {
     await fetchAccessLogs();
     return;
@@ -367,17 +410,6 @@ async function updateRouteQuery() {
 }
 
 function matchesClientFilters(row: AccessLogItem, state: AccessLogFilterState) {
-  if (state.keyword) {
-    const keyword = state.keyword.toLowerCase();
-    const haystack = [row.request_id, row.path, row.route, row.username, row.method]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase();
-    if (!haystack.includes(keyword)) {
-      return false;
-    }
-  }
-
   if (state.requestId && row.request_id !== state.requestId) {
     return false;
   }
@@ -397,13 +429,7 @@ function matchesClientFilters(row: AccessLogItem, state: AccessLogFilterState) {
     }
   }
   if (state.statusCode) {
-    if (state.statusCode === '400' && (row.status_code < 400 || row.status_code >= 500)) {
-      return false;
-    }
-    if (state.statusCode === '500' && row.status_code < 500) {
-      return false;
-    }
-    if (state.statusCode !== '400' && state.statusCode !== '500' && row.status_code !== Number(state.statusCode)) {
+    if (row.status_code !== Number(state.statusCode)) {
       return false;
     }
   }
@@ -419,13 +445,21 @@ function matchesClientFilters(row: AccessLogItem, state: AccessLogFilterState) {
 
 watch(
   () => [
+    route.query.keyword,
     route.query.request_id,
     route.query.user_id,
     route.query.username,
+    route.query.method,
+    route.query.path,
+    route.query.path_match,
+    route.query.route,
+    route.query.status_code,
+    route.query.status_group,
+    route.query.duration_min_ms,
+    route.query.duration_max_ms,
     route.query.started_from,
     route.query.started_to,
-    route.query.sort_by,
-    route.query.sort_order,
+    route.query.sort,
   ],
   () => {
     applyingRoute.value = true;
@@ -441,7 +475,11 @@ watch(
 );
 
 function normalizeSortBy(value: string) {
-  return value === 'occurred_at' || value === 'duration_ms' || value === 'status_code' ? value : 'started_at';
+  return value === 'occurred_at' || value === 'duration_ms' || value === 'status_code'
+    ? value
+    : value === 'started_at'
+      ? 'started_at'
+      : '';
 }
 
 function normalizeSortOrder(value: string) {

@@ -57,8 +57,7 @@ export type AuditLogQuery = {
   request_path_prefixes?: string[];
   created_from?: string;
   created_to?: string;
-  sort_by?: AuditSortBy;
-  sort_order?: AuditSortOrder;
+  sort?: string[];
 };
 
 export type AuditOverviewQuery = {

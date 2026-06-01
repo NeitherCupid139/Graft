@@ -20,34 +20,6 @@
           </div>
         </div>
 
-        <div v-if="summaryText" class="access-log-filters__summary">
-          {{ summaryText }}
-        </div>
-
-        <section class="access-log-filters__group">
-          <div class="access-log-filters__group-header">
-            <span class="access-log-filters__group-title">{{ t('accessLog.builder.groups.time') }}</span>
-          </div>
-          <div class="access-log-filters__group-body">
-            <t-select
-              :model-value="selectedTimePreset"
-              class="access-log-filters__time-preset"
-              :options="timePresetOptions"
-              @update:model-value="updateTimePreset"
-            />
-            <t-date-range-picker
-              v-if="selectedTimePreset === 'custom'"
-              :model-value="modelValue.startedRange"
-              allow-input
-              clearable
-              enable-time-picker
-              format="YYYY-MM-DD HH:mm:ss"
-              :placeholder="[t('accessLog.filters.startedRange'), t('accessLog.filters.startedRange')]"
-              @update:model-value="updateStartedRange"
-            />
-          </div>
-        </section>
-
         <section class="access-log-filters__group">
           <div class="access-log-filters__group-header">
             <span class="access-log-filters__group-title">{{ t('accessLog.builder.groups.filters') }}</span>
@@ -102,36 +74,68 @@
                       @update:model-value="updateField(selectedDefinition.key, normalizeTextValue($event))"
                     />
                   </div>
+
+                  <div class="access-log-filter-builder__time-group">
+                    <div class="access-log-filter-builder__time-field">
+                      <span class="access-log-filter-builder__time-label">
+                        {{ t('accessLog.builder.groups.time') }}
+                      </span>
+                      <t-select
+                        :model-value="selectedTimePreset"
+                        class="access-log-filters__time-preset"
+                        :options="timePresetOptions"
+                        @update:model-value="updateTimePreset"
+                      />
+                      <t-date-range-picker
+                        v-if="selectedTimePreset === 'custom'"
+                        :model-value="modelValue.startedRange"
+                        allow-input
+                        clearable
+                        enable-time-picker
+                        format="YYYY-MM-DD HH:mm:ss"
+                        :placeholder="[t('accessLog.filters.startedRange'), t('accessLog.filters.startedRange')]"
+                        @update:model-value="updateStartedRange"
+                      />
+                    </div>
+
+                    <div class="access-log-filter-builder__time-field">
+                      <span class="access-log-filter-builder__time-label">
+                        {{ t('accessLog.builder.groups.sort') }}
+                      </span>
+                      <div class="access-log-filter-builder__sort-list">
+                        <div
+                          v-for="(sorter, index) in modelValue.sorters"
+                          :key="`sort-row-${index}`"
+                          class="access-log-filter-builder__sort-row"
+                        >
+                          <t-select
+                            :model-value="sorter.field"
+                            clearable
+                            :options="sortByOptions"
+                            :placeholder="t('accessLog.sort.fieldPlaceholder')"
+                            @update:model-value="updateSortField(index, $event)"
+                          />
+                          <t-select
+                            :model-value="sorter.direction ?? 'desc'"
+                            :options="sortOrderOptions"
+                            :placeholder="t('accessLog.sort.directionPlaceholder')"
+                            @update:model-value="updateSortDirection(index, $event)"
+                          />
+                          <t-button variant="text" theme="default" size="small" @click="removeSorter(index)">
+                            {{ t('accessLog.actions.reset') }}
+                          </t-button>
+                        </div>
+                      </div>
+                      <t-button theme="default" variant="outline" size="small" @click="addSorter">
+                        {{ t('accessLog.actions.addFilter') }}
+                      </t-button>
+                    </div>
+                  </div>
                 </div>
               </template>
 
               <t-button theme="default" variant="dashed">+ {{ t('accessLog.actions.addFilter') }}</t-button>
             </t-popup>
-          </div>
-        </section>
-
-        <section class="access-log-filters__group">
-          <div class="access-log-filters__group-header">
-            <span class="access-log-filters__group-title">{{ t('accessLog.builder.groups.sort') }}</span>
-          </div>
-          <div class="access-log-filters__group-body access-log-filters__group-body--sort">
-            <t-select
-              :model-value="sortFieldValue"
-              clearable
-              class="access-log-filters__sort-select"
-              :options="sortByOptions"
-              :placeholder="t('accessLog.sort.fieldPlaceholder')"
-              @update:model-value="updateSortField($event)"
-            />
-            <t-select
-              v-if="sortFieldValue"
-              :model-value="sortDirectionValue"
-              clearable
-              class="access-log-filters__sort-select"
-              :options="sortOrderOptions"
-              :placeholder="t('accessLog.sort.directionPlaceholder')"
-              @update:model-value="updateSortDirection($event)"
-            />
           </div>
         </section>
 
@@ -158,7 +162,7 @@
               theme="primary"
               :title="tag.label"
               variant="light-outline"
-              @close="clearField(tag.key)"
+              @close="clearTag(tag.key)"
             >
               {{ tag.label }}
             </t-tag>
@@ -174,12 +178,12 @@ import { useI18n } from 'vue-i18n';
 
 import { ManagementToolbar } from '@/shared/components/management';
 import {
+  appendSorter,
   buildRecentHoursLocalRange,
-  getSingleSorter,
-  joinQuerySummary,
-  normalizeSingleSorterDirection,
-  normalizeSingleSorterField,
-  prependSingleSorterTag,
+  prependSorterTags,
+  withSorterDirectionFromInput,
+  withSorterFieldFromInput,
+  withUpdatedSorters,
 } from '@/shared/observability';
 
 import type {
@@ -199,6 +203,7 @@ type AccessLogPresetKey =
   | 'lastHour';
 type TimePresetKey = 'last24h' | 'last7d' | 'last30d' | 'custom';
 type FilterKey = Exclude<keyof AccessLogFilterState, 'keyword' | 'pathMatch' | 'route' | 'sorters' | 'startedRange'>;
+type TagKey = FilterKey | 'startedRange' | `sorter:${number}`;
 type SelectFilterKey = 'method';
 type BaseFilterDefinition<Key extends FilterKey> = {
   key: Key;
@@ -309,9 +314,6 @@ const definitions = computed<FilterDefinition[]>(() => [
 const selectedDefinition = computed(() =>
   definitions.value.find((definition) => definition.key === selectedDefinitionKey.value),
 );
-const activeSorter = computed(() => getSingleSorter(props.modelValue.sorters));
-const sortFieldValue = computed(() => activeSorter.value?.field ?? '');
-const sortDirectionValue = computed(() => activeSorter.value?.direction ?? '');
 const selectedTimePreset = computed<TimePresetKey>(() => {
   const [startedFrom, startedTo] = props.modelValue.startedRange;
   if (!startedFrom || !startedTo) {
@@ -335,30 +337,6 @@ const selectedTimePreset = computed<TimePresetKey>(() => {
 
   return 'custom';
 });
-const summaryText = computed(() => {
-  const sorterLabel =
-    activeSorter.value && sortByOptions.value.find((option) => option.value === activeSorter.value?.field)?.label
-      ? `${t('accessLog.builder.summary.sortBy', {
-          field: sortByOptions.value.find((option) => option.value === activeSorter.value?.field)?.label,
-          direction:
-            activeSorter.value?.direction === 'asc' ? t('accessLog.filters.sortAsc') : t('accessLog.filters.sortDesc'),
-        })}`
-      : '';
-  const timeLabel =
-    selectedTimePreset.value === 'custom'
-      ? props.modelValue.startedRange.length
-        ? `${t('accessLog.builder.summary.customTime', {
-            range: props.modelValue.startedRange.filter(Boolean).join(' ~ '),
-          })}`
-        : ''
-      : t(`accessLog.time.${selectedTimePreset.value}`);
-  const statusLabel = props.modelValue.statusCode
-    ? `${t('accessLog.builder.fields.statusCode')} ${props.modelValue.statusCode}`
-    : '';
-
-  return joinQuerySummary([timeLabel, statusLabel, sorterLabel]);
-});
-
 const activeFilterTags = computed(() => {
   const filterTags = definitions.value
     .map((definition) => {
@@ -376,7 +354,12 @@ const activeFilterTags = computed(() => {
     .flat()
     .filter((item): item is { key: FilterKey; label: string } => Boolean(item));
 
-  return prependSingleSorterTag(filterTags, activeSorter.value, sortByOptions.value, t('accessLog.sort.tagPrefix'));
+  const timeTag = buildTimeTag();
+  const withTime = timeTag
+    ? ([{ key: 'startedRange' as const, label: timeTag }, ...filterTags] as Array<{ key: TagKey; label: string }>)
+    : filterTags;
+
+  return prependSorterTags(withTime, props.modelValue.sorters, sortByOptions.value, t('accessLog.sort.tagPrefix'));
 });
 
 function updateField<Key extends keyof AccessLogFilterState>(key: Key, value: AccessLogFilterState[Key]) {
@@ -416,19 +399,26 @@ function updateTimePreset(value: string | number | Array<string | number> | unde
   });
 }
 
-function clearField(key: FilterKey | 'sorter') {
-  if (key === 'sorter') {
-    emit('update:modelValue', {
-      ...props.modelValue,
-      sorters: [],
-    });
-    return;
-  }
+function clearField(key: FilterKey) {
   if (key === 'method') {
     updateField('method', '');
     return;
   }
   updateField(key, '');
+}
+
+function clearTag(key: TagKey) {
+  if (key === 'startedRange') {
+    updateStartedRange([]);
+    return;
+  }
+
+  if (key.startsWith('sorter:')) {
+    removeSorter(Number(key.split(':')[1] || 0));
+    return;
+  }
+
+  clearField(key as FilterKey);
 }
 
 function selectDefinition(key: FilterKey) {
@@ -451,17 +441,38 @@ function normalizeSortOrder(value: string): AccessLogSortOrder {
   return value === 'asc' ? 'asc' : 'desc';
 }
 
-function updateSortField(value: string | number | Array<string | number> | undefined) {
-  emit('update:modelValue', {
-    ...props.modelValue,
-    sorters: normalizeSingleSorterField(value, activeSorter.value?.direction, normalizeSortBy),
-  });
+function addSorter() {
+  const defaultField = sortByOptions.value[0]?.value as AccessLogSortBy | undefined;
+  emit(
+    'update:modelValue',
+    withUpdatedSorters(props.modelValue, appendSorter(props.modelValue.sorters, defaultField, 'desc')),
+  );
 }
 
-function updateSortDirection(value: string | number | Array<string | number> | undefined) {
+function updateSortField(index: number, value: string | number | Array<string | number> | undefined) {
+  emit('update:modelValue', withSorterFieldFromInput(props.modelValue, index, value, normalizeSortBy, 'desc'));
+}
+
+function updateSortDirection(index: number, value: string | number | Array<string | number> | undefined) {
+  emit('update:modelValue', withSorterDirectionFromInput(props.modelValue, index, value, normalizeSortOrder));
+}
+
+function buildTimeTag() {
+  if (!props.modelValue.startedRange.length) {
+    return '';
+  }
+
+  if (selectedTimePreset.value === 'custom') {
+    return `${t('accessLog.builder.groups.time')}：${props.modelValue.startedRange.filter(Boolean).join(' ~ ')}`;
+  }
+
+  return `${t('accessLog.builder.groups.time')}：${t(`accessLog.time.${selectedTimePreset.value}`)}`;
+}
+
+function removeSorter(index: number) {
   emit('update:modelValue', {
     ...props.modelValue,
-    sorters: normalizeSingleSorterDirection(value, activeSorter.value?.field, normalizeSortOrder),
+    sorters: props.modelValue.sorters.filter((_, sorterIndex) => sorterIndex !== index),
   });
 }
 
@@ -496,11 +507,6 @@ void (null as unknown as AccessLogPathMatch);
   margin-left: auto;
 }
 
-.access-log-filters__summary {
-  color: var(--td-text-color-secondary);
-  font-size: 13px;
-}
-
 .access-log-filters__group {
   background: var(--td-bg-color-container);
   border: 1px solid var(--td-component-border);
@@ -522,10 +528,6 @@ void (null as unknown as AccessLogPathMatch);
   justify-content: flex-start;
 }
 
-.access-log-filters__group-body--sort {
-  align-items: center;
-}
-
 .access-log-filters__time-preset {
   min-width: 180px;
 }
@@ -539,10 +541,6 @@ void (null as unknown as AccessLogPathMatch);
 .access-log-filters__preset-row {
   flex: 1 1 auto;
   min-width: 0;
-}
-
-.access-log-filters__sort-select {
-  min-width: 160px;
 }
 
 .access-log-filters__preset-label {
@@ -639,6 +637,18 @@ void (null as unknown as AccessLogPathMatch);
   font-weight: 600;
 }
 
+.access-log-filter-builder__sort-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.access-log-filter-builder__sort-row {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+}
+
 @media (width <= 960px) {
   .access-log-filters__actions {
     margin-left: 0;
@@ -659,7 +669,6 @@ void (null as unknown as AccessLogPathMatch);
 
   .access-log-filters__keyword,
   .access-log-filters__actions,
-  .access-log-filters__sort-row,
   .access-log-filters__preset-row {
     min-width: 0;
     width: 100%;

@@ -166,83 +166,7 @@ func TestAccessLogRepositoryListAccessLogsSortNormalization(t *testing.T) {
 
 	seedAccessLogSortNormalizationCases(ctx, t, repo, base)
 
-	testCases := []struct {
-		name      string
-		query     AccessLogListQuery
-		wantOrder []string
-	}{
-		{
-			name: "occurred at desc",
-			query: AccessLogListQuery{
-				Page:      1,
-				PageSize:  10,
-				SortBy:    AccessLogSortOccurredAt,
-				SortOrder: AccessLogSortOrderDesc,
-			},
-			wantOrder: []string{"req-b", "req-c", "req-a"},
-		},
-		{
-			name: "started at desc is default authority sort",
-			query: AccessLogListQuery{
-				Page:      1,
-				PageSize:  10,
-				SortBy:    AccessLogSortStartedAt,
-				SortOrder: AccessLogSortOrderDesc,
-			},
-			wantOrder: []string{"req-b", "req-c", "req-a"},
-		},
-		{
-			name: "duration asc",
-			query: AccessLogListQuery{
-				Page:      1,
-				PageSize:  10,
-				SortBy:    AccessLogSortDurationMS,
-				SortOrder: AccessLogSortOrderAsc,
-			},
-			wantOrder: []string{"req-b", "req-a", "req-c"},
-		},
-		{
-			name: "status desc",
-			query: AccessLogListQuery{
-				Page:      1,
-				PageSize:  10,
-				SortBy:    AccessLogSortStatusCode,
-				SortOrder: AccessLogSortOrderDesc,
-			},
-			wantOrder: []string{"req-c", "req-a", "req-b"},
-		},
-		{
-			name: "invalid sort by falls back to occurred at",
-			query: AccessLogListQuery{
-				Page:      1,
-				PageSize:  10,
-				SortBy:    AccessLogSortField("occurred_at; DROP TABLE access_logs; --"),
-				SortOrder: AccessLogSortOrderAsc,
-			},
-			wantOrder: []string{"req-a", "req-c", "req-b"},
-		},
-		{
-			name: "invalid sort order falls back to desc",
-			query: AccessLogListQuery{
-				Page:      1,
-				PageSize:  10,
-				SortBy:    AccessLogSortOccurredAt,
-				SortOrder: AccessLogSortOrder("asc; DROP TABLE access_logs; --"),
-			},
-			wantOrder: []string{"req-b", "req-c", "req-a"},
-		},
-		{
-			name: "invalid sort by and order still list safely",
-			query: AccessLogListQuery{
-				Page:      1,
-				PageSize:  10,
-				SortBy:    AccessLogSortField("status_code desc; DROP TABLE access_logs; --"),
-				SortOrder: AccessLogSortOrder("desc NULLS LAST"),
-			},
-			wantOrder: []string{"req-b", "req-c", "req-a"},
-		},
-	}
-
+	testCases := accessLogSortNormalizationTestCases()
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			result, listErr := repo.ListAccessLogs(ctx, testCase.query)
@@ -251,6 +175,109 @@ func TestAccessLogRepositoryListAccessLogsSortNormalization(t *testing.T) {
 			}
 			assertAccessLogRequestOrder(t, result, testCase.wantOrder)
 		})
+	}
+}
+
+type accessLogSortNormalizationCase struct {
+	name      string
+	query     AccessLogListQuery
+	wantOrder []string
+}
+
+func accessLogSortNormalizationTestCases() []accessLogSortNormalizationCase {
+	return []accessLogSortNormalizationCase{
+		{
+			name: "occurred at desc",
+			query: AccessLogListQuery{
+				Page:     1,
+				PageSize: 10,
+				Sorts: []AccessLogSort{{
+					Field: AccessLogSortOccurredAt,
+					Order: AccessLogSortOrderDesc,
+				}},
+			},
+			wantOrder: []string{"req-b", "req-c", "req-a"},
+		},
+		{
+			name: "started at desc",
+			query: AccessLogListQuery{
+				Page:     1,
+				PageSize: 10,
+				Sorts: []AccessLogSort{{
+					Field: AccessLogSortStartedAt,
+					Order: AccessLogSortOrderDesc,
+				}},
+			},
+			wantOrder: []string{"req-b", "req-c", "req-a"},
+		},
+		{
+			name: "duration asc",
+			query: AccessLogListQuery{
+				Page:     1,
+				PageSize: 10,
+				Sorts: []AccessLogSort{{
+					Field: AccessLogSortDurationMS,
+					Order: AccessLogSortOrderAsc,
+				}},
+			},
+			wantOrder: []string{"req-b", "req-a", "req-c"},
+		},
+		{
+			name: "status desc",
+			query: AccessLogListQuery{
+				Page:     1,
+				PageSize: 10,
+				Sorts: []AccessLogSort{{
+					Field: AccessLogSortStatusCode,
+					Order: AccessLogSortOrderDesc,
+				}},
+			},
+			wantOrder: []string{"req-c", "req-a", "req-b"},
+		},
+		{
+			name: "invalid sort field falls back to repository default order",
+			query: AccessLogListQuery{
+				Page:     1,
+				PageSize: 10,
+				Sorts: []AccessLogSort{{
+					Field: AccessLogSortField("occurred_at; DROP TABLE access_logs; --"),
+					Order: AccessLogSortOrderAsc,
+				}},
+			},
+			wantOrder: []string{"req-b", "req-c", "req-a"},
+		},
+		{
+			name: "invalid sort order falls back to desc",
+			query: AccessLogListQuery{
+				Page:     1,
+				PageSize: 10,
+				Sorts: []AccessLogSort{{
+					Field: AccessLogSortOccurredAt,
+					Order: AccessLogSortOrder("asc; DROP TABLE access_logs; --"),
+				}},
+			},
+			wantOrder: []string{"req-b", "req-c", "req-a"},
+		},
+		{
+			name: "invalid sort field and order still list safely",
+			query: AccessLogListQuery{
+				Page:     1,
+				PageSize: 10,
+				Sorts: []AccessLogSort{{
+					Field: AccessLogSortField("status_code desc; DROP TABLE access_logs; --"),
+					Order: AccessLogSortOrder("desc NULLS LAST"),
+				}},
+			},
+			wantOrder: []string{"req-b", "req-c", "req-a"},
+		},
+		{
+			name: "no explicit sort keeps backend default pagination order",
+			query: AccessLogListQuery{
+				Page:     1,
+				PageSize: 10,
+			},
+			wantOrder: []string{"req-b", "req-c", "req-a"},
+		},
 	}
 }
 
@@ -269,11 +296,13 @@ func TestAccessLogRepositoryListAccessLogsTreatsTraceIDFilterAsRequestIDAlias(t 
 	}
 
 	result, err := repo.ListAccessLogs(ctx, AccessLogListQuery{
-		Page:      1,
-		PageSize:  10,
-		TraceID:   "req-2",
-		SortBy:    AccessLogSortOccurredAt,
-		SortOrder: AccessLogSortOrderAsc,
+		Page:     1,
+		PageSize: 10,
+		TraceID:  "req-2",
+		Sorts: []AccessLogSort{{
+			Field: AccessLogSortOccurredAt,
+			Order: AccessLogSortOrderAsc,
+		}},
 	})
 	if err != nil {
 		t.Fatalf("list access logs by trace id: %v", err)
@@ -333,8 +362,10 @@ func TestAccessLogRepositoryListAccessLogsEscapesPrefixPathWildcards(t *testing.
 				PageSize:      10,
 				Path:          testCase.path,
 				PathMatchMode: AccessLogPathMatchPrefix,
-				SortBy:        AccessLogSortOccurredAt,
-				SortOrder:     AccessLogSortOrderAsc,
+				Sorts: []AccessLogSort{{
+					Field: AccessLogSortOccurredAt,
+					Order: AccessLogSortOrderAsc,
+				}},
 			})
 			if listErr != nil {
 				t.Fatalf("list access logs by prefix path: %v", listErr)
@@ -389,8 +420,10 @@ func TestAccessLogRepositoryListAccessLogsFiltersStartedAtAndOccurredAtIndepende
 		StartedTo:    timePointer(base),
 		OccurredFrom: timePointer(base.Add(-10 * time.Minute)),
 		OccurredTo:   timePointer(base),
-		SortBy:       AccessLogSortStartedAt,
-		SortOrder:    AccessLogSortOrderAsc,
+		Sorts: []AccessLogSort{{
+			Field: AccessLogSortStartedAt,
+			Order: AccessLogSortOrderAsc,
+		}},
 	})
 	if err != nil {
 		t.Fatalf("list access logs with independent time filters: %v", err)
@@ -400,6 +433,35 @@ func TestAccessLogRepositoryListAccessLogsFiltersStartedAtAndOccurredAtIndepende
 		t.Fatalf("expected total 1, got %d", result.Total)
 	}
 	assertAccessLogRequestOrder(t, result, []string{"req-b"})
+}
+
+func TestAccessLogRepositoryListAccessLogsSupportsKeywordAndStatusGroupFilters(t *testing.T) {
+	repo := newSQLiteAccessLogRepository(t)
+	ctx := context.Background()
+	base := time.Date(2026, 5, 30, 9, 0, 0, 0, time.UTC)
+
+	_, err := repo.CreateAccessLogs(ctx, []CreateAccessLogInput{
+		{RequestID: "req-404", Method: "GET", Path: "/api/users", Username: "alice", StatusCode: 404, DurationMS: 1, OccurredAt: base},
+		{RequestID: "req-500", Method: "GET", Path: "/api/orders", Username: "bob", StatusCode: 500, DurationMS: 1, OccurredAt: base.Add(time.Minute)},
+		{RequestID: "req-200", Method: "GET", Path: "/healthz", Username: "ops", StatusCode: 200, DurationMS: 1, OccurredAt: base.Add(2 * time.Minute)},
+	})
+	if err != nil {
+		t.Fatalf("seed access logs: %v", err)
+	}
+
+	result, err := repo.ListAccessLogs(ctx, AccessLogListQuery{
+		Page:         1,
+		PageSize:     10,
+		Keyword:      "alice",
+		StatusGroups: []AccessLogStatusGroup{AccessLogStatusGroup4xx},
+	})
+	if err != nil {
+		t.Fatalf("list access logs with keyword and status_group: %v", err)
+	}
+	if result.Total != 1 {
+		t.Fatalf("expected total 1, got %d", result.Total)
+	}
+	assertAccessLogRequestOrder(t, result, []string{"req-404"})
 }
 
 func seedAccessLogSortNormalizationCases(

@@ -7,6 +7,7 @@ import AccessLogFilters from './AccessLogFilters.vue';
 
 const buttonStub = defineComponent({
   name: 'TButtonStub',
+  inheritAttrs: false,
   emits: ['click'],
   setup(_, { attrs, emit, slots }) {
     return () => h('button', { ...attrs, onClick: () => emit('click') }, slots.default?.());
@@ -16,8 +17,8 @@ const buttonStub = defineComponent({
 const tagStub = defineComponent({
   name: 'TTagStub',
   emits: ['close'],
-  setup(_, { slots }) {
-    return () => h('div', [h('span', slots.default?.())]);
+  setup(_, { slots, emit }) {
+    return () => h('button', { type: 'button', onClick: () => emit('close') }, [h('span', slots.default?.())]);
   },
 });
 
@@ -30,6 +31,7 @@ const passthroughStub = defineComponent({
 
 const inputStub = defineComponent({
   name: 'TInputStub',
+  inheritAttrs: false,
   props: ['modelValue', 'placeholder'],
   emits: ['update:modelValue'],
   setup(props, { emit }) {
@@ -44,6 +46,7 @@ const inputStub = defineComponent({
 
 const dateRangeStub = defineComponent({
   name: 'TDateRangePickerStub',
+  inheritAttrs: false,
   props: ['modelValue', 'placeholder'],
   emits: ['update:modelValue'],
   setup(props, { emit }) {
@@ -58,6 +61,7 @@ const dateRangeStub = defineComponent({
 
 const selectStub = defineComponent({
   name: 'TSelectStub',
+  inheritAttrs: false,
   props: ['modelValue'],
   emits: ['update:modelValue'],
   setup() {
@@ -132,7 +136,7 @@ const i18n = createI18n({
 });
 
 describe('AccessLogFilters', () => {
-  it('renders one sorter tag and clears the whole sorter at once', () => {
+  it('renders one sorter tag and clears the whole sorter at once', async () => {
     const wrapper = mount(AccessLogFilters, {
       props: {
         activePreset: 'all',
@@ -168,11 +172,11 @@ describe('AccessLogFilters', () => {
     });
 
     expect(wrapper.find('input').attributes('placeholder')).toBe('搜索请求 ID、路径、用户名');
-    expect(wrapper.text()).toContain('排序：发生时间 ↓');
+    expect(wrapper.text()).toContain('排序 1：发生时间 ↓');
     expect(wrapper.text()).toContain('请求 ID：req-1');
 
     const tags = wrapper.findAllComponents(tagStub);
-    tags[0]?.vm.$emit('close');
+    await tags[0]?.trigger('click');
 
     expect(wrapper.emitted('update:modelValue')?.[0]?.[0]).toMatchObject({
       sorters: [],
@@ -215,6 +219,6 @@ describe('AccessLogFilters', () => {
     });
 
     expect(wrapper.text()).toContain('2026-05-31 10:00:00 ~ 2026-05-31 11:00:00');
-    expect(wrapper.text()).toContain('时间范围');
+    expect(wrapper.text()).toContain('时间范围：');
   });
 });

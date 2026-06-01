@@ -43,6 +43,11 @@ get:
       in: query
       schema:
         type: string
+    - name: keyword
+      in: query
+      description: Canonical fuzzy match applied to `request_id`, `path`, and `username`.
+      schema:
+        type: string
     - name: path_match
       in: query
       schema:
@@ -56,6 +61,16 @@ get:
       in: query
       schema:
         type: integer
+    - name: status_group
+      in: query
+      description: Repeated status-code group filter for builder presets.
+      style: form
+      explode: true
+      schema:
+        type: array
+        items:
+          type: string
+          enum: ['4xx', '5xx']
     - name: duration_min_ms
       in: query
       schema:
@@ -90,17 +105,15 @@ get:
       schema:
         type: string
         format: date-time
-    - name: sort_by
+    - name: sort
       in: query
-      description: Canonical default sort is `started_at desc`. Unsupported fields must be rejected.
+      description: Repeated priority-ordered sort expression using `field:dir` semantics such as `started_at:desc`.
+      style: form
+      explode: true
       schema:
-        type: string
-        enum: [started_at, occurred_at, duration_ms, status_code]
-    - name: sort_order
-      in: query
-      schema:
-        type: string
-        enum: [asc, desc]
+        type: array
+        items:
+          type: string
   security:
     - bearerAuth: []
   responses:

@@ -132,10 +132,12 @@ Future `Access Log Explorer` may only consume a query contract bounded to canoni
 
 Allowed filters:
 
+- `keyword`
 - `request_id`
 - `path`
 - `route`
 - `status_code`
+- `status_group`
 - `started_from`
 - `started_to`
 - `occurred_from`
@@ -145,6 +147,8 @@ Allowed filters:
 
 Allowed query rules:
 
+- `keyword`
+  - bounded canonical search across `request_id`、`path`、`username`
 - `request_id`
   - exact match only
 - `path`
@@ -153,6 +157,8 @@ Allowed query rules:
   - exact match only against backend route template
 - `status_code`
   - exact match or bounded set match
+- `status_group`
+  - bounded set match only; current approved values are `4xx` and `5xx`
 - `started_from` / `started_to`
   - inclusive canonical time range on `started_at`
 - `occurred_from` / `occurred_to`
@@ -183,6 +189,14 @@ Allowed sort fields:
 Default sort:
 
 - `started_at desc`
+
+Canonical sort wire shape:
+
+- repeated `sort` query params
+- each item uses `field:dir`
+- order in the query string is the sort priority order
+- `dir` only allows `asc` / `desc`
+- if no `sort` param is present, the backend keeps its default pagination behavior
 
 Forbidden sort fields:
 

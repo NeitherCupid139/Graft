@@ -229,8 +229,7 @@ type ListAuditLogsQuery struct {
 	RiskLevels          []AuditRiskLevel
 	CreatedFrom         *time.Time
 	CreatedTo           *time.Time
-	SortBy              string
-	SortOrder           string
+	Sorts               []string
 	Limit               int
 	Offset              int
 }

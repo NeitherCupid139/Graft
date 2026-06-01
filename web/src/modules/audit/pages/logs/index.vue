@@ -112,7 +112,8 @@ import { describeCorrelationId, formatMessageWithCorrelation } from '@/shared/co
 import {
   buildRecentHoursLocalRange,
   createSingleSorter,
-  getSingleSorter,
+  decodeSorters,
+  encodeSorters,
   localDateTimeToUtcIso,
   normalizePageStateRangeForRoute,
   normalizeRouteRangeForPageState,
@@ -145,6 +146,7 @@ import type {
   AuditLogConvertibleFilters,
   AuditLogListItem,
   AuditLogQuery,
+  AuditSortBy,
   DrilldownScopeProjection,
 } from '../../types/audit';
 
@@ -180,6 +182,7 @@ const scopeProjection = ref<DrilldownScopeProjection | null>(null);
 const convertibleFilters = ref<AuditLogConvertibleFilters | null>(null);
 const applyingRoute = ref(false);
 const isRouteSyncActive = ref(true);
+const routeHydrated = ref(false);
 const navigationContext = computed(() => resolveAuditNavigationContext(route.query));
 const monitorReturnLocation = computed(() => buildMonitorReturnLocation(route.query));
 const activePreset = computed(() => inferPresetFromState(filters.value, routeScope.value));
@@ -264,7 +267,6 @@ function canSyncAuditRoute(reason: string) {
 }
 
 function buildQuery(): AuditLogQuery {
-  const sorter = getSingleSorter(filters.value.sorters);
   const query: AuditLogQuery = {
     page: pagination.value.current,
     page_size: pagination.value.pageSize,
@@ -342,11 +344,9 @@ function buildQuery(): AuditLogQuery {
   if (explicitCreatedRange[1]) {
     query.created_to = localDateTimeToUtcIso(explicitCreatedRange[1]);
   }
-  if (sorter?.field) {
-    query.sort_by = sorter.field;
-    if (sorter.direction) {
-      query.sort_order = sorter.direction;
-    }
+  const encodedSorters = encodeSorters(filters.value.sorters);
+  if (encodedSorters.length) {
+    query.sort = encodedSorters;
   }
 
   return query;
@@ -492,17 +492,21 @@ function applyRouteFilters() {
     riskLevels: splitRouteList(query.risk_levels) as AuditClientFilterState['riskLevels'],
     session: query.session ?? '',
     requestId: query.request_id ?? '',
-    sorters: query.sort_by
-      ? createSingleSorter('created_at', normalizeSortOrder(query.sort_order || 'desc'))
-      : filters.value.sorters,
+    sorters: (() => {
+      const parsed = decodeSorters(query.sort, normalizeSortField, normalizeSortOrder);
+      if (parsed.length) {
+        return parsed;
+      }
+      return routeHydrated.value ? [] : createSingleSorter('created_at', 'desc');
+    })(),
   };
   filters.value = nextFilters;
+  routeHydrated.value = true;
 }
 
 function buildRouteQuery() {
   const explicitCreatedRange = filters.value.createdRange;
   const [createdFrom = '', createdTo = ''] = normalizePageStateRangeForRoute(explicitCreatedRange);
-  const sorter = getSingleSorter(filters.value.sorters);
 
   return {
     preset: routePreset.value,
@@ -529,8 +533,7 @@ function buildRouteQuery() {
     risk_levels: joinRouteList(filters.value.riskLevels),
     session: filters.value.session,
     request_id: filters.value.requestId,
-    sort_by: sorter?.field ?? '',
-    sort_order: sorter?.field ? (sorter.direction ?? '') : '',
+    sort: encodeSorters(filters.value.sorters),
   };
 }
 
@@ -630,6 +633,10 @@ function returnToMonitor() {
 
 function normalizeSortOrder(value: string) {
   return value === 'asc' ? 'asc' : 'desc';
+}
+
+function normalizeSortField(value: string): AuditSortBy | '' {
+  return value === 'created_at' ? 'created_at' : '';
 }
 
 function normalizePreset(value?: string) {

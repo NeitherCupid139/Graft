@@ -909,42 +909,18 @@ func (e GetAccessLogsParamsPathMatch) Valid() bool {
 	}
 }
 
-// Defines values for GetAccessLogsParamsSortBy.
+// Defines values for GetAccessLogsParamsStatusGroup.
 const (
-	DurationMs GetAccessLogsParamsSortBy = "duration_ms"
-	OccurredAt GetAccessLogsParamsSortBy = "occurred_at"
-	StartedAt  GetAccessLogsParamsSortBy = "started_at"
-	StatusCode GetAccessLogsParamsSortBy = "status_code"
+	N4xx GetAccessLogsParamsStatusGroup = "4xx"
+	N5xx GetAccessLogsParamsStatusGroup = "5xx"
 )
 
-// Valid indicates whether the value is a known member of the GetAccessLogsParamsSortBy enum.
-func (e GetAccessLogsParamsSortBy) Valid() bool {
+// Valid indicates whether the value is a known member of the GetAccessLogsParamsStatusGroup enum.
+func (e GetAccessLogsParamsStatusGroup) Valid() bool {
 	switch e {
-	case DurationMs:
+	case N4xx:
 		return true
-	case OccurredAt:
-		return true
-	case StartedAt:
-		return true
-	case StatusCode:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for GetAccessLogsParamsSortOrder.
-const (
-	GetAccessLogsParamsSortOrderAsc  GetAccessLogsParamsSortOrder = "asc"
-	GetAccessLogsParamsSortOrderDesc GetAccessLogsParamsSortOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the GetAccessLogsParamsSortOrder enum.
-func (e GetAccessLogsParamsSortOrder) Valid() bool {
-	switch e {
-	case GetAccessLogsParamsSortOrderAsc:
-		return true
-	case GetAccessLogsParamsSortOrderDesc:
+	case N5xx:
 		return true
 	default:
 		return false
@@ -1083,39 +1059,6 @@ func (e GetAuditLogsParamsRiskLevels) Valid() bool {
 	case GetAuditLogsParamsRiskLevelsLOW:
 		return true
 	case GetAuditLogsParamsRiskLevelsMEDIUM:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for GetAuditLogsParamsSortBy.
-const (
-	CreatedAt GetAuditLogsParamsSortBy = "created_at"
-)
-
-// Valid indicates whether the value is a known member of the GetAuditLogsParamsSortBy enum.
-func (e GetAuditLogsParamsSortBy) Valid() bool {
-	switch e {
-	case CreatedAt:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for GetAuditLogsParamsSortOrder.
-const (
-	GetAuditLogsParamsSortOrderAsc  GetAuditLogsParamsSortOrder = "asc"
-	GetAuditLogsParamsSortOrderDesc GetAuditLogsParamsSortOrder = "desc"
-)
-
-// Valid indicates whether the value is a known member of the GetAuditLogsParamsSortOrder enum.
-func (e GetAuditLogsParamsSortOrder) Valid() bool {
-	switch e {
-	case GetAuditLogsParamsSortOrderAsc:
-		return true
-	case GetAuditLogsParamsSortOrderDesc:
 		return true
 	default:
 		return false
@@ -1625,11 +1568,11 @@ type DrilldownScopeProjection struct {
 
 // DrilldownScopeProjectionItem defines model for drilldown-scope-projection-item.
 type DrilldownScopeProjectionItem struct {
-	Key    string    `json:"key"`
-	Kind   string    `json:"kind"`
-	Label  string    `json:"label"`
-	Locked bool      `json:"locked"`
-	Values *[]string `json:"values,omitempty"`
+	Key      string    `json:"key"`
+	Kind     string    `json:"kind"`
+	LabelKey string    `json:"label_key"`
+	Locked   bool      `json:"locked"`
+	Values   *[]string `json:"values,omitempty"`
 }
 
 // EnvelopedAccessLogDetailResponse defines model for enveloped-access-log-detail-response.
@@ -2412,25 +2355,40 @@ type refreshCookieContextKey string
 
 // GetAccessLogsParams defines parameters for GetAccessLogs.
 type GetAccessLogsParams struct {
-	Page          *int                          `form:"page,omitempty" json:"page,omitempty"`
-	PageSize      *int                          `form:"page_size,omitempty" json:"page_size,omitempty"`
-	RequestId     *string                       `form:"request_id,omitempty" json:"request_id,omitempty"`
-	TraceId       *string                       `form:"trace_id,omitempty" json:"trace_id,omitempty"`
-	UserId        *int64                        `form:"user_id,omitempty" json:"user_id,omitempty"`
-	Username      *string                       `form:"username,omitempty" json:"username,omitempty"`
-	Method        *string                       `form:"method,omitempty" json:"method,omitempty"`
-	Path          *string                       `form:"path,omitempty" json:"path,omitempty"`
-	PathMatch     *GetAccessLogsParamsPathMatch `form:"path_match,omitempty" json:"path_match,omitempty"`
-	Route         *string                       `form:"route,omitempty" json:"route,omitempty"`
-	StatusCode    *int                          `form:"status_code,omitempty" json:"status_code,omitempty"`
-	DurationMinMs *int64                        `form:"duration_min_ms,omitempty" json:"duration_min_ms,omitempty"`
-	DurationMaxMs *int64                        `form:"duration_max_ms,omitempty" json:"duration_max_ms,omitempty"`
-	StartedFrom   *time.Time                    `form:"started_from,omitempty" json:"started_from,omitempty"`
-	StartedTo     *time.Time                    `form:"started_to,omitempty" json:"started_to,omitempty"`
-	OccurredFrom  *time.Time                    `form:"occurred_from,omitempty" json:"occurred_from,omitempty"`
-	OccurredTo    *time.Time                    `form:"occurred_to,omitempty" json:"occurred_to,omitempty"`
-	SortBy        *GetAccessLogsParamsSortBy    `form:"sort_by,omitempty" json:"sort_by,omitempty"`
-	SortOrder     *GetAccessLogsParamsSortOrder `form:"sort_order,omitempty" json:"sort_order,omitempty"`
+	Page      *int    `form:"page,omitempty" json:"page,omitempty"`
+	PageSize  *int    `form:"page_size,omitempty" json:"page_size,omitempty"`
+	RequestId *string `form:"request_id,omitempty" json:"request_id,omitempty"`
+	TraceId   *string `form:"trace_id,omitempty" json:"trace_id,omitempty"`
+	UserId    *int64  `form:"user_id,omitempty" json:"user_id,omitempty"`
+	Username  *string `form:"username,omitempty" json:"username,omitempty"`
+	Method    *string `form:"method,omitempty" json:"method,omitempty"`
+	Path      *string `form:"path,omitempty" json:"path,omitempty"`
+
+	// Keyword Canonical fuzzy match applied to `request_id`, `path`, and `username`.
+	Keyword    *string                       `form:"keyword,omitempty" json:"keyword,omitempty"`
+	PathMatch  *GetAccessLogsParamsPathMatch `form:"path_match,omitempty" json:"path_match,omitempty"`
+	Route      *string                       `form:"route,omitempty" json:"route,omitempty"`
+	StatusCode *int                          `form:"status_code,omitempty" json:"status_code,omitempty"`
+
+	// StatusGroup Repeated status-code group filter for builder presets.
+	StatusGroup   *[]GetAccessLogsParamsStatusGroup `form:"status_group,omitempty" json:"status_group,omitempty"`
+	DurationMinMs *int64                            `form:"duration_min_ms,omitempty" json:"duration_min_ms,omitempty"`
+	DurationMaxMs *int64                            `form:"duration_max_ms,omitempty" json:"duration_max_ms,omitempty"`
+
+	// StartedFrom Inclusive canonical request-time lower bound on `started_at`.
+	StartedFrom *time.Time `form:"started_from,omitempty" json:"started_from,omitempty"`
+
+	// StartedTo Inclusive canonical request-time upper bound on `started_at`.
+	StartedTo *time.Time `form:"started_to,omitempty" json:"started_to,omitempty"`
+
+	// OccurredFrom Optional completed-time lower bound on `occurred_at` for secondary filtering.
+	OccurredFrom *time.Time `form:"occurred_from,omitempty" json:"occurred_from,omitempty"`
+
+	// OccurredTo Optional completed-time upper bound on `occurred_at` for secondary filtering.
+	OccurredTo *time.Time `form:"occurred_to,omitempty" json:"occurred_to,omitempty"`
+
+	// Sort Repeated priority-ordered sort expression using `field:dir` semantics such as `started_at:desc`.
+	Sort *[]string `form:"sort,omitempty" json:"sort,omitempty"`
 
 	// XGraftLocale Explicit locale override header already supported by the runtime.
 	XGraftLocale *LocaleHeader `json:"X-Graft-Locale,omitempty"`
@@ -2443,11 +2401,8 @@ type GetAccessLogsParams struct {
 // GetAccessLogsParamsPathMatch defines parameters for GetAccessLogs.
 type GetAccessLogsParamsPathMatch string
 
-// GetAccessLogsParamsSortBy defines parameters for GetAccessLogs.
-type GetAccessLogsParamsSortBy string
-
-// GetAccessLogsParamsSortOrder defines parameters for GetAccessLogs.
-type GetAccessLogsParamsSortOrder string
+// GetAccessLogsParamsStatusGroup defines parameters for GetAccessLogs.
+type GetAccessLogsParamsStatusGroup string
 
 // GetAccessLogDetailParams defines parameters for GetAccessLogDetail.
 type GetAccessLogDetailParams struct {
@@ -2502,8 +2457,9 @@ type GetAuditLogsParams struct {
 	Success             *bool                           `form:"success,omitempty" json:"success,omitempty"`
 	CreatedFrom         *time.Time                      `form:"created_from,omitempty" json:"created_from,omitempty"`
 	CreatedTo           *time.Time                      `form:"created_to,omitempty" json:"created_to,omitempty"`
-	SortBy              *GetAuditLogsParamsSortBy       `form:"sort_by,omitempty" json:"sort_by,omitempty"`
-	SortOrder           *GetAuditLogsParamsSortOrder    `form:"sort_order,omitempty" json:"sort_order,omitempty"`
+
+	// Sort Repeated priority-ordered sort expression using `field:dir` semantics such as `created_at:desc`.
+	Sort *[]string `form:"sort,omitempty" json:"sort,omitempty"`
 
 	// XGraftLocale Explicit locale override header already supported by the runtime.
 	XGraftLocale *LocaleHeader `json:"X-Graft-Locale,omitempty"`
@@ -2530,12 +2486,6 @@ type GetAuditLogsParamsRiskLevel string
 
 // GetAuditLogsParamsRiskLevels defines parameters for GetAuditLogs.
 type GetAuditLogsParamsRiskLevels string
-
-// GetAuditLogsParamsSortBy defines parameters for GetAuditLogs.
-type GetAuditLogsParamsSortBy string
-
-// GetAuditLogsParamsSortOrder defines parameters for GetAuditLogs.
-type GetAuditLogsParamsSortOrder string
 
 // GetAuditOverviewParams defines parameters for GetAuditOverview.
 type GetAuditOverviewParams struct {

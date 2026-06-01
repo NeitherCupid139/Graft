@@ -85,13 +85,14 @@ It must not own:
 | --- | --- | --- | --- | --- | --- | --- |
 | `request_id` | exact | no | no | no | no | highest-confidence correlation lookup |
 | `trace_id` | no separate field | no | no | alias-only | yes as separate authority | MVP `trace_id=request_id`; explorer must not create a second backend field |
-| `keyword` | no canonical MVP authority | no | not approved | no | yes | avoid frontend-owned fuzzy contract across heterogeneous fields |
+| `keyword` | yes | no | bounded canonical search | no | no | backend-owned bounded search across `request_id`、`path`、`username` |
 | `user_id` | exact | no | no | no | no | stable authenticated correlation |
 | `username` | exact | no | bounded contains/prefix not approved | no | no | exact match only in canonical MVP contract |
 | `method` | exact or bounded set | no | no | no | no | canonical HTTP transport fact |
 | `path` | exact or canonical prefix | no | no | no | no | backend-owned path semantics only |
 | `route` | exact | no | no | no | no | route template is more stable than raw path for grouped troubleshooting |
 | `status_code` | exact or bounded set | yes | no | no | no | supports operator filtering and secondary sort |
+| `status_group` | bounded set | no | no | no | no | approved grouped status filter for operator presets; current values are `4xx` and `5xx` |
 | `duration_ms` | range | yes | no | no | no | range filter is canonical; free-form fuzzy search is not |
 | `started_at` / time range | bounded range | yes | no | no | no | canonical request timeline authority anchor |
 | `occurred_at` | bounded secondary range | yes | no | no | no | completed-time refinement only |
@@ -125,7 +126,6 @@ It must not own:
 
 Forbidden query surfaces:
 
-- free-form keyword search across mixed fields
 - arbitrary JSON filter blobs
 - metadata key search
 - audit-only fields such as `action`, `resource_type`, `risk_level`, `result`
@@ -151,6 +151,8 @@ Forbidden query surfaces:
 Sort rules:
 
 - default sort is `started_at desc`
+- canonical wire shape uses repeated `sort=field:dir` params
+- sort param order is the priority order
 - secondary stable tie-break should remain backend-owned
 - unsupported sort fields must be rejected, not ignored silently
 
@@ -290,7 +292,6 @@ Rejected UX patterns for canonical v1:
 
 - dashboard-first access-log page
 - tag-builder-only query model as the primary surface
-- free-form keyword search as the primary contract
 - frontend-owned local pagination over a partial dataset
 - embedding incident or anomaly read models directly into the access-log table
 

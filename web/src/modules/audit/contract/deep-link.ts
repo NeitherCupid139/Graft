@@ -34,8 +34,7 @@ export type AuditLogsRouteQuery = Partial<{
   session: string;
   request_id: string;
   request_path_prefixes: string;
-  sort_by: string;
-  sort_order: string;
+  sort: string | string[];
 }>;
 
 function trimQueryValue(value: unknown) {
@@ -47,6 +46,7 @@ function firstQueryValue(value: LocationQueryValue | LocationQueryValue[] | unde
 }
 
 export function parseAuditLogsRouteQuery(query: LocationQuery | AuditLogsRouteQuery): AuditLogsRouteQuery {
+  const rawSort = query.sort as LocationQueryValue | LocationQueryValue[] | undefined;
   return {
     keyword: trimQueryValue(firstQueryValue(query.keyword)),
     preset: trimQueryValue(firstQueryValue(query.preset)),
@@ -72,17 +72,34 @@ export function parseAuditLogsRouteQuery(query: LocationQuery | AuditLogsRouteQu
     session: trimQueryValue(firstQueryValue(query.session)),
     request_id: trimQueryValue(firstQueryValue(query.request_id)),
     request_path_prefixes: trimQueryValue(firstQueryValue(query.request_path_prefixes)),
-    sort_by: trimQueryValue(firstQueryValue(query.sort_by)),
-    sort_order: trimQueryValue(firstQueryValue(query.sort_order)),
+    sort: Array.isArray(rawSort)
+      ? rawSort
+          .filter((item): item is string => typeof item === 'string')
+          .map((item) => item.trim())
+          .filter(Boolean)
+      : trimQueryValue(rawSort),
   };
 }
 
 function normalizeAuditLogsRouteQuery(query: AuditLogsRouteQuery) {
-  return Object.fromEntries(
+  const parsed = parseAuditLogsRouteQuery(query);
+  const normalized = Object.fromEntries(
     Object.entries(parseAuditLogsRouteQuery(query))
+      .filter(([key]) => key !== 'sort')
       .map(([key, value]) => [key, trimQueryValue(value)])
       .filter(([, value]) => value !== ''),
-  ) as Record<string, string>;
+  ) as Record<string, string | string[]>;
+
+  if (Array.isArray(parsed.sort)) {
+    const sortValues = parsed.sort.filter((item): item is string => Boolean(item));
+    if (sortValues.length) {
+      normalized.sort = sortValues;
+    }
+  } else if (typeof parsed.sort === 'string' && parsed.sort) {
+    normalized.sort = [parsed.sort];
+  }
+
+  return normalized;
 }
 
 export function buildAuditLogsLocation(query: AuditLogsRouteQuery) {

@@ -180,18 +180,16 @@ get:
       schema:
         type: string
         format: date-time
-    - name: sort_by
+    - name: sort
       in: query
       required: false
+      description: Repeated priority-ordered sort expression using `field:dir` semantics such as `created_at:desc`.
+      style: form
+      explode: true
       schema:
-        type: string
-        enum: [created_at]
-    - name: sort_order
-      in: query
-      required: false
-      schema:
-        type: string
-        enum: [asc, desc]
+        type: array
+        items:
+          type: string
   security:
     - bearerAuth: []
   responses:

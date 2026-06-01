@@ -221,6 +221,28 @@ func TestServiceListPreservesExplicitPreset(t *testing.T) {
 	}
 }
 
+func TestServiceListNormalizesSortExpressions(t *testing.T) {
+	repo := &stubAuditRepository{}
+	service, err := NewService(repo)
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	_, err = service.List(context.Background(), ListQuery{
+		Sorts: []string{" created_at:asc ", "created_at:asc", "invalid", "created_at:desc"},
+	})
+	if err != nil {
+		t.Fatalf("list audit logs: %v", err)
+	}
+
+	if len(repo.listQuery.Sorts) != 2 {
+		t.Fatalf("expected two normalized sorts, got %#v", repo.listQuery.Sorts)
+	}
+	if repo.listQuery.Sorts[0] != "created_at:asc" || repo.listQuery.Sorts[1] != "created_at:desc" {
+		t.Fatalf("unexpected normalized sorts %#v", repo.listQuery.Sorts)
+	}
+}
+
 type stubDrilldownRepo struct {
 	metadata drilldown.ScopeMetadata
 	err      error

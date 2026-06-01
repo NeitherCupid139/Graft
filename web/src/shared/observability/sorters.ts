@@ -5,6 +5,8 @@ export type QuerySorter<Field extends string = string> = {
   direction?: SortDirection;
 };
 
+export type SorterState<Field extends string, TState extends { sorters: QuerySorter<Field>[] }> = TState;
+
 type SortOption<Field extends string> = {
   label: string;
   value: Field;
@@ -21,76 +23,186 @@ export function createSingleSorter<Field extends string>(
   return [{ field, direction }];
 }
 
-export function getSingleSorter<Field extends string>(sorters: QuerySorter<Field>[]) {
-  return sorters[0] ?? null;
+function createQuerySorter<Field extends string>(
+  field?: Field | null,
+  direction: SortDirection = 'desc',
+): QuerySorter<Field> | null {
+  if (!field) {
+    return null;
+  }
+
+  return { field, direction };
 }
 
-function getSingleSorterSelection<Field extends string>(sorters: QuerySorter<Field>[]) {
-  const sorter = getSingleSorter(sorters);
+export function appendSorter<Field extends string>(
+  sorters: QuerySorter<Field>[],
+  field?: Field | null,
+  direction: SortDirection = 'desc',
+) {
+  const sorter = createQuerySorter(field, direction);
+  if (!sorter) {
+    return sorters;
+  }
+
+  return [...sorters, sorter];
+}
+
+function replaceSorterField<Field extends string>(
+  sorters: QuerySorter<Field>[],
+  index: number,
+  field: Field | '',
+  fallbackDirection: SortDirection = 'desc',
+) {
+  const nextSorters = [...sorters];
+  if (!field) {
+    nextSorters.splice(index, 1);
+    return nextSorters;
+  }
+
+  nextSorters[index] = {
+    field,
+    direction: nextSorters[index]?.direction ?? fallbackDirection,
+  };
+  return nextSorters;
+}
+
+function replaceSorterDirection<Field extends string>(
+  sorters: QuerySorter<Field>[],
+  index: number,
+  direction: SortDirection,
+) {
+  const sorter = sorters[index];
+  if (!sorter?.field) {
+    return sorters;
+  }
+
+  const nextSorters = [...sorters];
+  nextSorters[index] = {
+    field: sorter.field,
+    direction,
+  };
+  return nextSorters;
+}
+
+function replaceSorterFieldFromInput<Field extends string>(
+  sorters: QuerySorter<Field>[],
+  index: number,
+  value: string | number | Array<string | number> | undefined,
+  normalizeField: (value: string) => Field | '',
+  fallbackDirection: SortDirection = 'desc',
+) {
+  const field = typeof value === 'string' ? normalizeField(value) : '';
+  return replaceSorterField(sorters, index, field, fallbackDirection);
+}
+
+function replaceSorterDirectionFromInput<Field extends string>(
+  sorters: QuerySorter<Field>[],
+  index: number,
+  value: string | number | Array<string | number> | undefined,
+  normalizeDirection: (value: string) => SortDirection,
+) {
+  return replaceSorterDirection(sorters, index, normalizeDirection(typeof value === 'string' ? value : ''));
+}
+
+export function withUpdatedSorters<Field extends string, TState extends { sorters: QuerySorter<Field>[] }>(
+  state: TState,
+  sorters: QuerySorter<Field>[],
+): TState {
   return {
-    sorter,
-    field: sorter?.field ?? '',
-    direction: sorter?.direction ?? '',
+    ...state,
+    sorters,
   };
 }
 
-export function useSingleSorterSelection<Field extends string>(sorters: () => QuerySorter<Field>[]) {
-  return getSingleSorterSelection(sorters());
+export function withSorterFieldFromInput<Field extends string, TState extends { sorters: QuerySorter<Field>[] }>(
+  state: TState,
+  index: number,
+  value: string | number | Array<string | number> | undefined,
+  normalizeField: (value: string) => Field | '',
+  fallbackDirection: SortDirection = 'desc',
+): TState {
+  return withUpdatedSorters(
+    state,
+    replaceSorterFieldFromInput(state.sorters, index, value, normalizeField, fallbackDirection),
+  );
 }
 
-function buildSingleSorterTagLabel<Field extends string>(
-  sorter: QuerySorter<Field> | null,
+export function withSorterDirectionFromInput<Field extends string, TState extends { sorters: QuerySorter<Field>[] }>(
+  state: TState,
+  index: number,
+  value: string | number | Array<string | number> | undefined,
+  normalizeDirection: (value: string) => SortDirection,
+): TState {
+  return withUpdatedSorters(state, replaceSorterDirectionFromInput(state.sorters, index, value, normalizeDirection));
+}
+
+function buildSorterTagLabel<Field extends string>(
+  sorter: QuerySorter<Field>,
   options: Array<SortOption<Field>>,
   prefix: string,
+  index: number,
 ) {
-  if (!sorter) {
-    return '';
-  }
-
-  const fieldLabel = options.find((option) => option.value === sorter.field)?.label;
+  const fieldLabel = options.find((option) => option.value === sorter.field)?.label ?? sorter.field;
   const arrow = sorter.direction === 'asc' ? '↑' : sorter.direction === 'desc' ? '↓' : '';
-  return `${prefix}：${[fieldLabel, arrow].filter(Boolean).join(' ')}`;
+  return `${prefix} ${index + 1}：${[fieldLabel, arrow].filter(Boolean).join(' ')}`;
 }
 
-export function prependSingleSorterTag<Key extends string, Field extends string>(
+export function prependSorterTags<Key extends string, Field extends string>(
   tags: Array<{ key: Key; label: string }>,
-  sorter: QuerySorter<Field> | null,
+  sorters: QuerySorter<Field>[],
   options: Array<SortOption<Field>>,
   prefix: string,
-): Array<{ key: Key | 'sorter'; label: string }> {
-  if (!sorter) {
+): Array<{ key: Key | `sorter:${number}`; label: string }> {
+  if (!sorters.length) {
     return tags;
   }
 
-  return [{ key: 'sorter', label: buildSingleSorterTagLabel(sorter, options, prefix) }, ...tags];
+  return [
+    ...sorters.map((sorter, index) => ({
+      key: `sorter:${index}` as const,
+      label: buildSorterTagLabel(sorter, options, prefix, index),
+    })),
+    ...tags,
+  ];
 }
 
-export function normalizeSingleSorterField<Field extends string>(
-  value: string | number | Array<string | number> | undefined,
-  currentDirection: SortDirection | undefined,
-  normalizeField: (value: string) => Field,
-) {
-  const candidate = typeof value === 'string' ? value : '';
-  if (!candidate) {
-    return createSingleSorter<Field>();
-  }
+export function encodeSorters<Field extends string>(sorters: QuerySorter<Field>[]) {
+  return sorters
+    .map((sorter) => {
+      const field = String(sorter.field || '').trim();
+      if (!field) {
+        return '';
+      }
 
-  return createSingleSorter(normalizeField(candidate), currentDirection ?? 'desc');
+      const direction = sorter.direction === 'asc' ? 'asc' : 'desc';
+      return `${field}:${direction}`;
+    })
+    .filter(Boolean);
 }
 
-export function normalizeSingleSorterDirection<Field extends string>(
-  value: string | number | Array<string | number> | undefined,
-  currentField: Field | undefined,
+export function decodeSorters<Field extends string>(
+  rawValue: string | string[] | undefined,
+  normalizeField: (value: string) => Field | '',
   normalizeDirection: (value: string) => SortDirection,
 ) {
-  if (!currentField) {
-    return createSingleSorter<Field>();
-  }
+  const values = Array.isArray(rawValue) ? rawValue : rawValue ? [rawValue] : [];
 
-  const candidate = typeof value === 'string' ? value : '';
-  if (!candidate) {
-    return createSingleSorter(currentField);
-  }
+  return values.reduce<QuerySorter<Field>[]>((acc, value) => {
+    const candidate = value.trim();
+    if (!candidate) {
+      return acc;
+    }
 
-  return createSingleSorter(currentField, normalizeDirection(candidate));
+    const [rawField = '', rawDirection = 'desc'] = candidate.split(':');
+    const field = normalizeField(rawField.trim());
+    if (!field) {
+      return acc;
+    }
+
+    acc.push({
+      field,
+      direction: normalizeDirection(rawDirection.trim() || 'desc'),
+    });
+    return acc;
+  }, []);
 }

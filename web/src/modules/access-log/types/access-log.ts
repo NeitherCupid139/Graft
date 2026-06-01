@@ -13,6 +13,7 @@ export type AccessLogSorter = QuerySorter<AccessLogSortBy>;
 export type AccessLogQuery = {
   page?: number;
   page_size?: number;
+  keyword?: string;
   request_id?: string;
   trace_id?: string;
   user_id?: number;
@@ -22,14 +23,14 @@ export type AccessLogQuery = {
   path_match?: AccessLogPathMatch;
   route?: string;
   status_code?: number;
+  status_group?: '4xx' | '5xx';
   duration_min_ms?: number;
   duration_max_ms?: number;
   started_from?: string;
   started_to?: string;
   occurred_from?: string;
   occurred_to?: string;
-  sort_by?: AccessLogSortBy;
-  sort_order?: AccessLogSortOrder;
+  sort?: string[];
 };
 
 export type AccessLogFilterState = {

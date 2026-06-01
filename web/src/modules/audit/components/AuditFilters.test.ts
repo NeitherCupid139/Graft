@@ -7,6 +7,7 @@ import AuditFilters from './AuditFilters.vue';
 
 const buttonStub = defineComponent({
   name: 'TButtonStub',
+  inheritAttrs: false,
   emits: ['click'],
   setup(_, { attrs, emit, slots }) {
     return () => h('button', { ...attrs, onClick: () => emit('click') }, slots.default?.());
@@ -16,8 +17,8 @@ const buttonStub = defineComponent({
 const tagStub = defineComponent({
   name: 'TTagStub',
   emits: ['close'],
-  setup(_, { slots }) {
-    return () => h('div', [h('span', slots.default?.())]);
+  setup(_, { slots, emit }) {
+    return () => h('button', { type: 'button', onClick: () => emit('close') }, [h('span', slots.default?.())]);
   },
 });
 
@@ -30,6 +31,7 @@ const passthroughStub = defineComponent({
 
 const inputStub = defineComponent({
   name: 'TInputStub',
+  inheritAttrs: false,
   props: ['modelValue', 'placeholder'],
   emits: ['update:modelValue'],
   setup(props, { emit }) {
@@ -44,6 +46,7 @@ const inputStub = defineComponent({
 
 const dateRangeStub = defineComponent({
   name: 'TDateRangePickerStub',
+  inheritAttrs: false,
   props: ['modelValue'],
   emits: ['update:modelValue'],
   setup() {
@@ -53,6 +56,7 @@ const dateRangeStub = defineComponent({
 
 const selectStub = defineComponent({
   name: 'TSelectStub',
+  inheritAttrs: false,
   props: ['modelValue', 'multiple', 'options', 'placeholder'],
   emits: ['update:modelValue'],
   setup(props) {
@@ -66,6 +70,7 @@ const selectStub = defineComponent({
 
 const tagInputStub = defineComponent({
   name: 'TTagInputStub',
+  inheritAttrs: false,
   props: ['modelValue', 'inputProps'],
   emits: ['update:modelValue'],
   setup(props) {
@@ -103,6 +108,7 @@ const i18n = createI18n({
             search: '查询',
             reset: '重置',
             addFilter: '添加筛选条件',
+            removeFilter: '移除排序',
           },
           builder: {
             title: '筛选字段',
@@ -247,7 +253,7 @@ describe('AuditFilters', () => {
     });
 
     expect(wrapper.find('input').attributes('placeholder')).toBe('搜索操作、用户、目标对象、请求ID...');
-    expect(wrapper.text()).toContain('排序：创建时间 ↓');
+    expect(wrapper.text()).toContain('排序 1：创建时间 ↓');
     expect(wrapper.text()).toContain('结果：业务失败');
     expect(wrapper.text()).toContain('筛选条件');
     expect(wrapper.text()).toContain('操作分类：权限配置动作、角色动作');
@@ -255,10 +261,10 @@ describe('AuditFilters', () => {
     expect(wrapper.text()).toContain('风险等级集合：高风险、严重');
 
     const tags = wrapper.findAllComponents(tagStub);
-    tags[0]?.vm.$emit('close');
-    tags[1]?.vm.$emit('close');
-    tags[2]?.vm.$emit('close');
-    tags[3]?.vm.$emit('close');
+    await tags[0]?.trigger('click');
+    await tags[1]?.trigger('click');
+    await tags[2]?.trigger('click');
+    await tags[3]?.trigger('click');
 
     const updates = (wrapper.emitted('update:modelValue')?.map((entry) => entry[0]) ?? []) as Array<
       Record<string, unknown>
