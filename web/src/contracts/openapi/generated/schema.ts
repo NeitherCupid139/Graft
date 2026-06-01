@@ -1322,7 +1322,7 @@ export interface components {
     };
     'drilldown-scope-projection-item': {
       key: string;
-      label: string;
+      label_key: string;
       kind: string;
       values?: string[];
       locked: boolean;

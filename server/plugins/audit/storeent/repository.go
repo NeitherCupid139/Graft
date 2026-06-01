@@ -510,8 +510,22 @@ func validateListAuditLogsQuery(query auditstore.ListAuditLogsQuery) error {
 	if query.Offset < 0 {
 		return fmt.Errorf("list audit logs: invalid offset %d", query.Offset)
 	}
+	if query.TimePreset != "" && !isSupportedAuditTimePreset(query.TimePreset) {
+		return fmt.Errorf("list audit logs: invalid time preset %q", query.TimePreset)
+	}
 
 	return nil
+}
+
+func isSupportedAuditTimePreset(preset auditstore.AuditTimePreset) bool {
+	switch preset {
+	case auditstore.AuditTimePresetLast24Hours,
+		auditstore.AuditTimePresetLast7Days,
+		auditstore.AuditTimePresetLast30Days:
+		return true
+	default:
+		return false
+	}
 }
 
 func addAuditPresetRange(clauses *[]string, args *[]any, query auditstore.ListAuditLogsQuery) {
@@ -529,12 +543,14 @@ func addAuditPresetRange(clauses *[]string, args *[]any, query auditstore.ListAu
 
 func auditPresetStart(now time.Time, preset auditstore.AuditTimePreset) time.Time {
 	switch preset {
+	case auditstore.AuditTimePresetLast24Hours:
+		return now.Add(-24 * time.Hour)
 	case auditstore.AuditTimePresetLast7Days:
 		return now.Add(-7 * 24 * time.Hour)
 	case auditstore.AuditTimePresetLast30Days:
 		return now.Add(-30 * 24 * time.Hour)
 	default:
-		return now.Add(-24 * time.Hour)
+		return time.Time{}
 	}
 }
 
@@ -604,10 +620,7 @@ func criticalSecurityWhereClause() string {
 		` + overviewMetadataStatusCodeSQL + ` = '403'
 		OR (
 			COALESCE(NULLIF(metadata ->> 'status_code', ''), '') <> ''
-			AND REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
-				metadata ->> 'status_code',
-				'0', ''
-			), '1', ''), '2', ''), '3', ''), '4', ''), '5', ''), '6', ''), '7', ''), '8', ''), '9', '') = ''
+			AND metadata ->> 'status_code' ~ '^[0-9]{1,5}$'
 			AND CAST(metadata ->> 'status_code' AS INTEGER) >= 500
 		)
 		OR COALESCE(metadata ->> 'error_kind', '') = 'system'
@@ -697,7 +710,7 @@ func addKeywordFilter(clauses *[]string, args *[]any, value string) {
 	orClauses := make([]string, 0, len(fields))
 	for _, field := range fields {
 		*args = append(*args, pattern)
-		orClauses = append(orClauses, fmt.Sprintf("%s LIKE $%d", field, len(*args)))
+		orClauses = append(orClauses, fmt.Sprintf("%s LIKE $%d%s", field, len(*args), sqlLikeEscapeClause))
 	}
 	*clauses = append(*clauses, "("+strings.Join(orClauses, " OR ")+")")
 }
@@ -715,7 +728,7 @@ func addActorFilter(clauses *[]string, args *[]any, value string) {
 	orClauses := make([]string, 0, len(fields))
 	for _, field := range fields {
 		*args = append(*args, pattern)
-		orClauses = append(orClauses, fmt.Sprintf("%s LIKE $%d", field, len(*args)))
+		orClauses = append(orClauses, fmt.Sprintf("%s LIKE $%d%s", field, len(*args), sqlLikeEscapeClause))
 	}
 	*clauses = append(*clauses, "("+strings.Join(orClauses, " OR ")+")")
 }

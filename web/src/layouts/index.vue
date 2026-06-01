@@ -79,7 +79,7 @@ const appendNewRoute = () => {
   logger.debug('append route into tabs router', {
     path,
     name,
-    query,
+    queryKeys: Object.keys(query),
   });
   tabsRouterStore.appendTabRouterList({
     path,

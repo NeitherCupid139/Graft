@@ -374,7 +374,7 @@ func TestServiceListPropagatesRepositoryError(t *testing.T) {
 	}
 
 	_, err = service.List(context.Background(), ListQuery{})
-	if err == nil || err.Error() != "boom" {
+	if err == nil || err.Error() != "list audit logs: boom" {
 		t.Fatalf("expected repository error, got %v", err)
 	}
 }

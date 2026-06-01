@@ -17,7 +17,7 @@ type BaseAuditFilterDefinition<Key extends AuditFilterKey> = {
 
 export type AuditTextFilterKey = Extract<
   AuditFilterKey,
-  'actor' | 'resourceName' | 'requestId' | 'session' | 'resourceId'
+  'actor' | 'actionPrefix' | 'resourceName' | 'requestId' | 'session' | 'resourceId'
 >;
 
 export type AuditSingleSelectFilterKey = Extract<

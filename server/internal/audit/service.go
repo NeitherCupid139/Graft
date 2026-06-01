@@ -180,7 +180,7 @@ func (s *Service) List(ctx context.Context, query ListQuery) (ListResult, error)
 
 	resolvedScope, effectiveQuery, err := s.resolveScope(ctx, query)
 	if err != nil {
-		return ListResult{}, err
+		return ListResult{}, fmt.Errorf("resolve audit list scope: %w", err)
 	}
 
 	result, err := s.repo.ListAuditLogs(ctx, auditstore.ListAuditLogsQuery{
@@ -214,7 +214,7 @@ func (s *Service) List(ctx context.Context, query ListQuery) (ListResult, error)
 		Offset:              (page - 1) * pageSize,
 	})
 	if err != nil {
-		return ListResult{}, err
+		return ListResult{}, fmt.Errorf("list audit logs: %w", err)
 	}
 
 	listResult := ListResult{

@@ -620,21 +620,21 @@ describe('AuditOverviewPage', () => {
     expect(
       option?.tooltip?.formatter([
         {
-          axisValue: '05/27',
+          axisValue: '2026-05-27T08:00:00Z-2026-05-27T09:00:00Z',
           axisValueLabel: '05/27',
           seriesName: 'Total events',
           color: '#0052D9',
           data: 4,
         },
         {
-          axisValue: '05/27',
+          axisValue: '2026-05-27T08:00:00Z-2026-05-27T09:00:00Z',
           axisValueLabel: '05/27',
           seriesName: 'High risk',
           color: '#ED7B2F',
           data: 1,
         },
         {
-          axisValue: '05/27',
+          axisValue: '2026-05-27T08:00:00Z-2026-05-27T09:00:00Z',
           axisValueLabel: '05/27',
           seriesName: 'Security events',
           color: '#E34D59',
@@ -642,6 +642,28 @@ describe('AuditOverviewPage', () => {
         },
       ]),
     ).toContain('Total events');
+    expect(option?.xAxis?.axisLabel?.formatter('2026-05-27T08:00:00Z-2026-05-27T09:00:00Z')).not.toBe('');
+  });
+
+  it('registers resize observation after the chart container appears', async () => {
+    getAuditOverviewMock.mockResolvedValueOnce({
+      ...createAuditOverviewResponse(),
+      trend: {
+        bucket_unit: 'hour',
+        bucket_size: 1,
+        points: [
+          createTrendPoint('2026-05-27T08:00:00Z', '2026-05-27T09:00:00Z', 4, 1, 1, 1),
+          createTrendPoint('2026-05-27T09:00:00Z', '2026-05-27T10:00:00Z', 7, 2, 3, 2),
+          createTrendPoint('2026-05-27T10:00:00Z', '2026-05-27T11:00:00Z', 5, 1, 2, 1),
+        ],
+      },
+    });
+
+    mountOverview();
+
+    await flushPromises();
+
+    expect(resizeObserverMocks.observe).toHaveBeenCalled();
   });
 
   it('keeps the chart hidden when not enough non-empty buckets are present', async () => {

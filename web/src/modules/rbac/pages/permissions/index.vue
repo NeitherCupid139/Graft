@@ -422,7 +422,7 @@ async function loadPermissionDetail(permissionId: number) {
 function handlePermissionAction(action: string, permission: PermissionListItem) {
   if (action === 'view-audit') {
     void router.push(
-      buildAuditResourceLocation('permission', String(permission.id), localizedPermissionDisplay(permission)),
+      buildAuditResourceLocation('permission', String(permission.id), permission.code || permission.display),
     );
     return;
   }

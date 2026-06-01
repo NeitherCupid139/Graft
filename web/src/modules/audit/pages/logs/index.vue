@@ -214,7 +214,7 @@ const scopeConditionTags = computed(() =>
     if (item.key === 'business_category' && values.length === 1) {
       return [];
     }
-    return values.map((value) => `${item.label}=${value}`);
+    return values.map((value) => `${t(item.label_key)}=${value}`);
   }),
 );
 const primaryScopeCondition = computed(() => scopeConditionTags.value[0] ?? '');

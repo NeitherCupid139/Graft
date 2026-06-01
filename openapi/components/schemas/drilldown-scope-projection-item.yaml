@@ -1,13 +1,13 @@
 type: object
 required:
   - key
-  - label
+  - label_key
   - kind
   - locked
 properties:
   key:
     type: string
-  label:
+  label_key:
     type: string
   kind:
     type: string

@@ -139,8 +139,9 @@ func TestRunDevAirRejectsConcurrentSession(t *testing.T) {
 		devAirTargetFinder = originalTargetFinder
 	}()
 
+	airRunnerCalled := false
 	devAirRunner = func(_ *cobra.Command, _ string) error {
-		t.Fatal("air runner should not be called when another session is active")
+		airRunnerCalled = true
 		return nil
 	}
 	devAirModuleRootResolver = func() (string, error) {
@@ -161,10 +162,16 @@ func TestRunDevAirRejectsConcurrentSession(t *testing.T) {
 		if err != nil {
 			t.Fatalf("expected non-linux to skip single-instance guard, got %v", err)
 		}
+		if !airRunnerCalled {
+			t.Fatal("expected non-linux to continue to the air runner")
+		}
 		return
 	}
 	if err == nil {
 		t.Fatal("expected concurrent Air session error")
+	}
+	if airRunnerCalled {
+		t.Fatal("air runner should not be called when another session is active")
 	}
 	if !strings.Contains(err.Error(), "graft dev stop-air") {
 		t.Fatalf("expected stop-air guidance, got %v", err)

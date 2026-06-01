@@ -45,11 +45,11 @@ type AppliedScope struct {
 
 // ScopeProjectionItem describes one locked field projection entry for the UI.
 type ScopeProjectionItem struct {
-	Key    string   `json:"key"`
-	Label  string   `json:"label"`
-	Kind   string   `json:"kind"`
-	Values []string `json:"values,omitempty"`
-	Locked bool     `json:"locked"`
+	Key      string   `json:"key"`
+	LabelKey string   `json:"label_key"`
+	Kind     string   `json:"kind"`
+	Values   []string `json:"values,omitempty"`
+	Locked   bool     `json:"locked"`
 }
 
 // ScopeProjection describes how a locked scope should be displayed in the UI.

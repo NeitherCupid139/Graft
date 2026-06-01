@@ -313,7 +313,6 @@ const trendView = computed(() => {
     return {
       isRenderable: false,
       points: [],
-      labels: [],
     };
   }
 
@@ -330,7 +329,6 @@ const trendView = computed(() => {
   return {
     isRenderable: true,
     points: normalizedPoints,
-    labels: normalizedPoints.map((point) => point.axisLabel),
   };
 });
 
@@ -575,7 +573,7 @@ function buildTrendChartOption(): EChartsCoreOption {
       formatter: (
         params: Array<{ axisValue: string; axisValueLabel?: string; seriesName: string; color: string; data: number }>,
       ) => {
-        const activePoint = points.find((point) => point.axisLabel === params[0]?.axisValue) ?? points[0];
+        const activePoint = points.find((point) => point.key === params[0]?.axisValue) ?? points[0];
         const rows = params
           .map((param) => {
             return [
@@ -607,9 +605,10 @@ function buildTrendChartOption(): EChartsCoreOption {
     },
     xAxis: {
       type: 'category',
-      data: trendView.value.labels,
+      data: points.map((point) => point.key),
       axisLabel: {
         color: chartColors.placeholderColor,
+        formatter: (value: string) => points.find((point) => point.key === value)?.axisLabel ?? '',
       },
       axisLine: {
         lineStyle: {
@@ -685,6 +684,8 @@ async function syncTrendChart() {
   if (!chart) {
     return;
   }
+  setupTrendChartResizeObserver();
+  observeTrendChartResize();
 
   chart.setOption(buildTrendChartOption(), true);
   chart.resize({
@@ -704,10 +705,14 @@ function setupTrendChartResizeObserver() {
       height: trendChartRef.value?.clientHeight,
     });
   });
+}
 
-  if (trendChartRef.value) {
-    trendChartResizeObserver.observe(trendChartRef.value);
+function observeTrendChartResize() {
+  if (!trendChartResizeObserver || !trendChartRef.value) {
+    return;
   }
+  trendChartResizeObserver.disconnect();
+  trendChartResizeObserver.observe(trendChartRef.value);
 }
 
 function teardownTrendChartResizeObserver() {

@@ -66,10 +66,10 @@ func toScopeProjectionMap(projection *drilldown.ScopeProjection) map[string]any 
 	items := make([]map[string]any, 0, len(projection.Items))
 	for _, item := range projection.Items {
 		entry := map[string]any{
-			"key":    item.Key,
-			"label":  item.Label,
-			"kind":   item.Kind,
-			"locked": item.Locked,
+			"key":       item.Key,
+			"label_key": item.LabelKey,
+			"kind":      item.Kind,
+			"locked":    item.Locked,
 		}
 		if len(item.Values) > 0 {
 			entry["values"] = append([]string(nil), item.Values...)

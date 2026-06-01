@@ -4,6 +4,8 @@ import { defineComponent, h, KeepAlive, resolveComponent } from 'vue';
 import { createI18n } from 'vue-i18n';
 import { createMemoryHistory, createRouter } from 'vue-router';
 
+import { normalizeRouteRangeForPageState } from '@/shared/observability';
+
 import type { AuditLogListResponse } from '../../types/audit';
 import AuditLogsPage from './index.vue';
 
@@ -610,7 +612,7 @@ describe('AuditLogsPage', () => {
           items: [
             {
               key: 'business_category',
-              label: 'Business category',
+              label_key: 'audit.logList.builder.fields.businessCategory',
               kind: 'enum',
               values: ['sensitive_operations'],
               locked: true,
@@ -752,7 +754,7 @@ describe('AuditLogsPage', () => {
           items: [
             {
               key: 'business_category',
-              label: 'Business category',
+              label_key: 'audit.logList.builder.fields.businessCategory',
               kind: 'enum',
               values: ['sensitive_operations'],
               locked: true,
@@ -838,11 +840,11 @@ describe('AuditLogsPage', () => {
       created_to: '2026-05-02T18:30:00Z',
     });
 
-    expect(wrapper.get('[data-testid="audit-filter-model"]').text()).toContain(
-      '"createdRange":["2026-05-01 18:00:00","2026-05-03 02:30:00"]',
+    expect(JSON.parse(wrapper.get('[data-testid="audit-filter-model"]').text()).createdRange).toEqual(
+      normalizeRouteRangeForPageState(['2026-05-01T10:00:00Z', '2026-05-02T18:30:00Z']),
     );
-    expect(wrapper.get('[data-testid="audit-filter-model"]').text()).not.toContain(
-      '"createdRange":["2026-05-30 15:21:04","2026-05-31 15:21:04"]',
+    expect(JSON.parse(wrapper.get('[data-testid="audit-filter-model"]').text()).createdRange).not.toEqual(
+      normalizeRouteRangeForPageState(['2026-05-30T07:21:04.000Z', '2026-05-31T07:21:04.000Z']),
     );
   });
 
@@ -858,8 +860,8 @@ describe('AuditLogsPage', () => {
       results: 'DENIED',
     });
 
-    expect(wrapper.get('[data-testid="audit-filter-model"]').text()).toContain(
-      '"createdRange":["2026-05-03 18:00:00","2026-05-05 02:30:00"]',
+    expect(JSON.parse(wrapper.get('[data-testid="audit-filter-model"]').text()).createdRange).toEqual(
+      normalizeRouteRangeForPageState(['2026-05-03T10:00:00Z', '2026-05-04T18:30:00Z']),
     );
     expect(wrapper.get('[data-testid="audit-filter-model"]').text()).not.toContain('"success":"false"');
     expect(wrapper.get('[data-testid="audit-filter-model"]').text()).not.toContain(

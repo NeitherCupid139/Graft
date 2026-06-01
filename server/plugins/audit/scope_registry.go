@@ -16,13 +16,9 @@ func newAuditScopeResolver() auditScopeResolver {
 	return auditScopeResolver{}
 }
 
-func (auditScopeResolver) SensitiveOperationKeywords() []string {
-	return []string{"delete", "reset", "grant", "assign", "revoke", "remove", "replace"}
-}
-
 type scopeDefinition struct {
 	category auditstore.AuditBusinessCategory
-	label    string
+	labelKey string
 }
 
 func (r auditScopeResolver) Resolve(
@@ -32,13 +28,13 @@ func (r auditScopeResolver) Resolve(
 ) (drilldown.ResolvedScope[auditcore.ListQuery], error) {
 	scope := strings.TrimSpace(metadata.Scope)
 	definitions := map[string]scopeDefinition{
-		string(auditstore.AuditBusinessCategoryFailedOperations):    {category: auditstore.AuditBusinessCategoryFailedOperations, label: "失败操作"},
-		string(auditstore.AuditBusinessCategoryHighRiskOperations):  {category: auditstore.AuditBusinessCategoryHighRiskOperations, label: "高风险操作"},
-		string(auditstore.AuditBusinessCategorySensitiveOperations): {category: auditstore.AuditBusinessCategorySensitiveOperations, label: "业务分类"},
-		string(auditstore.AuditBusinessCategoryAuthFailures):        {category: auditstore.AuditBusinessCategoryAuthFailures, label: "认证失败"},
-		string(auditstore.AuditBusinessCategoryPermissionDenials):   {category: auditstore.AuditBusinessCategoryPermissionDenials, label: "权限拒绝"},
-		string(auditstore.AuditBusinessCategoryRBACChanges):         {category: auditstore.AuditBusinessCategoryRBACChanges, label: "权限配置变更"},
-		string(auditstore.AuditBusinessCategoryCriticalSecurity):    {category: auditstore.AuditBusinessCategoryCriticalSecurity, label: "关键安全事件"},
+		string(auditstore.AuditBusinessCategoryFailedOperations):    {category: auditstore.AuditBusinessCategoryFailedOperations, labelKey: "audit.logList.businessCategory.failedOperations"},
+		string(auditstore.AuditBusinessCategoryHighRiskOperations):  {category: auditstore.AuditBusinessCategoryHighRiskOperations, labelKey: "audit.logList.businessCategory.highRiskOperations"},
+		string(auditstore.AuditBusinessCategorySensitiveOperations): {category: auditstore.AuditBusinessCategorySensitiveOperations, labelKey: "audit.logList.businessCategory.sensitiveOperations"},
+		string(auditstore.AuditBusinessCategoryAuthFailures):        {category: auditstore.AuditBusinessCategoryAuthFailures, labelKey: "audit.logList.businessCategory.authFailures"},
+		string(auditstore.AuditBusinessCategoryPermissionDenials):   {category: auditstore.AuditBusinessCategoryPermissionDenials, labelKey: "audit.logList.businessCategory.permissionDenials"},
+		string(auditstore.AuditBusinessCategoryRBACChanges):         {category: auditstore.AuditBusinessCategoryRBACChanges, labelKey: "audit.logList.businessCategory.rbacChanges"},
+		string(auditstore.AuditBusinessCategoryCriticalSecurity):    {category: auditstore.AuditBusinessCategoryCriticalSecurity, labelKey: "audit.logList.businessCategory.criticalSecurity"},
 	}
 
 	definition, ok := definitions[scope]
@@ -64,11 +60,11 @@ func (r auditScopeResolver) Resolve(
 			Description: metadata.Description,
 			Items: []drilldown.ScopeProjectionItem{
 				{
-					Key:    "business_category",
-					Label:  definition.label,
-					Kind:   "enum",
-					Values: []string{string(definition.category)},
-					Locked: true,
+					Key:      "business_category",
+					LabelKey: definition.labelKey,
+					Kind:     "enum",
+					Values:   []string{string(definition.category)},
+					Locked:   true,
 				},
 			},
 		},
