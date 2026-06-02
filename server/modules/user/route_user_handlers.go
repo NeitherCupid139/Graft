@@ -119,7 +119,7 @@ func (r userRouteRegistrar) registerCreateUserRoute(group *gin.RouterGroup) {
 		}
 
 		command := toCreateUserCommand(request, requestActorID(requestCtx))
-		created, err := r.userSvc.CreateUser(requestCtx, r.authSvc.passwords, r.authSvc.policy, command)
+		created, err := r.userSvc.CreateUser(requestCtx, r.passwords, r.policy, command)
 		if err != nil {
 			r.runtime().writeCreateUserError(ginCtx, "create user failed", err)
 			return
@@ -322,7 +322,7 @@ func (r userRouteRegistrar) registerSetUserStatusRoute(group *gin.RouterGroup) {
 			return
 		}
 
-		updated, err := r.userSvc.SetUserStatus(requestCtx, r.authSvc.auth, command)
+		updated, err := r.userSvc.SetUserStatus(requestCtx, r.authRepo, command)
 		if err != nil {
 			r.runtime().writeUserManagementError(ginCtx, userID, "set user status failed", err)
 			return
@@ -355,9 +355,9 @@ func (r userRouteRegistrar) registerResetUserPasswordRoute(group *gin.RouterGrou
 
 		if err := r.userSvc.ResetUserPassword(
 			requestCtx,
-			r.authSvc.auth,
-			r.authSvc.passwords,
-			r.authSvc.policy,
+			r.authRepo,
+			r.passwords,
+			r.policy,
 			userID,
 			request.NewPassword,
 		); err != nil {
@@ -378,7 +378,7 @@ func (r userRouteRegistrar) registerDeleteUserRoute(group *gin.RouterGroup) {
 		}
 		userWriteGeneratedHandler{}.PostUserDelete(userID, bindGeneratedUserDeleteParams(ginCtx))
 
-		if err := r.userSvc.DeleteUser(requestCtx, r.authSvc.auth, userID); err != nil {
+		if err := r.userSvc.DeleteUser(requestCtx, r.authRepo, userID); err != nil {
 			r.runtime().writeUserManagementError(ginCtx, userID, "delete user failed", err)
 			return
 		}

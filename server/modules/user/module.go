@@ -63,17 +63,17 @@ func (p *Module) Register(ctx *module.Context) error {
 	p.routeAuthorizer = newDeferredAuthorizer()
 	guards := newRouteGuards(
 		ctx.I18n,
-		services.auth,
+		services,
 		p.routeAuthorizer,
 		httpx.NewSecurityAuditPublisher(ctx.EventBus, ctx.Logger, moduleID),
 	)
 	authGroup := ctx.Router.Group(authcontract.AuthGroup)
 	guards.restrictedSession = newRestrictedSessionGuard(
 		ctx.I18n,
-		services.auth,
+		services.authFlow,
 		authGroup.BasePath(),
 	)
-	if err := registerUserRoutes(ctx, moduleID, services.user, services.auth, guards); err != nil {
+	if err := registerUserRoutes(ctx, moduleID, services.user, services.authSessions, guards); err != nil {
 		return err
 	}
 
@@ -595,6 +595,68 @@ func (s authService) ParseAccessToken(ctx context.Context, token string) (*modul
 }
 
 var _ moduleapi.AuthService = authService{}
+
+func (s authService) ListSessionsByUserID(ctx context.Context, userID uint64) ([]moduleapi.AuthSessionSummary, error) {
+	sessions, err := s.ListUserSessions(ctx, userID, sessionListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	summaries := make([]moduleapi.AuthSessionSummary, 0, len(sessions))
+	for _, session := range sessions {
+		summaries = append(summaries, moduleapi.AuthSessionSummary{
+			SessionID: session.SessionID,
+			UserID:    userID,
+			CreatedAt: session.CreatedAt,
+			ExpiresAt: session.ExpiresAt,
+			Current:   session.Current,
+		})
+	}
+
+	return summaries, nil
+}
+
+func (s authService) RevokeSessionByUserID(ctx context.Context, userID uint64, sessionID string) (moduleapi.AuthSessionRevokeResult, error) {
+	if err := s.RevokeUserSession(ctx, userID, sessionID); err != nil {
+		return moduleapi.AuthSessionRevokeResult{}, err
+	}
+
+	return moduleapi.AuthSessionRevokeResult{Revoked: true}, nil
+}
+
+func (s authService) RevokeSessionsByUserID(ctx context.Context, userID uint64) (moduleapi.AuthSessionRevokeResult, error) {
+	if err := s.RevokeAllUserSessions(ctx, userID); err != nil {
+		return moduleapi.AuthSessionRevokeResult{}, err
+	}
+
+	return moduleapi.AuthSessionRevokeResult{Revoked: true}, nil
+}
+
+func (s authService) RevokeOtherSessionsByUserID(
+	ctx context.Context,
+	userID uint64,
+	currentSessionID string,
+) (moduleapi.AuthSessionRevokeResult, error) {
+	sessions, err := s.ListUserSessions(ctx, userID, sessionListOptions{})
+	if err != nil {
+		return moduleapi.AuthSessionRevokeResult{}, err
+	}
+
+	revoked := false
+	for _, session := range sessions {
+		if session.SessionID == currentSessionID {
+			continue
+		}
+		if err := s.RevokeUserSession(ctx, userID, session.SessionID); err != nil {
+			return moduleapi.AuthSessionRevokeResult{}, err
+		}
+		revoked = true
+	}
+
+	return moduleapi.AuthSessionRevokeResult{Revoked: revoked}, nil
+}
+
+var _ moduleapi.AuthSessionService = authService{}
 
 // parseUserID 将路由参数转换为模块内部统一使用的正整数 ID。
 func parseUserID(input string) (uint64, error) {

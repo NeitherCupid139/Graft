@@ -37,13 +37,13 @@ func (r userRouteRegistrar) registerAdminSessionReadRoute(group *gin.RouterGroup
 		}
 		userReadGeneratedHandler{}.GetUserSessions(rawID, bindGeneratedUserSessionsParams(ginCtx, listOptions))
 
-		sessions, err := r.authSvc.ListUserSessions(ginCtx.Request.Context(), summary.ID, listOptions)
+		sessions, err := r.authSessions.ListSessionsByUserID(ginCtx.Request.Context(), summary.ID)
 		if err != nil {
 			r.runtime().writeAuthRouteError(ginCtx, "list user refresh sessions failed", err, zap.Uint64("userID", rawID))
 			return
 		}
 
-		httpx.WriteSuccess(ginCtx, http.StatusOK, toGeneratedSessionSummaries(sessions))
+		httpx.WriteSuccess(ginCtx, http.StatusOK, toGeneratedSessionSummariesFromCapability(sessions, listOptions))
 	})
 }
 
@@ -71,7 +71,7 @@ func (r userRouteRegistrar) registerAdminRevokeSingleSessionRoute(group *gin.Rou
 			return
 		}
 
-		if err := r.authSvc.RevokeUserSession(ginCtx.Request.Context(), summary.ID, sessionID); err != nil {
+		if _, err := r.authSessions.RevokeSessionByUserID(ginCtx.Request.Context(), summary.ID, sessionID); err != nil {
 			r.runtime().writeAuthRouteError(
 				ginCtx,
 				"admin revoke user refresh session failed",
@@ -82,7 +82,7 @@ func (r userRouteRegistrar) registerAdminRevokeSingleSessionRoute(group *gin.Rou
 			return
 		}
 
-		clearRefreshCookieWhen(ginCtx, r.authSvc, func(claims *moduleapi.AccessTokenClaims) bool {
+		clearRefreshCookieWhen(ginCtx, r.cookies, func(claims *moduleapi.AccessTokenClaims) bool {
 			return claims.UserID == rawID && claims.SessionID == sessionID
 		})
 		httpx.WriteSuccess[any](ginCtx, http.StatusOK, nil)
@@ -97,12 +97,12 @@ func (r userRouteRegistrar) registerAdminRevokeAllSessionsRoute(group *gin.Route
 		}
 		userWriteGeneratedHandler{}.PostUserSessionsRevokeAll(rawID, bindGeneratedUserSessionsRevokeAllParams(ginCtx))
 
-		if err := r.authSvc.RevokeAllUserSessions(ginCtx.Request.Context(), rawID); err != nil {
+		if _, err := r.authSessions.RevokeSessionsByUserID(ginCtx.Request.Context(), rawID); err != nil {
 			r.runtime().writeAuthRouteError(ginCtx, "admin revoke user refresh sessions failed", err, zap.Uint64("userID", rawID))
 			return
 		}
 
-		clearRefreshCookieWhen(ginCtx, r.authSvc, func(claims *moduleapi.AccessTokenClaims) bool {
+		clearRefreshCookieWhen(ginCtx, r.cookies, func(claims *moduleapi.AccessTokenClaims) bool {
 			return claims.UserID == rawID
 		})
 		httpx.WriteSuccess[any](ginCtx, http.StatusOK, nil)
@@ -166,3 +166,4 @@ func bindGeneratedUserSessionRevokeParams(ginCtx *gin.Context) useropenapi.PostU
 		XRequestId:   requestID,
 	}
 }
+

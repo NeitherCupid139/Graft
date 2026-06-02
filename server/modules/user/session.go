@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
 	"graft/server/internal/config"
@@ -88,10 +87,6 @@ func newRefreshTokenManager(auth config.AuthConfig) (*refreshTokenManager, error
 
 func newAuthCookieManager(auth config.AuthConfig) authCookieManager {
 	return authCookieManager{inner: authruntime.NewCookieManager(auth)}
-}
-
-func (m authCookieManager) clearRefreshCookie(ctx *gin.Context) {
-	m.inner.ClearRefreshCookie(ctx)
 }
 
 func (m *refreshTokenManager) Issue(subject refreshTokenSubject) (string, time.Time, error) {

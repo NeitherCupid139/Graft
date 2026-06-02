@@ -113,14 +113,21 @@ func toUserListItem(user userstore.User, roles []moduleapi.RoleSummary) (userLis
 	}, nil
 }
 
-func toGeneratedSessionSummaries(items []sessionSummary) []generated.SessionSummary {
-	summaries := make([]generated.SessionSummary, 0, len(items))
-	for _, item := range items {
+func toGeneratedSessionSummariesFromCapability(
+	sessions []moduleapi.AuthSessionSummary,
+	options sessionListOptions,
+) []generated.SessionSummary {
+	if options.Limit > 0 && len(sessions) > options.Limit {
+		sessions = sessions[:options.Limit]
+	}
+
+	summaries := make([]generated.SessionSummary, 0, len(sessions))
+	for _, session := range sessions {
 		summaries = append(summaries, generated.SessionSummary{
-			SessionId: item.SessionID,
-			CreatedAt: item.CreatedAt,
-			ExpiresAt: item.ExpiresAt,
-			Current:   item.Current,
+			SessionId: session.SessionID,
+			CreatedAt: session.CreatedAt,
+			ExpiresAt: session.ExpiresAt,
+			Current:   session.Current,
 		})
 	}
 

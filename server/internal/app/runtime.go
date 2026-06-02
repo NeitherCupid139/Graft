@@ -102,7 +102,7 @@ func NewRuntime() (*Runtime, error) {
 
 	runtime.registerCoreRoutes(runtime.server.Engine())
 
-	orderedDescriptors, err := moduleregistry.OrderedModuleSpecs()
+	orderedDescriptors, err := moduleregistry.FilteredOrderedModuleSpecs(cfg.Modules.Enabled)
 	if err != nil {
 		_ = runtime.closeCoreResources()
 		return nil, fmt.Errorf("order runtime module descriptors: %w", err)
@@ -111,7 +111,7 @@ func NewRuntime() (*Runtime, error) {
 
 	modules, err := moduleregistry.BuildModules(module.BuildContext{
 		Services: runtime.services,
-	})
+	}, cfg.Modules.Enabled)
 	if err != nil {
 		_ = runtime.closeCoreResources()
 		return nil, fmt.Errorf("build runtime modules: %w", err)

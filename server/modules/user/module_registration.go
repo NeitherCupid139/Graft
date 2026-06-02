@@ -16,6 +16,7 @@ import (
 	"graft/server/internal/moduleapi"
 	"graft/server/internal/permission"
 	usercontract "graft/server/modules/user/contract"
+	userstore "graft/server/modules/user/store"
 )
 
 const userMenuOrderList = 2
@@ -116,9 +117,14 @@ func registerMessages(localizer *i18n.Service) error {
 }
 
 type registeredServices struct {
-	user      userService
-	auth      *authService
-	bootstrap bootstrapReader
+	user         userService
+	auth         moduleapi.AuthService
+	authSessions moduleapi.AuthSessionService
+	authFlow     moduleapi.AuthFlowService
+	bootstrap    bootstrapReader
+	authRepo     userstore.AuthRepository
+	passwords    passwordHasher
+	policy       passwordPolicy
 }
 
 func (p *Module) registerServices(ctx *module.Context) (registeredServices, error) {
@@ -159,6 +165,11 @@ func (p *Module) registerServices(ctx *module.Context) (registeredServices, erro
 	}); err != nil {
 		return registeredServices{}, err
 	}
+	if err := ctx.Services.RegisterSingleton((*moduleapi.AuthSessionService)(nil), func(_ container.Resolver) (any, error) {
+		return authSvc, nil
+	}); err != nil {
+		return registeredServices{}, err
+	}
 	if err := ctx.Services.RegisterSingleton((*moduleapi.AuthFlowService)(nil), func(_ container.Resolver) (any, error) {
 		return authFlowBridge{
 			auth:      authSvc,
@@ -169,9 +180,14 @@ func (p *Module) registerServices(ctx *module.Context) (registeredServices, erro
 	}
 
 	return registeredServices{
-		user:      userSvc,
-		auth:      authSvc,
-		bootstrap: bootstrapSvc,
+		user:         userSvc,
+		auth:         authSvc,
+		authSessions: authSvc,
+		authFlow:     authFlowBridge{auth: authSvc, bootstrap: bootstrapSvc},
+		bootstrap:    bootstrapSvc,
+		authRepo:     authSvc.auth,
+		passwords:    authSvc.passwords,
+		policy:       authSvc.policy,
 	}, nil
 }
 
@@ -288,4 +304,7 @@ type routeGuards struct {
 	userDisable            gin.HandlerFunc
 	userSessionRead        gin.HandlerFunc
 	userSessionRevoke      gin.HandlerFunc
+	authRepo               userstore.AuthRepository
+	passwords              passwordHasher
+	policy                 passwordPolicy
 }

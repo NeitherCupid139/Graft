@@ -39,6 +39,7 @@ type Config struct {
 	HTTP     HTTPConfig
 	HTTPX    HTTPXConfig
 	Docs     DocsConfig
+	Modules  ModulesConfig
 	Database DatabaseConfig
 	Redis    RedisConfig
 	Log      LogConfig
@@ -65,6 +66,13 @@ type HTTPXConfig struct {
 // DocsConfig 控制 OpenAPI 文档与文档页面的公开策略。
 type DocsConfig struct {
 	Enabled bool
+}
+
+// ModulesConfig 描述 compile-time modules 在当前运行时的启用集合。
+//
+// 空集合表示“不做过滤，启用全部已编译模块”；非空时仅启用列出的模块。
+type ModulesConfig struct {
+	Enabled []string
 }
 
 // DatabaseConfig 描述 Ent 与 Atlas 共用的 PostgreSQL 连接配置。
@@ -136,6 +144,9 @@ func Load() (*Config, error) {
 		},
 		Docs: DocsConfig{
 			Enabled: resolveDocsEnabled(reader),
+		},
+		Modules: ModulesConfig{
+			Enabled: parseModuleList(reader.GetString("modules.enabled")),
 		},
 		Database: DatabaseConfig{
 			Driver: reader.GetString("database.driver"),
@@ -212,6 +223,7 @@ func (c *Config) Validate() error {
 		validateAppConfig,
 		validateHTTPConfig,
 		validateHTTPXConfig,
+		validateModulesConfig,
 		validateDatabaseConfig,
 		validateRedisConfig,
 		validateI18nConfig,
@@ -244,6 +256,19 @@ func validateHTTPConfig(c *Config) error {
 func validateHTTPXConfig(c *Config) error {
 	if c.HTTPX.AccessLogRetention <= 0 {
 		return errors.New("GRAFT_HTTPX_ACCESS_LOG_RETENTION must be greater than zero")
+	}
+
+	return nil
+}
+
+func validateModulesConfig(c *Config) error {
+	normalized, seen := normalizeModuleList(c.Modules.Enabled)
+	c.Modules.Enabled = normalized
+
+	for _, moduleID := range normalized {
+		if _, ok := seen[moduleID]; !ok {
+			return fmt.Errorf("invalid module id %q", moduleID)
+		}
 	}
 
 	return nil
@@ -319,6 +344,26 @@ func normalizeLocaleList(locales []string) ([]string, map[string]struct{}) {
 
 		seen[locale] = struct{}{}
 		items = append(items, locale)
+	}
+
+	return items, seen
+}
+
+func normalizeModuleList(modules []string) ([]string, map[string]struct{}) {
+	items := make([]string, 0, len(modules))
+	seen := make(map[string]struct{}, len(modules))
+
+	for _, raw := range modules {
+		moduleID := strings.TrimSpace(raw)
+		if moduleID == "" {
+			continue
+		}
+		if _, ok := seen[moduleID]; ok {
+			continue
+		}
+
+		seen[moduleID] = struct{}{}
+		items = append(items, moduleID)
 	}
 
 	return items, seen
@@ -448,6 +493,7 @@ func setDefaults(reader *viper.Viper) {
 	reader.SetDefault("app.env", defaultAppEnv)
 	reader.SetDefault("http.addr", defaultHTTPAddr)
 	reader.SetDefault("httpx.access_log_retention", defaultAccessLogRetentionForEnv(reader.GetString("app.env")))
+	reader.SetDefault("modules.enabled", "")
 	reader.SetDefault("database.driver", defaultDatabaseDriver)
 	reader.SetDefault("database.url", defaultDatabaseURL)
 	reader.SetDefault("redis.addr", defaultRedisAddr)
@@ -467,6 +513,11 @@ func setDefaults(reader *viper.Viper) {
 
 func parseLocaleList(raw string) []string {
 	items, _ := normalizeLocaleList(strings.Split(raw, ","))
+	return items
+}
+
+func parseModuleList(raw string) []string {
+	items, _ := normalizeModuleList(strings.Split(raw, ","))
 	return items
 }
 

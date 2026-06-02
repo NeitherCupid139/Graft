@@ -15,6 +15,7 @@ import (
 	"graft/server/internal/i18n"
 	applog "graft/server/internal/logger"
 	"graft/server/internal/moduleapi"
+	authruntime "graft/server/modules/auth"
 	userstore "graft/server/modules/user/store"
 )
 
@@ -58,10 +59,10 @@ func readSessionIDParam(ginCtx *gin.Context, localizer *i18n.Service) (string, b
 
 func clearRefreshCookieWhen(
 	ginCtx *gin.Context,
-	authSvc *authService,
+	cookies authruntime.CookieManager,
 	matches func(*moduleapi.AccessTokenClaims) bool,
 ) {
-	if authSvc == nil || matches == nil {
+	if matches == nil {
 		return
 	}
 
@@ -70,7 +71,7 @@ func clearRefreshCookieWhen(
 		return
 	}
 
-	authSvc.cookies.clearRefreshCookie(ginCtx)
+	cookies.ClearRefreshCookie(ginCtx)
 }
 
 func (r routeRuntime) writeAuthRouteError(ginCtx *gin.Context, message string, err error, fields ...zap.Field) {

@@ -63,6 +63,64 @@ func TestDescriptorsStayAlignedWithModuleDirectories(t *testing.T) {
 	}
 }
 
+func TestFilteredOrderedModuleSpecsReturnsAllWhenEnabledUnset(t *testing.T) {
+	got, err := FilteredOrderedModuleSpecs(nil)
+	if err != nil {
+		t.Fatalf("filtered ordered module specs: %v", err)
+	}
+
+	want, err := OrderedModuleSpecs()
+	if err != nil {
+		t.Fatalf("ordered module specs: %v", err)
+	}
+
+	if len(got) != len(want) {
+		t.Fatalf("expected %d modules, got %d", len(want), len(got))
+	}
+	for index := range want {
+		if got[index].Name() != want[index].Name() {
+			t.Fatalf("expected module %s at index %d, got %s", want[index].Name(), index, got[index].Name())
+		}
+		if !reflect.DeepEqual(got[index].DependsOn(), want[index].DependsOn()) {
+			t.Fatalf("expected dependencies %v for module %s, got %v", want[index].DependsOn(), want[index].Name(), got[index].DependsOn())
+		}
+		if !reflect.DeepEqual(got[index].MigrationDirs(), want[index].MigrationDirs()) {
+			t.Fatalf("expected migration dirs %v for module %s, got %v", want[index].MigrationDirs(), want[index].Name(), got[index].MigrationDirs())
+		}
+	}
+}
+
+func TestFilteredOrderedModuleSpecsRejectsUnknownModule(t *testing.T) {
+	_, err := FilteredOrderedModuleSpecs([]string{"unknown"})
+	if err == nil {
+		t.Fatal("expected unknown enabled module error")
+	}
+}
+
+func TestFilteredOrderedModuleSpecsRejectsDisabledDependency(t *testing.T) {
+	_, err := FilteredOrderedModuleSpecs([]string{"rbac"})
+	if err == nil {
+		t.Fatal("expected disabled dependency error")
+	}
+}
+
+func TestFilteredOrderedModuleSpecsFiltersEnabledSet(t *testing.T) {
+	got, err := FilteredOrderedModuleSpecs([]string{"user", "auth"})
+	if err != nil {
+		t.Fatalf("filtered ordered module specs: %v", err)
+	}
+
+	want := []string{"user", "auth"}
+	if len(got) != len(want) {
+		t.Fatalf("expected %d modules, got %d", len(want), len(got))
+	}
+	for index, moduleSpec := range got {
+		if moduleSpec.Name() != want[index] {
+			t.Fatalf("expected module %s at index %d, got %s", want[index], index, moduleSpec.Name())
+		}
+	}
+}
+
 func fileExists(path string) bool {
 	info, err := os.Stat(path)
 	return err == nil && !info.IsDir()

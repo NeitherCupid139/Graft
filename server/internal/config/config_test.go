@@ -210,6 +210,7 @@ func TestLoadUsesDefaultsWhenNoEnvironmentAvailable(t *testing.T) {
 	assertEqual(t, "default app env", cfg.App.Env, defaultAppEnv)
 	assertEqual(t, "default HTTP address", cfg.HTTP.Addr, defaultHTTPAddr)
 	assertEqual(t, "docs enabled in local env by default", cfg.Docs.Enabled, true)
+	assertStringSliceEqual(t, "default enabled modules", cfg.Modules.Enabled, []string{})
 	assertEqual(t, "default database driver", cfg.Database.Driver, defaultDatabaseDriver)
 	assertEqual(t, "default database URL", cfg.Database.URL, defaultDatabaseURL)
 	assertEqual(t, "default Redis address", cfg.Redis.Addr, defaultRedisAddr)
@@ -219,6 +220,22 @@ func TestLoadUsesDefaultsWhenNoEnvironmentAvailable(t *testing.T) {
 	assertStringSliceEqual(t, "supported locales", cfg.I18n.SupportedLocales, []string{defaultLocale, defaultSecondaryLocale})
 	assertEqual(t, "default access token ttl", cfg.Auth.AccessTokenTTL, defaultAccessTokenTTL)
 	assertEqual(t, "jwt secret from environment", cfg.Auth.JWTSecret, "runtime-secret")
+}
+
+func TestLoadReadsEnabledModules(t *testing.T) {
+	restoreEnv := clearGraftEnv(t)
+	t.Cleanup(restoreEnv)
+	chdir(t, t.TempDir())
+
+	t.Setenv("GRAFT_AUTH_JWT_SECRET", "runtime-secret")
+	t.Setenv("GRAFT_MODULES_ENABLED", " user,auth,user ")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	assertStringSliceEqual(t, "enabled modules", cfg.Modules.Enabled, []string{"user", "auth"})
 }
 
 func TestLoadDisablesDocsByDefaultInProduction(t *testing.T) {
@@ -430,6 +447,17 @@ func TestValidateRejectsMissingAuthTokenTTLs(t *testing.T) {
 	cfg.Auth.AccessTokenTTL = 0
 
 	assertValidateError(t, cfg, "")
+}
+
+func TestValidateNormalizesEnabledModules(t *testing.T) {
+	cfg := validConfigForValidateTests()
+	cfg.Modules.Enabled = []string{" user ", "auth", "user", ""}
+
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("validate config: %v", err)
+	}
+
+	assertStringSliceEqual(t, "normalized enabled modules", cfg.Modules.Enabled, []string{"user", "auth"})
 }
 
 func TestValidateRejectsNonPositiveAccessLogRetention(t *testing.T) {

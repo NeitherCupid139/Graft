@@ -2,6 +2,7 @@ package moduleregistry
 
 import (
 	"fmt"
+	"slices"
 
 	"graft/server/internal/module"
 )
@@ -38,9 +39,77 @@ func OrderedModuleSpecs() ([]module.Spec, error) {
 	return module.OrderSpecs(ModuleSpecs())
 }
 
-// BuildModules 根据 compile-time 模块定义构造运行时模块集合。
-func BuildModules(buildCtx module.BuildContext) ([]module.RuntimeModule, error) {
+// FilteredOrderedModuleSpecs 返回按依赖排序且经过 enabled set 过滤后的模块定义集合。
+//
+// 当 enabled 为空时，表示当前运行时启用全部 compile-time modules。
+func FilteredOrderedModuleSpecs(enabled []string) ([]module.Spec, error) {
 	ordered, err := OrderedModuleSpecs()
+	if err != nil {
+		return nil, err
+	}
+	if len(enabled) == 0 {
+		return ordered, nil
+	}
+
+	enabledSet := make(map[string]struct{}, len(enabled))
+	for _, moduleID := range enabled {
+		enabledSet[moduleID] = struct{}{}
+	}
+
+	if err := validateEnabledModulePresence(ordered, enabled); err != nil {
+		return nil, err
+	}
+
+	filtered := filterOrderedSpecs(ordered, enabledSet)
+	if err := validateFilteredModuleDependencies(filtered, enabledSet); err != nil {
+		return nil, err
+	}
+
+	return filtered, nil
+}
+
+func validateEnabledModulePresence(ordered []module.Spec, enabled []string) error {
+	for _, moduleID := range enabled {
+		if slices.ContainsFunc(ordered, func(spec module.Spec) bool {
+			return spec.Name() == moduleID
+		}) {
+			continue
+		}
+
+		return fmt.Errorf("enabled module %s is not present in compile-time registry", moduleID)
+	}
+
+	return nil
+}
+
+func filterOrderedSpecs(ordered []module.Spec, enabledSet map[string]struct{}) []module.Spec {
+	filtered := make([]module.Spec, 0, len(ordered))
+	for _, spec := range ordered {
+		if _, ok := enabledSet[spec.Name()]; ok {
+			filtered = append(filtered, spec)
+		}
+	}
+
+	return filtered
+}
+
+func validateFilteredModuleDependencies(filtered []module.Spec, enabledSet map[string]struct{}) error {
+	for _, spec := range filtered {
+		for _, dependency := range spec.DependsOn() {
+			if _, ok := enabledSet[dependency]; ok {
+				continue
+			}
+
+			return fmt.Errorf("enabled module %s depends on disabled module %s", spec.Name(), dependency)
+		}
+	}
+
+	return nil
+}
+
+// BuildModules 根据 compile-time 模块定义构造运行时模块集合。
+func BuildModules(buildCtx module.BuildContext, enabled []string) ([]module.RuntimeModule, error) {
+	ordered, err := FilteredOrderedModuleSpecs(enabled)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +137,7 @@ func CoreMigrationDirs() []string {
 // 默认链路先展开 live core-owned 目录，再按依赖排序展开 module-owned 目录，
 // 避免 CLI 再手写第二份迁移顺序真相。
 func MigrationDirs() ([]string, error) {
-	ordered, err := OrderedModuleSpecs()
+	ordered, err := FilteredOrderedModuleSpecs(nil)
 	if err != nil {
 		return nil, err
 	}
