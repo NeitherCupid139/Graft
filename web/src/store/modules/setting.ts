@@ -11,7 +11,9 @@ import {
   THEME_WORKBENCH_GROUPS,
 } from '@/config/theme-workbench';
 import type {
+  ThemeAuthorityDiffItem,
   ThemeAuthorityState,
+  ThemeIdentitySummary,
   ThemeModeTokenState,
   ThemePresetDefinition,
   ThemeSourceType,
@@ -112,6 +114,48 @@ function buildUserThemeTokens(authorityState: ThemeAuthorityState): ThemeModeTok
   };
 }
 
+const THEME_AUTHORITY_DIFF_KEYS: Array<ThemeAuthorityDiffItem['key']> = [
+  'brandTheme',
+  'fontFamilyPreset',
+  'radiusPreset',
+  'shadowPreset',
+  'densityPreset',
+];
+
+function createThemeAuthoritySourceSnapshot(
+  preset: ThemePresetDefinition | null,
+  currentState: Pick<
+    ThemeAuthorityState,
+    'selectedThemePresetId' | 'themeSource' | 'fontFamilyPreset' | 'radiusPreset' | 'shadowPreset' | 'densityPreset'
+  >,
+): ThemeAuthorityState {
+  return {
+    mode: preset?.mode ?? (STYLE_CONFIG.mode as ModeType | 'auto'),
+    brandTheme: preset?.brandTheme ?? STYLE_CONFIG.brandTheme,
+    selectedThemePresetId: currentState.selectedThemePresetId,
+    themeSource: currentState.themeSource,
+    fontFamilyPreset: 'system',
+    radiusPreset: 'standard',
+    shadowPreset: 'standard',
+    densityPreset: 'standard',
+    themeTokenOverrides: createEmptyThemeModeTokenState(),
+  };
+}
+
+function createPersistedThemeAuthoritySnapshot(state: SettingState): ThemeAuthorityState {
+  return {
+    mode: state.mode as ModeType | 'auto',
+    brandTheme: state.brandTheme,
+    selectedThemePresetId: state.selectedThemePresetId,
+    themeSource: state.themeSource,
+    fontFamilyPreset: state.fontFamilyPreset,
+    radiusPreset: state.radiusPreset,
+    shadowPreset: state.shadowPreset,
+    densityPreset: state.densityPreset,
+    themeTokenOverrides: state.themeTokenOverrides,
+  };
+}
+
 export type SettingState = typeof STYLE_CONFIG & {
   showSettingPanel: boolean;
   showThemeWorkbench: boolean;
@@ -129,6 +173,7 @@ export type SettingState = typeof STYLE_CONFIG & {
   densityPreset: ThemeAuthorityState['densityPreset'];
   themeTokenOverrides: ThemeModeTokenState;
   themeResolvedTokens: ThemeModeTokenState;
+  themeAuthorityLastModifiedAt: string | null;
   colorList: TColorSeries;
   chartColors: typeof LIGHT_CHART_COLORS;
 };
@@ -151,6 +196,7 @@ const state: SettingState = {
   densityPreset: 'standard',
   themeTokenOverrides: createEmptyThemeModeTokenState(),
   themeResolvedTokens: createEmptyThemeModeTokenState(),
+  themeAuthorityLastModifiedAt: null,
   colorList: {},
   chartColors: LIGHT_CHART_COLORS,
 };
@@ -184,19 +230,7 @@ export const useSettingStore = defineStore('setting', {
       return THEME_PRESET_DEFINITIONS.find((item) => item.id === resolvePresetId(state.selectedThemePresetId)) ?? null;
     },
     effectiveThemeState(state): ThemeAuthorityState {
-      return (
-        state.themeDraft ?? {
-          mode: state.mode as ModeType | 'auto',
-          brandTheme: state.brandTheme,
-          selectedThemePresetId: state.selectedThemePresetId,
-          themeSource: state.themeSource,
-          fontFamilyPreset: state.fontFamilyPreset,
-          radiusPreset: state.radiusPreset,
-          shadowPreset: state.shadowPreset,
-          densityPreset: state.densityPreset,
-          themeTokenOverrides: state.themeTokenOverrides,
-        }
-      );
+      return state.themeDraft ?? createPersistedThemeAuthoritySnapshot(state);
     },
     effectiveSelectedThemePreset(state): ThemePresetDefinition | null {
       const effectivePresetId = state.themeDraft?.selectedThemePresetId ?? state.selectedThemePresetId;
@@ -205,10 +239,48 @@ export const useSettingStore = defineStore('setting', {
     effectiveThemeDisplayName(): string {
       const preset = this.effectiveSelectedThemePreset;
       if (!preset) {
-        return 'Custom Theme';
+        return 'Customized Theme';
       }
 
-      return this.effectiveThemeState.themeSource === 'customized' ? `${preset.label}（已自定义）` : preset.label;
+      return preset.label;
+    },
+    effectiveThemeSourceLabel(): string {
+      const preset = this.effectiveSelectedThemePreset;
+      return preset?.label ?? 'Customized Theme';
+    },
+    themeAuthorityDiff(state): ThemeAuthorityDiffItem[] {
+      const persistedSnapshot = createPersistedThemeAuthoritySnapshot(state);
+      const current = state.themeDraft ?? persistedSnapshot;
+      const sourcePreset =
+        THEME_PRESET_DEFINITIONS.find((item) => item.id === resolvePresetId(current.selectedThemePresetId)) ?? null;
+      const baseline = createThemeAuthoritySourceSnapshot(sourcePreset, current);
+
+      return THEME_AUTHORITY_DIFF_KEYS.flatMap((key) => {
+        const fromValue = baseline[key];
+        const toValue = current[key];
+
+        if (fromValue === toValue) {
+          return [];
+        }
+
+        return [
+          {
+            key,
+            labelKey: `layout.setting.workbench.diff.${key}`,
+            fromValue: String(fromValue),
+            toValue: String(toValue),
+          },
+        ];
+      });
+    },
+    themeIdentitySummary(): ThemeIdentitySummary {
+      return {
+        currentLabel: this.effectiveThemeDisplayName,
+        sourceLabel: this.effectiveThemeSourceLabel,
+        sourceType: this.effectiveThemeState.themeSource,
+        modifiedCount: this.themeAuthorityDiff.length,
+        lastModifiedAt: this.themeAuthorityLastModifiedAt,
+      };
     },
     resolvedThemeTokensForDisplayMode(state): ThemeTokenMap {
       return resolveModeTokens(state.themeResolvedTokens, state.mode === 'dark' ? 'dark' : 'light');
@@ -385,7 +457,11 @@ export const useSettingStore = defineStore('setting', {
         return;
       }
 
+      const modifiedCount = this.themeAuthorityDiff.length;
       this.assignThemeAuthorityState(this.themeDraft);
+      if (modifiedCount > 0) {
+        this.themeAuthorityLastModifiedAt = new Date().toISOString();
+      }
       this.refreshThemeWorkbenchRuntime();
       this.changeMode(this.mode as ModeType | 'auto');
       this.themeDraftBaseline = null;
@@ -543,6 +619,7 @@ export const useSettingStore = defineStore('setting', {
       ...STYLE_CONFIG_KEYS,
       'colorList',
       'chartColors',
+      'themeAuthorityLastModifiedAt',
       'selectedThemePresetId',
       'themeSource',
       'fontFamilyPreset',

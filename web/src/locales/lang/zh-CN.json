@@ -88,67 +88,79 @@
       "navigationLayout": "导航布局",
       "sideMode": "侧边栏模式",
       "splitMenu": "分割菜单（混合模式下有效）",
+      "splitMenuShort": "分割菜单",
       "fixedSidebar": "固定侧边栏",
       "element": {
         "title": "元素开关",
         "showHeader": "显示 Header",
         "showBreadcrumb": "显示 Breadcrumbs",
         "showFooter": "显示 Footer",
-        "useTagTabs": "使用 多标签Tab页",
+        "useTagTabs": "显示多标签 Tab 页",
         "menuAutoCollapsed": "菜单自动折叠"
       },
       "workbench": {
-        "title": "自定义主题",
-        "subtitle": "Custom Theme",
+        "title": "主题与个性化中心",
+        "subtitle": "调整主题、布局与界面显示选项",
         "dock": {
-          "title": "自定义主题"
+          "title": "主题中心"
         },
         "groups": {
           "overview": "概览",
           "appearance": "外观",
+          "layout": "布局",
           "typography": "字体",
           "style": "风格",
           "advanced": "高级",
-          "brand": "色彩",
-          "semantic": "语义",
-          "neutral": "中性",
-          "font": "字体",
-          "radius": "圆角",
-          "shadow": "阴影",
-          "size": "尺寸"
+          "brand": "Brand Colors",
+          "text": "Text Colors",
+          "background": "Background Colors",
+          "border": "Border Colors",
+          "component": "Component Tokens"
         },
         "layout": {
           "side": "侧边布局",
           "top": "顶部布局",
           "mix": "混合布局",
           "tip": "选择侧边、顶部或混合导航布局，配置会立即生效。",
-          "descriptions": {
-            "side": "左侧菜单与顶部导航同时保留，适合后台主工作区。",
-            "top": "导航收敛到顶栏，内容区更宽，适合轻量信息浏览。",
-            "mix": "顶部一级导航与侧边子菜单组合，可按需开启分割菜单。"
-          }
+          "navigationBehavior": "导航行为",
+          "behaviorDescription": "调整导航结构与页面元素显示。",
+          "elementsDescription": "切换 Header、Breadcrumbs、Footer 和多标签页显示。",
+          "splitMenuHint": "切换后立即更新当前混合布局导航。",
+          "fixedSidebarHint": "切换侧边栏固定与随内容滚动。",
+          "menuAutoCollapsedHint": "同级菜单展开时自动收起其他分组。",
+          "onlyMix": "仅混合布局可用",
+          "notIntegrated": "暂未接入"
         },
         "presets": {
-          "title": "官方推荐"
+          "title": "官方主题"
         },
         "overview": {
           "currentTheme": "当前主题",
-          "quickActions": "快速操作",
-          "toggleDark": "切换深色模式",
-          "resetColor": "恢复默认主题色"
+          "description": "选择主题模式、主题色和预设主题。",
+          "modifiedCount": "修改数量",
+          "currentLayout": "当前布局"
         },
-        "layoutPreference": {
-          "title": "布局偏好（兼容入口）",
-          "description": "这些配置属于布局偏好，不属于 Theme Authority。本轮仅保留兼容入口，后续如有独立布局中心应迁移。"
+        "identity": {
+          "customized": "{name}（已自定义）",
+          "basedOn": "基于 {name}"
+        },
+        "appearance": {
+          "description": "选择主题模式、主题色和预设主题。",
+          "colorDescription": "选择主题色并立即预览。"
         },
         "typography": {
           "fontFamily": "字体选择",
-          "system": "系统默认"
+          "system": "系统默认",
+          "description": "调整后台字体。",
+          "sampleTitle": "Aa 字体示意",
+          "sampleBody": "示意文字会跟随当前字体设置。",
+          "previewLine": "Aa 后台管理 Dashboard 123"
         },
         "style": {
           "radius": "圆角风格",
           "shadow": "阴影风格",
           "density": "信息密度",
+          "description": "调整圆角、阴影和内容密度。",
           "business": "商务",
           "standard": "标准",
           "rounded": "圆润",
@@ -160,38 +172,21 @@
         },
         "advanced": {
           "title": "高级模式",
-          "description": "修改底层 Design Token 可能影响整个系统的视觉一致性和可维护性，建议仅在明确需要时使用。",
-          "enter": "进入高级模式",
-          "hide": "收起高级模式"
+          "description": "高级模式用于查看和调整 Design Token，普通用户默认隐藏。"
         },
-        "preview": {
-          "title": "后台业务样板预览",
-          "pageTitle": "审计与访问日志",
-          "pageDesc": "预览主题对查询工具栏、数据表格、状态标签、统计卡片与日志列表的实际影响。",
-          "keyword": "关键词 / 操作人 / 资源",
-          "timeRange": "时间范围",
-          "status": "状态",
-          "alert": "主题预览已实时同步到后台业务样板，帮助你判断风格在真实管理页面中的效果。",
-          "pending": "待处理",
-          "risk": "高风险",
-          "tableTitle": "用户与权限列表",
-          "logTitle": "日志列表样板",
-          "totalUsers": "总用户",
-          "onlineUsers": "在线用户",
-          "alertCount": "告警数",
-          "userColumn": "用户",
-          "roleColumn": "角色",
-          "statusColumn": "状态",
-          "logAuth": "管理员登录失败，触发认证异常告警。",
-          "logAudit": "审计员导出高风险事件，记录审计证据链。",
-          "logAccess": "网关检测到异常访问模式，等待进一步排查。"
+        "diff": {
+          "brandTheme": "主题色",
+          "fontFamilyPreset": "字体",
+          "radiusPreset": "圆角",
+          "shadowPreset": "阴影",
+          "densityPreset": "密度"
         },
         "token": {
           "targetMode": "目标模式",
           "light": "亮色",
           "dark": "暗色",
           "reset": "恢复继承",
-          "description": "当前分组编辑结果会实时注入 CSS 变量，用于本地预览主题效果。",
+          "description": "按分组调整 Design Token。",
           "empty": "当前分组暂无可编辑变量"
         },
         "actions": {

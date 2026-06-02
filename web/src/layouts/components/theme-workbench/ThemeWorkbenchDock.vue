@@ -2,8 +2,8 @@
   <div class="theme-workbench-dock">
     <t-button
       class="theme-workbench-dock__main"
-      :class="{ 'theme-workbench-dock__action--active': isGroupActive('overview') }"
-      :title="isGroupActive('overview') ? undefined : t('layout.setting.workbench.dock.title')"
+      :class="{ 'theme-workbench-dock__main--active': settingStore.showThemeWorkbench }"
+      :title="dockMainTitle"
       variant="outline"
       @click="toggleOverview"
     >
@@ -12,136 +12,80 @@
       </template>
       <span class="theme-workbench-dock__action-label">{{ t('layout.setting.workbench.dock.title') }}</span>
     </t-button>
-    <div class="theme-workbench-dock__group">
-      <t-button
-        v-for="entry in quickEntries"
-        :key="entry.group"
-        class="theme-workbench-dock__action"
-        :class="{ 'theme-workbench-dock__action--active': isGroupActive(entry.group) }"
-        :title="isGroupActive(entry.group) ? undefined : t(entry.labelKey)"
-        variant="outline"
-        @click="openGroup(entry.group)"
-      >
-        <template #icon>
-          <t-icon :name="entry.icon" />
-        </template>
-        <span class="theme-workbench-dock__action-label">{{ t(entry.labelKey) }}</span>
-      </t-button>
-    </div>
-    <t-button
-      class="theme-workbench-dock__reset"
-      :title="t('layout.setting.workbench.actions.reset')"
-      shape="circle"
-      variant="outline"
-      @click="resetWorkbench"
-    >
-      <t-icon name="rollback" />
-    </t-button>
   </div>
 </template>
 <script setup lang="ts">
+import { computed } from 'vue';
+
 import { t } from '@/locales';
 import { useSettingStore } from '@/store';
-import type { ThemeWorkbenchGroupKey } from '@/types/theme';
 
 const settingStore = useSettingStore();
 
-const quickEntries = [
-  { group: 'appearance' as const, icon: 'fill-color', labelKey: 'layout.setting.workbench.groups.appearance' },
-  { group: 'typography' as const, icon: 'text', labelKey: 'layout.setting.workbench.groups.typography' },
-  { group: 'style' as const, icon: 'chart-bubble', labelKey: 'layout.setting.workbench.groups.style' },
-  { group: 'advanced' as const, icon: 'settings', labelKey: 'layout.setting.workbench.groups.advanced' },
-];
+const dockMainTitle = computed(() => {
+  if (settingStore.showThemeWorkbench && settingStore.activeThemeWorkbenchGroup === 'overview') {
+    return undefined;
+  }
 
-const openGroup = (group: ThemeWorkbenchGroupKey) => {
-  settingStore.openThemeWorkbench(group);
-};
+  return t('layout.setting.workbench.dock.title');
+});
 
-const isGroupActive = (group: ThemeWorkbenchGroupKey) => {
-  return settingStore.showThemeWorkbench && settingStore.activeThemeWorkbenchGroup === group;
-};
-
-// 底部 dock 作为全局入口，概览按钮在工作台已打开且停留在概览页时直接承担关闭动作。
 const toggleOverview = () => {
-  if (isGroupActive('overview')) {
+  if (settingStore.showThemeWorkbench) {
     settingStore.cancelThemeDraft();
     return;
   }
 
-  openGroup('overview');
-};
-
-const resetWorkbench = () => {
-  settingStore.resetThemeWorkbench();
+  settingStore.openThemeWorkbench('overview');
 };
 </script>
 <style lang="less" scoped>
 .theme-workbench-dock {
   align-items: center;
-  backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(22px) saturate(155%);
   background:
-    linear-gradient(135deg, rgb(255 255 255 / 56%), rgb(255 255 255 / 18%)),
+    linear-gradient(135deg, rgb(255 255 255 / 58%), rgb(255 255 255 / 20%)),
     color-mix(in srgb, var(--td-bg-color-container) 84%, transparent);
-  border: 1px solid color-mix(in srgb, var(--td-component-stroke) 54%, rgb(255 255 255 / 52%));
+  border: 1px solid color-mix(in srgb, var(--td-component-stroke) 52%, rgb(255 255 255 / 46%));
   border-radius: 28px;
-  bottom: 28px;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   box-shadow:
-    0 18px 44px rgb(15 23 42 / 16%),
-    inset 0 1px 0 rgb(255 255 255 / 44%);
+    0 14px 34px rgb(15 23 42 / 12%),
+    inset 0 1px 0 rgb(255 255 255 / 42%);
   box-sizing: border-box;
   display: inline-flex;
   flex-wrap: nowrap;
-  gap: 12px;
   justify-content: center;
   left: 50%;
   max-width: calc(100vw - 24px);
-  overflow: visible;
-  padding: 8px;
+  padding: 6px;
   position: fixed;
-  scrollbar-width: none;
   transform: translateX(-50%);
   width: max-content;
-  z-index: 1100;
-}
-
-.theme-workbench-dock::-webkit-scrollbar {
-  display: none;
+  z-index: 1090;
 }
 
 .theme-workbench-dock__main {
   flex: 0 0 auto;
-  min-width: 44px;
+  min-width: 48px;
 }
 
-.theme-workbench-dock__group {
-  align-items: center;
-  background: color-mix(in srgb, var(--td-bg-color-container) 72%, transparent);
-  border: 1px solid color-mix(in srgb, var(--td-component-stroke) 44%, transparent);
-  border-radius: 22px;
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 32%);
-  display: inline-flex;
-  flex: 0 0 auto;
-  gap: 8px;
-  min-width: 0;
-  padding: 4px;
-}
-
-.theme-workbench-dock__action--active {
-  background: color-mix(in srgb, var(--td-brand-color) 12%, var(--td-bg-color-container));
-  border-color: color-mix(in srgb, var(--td-brand-color) 28%, transparent);
+.theme-workbench-dock__main--active {
+  background: color-mix(in srgb, var(--td-brand-color) 10%, var(--td-bg-color-container));
+  border-color: color-mix(in srgb, var(--td-brand-color) 24%, transparent);
   box-shadow:
-    0 10px 20px color-mix(in srgb, var(--td-brand-color) 16%, transparent),
-    inset 0 1px 0 rgb(255 255 255 / 34%);
+    0 8px 18px color-mix(in srgb, var(--td-brand-color) 12%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 28%);
   color: var(--td-brand-color);
 }
 
 :deep(.t-button--variant-outline) {
   backdrop-filter: blur(14px);
-  background: color-mix(in srgb, var(--td-bg-color-container) 76%, transparent);
-  border-color: color-mix(in srgb, var(--td-component-stroke) 48%, transparent);
+  background: color-mix(in srgb, var(--td-bg-color-container) 78%, transparent);
+  border-color: color-mix(in srgb, var(--td-component-stroke) 44%, transparent);
   box-shadow:
-    0 8px 20px rgb(15 23 42 / 8%),
-    inset 0 1px 0 rgb(255 255 255 / 30%);
+    0 6px 16px rgb(15 23 42 / 7%),
+    inset 0 1px 0 rgb(255 255 255 / 28%);
   color: var(--td-text-color-secondary);
   transition:
     transform 0.18s ease,
@@ -153,28 +97,20 @@ const resetWorkbench = () => {
 
 :deep(.t-button--variant-outline:hover) {
   background: color-mix(in srgb, var(--td-bg-color-container) 90%, transparent);
-  border-color: color-mix(in srgb, var(--td-brand-color) 16%, var(--td-component-stroke));
+  border-color: color-mix(in srgb, var(--td-brand-color) 14%, var(--td-component-stroke));
   color: var(--td-text-color-primary);
   transform: translateY(-1px);
 }
 
 :deep(.theme-workbench-dock__main.t-button) {
-  .theme-workbench-dock-button-base();
-
-  font-weight: 600;
-}
-
-// 主入口与快捷入口都需要同一套展开/收起交互动效，统一收口避免后续样式漂移。
-.theme-workbench-dock-button-base() {
   align-items: center;
   border-radius: 999px;
   display: inline-flex;
-  flex: 0 0 auto;
-  height: 44px;
+  font-weight: 600;
+  height: 48px;
   justify-content: center;
-  min-width: 44px;
   overflow: hidden;
-  padding: 0;
+  padding-inline: 0;
   transition:
     min-width 0.22s ease,
     padding-inline 0.22s ease,
@@ -185,130 +121,61 @@ const resetWorkbench = () => {
     transform 0.18s ease;
 }
 
-.theme-workbench-dock-button-text-base() {
+:deep(.theme-workbench-dock__main .t-button__content) {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+  width: 100%;
+}
+
+:deep(.theme-workbench-dock__main .t-button__prefix) {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+  line-height: 1;
+  margin-right: 0;
+}
+
+:deep(.theme-workbench-dock__main .t-button__text) {
+  margin-left: 0;
   max-width: 0;
   opacity: 0;
   overflow: hidden;
   transition:
     max-width 0.22s ease,
-    margin-inline-start 0.22s ease,
+    margin-left 0.22s ease,
     opacity 0.16s ease;
   white-space: nowrap;
 }
 
-.theme-workbench-dock-button-label-margin-collapsed() {
-  margin-left: 0;
-}
-
-.theme-workbench-dock-button-active-base(@min-width) {
-  min-width: @min-width;
+:deep(.theme-workbench-dock__main--active.t-button) {
+  min-width: 118px;
   padding-inline: 16px;
 }
 
-.theme-workbench-dock-button-label-margin-expanded() {
-  margin-left: 8px;
+:deep(.theme-workbench-dock__main--active .t-button__prefix) {
+  margin-right: 8px;
 }
 
-.theme-workbench-dock-button-text-active() {
-  max-width: 96px;
+:deep(.theme-workbench-dock__main--active .t-button__text) {
+  max-width: 88px;
   opacity: 1;
-}
-
-// 激活态 pill 需要围绕按钮中心展开，否则图标和文字会整体向一侧偏移。
-:deep(.theme-workbench-dock__main .t-button__text) {
-  .theme-workbench-dock-button-text-base();
-}
-
-:deep(.theme-workbench-dock__main .t-icon + .t-button__text:not(:empty)) {
-  .theme-workbench-dock-button-label-margin-collapsed();
-}
-
-:deep(.theme-workbench-dock__main.theme-workbench-dock__action--active.t-button) {
-  .theme-workbench-dock-button-active-base(132px);
-}
-
-:deep(.theme-workbench-dock__main.theme-workbench-dock__action--active.t-button .t-icon + .t-button__text:not(:empty)) {
-  .theme-workbench-dock-button-label-margin-expanded();
-}
-
-:deep(.theme-workbench-dock__main.theme-workbench-dock__action--active.t-button .t-button__text) {
-  .theme-workbench-dock-button-text-active();
-}
-
-:deep(.theme-workbench-dock__action.t-button) {
-  .theme-workbench-dock-button-base();
-}
-
-:deep(.theme-workbench-dock__action .t-button__text) {
-  .theme-workbench-dock-button-text-base();
-}
-
-:deep(.theme-workbench-dock__action .t-icon + .t-button__text:not(:empty)) {
-  .theme-workbench-dock-button-label-margin-collapsed();
-}
-
-:deep(.theme-workbench-dock__action--active.t-button) {
-  .theme-workbench-dock-button-active-base(116px);
-}
-
-:deep(.theme-workbench-dock__action--active.t-button .t-icon + .t-button__text:not(:empty)) {
-  .theme-workbench-dock-button-label-margin-expanded();
-}
-
-:deep(.theme-workbench-dock__action--active.t-button .t-button__text) {
-  .theme-workbench-dock-button-text-active();
-}
-
-:deep(.theme-workbench-dock__reset.t-button) {
-  background: color-mix(in srgb, var(--td-bg-color-container) 66%, transparent);
-  border-radius: 18px;
-  flex: 0 0 auto;
-  height: 44px;
-  justify-content: center;
-  min-width: 44px;
-  padding: 0;
-  width: 44px;
 }
 
 @media (width <= 768px) {
   .theme-workbench-dock {
-    gap: 8px;
+    bottom: 16px;
     padding: 6px;
   }
 
-  .theme-workbench-dock__main {
-    min-width: 40px;
-  }
-
-  .theme-workbench-dock__group {
-    gap: 6px;
-    padding: 3px;
-  }
-
   :deep(.theme-workbench-dock__main.t-button) {
-    height: 40px;
-    min-width: 40px;
+    height: 44px;
+    min-width: 44px;
   }
 
-  :deep(.theme-workbench-dock__action.t-button),
-  :deep(.theme-workbench-dock__reset.t-button) {
-    height: 40px;
-    min-width: 40px;
-    width: 40px;
-  }
-
-  :deep(.theme-workbench-dock__action--active.t-button) {
-    min-width: 104px;
+  :deep(.theme-workbench-dock__main--active.t-button) {
+    min-width: 108px;
     padding-inline: 14px;
-    width: auto;
-  }
-
-  :deep(.theme-workbench-dock__main.theme-workbench-dock__action--active.t-button) {
-    min-width: 116px;
-  }
-
-  :deep(.theme-workbench-dock__action--active.t-button .t-button__text) {
-    max-width: 72px;
   }
 }
 </style>

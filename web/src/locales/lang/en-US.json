@@ -88,67 +88,79 @@
       "navigationLayout": "Navigation Layout",
       "sideMode": "Side Menu Mode",
       "splitMenu": "Split Menu (Only Mix mode)",
+      "splitMenuShort": "Split Menu",
       "fixedSidebar": "Fixed Sidebar",
       "element": {
         "title": "Element Switch",
         "showHeader": "Show Header",
         "showBreadcrumb": "Show Breadcrumbs",
         "showFooter": "Show Footer",
-        "useTagTabs": "Use Multi-Tag Tabs",
+        "useTagTabs": "Show multi-tab pages",
         "menuAutoCollapsed": "Menu Auto Collapsed"
       },
       "workbench": {
-        "title": "Custom Theme",
-        "subtitle": "Custom Theme",
+        "title": "Theme & Personalization Center",
+        "subtitle": "Adjust theme, layout, and page display options",
         "dock": {
-          "title": "Custom Theme"
+          "title": "Theme Center"
         },
         "groups": {
           "overview": "Overview",
           "appearance": "Appearance",
+          "layout": "Layout",
           "typography": "Typography",
           "style": "Style",
           "advanced": "Advanced",
           "brand": "Brand",
-          "semantic": "Semantic",
-          "neutral": "Neutral",
-          "font": "Font",
-          "radius": "Radius",
-          "shadow": "Shadow",
-          "size": "Size"
+          "text": "Text Colors",
+          "background": "Background Colors",
+          "border": "Border Colors",
+          "component": "Component Tokens"
         },
         "layout": {
           "side": "Side Layout",
           "top": "Top Layout",
           "mix": "Mix Layout",
           "tip": "Choose side, top, or mixed navigation. Changes apply to the current shell immediately.",
-          "descriptions": {
-            "side": "Keeps side navigation and header together for the main admin workspace.",
-            "top": "Moves navigation into the header and frees more horizontal content space.",
-            "mix": "Combines top-level header navigation with side submenus, with optional split menu behavior."
-          }
+          "navigationBehavior": "Navigation Behavior",
+          "behaviorDescription": "Adjust navigation structure and page element visibility.",
+          "elementsDescription": "Toggle Header, Breadcrumbs, Footer, and multi-tab pages.",
+          "splitMenuHint": "Updates mixed-layout navigation immediately.",
+          "fixedSidebarHint": "Switch between fixed and scrolling sidebar behavior.",
+          "menuAutoCollapsedHint": "Collapse other menu groups when one group expands.",
+          "onlyMix": "Only available in mixed layout",
+          "notIntegrated": "Not integrated yet"
         },
         "presets": {
-          "title": "Recommended"
+          "title": "Official Themes"
         },
         "overview": {
           "currentTheme": "Current Theme",
-          "quickActions": "Quick Actions",
-          "toggleDark": "Toggle Dark Mode",
-          "resetColor": "Reset Theme Color"
+          "description": "Choose theme mode, theme color, and preset themes.",
+          "currentLayout": "Current Layout",
+          "modifiedCount": "Modified Items"
         },
-        "layoutPreference": {
-          "title": "Layout Preference (Compatibility Entry)",
-          "description": "These options belong to layout preference, not Theme Authority. They remain here only as a compatibility entry for now."
+        "identity": {
+          "customized": "{name} (Customized)",
+          "basedOn": "Based on {name}"
+        },
+        "appearance": {
+          "description": "Choose theme mode, theme color, and preset themes.",
+          "colorDescription": "Pick a theme color and preview it immediately."
         },
         "typography": {
           "fontFamily": "Font Family",
-          "system": "System Default"
+          "system": "System Default",
+          "description": "Adjust admin font settings.",
+          "sampleTitle": "Aa Font Sample",
+          "sampleBody": "Sample text follows the current font setting.",
+          "previewLine": "Aa Admin Dashboard 123"
         },
         "style": {
           "radius": "Radius Style",
           "shadow": "Shadow Style",
           "density": "Density",
+          "description": "Adjust radius, shadow, and content density.",
           "business": "Business",
           "standard": "Standard",
           "rounded": "Rounded",
@@ -160,38 +172,21 @@
         },
         "advanced": {
           "title": "Advanced Mode",
-          "description": "Editing low-level design tokens may affect the visual consistency of the whole system. Use only when necessary.",
-          "enter": "Enter Advanced Mode",
-          "hide": "Hide Advanced Mode"
+          "description": "Advanced mode is for Design Token debugging and stays hidden by default."
         },
-        "preview": {
-          "title": "Admin Preview",
-          "pageTitle": "Audit and Access Log",
-          "pageDesc": "Preview how the theme affects query toolbars, tables, status tags, stat cards, and log lists.",
-          "keyword": "Keyword / Actor / Resource",
-          "timeRange": "Time Range",
-          "status": "Status",
-          "alert": "The preview is synced to admin business samples in real time so you can judge the theme on real management surfaces.",
-          "pending": "Pending",
-          "risk": "High Risk",
-          "tableTitle": "User and Permission List",
-          "logTitle": "Log List Sample",
-          "totalUsers": "Total Users",
-          "onlineUsers": "Online Users",
-          "alertCount": "Alerts",
-          "userColumn": "User",
-          "roleColumn": "Role",
-          "statusColumn": "Status",
-          "logAuth": "Admin sign-in failed and triggered an authentication alert.",
-          "logAudit": "An auditor exported a high-risk event and recorded the evidence chain.",
-          "logAccess": "The gateway detected an abnormal access pattern and is waiting for investigation."
+        "diff": {
+          "brandTheme": "Theme Color",
+          "fontFamilyPreset": "Font",
+          "radiusPreset": "Radius",
+          "shadowPreset": "Shadow",
+          "densityPreset": "Density"
         },
         "token": {
           "targetMode": "Target Mode",
           "light": "Light",
           "dark": "Dark",
           "reset": "Reset Inheritance",
-          "description": "Token updates are injected into CSS variables in real time for local theme preview.",
+          "description": "Adjust Design Tokens by group.",
           "empty": "No editable tokens in this group"
         },
         "actions": {

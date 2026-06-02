@@ -8,21 +8,30 @@
           <t-radio-button value="dark">{{ t('layout.setting.workbench.token.dark') }}</t-radio-button>
         </t-radio-group>
       </div>
-      <t-button size="small" variant="outline" @click="clearCurrentGroup">
+      <t-button size="small" variant="text" theme="danger" class="clear-button" @click="clearCurrentGroup">
         {{ t('layout.setting.workbench.actions.clearGroup') }}
       </t-button>
     </div>
 
     <div v-if="tokenDefinitions.length" class="token-grid">
       <div v-for="token in tokenDefinitions" :key="token.key" class="token-item">
-        <div class="token-header">
-          <div class="token-meta">
-            <div class="token-label">{{ token.label }}</div>
-            <div class="token-key">{{ token.key }}</div>
+        <div class="token-meta">
+          <div class="token-label">{{ token.label }}</div>
+          <div class="token-key">{{ token.key }}</div>
+        </div>
+        <div class="token-preview-rail">
+          <div
+            v-if="showPreviewSwatch(token.key)"
+            class="token-preview"
+            :style="{ background: getResolvedTokenValue(token.key) }"
+          />
+          <div v-else class="token-preview token-preview--text">
+            <span>Aa</span>
           </div>
-          <t-button size="small" variant="text" :disabled="!hasTokenOverride(token.key)" @click="resetToken(token.key)">
-            {{ t('layout.setting.workbench.token.reset') }}
-          </t-button>
+          <div class="token-preview-sample">
+            <span class="token-preview-sample__line" />
+            <span class="token-preview-sample__line token-preview-sample__line--short" />
+          </div>
         </div>
         <div class="token-inputs">
           <label v-if="showColorInput(token.key)" class="color-input">
@@ -32,17 +41,22 @@
               @input="updateToken(token.key, ($event.target as HTMLInputElement).value)"
             />
           </label>
-          <div
-            v-if="showPreviewSwatch(token.key)"
-            class="token-preview"
-            :style="{ background: getResolvedTokenValue(token.key) }"
-          />
           <t-input
+            class="token-input"
             :model-value="getInputValue(token.key)"
             @update:model-value="(value) => updateDraftValue(token.key, String(value ?? ''))"
             @change="(value) => commitToken(token.key, String(value ?? ''))"
             @blur="() => commitToken(token.key)"
           />
+          <t-button
+            size="small"
+            variant="text"
+            class="reset-button"
+            :disabled="!hasTokenOverride(token.key)"
+            @click="resetToken(token.key)"
+          >
+            {{ t('layout.setting.workbench.token.reset') }}
+          </t-button>
         </div>
       </div>
     </div>
@@ -62,6 +76,9 @@ const props = defineProps<{
   tokenDefinitions: ThemeTokenDefinition[];
   groupKey: ThemeTokenGroupKey;
 }>();
+const emit = defineEmits<{
+  'mode-change': [mode: ModeType];
+}>();
 
 const settingStore = useSettingStore();
 const activeMode = ref<ModeType>(settingStore.displayMode);
@@ -72,6 +89,7 @@ watch(
   () => settingStore.displayMode,
   (mode) => {
     activeMode.value = mode;
+    emit('mode-change', mode);
     draftValues.value = {};
   },
   { immediate: true },
@@ -86,6 +104,7 @@ watch(
 );
 
 watch(activeMode, () => {
+  emit('mode-change', activeMode.value);
   draftValues.value = {};
 });
 
@@ -196,6 +215,10 @@ const toHex = (value: string) => {
   font: var(--td-font-body-medium);
 }
 
+.clear-button {
+  opacity: 0.72;
+}
+
 .token-grid {
   display: grid;
   gap: 12px;
@@ -204,15 +227,10 @@ const toHex = (value: string) => {
 .token-item {
   .theme-workbench-surface();
 
-  gap: 12px;
-  padding: 14px 16px;
-}
-
-.token-header {
   align-items: flex-start;
-  display: flex;
   gap: 12px;
-  justify-content: space-between;
+  grid-template-columns: minmax(0, 1.3fr) 112px minmax(220px, 0.9fr);
+  padding: 14px 16px;
 }
 
 .token-meta {
@@ -233,11 +251,28 @@ const toHex = (value: string) => {
   word-break: break-all;
 }
 
+.token-preview-rail {
+  align-items: center;
+  background: color-mix(in srgb, var(--td-bg-color-page) 84%, var(--td-bg-color-container));
+  border: 1px solid color-mix(in srgb, var(--td-component-stroke) 88%, transparent);
+  border-radius: 12px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 32px minmax(0, 1fr);
+  min-height: 48px;
+  padding: 8px 10px;
+}
+
 .token-inputs {
   align-items: center;
   display: grid;
   gap: 10px;
-  grid-template-columns: auto auto 1fr;
+  grid-template-columns: auto minmax(160px, 188px) auto;
+  justify-content: end;
+  min-width: 0;
+}
+
+.token-input {
   min-width: 0;
 }
 
@@ -259,7 +294,56 @@ const toHex = (value: string) => {
 .token-preview {
   border: 1px solid var(--td-component-stroke);
   border-radius: var(--td-radius-default);
-  height: 28px;
-  width: 28px;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 14%),
+    0 4px 14px rgb(15 23 42 / 10%);
+  height: 32px;
+  width: 32px;
+}
+
+.token-preview--text {
+  align-items: center;
+  background: var(--td-bg-color-container);
+  color: var(--td-text-color-primary);
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 700;
+  justify-content: center;
+}
+
+.token-preview-sample {
+  display: grid;
+  gap: 6px;
+}
+
+.token-preview-sample__line {
+  background: color-mix(in srgb, var(--td-brand-color) 12%, var(--td-text-color-placeholder));
+  border-radius: 999px;
+  display: block;
+  height: 7px;
+  width: 100%;
+}
+
+.token-preview-sample__line--short {
+  width: 72%;
+}
+
+.reset-button {
+  opacity: 0.76;
+}
+
+@media (width <= 768px) {
+  .editor-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .token-item {
+    grid-template-columns: 1fr;
+  }
+
+  .token-inputs {
+    grid-template-columns: auto 1fr auto;
+  }
 }
 </style>

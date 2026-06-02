@@ -3,9 +3,9 @@ import type { ModeType } from '@/utils/types';
 
 export type SettingStyleConfig = typeof STYLE_CONFIG;
 
-export type ThemeWorkbenchGroupKey = 'overview' | 'appearance' | 'typography' | 'style' | 'advanced';
+export type ThemeWorkbenchGroupKey = 'overview' | 'appearance' | 'layout' | 'typography' | 'style' | 'advanced';
 
-export type ThemeTokenGroupKey = 'brand' | 'semantic' | 'neutral' | 'font' | 'radius' | 'shadow' | 'size';
+export type ThemeTokenGroupKey = 'brand' | 'text' | 'background' | 'border' | 'component';
 
 export type ThemeSourceType = 'preset' | 'customized';
 
@@ -20,6 +20,21 @@ export interface ThemeWorkbenchGroupDefinition {
   key: ThemeWorkbenchGroupKey;
   labelKey: string;
   descriptionKey?: string;
+}
+
+export interface ThemeAuthorityDiffItem {
+  key: 'brandTheme' | 'fontFamilyPreset' | 'radiusPreset' | 'shadowPreset' | 'densityPreset';
+  labelKey: string;
+  fromValue: string;
+  toValue: string;
+}
+
+export interface ThemeIdentitySummary {
+  currentLabel: string;
+  sourceLabel: string;
+  sourceType: ThemeSourceType;
+  modifiedCount: number;
+  lastModifiedAt: string | null;
 }
 
 export interface ThemeTokenDefinition {
