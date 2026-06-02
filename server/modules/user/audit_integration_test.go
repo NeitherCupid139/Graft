@@ -8,12 +8,12 @@ import (
 	"go.uber.org/zap"
 
 	"graft/server/internal/eventbus"
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 	userstore "graft/server/modules/user/store"
 )
 
 type recordingBus struct {
-	published []eventbus.Event
+	published  []eventbus.Event
 	publishErr error
 }
 
@@ -37,8 +37,8 @@ func TestUserServiceCreateUserPublishesAuditEvent(t *testing.T) {
 		auditBus: bus,
 		logger:   zap.NewNop(),
 	}
-	ctx := pluginapi.WithRequestAuthContext(context.Background(), pluginapi.RequestAuthContext{
-		User: &pluginapi.CurrentUser{ID: 7, Username: "admin", DisplayName: "Admin"},
+	ctx := moduleapi.WithRequestAuthContext(context.Background(), moduleapi.RequestAuthContext{
+		User: &moduleapi.CurrentUser{ID: 7, Username: "admin", DisplayName: "Admin"},
 	})
 
 	created, err := svc.CreateUser(ctx, passwordHasher{cost: 4}, passwordPolicy{}, CreateUserCommand{
@@ -57,7 +57,7 @@ func TestUserServiceCreateUserPublishesAuditEvent(t *testing.T) {
 		t.Fatalf("expected 1 published event, got %d", len(bus.published))
 	}
 
-	event, ok := bus.published[0].Payload.(pluginapi.AuditEvent)
+	event, ok := bus.published[0].Payload.(moduleapi.AuditEvent)
 	if !ok {
 		t.Fatalf("expected audit event payload, got %T", bus.published[0].Payload)
 	}

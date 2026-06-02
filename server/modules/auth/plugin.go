@@ -6,24 +6,24 @@ import (
 	"fmt"
 
 	"graft/server/internal/module"
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 )
 
-// Plugin 是 auth 插件的认证与会话生命周期运行时入口。
-type Plugin struct{}
+// Module 是 auth 模块的认证与会话生命周期运行时入口。
+type Module struct{}
 
-// NewPlugin 创建 auth 插件最小骨架实例。
-func NewPlugin() *Plugin {
-	return &Plugin{}
+// NewModule 创建 auth 模块最小骨架实例。
+func NewModule() *Module {
+	return &Module{}
 }
 
-// Register 声明 auth 插件拥有的 `/auth/*` 运行时路由。
-func (p *Plugin) Register(ctx *module.Context) error {
-	authService, err := resolveService[pluginapi.AuthService](ctx, (*pluginapi.AuthService)(nil), "auth service")
+// Register 声明 auth 模块拥有的 `/auth/*` 运行时路由。
+func (p *Module) Register(ctx *module.Context) error {
+	authService, err := resolveService[moduleapi.AuthService](ctx, (*moduleapi.AuthService)(nil), "auth service")
 	if err != nil {
 		return err
 	}
-	authFlow, err := resolveService[pluginapi.AuthFlowService](ctx, (*pluginapi.AuthFlowService)(nil), "auth flow service")
+	authFlow, err := resolveService[moduleapi.AuthFlowService](ctx, (*moduleapi.AuthFlowService)(nil), "auth flow service")
 	if err != nil {
 		return err
 	}
@@ -32,12 +32,12 @@ func (p *Plugin) Register(ctx *module.Context) error {
 }
 
 // Boot 当前没有额外运行时行为需要启动。
-func (p *Plugin) Boot(_ *module.Context) error {
+func (p *Module) Boot(_ *module.Context) error {
 	return nil
 }
 
 // Shutdown 当前没有额外资源需要释放。
-func (p *Plugin) Shutdown(_ *module.Context) error {
+func (p *Module) Shutdown(_ *module.Context) error {
 	return nil
 }
 
@@ -60,6 +60,6 @@ func resolveService[T any](ctx *module.Context, key any, label string) (T, error
 	return service, nil
 }
 
-func currentRequestAuth(ctx context.Context) (pluginapi.RequestAuthContext, bool) {
-	return pluginapi.RequestAuthContextFromContext(ctx)
+func currentRequestAuth(ctx context.Context) (moduleapi.RequestAuthContext, bool) {
+	return moduleapi.RequestAuthContextFromContext(ctx)
 }

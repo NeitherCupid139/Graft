@@ -8,7 +8,7 @@ import (
 	"go.uber.org/zap"
 
 	"graft/server/internal/eventbus"
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 	rbacstore "graft/server/modules/rbac/store"
 )
 
@@ -34,8 +34,8 @@ func TestManagementWriterCreateRolePublishesAuditEvent(t *testing.T) {
 		auditBus: bus,
 		logger:   zap.NewNop(),
 	}
-	ctx := pluginapi.WithRequestAuthContext(context.Background(), pluginapi.RequestAuthContext{
-		User: &pluginapi.CurrentUser{ID: 7, Username: "admin", DisplayName: "Admin"},
+	ctx := moduleapi.WithRequestAuthContext(context.Background(), moduleapi.RequestAuthContext{
+		User: &moduleapi.CurrentUser{ID: 7, Username: "admin", DisplayName: "Admin"},
 	})
 
 	role, err := writer.CreateRole(ctx, rbacstore.CreateRoleInput{
@@ -52,7 +52,7 @@ func TestManagementWriterCreateRolePublishesAuditEvent(t *testing.T) {
 		t.Fatalf("expected 1 published event, got %d", len(bus.published))
 	}
 
-	event, ok := bus.published[0].Payload.(pluginapi.AuditEvent)
+	event, ok := bus.published[0].Payload.(moduleapi.AuditEvent)
 	if !ok {
 		t.Fatalf("expected audit event payload, got %T", bus.published[0].Payload)
 	}
@@ -67,7 +67,7 @@ func TestManagementWriterCreateRolePublishesAuditEvent(t *testing.T) {
 func TestManagementWriterReplaceRolesForUserAuditFailureDoesNotBlock(t *testing.T) {
 	bus := &recordingBus{publishErr: errors.New("audit down")}
 	writer := managementWriter{
-		users: testUserService{users: map[uint64]pluginapi.UserSummary{
+		users: testUserService{users: map[uint64]moduleapi.UserSummary{
 			11: {ID: 11, Username: "alice", Display: "Alice"},
 		}},
 		rbac: testRBACRepository{

@@ -15,7 +15,7 @@ import (
 	rbacopenapi "graft/server/internal/contract/openapi/rbac"
 	"graft/server/internal/httpx"
 	"graft/server/internal/module"
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 	rbacstore "graft/server/modules/rbac/store"
 )
 
@@ -265,7 +265,7 @@ func handleListUserRoleBindings(
 			}
 			return toUserRoleBindingResponse(roleIDs)
 		},
-		isNotFound:  func(err error) bool { return errors.Is(err, pluginapi.ErrUserNotFound) },
+		isNotFound:  func(err error) bool { return errors.Is(err, moduleapi.ErrUserNotFound) },
 		notFoundKey: messagecontract.UserNotFound,
 	})
 }

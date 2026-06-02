@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 	rbacstore "graft/server/modules/rbac/store"
 )
 
@@ -43,7 +43,7 @@ func (s accessService) ListPermissionCodesByUserID(ctx context.Context, userID u
 func (s accessService) ListRoleSummariesByUserIDs(
 	ctx context.Context,
 	userIDs []uint64,
-) (map[uint64][]pluginapi.RoleSummary, error) {
+) (map[uint64][]moduleapi.RoleSummary, error) {
 	if s.rbac == nil {
 		return nil, errors.New("rbac repository is unavailable")
 	}
@@ -53,17 +53,17 @@ func (s accessService) ListRoleSummariesByUserIDs(
 		return nil, err
 	}
 
-	summaries := make(map[uint64][]pluginapi.RoleSummary, len(rolesByUserID))
+	summaries := make(map[uint64][]moduleapi.RoleSummary, len(rolesByUserID))
 	for userID, roles := range rolesByUserID {
-		items := make([]pluginapi.RoleSummary, 0, len(roles))
+		items := make([]moduleapi.RoleSummary, 0, len(roles))
 		for _, role := range roles {
-			items = append(items, pluginapi.RoleSummary{
+			items = append(items, moduleapi.RoleSummary{
 				ID:      role.ID,
 				Name:    strings.TrimSpace(role.Name),
 				Display: strings.TrimSpace(role.Display),
 			})
 		}
-		slices.SortFunc(items, func(left, right pluginapi.RoleSummary) int {
+		slices.SortFunc(items, func(left, right moduleapi.RoleSummary) int {
 			if left.ID == right.ID {
 				return strings.Compare(left.Name, right.Name)
 			}
@@ -77,14 +77,14 @@ func (s accessService) ListRoleSummariesByUserIDs(
 
 	for _, userID := range userIDs {
 		if _, ok := summaries[userID]; !ok {
-			summaries[userID] = []pluginapi.RoleSummary{}
+			summaries[userID] = []moduleapi.RoleSummary{}
 		}
 	}
 
 	return summaries, nil
 }
 
-var _ pluginapi.RBACAccessService = accessService{}
+var _ moduleapi.RBACAccessService = accessService{}
 
 func stableStrings[T any](items []T, extract func(T) string) []string {
 	values := make([]string, 0, len(items))

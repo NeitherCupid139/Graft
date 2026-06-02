@@ -9,9 +9,9 @@ import (
 	"graft/server/internal/httpx"
 	"graft/server/internal/i18n"
 	"graft/server/internal/menu"
-	"graft/server/internal/permission"
 	"graft/server/internal/module"
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
+	"graft/server/internal/permission"
 	auditcontract "graft/server/modules/audit/contract"
 )
 
@@ -107,25 +107,25 @@ func registerAuditMessages(localizer *i18n.Service) error {
 	return nil
 }
 
-func (p *Plugin) resolveRouteGuard(ctx *module.Context) (auditGuard, error) {
+func (p *Module) resolveRouteGuard(ctx *module.Context) (auditGuard, error) {
 	if ctx == nil || ctx.Services == nil {
 		return auditGuard{}, errors.New("plugin context services are unavailable")
 	}
 
-	resolvedAuthService, err := ctx.Services.Resolve((*pluginapi.AuthService)(nil))
+	resolvedAuthService, err := ctx.Services.Resolve((*moduleapi.AuthService)(nil))
 	if err != nil {
 		return auditGuard{}, fmt.Errorf("resolve auth service: %w", err)
 	}
-	authService, ok := resolvedAuthService.(pluginapi.AuthService)
+	authService, ok := resolvedAuthService.(moduleapi.AuthService)
 	if !ok {
 		return auditGuard{}, fmt.Errorf("resolve auth service: unexpected type %T", resolvedAuthService)
 	}
 
-	resolvedAuthorizer, err := ctx.Services.Resolve((*pluginapi.Authorizer)(nil))
+	resolvedAuthorizer, err := ctx.Services.Resolve((*moduleapi.Authorizer)(nil))
 	if err != nil {
 		return auditGuard{}, fmt.Errorf("resolve route authorizer: %w", err)
 	}
-	authorizer, ok := resolvedAuthorizer.(pluginapi.Authorizer)
+	authorizer, ok := resolvedAuthorizer.(moduleapi.Authorizer)
 	if !ok {
 		return auditGuard{}, fmt.Errorf("resolve route authorizer: unexpected type %T", resolvedAuthorizer)
 	}

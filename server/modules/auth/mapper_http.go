@@ -5,10 +5,10 @@ import (
 	"math"
 
 	generated "graft/server/internal/contract/openapi/generated"
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 )
 
-func toLoginResponse(result pluginapi.AuthRefreshResult) (generated.LoginResponse, error) {
+func toLoginResponse(result moduleapi.AuthRefreshResult) (generated.LoginResponse, error) {
 	var response generated.LoginResponse
 	response.AccessToken = result.AccessToken
 	response.ExpiresAt = result.AccessExpiry
@@ -24,7 +24,7 @@ func toLoginResponse(result pluginapi.AuthRefreshResult) (generated.LoginRespons
 	return response, nil
 }
 
-func toBootstrapResponse(payload pluginapi.AuthBootstrapPayload) (generated.BootstrapResponse, error) {
+func toBootstrapResponse(payload moduleapi.AuthBootstrapPayload) (generated.BootstrapResponse, error) {
 	menus := make([]generated.BootstrapMenu, 0, len(payload.Menus))
 	for _, item := range payload.Menus {
 		menus = append(menus, generated.BootstrapMenu{
@@ -78,7 +78,7 @@ func optionalIntPointer(value int) *int {
 	return &value
 }
 
-func toSessionSummaries(items []pluginapi.AuthSessionSummary) []generated.SessionSummary {
+func toSessionSummaries(items []moduleapi.AuthSessionSummary) []generated.SessionSummary {
 	summaries := make([]generated.SessionSummary, 0, len(items))
 	for _, item := range items {
 		summaries = append(summaries, generated.SessionSummary{

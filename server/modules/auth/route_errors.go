@@ -13,7 +13,7 @@ import (
 	"graft/server/internal/httpx"
 	"graft/server/internal/i18n"
 	applog "graft/server/internal/logger"
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 )
 
 const maxSessionListLimit = 100
@@ -22,7 +22,7 @@ type routeRuntime struct {
 	localizer  *i18n.Service
 	logger     *zap.Logger
 	pluginName string
-	authFlow   pluginapi.AuthFlowService
+	authFlow   moduleapi.AuthFlowService
 }
 
 func (r authRouteRegistrar) runtime() routeRuntime {
@@ -111,7 +111,7 @@ func parseSessionListLimit(rawLimit string) (int, error) {
 func clearRefreshCookieWhen(
 	ginCtx *gin.Context,
 	cookies CookieManager,
-	matches func(*pluginapi.AccessTokenClaims) bool,
+	matches func(*moduleapi.AccessTokenClaims) bool,
 ) {
 	if matches == nil {
 		return

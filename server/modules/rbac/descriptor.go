@@ -18,7 +18,7 @@ func NewModuleSpec() module.Spec {
 		ID:            moduleID,
 		Dependencies:  []string{"user"},
 		MigrationPath: []string{"modules/rbac/migrations"},
-		Builder: module.BuilderFunc(func(ctx module.BuildContext) (module.Plugin, error) {
+		Builder: module.BuilderFunc(func(ctx module.BuildContext) (module.Module, error) {
 			sqlDB, err := module.ResolveService[*sql.DB](ctx.Services, (*sql.DB)(nil))
 			if err != nil {
 				return nil, fmt.Errorf("resolve sql db: %w", err)
@@ -28,7 +28,7 @@ func NewModuleSpec() module.Spec {
 				return nil, fmt.Errorf("build rbac repository: %w", err)
 			}
 
-			return NewPlugin(repo), nil
+			return NewModule(repo), nil
 		}),
 	}
 }

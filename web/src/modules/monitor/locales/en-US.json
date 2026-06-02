@@ -137,7 +137,7 @@
       "runtimeGroupRuntime": "Runtime Status",
       "runtimeGroupProcess": "Go Process",
       "runtimeGroupEnvironment": "Environment and Capacity",
-      "runtimeGroupPlugins": "Plugin Summary",
+      "runtimeGroupPlugins": "Module Summary",
       "databaseLabel": "Database",
       "redisLabel": "Redis",
       "pluginRegistered": "Registered",

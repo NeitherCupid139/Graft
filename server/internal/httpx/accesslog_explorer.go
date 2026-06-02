@@ -14,8 +14,8 @@ import (
 	"graft/server/internal/eventbus"
 	"graft/server/internal/i18n"
 	"graft/server/internal/menu"
+	"graft/server/internal/moduleapi"
 	"graft/server/internal/permission"
-	"graft/server/internal/pluginapi"
 )
 
 const (
@@ -121,8 +121,8 @@ func registerAccessLogExplorerRoutes(
 	router gin.IRouter,
 	localizer *i18n.Service,
 	repo AccessLogRepository,
-	authService pluginapi.AuthService,
-	authorizer pluginapi.Authorizer,
+	authService moduleapi.AuthService,
+	authorizer moduleapi.Authorizer,
 	bus eventbus.Bus,
 ) {
 	if router == nil || repo == nil || authService == nil {
@@ -144,8 +144,8 @@ func RegisterAccessLogExplorer(
 	ctx AccessLogExplorerRegistration,
 	router gin.IRouter,
 	repo AccessLogRepository,
-	authService pluginapi.AuthService,
-	authorizer pluginapi.Authorizer,
+	authService moduleapi.AuthService,
+	authorizer moduleapi.Authorizer,
 ) error {
 	if err := registerAccessLogExplorerMessages(ctx.I18n); err != nil {
 		return err

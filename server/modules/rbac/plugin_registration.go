@@ -10,29 +10,29 @@ import (
 	"graft/server/internal/httpx"
 	"graft/server/internal/i18n"
 	"graft/server/internal/module"
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 	rbaccontract "graft/server/modules/rbac/contract"
 	rbacstore "graft/server/modules/rbac/store"
 )
 
-// Plugin 是 MVP 阶段最小可用的 RBAC 插件。
+// Module 是 MVP 阶段最小可用的 RBAC 模块。
 //
 // 当前实现同时承载两类稳定边界：
-//   - 暴露 `pluginapi.Authorizer`，把权限判断收敛为统一后端安全边界
+//   - 暴露 `moduleapi.Authorizer`，把权限判断收敛为统一后端安全边界
 //   - 提供角色/权限只读管理路由，供 `web` 消费真实 RBAC 快照
-type Plugin struct {
+type Module struct {
 	repository rbacstore.Repository
 }
 
-// NewPlugin 创建最小 RBAC 插件。
-func NewPlugin(repository rbacstore.Repository) *Plugin {
-	return &Plugin{repository: repository}
+// NewModule 创建最小 RBAC 模块。
+func NewModule(repository rbacstore.Repository) *Module {
+	return &Module{repository: repository}
 }
 
 // Register 注册跨插件可复用的授权服务。
 //
 // Register 阶段只做稳定能力暴露与管理只读路由装配，不执行任何后台行为或耗时初始化。
-func (p *Plugin) Register(ctx *module.Context) error {
+func (p *Module) Register(ctx *module.Context) error {
 	if err := registerMessages(ctx.I18n); err != nil {
 		return err
 	}
@@ -42,23 +42,23 @@ func (p *Plugin) Register(ctx *module.Context) error {
 	if repository == nil {
 		return errors.New("rbac repository is unavailable")
 	}
-	if err := ctx.Services.RegisterSingleton((*pluginapi.RBACAccessService)(nil), func(_ container.Resolver) (any, error) {
+	if err := ctx.Services.RegisterSingleton((*moduleapi.RBACAccessService)(nil), func(_ container.Resolver) (any, error) {
 		return accessService{rbac: repository}, nil
 	}); err != nil {
 		return err
 	}
-	if err := ctx.Services.RegisterSingleton((*pluginapi.RBACBootstrapService)(nil), func(_ container.Resolver) (any, error) {
+	if err := ctx.Services.RegisterSingleton((*moduleapi.RBACBootstrapService)(nil), func(_ container.Resolver) (any, error) {
 		return bootstrapService{rbac: repository}, nil
 	}); err != nil {
 		return err
 	}
 
-	resolvedUserService, err := ctx.Services.Resolve((*pluginapi.UserService)(nil))
+	resolvedUserService, err := ctx.Services.Resolve((*moduleapi.UserService)(nil))
 	if err != nil {
 		return fmt.Errorf("resolve user service: %w", err)
 	}
 
-	userService, ok := resolvedUserService.(pluginapi.UserService)
+	userService, ok := resolvedUserService.(moduleapi.UserService)
 	if !ok {
 		return fmt.Errorf("resolve user service: unexpected type %T", resolvedUserService)
 	}
@@ -74,18 +74,18 @@ func (p *Plugin) Register(ctx *module.Context) error {
 		logger:   ctx.Logger,
 	}
 
-	if err := ctx.Services.RegisterSingleton((*pluginapi.Authorizer)(nil), func(_ container.Resolver) (any, error) {
+	if err := ctx.Services.RegisterSingleton((*moduleapi.Authorizer)(nil), func(_ container.Resolver) (any, error) {
 		return authorizer{rbac: repository}, nil
 	}); err != nil {
 		return err
 	}
 
-	resolved, err := ctx.Services.Resolve((*pluginapi.AuthService)(nil))
+	resolved, err := ctx.Services.Resolve((*moduleapi.AuthService)(nil))
 	if err != nil {
 		return fmt.Errorf("resolve auth service: %w", err)
 	}
 
-	authService, ok := resolved.(pluginapi.AuthService)
+	authService, ok := resolved.(moduleapi.AuthService)
 	if !ok {
 		return fmt.Errorf("resolve auth service: unexpected type %T", resolved)
 	}
@@ -149,12 +149,12 @@ func registerMessages(localizer *i18n.Service) error {
 }
 
 // Boot 当前没有额外运行时行为需要启动。
-func (p *Plugin) Boot(_ *module.Context) error {
+func (p *Module) Boot(_ *module.Context) error {
 	return nil
 }
 
 // Shutdown 当前没有额外资源需要释放。
-func (p *Plugin) Shutdown(_ *module.Context) error {
+func (p *Module) Shutdown(_ *module.Context) error {
 	return nil
 }
 
@@ -163,9 +163,9 @@ type authorizer struct {
 }
 
 // Authorize 基于稳定 RBAC 仓储判断请求主体是否拥有指定权限。
-func (a authorizer) Authorize(ctx context.Context, request pluginapi.RequestAuthContext, permission string) error {
+func (a authorizer) Authorize(ctx context.Context, request moduleapi.RequestAuthContext, permission string) error {
 	if request.User == nil || request.User.ID == 0 {
-		return pluginapi.ErrUnauthenticated
+		return moduleapi.ErrUnauthenticated
 	}
 	if strings.TrimSpace(permission) == "" {
 		return nil
@@ -184,7 +184,7 @@ func (a authorizer) Authorize(ctx context.Context, request pluginapi.RequestAuth
 		}
 	}
 
-	return pluginapi.ErrPermissionDenied
+	return moduleapi.ErrPermissionDenied
 }
 
-var _ pluginapi.Authorizer = authorizer{}
+var _ moduleapi.Authorizer = authorizer{}

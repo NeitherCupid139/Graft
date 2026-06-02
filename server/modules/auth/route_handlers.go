@@ -13,7 +13,7 @@ import (
 	authopenapi "graft/server/internal/contract/openapi/auth"
 	"graft/server/internal/httpx"
 	"graft/server/internal/i18n"
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 	authcontract "graft/server/modules/auth/contract"
 )
 
@@ -153,7 +153,7 @@ func (r authRouteRegistrar) registerCurrentUserSessionRoutes(authGroup *gin.Rout
 				r.runtime().writeAuthRouteError(ginCtx, "revoke current user refresh session failed", err, zap.String("sessionID", sessionID))
 			},
 			r.cookies,
-			func(claims *pluginapi.AccessTokenClaims) bool {
+			func(claims *moduleapi.AccessTokenClaims) bool {
 				return claims.SessionID == sessionID
 			},
 		)
@@ -242,7 +242,7 @@ func handleSessionRevocation(
 	revoke func(context.Context) error,
 	writeRouteError func(error),
 	cookies CookieManager,
-	shouldClearCookie func(*pluginapi.AccessTokenClaims) bool,
+	shouldClearCookie func(*moduleapi.AccessTokenClaims) bool,
 ) {
 	if err := revoke(ginCtx.Request.Context()); err != nil {
 		writeRouteError(err)

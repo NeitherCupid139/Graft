@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	"graft/server/internal/eventbus"
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 	rbacstore "graft/server/modules/rbac/store"
 )
 
@@ -46,7 +46,7 @@ type batchUserRoleAtomicWriter interface {
 }
 
 type managementWriter struct {
-	users    pluginapi.UserService
+	users    moduleapi.UserService
 	rbac     rbacstore.Repository
 	auditBus eventbus.Bus
 	logger   *zap.Logger
@@ -62,7 +62,7 @@ func (w managementWriter) CreateRole(ctx context.Context, input rbacstore.Create
 		return rbacstore.Role{}, err
 	}
 
-	w.publishAudit(ctx, pluginapi.AuditEvent{
+	w.publishAudit(ctx, moduleapi.AuditEvent{
 		Action:       "rbac.role.create",
 		ResourceType: "role",
 		ResourceID:   formatRBACAuditID(role.ID),
@@ -97,7 +97,7 @@ func (w managementWriter) UpdateRole(ctx context.Context, input rbacstore.Update
 		return rbacstore.Role{}, err
 	}
 
-	w.publishAudit(ctx, pluginapi.AuditEvent{
+	w.publishAudit(ctx, moduleapi.AuditEvent{
 		Action:       "rbac.role.update",
 		ResourceType: "role",
 		ResourceID:   formatRBACAuditID(role.ID),
@@ -124,7 +124,7 @@ func (w managementWriter) SetRoleStatus(ctx context.Context, input rbacstore.Set
 		return rbacstore.Role{}, err
 	}
 
-	w.publishAudit(ctx, pluginapi.AuditEvent{
+	w.publishAudit(ctx, moduleapi.AuditEvent{
 		Action:       "rbac.role.status.update",
 		ResourceType: "role",
 		ResourceID:   formatRBACAuditID(role.ID),
@@ -152,7 +152,7 @@ func (w managementWriter) SoftDeleteRole(ctx context.Context, input rbacstore.So
 		return err
 	}
 
-	w.publishAudit(ctx, pluginapi.AuditEvent{
+	w.publishAudit(ctx, moduleapi.AuditEvent{
 		Action:       "rbac.role.delete",
 		ResourceType: "role",
 		ResourceID:   formatRBACAuditID(role.ID),
@@ -189,7 +189,7 @@ func (w managementWriter) ReplacePermissionsForRole(ctx context.Context, input r
 		return err
 	}
 
-	w.publishAudit(ctx, pluginapi.AuditEvent{
+	w.publishAudit(ctx, moduleapi.AuditEvent{
 		Action:       "rbac.role.permissions.replace",
 		ResourceType: "role",
 		ResourceID:   formatRBACAuditID(input.RoleID),
@@ -252,7 +252,7 @@ func (w managementWriter) mutateRolePermissions(
 		return err
 	}
 
-	w.publishAudit(ctx, pluginapi.AuditEvent{
+	w.publishAudit(ctx, moduleapi.AuditEvent{
 		Action:       action,
 		ResourceType: "role",
 		ResourceID:   formatRBACAuditID(roleID),
@@ -294,7 +294,7 @@ func (w managementWriter) ReplaceRolesForUser(ctx context.Context, input rbacsto
 		return err
 	}
 
-	w.publishAudit(ctx, pluginapi.AuditEvent{
+	w.publishAudit(ctx, moduleapi.AuditEvent{
 		Action:       "rbac.user.roles.replace",
 		ResourceType: "user",
 		ResourceID:   formatRBACAuditID(input.UserID),
@@ -321,7 +321,7 @@ func (w managementWriter) AddRolesToUser(ctx context.Context, input rbacstore.Ad
 		return err
 	}
 
-	w.publishAudit(ctx, pluginapi.AuditEvent{
+	w.publishAudit(ctx, moduleapi.AuditEvent{
 		Action:       "rbac.user.roles.add",
 		ResourceType: "user",
 		ResourceID:   formatRBACAuditID(input.UserID),
@@ -351,7 +351,7 @@ func (w managementWriter) RemoveRolesFromUser(ctx context.Context, input rbacsto
 		return err
 	}
 
-	w.publishAudit(ctx, pluginapi.AuditEvent{
+	w.publishAudit(ctx, moduleapi.AuditEvent{
 		Action:       "rbac.user.roles.remove",
 		ResourceType: "user",
 		ResourceID:   formatRBACAuditID(input.UserID),
@@ -400,7 +400,7 @@ func (w managementWriter) RemoveRolesFromUsers(ctx context.Context, input rbacst
 }
 
 func (w managementWriter) ensureActorKeepsBuiltinAdminRole(ctx context.Context, input rbacstore.ReplaceRolesForUserInput) error {
-	requestAuth, ok := pluginapi.RequestAuthContextFromContext(ctx)
+	requestAuth, ok := moduleapi.RequestAuthContextFromContext(ctx)
 	if !ok || requestAuth.User == nil || requestAuth.User.ID == 0 {
 		return nil
 	}
@@ -435,7 +435,7 @@ func (w managementWriter) ensureActorCanReplaceRoles(ctx context.Context, userID
 }
 
 func (w managementWriter) ensureActorCanRemoveRoles(ctx context.Context, userID uint64, roleIDs []uint64) error {
-	requestAuth, ok := pluginapi.RequestAuthContextFromContext(ctx)
+	requestAuth, ok := moduleapi.RequestAuthContextFromContext(ctx)
 	if !ok || requestAuth.User == nil || requestAuth.User.ID == 0 || requestAuth.User.ID != userID {
 		return nil
 	}
@@ -519,14 +519,14 @@ func findBuiltinAdminRole(roles []rbacstore.Role) (rbacstore.Role, bool) {
 	return rbacstore.Role{}, false
 }
 
-func (w managementWriter) publishAudit(ctx context.Context, event pluginapi.AuditEvent) {
+func (w managementWriter) publishAudit(ctx context.Context, event moduleapi.AuditEvent) {
 	if w.auditBus == nil {
 		return
 	}
 
 	event.Operator = currentRBACAuditOperator(ctx)
 	if err := w.auditBus.Publish(ctx, eventbus.Event{
-		Name:    pluginapi.AuditRecordEventName,
+		Name:    moduleapi.AuditRecordEventName,
 		Source:  moduleID,
 		Payload: event,
 	}); err != nil && w.logger != nil {
@@ -538,8 +538,8 @@ func (w managementWriter) publishAudit(ctx context.Context, event pluginapi.Audi
 	}
 }
 
-func currentRBACAuditOperator(ctx context.Context) *pluginapi.CurrentUser {
-	requestAuth, ok := pluginapi.RequestAuthContextFromContext(ctx)
+func currentRBACAuditOperator(ctx context.Context) *moduleapi.CurrentUser {
+	requestAuth, ok := moduleapi.RequestAuthContextFromContext(ctx)
 	if !ok || requestAuth.User == nil {
 		return nil
 	}

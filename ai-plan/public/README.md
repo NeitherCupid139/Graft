@@ -110,6 +110,18 @@ Overlay note:
     - `ai-plan/public/module-physical-path-migration`
   - Next-session prompt: `Re-run startup preflight from root AGENTS.md. Governance source: root AGENTS.md. Task class: cross-boundary. Recovery source: parent topic module-physical-path-migration. Owned scope: server/internal/pluginapi/**, server/internal/module/**, server/AGENTS.md, ai-plan/design/插件与依赖注入设计.md, ai-plan/public/module-physical-path-migration/**, ai-plan/public/README.md, and only the minimum additional authority files required by exported historical symbol/path follow-up analysis. Treat module-physical-path-migration as archive-ready evidence and open a new bounded topic only if the repository explicitly decides to rename retained stable `pluginapi` or exported `Plugin` authority surfaces; do not resume this closed loop in place.`
 
+- `module-historical-plugin-naming-migration`
+  - Status: `archive-ready`
+  - Recovery status: completed the bounded follow-up topic for the remaining historical `plugin` naming after physical paths were already repaired.
+  - Scope outcome:
+    - completed the bounded lifecycle naming, `moduleapi`, constructor/type cleanup, and active authority wording slices at their true authority owners
+    - re-scanned active current-authority surfaces and classified the remaining `plugin` / `Plugin` hits as acceptable historical evidence or intentional domain semantics
+    - confirmed current canonical authority now points at `server/internal/moduleapi/**`, `server/internal/module/**`, `server/internal/moduleregistry/**`, and `server/modules/**`
+    - closed without reopening archive topics, adding compatibility aliases, or widening into unrelated active topics
+  - Topic directory:
+    - `ai-plan/public/module-historical-plugin-naming-migration`
+  - Next-session prompt: `Re-run startup preflight from root AGENTS.md. Governance source: root AGENTS.md. Task class: cross-boundary. Recovery source: parent topic module-historical-plugin-naming-migration. Owned scope: ai-plan/public/module-historical-plugin-naming-migration/**, ai-plan/public/README.md, and only the minimum additional authority files required by any newly opened follow-up topic. Treat module-historical-plugin-naming-migration as archive-ready evidence and open a new bounded topic only if the repository explicitly decides to rename intentional domain-level plugin semantics or another still-live authority owner beyond this closed loop; do not resume this topic in place.`
+
 - `phase-d-log-explorer-authority-definition`
   - Status: `archive-ready`
   - Recovery status: completed the bounded governance-only authority-definition topic for future `Log Explorer`.
@@ -141,7 +153,7 @@ Overlay note:
   - Final result:
     - formalized audit / monitor / OpenAPI / generated artifact / web-consumer authority ownership
     - formalized `EvidenceLink` as backend-owned canonical drilldown contract and documented frontend consumer limits
-    - documented observability capability expectations for `server/internal/pluginapi/**`
+    - documented observability capability expectations for `server/internal/moduleapi/**`
     - published an explicit observability boundary matrix across audit, monitor, logging, metrics, and tracing
     - recorded truthful Phase D logging readiness as `Partially Ready`
   - Follow-up status: `new-topic-only`

@@ -8,12 +8,12 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 	userstore "graft/server/modules/user/store"
 )
 
 type changePasswordActor struct {
-	requestAuth pluginapi.RequestAuthContext
+	requestAuth moduleapi.RequestAuthContext
 	credential  userstore.UserCredential
 }
 
@@ -95,10 +95,10 @@ func (s authService) CompleteRequiredPasswordChange(ctx context.Context, newPass
 	return nil
 }
 
-func currentRequestAuth(ctx context.Context) (pluginapi.RequestAuthContext, error) {
-	requestAuth, ok := pluginapi.RequestAuthContextFromContext(ctx)
+func currentRequestAuth(ctx context.Context) (moduleapi.RequestAuthContext, error) {
+	requestAuth, ok := moduleapi.RequestAuthContextFromContext(ctx)
 	if !ok || requestAuth.User == nil || requestAuth.Claims == nil {
-		return pluginapi.RequestAuthContext{}, pluginapi.ErrUnauthenticated
+		return moduleapi.RequestAuthContext{}, moduleapi.ErrUnauthenticated
 	}
 
 	return requestAuth, nil
@@ -108,7 +108,7 @@ func (s authService) currentUserCredential(ctx context.Context, username string)
 	credential, err := s.auth.GetUserCredentialByUsername(ctx, username)
 	if err != nil {
 		if errors.Is(err, userstore.ErrUserNotFound) {
-			return userstore.UserCredential{}, pluginapi.ErrUnauthenticated
+			return userstore.UserCredential{}, moduleapi.ErrUnauthenticated
 		}
 		return userstore.UserCredential{}, fmt.Errorf("get current user credential: %w", err)
 	}
@@ -127,7 +127,7 @@ func (s authService) loadChangePasswordActor(ctx context.Context) (changePasswor
 		return changePasswordActor{}, err
 	}
 	if credential.UserID != requestAuth.Claims.UserID {
-		return changePasswordActor{}, pluginapi.ErrUnauthenticated
+		return changePasswordActor{}, moduleapi.ErrUnauthenticated
 	}
 
 	return changePasswordActor{

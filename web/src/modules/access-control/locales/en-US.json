@@ -15,7 +15,7 @@
         "totalRoles": "Total Roles",
         "totalRolesDescription": "{builtin} builtin / {custom} custom",
         "totalPermissions": "Total Permissions",
-        "totalPermissionsDescription": "System and plugin permission points combined",
+        "totalPermissionsDescription": "System and module permission points combined",
         "assignmentCount": "Role Assignments",
         "assignmentCountDescription": "{pending} accounts still need role assignments"
       },

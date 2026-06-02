@@ -72,7 +72,7 @@
     },
     "dependenciesPage": {
       "title": "Dependencies",
-      "subtitle": "Review health signals for PostgreSQL, Redis, and future plugin-owned dependency checks.",
+      "subtitle": "Review health signals for PostgreSQL, Redis, and future module-owned dependency checks.",
       "serviceListTitle": "Dependency Services",
       "noteTitle": "Dependency health scope",
       "noteDescription": "The current page reflects the latest aggregated snapshot. Additional services can show their own health checks here as they become available.",
@@ -82,10 +82,10 @@
       "statusUnknown": "Unknown",
       "postgresqlSubtitle": "Primary relational database health",
       "redisSubtitle": "Cache and lightweight KV health",
-      "futureEntryTitle": "Plugin dependency extension",
-      "futureEntrySubtitle": "Reserved for plugin-owned health probes",
+      "futureEntryTitle": "Module dependency extension",
+      "futureEntrySubtitle": "Reserved for module-owned health probes",
       "futureEntryLabel": "Reserved entry",
-      "futureEntryHint": "Future plugins can plug their own dependency checks in here without further menu restructuring.",
+      "futureEntryHint": "Future modules can plug their own dependency checks in here without further menu restructuring.",
       "futureEntryDescription": "This card will show new dependency checks when they are available.",
       "noError": "No current error",
       "summary": {

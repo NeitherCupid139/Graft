@@ -20,7 +20,7 @@ func NewModuleSpec() module.Spec {
 		ID:            moduleID,
 		Dependencies:  nil,
 		MigrationPath: []string{"modules/user/migrations"},
-		Builder: module.BuilderFunc(func(ctx module.BuildContext) (module.Plugin, error) {
+		Builder: module.BuilderFunc(func(ctx module.BuildContext) (module.Module, error) {
 			sqlDB, err := module.ResolveService[*sql.DB](ctx.Services, (*sql.DB)(nil))
 			if err != nil {
 				return nil, fmt.Errorf("resolve sql db: %w", err)
@@ -42,7 +42,7 @@ func NewModuleSpec() module.Spec {
 				return nil, fmt.Errorf("build user auth repository: %w", err)
 			}
 
-			return NewPlugin(userRepo, authRepo), nil
+			return NewModule(userRepo, authRepo), nil
 		}),
 	}
 }

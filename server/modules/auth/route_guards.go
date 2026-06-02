@@ -10,14 +10,14 @@ import (
 	"graft/server/internal/httpx"
 	"graft/server/internal/i18n"
 	"graft/server/internal/module"
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 	authcontract "graft/server/modules/auth/contract"
 )
 
 func newRouteGuards(
 	ctx *module.Context,
-	authService pluginapi.AuthService,
-	authFlow pluginapi.AuthFlowService,
+	authService moduleapi.AuthService,
+	authFlow moduleapi.AuthFlowService,
 	apiBasePath string,
 ) routeGuards {
 	publisher := httpx.NewSecurityAuditPublisher(ctx.EventBus, ctx.Logger, moduleID)
@@ -28,7 +28,7 @@ func newRouteGuards(
 	}
 }
 
-func newRequiredPasswordChangeGuard(localizer *i18n.Service, authFlow pluginapi.AuthFlowService) gin.HandlerFunc {
+func newRequiredPasswordChangeGuard(localizer *i18n.Service, authFlow moduleapi.AuthFlowService) gin.HandlerFunc {
 	return func(ginCtx *gin.Context) {
 		restricted, ok := loadRestrictedPasswordChangeState(ginCtx, localizer, authFlow)
 		if !ok {
@@ -43,7 +43,7 @@ func newRequiredPasswordChangeGuard(localizer *i18n.Service, authFlow pluginapi.
 	}
 }
 
-func newRestrictedSessionGuard(localizer *i18n.Service, authFlow pluginapi.AuthFlowService, apiBasePath string) gin.HandlerFunc {
+func newRestrictedSessionGuard(localizer *i18n.Service, authFlow moduleapi.AuthFlowService, apiBasePath string) gin.HandlerFunc {
 	allowedPaths := []string{
 		authcontract.JoinRoute(apiBasePath, authcontract.AuthBootstrap),
 		authcontract.JoinRoute(apiBasePath, authcontract.AuthCompleteRequiredPasswordChange),
@@ -73,7 +73,7 @@ func newRestrictedSessionGuard(localizer *i18n.Service, authFlow pluginapi.AuthF
 func loadRestrictedPasswordChangeState(
 	ginCtx *gin.Context,
 	localizer *i18n.Service,
-	authFlow pluginapi.AuthFlowService,
+	authFlow moduleapi.AuthFlowService,
 ) (bool, bool) {
 	if authFlow == nil {
 		abortLocalizedContractError(ginCtx, localizer, http.StatusInternalServerError, messagecontract.CommonInternalError.String(), nil)
@@ -82,7 +82,7 @@ func loadRestrictedPasswordChangeState(
 
 	restricted, err := authFlow.IsRestrictedPasswordChangeSession(ginCtx.Request.Context())
 	if err != nil {
-		if errors.Is(err, pluginapi.ErrUnauthenticated) {
+		if errors.Is(err, moduleapi.ErrUnauthenticated) {
 			abortLocalizedContractError(ginCtx, localizer, http.StatusUnauthorized, messagecontract.AuthTokenMissing.String(), nil)
 			return false, false
 		}

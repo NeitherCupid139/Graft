@@ -15,7 +15,7 @@ import (
 	messagecontract "graft/server/internal/contract/message"
 	"graft/server/internal/eventbus"
 	"graft/server/internal/i18n"
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 )
 
 type securityAuditEventType string
@@ -41,7 +41,7 @@ type eventBusSecurityAuditPublisher struct {
 
 type requestAuthorization struct {
 	ctx         context.Context
-	requestAuth pluginapi.RequestAuthContext
+	requestAuth moduleapi.RequestAuthContext
 }
 
 type securityAuditError struct {
@@ -57,8 +57,8 @@ type securityAuditError struct {
 // 依赖任何具体插件实现。缺少登录态返回 401，认证成功但权限不足返回 403。
 func RequirePermission(
 	localizer *i18n.Service,
-	authService pluginapi.AuthService,
-	authorizer pluginapi.Authorizer,
+	authService moduleapi.AuthService,
+	authorizer moduleapi.Authorizer,
 	code string,
 	auditPublishers ...SecurityAuditPublisher,
 ) gin.HandlerFunc {
@@ -103,32 +103,32 @@ func RequirePermission(
 func authenticateRequest(
 	ctx *gin.Context,
 	localizer *i18n.Service,
-	authService pluginapi.AuthService,
+	authService moduleapi.AuthService,
 	auditPublisher SecurityAuditPublisher,
-) (pluginapi.RequestAuthContext, context.Context, bool) {
+) (moduleapi.RequestAuthContext, context.Context, bool) {
 	requestToken, ok := extractBearerToken(ctx.Request)
 	if !ok {
 		publishSecurityAudit(ctx, auditPublisher, securityAuditEventAuthTokenMissing, http.StatusUnauthorized, messagecontract.AuthTokenMissing.String(), nil)
 		AbortLocalizedError(ctx, localizer, http.StatusUnauthorized, messagecontract.AuthTokenMissing.String(), nil)
-		return pluginapi.RequestAuthContext{}, nil, true
+		return moduleapi.RequestAuthContext{}, nil, true
 	}
 
 	claims, err := authService.ParseAccessToken(ctx.Request.Context(), requestToken)
 	if err != nil {
 		writeAccessTokenError(ctx, localizer, err, auditPublisher)
-		return pluginapi.RequestAuthContext{}, nil, true
+		return moduleapi.RequestAuthContext{}, nil, true
 	}
 
-	requestAuth := pluginapi.RequestAuthContext{Claims: claims}
-	requestCtx := pluginapi.WithRequestAuthContext(ctx.Request.Context(), requestAuth)
+	requestAuth := moduleapi.RequestAuthContext{Claims: claims}
+	requestCtx := moduleapi.WithRequestAuthContext(ctx.Request.Context(), requestAuth)
 	user, err := authService.CurrentUser(requestCtx)
 	if err != nil {
 		writeCurrentUserError(ctx, localizer, err, auditPublisher)
-		return pluginapi.RequestAuthContext{}, nil, true
+		return moduleapi.RequestAuthContext{}, nil, true
 	}
 
 	requestAuth.User = user
-	requestCtx = pluginapi.WithRequestAuthContext(ctx.Request.Context(), requestAuth)
+	requestCtx = moduleapi.WithRequestAuthContext(ctx.Request.Context(), requestAuth)
 	return requestAuth, requestCtx, false
 }
 
@@ -136,7 +136,7 @@ func authorizeRequest(
 	request requestAuthorization,
 	ctx *gin.Context,
 	localizer *i18n.Service,
-	authorizer pluginapi.Authorizer,
+	authorizer moduleapi.Authorizer,
 	code string,
 	auditPublisher SecurityAuditPublisher,
 ) bool {
@@ -158,13 +158,13 @@ func authorizeRequest(
 
 func writeAccessTokenError(ctx *gin.Context, localizer *i18n.Service, err error, auditPublisher SecurityAuditPublisher) {
 	switch {
-	case errors.Is(err, pluginapi.ErrExpiredAccessToken):
+	case errors.Is(err, moduleapi.ErrExpiredAccessToken):
 		writeSecurityAuditError(ctx, localizer, auditPublisher, securityAuditError{
 			eventType:  securityAuditEventAuthTokenExpired,
 			status:     http.StatusUnauthorized,
 			messageKey: messagecontract.AuthTokenExpired.String(),
 		})
-	case errors.Is(err, pluginapi.ErrInvalidAccessToken):
+	case errors.Is(err, moduleapi.ErrInvalidAccessToken):
 		writeInvalidTokenAuditError(ctx, localizer, auditPublisher)
 	default:
 		AbortLocalizedError(ctx, localizer, http.StatusInternalServerError, messagecontract.CommonInternalError.String(), nil)
@@ -173,9 +173,9 @@ func writeAccessTokenError(ctx *gin.Context, localizer *i18n.Service, err error,
 
 func writeCurrentUserError(ctx *gin.Context, localizer *i18n.Service, err error, auditPublisher SecurityAuditPublisher) {
 	switch {
-	case errors.Is(err, pluginapi.ErrInvalidAccessToken):
+	case errors.Is(err, moduleapi.ErrInvalidAccessToken):
 		writeInvalidTokenAuditError(ctx, localizer, auditPublisher)
-	case errors.Is(err, pluginapi.ErrUnauthenticated):
+	case errors.Is(err, moduleapi.ErrUnauthenticated):
 		writeMissingTokenAuditError(ctx, localizer, auditPublisher)
 	default:
 		AbortLocalizedError(ctx, localizer, http.StatusInternalServerError, messagecontract.CommonInternalError.String(), nil)
@@ -190,7 +190,7 @@ func writeAuthorizationError(
 	auditPublisher SecurityAuditPublisher,
 ) {
 	switch {
-	case errors.Is(err, pluginapi.ErrPermissionDenied):
+	case errors.Is(err, moduleapi.ErrPermissionDenied):
 		writeSecurityAuditError(ctx, localizer, auditPublisher, securityAuditError{
 			eventType:  securityAuditEventAuthorizationDeny,
 			status:     http.StatusForbidden,
@@ -199,9 +199,9 @@ func writeAuthorizationError(
 				"permission": code,
 			},
 		})
-	case errors.Is(err, pluginapi.ErrInvalidAccessToken):
+	case errors.Is(err, moduleapi.ErrInvalidAccessToken):
 		writeInvalidTokenAuditError(ctx, localizer, auditPublisher)
-	case errors.Is(err, pluginapi.ErrUnauthenticated):
+	case errors.Is(err, moduleapi.ErrUnauthenticated):
 		writeMissingTokenAuditError(ctx, localizer, auditPublisher)
 	default:
 		AbortLocalizedError(ctx, localizer, http.StatusInternalServerError, messagecontract.CommonInternalError.String(), nil)
@@ -308,8 +308,8 @@ func (p eventBusSecurityAuditPublisher) Publish(
 		},
 	)
 
-	event := pluginapi.AuditEvent{
-		Kind:          pluginapi.AuditEventKindSecurity,
+	event := moduleapi.AuditEvent{
+		Kind:          moduleapi.AuditEventKindSecurity,
 		Action:        string(eventType),
 		RequestMethod: strings.TrimSpace(ctx.Request.Method),
 		RequestPath:   requestPath,
@@ -321,7 +321,7 @@ func (p eventBusSecurityAuditPublisher) Publish(
 		Message:       strings.TrimSpace(messageKey),
 		Metadata:      cloneSecurityAuditMetadata(metadata),
 	}
-	if requestAuth, ok := pluginapi.RequestAuthContextFromContext(ctx.Request.Context()); ok && requestAuth.User != nil {
+	if requestAuth, ok := moduleapi.RequestAuthContextFromContext(ctx.Request.Context()); ok && requestAuth.User != nil {
 		user := *requestAuth.User
 		event.Operator = &user
 		event.Metadata["actorId"] = strconv.FormatUint(user.ID, 10)
@@ -329,7 +329,7 @@ func (p eventBusSecurityAuditPublisher) Publish(
 	}
 
 	if err := p.bus.Publish(ctx.Request.Context(), eventbus.Event{
-		Name:    pluginapi.AuditRecordEventName,
+		Name:    moduleapi.AuditRecordEventName,
 		Source:  firstNonEmptyTrimmed(p.source, "httpx"),
 		Payload: event,
 	}); err != nil {

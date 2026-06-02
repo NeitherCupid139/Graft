@@ -6,7 +6,7 @@ import (
 	authopenapi "graft/server/internal/contract/openapi/auth"
 	"graft/server/internal/httpx"
 	"graft/server/internal/module"
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 	authcontract "graft/server/modules/auth/contract"
 )
 
@@ -19,7 +19,7 @@ type routeGuards struct {
 type authRouteRegistrar struct {
 	ctx        *module.Context
 	pluginName string
-	authFlow   pluginapi.AuthFlowService
+	authFlow   moduleapi.AuthFlowService
 	cookies    CookieManager
 	guards     routeGuards
 }
@@ -27,8 +27,8 @@ type authRouteRegistrar struct {
 func registerAuthRoutes(
 	ctx *module.Context,
 	pluginName string,
-	authService pluginapi.AuthService,
-	authFlow pluginapi.AuthFlowService,
+	authService moduleapi.AuthService,
+	authFlow moduleapi.AuthFlowService,
 ) error {
 	authGroup := ctx.Router.Group(authcontract.AuthGroup)
 	guards := newRouteGuards(ctx, authService, authFlow, authGroup.BasePath())

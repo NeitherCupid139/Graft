@@ -18,7 +18,7 @@ import (
 	"graft/server/internal/container"
 	generated "graft/server/internal/contract/openapi/generated"
 	"graft/server/internal/module"
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 	monitorcontract "graft/server/modules/monitor/contract"
 )
 
@@ -106,7 +106,7 @@ func TestBuildServerStatusResponseReportsDegradedOnDatabasePingError(t *testing.
 		t.Fatalf("close sqlite database: %v", err)
 	}
 
-	response, err := buildServerStatusResponseWithRuntimeSnapshot(context.Background(), &module.Context{}, &Plugin{db: db}, monitorcontract.TrendRange10Minutes, stableRuntimeSnapshot())
+	response, err := buildServerStatusResponseWithRuntimeSnapshot(context.Background(), &module.Context{}, &Module{db: db}, monitorcontract.TrendRange10Minutes, stableRuntimeSnapshot())
 	if err != nil {
 		t.Fatalf("build server status response: %v", err)
 	}
@@ -188,7 +188,7 @@ func TestStopTrendSamplerRequiresLifecycleContext(t *testing.T) {
 	t.Parallel()
 
 	done := make(chan struct{})
-	pluginInstance := &Plugin{
+	pluginInstance := &Module{
 		samplerCancel: func() {
 			close(done)
 		},
@@ -366,16 +366,16 @@ func TestBuildServerStatusResponseLoadsRedisTrendPoints(t *testing.T) {
 func TestIncidentEvidenceCapabilityReturnsExpiredWhenWindowExceedsRetention(t *testing.T) {
 	t.Parallel()
 
-	capability := incidentEvidenceCapability{plugin: &Plugin{}, ctx: &module.Context{}}
+	capability := incidentEvidenceCapability{plugin: &Module{}, ctx: &module.Context{}}
 	now := time.Now().UTC()
-	resolved, err := capability.ResolveAuditIncidentMonitorEvidence(context.Background(), pluginapi.ResolveAuditIncidentMonitorEvidenceInput{
+	resolved, err := capability.ResolveAuditIncidentMonitorEvidence(context.Background(), moduleapi.ResolveAuditIncidentMonitorEvidenceInput{
 		IncidentStartedAt: now.Add(-2 * time.Hour),
 		IncidentEndedAt:   now.Add(-90 * time.Minute),
 	})
 	if err != nil {
 		t.Fatalf("resolve monitor incident evidence: %v", err)
 	}
-	if resolved.Availability != pluginapi.MonitorEvidenceExpired {
+	if resolved.Availability != moduleapi.MonitorEvidenceExpired {
 		t.Fatalf("expected expired availability, got %q", resolved.Availability)
 	}
 }
@@ -653,8 +653,8 @@ func formatPluginSummary(value generated.ServerStatusPlugin) string {
 	)
 }
 
-func pluginWithStartedAt(db *sql.DB, startedAt time.Time) *Plugin {
-	pluginInstance := &Plugin{db: db}
+func pluginWithStartedAt(db *sql.DB, startedAt time.Time) *Module {
+	pluginInstance := &Module{db: db}
 	pluginInstance.startedAtUnixNs.Store(startedAt.UnixNano())
 	return pluginInstance
 }

@@ -7,8 +7,8 @@ import (
 	"time"
 
 	generated "graft/server/internal/contract/openapi/generated"
-	"graft/server/internal/pluginapi"
 	useropenapi "graft/server/internal/contract/openapi/user"
+	"graft/server/internal/moduleapi"
 	usercontract "graft/server/modules/user/contract"
 	userstore "graft/server/modules/user/store"
 )
@@ -69,7 +69,7 @@ func toCanonicalManagedUserStatus(status useropenapi.PostUserStatusJSONBodyStatu
 
 func toUserListResponse(
 	users []userstore.User,
-	roleSummariesByUserID map[uint64][]pluginapi.RoleSummary,
+	roleSummariesByUserID map[uint64][]moduleapi.RoleSummary,
 ) (userListResponse, error) {
 	items := make([]userListItem, 0, len(users))
 	for _, user := range users {
@@ -83,7 +83,7 @@ func toUserListResponse(
 	return userListResponse{Items: items}, nil
 }
 
-func toUserListItem(user userstore.User, roles []pluginapi.RoleSummary) (userListItem, error) {
+func toUserListItem(user userstore.User, roles []moduleapi.RoleSummary) (userListItem, error) {
 	id, err := mustConvertGeneratedUserID(user.ID)
 	if err != nil {
 		return userListItem{}, err

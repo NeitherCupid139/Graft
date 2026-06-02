@@ -8,7 +8,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 	userstore "graft/server/modules/user/store"
 )
 
@@ -67,13 +67,13 @@ func TestChangeCurrentUserPasswordUsesAtomicRepositoryOperation(t *testing.T) {
 		refreshTokens:   &refreshTokenManager{now: func() time.Time { return fixedNow }},
 	}
 
-	ctx := pluginapi.WithRequestAuthContext(context.Background(), pluginapi.RequestAuthContext{
-		User: &pluginapi.CurrentUser{
+	ctx := moduleapi.WithRequestAuthContext(context.Background(), moduleapi.RequestAuthContext{
+		User: &moduleapi.CurrentUser{
 			ID:          7,
 			Username:    "alice",
 			DisplayName: "Alice",
 		},
-		Claims: &pluginapi.AccessTokenClaims{
+		Claims: &moduleapi.AccessTokenClaims{
 			UserID:    7,
 			SessionID: "keep-current-session",
 		},
@@ -138,13 +138,13 @@ func TestChangeCurrentUserPasswordRejectsMissingCurrentPassword(t *testing.T) {
 		refreshTokens:   &refreshTokenManager{now: func() time.Time { return time.Date(2026, 5, 16, 8, 30, 0, 0, time.UTC) }},
 	}
 
-	ctx := pluginapi.WithRequestAuthContext(context.Background(), pluginapi.RequestAuthContext{
-		User: &pluginapi.CurrentUser{
+	ctx := moduleapi.WithRequestAuthContext(context.Background(), moduleapi.RequestAuthContext{
+		User: &moduleapi.CurrentUser{
 			ID:          7,
 			Username:    "alice",
 			DisplayName: "Alice",
 		},
-		Claims: &pluginapi.AccessTokenClaims{
+		Claims: &moduleapi.AccessTokenClaims{
 			UserID:    7,
 			SessionID: "keep-current-session",
 		},
@@ -192,13 +192,13 @@ func TestCompleteRequiredPasswordChangeAllowsRestrictedSessionWithoutCurrentPass
 		refreshTokens:   &refreshTokenManager{now: func() time.Time { return fixedNow }},
 	}
 
-	ctx := pluginapi.WithRequestAuthContext(context.Background(), pluginapi.RequestAuthContext{
-		User: &pluginapi.CurrentUser{
+	ctx := moduleapi.WithRequestAuthContext(context.Background(), moduleapi.RequestAuthContext{
+		User: &moduleapi.CurrentUser{
 			ID:          9,
 			Username:    defaultAdminUsername,
 			DisplayName: defaultAdminDisplay,
 		},
-		Claims: &pluginapi.AccessTokenClaims{
+		Claims: &moduleapi.AccessTokenClaims{
 			UserID:    9,
 			SessionID: "keep-current-session",
 		},
@@ -249,13 +249,13 @@ func TestCompleteRequiredPasswordChangeRejectsNonRestrictedSession(t *testing.T)
 		refreshTokens:   &refreshTokenManager{now: func() time.Time { return time.Date(2026, 5, 16, 8, 30, 0, 0, time.UTC) }},
 	}
 
-	ctx := pluginapi.WithRequestAuthContext(context.Background(), pluginapi.RequestAuthContext{
-		User: &pluginapi.CurrentUser{
+	ctx := moduleapi.WithRequestAuthContext(context.Background(), moduleapi.RequestAuthContext{
+		User: &moduleapi.CurrentUser{
 			ID:          7,
 			Username:    "alice",
 			DisplayName: "Alice",
 		},
-		Claims: &pluginapi.AccessTokenClaims{
+		Claims: &moduleapi.AccessTokenClaims{
 			UserID:    7,
 			SessionID: "keep-current-session",
 		},
@@ -300,13 +300,13 @@ func TestCompleteRequiredPasswordChangeRejectsPasswordReuse(t *testing.T) {
 		refreshTokens:   &refreshTokenManager{now: func() time.Time { return time.Date(2026, 5, 16, 8, 30, 0, 0, time.UTC) }},
 	}
 
-	ctx := pluginapi.WithRequestAuthContext(context.Background(), pluginapi.RequestAuthContext{
-		User: &pluginapi.CurrentUser{
+	ctx := moduleapi.WithRequestAuthContext(context.Background(), moduleapi.RequestAuthContext{
+		User: &moduleapi.CurrentUser{
 			ID:          7,
 			Username:    "alice",
 			DisplayName: "Alice",
 		},
-		Claims: &pluginapi.AccessTokenClaims{
+		Claims: &moduleapi.AccessTokenClaims{
 			UserID:    7,
 			SessionID: "keep-current-session",
 		},
@@ -340,13 +340,13 @@ func TestChangeCurrentUserPasswordRequiresAtomicRepositoryOperation(t *testing.T
 		refreshTokens: &refreshTokenManager{now: func() time.Time { return time.Date(2026, 5, 16, 8, 30, 0, 0, time.UTC) }},
 	}
 
-	ctx := pluginapi.WithRequestAuthContext(context.Background(), pluginapi.RequestAuthContext{
-		User: &pluginapi.CurrentUser{
+	ctx := moduleapi.WithRequestAuthContext(context.Background(), moduleapi.RequestAuthContext{
+		User: &moduleapi.CurrentUser{
 			ID:          7,
 			Username:    "alice",
 			DisplayName: "Alice",
 		},
-		Claims: &pluginapi.AccessTokenClaims{
+		Claims: &moduleapi.AccessTokenClaims{
 			UserID:    7,
 			SessionID: "keep-current-session",
 		},
@@ -390,20 +390,20 @@ func TestChangeCurrentUserPasswordRejectsMismatchedRequestPrincipal(t *testing.T
 		refreshTokens:   &refreshTokenManager{now: func() time.Time { return time.Date(2026, 5, 16, 8, 30, 0, 0, time.UTC) }},
 	}
 
-	ctx := pluginapi.WithRequestAuthContext(context.Background(), pluginapi.RequestAuthContext{
-		User: &pluginapi.CurrentUser{
+	ctx := moduleapi.WithRequestAuthContext(context.Background(), moduleapi.RequestAuthContext{
+		User: &moduleapi.CurrentUser{
 			ID:          7,
 			Username:    "alice",
 			DisplayName: "Alice",
 		},
-		Claims: &pluginapi.AccessTokenClaims{
+		Claims: &moduleapi.AccessTokenClaims{
 			UserID:    8,
 			SessionID: "keep-current-session",
 		},
 	})
 
 	err = service.ChangeCurrentUserPassword(ctx, "current-password", "next-password-123")
-	if !errors.Is(err, pluginapi.ErrUnauthenticated) {
+	if !errors.Is(err, moduleapi.ErrUnauthenticated) {
 		t.Fatalf("expected unauthenticated error for mismatched principal, got %v", err)
 	}
 }

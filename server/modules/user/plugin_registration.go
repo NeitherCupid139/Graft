@@ -12,9 +12,9 @@ import (
 	"graft/server/internal/container"
 	"graft/server/internal/i18n"
 	"graft/server/internal/menu"
-	"graft/server/internal/permission"
 	"graft/server/internal/module"
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
+	"graft/server/internal/permission"
 	usercontract "graft/server/modules/user/contract"
 )
 
@@ -121,7 +121,7 @@ type registeredServices struct {
 	bootstrap bootstrapReader
 }
 
-func (p *Plugin) registerServices(ctx *module.Context) (registeredServices, error) {
+func (p *Module) registerServices(ctx *module.Context) (registeredServices, error) {
 	userRepo := p.userRepo
 	authRepo := p.authRepo
 	if userRepo == nil {
@@ -141,7 +141,7 @@ func (p *Plugin) registerServices(ctx *module.Context) (registeredServices, erro
 		auditBus: ctx.EventBus,
 		logger:   logger,
 	}
-	if err := ctx.Services.RegisterSingleton((*pluginapi.UserService)(nil), func(_ container.Resolver) (any, error) {
+	if err := ctx.Services.RegisterSingleton((*moduleapi.UserService)(nil), func(_ container.Resolver) (any, error) {
 		return userSvc, nil
 	}); err != nil {
 		return registeredServices{}, err
@@ -154,12 +154,12 @@ func (p *Plugin) registerServices(ctx *module.Context) (registeredServices, erro
 	bootstrapSvc := newBootstrapReader(ctx.Config.I18n, ctx.I18n, ctx.MenuRegistry, authRepo, p.bootstrapAccess)
 	p.defaultAdminAuth = authSvc
 
-	if err := ctx.Services.RegisterSingleton((*pluginapi.AuthService)(nil), func(_ container.Resolver) (any, error) {
+	if err := ctx.Services.RegisterSingleton((*moduleapi.AuthService)(nil), func(_ container.Resolver) (any, error) {
 		return authSvc, nil
 	}); err != nil {
 		return registeredServices{}, err
 	}
-	if err := ctx.Services.RegisterSingleton((*pluginapi.AuthFlowService)(nil), func(_ container.Resolver) (any, error) {
+	if err := ctx.Services.RegisterSingleton((*moduleapi.AuthFlowService)(nil), func(_ container.Resolver) (any, error) {
 		return authFlowBridge{
 			auth:      authSvc,
 			bootstrap: bootstrapSvc,
@@ -179,14 +179,14 @@ func (p *Plugin) registerServices(ctx *module.Context) (registeredServices, erro
 // 已注册的共享 Authorizer，避免复制 RBAC 授权语义或把 Resolve 扩散到请求热路径。
 type deferredAuthorizer struct {
 	mu     sync.RWMutex
-	target pluginapi.Authorizer
+	target moduleapi.Authorizer
 }
 
 func newDeferredAuthorizer() *deferredAuthorizer {
 	return &deferredAuthorizer{}
 }
 
-func (a *deferredAuthorizer) SetTarget(target pluginapi.Authorizer) error {
+func (a *deferredAuthorizer) SetTarget(target moduleapi.Authorizer) error {
 	if target == nil {
 		return errors.New("authorizer is required")
 	}
@@ -200,7 +200,7 @@ func (a *deferredAuthorizer) SetTarget(target pluginapi.Authorizer) error {
 
 func (a *deferredAuthorizer) Authorize(
 	ctx context.Context,
-	request pluginapi.RequestAuthContext,
+	request moduleapi.RequestAuthContext,
 	permission string,
 ) error {
 	a.mu.RLock()
@@ -214,18 +214,18 @@ func (a *deferredAuthorizer) Authorize(
 	return target.Authorize(ctx, request, permission)
 }
 
-var _ pluginapi.Authorizer = (*deferredAuthorizer)(nil)
+var _ moduleapi.Authorizer = (*deferredAuthorizer)(nil)
 
 type deferredRBACAccessService struct {
 	mu     sync.RWMutex
-	target pluginapi.RBACAccessService
+	target moduleapi.RBACAccessService
 }
 
 func newDeferredRBACAccessService() *deferredRBACAccessService {
 	return &deferredRBACAccessService{}
 }
 
-func (s *deferredRBACAccessService) SetTarget(target pluginapi.RBACAccessService) error {
+func (s *deferredRBACAccessService) SetTarget(target moduleapi.RBACAccessService) error {
 	if target == nil {
 		return errors.New("rbac access service is required")
 	}
@@ -264,7 +264,7 @@ func (s *deferredRBACAccessService) ListPermissionCodesByUserID(ctx context.Cont
 func (s *deferredRBACAccessService) ListRoleSummariesByUserIDs(
 	ctx context.Context,
 	userIDs []uint64,
-) (map[uint64][]pluginapi.RoleSummary, error) {
+) (map[uint64][]moduleapi.RoleSummary, error) {
 	s.mu.RLock()
 	target := s.target
 	s.mu.RUnlock()
@@ -276,7 +276,7 @@ func (s *deferredRBACAccessService) ListRoleSummariesByUserIDs(
 	return target.ListRoleSummariesByUserIDs(ctx, userIDs)
 }
 
-var _ pluginapi.RBACAccessService = (*deferredRBACAccessService)(nil)
+var _ moduleapi.RBACAccessService = (*deferredRBACAccessService)(nil)
 
 type routeGuards struct {
 	authenticated          gin.HandlerFunc

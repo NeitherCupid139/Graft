@@ -8,7 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 )
 
 const (
@@ -78,7 +78,7 @@ func buildAccessLogRecord(ctx *gin.Context, requestID string, traceID string, st
 		OccurredAt:   time.Now().UTC(),
 	}
 
-	if requestAuth, ok := pluginapi.RequestAuthContextFromContext(ctx.Request.Context()); ok && requestAuth.User != nil {
+	if requestAuth, ok := moduleapi.RequestAuthContextFromContext(ctx.Request.Context()); ok && requestAuth.User != nil {
 		record.UserID = cloneUint64Pointer(&requestAuth.User.ID)
 		record.Username = strings.TrimSpace(requestAuth.User.Username)
 	}

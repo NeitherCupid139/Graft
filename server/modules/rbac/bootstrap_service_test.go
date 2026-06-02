@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"testing"
 
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 	rbacstore "graft/server/modules/rbac/store"
 )
 
@@ -143,7 +143,7 @@ func (r *bootstrapServiceTestRepository) ListRolePermissionBindings(context.Cont
 func TestBootstrapServiceEnsuresDefaultAdminAccess(t *testing.T) {
 	repo := &bootstrapServiceTestRepository{}
 	service := bootstrapService{rbac: repo}
-	permissions := []pluginapi.PermissionSeed{
+	permissions := []moduleapi.PermissionSeed{
 		{Code: "user.read", Display: "Read users", Description: "  ", Category: "api"},
 		{Code: "user.write", Display: "Write users", Description: "write users", Category: "api"},
 	}
@@ -182,7 +182,7 @@ func TestBootstrapServiceWrapsRepositoryErrors(t *testing.T) {
 
 	t.Run("ensure permission", func(t *testing.T) {
 		repo := &bootstrapServiceTestRepository{ensurePermissionErr: errors.New("perm boom")}
-		err := bootstrapService{rbac: repo}.EnsureDefaultAdminAccess(context.Background(), 7, []pluginapi.PermissionSeed{{Code: "user.read", Display: "Read users"}})
+		err := bootstrapService{rbac: repo}.EnsureDefaultAdminAccess(context.Background(), 7, []moduleapi.PermissionSeed{{Code: "user.read", Display: "Read users"}})
 		if err == nil || !errors.Is(err, repo.ensurePermissionErr) || err.Error() != "ensure permission user.read: perm boom" {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -190,7 +190,7 @@ func TestBootstrapServiceWrapsRepositoryErrors(t *testing.T) {
 
 	t.Run("assign permissions", func(t *testing.T) {
 		repo := &bootstrapServiceTestRepository{assignPermissionsErr: errors.New("assign perms boom")}
-		err := bootstrapService{rbac: repo}.EnsureDefaultAdminAccess(context.Background(), 7, []pluginapi.PermissionSeed{{Code: "user.read", Display: "Read users"}})
+		err := bootstrapService{rbac: repo}.EnsureDefaultAdminAccess(context.Background(), 7, []moduleapi.PermissionSeed{{Code: "user.read", Display: "Read users"}})
 		want := "assign permissions to default admin role: assign perms boom"
 		if err == nil || !errors.Is(err, repo.assignPermissionsErr) || err.Error() != want {
 			t.Fatalf("unexpected error: %v", err)

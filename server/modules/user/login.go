@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"graft/server/internal/config"
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 	userstore "graft/server/modules/user/store"
 )
 
@@ -16,7 +16,7 @@ var errInvalidLoginCredentials = errors.New("invalid login credentials")
 const invalidLoginPlaceholderHash = "$2a$10$7EqJtq98hPqEX7fNZaFWoO.H8F6dPtkn6rJm5b1Pb9l.eD0P4Qh7K"
 
 type loginResult struct {
-	User               pluginapi.CurrentUser
+	User               moduleapi.CurrentUser
 	MustChangePassword bool
 }
 
@@ -64,12 +64,12 @@ func (s authService) Login(ctx context.Context, username string, password string
 	}, nil
 }
 
-func (s authService) authenticateUser(ctx context.Context, username string, password string) (pluginapi.CurrentUser, userstore.UserCredential, error) {
+func (s authService) authenticateUser(ctx context.Context, username string, password string) (moduleapi.CurrentUser, userstore.UserCredential, error) {
 	if s.auth == nil {
-		return pluginapi.CurrentUser{}, userstore.UserCredential{}, errors.New("auth repository is unavailable")
+		return moduleapi.CurrentUser{}, userstore.UserCredential{}, errors.New("auth repository is unavailable")
 	}
 	if s.users == nil {
-		return pluginapi.CurrentUser{}, userstore.UserCredential{}, errors.New("user repository is unavailable")
+		return moduleapi.CurrentUser{}, userstore.UserCredential{}, errors.New("user repository is unavailable")
 	}
 
 	credential, err := s.auth.GetUserCredentialByUsername(ctx, strings.TrimSpace(username))
@@ -77,30 +77,30 @@ func (s authService) authenticateUser(ctx context.Context, username string, pass
 		if errors.Is(err, userstore.ErrUserNotFound) {
 			// 用户不存在时仍执行一次固定成本的 bcrypt 校验，尽量收敛用户名枚举的时序差异。
 			_ = s.passwords.Compare(invalidLoginPlaceholderHash, password)
-			return pluginapi.CurrentUser{}, userstore.UserCredential{}, errInvalidLoginCredentials
+			return moduleapi.CurrentUser{}, userstore.UserCredential{}, errInvalidLoginCredentials
 		}
-		return pluginapi.CurrentUser{}, userstore.UserCredential{}, fmt.Errorf("get user credential by username: %w", err)
+		return moduleapi.CurrentUser{}, userstore.UserCredential{}, fmt.Errorf("get user credential by username: %w", err)
 	}
 
 	if credential.PasswordHash == nil || *credential.PasswordHash == "" {
 		// 空散列同样走一次占位校验，避免与真实用户分支出现明显时延差异。
 		_ = s.passwords.Compare(invalidLoginPlaceholderHash, password)
-		return pluginapi.CurrentUser{}, userstore.UserCredential{}, errInvalidLoginCredentials
+		return moduleapi.CurrentUser{}, userstore.UserCredential{}, errInvalidLoginCredentials
 	}
 
 	if err := s.passwords.Compare(*credential.PasswordHash, password); err != nil {
-		return pluginapi.CurrentUser{}, userstore.UserCredential{}, errInvalidLoginCredentials
+		return moduleapi.CurrentUser{}, userstore.UserCredential{}, errInvalidLoginCredentials
 	}
 
 	record, err := s.users.GetByID(ctx, credential.UserID)
 	if err != nil {
 		if errors.Is(err, userstore.ErrUserNotFound) {
-			return pluginapi.CurrentUser{}, userstore.UserCredential{}, errInvalidLoginCredentials
+			return moduleapi.CurrentUser{}, userstore.UserCredential{}, errInvalidLoginCredentials
 		}
-		return pluginapi.CurrentUser{}, userstore.UserCredential{}, fmt.Errorf("get user profile by id: %w", err)
+		return moduleapi.CurrentUser{}, userstore.UserCredential{}, fmt.Errorf("get user profile by id: %w", err)
 	}
 
-	return pluginapi.CurrentUser{
+	return moduleapi.CurrentUser{
 		ID:          record.ID,
 		Username:    record.Username,
 		DisplayName: record.Display,

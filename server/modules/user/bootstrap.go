@@ -10,7 +10,7 @@ import (
 	"graft/server/internal/config"
 	"graft/server/internal/i18n"
 	"graft/server/internal/menu"
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 	userstore "graft/server/modules/user/store"
 )
 
@@ -20,7 +20,7 @@ import (
 // 契约，把菜单过滤、locale 快照或权限聚合拆散到 core 或新增共享抽象里。
 type bootstrapReader struct {
 	auth         userstore.AuthRepository
-	rbac         pluginapi.RBACAccessService
+	rbac         moduleapi.RBACAccessService
 	menuRegistry *menu.Registry
 	localizer    *i18n.Service
 	localeConfig config.I18nConfig
@@ -59,7 +59,7 @@ func newBootstrapReader(
 	localizer *i18n.Service,
 	menuRegistry *menu.Registry,
 	auth userstore.AuthRepository,
-	rbac pluginapi.RBACAccessService,
+	rbac moduleapi.RBACAccessService,
 ) bootstrapReader {
 	return bootstrapReader{
 		auth:         auth,
@@ -76,9 +76,9 @@ func (r bootstrapReader) Read(ctx context.Context, request *http.Request) (boots
 		return bootstrapResponse{}, errors.New("auth repository is unavailable")
 	}
 
-	requestAuth, ok := pluginapi.RequestAuthContextFromContext(ctx)
+	requestAuth, ok := moduleapi.RequestAuthContextFromContext(ctx)
 	if !ok || requestAuth.User == nil || requestAuth.User.ID == 0 {
-		return bootstrapResponse{}, pluginapi.ErrUnauthenticated
+		return bootstrapResponse{}, moduleapi.ErrUnauthenticated
 	}
 
 	permissionCodes, permissionSet, err := r.listPermissionCodes(ctx, requestAuth.User.ID)
@@ -92,7 +92,7 @@ func (r bootstrapReader) Read(ctx context.Context, request *http.Request) (boots
 	credential, err := r.auth.GetUserCredentialByUsername(ctx, requestAuth.User.Username)
 	if err != nil {
 		if errors.Is(err, userstore.ErrUserNotFound) {
-			return bootstrapResponse{}, pluginapi.ErrUnauthenticated
+			return bootstrapResponse{}, moduleapi.ErrUnauthenticated
 		}
 		return bootstrapResponse{}, err
 	}

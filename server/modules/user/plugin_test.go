@@ -34,9 +34,9 @@ import (
 	"graft/server/internal/httpx"
 	"graft/server/internal/i18n"
 	"graft/server/internal/menu"
-	"graft/server/internal/permission"
 	"graft/server/internal/module"
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
+	"graft/server/internal/permission"
 	authplugin "graft/server/modules/auth"
 	"graft/server/modules/rbac"
 	rbacstore "graft/server/modules/rbac/store"
@@ -674,15 +674,15 @@ func newPluginTestContextWithLoggerAndPermissions(
 		CronRegistry:       cronx.NewRegistry(),
 	}
 
-	pluginInstance := NewPlugin(userRepo, authRepo)
+	pluginInstance := NewModule(userRepo, authRepo)
 	if err := pluginInstance.Register(ctx); err != nil {
 		t.Fatalf("register plugin: %v", err)
 	}
-	authPlugin := authplugin.NewPlugin()
+	authPlugin := authplugin.NewModule()
 	if err := authPlugin.Register(ctx); err != nil {
 		t.Fatalf("register auth plugin: %v", err)
 	}
-	if err := rbac.NewPlugin(pluginTestRBACRepository{
+	if err := rbac.NewModule(pluginTestRBACRepository{
 		roles: map[uint64][]rbacstore.Role{
 			7: {{ID: 1, Name: "admin", Display: "管理员"}},
 			8: {{ID: 2, Name: "viewer", Display: "只读用户"}},
@@ -1047,7 +1047,7 @@ func assertRefreshCookieWritten(t *testing.T, cookie *http.Cookie, expectedName 
 	}
 }
 
-func assertAccessClaims(t *testing.T, claims *pluginapi.AccessTokenClaims, userID uint64) {
+func assertAccessClaims(t *testing.T, claims *moduleapi.AccessTokenClaims, userID uint64) {
 	t.Helper()
 
 	if claims.UserID != userID || claims.SessionID == "" {
@@ -1055,7 +1055,7 @@ func assertAccessClaims(t *testing.T, claims *pluginapi.AccessTokenClaims, userI
 	}
 }
 
-func assertUserSummary(t *testing.T, summary pluginapi.UserSummary, id uint64, username string, display string) {
+func assertUserSummary(t *testing.T, summary moduleapi.UserSummary, id uint64, username string, display string) {
 	t.Helper()
 
 	if summary.ID != id || summary.Username != username || summary.Display != display {
@@ -1456,12 +1456,12 @@ func TestRegisterPublishesContracts(t *testing.T) {
 
 	assertUserPluginRegistry(t, ctx)
 
-	svcAny, err := ctx.Services.Resolve((*pluginapi.UserService)(nil))
+	svcAny, err := ctx.Services.Resolve((*moduleapi.UserService)(nil))
 	if err != nil {
 		t.Fatalf("resolve user service: %v", err)
 	}
 
-	summary, err := svcAny.(pluginapi.UserService).GetUserByID(context.Background(), 7)
+	summary, err := svcAny.(moduleapi.UserService).GetUserByID(context.Background(), 7)
 	if err != nil {
 		t.Fatalf("get user by id: %v", err)
 	}
@@ -1584,7 +1584,7 @@ func TestBootEnsuresDefaultAdmin(t *testing.T) {
 
 	ctx := newDefaultAdminBootPluginContext(authRepo, rbacRepo)
 
-	pluginInstance := NewPlugin(
+	pluginInstance := NewModule(
 		pluginTestUserRepository{},
 		authRepo,
 	)
@@ -1594,7 +1594,7 @@ func TestBootEnsuresDefaultAdmin(t *testing.T) {
 	if ensuredDefaultAdmin {
 		t.Fatal("expected register to stay side-effect free for default admin bootstrap")
 	}
-	if err := rbac.NewPlugin(rbacRepo).Register(ctx); err != nil {
+	if err := rbac.NewModule(rbacRepo).Register(ctx); err != nil {
 		t.Fatalf("register rbac plugin: %v", err)
 	}
 
@@ -1629,14 +1629,14 @@ func TestBootMarksExistingDefaultAdminForPasswordChange(t *testing.T) {
 	rbacRepo := newDefaultAdminBootRBACRepository(t, &assignedRole)
 
 	ctx := newDefaultAdminBootPluginContext(authRepo, rbacRepo)
-	pluginInstance := NewPlugin(
+	pluginInstance := NewModule(
 		pluginTestUserRepository{},
 		authRepo,
 	)
 	if err := pluginInstance.Register(ctx); err != nil {
 		t.Fatalf("register plugin: %v", err)
 	}
-	if err := rbac.NewPlugin(rbacRepo).Register(ctx); err != nil {
+	if err := rbac.NewModule(rbacRepo).Register(ctx); err != nil {
 		t.Fatalf("register rbac plugin: %v", err)
 	}
 	if err := pluginInstance.Boot(ctx); err != nil {
@@ -1658,7 +1658,7 @@ func TestBootMarksExistingDefaultAdminForPasswordChange(t *testing.T) {
 // fail closed，而不是继续让用户路由带着未绑定的授权器启动。
 func TestBootFailsWithoutSharedRouteAuthorizer(t *testing.T) {
 	ctx := newDefaultAdminBootPluginContext(&pluginTestAuthRepository{}, pluginTestRBACRepository{})
-	pluginInstance := NewPlugin(
+	pluginInstance := NewModule(
 		pluginTestUserRepository{},
 		&pluginTestAuthRepository{},
 	)
@@ -2424,7 +2424,7 @@ func TestAuthServiceCurrentUserRequiresClaims(t *testing.T) {
 	}
 
 	_, err := service.CurrentUser(context.Background())
-	if !errors.Is(err, pluginapi.ErrUnauthenticated) {
+	if !errors.Is(err, moduleapi.ErrUnauthenticated) {
 		t.Fatalf("expected ErrUnauthenticated, got %v", err)
 	}
 }
@@ -2490,14 +2490,14 @@ func TestAuthServiceParseAccessTokenRequiresActiveSession(t *testing.T) {
 			sessionID := tc.arrange(t, authRepo)
 			request := newAuthorizedRequestForSession(t, usersRoutePath(usercontract.UserByID, ":id", "7"), 7, sessionID)
 
-			authAny, err := ctx.Services.Resolve((*pluginapi.AuthService)(nil))
+			authAny, err := ctx.Services.Resolve((*moduleapi.AuthService)(nil))
 			if err != nil {
 				t.Fatalf("resolve auth service: %v", err)
 			}
 
 			token := authorizationTokenFromRequest(request)
-			_, err = authAny.(pluginapi.AuthService).ParseAccessToken(context.Background(), token)
-			if !errors.Is(err, pluginapi.ErrInvalidAccessToken) {
+			_, err = authAny.(moduleapi.AuthService).ParseAccessToken(context.Background(), token)
+			if !errors.Is(err, moduleapi.ErrInvalidAccessToken) {
 				t.Fatalf("expected ErrInvalidAccessToken, got %v", err)
 			}
 		})
@@ -2585,11 +2585,11 @@ func TestLoginRouteReturnsTokenAndCurrentUserSummary(t *testing.T) {
 	refreshCookie := firstCookie(t, cookies)
 	assertRefreshCookieWritten(t, refreshCookie, ctx.Config.Auth.RefreshCookieName)
 
-	authAny, err := ctx.Services.Resolve((*pluginapi.AuthService)(nil))
+	authAny, err := ctx.Services.Resolve((*moduleapi.AuthService)(nil))
 	if err != nil {
 		t.Fatalf("resolve auth service: %v", err)
 	}
-	claims, err := authAny.(pluginapi.AuthService).ParseAccessToken(context.Background(), payload.AccessToken)
+	claims, err := authAny.(moduleapi.AuthService).ParseAccessToken(context.Background(), payload.AccessToken)
 	if err != nil {
 		t.Fatalf("parse access token: %v", err)
 	}

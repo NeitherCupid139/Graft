@@ -10,7 +10,7 @@ import (
 
 	"graft/server/internal/config"
 	"graft/server/internal/database"
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 	"graft/server/modules/rbac"
 	"graft/server/modules/user"
 )
@@ -20,14 +20,14 @@ var (
 	devResetOpenDB            = database.Open
 	devResetCloseDB           = database.Close
 	devResetNewAuthRepository = user.NewAuthRepositoryForReset
-	devResetAdmin             = func(ctx context.Context, authRepo user.AuthRepositoryForReset, rbac pluginapi.RBACBootstrapService) error {
+	devResetAdmin             = func(ctx context.Context, authRepo user.AuthRepositoryForReset, rbac moduleapi.RBACBootstrapService) error {
 		return user.ResetDefaultAdminForDevelopment(
 			ctx,
 			authRepo,
 			rbac,
 		)
 	}
-	devResetResolveRBACBootstrap = func(resources *database.Resources) (pluginapi.RBACBootstrapService, error) {
+	devResetResolveRBACBootstrap = func(resources *database.Resources) (moduleapi.RBACBootstrapService, error) {
 		repo, err := rbac.NewRepositoryForReset(resources.SQL)
 		if err != nil {
 			return nil, err

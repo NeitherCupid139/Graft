@@ -15,7 +15,7 @@
 - 不新增业务功能
 - 不扩展 Metrics、Tracing、APM
 - 不开始 Phase D Log Explorer
-- 将已落地的 Audit、Monitor、EvidenceLink、Plugin Capability、OpenAPI Authority 收敛为正式治理规范
+- 将已落地的 Audit、Monitor、EvidenceLink、Module Capability、OpenAPI Authority 收敛为正式治理规范
 - 判断当前仓库是否达到 Phase C `archive-ready`
 
 ## Scope
@@ -29,8 +29,8 @@
 
 ## Authority Summary
 
-- `server/plugins/audit/**` owns audit facts, incident read model, and audit analytics
-- `server/plugins/monitor/**` owns monitor facts, anomaly, trend, and monitor evidence semantics
+- `server/modules/audit/**` owns audit facts, incident read model, and audit analytics
+- `server/modules/monitor/**` owns monitor facts, anomaly, trend, and monitor evidence semantics
 - `openapi/**` owns shared HTTP contract authority
 - generated code in `server/internal/contract/openapi/**`, `openapi/dist/**`, and `web/src/contracts/openapi/generated/**` are derived artifacts
 - `web` consumes authority and may own only UI consumer context
@@ -87,16 +87,16 @@
 - frontend origin/query state is UI-only context, never evidence authority
 - metadata fallback remains a governance gap, not an authority source
 
-### 3. Plugin Capability Governance
+### 3. Module Capability Governance
 
 已形成标准：
 
-- `server/internal/pluginapi/**` is the stable cross-plugin capability boundary
+- `server/internal/moduleapi/**` is the stable cross-module capability boundary
 - current auth / user / rbac / monitor capabilities follow narrow interface + DTO patterns
 
 存在特例：
 
-- some observability lineage still exists as mirrored DTOs across `pluginapi`, audit store, and OpenAPI
+- some observability lineage still exists as mirrored DTOs across `moduleapi`, audit store, and OpenAPI
 - event-name style contracts such as `AuditRecordEventName` remain narrow but not yet described as observability capability governance examples
 
 推荐规范：
@@ -131,7 +131,7 @@ Evidence:
 
 - metadata fallback still exists in audit UI consumer code and remains a governance gap
 - observability authority and boundary rules previously depended on archive evidence more than one current closeout document
-- plugin capability governance lacked an explicit observability/evidence classification note
+- module capability governance lacked an explicit observability/evidence classification note
 - Phase D readiness could not be marked `Ready` because `MetricsEmitter` remains a future boundary
 
 ## Recommended Next Topic
@@ -153,6 +153,6 @@ If this topic does not reach `archive-ready`, the remaining governance closeout 
 - Final judgment: `Archive Ready`
 - Basis:
   - authority ownership now has one current formal closeout document instead of relying only on archive evidence
-  - EvidenceLink governance, plugin capability governance, and observability boundary rules are now explicitly written into current governance docs
+  - EvidenceLink governance, module capability governance, and observability boundary rules are now explicitly written into current governance docs
   - remaining issues are documented governance gaps, not unresolved authority ambiguity or hidden feature scope
   - Phase D readiness remains truthfully limited to `Partially Ready`, so this closeout does not overclaim future implementation readiness

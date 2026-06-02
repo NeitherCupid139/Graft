@@ -22,9 +22,9 @@ import (
 	"graft/server/internal/httpx"
 	"graft/server/internal/i18n"
 	"graft/server/internal/menu"
-	"graft/server/internal/permission"
 	"graft/server/internal/module"
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
+	"graft/server/internal/permission"
 	rbaccontract "graft/server/modules/rbac/contract"
 	store "graft/server/modules/rbac/store"
 )
@@ -58,13 +58,13 @@ type testRBACRepository struct {
 }
 
 type testUserService struct {
-	users map[uint64]pluginapi.UserSummary
+	users map[uint64]moduleapi.UserSummary
 }
 
-func (s testUserService) GetUserByID(_ context.Context, id uint64) (pluginapi.UserSummary, error) {
+func (s testUserService) GetUserByID(_ context.Context, id uint64) (moduleapi.UserSummary, error) {
 	user, ok := s.users[id]
 	if !ok {
-		return pluginapi.UserSummary{}, pluginapi.ErrUserNotFound
+		return moduleapi.UserSummary{}, moduleapi.ErrUserNotFound
 	}
 
 	return user, nil
@@ -263,25 +263,25 @@ func (r testRBACRepository) ListRolePermissionBindings(ctx context.Context, role
 }
 
 type testAuthService struct {
-	user pluginapi.CurrentUser
+	user moduleapi.CurrentUser
 }
 
-func (s testAuthService) CurrentUser(ctx context.Context) (*pluginapi.CurrentUser, error) {
-	requestAuth, ok := pluginapi.RequestAuthContextFromContext(ctx)
+func (s testAuthService) CurrentUser(ctx context.Context) (*moduleapi.CurrentUser, error) {
+	requestAuth, ok := moduleapi.RequestAuthContextFromContext(ctx)
 	if !ok || requestAuth.Claims == nil {
-		return nil, pluginapi.ErrUnauthenticated
+		return nil, moduleapi.ErrUnauthenticated
 	}
 
 	user := s.user
 	return &user, nil
 }
 
-func (s testAuthService) ParseAccessToken(_ context.Context, token string) (*pluginapi.AccessTokenClaims, error) {
+func (s testAuthService) ParseAccessToken(_ context.Context, token string) (*moduleapi.AccessTokenClaims, error) {
 	if token == "" {
-		return nil, pluginapi.ErrInvalidAccessToken
+		return nil, moduleapi.ErrInvalidAccessToken
 	}
 
-	return &pluginapi.AccessTokenClaims{
+	return &moduleapi.AccessTokenClaims{
 		UserID:       s.user.ID,
 		SessionID:    "session-1",
 		TokenVersion: 1,
@@ -307,16 +307,16 @@ func newPluginTestContext(t *testing.T, repo store.Repository) (*module.Context,
 		CronRegistry:       cronx.NewRegistry(),
 	}
 
-	if err := ctx.Services.RegisterSingleton((*pluginapi.AuthService)(nil), func(container.Resolver) (any, error) {
+	if err := ctx.Services.RegisterSingleton((*moduleapi.AuthService)(nil), func(container.Resolver) (any, error) {
 		return testAuthService{
-			user: pluginapi.CurrentUser{ID: 7, Username: "alice", DisplayName: "Alice"},
+			user: moduleapi.CurrentUser{ID: 7, Username: "alice", DisplayName: "Alice"},
 		}, nil
 	}); err != nil {
 		t.Fatalf("register auth service: %v", err)
 	}
-	if err := ctx.Services.RegisterSingleton((*pluginapi.UserService)(nil), func(container.Resolver) (any, error) {
+	if err := ctx.Services.RegisterSingleton((*moduleapi.UserService)(nil), func(container.Resolver) (any, error) {
 		return testUserService{
-			users: map[uint64]pluginapi.UserSummary{
+			users: map[uint64]moduleapi.UserSummary{
 				7: {ID: 7, Username: "alice", Display: "Alice"},
 				8: {ID: 8, Username: "bob", Display: "Bob"},
 			},
@@ -325,7 +325,7 @@ func newPluginTestContext(t *testing.T, repo store.Repository) (*module.Context,
 		t.Fatalf("register user service: %v", err)
 	}
 
-	if err := NewPlugin(repo).Register(ctx); err != nil {
+	if err := NewModule(repo).Register(ctx); err != nil {
 		t.Fatalf("register rbac plugin: %v", err)
 	}
 
@@ -350,8 +350,8 @@ func newAuthorizedJSONRequest(method string, path string, body any) *http.Reques
 func TestAuthorizerRejectsUnauthenticatedRequest(t *testing.T) {
 	service := authorizer{rbac: testRBACRepository{}}
 
-	err := service.Authorize(context.Background(), pluginapi.RequestAuthContext{}, "user.read")
-	if !errors.Is(err, pluginapi.ErrUnauthenticated) {
+	err := service.Authorize(context.Background(), moduleapi.RequestAuthContext{}, "user.read")
+	if !errors.Is(err, moduleapi.ErrUnauthenticated) {
 		t.Fatalf("expected ErrUnauthenticated, got %v", err)
 	}
 }
@@ -364,8 +364,8 @@ func TestAuthorizerAllowsGrantedPermission(t *testing.T) {
 		},
 	}
 
-	err := service.Authorize(context.Background(), pluginapi.RequestAuthContext{
-		User: &pluginapi.CurrentUser{ID: 7},
+	err := service.Authorize(context.Background(), moduleapi.RequestAuthContext{
+		User: &moduleapi.CurrentUser{ID: 7},
 	}, "user.read")
 	if err != nil {
 		t.Fatalf("expected authorization success, got %v", err)
@@ -380,10 +380,10 @@ func TestAuthorizerRejectsMissingPermission(t *testing.T) {
 		},
 	}
 
-	err := service.Authorize(context.Background(), pluginapi.RequestAuthContext{
-		User: &pluginapi.CurrentUser{ID: 7},
+	err := service.Authorize(context.Background(), moduleapi.RequestAuthContext{
+		User: &moduleapi.CurrentUser{ID: 7},
 	}, "user.read")
-	if !errors.Is(err, pluginapi.ErrPermissionDenied) {
+	if !errors.Is(err, moduleapi.ErrPermissionDenied) {
 		t.Fatalf("expected ErrPermissionDenied, got %v", err)
 	}
 }
@@ -397,8 +397,8 @@ func TestAuthorizerPropagatesRepositoryFailure(t *testing.T) {
 		},
 	}
 
-	err := service.Authorize(context.Background(), pluginapi.RequestAuthContext{
-		User: &pluginapi.CurrentUser{ID: 7},
+	err := service.Authorize(context.Background(), moduleapi.RequestAuthContext{
+		User: &moduleapi.CurrentUser{ID: 7},
 	}, "user.read")
 	if !errors.Is(err, repositoryErr) {
 		t.Fatalf("expected repository error, got %v", err)
@@ -437,12 +437,12 @@ func TestRegisterRegistersReadManagementContracts(t *testing.T) {
 		t.Fatalf("unexpected permission menu: %#v", menus[3])
 	}
 
-	resolved, err := ctx.Services.Resolve((*pluginapi.Authorizer)(nil))
+	resolved, err := ctx.Services.Resolve((*moduleapi.Authorizer)(nil))
 	if err != nil {
 		t.Fatalf("resolve authorizer: %v", err)
 	}
-	if _, ok := resolved.(pluginapi.Authorizer); !ok {
-		t.Fatalf("expected pluginapi.Authorizer, got %T", resolved)
+	if _, ok := resolved.(moduleapi.Authorizer); !ok {
+		t.Fatalf("expected moduleapi.Authorizer, got %T", resolved)
 	}
 }
 
@@ -1043,7 +1043,7 @@ func TestUserRoleBindingRouteReturnsUserNotFound(t *testing.T) {
 func TestUserRoleAssignRouteReturnsUserNotFound(t *testing.T) {
 	repo := testRBACRepository{
 		replaceUserRoles: func(_ context.Context, _ store.ReplaceRolesForUserInput) error {
-			return pluginapi.ErrUserNotFound
+			return moduleapi.ErrUserNotFound
 		},
 		permissionsByUser: []store.Permission{{Code: rbaccontract.UserRoleAssignPermission.String()}},
 	}

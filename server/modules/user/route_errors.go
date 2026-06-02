@@ -14,7 +14,7 @@ import (
 	"graft/server/internal/httpx"
 	"graft/server/internal/i18n"
 	applog "graft/server/internal/logger"
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 	userstore "graft/server/modules/user/store"
 )
 
@@ -59,13 +59,13 @@ func readSessionIDParam(ginCtx *gin.Context, localizer *i18n.Service) (string, b
 func clearRefreshCookieWhen(
 	ginCtx *gin.Context,
 	authSvc *authService,
-	matches func(*pluginapi.AccessTokenClaims) bool,
+	matches func(*moduleapi.AccessTokenClaims) bool,
 ) {
 	if authSvc == nil || matches == nil {
 		return
 	}
 
-	requestAuth, ok := pluginapi.RequestAuthContextFromContext(ginCtx.Request.Context())
+	requestAuth, ok := moduleapi.RequestAuthContextFromContext(ginCtx.Request.Context())
 	if !ok || requestAuth.Claims == nil || !matches(requestAuth.Claims) {
 		return
 	}
@@ -86,7 +86,7 @@ func (r routeRuntime) writeAuthRouteError(ginCtx *gin.Context, message string, e
 func (r routeRuntime) writeUserLookupError(ginCtx *gin.Context, userID uint64, message string, err error) {
 	status := http.StatusInternalServerError
 	messageKey := messagecontract.CommonInternalError
-	if errors.Is(err, userstore.ErrUserNotFound) || errors.Is(err, pluginapi.ErrUserNotFound) {
+	if errors.Is(err, userstore.ErrUserNotFound) || errors.Is(err, moduleapi.ErrUserNotFound) {
 		status = http.StatusNotFound
 		messageKey = messagecontract.UserNotFound
 	} else {
@@ -223,7 +223,7 @@ func errorCodeFromMessageKey(key messagecontract.Key) string {
 
 func mapUserManagementError(err error) (int, messagecontract.Key, map[string]any) {
 	switch {
-	case errors.Is(err, userstore.ErrUserNotFound), errors.Is(err, pluginapi.ErrUserNotFound):
+	case errors.Is(err, userstore.ErrUserNotFound), errors.Is(err, moduleapi.ErrUserNotFound):
 		return http.StatusNotFound, messagecontract.UserNotFound, nil
 	case errors.Is(err, userstore.ErrUsernameConflict):
 		return http.StatusBadRequest, messagecontract.CommonInvalidArgument, map[string]any{"field": "username"}

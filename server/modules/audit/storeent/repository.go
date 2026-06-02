@@ -13,14 +13,14 @@ import (
 	"strings"
 	"time"
 
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 	auditcontract "graft/server/modules/audit/contract"
 	auditstore "graft/server/modules/audit/store"
 )
 
 type repository struct {
 	db              *sql.DB
-	monitorEvidence pluginapi.MonitorIncidentEvidenceService
+	monitorEvidence moduleapi.MonitorIncidentEvidenceService
 }
 
 type actorKey struct {
@@ -54,7 +54,7 @@ const incidentCandidateScanLimit = 200
 const sqlLikeEscapeClause = " ESCAPE '\\'"
 
 // NewRepository 基于共享连接池构建 audit 插件的 SQL repository。
-func NewRepository(db *sql.DB, monitorEvidence pluginapi.MonitorIncidentEvidenceService) (auditstore.AuditRepository, error) {
+func NewRepository(db *sql.DB, monitorEvidence moduleapi.MonitorIncidentEvidenceService) (auditstore.AuditRepository, error) {
 	if db == nil {
 		return nil, errors.New("audit repository requires a non-nil sql db")
 	}
@@ -62,7 +62,7 @@ func NewRepository(db *sql.DB, monitorEvidence pluginapi.MonitorIncidentEvidence
 	return &repository{db: db, monitorEvidence: monitorEvidence}, nil
 }
 
-func (r *repository) BindMonitorEvidence(service pluginapi.MonitorIncidentEvidenceService) {
+func (r *repository) BindMonitorEvidence(service moduleapi.MonitorIncidentEvidenceService) {
 	if r == nil {
 		return
 	}
@@ -332,7 +332,7 @@ func (r *repository) resolveIncidentMonitorContext(
 		}
 	}
 
-	resolved, err := r.monitorEvidence.ResolveAuditIncidentMonitorEvidence(ctx, pluginapi.ResolveAuditIncidentMonitorEvidenceInput{
+	resolved, err := r.monitorEvidence.ResolveAuditIncidentMonitorEvidence(ctx, moduleapi.ResolveAuditIncidentMonitorEvidenceInput{
 		IncidentSeedEventID: seed.ID,
 		IncidentStartedAt:   incidentStartedAt(relatedEvents),
 		IncidentEndedAt:     incidentEndedAt(relatedEvents),
@@ -365,15 +365,15 @@ func (r *repository) resolveIncidentMonitorContext(
 	}
 }
 
-func monitorContextStateFromAvailability(availability pluginapi.MonitorEvidenceAvailability) auditstore.MonitorContextState {
-	if availability == pluginapi.MonitorEvidenceAvailable {
+func monitorContextStateFromAvailability(availability moduleapi.MonitorEvidenceAvailability) auditstore.MonitorContextState {
+	if availability == moduleapi.MonitorEvidenceAvailable {
 		return auditstore.MonitorContextStateAvailable
 	}
 	return auditstore.MonitorContextStateUnavailable
 }
 
 func toAuditEvidenceLinksFromMonitor(
-	links []pluginapi.MonitorEvidenceLink,
+	links []moduleapi.MonitorEvidenceLink,
 	seed auditstore.AuditLog,
 	relatedEvents []auditstore.AuditLog,
 ) []auditstore.EvidenceLink {

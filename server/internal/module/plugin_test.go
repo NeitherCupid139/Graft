@@ -19,16 +19,16 @@ func (p testPlugin) Shutdown(_ *Context) error { return nil }
 // 不同注册顺序下仍会按依赖和字母序得到稳定的运行时顺序。
 func TestManagerOrderedUsesDependencyOrderAndAlphabeticalTieBreak(t *testing.T) {
 	manager := NewManager()
-	input := []Module{
-		describedPlugin{moduleSpec: Spec{ID: "user"}, delegate: testPlugin{}},
-		describedPlugin{moduleSpec: Spec{ID: "scheduler"}, delegate: testPlugin{}},
-		describedPlugin{moduleSpec: Spec{ID: "rbac", Dependencies: []string{"user"}}, delegate: testPlugin{}},
-		describedPlugin{moduleSpec: Spec{ID: "audit"}, delegate: testPlugin{}},
+	input := []RuntimeModule{
+		NewModule(Spec{ID: "user"}, testPlugin{}),
+		NewModule(Spec{ID: "scheduler"}, testPlugin{}),
+		NewModule(Spec{ID: "rbac", Dependencies: []string{"user"}}, testPlugin{}),
+		NewModule(Spec{ID: "audit"}, testPlugin{}),
 	}
 
 	for _, current := range input {
-		if err := manager.RegisterPlugin(current); err != nil {
-			t.Fatalf("register plugin %s: %v", current.Name(), err)
+		if err := manager.RegisterModule(current); err != nil {
+			t.Fatalf("register module %s: %v", current.Name(), err)
 		}
 	}
 
@@ -51,15 +51,15 @@ func TestManagerOrderedUsesDependencyOrderAndAlphabeticalTieBreak(t *testing.T) 
 // TestManagerOrderedRejectsMissingDependency 验证缺失依赖会在排序阶段直接阻断。
 func TestManagerOrderedRejectsMissingDependency(t *testing.T) {
 	manager := NewManager()
-	if err := manager.RegisterPlugin(describedPlugin{moduleSpec: Spec{ID: "rbac", Dependencies: []string{"user"}}, delegate: testPlugin{}}); err != nil {
-		t.Fatalf("register plugin: %v", err)
+	if err := manager.RegisterModule(NewModule(Spec{ID: "rbac", Dependencies: []string{"user"}}, testPlugin{})); err != nil {
+		t.Fatalf("register module: %v", err)
 	}
 
 	_, err := manager.Ordered()
 	if err == nil {
 		t.Fatal("expected missing dependency error")
 	}
-	if !strings.Contains(err.Error(), "depends on missing plugin user") {
+	if !strings.Contains(err.Error(), "depends on missing module user") {
 		t.Fatalf("expected missing dependency error, got %v", err)
 	}
 }
@@ -67,12 +67,12 @@ func TestManagerOrderedRejectsMissingDependency(t *testing.T) {
 // TestManagerOrderedRejectsDependencyCycle 验证循环依赖会被明确识别。
 func TestManagerOrderedRejectsDependencyCycle(t *testing.T) {
 	manager := NewManager()
-	for _, current := range []Module{
-		describedPlugin{moduleSpec: Spec{ID: "user", Dependencies: []string{"rbac"}}, delegate: testPlugin{}},
-		describedPlugin{moduleSpec: Spec{ID: "rbac", Dependencies: []string{"user"}}, delegate: testPlugin{}},
+	for _, current := range []RuntimeModule{
+		NewModule(Spec{ID: "user", Dependencies: []string{"rbac"}}, testPlugin{}),
+		NewModule(Spec{ID: "rbac", Dependencies: []string{"user"}}, testPlugin{}),
 	} {
-		if err := manager.RegisterPlugin(current); err != nil {
-			t.Fatalf("register plugin %s: %v", current.Name(), err)
+		if err := manager.RegisterModule(current); err != nil {
+			t.Fatalf("register module %s: %v", current.Name(), err)
 		}
 	}
 
@@ -80,7 +80,7 @@ func TestManagerOrderedRejectsDependencyCycle(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected dependency cycle error")
 	}
-	if !strings.Contains(err.Error(), "plugin dependency cycle detected") {
+	if !strings.Contains(err.Error(), "module dependency cycle detected") {
 		t.Fatalf("expected dependency cycle error, got %v", err)
 	}
 }
@@ -88,16 +88,16 @@ func TestManagerOrderedRejectsDependencyCycle(t *testing.T) {
 // TestOrderSpecsIsIndependentFromInputOrder 验证模块定义排序不依赖生成输入顺序。
 func TestOrderSpecsIsIndependentFromInputOrder(t *testing.T) {
 	input := []Spec{
-		{ID: "scheduler", Builder: BuilderFunc(func(BuildContext) (Plugin, error) {
+		{ID: "scheduler", Builder: BuilderFunc(func(BuildContext) (Module, error) {
 			return testPlugin{}, nil
 		})},
-		{ID: "rbac", Dependencies: []string{"user"}, Builder: BuilderFunc(func(BuildContext) (Plugin, error) {
+		{ID: "rbac", Dependencies: []string{"user"}, Builder: BuilderFunc(func(BuildContext) (Module, error) {
 			return testPlugin{}, nil
 		})},
-		{ID: "audit", Builder: BuilderFunc(func(BuildContext) (Plugin, error) {
+		{ID: "audit", Builder: BuilderFunc(func(BuildContext) (Module, error) {
 			return testPlugin{}, nil
 		})},
-		{ID: "user", Builder: BuilderFunc(func(BuildContext) (Plugin, error) {
+		{ID: "user", Builder: BuilderFunc(func(BuildContext) (Module, error) {
 			return testPlugin{}, nil
 		})},
 	}
@@ -118,13 +118,13 @@ func TestOrderSpecsIsIndependentFromInputOrder(t *testing.T) {
 	}
 }
 
-// TestSpecBuildWrapsCanonicalMetadata 验证模块定义构造出的运行时插件以
+// TestSpecBuildWrapsCanonicalMetadata 验证模块定义构造出的运行时模块以
 // 模块定义元数据为 canonical truth。
 func TestSpecBuildWrapsCanonicalMetadata(t *testing.T) {
 	descriptor := Spec{
 		ID:           "rbac",
 		Dependencies: []string{"user"},
-		Builder: BuilderFunc(func(BuildContext) (Plugin, error) {
+		Builder: BuilderFunc(func(BuildContext) (Module, error) {
 			return testPlugin{}, nil
 		}),
 	}

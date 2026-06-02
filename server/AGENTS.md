@@ -138,8 +138,8 @@ authority-first overlay：
   - 轻量单例 DI / service container
 - `internal/module`
   - 模块契约、上下文、模块排序与生命周期管理
-- `internal/pluginapi`
-  - 跨插件稳定接口与 DTO
+- `internal/moduleapi`
+  - 跨模块稳定接口与 DTO
 - `internal/contract`
   - 平台级稳定 typed contract
 - `internal/menu`、`internal/permission`、`internal/cronx`、`internal/eventbus`、`internal/i18n`
@@ -160,7 +160,7 @@ Observability authority overlay：
 - future `Log Explorer` authority 必须建立在 `internal/logger/**` 与 `internal/httpx/**` 的 logging semantics 之上，而不是建立在 `modules/audit/**` 持久化表之上
 - `modules/audit/**` 可以消费 logging correlation 作为调查入口，但不是 `Access Log Explorer` / `App Log Explorer` 的 canonical owner
 - `openapi/**` 是 shared wire contract authority；`internal/contract/openapi/**` 仅是 derived artifact consumer boundary
-- `internal/pluginapi/**` 中的 observability capability 只允许暴露 bounded evidence、stable ingest、或 narrow identity/authz-style ability，不得暴露 plugin internals
+- `internal/moduleapi/**` 中的 observability capability 只允许暴露 bounded evidence、stable ingest、或 narrow identity/authz-style ability，不得暴露 module internals
 
 除这些显式边界外，不要再发明隐藏 runtime surface。新的平台级入口如果不能清楚归入现有边界，先更新设计再写代码。
 
@@ -172,14 +172,14 @@ Observability authority overlay：
 
 - core 只拥有基础设施与扩展机制
 - 业务能力只放在 `modules/*`
-- 插件之间通过稳定接口协作，不直接依赖彼此内部实现
+- 模块之间通过稳定接口协作，不直接依赖彼此内部实现
 - 装配路径显式、可追踪、可测试
 
 不要做：
 
 - 把业务规则塞进 `internal/app`、`internal/module`、`internal/container` 等 core 包
 - 通过 package global、`init()`、隐式扫描或反射魔法制造运行时行为
-- 把插件私有实现暴露成跨插件公共 API
+- 把模块私有实现暴露成跨模块公共 API
 
 ## 6. 边界判定矩阵
 
@@ -189,10 +189,10 @@ Observability authority overlay：
 | --- | --- | --- |
 | runtime 装配、启动/关闭顺序、core 生命周期 | `server/internal/app/**` | 只放平台级 runtime 行为 |
 | CLI、显式迁移、显式验证、开发编排 | `server/cmd/**`、`server/internal/cli/**` | `serve`、`migrate`、`dev`、`validate` 保持显式入口 |
-| HTTP 通用能力、统一响应、共性中间件 | `server/internal/httpx/**` | 不承载插件业务规则 |
+| HTTP 通用能力、统一响应、共性中间件 | `server/internal/httpx/**` | 不承载模块业务规则 |
 | 容器、事件总线、菜单/权限/cron 注册器 | `server/internal/**` 对应 core 包 | 只放平台公共能力 |
 | 业务 API、业务 service、业务 store、业务 schema、业务 migration | `server/modules/<name>/**` | 默认 module-owned |
-| 跨插件 capability、共享 DTO、稳定事件名 | `server/internal/pluginapi/**` | 只放稳定跨插件公开面 |
+| 跨模块 capability、共享 DTO、稳定事件名 | `server/internal/moduleapi/**` | 只放稳定跨模块公开面 |
 | 平台级 typed contract | `server/internal/contract/**` | 只放平台共用 contract |
 | 模块私有稳定 contract | `server/modules/<name>/contract/**` | route fragment、permission code、message key 等 |
 | 历史共享 migration 回放 | `server/internal/ent/migrate/migrations/**` | 仅显式/manual 使用，不是默认链 |
@@ -201,11 +201,11 @@ Observability authority overlay：
 
 - 新业务能力默认先问“能否直接放进 `server/modules/<name>/**`”；除非它是平台基础设施，否则不要先放 `internal/**`
 - 新的业务 schema、Ent 生成产物、业务 migration 真相不允许回流 `server/internal/ent/**`
-- 插件间协作默认优先扩展 `pluginapi` 或稳定 `contract`，而不是直接引用对方内部实现
+- 模块间协作默认优先扩展 `moduleapi` 或稳定 `contract`，而不是直接引用对方内部实现
 - 若协作涉及 observability：
   - `audit` 只能消费 monitor-owned evidence，不得反向拥有 monitor anomaly truth
   - `monitor` 不得推断 audit incident / policy truth
-  - capability DTO 若在 pluginapi、plugin store、OpenAPI 三层同时存在，必须能说明 canonical owner 与 derived mapping path
+  - capability DTO 若在 moduleapi、module store、OpenAPI 三层同时存在，必须能说明 canonical owner 与 derived mapping path
 
 ## 7. 插件生命周期与边界
 
@@ -301,25 +301,25 @@ Observability authority overlay：
 - `README`
   - 插件 README 是否能说明职责边界、主要入口、关键依赖与不负责的范围
 
-## 9. `internal/pluginapi` 与契约边界
+## 9. `internal/moduleapi` 与契约边界
 
-跨插件公开接口统一收敛到稳定边界：
+跨模块公开接口统一收敛到稳定边界：
 
-- `server/internal/pluginapi`
-  - 放跨插件能力接口、共享 DTO、稳定错误语义、稳定事件名
+- `server/internal/moduleapi`
+  - 放跨模块能力接口、共享 DTO、稳定错误语义、稳定事件名
 - `server/internal/contract`
   - 放平台级稳定 contract，例如 header、auth scheme、error code、平台消息 key
-- `server/modules/<plugin>/contract`
-  - 放插件自有稳定 contract，例如 route fragment、permission code、message key
+- `server/modules/<module>/contract`
+  - 放模块自有稳定 contract，例如 route fragment、permission code、message key
 
 规则：
 
-- 跨插件只暴露 capability-oriented interface，不暴露 repository、Ent client、plugin private struct
-- 跨插件返回值优先使用稳定 DTO，不直接返回 Ent entity 或数据库模型
+- 跨模块只暴露 capability-oriented interface，不暴露 repository、Ent client、module private struct
+- 跨模块返回值优先使用稳定 DTO，不直接返回 Ent entity 或数据库模型
 - capability 必须在 Builder 或其它 compile-time 装配阶段注册，而不是在运行后期临时拼装
 - capability 生命周期必须稳定，明确由哪个插件提供、何时可用、何时关闭
 - capability 只允许暴露：
-  - cross-plugin business ability
+  - cross-module business ability
   - dev/reset hook
   - stable query/service contract
 - `auth`、`user`、`rbac`、`resource` 的治理边界固定为：
@@ -327,7 +327,7 @@ Observability authority overlay：
   - `user` 只拥有用户资料与用户管理能力，不等于 `auth`
   - `rbac` 只拥有授权模型，回答“你能做什么”
   - `resource` 只表达被保护对象概念边界，当前继续由 `rbac` 承载 resource/action/permission metadata
-- `user` 作为 `rbac` 的上游插件时，只暴露稳定用户能力：
+- `user` 作为 `rbac` 的上游模块时，只暴露稳定用户能力：
   - 用户存在性检查
   - 用户基础身份查询
   - 用户删除前约束检查

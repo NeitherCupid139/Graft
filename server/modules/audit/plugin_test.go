@@ -23,9 +23,9 @@ import (
 	"graft/server/internal/httpx"
 	"graft/server/internal/i18n"
 	"graft/server/internal/menu"
-	"graft/server/internal/permission"
 	"graft/server/internal/module"
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
+	"graft/server/internal/permission"
 	"graft/server/modules/audit/store"
 )
 
@@ -165,25 +165,25 @@ func (failingAuditRepository) ListAuditPolicyRules(context.Context) ([]store.Aud
 }
 
 type stubAuthService struct {
-	user pluginapi.CurrentUser
+	user moduleapi.CurrentUser
 }
 
-func (s stubAuthService) CurrentUser(ctx context.Context) (*pluginapi.CurrentUser, error) {
-	auth, ok := pluginapi.RequestAuthContextFromContext(ctx)
+func (s stubAuthService) CurrentUser(ctx context.Context) (*moduleapi.CurrentUser, error) {
+	auth, ok := moduleapi.RequestAuthContextFromContext(ctx)
 	if !ok || auth.Claims == nil {
-		return nil, pluginapi.ErrUnauthenticated
+		return nil, moduleapi.ErrUnauthenticated
 	}
 
 	user := s.user
 	return &user, nil
 }
 
-func (s stubAuthService) ParseAccessToken(_ context.Context, token string) (*pluginapi.AccessTokenClaims, error) {
+func (s stubAuthService) ParseAccessToken(_ context.Context, token string) (*moduleapi.AccessTokenClaims, error) {
 	if token == "" {
-		return nil, pluginapi.ErrInvalidAccessToken
+		return nil, moduleapi.ErrInvalidAccessToken
 	}
 
-	return &pluginapi.AccessTokenClaims{
+	return &moduleapi.AccessTokenClaims{
 		UserID:       s.user.ID,
 		SessionID:    "session-1",
 		TokenVersion: 1,
@@ -194,14 +194,14 @@ func (s stubAuthService) ParseAccessToken(_ context.Context, token string) (*plu
 
 type allowAuthorizer struct{}
 
-func (allowAuthorizer) Authorize(_ context.Context, _ pluginapi.RequestAuthContext, _ string) error {
+func (allowAuthorizer) Authorize(_ context.Context, _ moduleapi.RequestAuthContext, _ string) error {
 	return nil
 }
 
 type denyAuthorizer struct{}
 
-func (denyAuthorizer) Authorize(_ context.Context, _ pluginapi.RequestAuthContext, _ string) error {
-	return pluginapi.ErrPermissionDenied
+func (denyAuthorizer) Authorize(_ context.Context, _ moduleapi.RequestAuthContext, _ string) error {
+	return moduleapi.ErrPermissionDenied
 }
 
 func newPluginTestContext(t *testing.T, repo store.AuditRepository) (*module.Context, *gin.Engine, eventbus.Bus) {
@@ -226,18 +226,18 @@ func newPluginTestContextWithLogger(t *testing.T, repo store.AuditRepository, lo
 		CronRegistry:       cronx.NewRegistry(),
 	}
 
-	if err := ctx.Services.RegisterSingleton((*pluginapi.AuthService)(nil), func(container.Resolver) (any, error) {
-		return stubAuthService{user: pluginapi.CurrentUser{ID: 7, Username: "alice", DisplayName: "Alice"}}, nil
+	if err := ctx.Services.RegisterSingleton((*moduleapi.AuthService)(nil), func(container.Resolver) (any, error) {
+		return stubAuthService{user: moduleapi.CurrentUser{ID: 7, Username: "alice", DisplayName: "Alice"}}, nil
 	}); err != nil {
 		t.Fatalf("register auth service: %v", err)
 	}
-	if err := ctx.Services.RegisterSingleton((*pluginapi.Authorizer)(nil), func(container.Resolver) (any, error) {
+	if err := ctx.Services.RegisterSingleton((*moduleapi.Authorizer)(nil), func(container.Resolver) (any, error) {
 		return allowAuthorizer{}, nil
 	}); err != nil {
 		t.Fatalf("register authorizer: %v", err)
 	}
 
-	pluginInstance, err := NewPlugin(repo)
+	pluginInstance, err := NewModule(repo)
 	if err != nil {
 		t.Fatalf("build audit plugin: %v", err)
 	}
@@ -281,12 +281,12 @@ func newPluginTestContextWithDrilldown(
 		CronRegistry:       cronx.NewRegistry(),
 	}
 
-	if err := ctx.Services.RegisterSingleton((*pluginapi.AuthService)(nil), func(container.Resolver) (any, error) {
-		return stubAuthService{user: pluginapi.CurrentUser{ID: 7, Username: "alice", DisplayName: "Alice"}}, nil
+	if err := ctx.Services.RegisterSingleton((*moduleapi.AuthService)(nil), func(container.Resolver) (any, error) {
+		return stubAuthService{user: moduleapi.CurrentUser{ID: 7, Username: "alice", DisplayName: "Alice"}}, nil
 	}); err != nil {
 		t.Fatalf("register auth service: %v", err)
 	}
-	if err := ctx.Services.RegisterSingleton((*pluginapi.Authorizer)(nil), func(container.Resolver) (any, error) {
+	if err := ctx.Services.RegisterSingleton((*moduleapi.Authorizer)(nil), func(container.Resolver) (any, error) {
 		return allowAuthorizer{}, nil
 	}); err != nil {
 		t.Fatalf("register authorizer: %v", err)
@@ -316,7 +316,7 @@ func newPluginTestContextWithDrilldown(
 		t.Fatalf("build drilldown service: %v", err)
 	}
 
-	pluginInstance, err := NewPluginWithDrilldown(repo, drilldownService)
+	pluginInstance, err := NewModuleWithDrilldown(repo, drilldownService)
 	if err != nil {
 		t.Fatalf("build audit plugin with drilldown: %v", err)
 	}
@@ -331,7 +331,7 @@ func newPluginTestContextWithDrilldown(
 func TestRequestAuditMiddlewareSkipsUnmatchedRequest(t *testing.T) {
 	repo := &memoryAuditRepository{}
 	ctx, engine, _ := newPluginTestContext(t, repo)
-	authService := stubAuthService{user: pluginapi.CurrentUser{ID: 7, Username: "alice", DisplayName: "Alice"}}
+	authService := stubAuthService{user: moduleapi.CurrentUser{ID: 7, Username: "alice", DisplayName: "Alice"}}
 	authorizer := allowAuthorizer{}
 
 	ctx.Router.GET("/users/:id", httpx.RequirePermission(ctx.I18n, authService, authorizer, "user.read"), func(ginCtx *gin.Context) {
@@ -495,7 +495,7 @@ func TestRequirePermissionPublishesSecurityAuditEvent(t *testing.T) {
 		"/roles",
 		httpx.RequirePermission(
 			ctx.I18n,
-			stubAuthService{user: pluginapi.CurrentUser{ID: 7, Username: "alice", DisplayName: "Alice"}},
+			stubAuthService{user: moduleapi.CurrentUser{ID: 7, Username: "alice", DisplayName: "Alice"}},
 			denyAuthorizer{},
 			"rbac.role.read",
 			httpx.NewSecurityAuditPublisher(ctx.EventBus, ctx.Logger, "test"),
@@ -654,8 +654,8 @@ func TestRegisterSubscribesActiveAuditEvents(t *testing.T) {
 	_, _, bus := newPluginTestContext(t, repo)
 
 	requestCtx := httpx.WithRequestAuditContext(
-		pluginapi.WithRequestAuthContext(context.Background(), pluginapi.RequestAuthContext{
-			User: &pluginapi.CurrentUser{ID: 21, Username: "ctx-admin", DisplayName: "Context Admin"},
+		moduleapi.WithRequestAuthContext(context.Background(), moduleapi.RequestAuthContext{
+			User: &moduleapi.CurrentUser{ID: 21, Username: "ctx-admin", DisplayName: "Context Admin"},
 		}),
 		httpx.RequestAuditContext{
 			RequestID: "req-domain-1",
@@ -668,9 +668,9 @@ func TestRegisterSubscribesActiveAuditEvents(t *testing.T) {
 	)
 
 	err := bus.Publish(requestCtx, eventbus.Event{
-		Name: pluginapi.AuditRecordEventName,
-		Payload: pluginapi.AuditEvent{
-			Operator:     &pluginapi.CurrentUser{ID: 9, Username: "bob"},
+		Name: moduleapi.AuditRecordEventName,
+		Payload: moduleapi.AuditEvent{
+			Operator:     &moduleapi.CurrentUser{ID: 9, Username: "bob"},
 			Action:       "user.password.reset",
 			ResourceType: "user",
 			ResourceID:   "9",
@@ -713,8 +713,8 @@ func TestRegisterSubscribesActiveAuditEventsFallsBackToRequestAuthActor(t *testi
 	_, _, bus := newPluginTestContext(t, repo)
 
 	requestCtx := httpx.WithRequestAuditContext(
-		pluginapi.WithRequestAuthContext(context.Background(), pluginapi.RequestAuthContext{
-			User: &pluginapi.CurrentUser{ID: 22, Username: "ctx-user", DisplayName: "Context User"},
+		moduleapi.WithRequestAuthContext(context.Background(), moduleapi.RequestAuthContext{
+			User: &moduleapi.CurrentUser{ID: 22, Username: "ctx-user", DisplayName: "Context User"},
 		}),
 		httpx.RequestAuditContext{
 			RequestID: "req-domain-2",
@@ -727,8 +727,8 @@ func TestRegisterSubscribesActiveAuditEventsFallsBackToRequestAuthActor(t *testi
 	)
 
 	err := bus.Publish(requestCtx, eventbus.Event{
-		Name: pluginapi.AuditRecordEventName,
-		Payload: pluginapi.AuditEvent{
+		Name: moduleapi.AuditRecordEventName,
+		Payload: moduleapi.AuditEvent{
 			Action:       "user.profile.update",
 			ResourceType: "user",
 			ResourceID:   "22",
@@ -752,9 +752,9 @@ func TestRegisterSubscribesActiveAuditEventPointers(t *testing.T) {
 	_, _, bus := newPluginTestContext(t, repo)
 
 	err := bus.Publish(context.Background(), eventbus.Event{
-		Name: pluginapi.AuditRecordEventName,
-		Payload: &pluginapi.AuditEvent{
-			Operator:     &pluginapi.CurrentUser{ID: 10, Username: "carol"},
+		Name: moduleapi.AuditRecordEventName,
+		Payload: &moduleapi.AuditEvent{
+			Operator:     &moduleapi.CurrentUser{ID: 10, Username: "carol"},
 			Action:       "user.profile.update",
 			ResourceType: "user",
 			ResourceID:   "10",
@@ -780,9 +780,9 @@ func TestRegisterSwallowsActiveAuditWriteErrors(t *testing.T) {
 	}
 
 	err := bus.Publish(context.Background(), eventbus.Event{
-		Name: pluginapi.AuditRecordEventName,
-		Payload: pluginapi.AuditEvent{
-			Operator:     &pluginapi.CurrentUser{ID: 10, Username: "carol"},
+		Name: moduleapi.AuditRecordEventName,
+		Payload: moduleapi.AuditEvent{
+			Operator:     &moduleapi.CurrentUser{ID: 10, Username: "carol"},
 			Action:       "user.profile.update",
 			ResourceType: "user",
 			ResourceID:   "10",
@@ -813,9 +813,9 @@ func TestRegisterWarnsWhenSecurityAuditEventIsSkippedByPolicy(t *testing.T) {
 	_, _, bus := newPluginTestContextWithLogger(t, repo, logger)
 
 	err := bus.Publish(context.Background(), eventbus.Event{
-		Name: pluginapi.AuditRecordEventName,
-		Payload: pluginapi.AuditEvent{
-			Kind:         pluginapi.AuditEventKindSecurity,
+		Name: moduleapi.AuditRecordEventName,
+		Payload: moduleapi.AuditEvent{
+			Kind:         moduleapi.AuditEventKindSecurity,
 			Action:       "auth.permission.denied",
 			RequestPath:  "/api/roles/12",
 			ResourceType: "role",
@@ -845,8 +845,8 @@ func TestRegisterSubscribesActiveAuditEventsWithoutHTTPContextDoesNotPanic(t *te
 	_, _, bus := newPluginTestContext(t, repo)
 
 	err := bus.Publish(context.Background(), eventbus.Event{
-		Name: pluginapi.AuditRecordEventName,
-		Payload: pluginapi.AuditEvent{
+		Name: moduleapi.AuditRecordEventName,
+		Payload: moduleapi.AuditEvent{
 			Action:       "user.profile.update",
 			ResourceType: "user",
 			ResourceID:   "33",
@@ -899,10 +899,10 @@ func TestRegisterRecordsRBACDomainEventWhenPolicyAllows(t *testing.T) {
 	_, _, bus := newPluginTestContext(t, repo)
 
 	err := bus.Publish(context.Background(), eventbus.Event{
-		Name: pluginapi.AuditRecordEventName,
-		Payload: pluginapi.AuditEvent{
-			Kind:         pluginapi.AuditEventKindDomain,
-			Operator:     &pluginapi.CurrentUser{ID: 9, Username: "bob"},
+		Name: moduleapi.AuditRecordEventName,
+		Payload: moduleapi.AuditEvent{
+			Kind:         moduleapi.AuditEventKindDomain,
+			Operator:     &moduleapi.CurrentUser{ID: 9, Username: "bob"},
 			Action:       "rbac.role.delete",
 			ResourceType: "role",
 			ResourceID:   "12",

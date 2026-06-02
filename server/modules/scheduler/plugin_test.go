@@ -58,7 +58,7 @@ func TestBootRejectsInvalidJobs(t *testing.T) {
 	ctx := newPluginTestContext()
 	ctx.CronRegistry.Register(cronx.Job{Name: "invalid", Schedule: "*/1 * * * * *"})
 
-	pluginInstance := NewPlugin()
+	pluginInstance := NewModule()
 	if err := pluginInstance.Register(ctx); err != nil {
 		t.Fatalf("register plugin: %v", err)
 	}
@@ -81,7 +81,7 @@ func TestBootRegistersJobsAddedAfterRegister(t *testing.T) {
 
 	lifecycleCtx := context.Background()
 	runtimeRecorder := &stopContextRecorderRuntime{}
-	pluginInstance := NewPlugin()
+	pluginInstance := NewModule()
 	pluginInstance.runtime = runtimeRecorder
 
 	if err := pluginInstance.Register(ctx); err != nil {
@@ -132,7 +132,7 @@ func TestBootRunsRegisteredJobs(t *testing.T) {
 		},
 	})
 
-	pluginInstance := NewPlugin()
+	pluginInstance := NewModule()
 	if err := pluginInstance.Register(ctx); err != nil {
 		t.Fatalf("register plugin: %v", err)
 	}
@@ -158,7 +158,7 @@ func TestShutdownUsesLifecycleContext(t *testing.T) {
 	defer cancel()
 
 	runtimeRecorder := &stopContextRecorderRuntime{}
-	pluginInstance := NewPlugin()
+	pluginInstance := NewModule()
 	pluginInstance.runtime = runtimeRecorder
 
 	if err := pluginInstance.Shutdown(&module.Context{LifecycleContext: lifecycleCtx}); err != nil {

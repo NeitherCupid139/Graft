@@ -16,16 +16,16 @@ import (
 	"graft/server/internal/eventbus"
 	"graft/server/internal/httpx"
 	"graft/server/internal/module"
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 	authcontract "graft/server/modules/auth/contract"
 	usercontract "graft/server/modules/user/contract"
 	userstore "graft/server/modules/user/store"
 )
 
-// Plugin 是用于验证扩展路径的示例用户能力插件。
+// Module 是用于验证扩展路径的示例用户能力模块。
 //
 // 该插件展示业务能力如何在 Register 阶段声明边界，在 Boot/Shutdown 阶段保持显式生命周期。
-type Plugin struct {
+type Module struct {
 	defaultAdminAuth *authService
 	routeAuthorizer  *deferredAuthorizer
 	bootstrapAccess  *deferredRBACAccessService
@@ -40,16 +40,16 @@ var (
 	errInvalidUserPayload   = errors.New("invalid user payload")
 )
 
-// NewPlugin 创建示例用户插件。
-func NewPlugin(userRepo userstore.UserRepository, authRepo userstore.AuthRepository) *Plugin {
-	return &Plugin{
+// NewModule 创建示例用户模块。
+func NewModule(userRepo userstore.UserRepository, authRepo userstore.AuthRepository) *Module {
+	return &Module{
 		userRepo: userRepo,
 		authRepo: authRepo,
 	}
 }
 
-// Register 声明用户插件需要的权限、菜单、路由和公开服务。
-func (p *Plugin) Register(ctx *module.Context) error {
+// Register 声明用户模块需要的权限、菜单、路由和公开服务。
+func (p *Module) Register(ctx *module.Context) error {
 	if err := registerMessages(ctx.I18n); err != nil {
 		return err
 	}
@@ -83,7 +83,7 @@ func (p *Plugin) Register(ctx *module.Context) error {
 // Boot 在注册完成后启动用户插件的运行时行为。
 //
 // 当前阶段只在这里执行默认管理员引导初始化，确保 Register 保持纯声明式装配。
-func (p *Plugin) Boot(ctx *module.Context) error {
+func (p *Module) Boot(ctx *module.Context) error {
 	if err := p.bindRouteAuthorizer(ctx); err != nil {
 		return err
 	}
@@ -94,7 +94,7 @@ func (p *Plugin) Boot(ctx *module.Context) error {
 		return errors.New("default admin bootstrap service is unavailable")
 	}
 
-	rbacBootstrap, err := resolveService[pluginapi.RBACBootstrapService](ctx, (*pluginapi.RBACBootstrapService)(nil), "rbac bootstrap service")
+	rbacBootstrap, err := resolveService[moduleapi.RBACBootstrapService](ctx, (*moduleapi.RBACBootstrapService)(nil), "rbac bootstrap service")
 	if err != nil {
 		return err
 	}
@@ -109,16 +109,16 @@ func (p *Plugin) Boot(ctx *module.Context) error {
 // Shutdown 在应用停止时释放用户插件资源。
 //
 // 当前实现没有自主管理的外部资源，因此关闭阶段保持幂等空操作。
-func (p *Plugin) Shutdown(_ *module.Context) error {
+func (p *Module) Shutdown(_ *module.Context) error {
 	return nil
 }
 
-func (p *Plugin) bindRouteAuthorizer(ctx *module.Context) error {
+func (p *Module) bindRouteAuthorizer(ctx *module.Context) error {
 	if p.routeAuthorizer == nil {
 		return errors.New("route authorizer is unavailable")
 	}
 
-	authorizer, err := resolveService[pluginapi.Authorizer](ctx, (*pluginapi.Authorizer)(nil), "route authorizer")
+	authorizer, err := resolveService[moduleapi.Authorizer](ctx, (*moduleapi.Authorizer)(nil), "route authorizer")
 	if err != nil {
 		return err
 	}
@@ -130,12 +130,12 @@ func (p *Plugin) bindRouteAuthorizer(ctx *module.Context) error {
 	return nil
 }
 
-func (p *Plugin) bindBootstrapAccess(ctx *module.Context) error {
+func (p *Module) bindBootstrapAccess(ctx *module.Context) error {
 	if p.bootstrapAccess == nil {
 		return errors.New("bootstrap access service is unavailable")
 	}
 
-	accessService, err := resolveService[pluginapi.RBACAccessService](ctx, (*pluginapi.RBACAccessService)(nil), "rbac access service")
+	accessService, err := resolveService[moduleapi.RBACAccessService](ctx, (*moduleapi.RBACAccessService)(nil), "rbac access service")
 	if err != nil {
 		return err
 	}
@@ -166,12 +166,12 @@ func resolveService[T any](ctx *module.Context, key any, label string) (T, error
 // userService 把用户插件内部仓储读取收敛为跨插件稳定用户摘要服务。
 type userService struct {
 	users    userstore.UserRepository
-	rbac     pluginapi.RBACAccessService
+	rbac     moduleapi.RBACAccessService
 	auditBus eventbus.Bus
 	logger   *zap.Logger
 }
 
-// authService 是 `pluginapi.AuthService` 在用户插件内的最小实现。
+// authService 是 `moduleapi.AuthService` 在用户插件内的最小实现。
 //
 // 它把 access token 解析、refresh session 状态校验、当前用户读取和会话治理
 // 保持在同一插件边界内，避免把生命周期敏感的鉴权协作拆散到 core 或其他插件。
@@ -189,16 +189,16 @@ type authService struct {
 const maxSessionListLimit = 100
 
 // GetUserByID 通过稳定仓储契约读取用户，并收敛为跨插件 DTO。
-func (s userService) GetUserByID(ctx context.Context, id uint64) (pluginapi.UserSummary, error) {
+func (s userService) GetUserByID(ctx context.Context, id uint64) (moduleapi.UserSummary, error) {
 	record, err := s.users.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, userstore.ErrUserNotFound) {
-			return pluginapi.UserSummary{}, pluginapi.ErrUserNotFound
+			return moduleapi.UserSummary{}, moduleapi.ErrUserNotFound
 		}
-		return pluginapi.UserSummary{}, err
+		return moduleapi.UserSummary{}, err
 	}
 
-	return pluginapi.UserSummary{
+	return moduleapi.UserSummary{
 		ID:       record.ID,
 		Username: record.Username,
 		Display:  record.Display,
@@ -224,7 +224,7 @@ func (s userService) ListUsers(ctx context.Context) ([]userstore.User, error) {
 	return s.users.List(ctx)
 }
 
-func (s userService) ListUserRoleSummaries(ctx context.Context, userIDs []uint64) (map[uint64][]pluginapi.RoleSummary, error) {
+func (s userService) ListUserRoleSummaries(ctx context.Context, userIDs []uint64) (map[uint64][]moduleapi.RoleSummary, error) {
 	if s.rbac == nil {
 		return nil, errors.New("rbac access service is unavailable")
 	}
@@ -275,7 +275,7 @@ func (s userService) CreateUser(
 		return userstore.User{}, err
 	}
 
-	s.publishAudit(ctx, pluginapi.AuditEvent{
+	s.publishAudit(ctx, moduleapi.AuditEvent{
 		Action:       "user.create",
 		ResourceType: "user",
 		ResourceID:   formatUserAuditID(created.ID),
@@ -313,7 +313,7 @@ func (s userService) UpdateUser(ctx context.Context, command UpdateUserCommand) 
 		return userstore.User{}, err
 	}
 
-	s.publishAudit(ctx, pluginapi.AuditEvent{
+	s.publishAudit(ctx, moduleapi.AuditEvent{
 		Action:       "user.update",
 		ResourceType: "user",
 		ResourceID:   formatUserAuditID(updated.ID),
@@ -369,7 +369,7 @@ func (s userService) SetUserStatus(
 		}
 	}
 
-	s.publishAudit(ctx, pluginapi.AuditEvent{
+	s.publishAudit(ctx, moduleapi.AuditEvent{
 		Action:       "user.status.update",
 		ResourceType: "user",
 		ResourceID:   formatUserAuditID(updated.ID),
@@ -411,7 +411,7 @@ func (s userService) DeleteUser(ctx context.Context, authRepo userstore.AuthRepo
 		return err
 	}
 
-	s.publishAudit(ctx, pluginapi.AuditEvent{
+	s.publishAudit(ctx, moduleapi.AuditEvent{
 		Action:       "user.delete",
 		ResourceType: "user",
 		ResourceID:   formatUserAuditID(userID),
@@ -451,7 +451,7 @@ func (s userService) ResetUserPassword(
 		return err
 	}
 
-	s.publishAudit(ctx, pluginapi.AuditEvent{
+	s.publishAudit(ctx, moduleapi.AuditEvent{
 		Action:       "user.password.reset",
 		ResourceType: "user",
 		ResourceID:   formatUserAuditID(userID),
@@ -488,12 +488,12 @@ func normalizeExplicitManagedUserStatus(status string) string {
 }
 
 func requestActorOwnsUser(ctx context.Context, userID uint64) bool {
-	requestAuth, ok := pluginapi.RequestAuthContextFromContext(ctx)
+	requestAuth, ok := moduleapi.RequestAuthContextFromContext(ctx)
 	return ok && requestAuth.User != nil && requestAuth.User.ID == userID
 }
 
 func requestActorID(ctx context.Context) uint64 {
-	requestAuth, ok := pluginapi.RequestAuthContextFromContext(ctx)
+	requestAuth, ok := moduleapi.RequestAuthContextFromContext(ctx)
 	if !ok || requestAuth.User == nil {
 		return 0
 	}
@@ -501,14 +501,14 @@ func requestActorID(ctx context.Context) uint64 {
 	return requestAuth.User.ID
 }
 
-func (s userService) publishAudit(ctx context.Context, event pluginapi.AuditEvent) {
+func (s userService) publishAudit(ctx context.Context, event moduleapi.AuditEvent) {
 	if s.auditBus == nil {
 		return
 	}
 
 	event.Operator = currentAuditOperator(ctx)
 	if err := s.auditBus.Publish(ctx, eventbus.Event{
-		Name:    pluginapi.AuditRecordEventName,
+		Name:    moduleapi.AuditRecordEventName,
 		Source:  moduleID,
 		Payload: event,
 	}); err != nil && s.logger != nil {
@@ -520,8 +520,8 @@ func (s userService) publishAudit(ctx context.Context, event pluginapi.AuditEven
 	}
 }
 
-func currentAuditOperator(ctx context.Context) *pluginapi.CurrentUser {
-	requestAuth, ok := pluginapi.RequestAuthContextFromContext(ctx)
+func currentAuditOperator(ctx context.Context) *moduleapi.CurrentUser {
+	requestAuth, ok := moduleapi.RequestAuthContextFromContext(ctx)
 	if !ok || requestAuth.User == nil {
 		return nil
 	}
@@ -541,25 +541,25 @@ func formatUserAuditID(id uint64) string {
 //
 // 该实现要求调用链先通过鉴权中间件写入稳定 claims，再按用户仓储读取跨
 // 插件可见的最小用户资料，不把 token 解析细节泄漏给业务调用方。
-func (s authService) CurrentUser(ctx context.Context) (*pluginapi.CurrentUser, error) {
+func (s authService) CurrentUser(ctx context.Context) (*moduleapi.CurrentUser, error) {
 	if s.users == nil {
 		return nil, errors.New("user repository is unavailable")
 	}
 
-	requestAuth, ok := pluginapi.RequestAuthContextFromContext(ctx)
+	requestAuth, ok := moduleapi.RequestAuthContextFromContext(ctx)
 	if !ok || requestAuth.Claims == nil {
-		return nil, pluginapi.ErrUnauthenticated
+		return nil, moduleapi.ErrUnauthenticated
 	}
 
 	record, err := s.users.GetByID(ctx, requestAuth.Claims.UserID)
 	if err != nil {
 		if errors.Is(err, userstore.ErrUserNotFound) {
-			return nil, pluginapi.ErrUnauthenticated
+			return nil, moduleapi.ErrUnauthenticated
 		}
 		return nil, err
 	}
 
-	return &pluginapi.CurrentUser{
+	return &moduleapi.CurrentUser{
 		ID:          record.ID,
 		Username:    record.Username,
 		DisplayName: record.Display,
@@ -567,7 +567,7 @@ func (s authService) CurrentUser(ctx context.Context) (*pluginapi.CurrentUser, e
 }
 
 // ParseAccessToken 校验 access token 并返回跨插件稳定 claims。
-func (s authService) ParseAccessToken(ctx context.Context, token string) (*pluginapi.AccessTokenClaims, error) {
+func (s authService) ParseAccessToken(ctx context.Context, token string) (*moduleapi.AccessTokenClaims, error) {
 	if s.tokens == nil {
 		return nil, errors.New("access token manager is unavailable")
 	}
@@ -576,9 +576,9 @@ func (s authService) ParseAccessToken(ctx context.Context, token string) (*plugi
 	if err != nil {
 		switch {
 		case errors.Is(err, errExpiredAccessToken):
-			return nil, pluginapi.ErrExpiredAccessToken
+			return nil, moduleapi.ErrExpiredAccessToken
 		case errors.Is(err, errInvalidAccessToken):
-			return nil, pluginapi.ErrInvalidAccessToken
+			return nil, moduleapi.ErrInvalidAccessToken
 		default:
 			return nil, err
 		}
@@ -586,7 +586,7 @@ func (s authService) ParseAccessToken(ctx context.Context, token string) (*plugi
 
 	if err := s.validateAccessSession(ctx, claims); err != nil {
 		if errors.Is(err, errAccessSessionFailed) {
-			return nil, pluginapi.ErrInvalidAccessToken
+			return nil, moduleapi.ErrInvalidAccessToken
 		}
 		return nil, err
 	}
@@ -594,7 +594,7 @@ func (s authService) ParseAccessToken(ctx context.Context, token string) (*plugi
 	return claims, nil
 }
 
-var _ pluginapi.AuthService = authService{}
+var _ moduleapi.AuthService = authService{}
 
 // parseUserID 将路由参数转换为插件内部统一使用的正整数 ID。
 func parseUserID(input string) (uint64, error) {
@@ -636,7 +636,7 @@ func mapAuthError(err error) (int, messagecontract.Key) {
 		status int
 		key    messagecontract.Key
 	}{
-		{match: pluginapi.ErrUnauthenticated, status: http.StatusUnauthorized, key: messagecontract.AuthTokenMissing},
+		{match: moduleapi.ErrUnauthenticated, status: http.StatusUnauthorized, key: messagecontract.AuthTokenMissing},
 		{match: errInvalidLoginCredentials, status: http.StatusBadRequest, key: messagecontract.AuthInvalidCredentials},
 		{match: errRefreshTokenRequired, status: http.StatusUnauthorized, key: messagecontract.AuthTokenMissing},
 		{match: errExpiredRefreshToken, status: http.StatusUnauthorized, key: messagecontract.AuthTokenExpired},

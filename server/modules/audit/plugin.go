@@ -17,29 +17,29 @@ import (
 	"graft/server/internal/eventbus"
 	"graft/server/internal/httpx"
 	"graft/server/internal/module"
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 	auditstore "graft/server/modules/audit/store"
 )
 
-// Plugin 是当前 MVP 阶段的最小审计插件。
+// Module 是当前 MVP 阶段的最小审计模块。
 //
 // 该插件在 Register 阶段挂载请求级自动审计中间件、受权只读查询路由、
 // 菜单/权限声明，并订阅主动审计事件；当前不承载归档和分析逻辑。
-type Plugin struct {
+type Module struct {
 	recorder      *auditcore.Service
 	monitorBinder incidentMonitorEvidenceBinder
 }
 
 const eventMetadataExtraFields = 3
 
-// NewPlugin 创建最小审计插件。
-func NewPlugin(repo auditstore.AuditRepository) (*Plugin, error) {
+// NewModule 创建最小审计模块。
+func NewModule(repo auditstore.AuditRepository) (*Module, error) {
 	recorder, err := auditcore.NewService(repo)
 	if err != nil {
 		return nil, err
 	}
 
-	pluginInstance := &Plugin{recorder: recorder}
+	pluginInstance := &Module{recorder: recorder}
 	if binder, ok := repo.(incidentMonitorEvidenceBinder); ok {
 		pluginInstance.monitorBinder = binder
 	}
@@ -47,17 +47,17 @@ func NewPlugin(repo auditstore.AuditRepository) (*Plugin, error) {
 	return pluginInstance, nil
 }
 
-// NewPluginWithDrilldown creates the audit plugin with a drilldown-enabled read service.
-func NewPluginWithDrilldown(
+// NewModuleWithDrilldown creates the audit module with a drilldown-enabled read service.
+func NewModuleWithDrilldown(
 	repo auditstore.AuditRepository,
 	drilldownService *drilldown.Service[auditcore.ListQuery, auditcore.ListQuery],
-) (*Plugin, error) {
+) (*Module, error) {
 	recorder, err := auditcore.NewServiceWithDrilldown(repo, drilldownService)
 	if err != nil {
 		return nil, err
 	}
 
-	pluginInstance := &Plugin{recorder: recorder}
+	pluginInstance := &Module{recorder: recorder}
 	if binder, ok := repo.(incidentMonitorEvidenceBinder); ok {
 		pluginInstance.monitorBinder = binder
 	}
@@ -66,7 +66,7 @@ func NewPluginWithDrilldown(
 }
 
 // Register 挂载 HTTP 自动审计、受权查询路由与 event bus 主动审计接线。
-func (p *Plugin) Register(ctx *module.Context) error {
+func (p *Module) Register(ctx *module.Context) error {
 	if p.recorder == nil {
 		return errors.New("audit recorder is unavailable")
 	}
@@ -95,12 +95,12 @@ func (p *Plugin) Register(ctx *module.Context) error {
 		return errors.New("event bus is unavailable")
 	}
 
-	return ctx.EventBus.Subscribe(pluginapi.AuditRecordEventName, func(eventCtx context.Context, event eventbus.Event) error {
+	return ctx.EventBus.Subscribe(moduleapi.AuditRecordEventName, func(eventCtx context.Context, event eventbus.Event) error {
 		payload, err := resolveAuditEventPayload(event.Payload)
 		if err != nil {
 			logger.Error("drop malformed audit event payload",
 				zap.String("plugin", moduleID),
-				zap.String("event", pluginapi.AuditRecordEventName),
+				zap.String("event", moduleapi.AuditRecordEventName),
 				zap.Error(fmt.Errorf("unexpected audit event payload type %T", event.Payload)),
 			)
 			return nil
@@ -109,7 +109,7 @@ func (p *Plugin) Register(ctx *module.Context) error {
 		if err := recordEvent(eventCtx, logger, p.recorder, payload); err != nil {
 			logger.Error("write active audit log failed",
 				zap.String("plugin", moduleID),
-				zap.String("event", pluginapi.AuditRecordEventName),
+				zap.String("event", moduleapi.AuditRecordEventName),
 				zap.String("action", strings.TrimSpace(payload.Action)),
 				zap.Error(err),
 			)
@@ -120,12 +120,12 @@ func (p *Plugin) Register(ctx *module.Context) error {
 }
 
 // Boot resolves optional cross-plugin capabilities after all plugins have completed Register.
-func (p *Plugin) Boot(ctx *module.Context) error {
+func (p *Module) Boot(ctx *module.Context) error {
 	if p == nil || p.monitorBinder == nil || ctx == nil || ctx.Services == nil {
 		return nil
 	}
 
-	resolved, err := ctx.Services.Resolve((*pluginapi.MonitorIncidentEvidenceService)(nil))
+	resolved, err := ctx.Services.Resolve((*moduleapi.MonitorIncidentEvidenceService)(nil))
 	if err != nil {
 		if errors.Is(err, container.ErrServiceNotRegistered) {
 			return nil
@@ -133,7 +133,7 @@ func (p *Plugin) Boot(ctx *module.Context) error {
 		return fmt.Errorf("resolve monitor incident evidence service: %w", err)
 	}
 
-	service, ok := resolved.(pluginapi.MonitorIncidentEvidenceService)
+	service, ok := resolved.(moduleapi.MonitorIncidentEvidenceService)
 	if !ok {
 		return fmt.Errorf("resolve monitor incident evidence service: unexpected type %T", resolved)
 	}
@@ -143,12 +143,12 @@ func (p *Plugin) Boot(ctx *module.Context) error {
 }
 
 // Shutdown 当前没有额外资源需要释放。
-func (p *Plugin) Shutdown(_ *module.Context) error {
+func (p *Module) Shutdown(_ *module.Context) error {
 	return nil
 }
 
 type incidentMonitorEvidenceBinder interface {
-	BindMonitorEvidence(pluginapi.MonitorIncidentEvidenceService)
+	BindMonitorEvidence(moduleapi.MonitorIncidentEvidenceService)
 }
 
 func requestAuditMiddleware(logger *zap.Logger, recorder *auditcore.Service) gin.HandlerFunc {
@@ -176,7 +176,7 @@ func requestAuditMiddleware(logger *zap.Logger, recorder *auditcore.Service) gin
 	}
 }
 
-func recordEvent(ctx context.Context, logger *zap.Logger, recorder *auditcore.Service, payload pluginapi.AuditEvent) error {
+func recordEvent(ctx context.Context, logger *zap.Logger, recorder *auditcore.Service, payload moduleapi.AuditEvent) error {
 	candidate := eventAuditCandidate(ctx, payload)
 	_, recorded, err := recorder.RecordCandidate(ctx, candidate)
 	if err != nil {
@@ -215,7 +215,7 @@ func requestAuditCandidate(ctx *gin.Context) auditstore.AuditCandidate {
 		Success:       ctx.Writer.Status() < http.StatusBadRequest,
 		Message:       currentAuditMessage(ctx),
 	}
-	if requestAuth, ok := pluginapi.RequestAuthContextFromContext(ctx.Request.Context()); ok {
+	if requestAuth, ok := moduleapi.RequestAuthContextFromContext(ctx.Request.Context()); ok {
 		if requestAuth.User != nil {
 			candidate.ActorUserID = &requestAuth.User.ID
 			candidate.ActorUsername = strings.TrimSpace(requestAuth.User.Username)
@@ -229,7 +229,7 @@ func requestAuditCandidate(ctx *gin.Context) auditstore.AuditCandidate {
 	return candidate
 }
 
-func eventAuditCandidate(ctx context.Context, payload pluginapi.AuditEvent) auditstore.AuditCandidate {
+func eventAuditCandidate(ctx context.Context, payload moduleapi.AuditEvent) auditstore.AuditCandidate {
 	requestAudit := resolveRequestAuditContext(ctx)
 	operator := resolveEventOperator(ctx, payload)
 
@@ -266,11 +266,11 @@ func resolveRequestAuditContext(ctx context.Context) httpx.RequestAuditContext {
 	return requestAudit
 }
 
-func resolveEventOperator(ctx context.Context, payload pluginapi.AuditEvent) *pluginapi.CurrentUser {
+func resolveEventOperator(ctx context.Context, payload moduleapi.AuditEvent) *moduleapi.CurrentUser {
 	if payload.Operator != nil {
 		return payload.Operator
 	}
-	if requestAuth, ok := pluginapi.RequestAuthContextFromContext(ctx); ok && requestAuth.User != nil {
+	if requestAuth, ok := moduleapi.RequestAuthContextFromContext(ctx); ok && requestAuth.User != nil {
 		return requestAuth.User
 	}
 
@@ -287,9 +287,9 @@ func firstNonEmptyTrimmed(values ...string) string {
 	return ""
 }
 
-func auditSourceFromEvent(payload pluginapi.AuditEvent) auditstore.AuditSource {
+func auditSourceFromEvent(payload moduleapi.AuditEvent) auditstore.AuditSource {
 	switch payload.Kind {
-	case pluginapi.AuditEventKindSecurity:
+	case moduleapi.AuditEventKindSecurity:
 		return auditstore.AuditSourceSecurityEvent
 	default:
 		return auditstore.AuditSourceDomainEvent
@@ -364,7 +364,7 @@ func currentAuditMessage(ctx *gin.Context) string {
 	return ""
 }
 
-func eventMetadata(payload pluginapi.AuditEvent) map[string]any {
+func eventMetadata(payload moduleapi.AuditEvent) map[string]any {
 	metadata := make(map[string]any, len(payload.Metadata)+eventMetadataExtraFields)
 	for key, value := range payload.Metadata {
 		metadata[key] = value
@@ -394,16 +394,16 @@ func mustMarshalAuditEventMetadata(metadata map[string]any) json.RawMessage {
 	return json.RawMessage(payload)
 }
 
-func resolveAuditEventPayload(payload any) (pluginapi.AuditEvent, error) {
+func resolveAuditEventPayload(payload any) (moduleapi.AuditEvent, error) {
 	switch typed := payload.(type) {
-	case pluginapi.AuditEvent:
+	case moduleapi.AuditEvent:
 		return typed, nil
-	case *pluginapi.AuditEvent:
+	case *moduleapi.AuditEvent:
 		if typed == nil {
-			return pluginapi.AuditEvent{}, errors.New("nil audit event payload")
+			return moduleapi.AuditEvent{}, errors.New("nil audit event payload")
 		}
 		return *typed, nil
 	default:
-		return pluginapi.AuditEvent{}, fmt.Errorf("unexpected audit event payload type %T", payload)
+		return moduleapi.AuditEvent{}, fmt.Errorf("unexpected audit event payload type %T", payload)
 	}
 }

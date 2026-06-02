@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 	rbacstore "graft/server/modules/rbac/store"
 	userstore "graft/server/modules/user/store"
 )
@@ -67,7 +67,7 @@ type devResetRBACBootstrapStub struct {
 	state *devResetState
 }
 
-func (s devResetRBACBootstrapStub) EnsureDefaultAdminAccess(ctx context.Context, userID uint64, permissions []pluginapi.PermissionSeed) error {
+func (s devResetRBACBootstrapStub) EnsureDefaultAdminAccess(ctx context.Context, userID uint64, permissions []moduleapi.PermissionSeed) error {
 	role, err := s.state.rbacRepo.EnsureRole(ctx, rbacstore.EnsureRoleInput{
 		Name:    "admin",
 		Display: "管理员",

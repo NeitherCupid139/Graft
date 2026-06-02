@@ -24,9 +24,9 @@ import (
 	"graft/server/internal/logger"
 	"graft/server/internal/menu"
 	"graft/server/internal/module"
+	"graft/server/internal/moduleapi"
 	"graft/server/internal/moduleregistry"
 	"graft/server/internal/permission"
-	"graft/server/internal/pluginapi"
 	"graft/server/internal/redisx"
 )
 
@@ -109,16 +109,16 @@ func NewRuntime() (*Runtime, error) {
 	}
 	runtime.runtimeMetadata = module.NewRuntimeMetadata(orderedDescriptors)
 
-	plugins, err := moduleregistry.BuildModules(module.BuildContext{
+	modules, err := moduleregistry.BuildModules(module.BuildContext{
 		Services: runtime.services,
 	})
 	if err != nil {
 		_ = runtime.closeCoreResources()
-		return nil, fmt.Errorf("build runtime plugins: %w", err)
+		return nil, fmt.Errorf("build runtime modules: %w", err)
 	}
 
-	for _, current := range plugins {
-		if err := runtime.moduleManager.RegisterPlugin(current); err != nil {
+	for _, current := range modules {
+		if err := runtime.moduleManager.RegisterModule(current); err != nil {
 			_ = runtime.closeCoreResources()
 			return nil, err
 		}
@@ -207,7 +207,7 @@ func (r *Runtime) Run(runCtx context.Context) error {
 		return err
 	}
 
-	booted := make([]module.Module, 0, len(ordered))
+	booted := make([]module.RuntimeModule, 0, len(ordered))
 	if err := r.registerPlugins(moduleCtx, ordered, booted); err != nil {
 		return err
 	}
@@ -240,7 +240,7 @@ func (r *Runtime) Run(runCtx context.Context) error {
 	return nil
 }
 
-func (r *Runtime) registerPlugins(moduleCtx *module.Context, ordered []module.Module, booted []module.Module) error {
+func (r *Runtime) registerPlugins(moduleCtx *module.Context, ordered []module.RuntimeModule, booted []module.RuntimeModule) error {
 	for _, p := range ordered {
 		// Register 阶段只允许声明能力，不应启动长期运行行为；一旦失败，
 		// 当前插件及其后续插件都不再继续，避免部分注册状态继续扩散。
@@ -254,9 +254,9 @@ func (r *Runtime) registerPlugins(moduleCtx *module.Context, ordered []module.Mo
 
 func (r *Runtime) bootPlugins(
 	moduleCtx *module.Context,
-	ordered []module.Module,
-	booted []module.Module,
-) ([]module.Module, error) {
+	ordered []module.RuntimeModule,
+	booted []module.RuntimeModule,
+) ([]module.RuntimeModule, error) {
 	for _, p := range ordered {
 		// 只有完成 Register 的插件才会进入 Boot。booted 只记录真正成功启动
 		// 的插件，确保失败清理不会误关未启动插件。
@@ -286,7 +286,7 @@ func (r *Runtime) newPluginContext(runCtx context.Context) *module.Context {
 	}
 }
 
-func (r *Runtime) registerAccessLogExplorer(moduleCtx *module.Context, booted []module.Module) error {
+func (r *Runtime) registerAccessLogExplorer(moduleCtx *module.Context, booted []module.RuntimeModule) error {
 	authService, err := r.resolveAccessLogAuthService()
 	if errors.Is(err, container.ErrServiceNotRegistered) {
 		return nil
@@ -320,13 +320,13 @@ func (r *Runtime) registerAccessLogExplorer(moduleCtx *module.Context, booted []
 	return nil
 }
 
-func (r *Runtime) resolveAccessLogAuthService() (pluginapi.AuthService, error) {
-	authResolved, err := r.services.Resolve((*pluginapi.AuthService)(nil))
+func (r *Runtime) resolveAccessLogAuthService() (moduleapi.AuthService, error) {
+	authResolved, err := r.services.Resolve((*moduleapi.AuthService)(nil))
 	if err != nil {
 		return nil, err
 	}
 
-	authService, ok := authResolved.(pluginapi.AuthService)
+	authService, ok := authResolved.(moduleapi.AuthService)
 	if !ok {
 		return nil, fmt.Errorf("unexpected type %T", authResolved)
 	}
@@ -334,13 +334,13 @@ func (r *Runtime) resolveAccessLogAuthService() (pluginapi.AuthService, error) {
 	return authService, nil
 }
 
-func (r *Runtime) resolveAccessLogAuthorizer() (pluginapi.Authorizer, error) {
-	authorizerResolved, err := r.services.Resolve((*pluginapi.Authorizer)(nil))
+func (r *Runtime) resolveAccessLogAuthorizer() (moduleapi.Authorizer, error) {
+	authorizerResolved, err := r.services.Resolve((*moduleapi.Authorizer)(nil))
 	if err != nil {
 		return nil, fmt.Errorf("resolve access-log authorizer: %w", err)
 	}
 
-	authorizer, ok := authorizerResolved.(pluginapi.Authorizer)
+	authorizer, ok := authorizerResolved.(moduleapi.Authorizer)
 	if !ok {
 		return nil, fmt.Errorf("resolve access-log authorizer: unexpected type %T", authorizerResolved)
 	}
@@ -492,7 +492,7 @@ func (r *Runtime) registerSingleton(key any, provider func() (any, error)) error
 //
 // 这里不在首个失败处提前返回，因为关闭阶段的目标是尽最大努力释放资源，
 // 而不是维持“全部成功或立即退出”的启动语义。
-func shutdownPlugins(ctx *module.Context, ordered []module.Module) error {
+func shutdownPlugins(ctx *module.Context, ordered []module.RuntimeModule) error {
 	shutdownCtx, cancel := withPluginShutdownContext(ctx)
 	defer cancel()
 
@@ -551,7 +551,7 @@ func (r *Runtime) closeCoreResources() error {
 //
 // 这里保留原始失败原因，并把插件关闭和 core 资源回收错误聚合到同一个
 // 返回值中，方便调用方看到完整失败路径。
-func (r *Runtime) cleanupAfterFailure(ctx *module.Context, booted []module.Module, cause error) error {
+func (r *Runtime) cleanupAfterFailure(ctx *module.Context, booted []module.RuntimeModule, cause error) error {
 	err := cause
 	if shutdownErr := shutdownPlugins(ctx, booted); shutdownErr != nil {
 		err = errors.Join(err, shutdownErr)

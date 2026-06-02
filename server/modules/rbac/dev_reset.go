@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 	rbacstore "graft/server/modules/rbac/store"
 	"graft/server/modules/rbac/storeent"
 )
@@ -27,6 +27,6 @@ func NewRepositoryForReset(sqlDB *sql.DB) (RepositoryForReset, error) {
 
 // NewBootstrapServiceForReset 通过插件内 RBAC repository contract 暴露 dev-reset helper；
 // 组合根在跨过该边界前负责适配过渡期依赖。
-func NewBootstrapServiceForReset(repo rbacstore.Repository) pluginapi.RBACBootstrapService {
+func NewBootstrapServiceForReset(repo rbacstore.Repository) moduleapi.RBACBootstrapService {
 	return NewBootstrapService(repo)
 }

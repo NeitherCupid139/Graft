@@ -11,19 +11,19 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 	auditstore "graft/server/modules/audit/store"
 )
 
 type stubMonitorIncidentEvidenceService struct {
-	resolved pluginapi.ResolvedAuditIncidentMonitorEvidence
+	resolved moduleapi.ResolvedAuditIncidentMonitorEvidence
 	err      error
 }
 
 func (s stubMonitorIncidentEvidenceService) ResolveAuditIncidentMonitorEvidence(
 	context.Context,
-	pluginapi.ResolveAuditIncidentMonitorEvidenceInput,
-) (pluginapi.ResolvedAuditIncidentMonitorEvidence, error) {
+	moduleapi.ResolveAuditIncidentMonitorEvidenceInput,
+) (moduleapi.ResolvedAuditIncidentMonitorEvidence, error) {
 	return s.resolved, s.err
 }
 
@@ -497,23 +497,23 @@ func TestRepositoryReadIncidentCorrelatesBoundedContext(t *testing.T) {
 	db := openTestDB(t)
 	base := time.Date(2026, 5, 29, 12, 0, 0, 0, time.UTC)
 	repo, err := NewRepository(db, stubMonitorIncidentEvidenceService{
-		resolved: pluginapi.ResolvedAuditIncidentMonitorEvidence{
-			Availability: pluginapi.MonitorEvidenceAvailable,
+		resolved: moduleapi.ResolvedAuditIncidentMonitorEvidence{
+			Availability: moduleapi.MonitorEvidenceAvailable,
 			Summary:      "CPU pressure matched the bounded incident window.",
 			AnomalyKey:   "resource_cpu_pressure",
 			ScopeKind:    "resource",
 			ScopeRef:     "runtime.cpu",
 			ObservedAt:   timePointer(base.Add(4 * time.Minute)),
-			EvidenceLinks: []pluginapi.MonitorEvidenceLink{
+			EvidenceLinks: []moduleapi.MonitorEvidenceLink{
 				{
 					TargetKind: "audit_context",
 					LinkState:  "available",
 					Title:      "Review related audit activity",
-					TimeWindow: &pluginapi.MonitorEvidenceLinkTimeWindow{
+					TimeWindow: &moduleapi.MonitorEvidenceLinkTimeWindow{
 						CreatedFrom: base.Add(-5 * time.Minute),
 						CreatedTo:   base.Add(4 * time.Minute),
 					},
-					AuditContext: &pluginapi.MonitorAuditEvidenceContext{
+					AuditContext: &moduleapi.MonitorAuditEvidenceContext{
 						RequestID:    "req-incident",
 						ResourceType: "runtime",
 						CreatedFrom:  timePointer(base.Add(-5 * time.Minute)),

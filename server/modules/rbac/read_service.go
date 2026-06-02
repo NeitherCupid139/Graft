@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"sort"
 
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 	rbacstore "graft/server/modules/rbac/store"
 )
 
@@ -20,7 +20,7 @@ type readManagementService interface {
 }
 
 type managementReader struct {
-	users pluginapi.UserService
+	users moduleapi.UserService
 	rbac  rbacstore.Repository
 }
 

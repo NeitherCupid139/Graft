@@ -39,13 +39,13 @@ func OrderedModuleSpecs() ([]module.Spec, error) {
 }
 
 // BuildModules 根据 compile-time 模块定义构造运行时模块集合。
-func BuildModules(buildCtx module.BuildContext) ([]module.Module, error) {
+func BuildModules(buildCtx module.BuildContext) ([]module.RuntimeModule, error) {
 	ordered, err := OrderedModuleSpecs()
 	if err != nil {
 		return nil, err
 	}
 
-	built := make([]module.Module, 0, len(ordered))
+	built := make([]module.RuntimeModule, 0, len(ordered))
 	for _, descriptor := range ordered {
 		instance, err := descriptor.Build(buildCtx)
 		if err != nil {

@@ -8,7 +8,7 @@ import (
 
 	useropenapi "graft/server/internal/contract/openapi/user"
 	"graft/server/internal/httpx"
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 	usercontract "graft/server/modules/user/contract"
 )
 
@@ -82,7 +82,7 @@ func (r userRouteRegistrar) registerAdminRevokeSingleSessionRoute(group *gin.Rou
 			return
 		}
 
-		clearRefreshCookieWhen(ginCtx, r.authSvc, func(claims *pluginapi.AccessTokenClaims) bool {
+		clearRefreshCookieWhen(ginCtx, r.authSvc, func(claims *moduleapi.AccessTokenClaims) bool {
 			return claims.UserID == rawID && claims.SessionID == sessionID
 		})
 		httpx.WriteSuccess[any](ginCtx, http.StatusOK, nil)
@@ -102,7 +102,7 @@ func (r userRouteRegistrar) registerAdminRevokeAllSessionsRoute(group *gin.Route
 			return
 		}
 
-		clearRefreshCookieWhen(ginCtx, r.authSvc, func(claims *pluginapi.AccessTokenClaims) bool {
+		clearRefreshCookieWhen(ginCtx, r.authSvc, func(claims *moduleapi.AccessTokenClaims) bool {
 			return claims.UserID == rawID
 		})
 		httpx.WriteSuccess[any](ginCtx, http.StatusOK, nil)

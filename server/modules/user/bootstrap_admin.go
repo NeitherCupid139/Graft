@@ -7,15 +7,15 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
+	"graft/server/internal/moduleapi"
 	"graft/server/internal/permission"
-	"graft/server/internal/pluginapi"
 	userstore "graft/server/modules/user/store"
 )
 
 // ensureDefaultAdmin 幂等确保默认管理员存在且具备当前 MVP 所需的最小后台可见性。
 func (s authService) ensureDefaultAdmin(
 	ctx context.Context,
-	rbac pluginapi.RBACBootstrapService,
+	rbac moduleapi.RBACBootstrapService,
 	permissions []permission.Item,
 ) error {
 	if s.auth == nil {
@@ -87,10 +87,10 @@ func (s authService) reconcileDefaultAdminCredential(
 	return credential, nil
 }
 
-func permissionSeedsFromItems(items []permission.Item) []pluginapi.PermissionSeed {
-	seeds := make([]pluginapi.PermissionSeed, 0, len(items))
+func permissionSeedsFromItems(items []permission.Item) []moduleapi.PermissionSeed {
+	seeds := make([]moduleapi.PermissionSeed, 0, len(items))
 	for _, item := range items {
-		seeds = append(seeds, pluginapi.PermissionSeed{
+		seeds = append(seeds, moduleapi.PermissionSeed{
 			Code:        item.Code,
 			Display:     item.Name,
 			Description: item.Description,

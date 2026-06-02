@@ -21,11 +21,11 @@ import (
 	"graft/server/internal/permission"
 )
 
-// Plugin 定义所有后端模块在历史 plugin 命名下都必须实现的稳定生命周期契约。
+// Module 定义所有后端模块都必须实现的稳定生命周期契约。
 //
 // 调用方可以依赖 Register -> Boot -> Shutdown 的整体顺序；当 Register
 // 或 Boot 失败时，运行时会中止后续阶段，并按已成功启动的范围执行清理。
-type Plugin interface {
+type Module interface {
 	// Register 负责声明路由、权限、菜单、任务和公开服务。
 	//
 	// Register 不应启动长期后台行为；失败会阻止后续插件继续注册或启动。
@@ -42,22 +42,22 @@ type Plugin interface {
 	Shutdown(ctx *Context) error
 }
 
-// Module 暴露 compile-time 模块元数据与运行时生命周期的组合视图。
+// RuntimeModule 暴露 compile-time 模块元数据与运行时生命周期的组合视图。
 //
 // core runtime 只通过这个包装后的稳定表面感知模块身份和依赖，避免要求
 // 业务插件实例再维护第二份会漂移的 Name / DependsOn authority。
-type Module interface {
-	Plugin
+type RuntimeModule interface {
+	Module
 	Name() string
 	DependsOn() []string
 }
 
 // Builder 定义 compile-time 模块描述符到运行时模块实例的显式构造边界。
 //
-// Builder 当前只负责构造插件实例；后续 capability 或插件私有依赖装配
+// Builder 当前只负责构造模块实例；后续 capability 或插件私有依赖装配
 // 可以继续沿这条边界扩展，而不把共享接线重新塞回中心化 CLI 文件。
 type Builder interface {
-	Build(BuildContext) (Plugin, error)
+	Build(BuildContext) (Module, error)
 }
 
 // BuildContext 暴露模块构造阶段允许消费的最小 core 资源。
@@ -69,12 +69,12 @@ type BuildContext struct {
 }
 
 // BuilderFunc 允许用普通函数实现 Builder。
-type BuilderFunc func(BuildContext) (Plugin, error)
+type BuilderFunc func(BuildContext) (Module, error)
 
 // Build 执行函数式 Builder。
-func (f BuilderFunc) Build(ctx BuildContext) (Plugin, error) {
+func (f BuilderFunc) Build(ctx BuildContext) (Module, error) {
 	if f == nil {
-		return nil, errors.New("plugin builder is required")
+		return nil, errors.New("module builder is required")
 	}
 
 	return f(ctx)
@@ -144,7 +144,7 @@ func (d Spec) Validate() error {
 
 // Build 根据模块定义构造一个运行时模块实例，并校验运行时元数据没有偏离
 // compile-time 模块定义的 canonical truth。
-func (d Spec) Build(ctx BuildContext) (Module, error) {
+func (d Spec) Build(ctx BuildContext) (RuntimeModule, error) {
 	if err := d.Validate(); err != nil {
 		return nil, err
 	}
@@ -154,10 +154,15 @@ func (d Spec) Build(ctx BuildContext) (Module, error) {
 		return nil, fmt.Errorf("build module %s: %w", d.Name(), err)
 	}
 	if built == nil {
-		return nil, fmt.Errorf("build module %s: builder returned nil plugin", d.Name())
+		return nil, fmt.Errorf("build module %s: builder returned nil module", d.Name())
 	}
 
-	return describedPlugin{moduleSpec: d, delegate: built}, nil
+	return NewModule(d, built), nil
+}
+
+// NewModule 使用 compile-time 模块定义包装一个运行时模块实例。
+func NewModule(spec Spec, instance Module) RuntimeModule {
+	return describedModule{moduleSpec: spec, delegate: instance}
 }
 
 // Context 向模块暴露允许使用的显式运行时句柄。
@@ -168,21 +173,21 @@ func (d Spec) Build(ctx BuildContext) (Module, error) {
 // Context 只承载运行时注入的公共能力，不应被模块长期持有并在生命周期
 // 之外当作隐式全局变量使用。
 type Context struct {
-	// LifecycleContext 提供当前插件生命周期阶段可依赖的上下文。
+	// LifecycleContext 提供当前模块生命周期阶段可依赖的上下文。
 	//
 	// Register / Boot 阶段复用 Runtime 的 runCtx；Shutdown 阶段会切换为
-	// 独立的有界关闭上下文，避免 runCtx 已取消后插件失去必要的优雅收敛窗口。
+	// 独立的有界关闭上下文，避免 runCtx 已取消后模块失去必要的优雅收敛窗口。
 	LifecycleContext context.Context
 	Config           *config.Config
-	// Logger 提供插件生命周期内统一的结构化日志句柄，插件应复用它记录
+	// Logger 提供模块生命周期内统一的结构化日志句柄，模块应复用它记录
 	// 运行状态与诊断信息，而不是各自构造分散的日志实例。
 	Logger *zap.Logger
-	// I18n 提供平台级 locale 解析与消息查找能力，插件应通过它输出稳定的
+	// I18n 提供平台级 locale 解析与消息查找能力，模块应通过它输出稳定的
 	// 本地化错误响应，而不是维护各自独立的文案回退规则。
 	I18n *i18n.Service
-	// EventBus 提供插件间使用的最小进程内事件发布与订阅能力。
+	// EventBus 提供模块间使用的最小进程内事件发布与订阅能力。
 	//
-	// 插件应只依赖显式 Subscribe / Publish 语义，不应假设存在消息持久化、
+	// 模块应只依赖显式 Subscribe / Publish 语义，不应假设存在消息持久化、
 	// 重试队列或异步工作流编排等当前阶段并未提供的行为。
 	EventBus           eventbus.Bus
 	Redis              *redis.Client
@@ -199,29 +204,29 @@ type Context struct {
 // Manager 不拥有模块的业务状态；它只维护生命周期顺序与注册约束，是
 // Runtime 和模块实现之间的调度边界。
 type Manager struct {
-	plugins []Module
+	modules []RuntimeModule
 }
 
 // NewManager 创建一个空的模块管理器。
 func NewManager() *Manager {
-	return &Manager{plugins: make([]Module, 0)}
+	return &Manager{modules: make([]RuntimeModule, 0)}
 }
 
-// RegisterPlugin 在运行时启动前向管理器注册一个模块。
+// RegisterModule 在运行时启动前向管理器注册一个模块。
 //
-// 当插件为 nil 或名称重复时返回错误，避免排序阶段出现不可恢复的歧义。
-func (m *Manager) RegisterPlugin(p Module) error {
-	if p == nil {
-		return errors.New("plugin is required")
+// 当模块为 nil 或名称重复时返回错误，避免排序阶段出现不可恢复的歧义。
+func (m *Manager) RegisterModule(current RuntimeModule) error {
+	if current == nil {
+		return errors.New("module is required")
 	}
 
-	for _, existing := range m.plugins {
-		if existing.Name() == p.Name() {
-			return fmt.Errorf("plugin already registered: %s", p.Name())
+	for _, existing := range m.modules {
+		if existing.Name() == current.Name() {
+			return fmt.Errorf("module already registered: %s", current.Name())
 		}
 	}
 
-	m.plugins = append(m.plugins, p)
+	m.modules = append(m.modules, current)
 	return nil
 }
 
@@ -232,8 +237,8 @@ func (m *Manager) RegisterPlugin(p Module) error {
 //
 // 排序失败时会返回缺失依赖或依赖环错误，调用方不应在错误场景下继续
 // 执行模块生命周期。
-func (m *Manager) Ordered() ([]Module, error) {
-	return orderByDependencies(m.plugins)
+func (m *Manager) Ordered() ([]RuntimeModule, error) {
+	return orderByDependencies(m.modules)
 }
 
 // OrderSpecs 按依赖关系返回稳定的模块定义顺序。
@@ -244,28 +249,28 @@ func OrderSpecs(descriptors []Spec) ([]Spec, error) {
 	return orderByDependencies(descriptors)
 }
 
-type describedPlugin struct {
+type describedModule struct {
 	moduleSpec Spec
-	delegate   Plugin
+	delegate   Module
 }
 
-func (p describedPlugin) Name() string {
+func (p describedModule) Name() string {
 	return p.moduleSpec.Name()
 }
 
-func (p describedPlugin) DependsOn() []string {
+func (p describedModule) DependsOn() []string {
 	return p.moduleSpec.DependsOn()
 }
 
-func (p describedPlugin) Register(ctx *Context) error {
+func (p describedModule) Register(ctx *Context) error {
 	return p.delegate.Register(ctx)
 }
 
-func (p describedPlugin) Boot(ctx *Context) error {
+func (p describedModule) Boot(ctx *Context) error {
 	return p.delegate.Boot(ctx)
 }
 
-func (p describedPlugin) Shutdown(ctx *Context) error {
+func (p describedModule) Shutdown(ctx *Context) error {
 	return p.delegate.Shutdown(ctx)
 }
 
@@ -298,10 +303,10 @@ func buildDependencyIndex[T dependencyTarget](items []T) (map[string]T, map[stri
 	for _, item := range items {
 		name := strings.TrimSpace(item.Name())
 		if name == "" {
-			return nil, nil, errors.New("plugin name is required")
+			return nil, nil, errors.New("module name is required")
 		}
 		if _, exists := index[name]; exists {
-			return nil, nil, fmt.Errorf("plugin already registered: %s", name)
+			return nil, nil, fmt.Errorf("module already registered: %s", name)
 		}
 
 		index[name] = item
@@ -322,7 +327,7 @@ func buildDependencyEdges[T dependencyTarget](items []T, index map[string]T, inD
 
 		for _, dependency := range dependencies {
 			if _, ok := index[dependency]; !ok {
-				return nil, fmt.Errorf("plugin %s depends on missing plugin %s", name, dependency)
+				return nil, fmt.Errorf("module %s depends on missing module %s", name, dependency)
 			}
 
 			edges[dependency] = append(edges[dependency], name)
@@ -358,24 +363,24 @@ func resolveDependencyOrder[T dependencyTarget](index map[string]T, inDegree map
 	}
 
 	if len(ordered) != total {
-		return nil, errors.New("plugin dependency cycle detected")
+		return nil, errors.New("module dependency cycle detected")
 	}
 
 	return ordered, nil
 }
 
-func normalizeDependencies(pluginName string, dependencies []string) ([]string, error) {
+func normalizeDependencies(moduleName string, dependencies []string) ([]string, error) {
 	normalized := trimStringsPreserveDuplicates(dependencies)
 	seen := make(map[string]struct{}, len(normalized))
 	for _, dependency := range normalized {
 		if dependency == "" {
-			return nil, fmt.Errorf("plugin %s has an empty dependency name", pluginName)
+			return nil, fmt.Errorf("module %s has an empty dependency name", moduleName)
 		}
-		if dependency == pluginName {
-			return nil, fmt.Errorf("plugin %s cannot depend on itself", pluginName)
+		if dependency == moduleName {
+			return nil, fmt.Errorf("module %s cannot depend on itself", moduleName)
 		}
 		if _, exists := seen[dependency]; exists {
-			return nil, fmt.Errorf("plugin %s depends on duplicate plugin %s", pluginName, dependency)
+			return nil, fmt.Errorf("module %s depends on duplicate module %s", moduleName, dependency)
 		}
 		seen[dependency] = struct{}{}
 	}

@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 	userstore "graft/server/modules/user/store"
 	"graft/server/modules/user/storeent"
 
@@ -44,7 +44,7 @@ func NewAuthRepositoryForReset(sqlDB *sql.DB) (AuthRepositoryForReset, error) {
 func ResetDefaultAdminForDevelopment(
 	ctx context.Context,
 	authRepo userstore.AuthRepository,
-	rbac pluginapi.RBACBootstrapService,
+	rbac moduleapi.RBACBootstrapService,
 ) error {
 	if !isDevelopmentResetEnv(os.Getenv("GRAFT_APP_ENV")) {
 		return fmt.Errorf("reset default admin is only available in local/test environments, got %q", strings.TrimSpace(os.Getenv("GRAFT_APP_ENV")))
@@ -58,7 +58,7 @@ func ResetDefaultAdminForDevelopment(
 	return service.resetDefaultAdminForDevelopment(ctx, rbac)
 }
 
-func (s authService) resetDefaultAdminForDevelopment(ctx context.Context, rbac pluginapi.RBACBootstrapService) error {
+func (s authService) resetDefaultAdminForDevelopment(ctx context.Context, rbac moduleapi.RBACBootstrapService) error {
 	if s.auth == nil {
 		return fmt.Errorf("auth repository is unavailable")
 	}

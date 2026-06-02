@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 	rbacstore "graft/server/modules/rbac/store"
 )
 
@@ -44,7 +44,7 @@ func TestManagementWriterRemoveRolesFromUsersUsesAtomicBatchWriter(t *testing.T)
 		},
 	}
 	writer := managementWriter{
-		users: testUserService{users: map[uint64]pluginapi.UserSummary{
+		users: testUserService{users: map[uint64]moduleapi.UserSummary{
 			11: {ID: 11},
 			22: {ID: 22},
 		}},
@@ -76,7 +76,7 @@ func TestManagementWriterReplaceRolesForUsersPropagatesAtomicBatchError(t *testi
 		},
 	}
 	writer := managementWriter{
-		users: testUserService{users: map[uint64]pluginapi.UserSummary{
+		users: testUserService{users: map[uint64]moduleapi.UserSummary{
 			11: {ID: 11},
 		}},
 		rbac: repo,
@@ -103,7 +103,7 @@ func TestManagementWriterBatchMutationsRequireAtomicBatchWriter(t *testing.T) {
 		},
 	}
 	writer := managementWriter{
-		users: testUserService{users: map[uint64]pluginapi.UserSummary{
+		users: testUserService{users: map[uint64]moduleapi.UserSummary{
 			11: {ID: 11},
 		}},
 		rbac: repo,
@@ -163,7 +163,7 @@ func testManagementWriterAtomicBatchPath(t *testing.T, tc atomicBatchMutationTes
 			},
 		}
 		writer := managementWriter{
-			users: testUserService{users: map[uint64]pluginapi.UserSummary{
+			users: testUserService{users: map[uint64]moduleapi.UserSummary{
 				11: {ID: 11},
 				22: {ID: 22},
 			}},

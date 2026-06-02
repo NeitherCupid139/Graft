@@ -9,14 +9,14 @@ import (
 	messagecontract "graft/server/internal/contract/message"
 	"graft/server/internal/httpx"
 	"graft/server/internal/i18n"
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 	usercontract "graft/server/modules/user/contract"
 )
 
 func newRouteGuards(
 	localizer *i18n.Service,
 	authSvc *authService,
-	authorizer pluginapi.Authorizer,
+	authorizer moduleapi.Authorizer,
 	publisher httpx.SecurityAuditPublisher,
 ) routeGuards {
 	return routeGuards{
@@ -85,7 +85,7 @@ func loadRestrictedPasswordChangeState(
 
 	restricted, err := authSvc.isRestrictedPasswordChangeSession(ginCtx.Request.Context())
 	if err != nil {
-		if errors.Is(err, pluginapi.ErrUnauthenticated) {
+		if errors.Is(err, moduleapi.ErrUnauthenticated) {
 			abortLocalizedContractError(ginCtx, localizer, http.StatusUnauthorized, messagecontract.AuthTokenMissing, nil)
 			return false, false
 		}

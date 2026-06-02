@@ -10,7 +10,7 @@ import (
 	messagecontract "graft/server/internal/contract/message"
 	"graft/server/internal/httpx"
 	"graft/server/internal/i18n"
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 	rbacstore "graft/server/modules/rbac/store"
 )
 
@@ -30,7 +30,7 @@ func writeRBACManagementError(
 	case errors.Is(err, rbacstore.ErrRoleNotFound):
 		status = http.StatusNotFound
 		key = messagecontract.RoleNotFound
-	case errors.Is(err, pluginapi.ErrUserNotFound):
+	case errors.Is(err, moduleapi.ErrUserNotFound):
 		status = http.StatusNotFound
 		key = messagecontract.UserNotFound
 	case errors.Is(err, rbacstore.ErrRoleNameConflict):

@@ -10,7 +10,7 @@
 
 * 注册用户读取能力所需的权限与菜单
 * 在 `Register` 阶段向统一 `server/internal/i18n` facade 注册插件内建菜单标题 message，并通过 bootstrap 菜单快照暴露 `title_key + title fallback`
-* 暴露 `pluginapi.UserService` 与后续 `auth` 所需的稳定用户身份能力
+* 暴露 `moduleapi.UserService` 与后续 `auth` 所需的稳定用户身份能力
 * 提供受权限保护的用户资料与用户管理路由
 * 负责默认管理员对应的用户记录与用户资料存在性，但不再长期拥有 token/session/cookie/login 运行时闭环
 * 如保留管理员按用户维度的 `/users/:id/sessions` 会话治理入口，它只能作为调用 `auth` capability 的管理入口，不直接持有 auth 持久化
@@ -31,8 +31,8 @@
 ## 关键依赖
 
 * 依赖 `plugin.Context` 提供的菜单、权限、路由、服务与存储能力
-* `user` 只暴露稳定用户身份与用户管理能力；auth 迁移完成后，登录链路通过 `pluginapi.UserAuthIdentityService` 一类稳定 capability 消费用户身份真相
-* 对外通过 `server/internal/pluginapi` 暴露跨插件可消费的稳定接口
+* `user` 只暴露稳定用户身份与用户管理能力；auth 迁移完成后，登录链路通过 `moduleapi.UserAuthIdentityService` 一类稳定 capability 消费用户身份真相
+* 对外通过 `server/internal/moduleapi` 暴露跨模块可消费的稳定接口
 
 ## 当前认证治理约束
 

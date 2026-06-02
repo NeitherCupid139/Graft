@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 )
 
 type authFlowBridge struct {
@@ -12,19 +12,19 @@ type authFlowBridge struct {
 	bootstrap bootstrapReader
 }
 
-func (b authFlowBridge) StartLogin(ctx context.Context, username string, password string) (pluginapi.AuthRefreshResult, error) {
+func (b authFlowBridge) StartLogin(ctx context.Context, username string, password string) (moduleapi.AuthRefreshResult, error) {
 	result, err := b.auth.LoginWithRefresh(ctx, username, password)
 	if err != nil {
-		return pluginapi.AuthRefreshResult{}, err
+		return moduleapi.AuthRefreshResult{}, err
 	}
 
-	return pluginapi.AuthRefreshResult{
+	return moduleapi.AuthRefreshResult{
 		AccessToken:        result.AccessToken,
 		AccessExpiry:       result.AccessExpiry,
 		RefreshToken:       result.RefreshToken,
 		RefreshExpiry:      result.RefreshExpiry,
 		MustChangePassword: result.MustChangePassword,
-		User: pluginapi.CurrentUser{
+		User: moduleapi.CurrentUser{
 			ID:          result.User.ID,
 			Username:    result.User.Username,
 			DisplayName: result.User.DisplayName,
@@ -32,19 +32,19 @@ func (b authFlowBridge) StartLogin(ctx context.Context, username string, passwor
 	}, nil
 }
 
-func (b authFlowBridge) RefreshSession(ctx context.Context, refreshToken string) (pluginapi.AuthRefreshResult, error) {
+func (b authFlowBridge) RefreshSession(ctx context.Context, refreshToken string) (moduleapi.AuthRefreshResult, error) {
 	result, err := b.auth.RefreshWithRotation(ctx, refreshToken)
 	if err != nil {
-		return pluginapi.AuthRefreshResult{}, err
+		return moduleapi.AuthRefreshResult{}, err
 	}
 
-	return pluginapi.AuthRefreshResult{
+	return moduleapi.AuthRefreshResult{
 		AccessToken:        result.AccessToken,
 		AccessExpiry:       result.AccessExpiry,
 		RefreshToken:       result.RefreshToken,
 		RefreshExpiry:      result.RefreshExpiry,
 		MustChangePassword: result.MustChangePassword,
-		User: pluginapi.CurrentUser{
+		User: moduleapi.CurrentUser{
 			ID:          result.User.ID,
 			Username:    result.User.Username,
 			DisplayName: result.User.DisplayName,
@@ -64,15 +64,15 @@ func (b authFlowBridge) RevokeOtherCurrentUserSessions(ctx context.Context) erro
 	return b.auth.RevokeOtherCurrentUserSessions(ctx)
 }
 
-func (b authFlowBridge) ListCurrentUserSessions(ctx context.Context, limit int) ([]pluginapi.AuthSessionSummary, error) {
+func (b authFlowBridge) ListCurrentUserSessions(ctx context.Context, limit int) ([]moduleapi.AuthSessionSummary, error) {
 	sessions, err := b.auth.ListCurrentUserSessions(ctx, sessionListOptions{Limit: limit})
 	if err != nil {
 		return nil, err
 	}
 
-	summaries := make([]pluginapi.AuthSessionSummary, 0, len(sessions))
+	summaries := make([]moduleapi.AuthSessionSummary, 0, len(sessions))
 	for _, session := range sessions {
-		summaries = append(summaries, pluginapi.AuthSessionSummary{
+		summaries = append(summaries, moduleapi.AuthSessionSummary{
 			SessionID: session.SessionID,
 			CreatedAt: session.CreatedAt,
 			ExpiresAt: session.ExpiresAt,
@@ -87,15 +87,15 @@ func (b authFlowBridge) RevokeCurrentUserSession(ctx context.Context, sessionID 
 	return b.auth.RevokeCurrentUserSession(ctx, sessionID)
 }
 
-func (b authFlowBridge) ReadBootstrapPayload(ctx context.Context, request *http.Request) (pluginapi.AuthBootstrapPayload, error) {
+func (b authFlowBridge) ReadBootstrapPayload(ctx context.Context, request *http.Request) (moduleapi.AuthBootstrapPayload, error) {
 	payload, err := b.bootstrap.Read(ctx, request)
 	if err != nil {
-		return pluginapi.AuthBootstrapPayload{}, err
+		return moduleapi.AuthBootstrapPayload{}, err
 	}
 
-	menus := make([]pluginapi.AuthBootstrapMenuItem, 0, len(payload.Menus))
+	menus := make([]moduleapi.AuthBootstrapMenuItem, 0, len(payload.Menus))
 	for _, item := range payload.Menus {
-		menus = append(menus, pluginapi.AuthBootstrapMenuItem{
+		menus = append(menus, moduleapi.AuthBootstrapMenuItem{
 			Code:       item.Code,
 			Title:      item.Title,
 			TitleKey:   item.TitleKey,
@@ -106,8 +106,8 @@ func (b authFlowBridge) ReadBootstrapPayload(ctx context.Context, request *http.
 		})
 	}
 
-	return pluginapi.AuthBootstrapPayload{
-		User: pluginapi.CurrentUser{
+	return moduleapi.AuthBootstrapPayload{
+		User: moduleapi.CurrentUser{
 			ID:          payload.User.ID,
 			Username:    payload.User.Username,
 			DisplayName: payload.User.DisplayName,
@@ -116,7 +116,7 @@ func (b authFlowBridge) ReadBootstrapPayload(ctx context.Context, request *http.
 		Roles:              append([]string(nil), payload.Roles...),
 		Permissions:        append([]string(nil), payload.Permissions...),
 		Menus:              menus,
-		Locale: pluginapi.AuthBootstrapLocaleSnapshot{
+		Locale: moduleapi.AuthBootstrapLocaleSnapshot{
 			CurrentLocale:    payload.Locale.CurrentLocale,
 			DefaultLocale:    payload.Locale.DefaultLocale,
 			FallbackLocale:   payload.Locale.FallbackLocale,
@@ -137,13 +137,13 @@ func (b authFlowBridge) IsRestrictedPasswordChangeSession(ctx context.Context) (
 	return b.auth.isRestrictedPasswordChangeSession(ctx)
 }
 
-func (b authFlowBridge) RouteError(err error) pluginapi.AuthRouteError {
+func (b authFlowBridge) RouteError(err error) moduleapi.AuthRouteError {
 	status, key := mapAuthError(err)
-	return pluginapi.AuthRouteError{
+	return moduleapi.AuthRouteError{
 		Status:     status,
 		MessageKey: key.String(),
 		Data:       authErrorDetails(err),
 	}
 }
 
-var _ pluginapi.AuthFlowService = authFlowBridge{}
+var _ moduleapi.AuthFlowService = authFlowBridge{}

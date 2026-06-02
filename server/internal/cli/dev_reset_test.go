@@ -12,7 +12,7 @@ import (
 
 	"graft/server/internal/config"
 	"graft/server/internal/database"
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 	"graft/server/modules/user"
 	userstore "graft/server/modules/user/store"
 )
@@ -75,11 +75,11 @@ func TestRunDevResetAdminResetsDefaultAdmin(t *testing.T) {
 		steps = append(steps, "new-auth-repository")
 		return userAuthRepositoryForResetStub{}, nil
 	}
-	devResetResolveRBACBootstrap = func(*database.Resources) (pluginapi.RBACBootstrapService, error) {
+	devResetResolveRBACBootstrap = func(*database.Resources) (moduleapi.RBACBootstrapService, error) {
 		steps = append(steps, "new-rbac-bootstrap")
 		return rbacBootstrapServiceStub{}, nil
 	}
-	devResetAdmin = func(_ context.Context, _ user.AuthRepositoryForReset, _ pluginapi.RBACBootstrapService) error {
+	devResetAdmin = func(_ context.Context, _ user.AuthRepositoryForReset, _ moduleapi.RBACBootstrapService) error {
 		steps = append(steps, "reset-admin")
 		return nil
 	}
@@ -137,10 +137,10 @@ func TestRunDevResetAdminWrapsResetFailure(t *testing.T) {
 	devResetNewAuthRepository = func(_ *sql.DB) (user.AuthRepositoryForReset, error) {
 		return userAuthRepositoryForResetStub{}, nil
 	}
-	devResetResolveRBACBootstrap = func(*database.Resources) (pluginapi.RBACBootstrapService, error) {
+	devResetResolveRBACBootstrap = func(*database.Resources) (moduleapi.RBACBootstrapService, error) {
 		return rbacBootstrapServiceStub{}, nil
 	}
-	devResetAdmin = func(context.Context, user.AuthRepositoryForReset, pluginapi.RBACBootstrapService) error {
+	devResetAdmin = func(context.Context, user.AuthRepositoryForReset, moduleapi.RBACBootstrapService) error {
 		return errors.New("boom")
 	}
 
@@ -205,7 +205,7 @@ func (userAuthRepositoryForResetStub) ResetPasswordAndRevokeRefreshSessions(cont
 
 type rbacBootstrapServiceStub struct{}
 
-func (rbacBootstrapServiceStub) EnsureDefaultAdminAccess(context.Context, uint64, []pluginapi.PermissionSeed) error {
+func (rbacBootstrapServiceStub) EnsureDefaultAdminAccess(context.Context, uint64, []moduleapi.PermissionSeed) error {
 	return nil
 }
 

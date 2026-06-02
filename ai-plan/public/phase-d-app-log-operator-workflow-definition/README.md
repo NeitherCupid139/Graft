@@ -72,20 +72,20 @@ Workflow:
 3. determine whether the failure is config, dependency, or data-state related
 4. escalate to audit or monitor only when those domains already own matching evidence
 
-### Plugin Startup / Config Failure Investigation
+### Module Startup / Config Failure Investigation
 
 Seed:
 
-- plugin component
+- module component
 - boot time window
 - config validation error keyword
 
 Workflow:
 
-1. inspect `Register / Boot / Shutdown` summaries for the plugin/component
+1. inspect `Register / Boot / Shutdown` summaries for the module/component
 2. find dependency-missing, config-invalid, or external-service-unreachable entries
 3. use the result to repair config or startup ordering
-4. do not turn plugin startup diagnosis into access/audit/security query requirements
+4. do not turn module startup diagnosis into access/audit/security query requirements
 
 ### Request-Correlated Troubleshooting
 
@@ -109,7 +109,7 @@ Workflow:
 | --- | --- | --- |
 | `time window` | yes | every approved workflow is bounded in time |
 | `severity` | yes | error-first and warn-first investigation |
-| `component` | yes | canonical runtime ownership / plugin branch narrowing |
+| `component` | yes | canonical runtime ownership / module branch narrowing |
 | `operation` | yes | job, startup step, integration action narrowing |
 | `request_id` | yes | request-correlated troubleshooting |
 | `trace_id` | yes | MVP correlation alias and future-proof correlation field |

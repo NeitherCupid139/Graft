@@ -1,4 +1,4 @@
-package pluginapi
+package moduleapi
 
 import "time"
 

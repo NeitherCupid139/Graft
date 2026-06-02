@@ -13,7 +13,7 @@ import (
 
 	"graft/server/internal/config"
 	"graft/server/internal/i18n"
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 )
 
 func newTestLocalizer() *i18n.Service {
@@ -25,23 +25,23 @@ func newTestLocalizer() *i18n.Service {
 }
 
 type testAuthService struct {
-	parseAccessToken func(ctx context.Context, token string) (*pluginapi.AccessTokenClaims, error)
-	currentUser      func(ctx context.Context) (*pluginapi.CurrentUser, error)
+	parseAccessToken func(ctx context.Context, token string) (*moduleapi.AccessTokenClaims, error)
+	currentUser      func(ctx context.Context) (*moduleapi.CurrentUser, error)
 }
 
-func (s testAuthService) CurrentUser(ctx context.Context) (*pluginapi.CurrentUser, error) {
+func (s testAuthService) CurrentUser(ctx context.Context) (*moduleapi.CurrentUser, error) {
 	return s.currentUser(ctx)
 }
 
-func (s testAuthService) ParseAccessToken(ctx context.Context, token string) (*pluginapi.AccessTokenClaims, error) {
+func (s testAuthService) ParseAccessToken(ctx context.Context, token string) (*moduleapi.AccessTokenClaims, error) {
 	return s.parseAccessToken(ctx, token)
 }
 
 type testAuthorizer struct {
-	authorize func(ctx context.Context, request pluginapi.RequestAuthContext, permission string) error
+	authorize func(ctx context.Context, request moduleapi.RequestAuthContext, permission string) error
 }
 
-func (a testAuthorizer) Authorize(ctx context.Context, request pluginapi.RequestAuthContext, permission string) error {
+func (a testAuthorizer) Authorize(ctx context.Context, request moduleapi.RequestAuthContext, permission string) error {
 	return a.authorize(ctx, request, permission)
 }
 
@@ -53,8 +53,8 @@ func newBearerRequest(path string, token string) *http.Request {
 	return request
 }
 
-func newAuthenticatedClaims() *pluginapi.AccessTokenClaims {
-	return &pluginapi.AccessTokenClaims{
+func newAuthenticatedClaims() *moduleapi.AccessTokenClaims {
+	return &moduleapi.AccessTokenClaims{
 		UserID:    7,
 		SessionID: "session-1",
 		IssuedAt:  time.Now(),
@@ -62,16 +62,16 @@ func newAuthenticatedClaims() *pluginapi.AccessTokenClaims {
 	}
 }
 
-func newAuthenticatedUser() *pluginapi.CurrentUser {
-	return &pluginapi.CurrentUser{ID: 7, Username: "alice", DisplayName: "Alice"}
+func newAuthenticatedUser() *moduleapi.CurrentUser {
+	return &moduleapi.CurrentUser{ID: 7, Username: "alice", DisplayName: "Alice"}
 }
 
 func newAuthenticatedAuthService() testAuthService {
 	return testAuthService{
-		parseAccessToken: func(context.Context, string) (*pluginapi.AccessTokenClaims, error) {
+		parseAccessToken: func(context.Context, string) (*moduleapi.AccessTokenClaims, error) {
 			return newAuthenticatedClaims(), nil
 		},
-		currentUser: func(context.Context) (*pluginapi.CurrentUser, error) {
+		currentUser: func(context.Context) (*moduleapi.CurrentUser, error) {
 			return newAuthenticatedUser(), nil
 		},
 	}
@@ -102,16 +102,16 @@ func assertPermissionRejectsTokenError(t *testing.T, requestToken string, parseE
 
 	localizer := newTestLocalizer()
 	authService := testAuthService{
-		parseAccessToken: func(context.Context, string) (*pluginapi.AccessTokenClaims, error) {
+		parseAccessToken: func(context.Context, string) (*moduleapi.AccessTokenClaims, error) {
 			return nil, parseErr
 		},
-		currentUser: func(context.Context) (*pluginapi.CurrentUser, error) {
+		currentUser: func(context.Context) (*moduleapi.CurrentUser, error) {
 			t.Fatal("current user should not be called when token parse fails")
 			return nil, nil
 		},
 	}
 	authorizer := testAuthorizer{
-		authorize: func(context.Context, pluginapi.RequestAuthContext, string) error {
+		authorize: func(context.Context, moduleapi.RequestAuthContext, string) error {
 			t.Fatal("authorize should not be called when token parse fails")
 			return nil
 		},
@@ -145,17 +145,17 @@ func TestRequirePermissionRejectsMissingBearerToken(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	localizer := newTestLocalizer()
 	authService := testAuthService{
-		parseAccessToken: func(context.Context, string) (*pluginapi.AccessTokenClaims, error) {
+		parseAccessToken: func(context.Context, string) (*moduleapi.AccessTokenClaims, error) {
 			t.Fatal("parse access token should not be called without bearer token")
 			return nil, nil
 		},
-		currentUser: func(context.Context) (*pluginapi.CurrentUser, error) {
+		currentUser: func(context.Context) (*moduleapi.CurrentUser, error) {
 			t.Fatal("current user should not be called without bearer token")
 			return nil, nil
 		},
 	}
 	authorizer := testAuthorizer{
-		authorize: func(context.Context, pluginapi.RequestAuthContext, string) error {
+		authorize: func(context.Context, moduleapi.RequestAuthContext, string) error {
 			t.Fatal("authorize should not be called without bearer token")
 			return nil
 		},
@@ -189,16 +189,16 @@ func TestRequirePermissionRejectsPermissionDenied(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	localizer := newTestLocalizer()
 	authService := testAuthService{
-		parseAccessToken: func(context.Context, string) (*pluginapi.AccessTokenClaims, error) {
+		parseAccessToken: func(context.Context, string) (*moduleapi.AccessTokenClaims, error) {
 			return newAuthenticatedClaims(), nil
 		},
-		currentUser: func(context.Context) (*pluginapi.CurrentUser, error) {
+		currentUser: func(context.Context) (*moduleapi.CurrentUser, error) {
 			return newAuthenticatedUser(), nil
 		},
 	}
 	authorizer := testAuthorizer{
-		authorize: func(context.Context, pluginapi.RequestAuthContext, string) error {
-			return pluginapi.ErrPermissionDenied
+		authorize: func(context.Context, moduleapi.RequestAuthContext, string) error {
+			return moduleapi.ErrPermissionDenied
 		},
 	}
 
@@ -238,11 +238,11 @@ func TestRequirePermissionAllowsAuthorizedRequest(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	authService := testAuthService{
-		parseAccessToken: func(context.Context, string) (*pluginapi.AccessTokenClaims, error) {
+		parseAccessToken: func(context.Context, string) (*moduleapi.AccessTokenClaims, error) {
 			return newAuthenticatedClaims(), nil
 		},
-		currentUser: func(ctx context.Context) (*pluginapi.CurrentUser, error) {
-			requestAuth, ok := pluginapi.RequestAuthContextFromContext(ctx)
+		currentUser: func(ctx context.Context) (*moduleapi.CurrentUser, error) {
+			requestAuth, ok := moduleapi.RequestAuthContextFromContext(ctx)
 			if !ok || requestAuth.Claims == nil || requestAuth.Claims.UserID != 7 {
 				t.Fatalf("expected request auth claims to be populated before CurrentUser, got %#v, ok=%v", requestAuth, ok)
 			}
@@ -250,7 +250,7 @@ func TestRequirePermissionAllowsAuthorizedRequest(t *testing.T) {
 		},
 	}
 	authorizer := testAuthorizer{
-		authorize: func(_ context.Context, request pluginapi.RequestAuthContext, _ string) error {
+		authorize: func(_ context.Context, request moduleapi.RequestAuthContext, _ string) error {
 			if request.User == nil || request.User.ID != 7 {
 				t.Fatalf("expected request user to be populated before Authorize, got %#v", request.User)
 			}
@@ -262,7 +262,7 @@ func TestRequirePermissionAllowsAuthorizedRequest(t *testing.T) {
 	ctx, engine := gin.CreateTestContext(recorder)
 	engine.Use(RequirePermission(nil, authService, authorizer, "user.read"))
 	engine.GET("/api/users/:id", func(inner *gin.Context) {
-		requestAuth, ok := pluginapi.RequestAuthContextFromContext(inner.Request.Context())
+		requestAuth, ok := moduleapi.RequestAuthContextFromContext(inner.Request.Context())
 		if !ok || requestAuth.User == nil || requestAuth.User.ID != 7 {
 			t.Fatalf("expected handler context to carry current user, got %#v, ok=%v", requestAuth, ok)
 		}
@@ -281,15 +281,15 @@ func TestRequirePermissionInjectsCanonicalRequestAuditContext(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	authService := testAuthService{
-		parseAccessToken: func(context.Context, string) (*pluginapi.AccessTokenClaims, error) {
+		parseAccessToken: func(context.Context, string) (*moduleapi.AccessTokenClaims, error) {
 			return newAuthenticatedClaims(), nil
 		},
-		currentUser: func(context.Context) (*pluginapi.CurrentUser, error) {
+		currentUser: func(context.Context) (*moduleapi.CurrentUser, error) {
 			return newAuthenticatedUser(), nil
 		},
 	}
 	authorizer := testAuthorizer{
-		authorize: func(_ context.Context, _ pluginapi.RequestAuthContext, _ string) error {
+		authorize: func(_ context.Context, _ moduleapi.RequestAuthContext, _ string) error {
 			return nil
 		},
 	}
@@ -336,13 +336,13 @@ func TestRequirePermissionAllowsBlankPermissionWithoutAuthorizer(t *testing.T) {
 
 // TestRequirePermissionMapsInvalidTokenToUnauthorized 验证无效 token 会收敛为未登录响应。
 func TestRequirePermissionMapsInvalidTokenToUnauthorized(t *testing.T) {
-	assertPermissionRejectsTokenError(t, "bad-token", pluginapi.ErrInvalidAccessToken, "auth.token_invalid", "AUTH_TOKEN_INVALID")
+	assertPermissionRejectsTokenError(t, "bad-token", moduleapi.ErrInvalidAccessToken, "auth.token_invalid", "AUTH_TOKEN_INVALID")
 }
 
 // TestRequirePermissionMapsExpiredTokenToUnauthorized 验证过期 token 会收敛为稳定的过期响应，
 // 以便前端仅对该分支触发 refresh。
 func TestRequirePermissionMapsExpiredTokenToUnauthorized(t *testing.T) {
-	assertPermissionRejectsTokenError(t, "expired-token", pluginapi.ErrExpiredAccessToken, "auth.token_expired", "AUTH_TOKEN_EXPIRED")
+	assertPermissionRejectsTokenError(t, "expired-token", moduleapi.ErrExpiredAccessToken, "auth.token_expired", "AUTH_TOKEN_EXPIRED")
 }
 
 // TestRequirePermissionFailsClosedWhenAuthDependenciesMissing 验证未装配 auth 依赖时会拒绝请求而不是继续执行。
@@ -396,7 +396,7 @@ func TestRequirePermissionFailsClosedWhenAuthorizerMissing(t *testing.T) {
 }
 
 var (
-	_ pluginapi.AuthService = testAuthService{}
-	_ pluginapi.Authorizer  = testAuthorizer{}
+	_ moduleapi.AuthService = testAuthService{}
+	_ moduleapi.Authorizer  = testAuthorizer{}
 	_                       = errors.Is
 )

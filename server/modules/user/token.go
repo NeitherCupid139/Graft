@@ -10,7 +10,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 
 	"graft/server/internal/config"
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 	authruntime "graft/server/modules/auth"
 )
 
@@ -56,12 +56,12 @@ func newAccessTokenManager(auth config.AuthConfig) (*accessTokenManager, error) 
 	}, nil
 }
 
-func (m *accessTokenManager) Issue(subject accessTokenSubject) (string, pluginapi.AccessTokenClaims, error) {
+func (m *accessTokenManager) Issue(subject accessTokenSubject) (string, moduleapi.AccessTokenClaims, error) {
 	if subject.UserID == 0 {
-		return "", pluginapi.AccessTokenClaims{}, fmt.Errorf("user id is required")
+		return "", moduleapi.AccessTokenClaims{}, fmt.Errorf("user id is required")
 	}
 	if strings.TrimSpace(subject.SessionID) == "" {
-		return "", pluginapi.AccessTokenClaims{}, errSessionIDRequired
+		return "", moduleapi.AccessTokenClaims{}, errSessionIDRequired
 	}
 
 	issuedAt := m.now().UTC()
@@ -78,10 +78,10 @@ func (m *accessTokenManager) Issue(subject accessTokenSubject) (string, pluginap
 
 	signed, err := jwt.NewWithClaims(jwt.SigningMethodHS256, tokenClaims).SignedString(m.secret)
 	if err != nil {
-		return "", pluginapi.AccessTokenClaims{}, fmt.Errorf("sign access token: %w", err)
+		return "", moduleapi.AccessTokenClaims{}, fmt.Errorf("sign access token: %w", err)
 	}
 
-	return signed, pluginapi.AccessTokenClaims{
+	return signed, moduleapi.AccessTokenClaims{
 		UserID:       subject.UserID,
 		SessionID:    subject.SessionID,
 		TokenVersion: subject.TokenVersion,
@@ -90,7 +90,7 @@ func (m *accessTokenManager) Issue(subject accessTokenSubject) (string, pluginap
 	}, nil
 }
 
-func (m *accessTokenManager) Parse(token string) (*pluginapi.AccessTokenClaims, error) {
+func (m *accessTokenManager) Parse(token string) (*moduleapi.AccessTokenClaims, error) {
 	claims := &accessTokenJWTClaims{}
 	parser := jwt.NewParser(
 		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
@@ -120,7 +120,7 @@ func (m *accessTokenManager) Parse(token string) (*pluginapi.AccessTokenClaims, 
 		return nil, fmt.Errorf("%w: missing session id", errInvalidAccessToken)
 	}
 
-	return &pluginapi.AccessTokenClaims{
+	return &moduleapi.AccessTokenClaims{
 		UserID:       userID,
 		SessionID:    claims.SessionID,
 		TokenVersion: claims.TokenVersion,

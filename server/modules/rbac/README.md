@@ -8,7 +8,7 @@
 
 这个模块负责：
 
-* 暴露 `pluginapi.Authorizer`
+* 暴露 `moduleapi.Authorizer`
 * 基于稳定仓储接口判断请求主体是否拥有所需权限
 * 在 `Register` 阶段向统一 `server/internal/i18n` facade 注册插件内建菜单标题 message，并通过共享菜单 contract 持有 `title_key`
 * 注册 RBAC 只读权限元数据与菜单元数据
@@ -36,7 +36,7 @@
 后续如果接入完整 RBAC 管理能力，应继续保持：
 
 * handler 不直接扩散 repository 或 ORM 细节
-* 权限判断继续统一走 `pluginapi.Authorizer` 与 `httpx.RequirePermission`
+* 权限判断继续统一走 `moduleapi.Authorizer` 与 `httpx.RequirePermission`
 * 用户角色最小读面只返回稳定 `role_ids` 快照，角色详情继续由 `GET /api/roles` 持有
 * 角色权限和用户角色写入继续保持 `replace | add | remove` 三种稳定语义，并继续把 `permission_ids` / `role_ids` 作为稳定请求字段
 * builtin 角色允许更新展示字段，但不允许通过写接口修改稳定名称

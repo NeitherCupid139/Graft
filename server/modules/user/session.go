@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"graft/server/internal/config"
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 	authruntime "graft/server/modules/auth"
 	userstore "graft/server/modules/user/store"
 )
@@ -360,18 +360,18 @@ func mapRefreshSessionRepositoryError(err error) error {
 }
 
 func (s authService) RevokeAllCurrentUserSessions(ctx context.Context) error {
-	requestAuth, ok := pluginapi.RequestAuthContextFromContext(ctx)
+	requestAuth, ok := moduleapi.RequestAuthContextFromContext(ctx)
 	if !ok || requestAuth.Claims == nil {
-		return pluginapi.ErrUnauthenticated
+		return moduleapi.ErrUnauthenticated
 	}
 
 	return s.RevokeAllUserSessions(ctx, requestAuth.Claims.UserID)
 }
 
 func (s authService) RevokeOtherCurrentUserSessions(ctx context.Context) error {
-	requestAuth, ok := pluginapi.RequestAuthContextFromContext(ctx)
+	requestAuth, ok := moduleapi.RequestAuthContextFromContext(ctx)
 	if !ok || requestAuth.Claims == nil {
-		return pluginapi.ErrUnauthenticated
+		return moduleapi.ErrUnauthenticated
 	}
 
 	sessions, err := s.ListUserSessions(ctx, requestAuth.Claims.UserID, sessionListOptions{})
@@ -406,9 +406,9 @@ func (s authService) RevokeAllUserSessions(ctx context.Context, userID uint64) e
 }
 
 func (s authService) RevokeCurrentUserSession(ctx context.Context, sessionID string) error {
-	requestAuth, ok := pluginapi.RequestAuthContextFromContext(ctx)
+	requestAuth, ok := moduleapi.RequestAuthContextFromContext(ctx)
 	if !ok || requestAuth.Claims == nil {
-		return pluginapi.ErrUnauthenticated
+		return moduleapi.ErrUnauthenticated
 	}
 
 	return s.RevokeUserSession(ctx, requestAuth.Claims.UserID, sessionID)
@@ -438,9 +438,9 @@ func (s authService) RevokeUserSession(ctx context.Context, userID uint64, sessi
 }
 
 func (s authService) ListCurrentUserSessions(ctx context.Context, options sessionListOptions) ([]sessionSummary, error) {
-	requestAuth, ok := pluginapi.RequestAuthContextFromContext(ctx)
+	requestAuth, ok := moduleapi.RequestAuthContextFromContext(ctx)
 	if !ok || requestAuth.Claims == nil {
-		return nil, pluginapi.ErrUnauthenticated
+		return nil, moduleapi.ErrUnauthenticated
 	}
 
 	return s.ListUserSessions(ctx, requestAuth.Claims.UserID, options)
@@ -451,7 +451,7 @@ func (s authService) ListUserSessions(ctx context.Context, userID uint64, option
 		return nil, errors.New("auth repository is unavailable")
 	}
 
-	requestAuth, _ := pluginapi.RequestAuthContextFromContext(ctx)
+	requestAuth, _ := moduleapi.RequestAuthContextFromContext(ctx)
 	sessions, err := s.auth.ListActiveRefreshSessionsByUserID(ctx, userstore.ListActiveRefreshSessionsByUserIDInput{
 		UserID: userID,
 		Now:    s.nowUTC(),
@@ -477,7 +477,7 @@ func (s authService) ListUserSessions(ctx context.Context, userID uint64, option
 	return summaries, nil
 }
 
-func (s authService) validateAccessSession(ctx context.Context, claims *pluginapi.AccessTokenClaims) error {
+func (s authService) validateAccessSession(ctx context.Context, claims *moduleapi.AccessTokenClaims) error {
 	if s.auth == nil {
 		return errors.New("auth repository is unavailable")
 	}

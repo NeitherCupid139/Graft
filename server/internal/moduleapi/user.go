@@ -1,5 +1,5 @@
-// Package pluginapi 定义稳定的跨插件能力契约。
-package pluginapi
+// Package moduleapi 定义稳定的跨插件能力契约。
+package moduleapi
 
 import (
 	"context"

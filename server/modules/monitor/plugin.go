@@ -33,9 +33,9 @@ import (
 	"graft/server/internal/httpx"
 	"graft/server/internal/i18n"
 	"graft/server/internal/menu"
-	"graft/server/internal/permission"
 	"graft/server/internal/module"
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
+	"graft/server/internal/permission"
 	monitorcontract "graft/server/modules/monitor/contract"
 )
 
@@ -82,14 +82,14 @@ func defaultDiskUsagePath() string {
 	return config.DefaultDiskUsagePath(runtime.GOOS)
 }
 
-// Plugin implements the monitor/server-status slice.
-type Plugin struct {
+// Module implements the monitor/server-status slice.
+type Module struct {
 	startedAtUnixNs atomic.Int64
 	db              *sql.DB
 	redis           *redis.Client
 	logger          *zap.Logger
-	authService     pluginapi.AuthService
-	routeAuthorizer pluginapi.Authorizer
+	authService     moduleapi.AuthService
+	routeAuthorizer moduleapi.Authorizer
 
 	samplerMu     sync.Mutex
 	samplerCancel context.CancelFunc
@@ -100,7 +100,7 @@ var _ monitoropenapi.ServerInterface = (*monitorServerHandler)(nil)
 
 type monitorServerHandler struct {
 	ctx        *module.Context
-	instance   *Plugin
+	instance   *Module
 	pluginName string
 }
 
@@ -119,13 +119,13 @@ type metricAnomalySpec struct {
 	summary   string
 }
 
-// NewPlugin creates the monitor plugin.
-func NewPlugin() *Plugin {
-	return &Plugin{}
+// NewModule creates the monitor module.
+func NewModule() *Module {
+	return &Module{}
 }
 
 // Register declares menu, permission, routes, and i18n messages.
-func (p *Plugin) Register(ctx *module.Context) error {
+func (p *Module) Register(ctx *module.Context) error {
 	if err := registerMessages(ctx.I18n); err != nil {
 		return err
 	}
@@ -143,7 +143,7 @@ func (p *Plugin) Register(ctx *module.Context) error {
 }
 
 // Boot records the first stable startup timestamp and starts the Redis-backed trend sampler.
-func (p *Plugin) Boot(ctx *module.Context) error {
+func (p *Module) Boot(ctx *module.Context) error {
 	p.startedAtUnixNs.CompareAndSwap(0, time.Now().UTC().UnixNano())
 	if ctx != nil {
 		p.redis = ctx.Redis
@@ -155,7 +155,7 @@ func (p *Plugin) Boot(ctx *module.Context) error {
 }
 
 // Shutdown stops the owned trend sampler before shared runtime resources are released.
-func (p *Plugin) Shutdown(ctx *module.Context) error {
+func (p *Module) Shutdown(ctx *module.Context) error {
 	return p.stopTrendSampler(ctx)
 }
 
@@ -196,7 +196,7 @@ func registerMessages(localizer *i18n.Service) error {
 	return nil
 }
 
-func (p *Plugin) bindDependencies(ctx *module.Context) error {
+func (p *Module) bindDependencies(ctx *module.Context) error {
 	db, err := resolveDatabaseDependency(ctx)
 	if err != nil {
 		return err
@@ -205,22 +205,22 @@ func (p *Plugin) bindDependencies(ctx *module.Context) error {
 	p.redis = ctx.Redis
 	p.logger = ctx.Logger
 
-	authResolved, err := ctx.Services.Resolve((*pluginapi.AuthService)(nil))
+	authResolved, err := ctx.Services.Resolve((*moduleapi.AuthService)(nil))
 	if err != nil {
 		return fmt.Errorf("resolve auth service: %w", err)
 	}
 
-	authService, ok := authResolved.(pluginapi.AuthService)
+	authService, ok := authResolved.(moduleapi.AuthService)
 	if !ok {
 		return fmt.Errorf("resolve auth service: unexpected type %T", authResolved)
 	}
 
-	authorizerResolved, err := ctx.Services.Resolve((*pluginapi.Authorizer)(nil))
+	authorizerResolved, err := ctx.Services.Resolve((*moduleapi.Authorizer)(nil))
 	if err != nil {
 		return fmt.Errorf("resolve route authorizer: %w", err)
 	}
 
-	authorizer, ok := authorizerResolved.(pluginapi.Authorizer)
+	authorizer, ok := authorizerResolved.(moduleapi.Authorizer)
 	if !ok {
 		return fmt.Errorf("resolve route authorizer: unexpected type %T", authorizerResolved)
 	}
@@ -324,10 +324,10 @@ func registerMonitorMenu(registry *menu.Registry, pluginName string) {
 
 func registerMonitorRoutes(
 	ctx *module.Context,
-	instance *Plugin,
+	instance *Module,
 	pluginName string,
-	authService pluginapi.AuthService,
-	authorizer pluginapi.Authorizer,
+	authService moduleapi.AuthService,
+	authorizer moduleapi.Authorizer,
 ) {
 	group := ctx.Router.Group(monitorcontract.MonitorGroup)
 	group.Use(httpx.RequestIDMiddleware())
@@ -412,7 +412,7 @@ func bindGeneratedMonitorParams(ginCtx *gin.Context) monitoropenapi.GetMonitorSe
 func buildServerStatusResponse(
 	ctx context.Context,
 	pluginCtx *module.Context,
-	instance *Plugin,
+	instance *Module,
 	trendRange monitorcontract.TrendRange,
 ) (generated.ServerStatusResponse, error) {
 	runtimeSnapshot, err := collectRuntimeSnapshot(ctx)
@@ -427,7 +427,7 @@ func buildServerStatusResponse(
 func buildServerStatusResponseWithRuntimeSnapshot(
 	ctx context.Context,
 	pluginCtx *module.Context,
-	instance *Plugin,
+	instance *Module,
 	trendRange monitorcontract.TrendRange,
 	runtimeSnapshot generated.ServerStatusRuntime,
 ) (generated.ServerStatusResponse, error) {
@@ -828,7 +828,7 @@ func stringPointer(value string) *string {
 	return &value
 }
 
-func databaseHealth(ctx context.Context, instance *Plugin) (generated.ServerStatusDependency, error) {
+func databaseHealth(ctx context.Context, instance *Module) (generated.ServerStatusDependency, error) {
 	if instance == nil || instance.db == nil {
 		return generated.ServerStatusDependency{
 			Status: statusUnknown,
@@ -1005,7 +1005,7 @@ func buildServerStatusSummary(
 func buildServerStatusTrend(
 	ctx context.Context,
 	pluginCtx *module.Context,
-	instance *Plugin,
+	instance *Module,
 	observedAt time.Time,
 	trendRange monitorcontract.TrendRange,
 ) generated.ServerStatusTrend {
@@ -1032,7 +1032,7 @@ func buildServerStatusTrend(
 	return trend
 }
 
-func resolveRedisClient(pluginCtx *module.Context, instance *Plugin) *redis.Client {
+func resolveRedisClient(pluginCtx *module.Context, instance *Module) *redis.Client {
 	if instance != nil && instance.redis != nil {
 		return instance.redis
 	}
@@ -1042,7 +1042,7 @@ func resolveRedisClient(pluginCtx *module.Context, instance *Plugin) *redis.Clie
 	return nil
 }
 
-func (p *Plugin) startTrendSampler(ctx *module.Context) {
+func (p *Module) startTrendSampler(ctx *module.Context) {
 	if p == nil || ctx == nil || ctx.Redis == nil || ctx.LifecycleContext == nil {
 		return
 	}
@@ -1066,7 +1066,7 @@ func (p *Plugin) startTrendSampler(ctx *module.Context) {
 	}()
 }
 
-func (p *Plugin) stopTrendSampler(ctx *module.Context) error {
+func (p *Module) stopTrendSampler(ctx *module.Context) error {
 	if p == nil {
 		return nil
 	}
@@ -1099,7 +1099,7 @@ func (p *Plugin) stopTrendSampler(ctx *module.Context) error {
 	}
 }
 
-func (p *Plugin) runTrendSampler(ctx context.Context, redisClient *redis.Client, storageKey string) {
+func (p *Module) runTrendSampler(ctx context.Context, redisClient *redis.Client, storageKey string) {
 	var processHandle *process.Process
 	processID, err := currentProcessID()
 	if err != nil {
@@ -1132,7 +1132,7 @@ func (p *Plugin) runTrendSampler(ctx context.Context, redisClient *redis.Client,
 	}
 }
 
-func (p *Plugin) recordTrendSample(
+func (p *Module) recordTrendSample(
 	ctx context.Context,
 	redisClient *redis.Client,
 	storageKey string,
@@ -1506,7 +1506,7 @@ func parseGeneratedTrendRange(raw *monitoropenapi.GetMonitorServerStatusParamsTr
 	return parseTrendRange(string(*raw))
 }
 
-func logTrendWarning(instance *Plugin, pluginCtx *module.Context, message string, err error) {
+func logTrendWarning(instance *Module, pluginCtx *module.Context, message string, err error) {
 	switch {
 	case instance != nil && instance.logger != nil:
 		instance.logger.Warn(message, zap.Error(err))
@@ -1515,4 +1515,4 @@ func logTrendWarning(instance *Plugin, pluginCtx *module.Context, message string
 	}
 }
 
-var _ module.Plugin = (*Plugin)(nil)
+var _ module.Module = (*Module)(nil)

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 	rbacstore "graft/server/modules/rbac/store"
 )
 
@@ -15,7 +15,7 @@ type bootstrapService struct {
 }
 
 // NewBootstrapService exposes the stable RBAC bootstrap capability over a plugin-local repository.
-func NewBootstrapService(rbac rbacstore.Repository) pluginapi.RBACBootstrapService {
+func NewBootstrapService(rbac rbacstore.Repository) moduleapi.RBACBootstrapService {
 	if rbac == nil {
 		return nil
 	}
@@ -26,7 +26,7 @@ func NewBootstrapService(rbac rbacstore.Repository) pluginapi.RBACBootstrapServi
 func (s bootstrapService) EnsureDefaultAdminAccess(
 	ctx context.Context,
 	userID uint64,
-	permissions []pluginapi.PermissionSeed,
+	permissions []moduleapi.PermissionSeed,
 ) error {
 	if s.rbac == nil {
 		return errors.New("rbac repository is unavailable")
@@ -58,7 +58,7 @@ func ensureRolePermissions(
 	ctx context.Context,
 	rbac rbacstore.Repository,
 	roleID uint64,
-	permissions []pluginapi.PermissionSeed,
+	permissions []moduleapi.PermissionSeed,
 ) error {
 	permissionIDs := make([]uint64, 0, len(permissions))
 	for _, item := range permissions {
@@ -95,4 +95,4 @@ func stringPtrOrNil(value string) *string {
 	return &result
 }
 
-var _ pluginapi.RBACBootstrapService = bootstrapService{}
+var _ moduleapi.RBACBootstrapService = bootstrapService{}

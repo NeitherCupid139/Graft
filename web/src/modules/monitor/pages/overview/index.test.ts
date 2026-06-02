@@ -220,7 +220,7 @@ const translations = vi.hoisted(
     'monitor.serverStatus.runtimeGroupRuntime': 'Runtime Status',
     'monitor.serverStatus.runtimeGroupProcess': 'Go Process',
     'monitor.serverStatus.runtimeGroupEnvironment': 'Environment and Capacity',
-    'monitor.serverStatus.runtimeGroupPlugins': 'Plugin Summary',
+    'monitor.serverStatus.runtimeGroupPlugins': 'Module Summary',
     'monitor.serverStatus.databaseLabel': 'Database',
     'monitor.serverStatus.redisLabel': 'Redis',
     'monitor.serverStatus.pluginRegistered': 'Registered',

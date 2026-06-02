@@ -163,7 +163,7 @@ Fail-closed startup rules:
 
 ### 4.2 Authority-First Governance
 
-`Graft` is a unified mono repo. `server`、`web`、OpenAPI source、plugin descriptors、bootstrap metadata、typed contract
+`Graft` is a unified mono repo. `server`、`web`、OpenAPI source、module descriptors、bootstrap metadata、typed contract
 definitions and generated artifacts are one repository change graph, not independent systems integrating over slow
 release boundaries.
 
@@ -180,7 +180,7 @@ Authority rules:
 Default authority chain examples:
 
 - product IA / module intent
-- `server` plugin descriptor / menu / permission / route contract
+- `server` module descriptor / menu / permission / route contract
 - canonical OpenAPI or typed contract source input
 - generated artifacts
 - `web` bootstrap route/menu assembly
@@ -193,8 +193,8 @@ the same slice rather than normalizing the mismatch in a lower layer by default.
 
 Before adding local compatibility, agents must explicitly check whether the real authority sits in:
 
-- `server/plugins/<name>/contract/**`
-- `server/plugins/<name>/descriptor.go` or equivalent module/menu/permission declarations under historical plugin naming
+- `server/modules/<name>/contract/**`
+- `server/modules/<name>/descriptor.go` or equivalent module/menu/permission declarations under historical plugin naming
 - `server/internal/contract/**`
 - OpenAPI source inputs such as `openapi/**`
 - `web/src/modules/<name>/contract/**`

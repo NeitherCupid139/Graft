@@ -34,4 +34,4 @@
 
 ## 维护提示
 
-这里当前通过 `pluginapi.AuthService` 与 `pluginapi.Authorizer` 解析 bearer token、构造请求鉴权上下文并执行后端权限校验。后续继续扩展登录与 refresh 能力时，应保留“后端显式校验权限”的原则，而不是退回只依赖前端菜单或路由元数据。
+这里当前通过 `moduleapi.AuthService` 与 `moduleapi.Authorizer` 解析 bearer token、构造请求鉴权上下文并执行后端权限校验。后续继续扩展登录与 refresh 能力时，应保留“后端显式校验权限”的原则，而不是退回只依赖前端菜单或路由元数据。
