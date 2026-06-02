@@ -48,7 +48,7 @@ CREATE INDEX IF NOT EXISTS "audit_policy_rules_event_type" ON "audit_policy_rule
 CREATE INDEX IF NOT EXISTS "audit_policy_rules_path_pattern" ON "audit_policy_rules" ("path_pattern");
 CREATE UNIQUE INDEX IF NOT EXISTS "audit_policy_rules_name" ON "audit_policy_rules" ("name");
 
-COMMENT ON TABLE "audit_logs" IS '审计日志表（审计插件）';
+COMMENT ON TABLE "audit_logs" IS '审计日志表（审计模块）';
 COMMENT ON COLUMN "audit_logs"."id" IS '主键 ID';
 COMMENT ON COLUMN "audit_logs"."action" IS '审计动作标识';
 COMMENT ON COLUMN "audit_logs"."resource_type" IS '资源类型';
@@ -65,7 +65,7 @@ COMMENT ON COLUMN "audit_logs"."message" IS '审计结果说明或错误信息';
 COMMENT ON COLUMN "audit_logs"."request_id" IS '请求 ID';
 COMMENT ON COLUMN "audit_logs"."metadata" IS '扩展审计元数据，使用 JSON 对象存储';
 
-COMMENT ON TABLE "audit_policy_rules" IS '审计策略规则表（审计插件）';
+COMMENT ON TABLE "audit_policy_rules" IS '审计策略规则表（审计模块）';
 COMMENT ON COLUMN "audit_policy_rules"."id" IS '主键 ID';
 COMMENT ON COLUMN "audit_policy_rules"."name" IS '规则唯一名称';
 COMMENT ON COLUMN "audit_policy_rules"."description" IS '规则说明';

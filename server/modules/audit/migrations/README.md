@@ -6,5 +6,5 @@ available only for explicit/manual runs.
 
 `202605190003_audit_module_schema.sql` is the canonical audit-module baseline on the default
 migration path. It already contains the current table structure, indexes, comments, and seeded
-policy rules, so no plugin-boundary or follow-up upgrade/comment migrations remain in this
+policy rules, so no module-boundary or follow-up upgrade/comment migrations remain in this
 directory.

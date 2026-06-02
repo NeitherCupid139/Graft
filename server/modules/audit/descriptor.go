@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 
-	auditcore "graft/server/internal/audit"
 	"graft/server/internal/drilldown"
 	"graft/server/internal/module"
 	"graft/server/modules/audit/storeent"
@@ -34,7 +33,7 @@ func NewModuleSpec() module.Spec {
 			if err != nil {
 				return nil, fmt.Errorf("build drilldown repository: %w", err)
 			}
-			drilldownService, err := drilldown.NewService[auditcore.ListQuery, auditcore.ListQuery](drilldownRepo, newAuditScopeResolver())
+			drilldownService, err := drilldown.NewService[ListQuery, ListQuery](drilldownRepo, newAuditScopeResolver())
 			if err != nil {
 				return nil, fmt.Errorf("build drilldown service: %w", err)
 			}

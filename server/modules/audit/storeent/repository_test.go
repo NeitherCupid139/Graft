@@ -30,7 +30,7 @@ func (s stubMonitorIncidentEvidenceService) ResolveAuditIncidentMonitorEvidence(
 func openTestDB(t *testing.T) *sql.DB {
 	t.Helper()
 
-	db, err := sql.Open("sqlite3", "file:audit-plugin-storeent?mode=memory&cache=shared")
+	db, err := sql.Open("sqlite3", "file:audit-module-storeent?mode=memory&cache=shared")
 	if err != nil {
 		t.Fatalf("open sqlite db: %v", err)
 	}

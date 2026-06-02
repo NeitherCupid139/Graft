@@ -26,7 +26,7 @@
 ## 关键依赖
 
 * 依赖 `module.Context` 提供的 `EventBus`、`Router`、`Logger`，并在 Builder 阶段显式解析共享 `*sql.DB`
-* 写入逻辑复用 `server/internal/audit`、`server/modules/audit/store` 和模块自有 `storeent` SQL repository
+* 写入逻辑复用模块内 `service/policy/sanitize`、`server/modules/audit/store` 和模块自有 `storeent` SQL repository
 
 ## 维护提示
 

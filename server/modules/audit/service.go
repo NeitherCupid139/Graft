@@ -764,15 +764,6 @@ func firstNonZeroInt(values ...int) int {
 	return 0
 }
 
-func firstNonEmptyTrimmed(values ...string) string {
-	for _, value := range values {
-		if trimmed := strings.TrimSpace(value); trimmed != "" {
-			return trimmed
-		}
-	}
-	return ""
-}
-
 func sanitizeMetadata(input any) (json.RawMessage, error) {
 	if input == nil {
 		return json.RawMessage([]byte("{}")), nil
@@ -827,4 +818,16 @@ func normalizeMetadataValue(input any) (any, error) {
 		}
 		return decoded, nil
 	}
+}
+
+func parseOptionalUint64Param(ginParamGetter interface{ Param(string) string }, key string) (uint64, bool, error) {
+	value := strings.TrimSpace(ginParamGetter.Param(key))
+	if value == "" {
+		return 0, false, nil
+	}
+	parsed, err := strconv.ParseUint(value, 10, 64)
+	if err != nil {
+		return 0, false, err
+	}
+	return parsed, true, nil
 }

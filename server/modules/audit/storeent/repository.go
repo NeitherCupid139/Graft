@@ -1,4 +1,4 @@
-// Package storeent 提供 audit 插件基于 SQL 的 repository 实现。
+// Package storeent 提供 audit 模块基于 SQL 的 repository 实现。
 package storeent
 
 import (
@@ -53,7 +53,7 @@ const incidentCorrelationWindow = 30 * time.Minute
 const incidentCandidateScanLimit = 200
 const sqlLikeEscapeClause = " ESCAPE '\\'"
 
-// NewRepository 基于共享连接池构建 audit 插件的 SQL repository。
+// NewRepository 基于共享连接池构建 audit 模块的 SQL repository。
 func NewRepository(db *sql.DB, monitorEvidence moduleapi.MonitorIncidentEvidenceService) (auditstore.AuditRepository, error) {
 	if db == nil {
 		return nil, errors.New("audit repository requires a non-nil sql db")
@@ -327,7 +327,7 @@ func (r *repository) resolveIncidentMonitorContext(
 		return auditstore.AuditIncidentMonitorContext{
 			State:         auditstore.MonitorContextStateUnavailable,
 			Summary:       "Monitor capability is unavailable for this audit incident.",
-			Reason:        "Monitor plugin capability is unavailable.",
+			Reason:        "Monitor module capability is unavailable.",
 			EvidenceLinks: buildIncidentMonitorEvidenceLinks(seed, relatedEvents),
 		}
 	}

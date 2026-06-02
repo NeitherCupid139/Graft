@@ -7,12 +7,12 @@ import (
 	auditstore "graft/server/modules/audit/store"
 )
 
-// PolicyEvaluator applies module-owned audit policy rules to normalized candidates.
+// PolicyEvaluator evaluates audit candidates against persisted module-owned rules.
 type PolicyEvaluator struct {
 	repo auditstore.AuditRepository
 }
 
-// NewPolicyEvaluator creates an evaluator backed by the audit module repository.
+// NewPolicyEvaluator creates a module-owned audit policy evaluator.
 func NewPolicyEvaluator(repo auditstore.AuditRepository) (*PolicyEvaluator, error) {
 	if repo == nil {
 		return nil, ErrNilAuditRepository
@@ -21,7 +21,7 @@ func NewPolicyEvaluator(repo auditstore.AuditRepository) (*PolicyEvaluator, erro
 	return &PolicyEvaluator{repo: repo}, nil
 }
 
-// Evaluate loads policy rules and returns the first matching decision.
+// Evaluate returns the first matching audit policy decision for a candidate event.
 func (e *PolicyEvaluator) Evaluate(ctx context.Context, candidate auditstore.AuditCandidate) (auditstore.AuditPolicyDecision, error) {
 	if e == nil || e.repo == nil {
 		return auditstore.AuditPolicyDecision{}, ErrAuditServiceUnavailable

@@ -14,7 +14,6 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
-	auditcore "graft/server/internal/audit"
 	"graft/server/internal/config"
 	"graft/server/internal/container"
 	"graft/server/internal/cronx"
@@ -137,7 +136,7 @@ func (r *memoryAuditRepository) ReadIncident(_ context.Context, eventID uint64) 
 
 func (r *memoryAuditRepository) ListAuditPolicyRules(_ context.Context) ([]store.AuditPolicyRule, error) {
 	if len(r.rules) == 0 {
-		return defaultPluginTestPolicyRules(), nil
+		return defaultModuleTestPolicyRules(), nil
 	}
 	return append([]store.AuditPolicyRule(nil), r.rules...), nil
 }
@@ -161,7 +160,7 @@ func (failingAuditRepository) ReadIncident(context.Context, uint64) (store.Audit
 }
 
 func (failingAuditRepository) ListAuditPolicyRules(context.Context) ([]store.AuditPolicyRule, error) {
-	return defaultPluginTestPolicyRules(), nil
+	return defaultModuleTestPolicyRules(), nil
 }
 
 type stubAuthService struct {
@@ -308,7 +307,7 @@ func newModuleTestContextWithDrilldown(
 		}
 	}
 
-	drilldownService, err := drilldown.NewService[auditcore.ListQuery, auditcore.ListQuery](
+	drilldownService, err := drilldown.NewService[ListQuery, ListQuery](
 		stubScopeMetadataRepo{metadata: scopeMetadata},
 		newAuditScopeResolver(),
 	)
@@ -521,7 +520,7 @@ func TestRequirePermissionPublishesSecurityAuditEvent(t *testing.T) {
 	}
 }
 
-func defaultPluginTestPolicyRules() []store.AuditPolicyRule {
+func defaultModuleTestPolicyRules() []store.AuditPolicyRule {
 	return []store.AuditPolicyRule{
 		{
 			Name:        "request.healthz.exclude",
@@ -663,7 +662,7 @@ func TestRegisterSubscribesActiveAuditEvents(t *testing.T) {
 			Route:     "/api/users",
 			Method:    http.MethodPost,
 			ClientIP:  "203.0.113.10",
-			UserAgent: "audit-plugin-test",
+			UserAgent: "audit-module-test",
 		},
 	)
 
@@ -722,7 +721,7 @@ func TestRegisterSubscribesActiveAuditEventsFallsBackToRequestAuthActor(t *testi
 			Route:     "/api/roles/:id/status",
 			Method:    http.MethodPost,
 			ClientIP:  "203.0.113.22",
-			UserAgent: "audit-plugin-test-auth",
+			UserAgent: "audit-module-test-auth",
 		},
 	)
 
@@ -886,7 +885,7 @@ func TestAuditReadRoutesStayOutOfAuditLogByPolicy(t *testing.T) {
 
 func TestRegisterRecordsRBACDomainEventWhenPolicyAllows(t *testing.T) {
 	repo := &memoryAuditRepository{
-		rules: append(defaultPluginTestPolicyRules(), store.AuditPolicyRule{
+		rules: append(defaultModuleTestPolicyRules(), store.AuditPolicyRule{
 			Name:      "domain.rbac.role.delete",
 			Source:    store.AuditSourceDomainEvent,
 			Enabled:   true,

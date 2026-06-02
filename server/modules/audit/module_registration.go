@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	auditcore "graft/server/internal/audit"
 	"graft/server/internal/container"
 	"graft/server/internal/httpx"
 	"graft/server/internal/i18n"
@@ -21,7 +20,7 @@ const (
 	auditMenuOrderLogs     = 202
 )
 
-func registerAuditPermissions(registry *permission.Registry, pluginName string) {
+func registerAuditPermissions(registry *permission.Registry, moduleName string) {
 	if registry == nil {
 		return
 	}
@@ -31,11 +30,11 @@ func registerAuditPermissions(registry *permission.Registry, pluginName string) 
 		Name:        "Read Audit Logs",
 		Description: "Allows reading audit-log records and filters.",
 		Category:    "api",
-		Module:      pluginName,
+		Module:      moduleName,
 	})
 }
 
-func registerAuditMenu(registry *menu.Registry, pluginName string) {
+func registerAuditMenu(registry *menu.Registry, moduleName string) {
 	if registry == nil {
 		return
 	}
@@ -48,7 +47,7 @@ func registerAuditMenu(registry *menu.Registry, pluginName string) {
 		Icon:       "secured",
 		Order:      auditMenuOrderRoot,
 		Permission: "",
-		Module:     pluginName,
+		Module:     moduleName,
 	})
 
 	registry.Register(menu.Item{
@@ -59,7 +58,7 @@ func registerAuditMenu(registry *menu.Registry, pluginName string) {
 		Icon:       "dashboard",
 		Order:      auditMenuOrderOverview,
 		Permission: auditcontract.AuditReadPermission.String(),
-		Module:     pluginName,
+		Module:     moduleName,
 	})
 
 	registry.Register(menu.Item{
@@ -70,7 +69,7 @@ func registerAuditMenu(registry *menu.Registry, pluginName string) {
 		Icon:       "history",
 		Order:      auditMenuOrderLogs,
 		Permission: auditcontract.AuditReadPermission.String(),
-		Module:     pluginName,
+		Module:     moduleName,
 	})
 }
 
@@ -136,7 +135,7 @@ func (p *Module) resolveRouteGuard(ctx *module.Context) (auditGuard, error) {
 	}, nil
 }
 
-func registerAuditService(ctx *module.Context, reader *auditcore.Service) error {
+func registerAuditService(ctx *module.Context, reader *Service) error {
 	if ctx == nil || ctx.Services == nil {
 		return errors.New("module context services are unavailable")
 	}

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	auditcore "graft/server/internal/audit"
 	"graft/server/internal/drilldown"
 	auditstore "graft/server/modules/audit/store"
 )
@@ -24,8 +23,8 @@ type scopeDefinition struct {
 func (r auditScopeResolver) Resolve(
 	_ context.Context,
 	metadata drilldown.ScopeMetadata,
-	currentQuery auditcore.ListQuery,
-) (drilldown.ResolvedScope[auditcore.ListQuery], error) {
+	currentQuery ListQuery,
+) (drilldown.ResolvedScope[ListQuery], error) {
 	scope := strings.TrimSpace(metadata.Scope)
 	definitions := map[string]scopeDefinition{
 		string(auditstore.AuditBusinessCategoryFailedOperations):    {category: auditstore.AuditBusinessCategoryFailedOperations, labelKey: "audit.logList.businessCategory.failedOperations"},
@@ -39,14 +38,14 @@ func (r auditScopeResolver) Resolve(
 
 	definition, ok := definitions[scope]
 	if !ok {
-		return drilldown.ResolvedScope[auditcore.ListQuery]{}, drilldown.ErrScopeNotFound
+		return drilldown.ResolvedScope[ListQuery]{}, drilldown.ErrScopeNotFound
 	}
 
 	if currentQuery.BusinessCategory != "" {
-		return drilldown.ResolvedScope[auditcore.ListQuery]{}, fmt.Errorf("%w: business_category", drilldown.ErrScopeConflict)
+		return drilldown.ResolvedScope[ListQuery]{}, fmt.Errorf("%w: business_category", drilldown.ErrScopeConflict)
 	}
 
-	return drilldown.ResolvedScope[auditcore.ListQuery]{
+	return drilldown.ResolvedScope[ListQuery]{
 		Metadata: metadata,
 		Applied: drilldown.AppliedScope{
 			Module:      metadata.Module,
@@ -72,7 +71,7 @@ func (r auditScopeResolver) Resolve(
 			Preset:           strings.TrimSpace(string(currentQuery.TimePreset)),
 			BusinessCategory: string(definition.category),
 		},
-		QueryPatch: auditcore.ListQuery{
+		QueryPatch: ListQuery{
 			BusinessCategory: definition.category,
 		},
 	}, nil

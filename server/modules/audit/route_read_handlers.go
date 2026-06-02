@@ -11,7 +11,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
-	auditcore "graft/server/internal/audit"
 	httpheader "graft/server/internal/contract/httpheader"
 	messagecontract "graft/server/internal/contract/message"
 	auditopenapi "graft/server/internal/contract/openapi/audit"
@@ -23,14 +22,14 @@ import (
 )
 
 type auditReader interface {
-	List(ctx context.Context, query auditcore.ListQuery) (auditcore.ListResult, error)
-	Overview(ctx context.Context, preset auditstore.AuditTimePreset) (auditcore.OverviewResult, error)
-	Incident(ctx context.Context, eventID uint64) (auditcore.IncidentResult, error)
+	List(ctx context.Context, query ListQuery) (ListResult, error)
+	Overview(ctx context.Context, preset auditstore.AuditTimePreset) (OverviewResult, error)
+	Incident(ctx context.Context, eventID uint64) (IncidentResult, error)
 }
 
-type auditListResult = auditcore.ListResult
-type auditOverviewResult = auditcore.OverviewResult
-type auditIncidentResult = auditcore.IncidentResult
+type auditListResult = ListResult
+type auditOverviewResult = OverviewResult
+type auditIncidentResult = IncidentResult
 
 type auditGuard struct {
 	read gin.HandlerFunc
@@ -38,7 +37,7 @@ type auditGuard struct {
 
 func handleListAuditLogs(
 	ctx *module.Context,
-	pluginName string,
+	moduleName string,
 	reader auditReader,
 ) gin.HandlerFunc {
 	logger := zap.NewNop()
@@ -68,7 +67,7 @@ func handleListAuditLogs(
 				return
 			}
 			logger.Error("list audit logs failed",
-				zap.String("plugin", pluginName),
+				zap.String("module", moduleName),
 				zap.Error(err),
 			)
 			httpx.AbortLocalizedError(ginCtx, ctx.I18n, http.StatusInternalServerError, messagecontract.CommonInternalError.String(), nil)
@@ -78,7 +77,7 @@ func handleListAuditLogs(
 		payload, mapErr := toAuditLogListResponse(result)
 		if mapErr != nil {
 			logger.Error("map audit logs response failed",
-				zap.String("plugin", pluginName),
+				zap.String("module", moduleName),
 				zap.Error(mapErr),
 			)
 			httpx.AbortLocalizedError(ginCtx, ctx.I18n, http.StatusInternalServerError, messagecontract.CommonInternalError.String(), nil)
@@ -91,7 +90,7 @@ func handleListAuditLogs(
 
 func handleReadAuditOverview(
 	ctx *module.Context,
-	pluginName string,
+	moduleName string,
 	reader auditReader,
 ) gin.HandlerFunc {
 	logger := zap.NewNop()
@@ -106,7 +105,7 @@ func handleReadAuditOverview(
 		result, err := reader.Overview(ginCtx, preset)
 		if err != nil {
 			logger.Error("read audit overview failed",
-				zap.String("plugin", pluginName),
+				zap.String("module", moduleName),
 				zap.Error(err),
 			)
 			httpx.AbortLocalizedError(ginCtx, ctx.I18n, http.StatusInternalServerError, messagecontract.CommonInternalError.String(), nil)
@@ -116,7 +115,7 @@ func handleReadAuditOverview(
 		payload, mapErr := toAuditOverviewResponse(result)
 		if mapErr != nil {
 			logger.Error("map audit overview response failed",
-				zap.String("plugin", pluginName),
+				zap.String("module", moduleName),
 				zap.Error(mapErr),
 			)
 			httpx.AbortLocalizedError(ginCtx, ctx.I18n, http.StatusInternalServerError, messagecontract.CommonInternalError.String(), nil)
@@ -129,7 +128,7 @@ func handleReadAuditOverview(
 
 func handleReadAuditIncident(
 	ctx *module.Context,
-	pluginName string,
+	moduleName string,
 	reader auditReader,
 ) gin.HandlerFunc {
 	logger := zap.NewNop()
@@ -155,7 +154,7 @@ func handleReadAuditIncident(
 				return
 			}
 			logger.Error("read audit incident failed",
-				zap.String("plugin", pluginName),
+				zap.String("module", moduleName),
 				zap.Uint64("event_id", eventID),
 				zap.Error(readErr),
 			)
@@ -166,7 +165,7 @@ func handleReadAuditIncident(
 		payload, mapErr := toAuditIncidentResponse(result)
 		if mapErr != nil {
 			logger.Error("map audit incident response failed",
-				zap.String("plugin", pluginName),
+				zap.String("module", moduleName),
 				zap.Uint64("event_id", eventID),
 				zap.Error(mapErr),
 			)
@@ -235,9 +234,9 @@ func (h auditReadGeneratedHandler) GetAuditIncident(params auditopenapi.GetAudit
 
 func bindGeneratedAuditListParams(
 	ginCtx *gin.Context,
-) (auditopenapi.GetAuditLogsParams, auditcore.ListQuery, string) {
+) (auditopenapi.GetAuditLogsParams, ListQuery, string) {
 	params := newAuditListParams(ginCtx)
-	query := auditcore.ListQuery{}
+	query := ListQuery{}
 
 	if field := bindAuditPagination(ginCtx, &params, &query); field != "" {
 		return params, query, field
@@ -280,7 +279,7 @@ func newAuditListParams(ginCtx *gin.Context) auditopenapi.GetAuditLogsParams {
 	}
 }
 
-func bindAuditPagination(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParams, query *auditcore.ListQuery) string {
+func bindAuditPagination(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParams, query *ListQuery) string {
 	page, ok, err := parseOptionalIntQuery(ginCtx, "page")
 	if err != nil {
 		return "page"
@@ -302,7 +301,7 @@ func bindAuditPagination(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsP
 	return ""
 }
 
-func bindAuditActorUserID(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParams, query *auditcore.ListQuery) string {
+func bindAuditActorUserID(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParams, query *ListQuery) string {
 	value, ok, err := parseOptionalUint64Query(ginCtx, "actor_user_id")
 	if err != nil {
 		return "actor_user_id"
@@ -320,7 +319,7 @@ func bindAuditActorUserID(ginCtx *gin.Context, params *auditopenapi.GetAuditLogs
 	return ""
 }
 
-func bindAuditPreset(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParams, query *auditcore.ListQuery) string {
+func bindAuditPreset(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParams, query *ListQuery) string {
 	if raw := strings.TrimSpace(ginCtx.Query("preset")); raw != "" {
 		value := auditopenapi.GetAuditLogsParamsPreset(raw)
 		if !value.Valid() {
@@ -333,7 +332,7 @@ func bindAuditPreset(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParam
 	return ""
 }
 
-func bindAuditScope(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParams, query *auditcore.ListQuery) string {
+func bindAuditScope(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParams, query *ListQuery) string {
 	if raw := strings.TrimSpace(ginCtx.Query("scope")); raw != "" {
 		value := auditopenapi.GetAuditLogsParamsScope(raw)
 		if !value.Valid() {
@@ -345,7 +344,7 @@ func bindAuditScope(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParams
 	return ""
 }
 
-func bindAuditStringFilters(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParams, query *auditcore.ListQuery) {
+func bindAuditStringFilters(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParams, query *ListQuery) {
 	bindAuditStringFilter(ginCtx, "keyword", &params.Keyword, &query.Keyword)
 	bindAuditStringFilter(ginCtx, "actor", &params.Actor, &query.Actor)
 	bindAuditStringFilter(ginCtx, "action", &params.Action, &query.Action)
@@ -357,7 +356,7 @@ func bindAuditStringFilters(ginCtx *gin.Context, params *auditopenapi.GetAuditLo
 	bindAuditStringFilter(ginCtx, "request_id", &params.RequestId, &query.RequestID)
 }
 
-func bindAuditStringSliceFilters(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParams, query *auditcore.ListQuery) {
+func bindAuditStringSliceFilters(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParams, query *ListQuery) {
 	if values := normalizeAuditStringQuerySlice(queryArrayCompat(ginCtx, "action_prefixes")); len(values) > 0 {
 		params.ActionPrefixes = &values
 		query.ActionPrefixes = values
@@ -376,7 +375,7 @@ func bindAuditStringSliceFilters(ginCtx *gin.Context, params *auditopenapi.GetAu
 	}
 }
 
-func bindAuditEnumFilters(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParams, query *auditcore.ListQuery) string {
+func bindAuditEnumFilters(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParams, query *ListQuery) string {
 	if errField := bindAuditBusinessCategoryFilter(ginCtx, params, query); errField != "" {
 		return errField
 	}
@@ -407,7 +406,7 @@ func bindAuditEnumFilters(ginCtx *gin.Context, params *auditopenapi.GetAuditLogs
 func bindAuditBusinessCategoryFilter(
 	ginCtx *gin.Context,
 	params *auditopenapi.GetAuditLogsParams,
-	query *auditcore.ListQuery,
+	query *ListQuery,
 ) string {
 	raw := strings.TrimSpace(ginCtx.Query("business_category"))
 	if raw == "" {
@@ -431,7 +430,7 @@ func bindAuditBusinessCategoryFilter(
 	}
 }
 
-func bindAuditSourceFilter(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParams, query *auditcore.ListQuery) string {
+func bindAuditSourceFilter(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParams, query *ListQuery) string {
 	if raw := strings.ToUpper(strings.TrimSpace(ginCtx.Query("source"))); raw != "" {
 		switch auditstore.AuditSource(raw) {
 		case auditstore.AuditSourceRequest, auditstore.AuditSourceSecurityEvent, auditstore.AuditSourceDomainEvent:
@@ -446,7 +445,7 @@ func bindAuditSourceFilter(ginCtx *gin.Context, params *auditopenapi.GetAuditLog
 	return ""
 }
 
-func bindAuditResultFilter(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParams, query *auditcore.ListQuery) string {
+func bindAuditResultFilter(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParams, query *ListQuery) string {
 	if raw := strings.ToUpper(strings.TrimSpace(ginCtx.Query("result"))); raw != "" {
 		switch auditstore.AuditResult(raw) {
 		case auditstore.AuditResultSuccess, auditstore.AuditResultFailed, auditstore.AuditResultDenied, auditstore.AuditResultError:
@@ -461,7 +460,7 @@ func bindAuditResultFilter(ginCtx *gin.Context, params *auditopenapi.GetAuditLog
 	return ""
 }
 
-func bindAuditRiskLevelFilter(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParams, query *auditcore.ListQuery) string {
+func bindAuditRiskLevelFilter(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParams, query *ListQuery) string {
 	if raw := strings.ToUpper(strings.TrimSpace(ginCtx.Query("risk_level"))); raw != "" {
 		switch auditstore.AuditRiskLevel(raw) {
 		case auditstore.AuditRiskLevelLow, auditstore.AuditRiskLevelMedium, auditstore.AuditRiskLevelHigh, auditstore.AuditRiskLevelCritical:
@@ -596,7 +595,7 @@ func bindAuditStringFilter(ginCtx *gin.Context, key string, targetParam **string
 	}
 }
 
-func bindAuditSuccessFilter(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParams, query *auditcore.ListQuery) string {
+func bindAuditSuccessFilter(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParams, query *ListQuery) string {
 	value, ok, err := parseOptionalBoolQuery(ginCtx, "success")
 	if err != nil {
 		return "success"
@@ -608,7 +607,7 @@ func bindAuditSuccessFilter(ginCtx *gin.Context, params *auditopenapi.GetAuditLo
 	return ""
 }
 
-func bindAuditCreatedRange(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParams, query *auditcore.ListQuery) string {
+func bindAuditCreatedRange(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParams, query *ListQuery) string {
 	createdFrom, ok, err := parseOptionalTimeQuery(ginCtx, "created_from")
 	if err != nil {
 		return "created_from"
@@ -632,7 +631,7 @@ func bindAuditCreatedRange(ginCtx *gin.Context, params *auditopenapi.GetAuditLog
 	return ""
 }
 
-func bindAuditSort(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParams, query *auditcore.ListQuery) string {
+func bindAuditSort(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParams, query *ListQuery) string {
 	rawValues := queryArrayCompat(ginCtx, "sort")
 	if len(rawValues) == 0 {
 		return ""
@@ -640,7 +639,7 @@ func bindAuditSort(ginCtx *gin.Context, params *auditopenapi.GetAuditLogsParams,
 
 	sorts := make([]string, 0, len(rawValues))
 	for _, raw := range rawValues {
-		field, order, ok := auditcore.ParseAuditSortExpressionForBinding(raw)
+		field, order, ok := ParseAuditSortExpressionForBinding(raw)
 		if !ok {
 			return "sort"
 		}
@@ -675,19 +674,6 @@ func parseOptionalIntQuery(ginCtx *gin.Context, key string) (int, bool, error) {
 
 func parseOptionalUint64Query(ginCtx *gin.Context, key string) (uint64, bool, error) {
 	raw := strings.TrimSpace(ginCtx.Query(key))
-	if raw == "" {
-		return 0, false, nil
-	}
-
-	value, err := strconv.ParseUint(raw, 10, 64)
-	if err != nil {
-		return 0, false, err
-	}
-	return value, true, nil
-}
-
-func parseOptionalUint64Param(ginCtx *gin.Context, key string) (uint64, bool, error) {
-	raw := strings.TrimSpace(ginCtx.Param(key))
 	if raw == "" {
 		return 0, false, nil
 	}

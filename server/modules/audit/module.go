@@ -11,7 +11,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
-	auditcore "graft/server/internal/audit"
 	"graft/server/internal/container"
 	"graft/server/internal/drilldown"
 	"graft/server/internal/eventbus"
@@ -26,7 +25,7 @@ import (
 // 该模块在 Register 阶段挂载请求级自动审计中间件、受权只读查询路由、
 // 菜单/权限声明，并订阅主动审计事件；当前不承载归档和分析逻辑。
 type Module struct {
-	recorder      *auditcore.Service
+	recorder      *Service
 	monitorBinder incidentMonitorEvidenceBinder
 }
 
@@ -34,7 +33,7 @@ const eventMetadataExtraFields = 3
 
 // NewModule 创建最小审计模块。
 func NewModule(repo auditstore.AuditRepository) (*Module, error) {
-	recorder, err := auditcore.NewService(repo)
+	recorder, err := NewService(repo)
 	if err != nil {
 		return nil, err
 	}
@@ -50,9 +49,9 @@ func NewModule(repo auditstore.AuditRepository) (*Module, error) {
 // NewModuleWithDrilldown creates the audit module with a drilldown-enabled read service.
 func NewModuleWithDrilldown(
 	repo auditstore.AuditRepository,
-	drilldownService *drilldown.Service[auditcore.ListQuery, auditcore.ListQuery],
+	drilldownService *drilldown.Service[ListQuery, ListQuery],
 ) (*Module, error) {
-	recorder, err := auditcore.NewServiceWithDrilldown(repo, drilldownService)
+	recorder, err := NewServiceWithDrilldown(repo, drilldownService)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +98,7 @@ func (p *Module) Register(ctx *module.Context) error {
 		payload, err := resolveAuditEventPayload(event.Payload)
 		if err != nil {
 			logger.Error("drop malformed audit event payload",
-				zap.String("plugin", moduleID),
+				zap.String("module", moduleID),
 				zap.String("event", moduleapi.AuditRecordEventName),
 				zap.Error(fmt.Errorf("unexpected audit event payload type %T", event.Payload)),
 			)
@@ -108,7 +107,7 @@ func (p *Module) Register(ctx *module.Context) error {
 
 		if err := recordEvent(eventCtx, logger, p.recorder, payload); err != nil {
 			logger.Error("write active audit log failed",
-				zap.String("plugin", moduleID),
+				zap.String("module", moduleID),
 				zap.String("event", moduleapi.AuditRecordEventName),
 				zap.String("action", strings.TrimSpace(payload.Action)),
 				zap.Error(err),
@@ -151,7 +150,7 @@ type incidentMonitorEvidenceBinder interface {
 	BindMonitorEvidence(moduleapi.MonitorIncidentEvidenceService)
 }
 
-func requestAuditMiddleware(logger *zap.Logger, recorder *auditcore.Service) gin.HandlerFunc {
+func requestAuditMiddleware(logger *zap.Logger, recorder *Service) gin.HandlerFunc {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
@@ -162,13 +161,13 @@ func requestAuditMiddleware(logger *zap.Logger, recorder *auditcore.Service) gin
 		candidate := requestAuditCandidate(ctx)
 		if _, recorded, err := recorder.RecordCandidate(ctx.Request.Context(), candidate); err != nil {
 			logger.Error("write request audit log failed",
-				zap.String("plugin", "audit"),
+				zap.String("module", moduleID),
 				zap.String("action", candidate.Action),
 				zap.Error(err),
 			)
 		} else if !recorded {
 			logger.Debug("skip request audit candidate by policy",
-				zap.String("plugin", moduleID),
+				zap.String("module", moduleID),
 				zap.String("method", candidate.RequestMethod),
 				zap.String("path", candidate.RequestPath),
 			)
@@ -176,7 +175,7 @@ func requestAuditMiddleware(logger *zap.Logger, recorder *auditcore.Service) gin
 	}
 }
 
-func recordEvent(ctx context.Context, logger *zap.Logger, recorder *auditcore.Service, payload moduleapi.AuditEvent) error {
+func recordEvent(ctx context.Context, logger *zap.Logger, recorder *Service, payload moduleapi.AuditEvent) error {
 	candidate := eventAuditCandidate(ctx, payload)
 	_, recorded, err := recorder.RecordCandidate(ctx, candidate)
 	if err != nil {
@@ -190,7 +189,7 @@ func recordEvent(ctx context.Context, logger *zap.Logger, recorder *auditcore.Se
 	}
 
 	logger.Warn("skip security audit candidate by policy",
-		zap.String("plugin", moduleID),
+		zap.String("module", moduleID),
 		zap.String("action", candidate.Action),
 		zap.String("eventType", candidate.EventType),
 		zap.String("path", candidate.RequestPath),
