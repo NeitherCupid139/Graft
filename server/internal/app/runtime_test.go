@@ -24,8 +24,8 @@ import (
 	"graft/server/internal/i18n"
 	"graft/server/internal/logger"
 	"graft/server/internal/menu"
+	"graft/server/internal/module"
 	"graft/server/internal/permission"
-	"graft/server/internal/plugin"
 	testent "graft/server/internal/testent"
 )
 
@@ -57,33 +57,33 @@ func (r *runtimeAccessLogRecorderRepo) GetAccessLogByID(context.Context, uint64)
 	return httpx.AccessLog{}, httpx.ErrAccessLogNotFound
 }
 
-type shutdownRecorderPlugin struct {
+type shutdownRecorderModule struct {
 	name        string
 	shutdownLog *[]string
 	err         error
 }
 
-func (p shutdownRecorderPlugin) Register(_ *plugin.Context) error { return nil }
+func (p shutdownRecorderModule) Register(_ *module.Context) error { return nil }
 
-func (p shutdownRecorderPlugin) Boot(_ *plugin.Context) error { return nil }
+func (p shutdownRecorderModule) Boot(_ *module.Context) error { return nil }
 
-func (p shutdownRecorderPlugin) Shutdown(_ *plugin.Context) error {
+func (p shutdownRecorderModule) Shutdown(_ *module.Context) error {
 	*p.shutdownLog = append(*p.shutdownLog, p.name)
 	return p.err
 }
 
-// TestShutdownPluginsUsesReverseOrder 验证插件关闭顺序与启动顺序相反，
+// TestShutdownModulesUsesReverseOrder 验证模块关闭顺序与启动顺序相反，
 // 以便后启动的依赖先完成资源释放。
-func TestShutdownPluginsUsesReverseOrder(t *testing.T) {
+func TestShutdownModulesUsesReverseOrder(t *testing.T) {
 	log := make([]string, 0, 3)
-	plugins := []plugin.Module{
-		mustDescribeRuntimeTestPlugin(plugin.ModuleSpec{ID: "user"}, shutdownRecorderPlugin{name: "user", shutdownLog: &log}),
-		mustDescribeRuntimeTestPlugin(plugin.ModuleSpec{ID: "rbac"}, shutdownRecorderPlugin{name: "rbac", shutdownLog: &log}),
-		mustDescribeRuntimeTestPlugin(plugin.ModuleSpec{ID: "audit"}, shutdownRecorderPlugin{name: "audit", shutdownLog: &log}),
+	modules := []module.RuntimeModule{
+		mustDescribeRuntimeTestModule(module.Spec{ID: "user"}, shutdownRecorderModule{name: "user", shutdownLog: &log}),
+		mustDescribeRuntimeTestModule(module.Spec{ID: "rbac"}, shutdownRecorderModule{name: "rbac", shutdownLog: &log}),
+		mustDescribeRuntimeTestModule(module.Spec{ID: "audit"}, shutdownRecorderModule{name: "audit", shutdownLog: &log}),
 	}
 
-	if err := shutdownPlugins(&plugin.Context{}, plugins); err != nil {
-		t.Fatalf("shutdown plugins: %v", err)
+	if err := shutdownModules(&module.Context{}, modules); err != nil {
+		t.Fatalf("shutdown modules: %v", err)
 	}
 
 	expected := []string{"audit", "rbac", "user"}
@@ -94,20 +94,20 @@ func TestShutdownPluginsUsesReverseOrder(t *testing.T) {
 	}
 }
 
-// TestShutdownPluginsAggregatesErrors 验证多个插件关闭失败时会聚合错误，
+// TestShutdownModulesAggregatesErrors 验证多个模块关闭失败时会聚合错误，
 // 避免后续失败被前一个失败覆盖。
 //
-// 这里直接构造返回固定错误的测试插件，目的是只锁定关闭聚合语义，
+// 这里直接构造返回固定错误的测试模块，目的是只锁定关闭聚合语义，
 // 不把断言耦合到 Register 或 Boot 的其它生命周期分支。
-func TestShutdownPluginsAggregatesErrors(t *testing.T) {
+func TestShutdownModulesAggregatesErrors(t *testing.T) {
 	userErr := errors.New("user failed")
 	rbacErr := errors.New("rbac failed")
-	plugins := []plugin.Module{
-		mustDescribeRuntimeTestPlugin(plugin.ModuleSpec{ID: "user"}, shutdownRecorderPlugin{name: "user", shutdownLog: &[]string{}, err: userErr}),
-		mustDescribeRuntimeTestPlugin(plugin.ModuleSpec{ID: "rbac"}, shutdownRecorderPlugin{name: "rbac", shutdownLog: &[]string{}, err: rbacErr}),
+	modules := []module.RuntimeModule{
+		mustDescribeRuntimeTestModule(module.Spec{ID: "user"}, shutdownRecorderModule{name: "user", shutdownLog: &[]string{}, err: userErr}),
+		mustDescribeRuntimeTestModule(module.Spec{ID: "rbac"}, shutdownRecorderModule{name: "rbac", shutdownLog: &[]string{}, err: rbacErr}),
 	}
 
-	err := shutdownPlugins(&plugin.Context{}, plugins)
+	err := shutdownModules(&module.Context{}, modules)
 	if err == nil {
 		t.Fatal("expected shutdown error")
 	}
@@ -119,41 +119,41 @@ func TestShutdownPluginsAggregatesErrors(t *testing.T) {
 	}
 }
 
-type eventBusRecorderPlugin struct {
+type eventBusRecorderModule struct {
 	registerEventBus eventbus.Bus
 	bootEventBus     eventbus.Bus
 }
 
-func (p *eventBusRecorderPlugin) Register(ctx *plugin.Context) error {
+func (p *eventBusRecorderModule) Register(ctx *module.Context) error {
 	p.registerEventBus = ctx.EventBus
 	return nil
 }
 
-func (p *eventBusRecorderPlugin) Boot(ctx *plugin.Context) error {
+func (p *eventBusRecorderModule) Boot(ctx *module.Context) error {
 	p.bootEventBus = ctx.EventBus
 	return nil
 }
 
-func (p *eventBusRecorderPlugin) Shutdown(_ *plugin.Context) error { return nil }
+func (p *eventBusRecorderModule) Shutdown(_ *module.Context) error { return nil }
 
-type lifecycleContextRecorderPlugin struct {
+type lifecycleContextRecorderModule struct {
 	registerLifecycleContext context.Context
 	bootLifecycleContext     context.Context
 	shutdownLifecycleContext context.Context
 	shutdownLifecycleErr     error
 }
 
-func (p *lifecycleContextRecorderPlugin) Register(ctx *plugin.Context) error {
+func (p *lifecycleContextRecorderModule) Register(ctx *module.Context) error {
 	p.registerLifecycleContext = ctx.LifecycleContext
 	return nil
 }
 
-func (p *lifecycleContextRecorderPlugin) Boot(ctx *plugin.Context) error {
+func (p *lifecycleContextRecorderModule) Boot(ctx *module.Context) error {
 	p.bootLifecycleContext = ctx.LifecycleContext
 	return nil
 }
 
-func (p *lifecycleContextRecorderPlugin) Shutdown(ctx *plugin.Context) error {
+func (p *lifecycleContextRecorderModule) Shutdown(ctx *module.Context) error {
 	p.shutdownLifecycleContext = ctx.LifecycleContext
 	if ctx.LifecycleContext != nil {
 		p.shutdownLifecycleErr = ctx.LifecycleContext.Err()
@@ -161,16 +161,16 @@ func (p *lifecycleContextRecorderPlugin) Shutdown(ctx *plugin.Context) error {
 	return nil
 }
 
-type i18nFreezeRecorderPlugin struct {
+type i18nFreezeRecorderModule struct {
 	registerFrozen  bool
 	bootFrozen      bool
 	bootRegisterErr error
 }
 
-func (p *i18nFreezeRecorderPlugin) Register(ctx *plugin.Context) error {
+func (p *i18nFreezeRecorderModule) Register(ctx *module.Context) error {
 	p.registerFrozen = ctx.I18n.IsFrozen()
 	return ctx.I18n.RegisterMessages(i18n.Registration{
-		Namespace: "test-plugin",
+		Namespace: "test-module",
 		Locale:    i18n.LocaleZHCN,
 		Messages: []i18n.MessageResource{
 			{Key: "boot.message", Text: "注册阶段文案"},
@@ -178,10 +178,10 @@ func (p *i18nFreezeRecorderPlugin) Register(ctx *plugin.Context) error {
 	})
 }
 
-func (p *i18nFreezeRecorderPlugin) Boot(ctx *plugin.Context) error {
+func (p *i18nFreezeRecorderModule) Boot(ctx *module.Context) error {
 	p.bootFrozen = ctx.I18n.IsFrozen()
 	p.bootRegisterErr = ctx.I18n.RegisterMessages(i18n.Registration{
-		Namespace: "test-plugin",
+		Namespace: "test-module",
 		Locale:    i18n.LocaleZHCN,
 		Messages: []i18n.MessageResource{
 			{Key: "late.message", Text: "启动阶段文案"},
@@ -190,20 +190,20 @@ func (p *i18nFreezeRecorderPlugin) Boot(ctx *plugin.Context) error {
 	return nil
 }
 
-func (p *i18nFreezeRecorderPlugin) Shutdown(_ *plugin.Context) error { return nil }
+func (p *i18nFreezeRecorderModule) Shutdown(_ *module.Context) error { return nil }
 
-func mustDescribeRuntimeTestPlugin(spec plugin.ModuleSpec, instance plugin.Plugin) plugin.Module {
-	module, err := plugin.ModuleSpec{
+func mustDescribeRuntimeTestModule(spec module.Spec, instance module.Module) module.RuntimeModule {
+	builtModule, err := module.Spec{
 		ID:           spec.ID,
 		Dependencies: append([]string(nil), spec.Dependencies...),
-		Builder: plugin.BuilderFunc(func(plugin.BuildContext) (plugin.Plugin, error) {
+		Builder: module.BuilderFunc(func(module.BuildContext) (module.Module, error) {
 			return instance, nil
 		}),
-	}.Build(plugin.BuildContext{})
+	}.Build(module.BuildContext{})
 	if err != nil {
 		panic(err)
 	}
-	return module
+	return builtModule
 }
 
 // TestRegisterCoreServicesExposesRuntimeSingletons 验证 core 装配会把配置、
@@ -373,15 +373,15 @@ func assertServiceKeyNotRegistered(t *testing.T, resolver container.Resolver, ke
 	}
 }
 
-// TestRunPassesEventBusIntoPluginContext 验证 Runtime 在 Register 与 Boot
-// 阶段向插件注入同一个事件总线实例，避免插件各自持有漂移的协作边界。
-func TestRunPassesEventBusIntoPluginContext(t *testing.T) {
+// TestRunPassesEventBusIntoModuleContext 验证 Runtime 在 Register 与 Boot
+// 阶段向模块注入同一个事件总线实例，避免模块各自持有漂移的协作边界。
+func TestRunPassesEventBusIntoModuleContext(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	recorder := &eventBusRecorderPlugin{}
-	manager := plugin.NewManager()
-	if err := manager.RegisterPlugin(mustDescribeRuntimeTestPlugin(plugin.ModuleSpec{ID: "eventbus-recorder"}, recorder)); err != nil {
-		t.Fatalf("register plugin: %v", err)
+	recorder := &eventBusRecorderModule{}
+	manager := module.NewManager()
+	if err := manager.RegisterModule(mustDescribeRuntimeTestModule(module.Spec{ID: "eventbus-recorder"}, recorder)); err != nil {
+		t.Fatalf("register module: %v", err)
 	}
 
 	runtimeEventBus := eventbus.New(zap.NewNop())
@@ -397,7 +397,7 @@ func TestRunPassesEventBusIntoPluginContext(t *testing.T) {
 		menuRegistry:       menu.NewRegistry(),
 		permissionRegistry: permission.NewRegistry(),
 		cronRegistry:       cronx.NewRegistry(),
-		pluginManager:      manager,
+		moduleManager:      manager,
 	}
 
 	runCtx, cancel := context.WithCancel(context.Background())
@@ -414,15 +414,15 @@ func TestRunPassesEventBusIntoPluginContext(t *testing.T) {
 	}
 }
 
-// TestRunPassesLifecycleContextIntoPluginPhases 验证 Runtime 会在插件生命周期内
+// TestRunPassesLifecycleContextIntoModulePhases 验证 Runtime 会在模块生命周期内
 // 注入显式上下文，并在 Shutdown 阶段切换到独立的有界关闭上下文。
-func TestRunPassesLifecycleContextIntoPluginPhases(t *testing.T) {
+func TestRunPassesLifecycleContextIntoModulePhases(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	recorder := &lifecycleContextRecorderPlugin{}
-	manager := plugin.NewManager()
-	if err := manager.RegisterPlugin(mustDescribeRuntimeTestPlugin(plugin.ModuleSpec{ID: "lifecycle-context-recorder"}, recorder)); err != nil {
-		t.Fatalf("register plugin: %v", err)
+	recorder := &lifecycleContextRecorderModule{}
+	manager := module.NewManager()
+	if err := manager.RegisterModule(mustDescribeRuntimeTestModule(module.Spec{ID: "lifecycle-context-recorder"}, recorder)); err != nil {
+		t.Fatalf("register module: %v", err)
 	}
 
 	runtime := &Runtime{
@@ -437,7 +437,7 @@ func TestRunPassesLifecycleContextIntoPluginPhases(t *testing.T) {
 		menuRegistry:       menu.NewRegistry(),
 		permissionRegistry: permission.NewRegistry(),
 		cronRegistry:       cronx.NewRegistry(),
-		pluginManager:      manager,
+		moduleManager:      manager,
 	}
 
 	runCtx, cancel := context.WithCancel(context.Background())
@@ -466,10 +466,10 @@ func TestRunPassesLifecycleContextIntoPluginPhases(t *testing.T) {
 func TestRunFreezesI18nRegistryAfterRegisterBeforeBoot(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	recorder := &i18nFreezeRecorderPlugin{}
-	manager := plugin.NewManager()
-	if err := manager.RegisterPlugin(mustDescribeRuntimeTestPlugin(plugin.ModuleSpec{ID: "i18n-freeze-recorder"}, recorder)); err != nil {
-		t.Fatalf("register plugin: %v", err)
+	recorder := &i18nFreezeRecorderModule{}
+	manager := module.NewManager()
+	if err := manager.RegisterModule(mustDescribeRuntimeTestModule(module.Spec{ID: "i18n-freeze-recorder"}, recorder)); err != nil {
+		t.Fatalf("register module: %v", err)
 	}
 
 	localizer := i18n.MustNew(config.I18nConfig{
@@ -489,7 +489,7 @@ func TestRunFreezesI18nRegistryAfterRegisterBeforeBoot(t *testing.T) {
 		menuRegistry:       menu.NewRegistry(),
 		permissionRegistry: permission.NewRegistry(),
 		cronRegistry:       cronx.NewRegistry(),
-		pluginManager:      manager,
+		moduleManager:      manager,
 	}
 
 	runCtx, cancel := context.WithCancel(context.Background())
@@ -509,7 +509,7 @@ func TestRunFreezesI18nRegistryAfterRegisterBeforeBoot(t *testing.T) {
 	}
 
 	message := localizer.Lookup(i18n.LookupRequest{
-		Namespace: "test-plugin",
+		Namespace: "test-module",
 		Locale:    i18n.LocaleZHCN,
 		Key:       "boot.message",
 	})

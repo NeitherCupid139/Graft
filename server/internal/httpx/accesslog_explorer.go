@@ -14,8 +14,8 @@ import (
 	"graft/server/internal/eventbus"
 	"graft/server/internal/i18n"
 	"graft/server/internal/menu"
+	"graft/server/internal/moduleapi"
 	"graft/server/internal/permission"
-	"graft/server/internal/pluginapi"
 )
 
 const (
@@ -25,7 +25,7 @@ const (
 	accessLogMenuListPath   = "/logs/access"
 	accessLogMenuCodeRoot   = "log-center.root"
 	accessLogMenuCodeList   = "access-log.list"
-	accessLogPluginOwner    = "core.httpx"
+	accessLogModuleOwner    = "core.httpx"
 	accessLogRouteGroup     = "/access-log"
 	accessLogRouteItemParam = "id"
 	accessLogMenuRootOrder  = 210
@@ -86,7 +86,7 @@ func registerAccessLogExplorerPermissions(registry *permission.Registry) {
 		Name:        "Read Access Logs",
 		Description: "Allows reading canonical access-log explorer data.",
 		Category:    "api",
-		Plugin:      accessLogPluginOwner,
+		Module:      accessLogModuleOwner,
 	})
 }
 
@@ -103,7 +103,7 @@ func registerAccessLogExplorerMenu(registry *menu.Registry) {
 		Icon:       "bulletpoint",
 		Order:      accessLogMenuRootOrder,
 		Permission: "",
-		Plugin:     accessLogPluginOwner,
+		Module:     accessLogModuleOwner,
 	})
 	registry.Register(menu.Item{
 		Code:       accessLogMenuCodeList,
@@ -113,7 +113,7 @@ func registerAccessLogExplorerMenu(registry *menu.Registry) {
 		Icon:       "search",
 		Order:      accessLogMenuListOrder,
 		Permission: AccessLogReadPermission,
-		Plugin:     accessLogPluginOwner,
+		Module:     accessLogModuleOwner,
 	})
 }
 
@@ -121,15 +121,15 @@ func registerAccessLogExplorerRoutes(
 	router gin.IRouter,
 	localizer *i18n.Service,
 	repo AccessLogRepository,
-	authService pluginapi.AuthService,
-	authorizer pluginapi.Authorizer,
+	authService moduleapi.AuthService,
+	authorizer moduleapi.Authorizer,
 	bus eventbus.Bus,
 ) {
 	if router == nil || repo == nil || authService == nil {
 		return
 	}
 
-	publisher := NewSecurityAuditPublisher(bus, nil, accessLogPluginOwner)
+	publisher := NewSecurityAuditPublisher(bus, nil, accessLogModuleOwner)
 
 	guard := accessLogReadGuard{
 		read: RequirePermission(localizer, authService, authorizer, AccessLogReadPermission, publisher),
@@ -144,8 +144,8 @@ func RegisterAccessLogExplorer(
 	ctx AccessLogExplorerRegistration,
 	router gin.IRouter,
 	repo AccessLogRepository,
-	authService pluginapi.AuthService,
-	authorizer pluginapi.Authorizer,
+	authService moduleapi.AuthService,
+	authorizer moduleapi.Authorizer,
 ) error {
 	if err := registerAccessLogExplorerMessages(ctx.I18n); err != nil {
 		return err

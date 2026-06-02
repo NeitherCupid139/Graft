@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
-	"graft/server/internal/pluginapi"
+	"graft/server/internal/moduleapi"
 )
 
 type stubAccessLogRepository struct {
@@ -209,8 +209,8 @@ func runAuthenticatedAccessLogMiddlewareRequest(t *testing.T) (*stubAccessLogRep
 	server := NewServer(zap.NewNop(), repo)
 
 	server.Engine().Use(func(ctx *gin.Context) {
-		ctx.Request = ctx.Request.WithContext(pluginapi.WithRequestAuthContext(ctx.Request.Context(), pluginapi.RequestAuthContext{
-			User: &pluginapi.CurrentUser{ID: 7, Username: "alice"},
+		ctx.Request = ctx.Request.WithContext(moduleapi.WithRequestAuthContext(ctx.Request.Context(), moduleapi.RequestAuthContext{
+			User: &moduleapi.CurrentUser{ID: 7, Username: "alice"},
 		}))
 		ctx.Next()
 	})

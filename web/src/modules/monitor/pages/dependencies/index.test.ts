@@ -32,7 +32,7 @@ const translations = vi.hoisted(
     'monitor.serverStatus.nextRefreshRetryIn': 'Retry in {seconds}s · base interval {interval}',
     'monitor.dependenciesPage.title': 'Dependencies',
     'monitor.dependenciesPage.subtitle':
-      'Review health signals for PostgreSQL, Redis, and future plugin-owned dependency checks.',
+      'Review health signals for PostgreSQL, Redis, and future module-owned dependency checks.',
     'monitor.dependenciesPage.noteTitle': 'Dependency health scope',
     'monitor.dependenciesPage.noteDescription':
       'The current page reflects the latest aggregated snapshot. Additional services can show their own health checks here as they become available.',
@@ -42,11 +42,11 @@ const translations = vi.hoisted(
     'monitor.dependenciesPage.statusUnknown': 'Unknown',
     'monitor.dependenciesPage.postgresqlSubtitle': 'Primary relational database health',
     'monitor.dependenciesPage.redisSubtitle': 'Cache and lightweight KV health',
-    'monitor.dependenciesPage.futureEntryTitle': 'Plugin dependency extension',
-    'monitor.dependenciesPage.futureEntrySubtitle': 'Reserved for plugin-owned health probes',
+    'monitor.dependenciesPage.futureEntryTitle': 'Module dependency extension',
+    'monitor.dependenciesPage.futureEntrySubtitle': 'Reserved for module-owned health probes',
     'monitor.dependenciesPage.futureEntryLabel': 'Reserved entry',
     'monitor.dependenciesPage.futureEntryHint':
-      'Future plugins can plug their own dependency checks in here without further menu restructuring.',
+      'Future modules can plug their own dependency checks in here without further menu restructuring.',
     'monitor.dependenciesPage.futureEntryDescription':
       'This card will show new dependency checks when they are available.',
     'monitor.dependenciesPage.noError': 'No current error',
@@ -205,8 +205,8 @@ function createResponse() {
       degraded_dependencies: 0,
       unknown_dependencies: 0,
       disabled_dependencies: 1,
-      total_plugins: 5,
-      healthy_plugins: 4,
+      total_modules: 5,
+      healthy_modules: 4,
     },
     trend: {
       range: '10m',
@@ -214,7 +214,7 @@ function createResponse() {
       sample_interval_seconds: 5,
       points: [],
     },
-    plugins: [],
+    modules: [],
   };
 }
 
@@ -246,7 +246,7 @@ describe('monitor dependencies page', () => {
     expect(wrapper.text()).toContain('Refresh cadence');
     expect(wrapper.text()).toContain('Every 5 sec');
     expect(wrapper.text()).toContain('Pause auto refresh');
-    expect(wrapper.text()).toContain('Plugin dependency extension');
+    expect(wrapper.text()).toContain('Module dependency extension');
     expect(wrapper.text()).toContain('Redis client is not configured');
     expect(wrapper.text()).toContain(expectedTime);
     expect(wrapper.text()).toContain(expectedDate);

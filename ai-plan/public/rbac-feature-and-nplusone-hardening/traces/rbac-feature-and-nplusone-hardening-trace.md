@@ -15,7 +15,7 @@
 ## 2026-05-26 user-list role summary N+1 removed
 
 - Extended `GET /api/users` list items with minimal embedded `roles` summaries instead of keeping role summaries as a row-level follow-up read.
-- Added a stable RBAC cross-plugin capability for batch role summaries by user IDs so `user` continues to depend on a documented capability boundary instead of RBAC repository internals.
+- Added a stable RBAC cross-module capability for batch role summaries by user IDs so `user` continues to depend on a documented capability boundary instead of RBAC repository internals.
 - Implemented backend batch role loading with one SQL query over the current user ID set; no per-user role read loop was introduced on the backend.
 - Updated the user list page to consume `row.roles` directly for rendering and filtering.
 - Kept `GET /api/users/{id}/roles` in place for the single-user role drawer path only.
@@ -31,7 +31,7 @@
     - `ai-plan/public/rbac-further-development/traces/rbac-further-development-trace.md`
   - branch: `feat/wt-rbac-further-development`
   - worktree status at start: clean
-- Read the active RBAC plugin, user-role consumer surface, runtime/plugin registry, OpenAPI paths, generated type
+- Read the active RBAC module, user-role consumer surface, runtime/module registry, OpenAPI paths, generated type
   consumption boundaries, frontend RBAC module, frontend user-role UI, bootstrap route wiring, and permission store.
 - Confirmed the currently implemented RBAC management surface:
   - `GET /api/roles`
@@ -43,7 +43,7 @@
   - `GET /api/users/{id}/roles`
   - `POST /api/users/{id}/roles/assign`
 - Confirmed the intentional current governance stance that permission management remains read-only because permission
-  metadata is still canonical in plugin registration / permission registry rather than admin-side CRUD.
+  metadata is still canonical in module registration / permission registry rather than admin-side CRUD.
 - Confirmed the main practical N+1 risk is in `web/src/modules/user/pages/index.vue`, where the user list role summary
   performs one `getUserRoleBindings(user.id)` call per visible user row via `Promise.allSettled(...)`.
 - Confirmed the main backend RBAC repository reads are mostly single-query reads with SQL-level aggregate subqueries,

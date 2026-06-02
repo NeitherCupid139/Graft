@@ -62,7 +62,7 @@ Decision:
 
 - moved `access_logs` live migration authority to `server/internal/httpx/migrations/202605300001_access_log_foundation.sql`
 - kept `server/internal/ent/migrate/migrations/**` as archived/manual-only historical replay
-- updated the default migrate registry so `graft migrate up` synthesizes `internal/httpx/migrations` together with live plugin-owned migration directories
+- updated the default migrate registry so `graft migrate up` synthesizes `internal/httpx/migrations` together with live module-owned migration directories
 - schema remains limited to canonical fields from `Access-Log-Authority-Contract.md`
 
 ## Wiring Decision
@@ -74,7 +74,7 @@ Decision:
 ## Migration-Chain Status
 
 - `server/internal/pluginregistry` now treats `server/internal/httpx/migrations/**` as a live core-owned default migration directory.
-- `graft migrate up`, `graft dev`, and `graft validate smoke` continue to use the same repository-default migration path, but that path now synthesizes `internal/httpx/migrations` before plugin-owned migration directories.
+- `graft migrate up`, `graft dev`, and `graft validate smoke` continue to use the same repository-default migration path, but that path now synthesizes `internal/httpx/migrations` before module-owned migration directories.
 - `server/internal/ent/migrate/migrations/**` is still available for explicit/manual replay only and no longer holds the live `access_logs` baseline.
 - Therefore fresh environments can receive `access_logs` through the repository-default migrate-up path without introducing a parallel migration runner.
 
@@ -95,8 +95,8 @@ This round validated:
 
 Fresh-environment migrate-up evidence:
 
-- `server/internal/pluginregistry/registry_test.go` now asserts the default chain includes `internal/httpx/migrations` ahead of plugin-owned directories.
-- `server/internal/cli/migrate_test.go` now asserts `resolveMigrationDirs(default)` returns the core-owned access-log migration dir and that `runMigrateUp` synthesizes a single Atlas directory containing the `access_logs` migration plus plugin-owned migrations.
+- `server/internal/pluginregistry/registry_test.go` now asserts the default chain includes `internal/httpx/migrations` ahead of module-owned directories.
+- `server/internal/cli/migrate_test.go` now asserts `resolveMigrationDirs(default)` returns the core-owned access-log migration dir and that `runMigrateUp` synthesizes a single Atlas directory containing the `access_logs` migration plus module-owned migrations.
 
 This round still cannot truthfully claim:
 

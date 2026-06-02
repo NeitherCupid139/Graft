@@ -14,7 +14,7 @@ import (
 // Event 描述一次进程内事件发布的稳定载荷外壳。
 //
 // 事件名用于订阅匹配；Source 仅用于日志和诊断；Payload 保持开放，
-// 以便当前阶段由发布方在插件边界内定义具体 DTO。
+// 以便当前阶段由发布方在模块边界内定义具体 DTO。
 type Event struct {
 	Name       string
 	Source     string
@@ -28,7 +28,7 @@ type Event struct {
 // 由订阅方在自己的边界内显式转交后台任务，而不是阻塞整个发布链路。
 type Handler func(ctx context.Context, event Event) error
 
-// Bus 定义插件可依赖的最小事件总线能力。
+// Bus 定义模块可依赖的最小事件总线能力。
 //
 // 这个接口只提供订阅和发布语义，不隐藏调度策略，也不引入取消订阅、
 // 重试队列或消息持久化等当前阶段尚未需要的行为。

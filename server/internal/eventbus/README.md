@@ -10,7 +10,7 @@
 
 * 提供显式 `Subscribe / Publish` 能力
 * 在单个处理器失败或 panic 时记录错误并继续其余处理器
-* 作为 `Runtime` 注入给插件的核心基础设施句柄
+* 作为 `Runtime` 注入给模块的核心基础设施句柄
 
 这个模块不负责：
 
@@ -27,9 +27,9 @@
 ## 关键依赖
 
 * 上游由 `server/internal/app` 创建并注入
-* 下游供 `server/plugins/*` 在 `Register` / `Boot` 生命周期中发布和订阅事件
+* 下游供 `server/modules/*` 在 `Register` / `Boot` 生命周期中发布和订阅事件
 
 ## 维护提示
 
-如果未来需求开始依赖重试、持久化或跨进程语义，应先更新 `ai-plan/design/插件与依赖注入设计.md`
+如果未来需求开始依赖重试、持久化或跨进程语义，应先更新 `ai-plan/design/模块与依赖注入设计.md`
 与 `ai-plan/roadmap/MVP实施计划.md`，再决定是否扩展当前接口或引入新的实现层。

@@ -61,8 +61,8 @@ ALWAYS_INCLUDE_FILES = {
     "web/src/router/index.ts",
     "server/internal/httpx/response.go",
     "server/internal/i18n/service.go",
-    "server/internal/pluginapi/audit.go",
-    "server/plugins/user/plugin_routes.go",
+    "server/internal/moduleapi/audit.go",
+    "server/modules/user/module.go",
 }
 
 HEADER_NAMES = {
@@ -417,7 +417,7 @@ def read_file(path: str) -> str:
 def is_definition_context(path: str, line_text: str, value: str) -> bool:
     if path.startswith("server/internal/contract/"):
         return True
-    if path.startswith("server/plugins/") and "/contract/" in path:
+    if path.startswith("server/modules/") and "/contract/" in path:
         return True
     if path.startswith("web/src/contracts/"):
         return True
@@ -435,7 +435,7 @@ def is_definition_context(path: str, line_text: str, value: str) -> bool:
         return True
     if path == "server/internal/httpx/response.go" and "httpheader." in line_text:
         return True
-    if path == "server/internal/pluginapi/audit.go" and "AuditRecordEventName" in line_text:
+    if path == "server/internal/moduleapi/audit.go" and "AuditRecordEventName" in line_text:
         return True
     return False
 
@@ -788,10 +788,10 @@ def drift_candidates() -> list[Finding]:
 def find_orphan_candidates(files: Iterable[str]) -> list[Finding]:
     findings: list[Finding] = []
     definitions = {
-        "audit.record": "server/internal/pluginapi/audit.go",
-        "user.read": "server/plugins/user/contract/permission.go",
-        "user.session.read": "server/plugins/user/contract/permission.go",
-        "user.session.revoke": "server/plugins/user/contract/permission.go",
+        "audit.record": "server/internal/moduleapi/audit.go",
+        "user.read": "server/modules/user/contract/permission.go",
+        "user.session.read": "server/modules/user/contract/permission.go",
+        "user.session.revoke": "server/modules/user/contract/permission.go",
     }
 
     repo_text_cache: dict[str, str] = {}

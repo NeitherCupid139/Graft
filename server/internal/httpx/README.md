@@ -16,7 +16,7 @@
 这个模块不负责：
 
 * 具体业务路由逻辑
-* 最终版认证与 RBAC 插件实现
+* 最终版认证与 RBAC 模块实现
 * 用前端路由元数据替代后端访问控制
 * 审计保留期、归档、导出或 retention UI
 
@@ -30,8 +30,8 @@
 ## 关键依赖
 
 * 上游由 `server/internal/app` 装配并驱动
-* 下游供业务插件注册路由并叠加权限约束
+* 下游供业务模块注册路由并叠加权限约束
 
 ## 维护提示
 
-这里当前通过 `pluginapi.AuthService` 与 `pluginapi.Authorizer` 解析 bearer token、构造请求鉴权上下文并执行后端权限校验。后续继续扩展登录与 refresh 能力时，应保留“后端显式校验权限”的原则，而不是退回只依赖前端菜单或路由元数据。
+这里当前通过 `moduleapi.AuthService` 与 `moduleapi.Authorizer` 解析 bearer token、构造请求鉴权上下文并执行后端权限校验。后续继续扩展登录与 refresh 能力时，应保留“后端显式校验权限”的原则，而不是退回只依赖前端菜单或路由元数据。

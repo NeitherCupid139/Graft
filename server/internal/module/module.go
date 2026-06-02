@@ -1,0 +1,471 @@
+// Package module 定义运行时模块契约与生命周期管理能力。
+package module
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"sort"
+	"strings"
+
+	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
+
+	"graft/server/internal/config"
+	"graft/server/internal/container"
+	"graft/server/internal/cronx"
+	"graft/server/internal/eventbus"
+	"graft/server/internal/i18n"
+	"graft/server/internal/menu"
+	"graft/server/internal/permission"
+)
+
+// Module 定义所有后端模块都必须实现的稳定生命周期契约。
+//
+// 调用方可以依赖 Register -> Boot -> Shutdown 的整体顺序；当 Register
+// 或 Boot 失败时，运行时会中止后续阶段，并按已成功启动的范围执行清理。
+type Module interface {
+	// Register 负责声明路由、权限、菜单、任务和公开服务。
+	//
+	// Register 不应启动长期后台行为；失败会阻止后续模块继续注册或启动。
+	Register(ctx *Context) error
+	// Boot 在所有模块完成注册后启动运行时行为。
+	//
+	// Boot 可以依赖所有已注册模块暴露的稳定能力；失败时调用方会关闭
+	// 之前已经成功启动的模块。
+	Boot(ctx *Context) error
+	// Shutdown 在停止阶段释放模块资源，调用顺序与启动顺序相反。
+	//
+	// Shutdown 应尽最大努力释放资源并返回错误，而不是假设失败后可以跳过
+	// 其余清理动作。
+	Shutdown(ctx *Context) error
+}
+
+// RuntimeModule 暴露 compile-time 模块元数据与运行时生命周期的组合视图。
+//
+// core runtime 只通过这个包装后的稳定表面感知模块身份和依赖，避免要求
+// 业务模块实例再维护第二份会漂移的 Name / DependsOn authority。
+type RuntimeModule interface {
+	Module
+	Name() string
+	DependsOn() []string
+}
+
+// Builder 定义 compile-time 模块描述符到运行时模块实例的显式构造边界。
+//
+// Builder 当前只负责构造模块实例；后续 capability 或模块私有依赖装配
+// 可以继续沿这条边界扩展，而不把共享接线重新塞回中心化 CLI 文件。
+type Builder interface {
+	Build(BuildContext) (Module, error)
+}
+
+// BuildContext 暴露模块构造阶段允许消费的最小 core 资源。
+//
+// 它只服务于 compile-time builder wiring，不进入模块运行时热路径。
+// 这里保留显式服务解析边界，避免 builder 重新拿回泛化的业务仓储工厂入口。
+type BuildContext struct {
+	Services *container.Container
+}
+
+// BuilderFunc 允许用普通函数实现 Builder。
+type BuilderFunc func(BuildContext) (Module, error)
+
+// Build 执行函数式 Builder。
+func (f BuilderFunc) Build(ctx BuildContext) (Module, error) {
+	if f == nil {
+		return nil, errors.New("module builder is required")
+	}
+
+	return f(ctx)
+}
+
+// ResolveService 解析一个 builder 或模块生命周期允许消费的显式单例服务。
+func ResolveService[T any](resolver container.Resolver, key any) (T, error) {
+	var zero T
+	if resolver == nil {
+		return zero, errors.New("service resolver is required")
+	}
+
+	resolvedAny, err := resolver.Resolve(key)
+	if err != nil {
+		return zero, err
+	}
+
+	resolved, ok := resolvedAny.(T)
+	if !ok {
+		return zero, fmt.Errorf("resolved service %T has unexpected type %T", key, resolvedAny)
+	}
+
+	return resolved, nil
+}
+
+// Spec 定义 compile-time 模块元数据与运行时构造入口。
+//
+// Spec 是生成式 module registry 的稳定输入。它收敛模块名、版本、
+// 依赖与迁移目录等最小元数据，并把真正的运行时实例化动作交给 Builder。
+type Spec struct {
+	ID            string
+	Dependencies  []string
+	MigrationPath []string
+	Builder       Builder
+}
+
+// Name 返回模块定义的稳定模块标识。
+func (d Spec) Name() string {
+	return strings.TrimSpace(d.ID)
+}
+
+// DependsOn 返回模块定义声明的模块依赖列表。
+func (d Spec) DependsOn() []string {
+	return trimStringsPreserveDuplicates(d.Dependencies)
+}
+
+// MigrationDirs 返回模块定义声明的模块自有迁移目录。
+func (d Spec) MigrationDirs() []string {
+	return trimNonEmptyStrings(d.MigrationPath)
+}
+
+// Validate 校验模块定义的最小 compile-time 元数据完整性。
+func (d Spec) Validate() error {
+	if d.Name() == "" {
+		return errors.New("module spec name is required")
+	}
+	if d.Builder == nil {
+		return fmt.Errorf("module spec %s builder is required", d.Name())
+	}
+	if _, err := normalizeDependencies(d.Name(), d.DependsOn()); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Build 根据模块定义构造一个运行时模块实例，并校验运行时元数据没有偏离
+// compile-time 模块定义的 canonical truth。
+func (d Spec) Build(ctx BuildContext) (RuntimeModule, error) {
+	if err := d.Validate(); err != nil {
+		return nil, err
+	}
+
+	built, err := d.Builder.Build(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("build module %s: %w", d.Name(), err)
+	}
+	if built == nil {
+		return nil, fmt.Errorf("build module %s: builder returned nil module", d.Name())
+	}
+
+	return NewModule(d, built), nil
+}
+
+// NewModule 使用 compile-time 模块定义包装一个运行时模块实例。
+func NewModule(spec Spec, instance Module) RuntimeModule {
+	return describedModule{moduleSpec: spec, delegate: instance}
+}
+
+// Context 向模块暴露允许使用的显式运行时句柄。
+//
+// 这里聚合的是模块生命周期真正需要的核心能力，目的是让模块通过稳定
+// 边界接入平台，而不是直接触碰 core 内部实现细节。
+//
+// Context 只承载运行时注入的公共能力，不应被模块长期持有并在生命周期
+// 之外当作隐式全局变量使用。
+type Context struct {
+	// LifecycleContext 提供当前模块生命周期阶段可依赖的上下文。
+	//
+	// Register / Boot 阶段复用 Runtime 的 runCtx；Shutdown 阶段会切换为
+	// 独立的有界关闭上下文，避免 runCtx 已取消后模块失去必要的优雅收敛窗口。
+	LifecycleContext context.Context
+	Config           *config.Config
+	// Logger 提供模块生命周期内统一的结构化日志句柄，模块应复用它记录
+	// 运行状态与诊断信息，而不是各自构造分散的日志实例。
+	Logger *zap.Logger
+	// I18n 提供平台级 locale 解析与消息查找能力，模块应通过它输出稳定的
+	// 本地化错误响应，而不是维护各自独立的文案回退规则。
+	I18n *i18n.Service
+	// EventBus 提供模块间使用的最小进程内事件发布与订阅能力。
+	//
+	// 模块应只依赖显式 Subscribe / Publish 语义，不应假设存在消息持久化、
+	// 重试队列或异步工作流编排等当前阶段并未提供的行为。
+	EventBus           eventbus.Bus
+	Redis              *redis.Client
+	Router             gin.IRouter
+	Services           *container.Container
+	RuntimeMetadata    RuntimeMetadata
+	MenuRegistry       *menu.Registry
+	PermissionRegistry *permission.Registry
+	CronRegistry       *cronx.Registry
+}
+
+// Manager 负责维护模块集合并按依赖关系排序。
+//
+// Manager 不拥有模块的业务状态；它只维护生命周期顺序与注册约束，是
+// Runtime 和模块实现之间的调度边界。
+type Manager struct {
+	modules []RuntimeModule
+}
+
+// NewManager 创建一个空的模块管理器。
+func NewManager() *Manager {
+	return &Manager{modules: make([]RuntimeModule, 0)}
+}
+
+// RegisterModule 在运行时启动前向管理器注册一个模块。
+//
+// 当模块为 nil 或名称重复时返回错误，避免排序阶段出现不可恢复的歧义。
+func (m *Manager) RegisterModule(current RuntimeModule) error {
+	if current == nil {
+		return errors.New("module is required")
+	}
+
+	for _, existing := range m.modules {
+		if existing.Name() == current.Name() {
+			return fmt.Errorf("module already registered: %s", current.Name())
+		}
+	}
+
+	m.modules = append(m.modules, current)
+	return nil
+}
+
+// Ordered 按声明的依赖关系返回模块启动顺序。
+//
+// 这里使用显式拓扑排序而不是隐式注册顺序，避免模块接入规模增加后因为
+// 注册位置变化而打破稳定的启动语义。
+//
+// 排序失败时会返回缺失依赖或依赖环错误，调用方不应在错误场景下继续
+// 执行模块生命周期。
+func (m *Manager) Ordered() ([]RuntimeModule, error) {
+	ordered, err := orderRuntimeModules(m.modules)
+	if err != nil {
+		return nil, err
+	}
+
+	cloned := make([]RuntimeModule, len(ordered))
+	copy(cloned, ordered)
+	return cloned, nil
+}
+
+// OrderSpecs 按模块依赖关系返回稳定排序后的模块定义集合。
+//
+// 这条排序规则既服务于 compile-time generated registry，也服务于后续
+// migration 目录展开，避免不同调用方各自维护第二份模块顺序语义。
+func OrderSpecs(specs []Spec) ([]Spec, error) {
+	normalized := make([]Spec, 0, len(specs))
+	for _, spec := range specs {
+		cloned := spec
+		cloned.Dependencies = append([]string(nil), spec.Dependencies...)
+		cloned.MigrationPath = append([]string(nil), spec.MigrationPath...)
+		if err := cloned.Validate(); err != nil {
+			return nil, err
+		}
+
+		normalized = append(normalized, cloned)
+	}
+
+	orderedNames, err := orderByDependencies(specNames(normalized), func(name string) ([]string, error) {
+		for _, spec := range normalized {
+			if spec.Name() == name {
+				return normalizeDependencies(spec.Name(), spec.DependsOn())
+			}
+		}
+
+		return nil, fmt.Errorf("module %s not found", name)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	index := make(map[string]Spec, len(normalized))
+	for _, spec := range normalized {
+		index[spec.Name()] = spec
+	}
+
+	ordered := make([]Spec, 0, len(orderedNames))
+	for _, name := range orderedNames {
+		ordered = append(ordered, index[name])
+	}
+
+	return ordered, nil
+}
+
+func orderRuntimeModules(modules []RuntimeModule) ([]RuntimeModule, error) {
+	index := make(map[string]RuntimeModule, len(modules))
+	names := make([]string, 0, len(modules))
+	for _, current := range modules {
+		if current == nil {
+			return nil, errors.New("module is required")
+		}
+
+		name := strings.TrimSpace(current.Name())
+		if name == "" {
+			return nil, errors.New("module name is required")
+		}
+		if _, exists := index[name]; exists {
+			return nil, fmt.Errorf("module already registered: %s", name)
+		}
+
+		index[name] = current
+		names = append(names, name)
+	}
+
+	orderedNames, err := orderByDependencies(names, func(name string) ([]string, error) {
+		current := index[name]
+		return normalizeDependencies(name, current.DependsOn())
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	ordered := make([]RuntimeModule, 0, len(orderedNames))
+	for _, name := range orderedNames {
+		ordered = append(ordered, index[name])
+	}
+
+	return ordered, nil
+}
+
+func orderByDependencies(names []string, resolveDeps func(name string) ([]string, error)) ([]string, error) {
+	sortedNames := append([]string(nil), names...)
+	sort.Strings(sortedNames)
+
+	inDegree, reverseEdges, err := buildDependencyGraph(sortedNames, resolveDeps)
+	if err != nil {
+		return nil, err
+	}
+
+	ready := zeroInDegreeNames(sortedNames, inDegree)
+
+	ordered := make([]string, 0, len(sortedNames))
+	for len(ready) > 0 {
+		current := ready[0]
+		ready = ready[1:]
+		ordered = append(ordered, current)
+
+		dependents := reverseEdges[current]
+		sort.Strings(dependents)
+		for _, dependent := range dependents {
+			inDegree[dependent]--
+			if inDegree[dependent] == 0 {
+				ready = append(ready, dependent)
+			}
+		}
+		sort.Strings(ready)
+	}
+
+	if len(ordered) != len(sortedNames) {
+		return nil, errors.New("module dependency cycle detected")
+	}
+
+	return ordered, nil
+}
+
+func buildDependencyGraph(
+	sortedNames []string,
+	resolveDeps func(name string) ([]string, error),
+) (map[string]int, map[string][]string, error) {
+	inDegree := make(map[string]int, len(sortedNames))
+	reverseEdges := make(map[string][]string, len(sortedNames))
+	for _, name := range sortedNames {
+		inDegree[name] = 0
+		reverseEdges[name] = make([]string, 0)
+	}
+
+	for _, name := range sortedNames {
+		deps, err := resolveDeps(name)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		for _, dependency := range deps {
+			if _, exists := inDegree[dependency]; !exists {
+				return nil, nil, fmt.Errorf("module %s depends on missing module %s", name, dependency)
+			}
+
+			inDegree[name]++
+			reverseEdges[dependency] = append(reverseEdges[dependency], name)
+		}
+	}
+
+	return inDegree, reverseEdges, nil
+}
+
+func zeroInDegreeNames(sortedNames []string, inDegree map[string]int) []string {
+	ready := make([]string, 0, len(sortedNames))
+	for _, name := range sortedNames {
+		if inDegree[name] == 0 {
+			ready = append(ready, name)
+		}
+	}
+	sort.Strings(ready)
+	return ready
+}
+
+func normalizeDependencies(name string, deps []string) ([]string, error) {
+	normalized := trimNonEmptyStrings(deps)
+	for _, dep := range normalized {
+		if dep == name {
+			return nil, fmt.Errorf("module %s depends on itself", name)
+		}
+	}
+
+	return normalized, nil
+}
+
+func specNames(specs []Spec) []string {
+	names := make([]string, 0, len(specs))
+	for _, spec := range specs {
+		names = append(names, spec.Name())
+	}
+
+	return names
+}
+
+func trimNonEmptyStrings(values []string) []string {
+	trimmed := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+
+		trimmed = append(trimmed, value)
+	}
+
+	return trimmed
+}
+
+func trimStringsPreserveDuplicates(values []string) []string {
+	trimmed := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed = append(trimmed, strings.TrimSpace(value))
+	}
+
+	return trimmed
+}
+
+type describedModule struct {
+	moduleSpec Spec
+	delegate   Module
+}
+
+func (d describedModule) Name() string {
+	return d.moduleSpec.Name()
+}
+
+func (d describedModule) DependsOn() []string {
+	return d.moduleSpec.DependsOn()
+}
+
+func (d describedModule) Register(ctx *Context) error {
+	return d.delegate.Register(ctx)
+}
+
+func (d describedModule) Boot(ctx *Context) error {
+	return d.delegate.Boot(ctx)
+}
+
+func (d describedModule) Shutdown(ctx *Context) error {
+	return d.delegate.Shutdown(ctx)
+}

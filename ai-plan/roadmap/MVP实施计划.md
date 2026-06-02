@@ -6,17 +6,17 @@
 
 **后端补齐 MVP 闭环 + 前端收敛真实契约**
 
-目标不是扩展平台能力面，而是在当前已有 `Runtime`、插件系统、CLI、Ent + Atlas、Redis/PostgreSQL、
+目标不是扩展平台能力面，而是在当前已有 `Runtime`、模块系统、CLI、Ent + Atlas、Redis/PostgreSQL、
 `menu / permission / cron registry`、`user` 与 `rbac` 最小实现的基础上，补齐后端最小闭环，并让 `web`
 围绕真实后端契约完成壳层收敛。
 
 当前阶段完成标准：
 
 * 平台可以稳定启动
-* 插件可以注册并按依赖顺序运行
+* 模块可以注册并按依赖顺序运行
 * `auth + user + rbac + audit + scheduler` 形成最小后端闭环
 * 前端可以接通真实登录、刷新、当前用户、菜单、路由、权限链路
-* 插件式扩展路径已经稳定，且没有为了赶功能而破坏边界
+* 模块化扩展路径已经稳定，且没有为了赶功能而破坏边界
 
 ---
 
@@ -26,9 +26,9 @@
 
 * 核心运行时与显式 CLI
 * 轻量 DI / 服务注册
-* `auth` 插件最小认证与会话生命周期能力
-* `user` 插件最小用户资料与用户管理能力
-* `rbac` 插件最小授权能力
+* `auth` 模块最小认证与会话生命周期能力
+* `user` 模块最小用户资料与用户管理能力
+* `rbac` 模块最小授权能力
 * 最小进程内 `event bus`
 * 审计日志最小版
 * 定时任务最小版
@@ -36,7 +36,7 @@
 
 ### 不包含
 
-* 运维类插件
+* 运维类模块
 * 第三方插件分发
 * 热插拔
 * 复杂工作流
@@ -59,7 +59,7 @@
 * `database`
 * `http`
 * `container`
-* `plugin manager`
+* `module manager`
 * Ent baseline and repository / store factory boundary
 * `menu registry`
 * `permission registry`
@@ -81,7 +81,7 @@
 验收：
 
 * `Runtime` 统一注入 `event bus`
-* 插件可以通过依赖注入获取 `event bus`
+* 模块可以通过依赖注入获取 `event bus`
 * `audit` 同时支持 HTTP middleware 自动审计与 event bus 主动审计
 * `scheduler` 通过仓库内封装接口运行，而不是让业务直接依赖 `robfig/cron`
 
@@ -119,22 +119,22 @@
   * 同步或简单异步派发
   * handler panic recover
   * 错误日志记录
-* 目标是插件解耦，不是分布式消息系统
+* 目标是模块解耦，不是分布式消息系统
 * 不引入 Kafka、RabbitMQ、NATS 等 MQ
 * 设计必须避免与未来 MQ 替换路径形成强耦合
 * `Runtime` 启动时统一注入 event bus
-* 插件通过依赖注入获取 event bus
+* 模块通过依赖注入获取 event bus
 
 推荐边界：
 
 * 公开接口只表达事件发布与订阅
 * 不提前暴露 ack、retry、dead-letter、partition、consumer-group 等分布式语义
-* handler 注册属于插件 `Register` 阶段
-* bus 生命周期由 `Runtime` 持有，插件只消费其稳定接口
+* handler 注册属于模块 `Register` 阶段
+* bus 生命周期由 `Runtime` 持有，模块只消费其稳定接口
 
 ---
 
-## 5. Audit 插件方向
+## 5. Audit 模块方向
 
 当前阶段采用：
 
@@ -143,7 +143,7 @@
 约束：
 
 * 新增 `server/internal/audit`
-* 新增 `server/plugins/audit`
+* 新增 `server/modules/audit`
 * 仅记录：
   * `operator_id`
   * `operator_name`
@@ -177,7 +177,7 @@
 
 ---
 
-## 6. Scheduler 插件方向
+## 6. Scheduler 模块方向
 
 当前阶段采用：
 
@@ -186,7 +186,7 @@
 约束：
 
 * 新增 `server/internal/scheduler`
-* 新增 `server/plugins/scheduler`
+* 新增 `server/modules/scheduler`
 * 业务代码禁止直接依赖 `github.com/robfig/cron/v3`
 * 必须通过自定义 `Scheduler` 接口隔离底层实现
 * 需要支持：
@@ -201,9 +201,9 @@
 
 职责边界：
 
-* `cron registry` 负责插件注册任务声明
+* `cron registry` 负责模块注册任务声明
 * `scheduler` 负责把任务声明装配成实际运行中的调度器
-* `Runtime` 通过插件生命周期统一启动和关闭调度器
+* `Runtime` 通过模块生命周期统一启动和关闭调度器
 
 明确不做：
 
@@ -274,9 +274,9 @@
 
 必须覆盖：
 
-* 插件缺失依赖时报错
-* 插件循环依赖时报错
-* 插件注册顺序正确
+* 模块缺失依赖时报错
+* 模块循环依赖时报错
+* 模块注册顺序正确
 * event bus 的 handler panic recover 与错误日志路径
 * `audit` 的 middleware 自动审计路径
 * `audit` 的 event bus 主动审计路径
@@ -309,7 +309,7 @@
 * 高级权限模型与复杂授权管理后台
 * dashboard、美化型展示页与复杂可视化工作台
 * 低代码、工作流、UI 编排能力
-* 运维类插件与其它更大范围插件族
+* 运维类模块与其它更大范围模块族
 
 ---
 
@@ -317,7 +317,7 @@
 
 编码前先确认这些文档已经稳定：
 
-* 插件契约
+* 模块契约
 * DI 职责边界
 * 前端目录与模块规则
 * 当前阶段范围

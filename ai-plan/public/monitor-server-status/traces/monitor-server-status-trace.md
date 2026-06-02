@@ -2,11 +2,11 @@
 
 ## 2026-05-20
 
-- Completed the first minimal `monitor/server-status` slice across `server/plugins/monitor/**` and `web/src/modules/monitor/**`.
-- Registered the backend plugin through the approved shared-hotspot exception in `server/internal/pluginregistry/generated.go`.
+- Completed the first minimal `monitor/server-status` slice across `server/modules/monitor/**` and `web/src/modules/monitor/**`.
+- Registered the backend module through the approved shared-hotspot exception in `server/internal/moduleregistry/generated.go`.
 - Completed the runtime metadata snapshot follow-up and validated that slice with backend checks.
 - Completed the richer dashboard follow-up inside the owned cross-boundary scope:
-  - upgraded the `monitor` plugin response with runtime, summary, dependency-detail, plugin dependency, and in-memory trend data
+  - upgraded the `monitor` module response with runtime, summary, dependency-detail, module dependency, and in-memory trend data
   - finished the inherited dashboard page diff and aligned monitor module types, locales, and Vitest coverage
   - updated the monitor topic design/tracking docs and `web/AGENTS.md` to freeze theme-token and chart responsiveness rules for monitor-style dashboards
 - Completed the IA-alignment follow-up for the same real page:

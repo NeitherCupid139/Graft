@@ -31,7 +31,7 @@ Before changing code or structure, read the relevant documents in `ai-plan/`.
 Authoritative repository documents:
 
 - [ai-plan/design/项目设计.md](ai-plan/design/项目设计.md)
-- [ai-plan/design/插件与依赖注入设计.md](ai-plan/design/插件与依赖注入设计.md)
+- [ai-plan/design/模块与依赖注入设计.md](ai-plan/design/模块与依赖注入设计.md)
 - [ai-plan/design/前端架构设计.md](ai-plan/design/前端架构设计.md)
 - [ai-plan/design/契约治理与魔法值治理规范.md](ai-plan/design/契约治理与魔法值治理规范.md) when the task changes
   typed contracts, magic-value governance, contract lifecycle, ownership, compatibility, drift handling, or shared
@@ -53,7 +53,7 @@ Subdomain governance documents:
   - `web` execution truth for frontend structure, module boundaries, contracts, routing, i18n, TDesign usage, and
     frontend validation
 - [server/AGENTS.md](server/AGENTS.md)
-  - `server` execution truth for plugin boundaries, DI constraints, Go code organization, Ent/migration flow, and
+  - `server` execution truth for module boundaries, DI constraints, Go code organization, Ent/migration flow, and
     backend validation
 
 Reading order:
@@ -65,7 +65,7 @@ Reading order:
 
 If code and docs diverge, update the docs first or in the same change.
 
-When a task changes architecture, plugin boundaries, lifecycle semantics, frontend module conventions, or execution
+When a task changes architecture, module boundaries, lifecycle semantics, frontend module conventions, or execution
 governance, the related `ai-plan/design/`, `ai-plan/roadmap/`, or subdomain `AGENTS.md` document must be updated
 before the task is considered complete.
 
@@ -77,10 +77,10 @@ Use these names consistently in code discussions, plans, reviews, and task break
 - `web` means the frontend project and its Vue 3 admin shell and feature modules
 - `core` means true infrastructure owned by the platform runtime
 - `module` means the canonical business capability unit in this repository
-- `plugin` is a historical backend naming term for compile-time modules, including directories such as `server/plugins/*`
+- `plugin` is a historical backend naming term for compile-time modules; current live paths and stable boundaries are `server/modules/*` and `server/internal/moduleapi/**`
 
 Do not use vague wording that blurs repository boundaries when a task is really about `server`, `web`, `core`, or a
-plugin.
+module.
 
 ## 4. Environment Capability Inventory
 
@@ -163,7 +163,7 @@ Fail-closed startup rules:
 
 ### 4.2 Authority-First Governance
 
-`Graft` is a unified mono repo. `server`、`web`、OpenAPI source、plugin descriptors、bootstrap metadata、typed contract
+`Graft` is a unified mono repo. `server`、`web`、OpenAPI source、module descriptors、bootstrap metadata、typed contract
 definitions and generated artifacts are one repository change graph, not independent systems integrating over slow
 release boundaries.
 
@@ -180,7 +180,7 @@ Authority rules:
 Default authority chain examples:
 
 - product IA / module intent
-- `server` plugin descriptor / menu / permission / route contract
+- `server` module descriptor / menu / permission / route contract
 - canonical OpenAPI or typed contract source input
 - generated artifacts
 - `web` bootstrap route/menu assembly
@@ -193,8 +193,8 @@ the same slice rather than normalizing the mismatch in a lower layer by default.
 
 Before adding local compatibility, agents must explicitly check whether the real authority sits in:
 
-- `server/plugins/<name>/contract/**`
-- `server/plugins/<name>/descriptor.go` or equivalent module/menu/permission declarations under historical plugin naming
+- `server/modules/<name>/contract/**`
+- `server/modules/<name>/descriptor.go` or equivalent module/menu/permission declarations under historical plugin naming
 - `server/internal/contract/**`
 - OpenAPI source inputs such as `openapi/**`
 - `web/src/modules/<name>/contract/**`
@@ -291,7 +291,7 @@ Prefer the repository skills below when their trigger matches the task:
   - only stale findings, noise, false positives, or no-longer-applicable findings may be left unfixed, and those cases
     must be listed explicitly in the task closeout with the concrete reason
 - `graft-plugin-scaffold`
-  - use when adding a new `server` module under historical `server/plugins/*` naming or shaping that module before implementation
+  - use when adding a new `server` module under `server/modules/*` or shaping that module before implementation
 - `graft-worktree-init`
   - use when creating or rebuilding a local `Graft` git worktree and the setup should follow the repository-standard
     shared local resource rules without hard-coded machine paths
@@ -313,7 +313,7 @@ Prefer the repository skills below when their trigger matches the task:
   - use near task closeout when a corrected mistake, reusable anti-pattern, or stable implementation lesson should be
     captured in `ai-plan/lessons/*`, optionally promoted into design docs, or elevated into the correct `AGENTS.md`
 - `graft-web-module-scaffold`
-  - use when adding a new `web` feature module aligned with backend plugin semantics
+  - use when adding a new `web` feature module aligned with backend module semantics
 - `graft-web-vibe-coding`
   - use when adding, redesigning, or reviewing `web` pages, shell surfaces, frontend AI prompts, or visual-governance
     rules that should first declare a page type, pick one of the built-in page masters or register an extension type,
@@ -381,15 +381,14 @@ service
 container, and repository CLI entrypoints may own platform-level startup behavior. Do not hide new runtime surfaces in
 unrelated packages, starter code, or ad-hoc background initialization.
 
-Business logic must live in business modules. Under the current historical naming, those modules still live in
-`server/plugins/*`.
+Business logic must live in business modules under `server/modules/*`.
 
-### 7.2 Plugin and Module Boundaries
+### 7.2 Module Boundaries
 
 - `server` business behavior belongs in modules, not in platform core
-- backend modules currently live under historical `plugins/*` naming; do not reinterpret that naming as runtime plugin platform scope
+- backend modules currently live under `server/modules/*`; do not reinterpret historical `plugin` wording as current runtime truth
 - modules must depend on public interfaces, not on another module's internal implementation
-- cross-module stable contracts belong in `server/internal/pluginapi` or another documented stable boundary
+- cross-module stable contracts belong in `server/internal/moduleapi` or another documented stable boundary
 - `web` is a platform shell plus feature modules
 - new frontend capability should default to `web/src/modules/<name>` unless it is truly shell-owned
 - keep `menu + route + page + api + permission` ownership explicit
@@ -412,7 +411,7 @@ For v1, prioritize:
 - audit
 - scheduler
 
-Do not start Docker, SSH, monitor, or workflow plugins before the core extension path is stable.
+Do not start Docker, SSH, monitor, or workflow modules before the core extension path is stable.
 
 ## 9. Execution Rules
 
@@ -420,7 +419,7 @@ Do not start Docker, SSH, monitor, or workflow plugins before the core extension
 
 When asked to add a new capability:
 
-- first identify whether it belongs in `server/core`, a `server` module under historical `plugins/*` naming, or a `web` feature module
+- first identify whether it belongs in `server/core`, a `server/modules/*` module, or a `web` feature module
 - default to a backend module unless the capability is true infrastructure
 - default to a `web/src/modules/<name>` entry path unless the page is a shell-level concern
 - define the capability's runtime surface and lifecycle owner before implementation; entrypoints, menus, routes,
@@ -445,7 +444,7 @@ When asked to introduce a new dependency:
 - justify why the existing stack is insufficient
 - prefer smaller, explicit libraries
 - avoid adding abstractions that hide control flow
-- reject dependencies that materially weaken plugin boundaries or increase hidden runtime magic without clear benefit
+- reject dependencies that materially weaken module boundaries or increase hidden runtime magic without clear benefit
 
 ## 10. Validation Rules
 
@@ -599,7 +598,7 @@ Commit messages must use Conventional Commits:
 
 Commit type rules:
 
-- use `feat` for user-facing or plugin/platform capability additions
+- use `feat` for user-facing or module/platform capability additions
 - use `fix` for behavior corrections
 - use `refactor` for non-feature restructuring
 - use `perf` for observable performance improvements
@@ -889,18 +888,18 @@ If a task reveals that the current docs are wrong:
 
 Review for:
 
-- boundary violations between core and plugins
-- hidden coupling between plugins
+- boundary violations between core and modules
+- hidden coupling between modules
 - unnecessary framework complexity
 - divergence from locked `server` and `web` stacks
 - duplicate canonical contract definitions, undocumented contract ownership, or missing lifecycle / compatibility notes
   for high-risk contract changes
-- missing tests around plugin lifecycle, dependency ordering, authorization, and dynamic menu/route behavior
+- missing tests around module lifecycle, dependency ordering, authorization, and dynamic menu/route behavior
 - undocumented public interfaces or lifecycle-sensitive code
 - divergence between `ai-plan/design/`, `ai-plan/roadmap/`, active topic recovery documents, and the relevant
   subdomain `AGENTS.md`
 
-A change is not acceptable if it makes adding the next plugin or frontend module harder.
+A change is not acceptable if it makes adding the next module or frontend module harder.
 
 ## 19. Definition of Done
 

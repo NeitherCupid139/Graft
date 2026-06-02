@@ -23,8 +23,8 @@ const (
 // Server 负责把 `Run` / `Shutdown` 的生命周期归属集中到一个显式对象中，
 // 避免并发启动或停止时出现状态竞争。Server 支持并发调用生命周期方法。
 //
-// Server 只管理 HTTP 外壳本身，不负责插件路由装配策略或业务中间件语义；
-// 这些职责仍留在 app 与各插件边界内。
+// Server 只管理 HTTP 外壳本身，不负责模块路由装配策略或业务中间件语义；
+// 这些职责仍留在 app 与各模块边界内。
 type Server struct {
 	engine *gin.Engine
 	mu     sync.Mutex
@@ -37,7 +37,7 @@ type Server struct {
 // NewServer 创建 MVP 运行时使用的最小 Gin 服务外壳。
 //
 // 返回的服务默认挂载全局 request-id、中台统一 access log 与恢复中间件，
-// 便于 core 和插件在统一入口上继续注册路由。
+// 便于 core 和模块在统一入口上继续注册路由。
 func NewServer(logger *zap.Logger, repo ...AccessLogRepository) *Server {
 	engine := gin.New()
 
@@ -53,7 +53,7 @@ func NewServer(logger *zap.Logger, repo ...AccessLogRepository) *Server {
 	return &Server{engine: engine, repo: accessLogRepo}
 }
 
-// Engine 返回供 core 和插件注册路由使用的根路由。
+// Engine 返回供 core 和模块注册路由使用的根路由。
 //
 // 调用方应只在服务启动前完成长期稳定路由注册，避免运行期动态改写根路由
 // 带来不可预测的行为。
