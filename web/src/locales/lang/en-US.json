@@ -99,10 +99,10 @@
         "menuAutoCollapsed": "Menu Auto Collapsed"
       },
       "workbench": {
-        "title": "Theme & Personalization Center",
-        "subtitle": "Adjust theme, layout, and page display options",
+        "title": "Personalization",
+        "subtitle": "Customize the admin appearance and interface experience",
         "dock": {
-          "title": "Theme Center"
+          "title": "Personalization"
         },
         "groups": {
           "overview": "Overview",
@@ -111,11 +111,11 @@
           "typography": "Typography",
           "style": "Style",
           "advanced": "Advanced",
-          "brand": "Brand",
+          "brand": "Brand Colors",
           "text": "Text Colors",
           "background": "Background Colors",
           "border": "Border Colors",
-          "component": "Component Tokens"
+          "component": "Component Variables"
         },
         "layout": {
           "side": "Side Layout",
@@ -135,8 +135,9 @@
           "title": "Official Themes"
         },
         "overview": {
+          "currentConfig": "Current Configuration",
           "currentTheme": "Current Theme",
-          "description": "Choose theme mode, theme color, and preset themes.",
+          "description": "Review the appearance settings currently in effect.",
           "currentLayout": "Current Layout",
           "modifiedCount": "Modified Items"
         },
@@ -168,11 +169,18 @@
           "flat": "Flat",
           "floating": "Floating",
           "compact": "Compact",
-          "comfortable": "Comfortable"
+          "comfortable": "Comfortable",
+          "densityPreviewLinePrimary": "Aa Admin preview",
+          "densityPreviewLineSecondary": "Spacing 123",
+          "densityPreviewLineMeta": "Text sample"
         },
         "advanced": {
           "title": "Advanced Mode",
-          "description": "Advanced mode is for Design Token debugging and stays hidden by default."
+          "description": "Advanced mode is for Design Token debugging and stays hidden by default.",
+          "colorSystem": "Color System",
+          "componentStyle": "Component Style",
+          "colorVariableCount": "{count} color variables",
+          "styleVariableCount": "{count} style variables"
         },
         "diff": {
           "brandTheme": "Theme Color",

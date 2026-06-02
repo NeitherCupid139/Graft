@@ -8,7 +8,7 @@
       @click="toggleOverview"
     >
       <template #icon>
-        <t-icon name="app" />
+        <t-icon name="palette" size="20px" />
       </template>
       <span class="theme-workbench-dock__action-label">{{ t('layout.setting.workbench.dock.title') }}</span>
     </t-button>
@@ -124,6 +124,7 @@ const toggleOverview = () => {
 :deep(.theme-workbench-dock__main .t-button__content) {
   align-items: center;
   display: inline-flex;
+  height: 100%;
   justify-content: center;
   width: 100%;
 }
@@ -131,9 +132,16 @@ const toggleOverview = () => {
 :deep(.theme-workbench-dock__main .t-button__prefix) {
   align-items: center;
   display: inline-flex;
+  height: 20px;
   justify-content: center;
   line-height: 1;
   margin-right: 0;
+  width: 20px;
+}
+
+:deep(.theme-workbench-dock__main .t-icon) {
+  display: block;
+  flex: 0 0 auto;
 }
 
 :deep(.theme-workbench-dock__main .t-button__text) {

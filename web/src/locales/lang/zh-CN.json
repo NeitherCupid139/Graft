@@ -99,10 +99,10 @@
         "menuAutoCollapsed": "菜单自动折叠"
       },
       "workbench": {
-        "title": "主题与个性化中心",
-        "subtitle": "调整主题、布局与界面显示选项",
+        "title": "个性化",
+        "subtitle": "自定义后台外观与界面体验",
         "dock": {
-          "title": "主题中心"
+          "title": "个性化"
         },
         "groups": {
           "overview": "概览",
@@ -111,11 +111,11 @@
           "typography": "字体",
           "style": "风格",
           "advanced": "高级",
-          "brand": "Brand Colors",
-          "text": "Text Colors",
-          "background": "Background Colors",
-          "border": "Border Colors",
-          "component": "Component Tokens"
+          "brand": "品牌颜色",
+          "text": "文本颜色",
+          "background": "背景颜色",
+          "border": "边框颜色",
+          "component": "组件变量"
         },
         "layout": {
           "side": "侧边布局",
@@ -135,8 +135,9 @@
           "title": "官方主题"
         },
         "overview": {
+          "currentConfig": "当前配置",
           "currentTheme": "当前主题",
-          "description": "选择主题模式、主题色和预设主题。",
+          "description": "查看当前正在生效的外观配置。",
           "modifiedCount": "修改数量",
           "currentLayout": "当前布局"
         },
@@ -168,11 +169,18 @@
           "flat": "扁平",
           "floating": "浮层",
           "compact": "紧凑",
-          "comfortable": "宽松"
+          "comfortable": "宽松",
+          "densityPreviewLinePrimary": "Aa 后台界面预览",
+          "densityPreviewLineSecondary": "Spacing 123",
+          "densityPreviewLineMeta": "Text sample"
         },
         "advanced": {
           "title": "高级模式",
-          "description": "高级模式用于查看和调整 Design Token，普通用户默认隐藏。"
+          "description": "高级模式用于查看和调整 Design Token，普通用户默认隐藏。",
+          "colorSystem": "颜色系统",
+          "componentStyle": "组件样式",
+          "colorVariableCount": "{count} 个颜色变量",
+          "styleVariableCount": "{count} 个样式变量"
         },
         "diff": {
           "brandTheme": "主题色",

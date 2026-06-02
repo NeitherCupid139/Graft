@@ -1,13 +1,6 @@
 <template>
   <div class="theme-token-editor">
     <div class="editor-toolbar">
-      <div class="mode-switch">
-        <span class="toolbar-label">{{ t('layout.setting.workbench.token.targetMode') }}</span>
-        <t-radio-group v-model="activeMode" variant="default-filled">
-          <t-radio-button value="light">{{ t('layout.setting.workbench.token.light') }}</t-radio-button>
-          <t-radio-button value="dark">{{ t('layout.setting.workbench.token.dark') }}</t-radio-button>
-        </t-radio-group>
-      </div>
       <t-button size="small" variant="text" theme="danger" class="clear-button" @click="clearCurrentGroup">
         {{ t('layout.setting.workbench.actions.clearGroup') }}
       </t-button>
@@ -75,41 +68,21 @@ import type { ModeType } from '@/utils/types';
 const props = defineProps<{
   tokenDefinitions: ThemeTokenDefinition[];
   groupKey: ThemeTokenGroupKey;
-}>();
-const emit = defineEmits<{
-  'mode-change': [mode: ModeType];
+  mode: ModeType;
 }>();
 
 const settingStore = useSettingStore();
-const activeMode = ref<ModeType>(settingStore.displayMode);
 const draftValues = ref<Record<string, string>>({});
 
-// 分组切换或全局主题切换时，编辑目标默认跟随当前预览模式，避免编辑亮色却在看暗色页面。
 watch(
-  () => settingStore.displayMode,
-  (mode) => {
-    activeMode.value = mode;
-    emit('mode-change', mode);
-    draftValues.value = {};
-  },
-  { immediate: true },
-);
-
-watch(
-  () => props.groupKey,
+  () => [props.groupKey, props.mode],
   () => {
-    activeMode.value = settingStore.displayMode;
     draftValues.value = {};
   },
 );
-
-watch(activeMode, () => {
-  emit('mode-change', activeMode.value);
-  draftValues.value = {};
-});
 
 const getResolvedTokenValue = (tokenKey: string) => {
-  const modeTokens = settingStore.themeResolvedTokens[activeMode.value];
+  const modeTokens = settingStore.themeResolvedTokens[props.mode];
   return modeTokens[tokenKey] ?? '';
 };
 
@@ -125,14 +98,14 @@ const updateDraftValue = (tokenKey: string, tokenValue: string) => {
 };
 
 const hasTokenOverride = (tokenKey: string) => {
-  return Object.prototype.hasOwnProperty.call(settingStore.themeTokenOverrides[activeMode.value], tokenKey);
+  return Object.prototype.hasOwnProperty.call(settingStore.themeTokenOverrides[props.mode], tokenKey);
 };
 
 const resetToken = (tokenKey: string) => {
   const nextDraftValues = { ...draftValues.value };
   delete nextDraftValues[tokenKey];
   draftValues.value = nextDraftValues;
-  settingStore.clearThemeTokenGroup(activeMode.value, [tokenKey]);
+  settingStore.clearThemeTokenGroup(props.mode, [tokenKey]);
 };
 
 const commitToken = (tokenKey: string, tokenValue?: string) => {
@@ -143,7 +116,7 @@ const commitToken = (tokenKey: string, tokenValue?: string) => {
     return;
   }
 
-  settingStore.updateThemeToken(activeMode.value, tokenKey, resolvedValue);
+  settingStore.updateThemeToken(props.mode, tokenKey, resolvedValue);
   const nextDraftValues = { ...draftValues.value };
   delete nextDraftValues[tokenKey];
   draftValues.value = nextDraftValues;
@@ -156,7 +129,7 @@ const updateToken = (tokenKey: string, tokenValue: string) => {
 
 const clearCurrentGroup = () => {
   settingStore.clearThemeTokenGroup(
-    activeMode.value,
+    props.mode,
     props.tokenDefinitions.map((token) => token.key),
   );
   draftValues.value = {};
@@ -200,19 +173,7 @@ const toHex = (value: string) => {
   align-items: center;
   display: flex;
   gap: 12px;
-  justify-content: space-between;
-}
-
-.mode-switch {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.toolbar-label {
-  color: var(--td-text-color-secondary);
-  font: var(--td-font-body-medium);
+  justify-content: flex-end;
 }
 
 .clear-button {
@@ -334,8 +295,7 @@ const toHex = (value: string) => {
 
 @media (width <= 768px) {
   .editor-toolbar {
-    align-items: flex-start;
-    flex-direction: column;
+    justify-content: flex-start;
   }
 
   .token-item {

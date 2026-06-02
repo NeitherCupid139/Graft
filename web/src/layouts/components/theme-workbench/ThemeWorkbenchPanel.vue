@@ -40,24 +40,16 @@
         <section class="theme-workbench-panel__content">
           <template v-if="activeGroup === 'overview'">
             <div class="section">
-              <div class="section-title">{{ t('layout.setting.workbench.groups.overview') }}</div>
+              <div class="section-title">{{ t('layout.setting.workbench.overview.currentConfig') }}</div>
               <div class="section-desc">{{ t('layout.setting.workbench.overview.description') }}</div>
-              <div class="summary-grid">
-                <div class="summary-card">
-                  <div class="summary-card__label">{{ t('layout.setting.workbench.overview.currentTheme') }}</div>
-                  <div class="summary-card__value">{{ themeIdentityTitle }}</div>
-                </div>
-                <div class="summary-card">
-                  <div class="summary-card__label">{{ t('layout.setting.navigationLayout') }}</div>
-                  <div class="summary-card__value">{{ layoutLabel }}</div>
-                </div>
-                <div class="summary-card">
-                  <div class="summary-card__label">{{ t('layout.setting.theme.mode') }}</div>
-                  <div class="summary-card__value">{{ modeLabel }}</div>
-                </div>
-                <div class="summary-card">
-                  <div class="summary-card__label">{{ t('layout.setting.workbench.overview.modifiedCount') }}</div>
-                  <div class="summary-card__value">{{ themeIdentity.modifiedCount }}</div>
+              <div class="config-summary-card">
+                <div v-for="item in overviewSummaryItems" :key="item.key" class="config-summary-row">
+                  <span class="config-summary-row__label">{{ item.label }}</span>
+                  <span v-if="item.key !== 'brandTheme'" class="config-summary-row__value">{{ item.value }}</span>
+                  <span v-else class="config-summary-row__value config-summary-row__value--color">
+                    <span class="config-summary-color" :style="{ background: item.value }" />
+                    <span class="config-summary-color__value">{{ item.value }}</span>
+                  </span>
                 </div>
               </div>
             </div>
@@ -336,17 +328,8 @@
                 >
                   <span class="style-preview-card__label">{{ item.label }}</span>
                   <span class="density-preview" :class="`density-preview--${item.value}`">
-                    <span class="density-preview__row">
-                      <span class="density-preview__bullet" />
-                      <span class="density-preview__line density-preview__line--long" />
-                    </span>
-                    <span class="density-preview__row">
-                      <span class="density-preview__bullet" />
-                      <span class="density-preview__line" />
-                    </span>
-                    <span class="density-preview__row">
-                      <span class="density-preview__bullet" />
-                      <span class="density-preview__line density-preview__line--short" />
+                    <span v-for="line in densityPreviewLines" :key="line" class="density-preview__line">
+                      {{ line }}
                     </span>
                   </span>
                 </button>
@@ -365,31 +348,50 @@
               <t-switch :model-value="advancedVisible" @update:model-value="toggleAdvancedVisible" />
             </div>
 
-            <div v-if="advancedVisible" class="advanced-groups">
-              <section
-                v-for="group in tokenGroups"
-                :key="group.value"
-                class="advanced-group"
-                :class="{ 'advanced-group--expanded': expandedAdvancedGroups.includes(group.value) }"
-              >
-                <button type="button" class="advanced-group__header" @click="toggleAdvancedGroup(group.value)">
-                  <span class="advanced-group__title-block">
-                    <span class="advanced-group__title">{{ group.label }}</span>
-                    <span class="advanced-group__mode-tag">
-                      {{ activeTokenEditorModeLabel }}
-                    </span>
-                  </span>
-                  <span class="advanced-group__header-actions">
-                    <span class="advanced-group__count">{{ tokenDefinitionsByGroup[group.value].length }}</span>
-                    <t-icon name="chevron-down" class="advanced-group__chevron" />
-                  </span>
-                </button>
-                <div v-if="expandedAdvancedGroups.includes(group.value)" class="advanced-group__body">
-                  <theme-token-editor
-                    :group-key="group.value"
-                    :token-definitions="tokenDefinitionsByGroup[group.value]"
-                    @mode-change="handleTokenEditorModeChange"
-                  />
+            <div v-if="advancedVisible" class="advanced-mode-toolbar">
+              <span class="advanced-mode-toolbar__label">{{ t('layout.setting.workbench.token.targetMode') }}</span>
+              <t-radio-group v-model="activeTokenEditorMode" theme="button" variant="default-filled">
+                <t-radio-button value="light">{{ t('layout.setting.workbench.token.light') }}</t-radio-button>
+                <t-radio-button value="dark">{{ t('layout.setting.workbench.token.dark') }}</t-radio-button>
+              </t-radio-group>
+            </div>
+
+            <div v-if="advancedVisible" class="advanced-sections">
+              <section v-for="section in tokenSections" :key="section.key" class="advanced-section">
+                <div class="advanced-section__title">{{ section.label }}</div>
+                <div class="advanced-groups">
+                  <section
+                    v-for="group in section.groups"
+                    :key="group.value"
+                    class="advanced-group"
+                    :class="{ 'advanced-group--expanded': expandedAdvancedGroups.includes(group.value) }"
+                  >
+                    <button type="button" class="advanced-group__header" @click="toggleAdvancedGroup(group.value)">
+                      <span class="advanced-group__icon">
+                        <t-icon :name="group.icon" />
+                      </span>
+                      <span class="advanced-group__title-block">
+                        <span class="advanced-group__title">{{ group.label }}</span>
+                        <span class="advanced-group__description">
+                          {{
+                            t(group.countLabelKey, {
+                              count: tokenDefinitionsByGroup[group.value].length,
+                            })
+                          }}
+                        </span>
+                      </span>
+                      <span class="advanced-group__header-actions">
+                        <t-icon name="chevron-down" class="advanced-group__chevron" />
+                      </span>
+                    </button>
+                    <div v-if="expandedAdvancedGroups.includes(group.value)" class="advanced-group__body">
+                      <theme-token-editor
+                        :group-key="group.value"
+                        :mode="activeTokenEditorMode"
+                        :token-definitions="tokenDefinitionsByGroup[group.value]"
+                      />
+                    </div>
+                  </section>
                 </div>
               </section>
             </div>
@@ -426,7 +428,7 @@
   </t-drawer>
 </template>
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
 import SettingAutoIcon from '@/assets/assets-setting-auto.svg';
@@ -436,6 +438,7 @@ import { DEFAULT_COLOR_OPTIONS } from '@/config/color';
 import { t } from '@/locales';
 import { useSettingStore } from '@/store';
 import type { ThemeTokenGroupKey, ThemeWorkbenchGroupKey } from '@/types/theme';
+import type { ModeType } from '@/utils/types';
 
 import ThemeTokenEditor from './ThemeTokenEditor.vue';
 import ThemeWorkbenchPresetSection from './ThemeWorkbenchPresetSection.vue';
@@ -446,7 +449,7 @@ const advancedVisible = ref(false);
 const expandedAdvancedGroups = ref<Array<string | number>>(['brand']);
 
 const groupIconMap: Record<ThemeWorkbenchGroupKey, string> = {
-  overview: 'app',
+  overview: 'palette',
   appearance: 'fill-color',
   layout: 'view-list',
   typography: 'text',
@@ -511,13 +514,67 @@ const densityOptions = [
   { value: 'comfortable', label: t('layout.setting.workbench.style.comfortable') },
 ] as const;
 
-const tokenGroups: Array<{ value: ThemeTokenGroupKey; label: string }> = [
-  { value: 'brand', label: t('layout.setting.workbench.groups.brand') },
-  { value: 'text', label: t('layout.setting.workbench.groups.text') },
-  { value: 'background', label: t('layout.setting.workbench.groups.background') },
-  { value: 'border', label: t('layout.setting.workbench.groups.border') },
-  { value: 'component', label: t('layout.setting.workbench.groups.component') },
+const densityPreviewLines = [
+  t('layout.setting.workbench.style.densityPreviewLinePrimary'),
+  t('layout.setting.workbench.style.densityPreviewLineSecondary'),
+  t('layout.setting.workbench.style.densityPreviewLineMeta'),
 ];
+
+const tokenSections: Array<{
+  key: 'color' | 'component';
+  label: string;
+  groups: Array<{
+    value: ThemeTokenGroupKey;
+    label: string;
+    icon: string;
+    countLabelKey: string;
+  }>;
+}> = [
+  {
+    key: 'color',
+    label: t('layout.setting.workbench.advanced.colorSystem'),
+    groups: [
+      {
+        value: 'brand',
+        label: t('layout.setting.workbench.groups.brand'),
+        icon: 'palette',
+        countLabelKey: 'layout.setting.workbench.advanced.colorVariableCount',
+      },
+      {
+        value: 'text',
+        label: t('layout.setting.workbench.groups.text'),
+        icon: 'text',
+        countLabelKey: 'layout.setting.workbench.advanced.colorVariableCount',
+      },
+      {
+        value: 'background',
+        label: t('layout.setting.workbench.groups.background'),
+        icon: 'image',
+        countLabelKey: 'layout.setting.workbench.advanced.colorVariableCount',
+      },
+      {
+        value: 'border',
+        label: t('layout.setting.workbench.groups.border'),
+        icon: 'component-divider-horizontal',
+        countLabelKey: 'layout.setting.workbench.advanced.colorVariableCount',
+      },
+    ],
+  },
+  {
+    key: 'component',
+    label: t('layout.setting.workbench.advanced.componentStyle'),
+    groups: [
+      {
+        value: 'component',
+        label: t('layout.setting.workbench.groups.component'),
+        icon: 'setting',
+        countLabelKey: 'layout.setting.workbench.advanced.styleVariableCount',
+      },
+    ],
+  },
+];
+
+const tokenGroups = tokenSections.flatMap((section) => section.groups);
 
 const tokenDefinitionsByGroup = computed(() =>
   tokenGroups.reduce(
@@ -548,16 +605,43 @@ const layoutLabel = computed(() => {
   return matched?.label ?? settingStore.layout;
 });
 
-const themeIdentityTitle = computed(() =>
-  themeIdentity.value.sourceType === 'customized'
-    ? t('layout.setting.workbench.identity.customized', { name: themeIdentity.value.currentLabel })
-    : themeIdentity.value.currentLabel,
-);
-
 const activeFontPreviewFamily = computed(() => {
   const matched = fontFamilyOptions.find((item) => item.value === effectiveTheme.value.fontFamilyPreset);
   return matched?.previewFamily ?? fontFamilyOptions[0].previewFamily;
 });
+
+const activeFontLabel = computed(() => {
+  const matched = fontFamilyOptions.find((item) => item.value === effectiveTheme.value.fontFamilyPreset);
+  return matched?.label ?? fontFamilyOptions[0].label;
+});
+
+const overviewSummaryItems = computed(() => [
+  {
+    key: 'mode',
+    label: t('layout.setting.theme.mode'),
+    value: modeLabel.value,
+  },
+  {
+    key: 'theme',
+    label: t('layout.setting.workbench.overview.currentTheme'),
+    value: themeIdentity.value.currentLabel,
+  },
+  {
+    key: 'layout',
+    label: t('layout.setting.navigationLayout'),
+    value: layoutLabel.value,
+  },
+  {
+    key: 'brandTheme',
+    label: t('layout.setting.theme.color'),
+    value: effectiveTheme.value.brandTheme,
+  },
+  {
+    key: 'font',
+    label: t('layout.setting.workbench.typography.fontFamily'),
+    value: activeFontLabel.value,
+  },
+]);
 
 const hasPendingChanges = computed(() => themeDiffItems.value.length > 0);
 const showPresetSection = computed(() => activeGroup.value === 'overview' || activeGroup.value === 'appearance');
@@ -574,11 +658,13 @@ const fixedSidebarHint = computed(() =>
     : t('layout.setting.workbench.layout.notIntegrated'),
 );
 const footerOptionVisible = computed(() => route.meta.footer !== false);
-const activeTokenEditorMode = ref<'light' | 'dark'>(settingStore.displayMode);
-const activeTokenEditorModeLabel = computed(() =>
-  activeTokenEditorMode.value === 'dark'
-    ? t('layout.setting.workbench.token.dark')
-    : t('layout.setting.workbench.token.light'),
+const activeTokenEditorMode = ref<ModeType>(settingStore.displayMode);
+
+watch(
+  () => settingStore.displayMode,
+  (mode) => {
+    activeTokenEditorMode.value = mode;
+  },
 );
 
 const drawerVisible = computed({
@@ -612,10 +698,6 @@ const toggleAdvancedGroup = (group: ThemeTokenGroupKey) => {
   }
 
   expandedAdvancedGroups.value = [...expandedAdvancedGroups.value, group];
-};
-
-const handleTokenEditorModeChange = (mode: 'light' | 'dark') => {
-  activeTokenEditorMode.value = mode;
 };
 </script>
 <style lang="less" scoped>
@@ -777,33 +859,65 @@ const handleTokenEditorModeChange = (mode: 'light' | 'dark') => {
   color: color-mix(in srgb, var(--td-text-color-secondary) 90%, var(--td-text-color-primary));
 }
 
-.summary-grid,
 .choice-grid,
 .brand-palette {
   display: grid;
   gap: 12px;
 }
 
-.summary-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.summary-card {
+.config-summary-card {
   background: var(--td-bg-color-page);
   border: 1px solid var(--td-component-stroke);
   border-radius: var(--td-radius-large);
-  padding: 12px;
+  display: grid;
+  gap: 12px;
+  padding: 16px;
 }
 
-.summary-card__label {
+.config-summary-row {
+  align-items: center;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(96px, 0.35fr) minmax(0, 1fr);
+  min-width: 0;
+}
+
+.config-summary-row__label {
   color: var(--td-text-color-secondary);
-  font-size: 12px;
+  font-size: 13px;
 }
 
-.summary-card__value {
+.config-summary-row__value {
   color: var(--td-text-color-primary);
+  font-size: 14px;
   font-weight: 600;
-  margin-top: 6px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.config-summary-row__value--color {
+  align-items: center;
+  display: inline-flex;
+  gap: 10px;
+}
+
+.config-summary-color {
+  border: 1px solid color-mix(in srgb, var(--td-component-stroke) 74%, transparent);
+  border-radius: 10px;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 18%),
+    0 4px 12px rgb(15 23 42 / 10%);
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 24px;
+  width: 40px;
+}
+
+.config-summary-color__value {
+  color: var(--td-text-color-primary);
+  font-family: var(--td-font-family);
+  font-size: 13px;
+  letter-spacing: 0.01em;
 }
 
 .choice-grid {
@@ -989,50 +1103,39 @@ const handleTokenEditorModeChange = (mode: 'light' | 'dark') => {
 }
 
 .density-preview {
-  display: grid;
+  color: var(--td-text-color-primary);
+  display: block;
+  font-size: 13px;
 }
 
 .density-preview--compact {
-  gap: 6px;
+  line-height: 1.16;
+  padding: 10px 12px;
 }
 
 .density-preview--standard {
-  gap: 10px;
+  line-height: 1.42;
+  padding: 14px;
 }
 
 .density-preview--comfortable {
-  gap: 14px;
-}
-
-.density-preview__row {
-  align-items: center;
-  display: grid;
-  gap: 10px;
-  grid-template-columns: 10px 1fr;
-}
-
-.density-preview__bullet {
-  background: color-mix(in srgb, var(--td-brand-color) 20%, var(--td-bg-color-container));
-  border-radius: 999px;
-  display: block;
-  height: 10px;
-  width: 10px;
+  line-height: 1.72;
+  padding: 18px;
 }
 
 .density-preview__line {
-  background: color-mix(in srgb, var(--td-brand-color) 10%, var(--td-text-color-placeholder));
-  border-radius: 999px;
   display: block;
-  height: 8px;
-  width: 84%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.density-preview__line--long {
-  width: 100%;
+.density-preview__line + .density-preview__line {
+  margin-top: 0.15em;
 }
 
-.density-preview__line--short {
-  width: 62%;
+.density-preview--comfortable .density-preview__line + .density-preview__line {
+  margin-top: 0.45em;
 }
 
 .choice-card__check {
@@ -1291,6 +1394,40 @@ const handleTokenEditorModeChange = (mode: 'light' | 'dark') => {
   line-height: 1.4;
 }
 
+.advanced-mode-toolbar {
+  align-items: center;
+  background: var(--td-bg-color-container);
+  border: 1px solid var(--td-component-stroke);
+  border-radius: 16px;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  padding: 14px 16px;
+}
+
+.advanced-mode-toolbar__label {
+  color: var(--td-text-color-primary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.advanced-sections {
+  display: grid;
+  gap: 16px;
+}
+
+.advanced-section {
+  display: grid;
+  gap: 10px;
+}
+
+.advanced-section__title {
+  color: var(--td-text-color-secondary);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
 .advanced-groups {
   display: grid;
   gap: 12px;
@@ -1315,17 +1452,28 @@ const handleTokenEditorModeChange = (mode: 'light' | 'dark') => {
   color: inherit;
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(0, 1fr) auto;
-  padding: 14px 16px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding: 16px;
   text-align: left;
   width: 100%;
 }
 
-.advanced-group__title-block {
+.advanced-group__icon {
   align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+  background: color-mix(in srgb, var(--td-brand-color) 10%, var(--td-bg-color-page));
+  border: 1px solid color-mix(in srgb, var(--td-brand-color) 16%, var(--td-component-stroke));
+  border-radius: 14px;
+  color: var(--td-brand-color);
+  display: inline-flex;
+  font-size: 20px;
+  height: 40px;
+  justify-content: center;
+  width: 40px;
+}
+
+.advanced-group__title-block {
+  display: grid;
+  gap: 5px;
   min-width: 0;
 }
 
@@ -1335,15 +1483,9 @@ const handleTokenEditorModeChange = (mode: 'light' | 'dark') => {
   font-weight: 700;
 }
 
-.advanced-group__mode-tag,
-.advanced-group__count {
-  background: color-mix(in srgb, var(--td-brand-color) 10%, var(--td-bg-color-page));
-  border: 1px solid color-mix(in srgb, var(--td-brand-color) 16%, var(--td-component-stroke));
-  border-radius: 999px;
+.advanced-group__description {
   color: var(--td-text-color-secondary);
   font-size: 12px;
-  line-height: 1;
-  padding: 5px 8px;
 }
 
 .advanced-group__header-actions {
@@ -1363,7 +1505,7 @@ const handleTokenEditorModeChange = (mode: 'light' | 'dark') => {
 
 .advanced-group__body {
   border-top: 1px solid color-mix(in srgb, var(--td-component-stroke) 80%, transparent);
-  padding: 0 16px 16px;
+  padding: 16px;
 }
 
 .theme-workbench-panel__footer {
@@ -1394,10 +1536,14 @@ const handleTokenEditorModeChange = (mode: 'light' | 'dark') => {
     grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 
-  .summary-grid,
   .choice-grid,
   .style-preview-grid,
   .style-preview-grid--triple {
+    grid-template-columns: 1fr;
+  }
+
+  .config-summary-row {
+    gap: 4px;
     grid-template-columns: 1fr;
   }
 
@@ -1405,7 +1551,10 @@ const handleTokenEditorModeChange = (mode: 'light' | 'dark') => {
     grid-template-columns: 1fr;
   }
 
-  .advanced-settings-card {
+  .advanced-settings-card,
+  .advanced-mode-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
     grid-template-columns: 1fr;
   }
 }
