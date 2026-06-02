@@ -20,7 +20,7 @@ type Permission struct {
 func (Permission) Annotations() []schema.Annotation {
 	return []schema.Annotation{
 		entsql.Annotation{Table: "permissions"},
-		schema.Comment("权限点信息表（RBAC 插件）"),
+		schema.Comment("权限点信息表（RBAC 模块）"),
 		entsql.WithComments(true),
 	}
 }

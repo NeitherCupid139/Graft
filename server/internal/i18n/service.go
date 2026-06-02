@@ -103,7 +103,7 @@ var (
 	errDuplicateMessageResource = errors.New("i18n message already registered")
 )
 
-// Service 提供平台级 locale 解析、消息查找与插件注册能力。
+// Service 提供平台级 locale 解析、消息查找与模块注册能力。
 //
 // Service 保持为 `server` 唯一项目级 facade：调用方只消费 namespace、locale、
 // message key、fallback message 等稳定项目概念，而不直接依赖底层实现细节。
@@ -271,7 +271,7 @@ func (s *Service) ResolveRequestLocale(request *http.Request, sessionLocale stri
 
 // Message 返回给定语言和平台级消息 key 对应的最终文案。
 //
-// 这是保留给现有 `httpx`、guard 和插件调用面的兼容入口，内部会路由到
+// 这是保留给现有 `httpx`、guard 和模块调用面的兼容入口，内部会路由到
 // `core` namespace。
 func (s *Service) Message(locale string, key string) string {
 	return s.Lookup(LookupRequest{

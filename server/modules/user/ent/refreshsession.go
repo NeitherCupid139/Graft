@@ -13,7 +13,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 )
 
-// 刷新令牌会话表（用户插件）
+// 刷新令牌会话表（用户模块）
 type RefreshSession struct {
 	config `json:"-"`
 	// ID of the ent.

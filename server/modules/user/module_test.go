@@ -678,8 +678,8 @@ func newModuleTestContextWithLoggerAndPermissions(
 	if err := moduleInstance.Register(ctx); err != nil {
 		t.Fatalf("register module: %v", err)
 	}
-	authPlugin := authmodule.NewModule()
-	if err := authPlugin.Register(ctx); err != nil {
+	authModule := authmodule.NewModule()
+	if err := authModule.Register(ctx); err != nil {
 		t.Fatalf("register auth module: %v", err)
 	}
 	if err := rbac.NewModule(moduleTestRBACRepository{
@@ -695,7 +695,7 @@ func newModuleTestContextWithLoggerAndPermissions(
 	if err := moduleInstance.Boot(ctx); err != nil {
 		t.Fatalf("boot module: %v", err)
 	}
-	if err := authPlugin.Boot(ctx); err != nil {
+	if err := authModule.Boot(ctx); err != nil {
 		t.Fatalf("boot auth module: %v", err)
 	}
 
@@ -1449,8 +1449,8 @@ func loginAliceAndParseSession(t *testing.T, engine *gin.Engine) (loginResponse,
 	return loginPayload, refreshCookie, parseRefreshCookieClaims(t, refreshCookie)
 }
 
-// TestRegisterPublishesContracts 验证用户插件注册时会暴露权限、菜单与稳定
-// 的跨插件用户服务。
+// TestRegisterPublishesContracts 验证用户模块注册时会暴露权限、菜单与稳定
+// 的跨模块用户服务。
 func TestRegisterPublishesContracts(t *testing.T) {
 	ctx, _ := newModuleTestContext(t, fixedUserRepository(testUser(7, "alice", "Alice")), nil)
 
@@ -1541,8 +1541,8 @@ func TestUserRouteReturnsNotFoundContract(t *testing.T) {
 	}
 }
 
-// TestUserRouteReturnsSummary 验证用户查询成功时会返回跨插件稳定 DTO，而不
-// 直接把生成后的 HTTP 契约模型作为边界输出，而不是复用跨插件摘要 DTO。
+// TestUserRouteReturnsSummary 验证用户查询成功时会返回跨模块稳定 DTO，而不
+// 直接把生成后的 HTTP 契约模型作为边界输出，而不是复用跨模块摘要 DTO。
 func TestUserRouteReturnsGeneratedUserListItem(t *testing.T) {
 	authRepo := &moduleTestAuthRepository{}
 	_, engine := newModuleTestContext(t, moduleTestUserRepository{
@@ -2300,8 +2300,8 @@ func TestDeleteUserRouteRevokesSessionsAndReturnsNilPayload(t *testing.T) {
 	assertSessionRevoked(t, authRepo, targetSession)
 }
 
-// TestUserRouteRequiresPermissionMiddleware 验证插件路由仍复用统一的后端
-// 权限守卫契约，而不是在插件内部发散独立鉴权格式。
+// TestUserRouteRequiresPermissionMiddleware 验证模块路由仍复用统一的后端
+// 权限守卫契约，而不是在模块内部发散独立鉴权格式。
 func TestUserRouteRequiresPermissionMiddleware(t *testing.T) {
 	_, engine := newModuleTestContext(t, moduleTestUserRepository{}, nil)
 
@@ -2312,7 +2312,7 @@ func TestUserRouteRequiresPermissionMiddleware(t *testing.T) {
 }
 
 // TestBootstrapRouteRequiresAuthenticatedActor 验证 bootstrap 契约仍复用统一
-// 的请求鉴权中间件，而不是在插件内分叉另一套登录态判断。
+// 的请求鉴权中间件，而不是在模块内分叉另一套登录态判断。
 func TestBootstrapRouteRequiresAuthenticatedActor(t *testing.T) {
 	_, engine := newModuleTestContext(t, moduleTestUserRepository{}, nil)
 
@@ -2842,7 +2842,7 @@ func TestRevokeAllSessionsRouteRevokesCurrentUserSessions(t *testing.T) {
 }
 
 // TestRevokeAllSessionsRouteRequiresAuthenticatedActor 验证当前用户自助撤销入口继续
-// 复用统一 request-auth 守卫，而不是在插件内发散新的未登录响应格式。
+// 复用统一 request-auth 守卫，而不是在模块内发散新的未登录响应格式。
 func TestRevokeAllSessionsRouteRequiresAuthenticatedActor(t *testing.T) {
 	_, engine := newModuleTestContext(t, moduleTestUserRepository{}, &moduleTestAuthRepository{})
 
@@ -3002,7 +3002,7 @@ func TestListCurrentUserSessionsRouteReturnsActiveSessions(t *testing.T) {
 	assertSessionsAbsent(t, payload, expiredSessionID, otherUserSessionID)
 }
 
-// TestListCurrentUserSessionsRouteAppliesLimit 验证当前用户会话列表会在插件边界内
+// TestListCurrentUserSessionsRouteAppliesLimit 验证当前用户会话列表会在模块边界内
 // 应用显式 limit，而不要求仓储提前暴露分页协议。
 func TestListCurrentUserSessionsRouteAppliesLimit(t *testing.T) {
 	authRepo := &moduleTestAuthRepository{}
@@ -3051,7 +3051,7 @@ func TestListCurrentUserSessionsRouteRejectsInvalidLimit(t *testing.T) {
 }
 
 // TestListCurrentUserSessionsRouteRequiresAuthenticatedActor 验证当前用户会话列表继续
-// 复用统一 request-auth 守卫，而不是在插件内发散新的未登录契约。
+// 复用统一 request-auth 守卫，而不是在模块内发散新的未登录契约。
 func TestListCurrentUserSessionsRouteRequiresAuthenticatedActor(t *testing.T) {
 	_, engine := newModuleTestContext(t, moduleTestUserRepository{}, &moduleTestAuthRepository{})
 

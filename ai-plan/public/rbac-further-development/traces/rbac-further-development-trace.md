@@ -14,7 +14,7 @@
 ## 2026-05-20 standalone RBAC recovery entry created
 
 - Split RBAC follow-up out of `multi-worktree-governance` because the parent topic should stay focused on shared
-  baseline governance, hotspot policy, and worktree mapping truth rather than carrying plugin-specific continuation
+  baseline governance, hotspot policy, and worktree mapping truth rather than carrying module-specific continuation
   notes.
 - Opened `rbac-further-development` as a standalone active recovery entry so the next RBAC slice can recover quickly
   without reviving archived or over-broad governance history.
@@ -32,9 +32,9 @@
 - Keep this topic aligned with a real implementation workspace only while all of the following remain true:
   - the dedicated RBAC worktree stays explicit
   - its branch stays explicit
-  - the owned scope remains centered on `server/plugins/rbac/**` and/or `web/src/modules/rbac/**`
+  - the owned scope remains centered on `server/modules/rbac/**` and/or `web/src/modules/rbac/**`
   - any required shared-hotspot touches are declared as bounded exceptions rather than assumed standing ownership
-- If the next slice is still dominated by `ai-plan/public/README.md`, plugin registry wiring, shared contracts, router,
+- If the next slice is still dominated by `ai-plan/public/README.md`, module registry wiring, shared contracts, router,
   layouts, or locales coordination, keep it as an integration/governance slice instead of treating it as the RBAC
   worktree baseline.
 
@@ -42,12 +42,12 @@
 
 - Shared hotspots for future RBAC slices stay opt-in only:
   - `ai-plan/public/README.md`
-  - `server/internal/pluginregistry/generated.go`
-  - `server/internal/pluginapi/**`
+  - `server/internal/moduleregistry/generated.go`
+  - `server/internal/moduleapi/**`
   - `server/internal/contract/**`
   - `web/src/router/**`
   - `web/src/layouts/**`
   - `web/src/locales/**`
 - The standing owned scope remains:
-  - `server/plugins/rbac/**`
+  - `server/modules/rbac/**`
   - `web/src/modules/rbac/**`

@@ -80,7 +80,7 @@ Use these names consistently in code discussions, plans, reviews, and task break
 - `plugin` is a historical backend naming term for compile-time modules; current live paths and stable boundaries are `server/modules/*` and `server/internal/moduleapi/**`
 
 Do not use vague wording that blurs repository boundaries when a task is really about `server`, `web`, `core`, or a
-plugin.
+module.
 
 ## 4. Environment Capability Inventory
 
@@ -313,7 +313,7 @@ Prefer the repository skills below when their trigger matches the task:
   - use near task closeout when a corrected mistake, reusable anti-pattern, or stable implementation lesson should be
     captured in `ai-plan/lessons/*`, optionally promoted into design docs, or elevated into the correct `AGENTS.md`
 - `graft-web-module-scaffold`
-  - use when adding a new `web` feature module aligned with backend plugin semantics
+  - use when adding a new `web` feature module aligned with backend module semantics
 - `graft-web-vibe-coding`
   - use when adding, redesigning, or reviewing `web` pages, shell surfaces, frontend AI prompts, or visual-governance
     rules that should first declare a page type, pick one of the built-in page masters or register an extension type,

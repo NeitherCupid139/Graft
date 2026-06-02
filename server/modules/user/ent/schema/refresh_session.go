@@ -20,7 +20,7 @@ type RefreshSession struct {
 func (RefreshSession) Annotations() []schema.Annotation {
 	return []schema.Annotation{
 		entsql.Annotation{Table: "refresh_sessions"},
-		schema.Comment("刷新令牌会话表（用户插件）"),
+		schema.Comment("刷新令牌会话表（用户模块）"),
 		entsql.WithComments(true),
 	}
 }

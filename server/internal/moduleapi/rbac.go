@@ -10,14 +10,14 @@ type PermissionSeed struct {
 	Category    string
 }
 
-// RoleSummary 描述跨插件可读的最小角色摘要。
+// RoleSummary 描述跨模块可读的最小角色摘要。
 type RoleSummary struct {
 	ID      uint64
 	Name    string
 	Display string
 }
 
-// RBACAccessService 暴露跨插件可读的最小 RBAC 快照能力。
+// RBACAccessService 暴露跨模块可读的最小 RBAC 快照能力。
 type RBACAccessService interface {
 	ListRoleNamesByUserID(ctx context.Context, userID uint64) ([]string, error)
 	ListPermissionCodesByUserID(ctx context.Context, userID uint64) ([]string, error)

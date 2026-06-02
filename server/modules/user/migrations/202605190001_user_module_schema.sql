@@ -34,7 +34,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS "refresh_sessions_token_id_key" ON "refresh_se
 CREATE INDEX IF NOT EXISTS "refreshsession_user_id" ON "refresh_sessions" ("user_id");
 CREATE INDEX IF NOT EXISTS "refreshsession_expires_at" ON "refresh_sessions" ("expires_at");
 
-COMMENT ON TABLE "users" IS '用户基础信息表（用户插件）';
+COMMENT ON TABLE "users" IS '用户基础信息表（用户模块）';
 COMMENT ON COLUMN "users"."id" IS '主键 ID';
 COMMENT ON COLUMN "users"."username" IS '用户名，用于登录和唯一标识';
 COMMENT ON COLUMN "users"."display" IS '显示名称，用于后台展示';
@@ -49,7 +49,7 @@ COMMENT ON COLUMN "users"."updated_by" IS '最后更新人用户 ID，0 表示�
 COMMENT ON COLUMN "users"."deleted_at" IS '软删除时间戳，0 表示未删除';
 COMMENT ON COLUMN "users"."deleted_by" IS '删除人用户 ID，0 表示未删除';
 
-COMMENT ON TABLE "refresh_sessions" IS '刷新令牌会话表（用户插件）';
+COMMENT ON TABLE "refresh_sessions" IS '刷新令牌会话表（用户模块）';
 COMMENT ON COLUMN "refresh_sessions"."id" IS '主键 ID';
 COMMENT ON COLUMN "refresh_sessions"."token_id" IS '刷新令牌唯一标识';
 COMMENT ON COLUMN "refresh_sessions"."expires_at" IS '过期时间';

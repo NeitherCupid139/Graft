@@ -19,7 +19,7 @@ type User struct {
 func (User) Annotations() []schema.Annotation {
 	return []schema.Annotation{
 		entsql.Annotation{Table: "users"},
-		schema.Comment("用户基础信息表（用户插件）"),
+		schema.Comment("用户基础信息表（用户模块）"),
 		entsql.WithComments(true),
 	}
 }

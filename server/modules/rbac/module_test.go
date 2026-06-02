@@ -405,7 +405,7 @@ func TestAuthorizerPropagatesRepositoryFailure(t *testing.T) {
 	}
 }
 
-// TestRegisterRegistersReadManagementContracts 验证 RBAC 插件会注册稳定的权限、菜单和共享授权服务。
+// TestRegisterRegistersReadManagementContracts 验证 RBAC 模块会注册稳定的权限、菜单和共享授权服务。
 func TestRegisterRegistersReadManagementContracts(t *testing.T) {
 	ctx, _ := newModuleTestContext(t, testRBACRepository{})
 

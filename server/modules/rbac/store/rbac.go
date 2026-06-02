@@ -181,7 +181,7 @@ type BatchUserRoleMutationInput struct {
 	RoleIDs []uint64
 }
 
-// Repository 暴露 RBAC 插件私有持久化能力。
+// Repository 暴露 RBAC 模块私有持久化能力。
 type Repository interface {
 	EnsureRole(ctx context.Context, input EnsureRoleInput) (Role, error)
 	EnsurePermission(ctx context.Context, input EnsurePermissionInput) (Permission, error)

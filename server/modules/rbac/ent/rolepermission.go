@@ -14,7 +14,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 )
 
-// 角色与权限关联表（RBAC 插件）
+// 角色与权限关联表（RBAC 模块）
 type RolePermission struct {
 	config `json:"-"`
 	// ID of the ent.

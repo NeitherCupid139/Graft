@@ -43,11 +43,11 @@ This topic explicitly does not:
 
 | Risk | Current assessment | Why it blocks approval now |
 | --- | --- | --- |
-| high write volume | high | `AppLogger` covers core runtime, plugins, jobs, adapters, and failure summaries; write rate is less bounded than audit evidence and less predictable than request-only access logs |
+| high write volume | high | `AppLogger` covers core runtime, modules, jobs, adapters, and failure summaries; write rate is less bounded than audit evidence and less predictable than request-only access logs |
 | DB bloat | high | no approved operator workflow exists to justify how much runtime noise should become repository-kept data |
 | index cost | unknown-high | query dimensions for operator/UI use are not defined, so durable schema would either under-index real needs or over-index speculative ones |
 | retention / cleanup ownership | missing | current authority remains `none`; approving storage without lifecycle owner would violate the retention rules already recorded in logger governance |
-| sensitive data leakage | elevated | `message` plus free-form `fields` are more likely than access logs to carry plugin-specific secrets or user identifiers despite sanitization |
+| sensitive data leakage | elevated | `message` plus free-form `fields` are more likely than access logs to carry module-specific secrets or user identifiers despite sanitization |
 | overlap with access / audit / security | elevated | without an explicit operator workflow, teams will tend to backfill request facts, actor facts, and security facts into app-log storage, which would erode existing authority boundaries |
 
 ## Authority Decision
@@ -78,7 +78,7 @@ While this decision is deferred:
 3. What authz model should guard future `App Log` queries, and is that model backend-only or shared through `openapi/**` and `web`?
 4. What retention window is justified for this dataset, and who owns cleanup execution and config defaults?
 5. Which canonical indexes are actually needed for the approved workflow?
-6. What additional redaction or field-deny rules are required before plugin-supplied `message` / `fields` can become durable repository data?
+6. What additional redaction or field-deny rules are required before module-supplied `message` / `fields` can become durable repository data?
 7. How will future `App Log` views link to `Access Log` and `Audit Log` without collapsing those authorities into one mixed dataset?
 
 ## Authority Impact

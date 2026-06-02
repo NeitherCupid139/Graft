@@ -19,7 +19,7 @@ type Role struct {
 func (Role) Annotations() []schema.Annotation {
 	return []schema.Annotation{
 		entsql.Annotation{Table: "roles"},
-		schema.Comment("角色信息表（RBAC 插件）"),
+		schema.Comment("角色信息表（RBAC 模块）"),
 		entsql.WithComments(true),
 	}
 }

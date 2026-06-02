@@ -33,7 +33,7 @@ const (
 
 // Config 包含服务启动前一次性解析并校验的运行时配置快照。
 //
-// core 会把该快照作为只读依赖注入给运行时与插件，避免后续流程再隐式读取环境变量。
+// core 会把该快照作为只读依赖注入给运行时与模块，避免后续流程再隐式读取环境变量。
 type Config struct {
 	App      AppConfig
 	HTTP     HTTPConfig
@@ -81,7 +81,7 @@ type DatabaseConfig struct {
 	URL    string
 }
 
-// RedisConfig 描述 core 服务与插件共享的 Redis 连接配置。
+// RedisConfig 描述 core 服务与模块共享的 Redis 连接配置。
 type RedisConfig struct {
 	Addr     string
 	Password string
@@ -100,7 +100,7 @@ type I18nConfig struct {
 	SupportedLocales []string
 }
 
-// AuthConfig 描述认证插件和 HTTP 会话相关的最小稳定配置。
+// AuthConfig 描述认证模块和 HTTP 会话相关的最小稳定配置。
 //
 // 该配置只保留 token 和 refresh cookie 所需的基础参数，不承载 OAuth、SSO、MFA 或缓存策略。
 type AuthConfig struct {

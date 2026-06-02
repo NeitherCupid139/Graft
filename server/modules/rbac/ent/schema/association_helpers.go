@@ -36,9 +36,9 @@ func associationIndexes(left string, right string) []ent.Index {
 func associationTableComment(table string) string {
 	switch table {
 	case "user_roles":
-		return "用户与角色关联表（RBAC 插件）"
+		return "用户与角色关联表（RBAC 模块）"
 	case "role_permissions":
-		return "角色与权限关联表（RBAC 插件）"
+		return "角色与权限关联表（RBAC 模块）"
 	default:
 		return "关联表"
 	}

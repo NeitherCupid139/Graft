@@ -23,7 +23,7 @@ var (
 	// RefreshSessionsTable holds the schema information for the "refresh_sessions" table.
 	RefreshSessionsTable = &schema.Table{
 		Name:       "refresh_sessions",
-		Comment:    "刷新令牌会话表（用户插件）",
+		Comment:    "刷新令牌会话表（用户模块）",
 		Columns:    RefreshSessionsColumns,
 		PrimaryKey: []*schema.Column{RefreshSessionsColumns[0]},
 		ForeignKeys: []*schema.ForeignKey{
@@ -66,7 +66,7 @@ var (
 	// UsersTable holds the schema information for the "users" table.
 	UsersTable = &schema.Table{
 		Name:       "users",
-		Comment:    "用户基础信息表（用户插件）",
+		Comment:    "用户基础信息表（用户模块）",
 		Columns:    UsersColumns,
 		PrimaryKey: []*schema.Column{UsersColumns[0]},
 	}

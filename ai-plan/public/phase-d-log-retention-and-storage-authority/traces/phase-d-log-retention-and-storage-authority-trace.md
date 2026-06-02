@@ -11,7 +11,7 @@
 
 ## Key Decisions
 
-- Assigned future retention cleanup ownership for durable audit evidence to `server/plugins/audit/**`, not to `core` or `scheduler`.
+- Assigned future retention cleanup ownership for durable audit evidence to `server/modules/audit/**`, not to `core` or `scheduler`.
 - Marked access/app retention cleanup as `not-ready` rather than inventing fake repository cleanup over stdout/stderr.
 - Left archive authority as `none in MVP` because no second durable storage authority exists.
 

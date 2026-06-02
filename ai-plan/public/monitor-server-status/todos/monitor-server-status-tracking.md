@@ -12,7 +12,7 @@
 
 - Keep the first capability focused on `server-status` only.
 - Deliver the first minimal cross-boundary implementation slice without expanding beyond owned scope.
-- Preserve the existing repository boundaries while wiring menu, route, permission, API, and page ownership inside the plugin/module.
+- Preserve the existing repository boundaries while wiring menu, route, permission, API, and page ownership inside the module boundary.
 
 ## Repository Truth
 
@@ -29,15 +29,15 @@
 
 - This topic was split out of `multi-worktree-governance` as a standalone active topic.
 - The first implementation slice now exists in `server/modules/monitor/**` and `web/src/modules/monitor/**`.
-- Backend plugin registration required one explicit shared-hotspot update in `server/internal/pluginregistry/generated.go`.
+- Backend module registration required one explicit shared-hotspot update in `server/internal/moduleregistry/generated.go`.
 - The first minimal cross-boundary `monitor/server-status` slice now passes the backend and frontend completion entrypoints in this worktree.
-- A server-only follow-up round now switches monitor plugin summaries from local dependency placeholders to runtime ordered plugin descriptors.
-- That follow-up required explicit shared-hotspot updates in `server/internal/app/runtime.go`, `server/internal/plugin/plugin.go`, and `server/internal/plugin/runtime_metadata.go` to inject an observation-only runtime metadata snapshot into plugin context.
-- The follow-up round passes direct package tests for `internal/plugin` and `plugins/monitor`, and also passes `cd server && GIT_DIR=... GIT_WORK_TREE=... go run ./cmd/graft validate backend`.
+- A server-only follow-up round now switches monitor module summaries from local dependency placeholders to runtime ordered module descriptors.
+- That follow-up required explicit shared-hotspot updates in `server/internal/app/runtime.go`, `server/internal/module/module.go`, and `server/internal/module/runtime_metadata.go` to inject an observation-only runtime metadata snapshot into module context.
+- The follow-up round passes direct package tests for `internal/module` and `modules/monitor`, and also passes `cd server && GIT_DIR=... GIT_WORK_TREE=... go run ./cmd/graft validate backend`.
 - The current cross-boundary dashboard round expands the `server-status` payload inside `server/modules/monitor/**` only:
   - adds runtime memory / host summary
   - adds dependency detail plus latency samples
-  - adds plugin dependency lists
+  - adds module dependency lists
   - adds an in-memory short retention trend window
   - adds summary counters for dashboard cards
 - The corresponding `web/src/modules/monitor/**` page is now a dashboard-style monitor view with theme-aware cards and ECharts, and this slice updates `web/AGENTS.md` to freeze the relevant theme-token and color-mode rules.
@@ -54,9 +54,9 @@
 
 - `ai-plan/public/README.md`
 - `server/internal/app/runtime.go`
-- `server/internal/plugin/**`
-- `server/internal/pluginregistry/generated.go`
-- `server/internal/pluginapi/**`
+- `server/internal/module/**`
+- `server/internal/moduleregistry/generated.go`
+- `server/internal/moduleapi/**`
 - `server/internal/contract/**`
 - `web/src/router/**`
 - `web/src/layouts/**`
@@ -65,9 +65,9 @@
 ## Ownership Boundary
 
 - Standing ownership does not include the shared hotspots above.
-- This slice used only the explicit shared-hotspot exception for `server/internal/pluginregistry/generated.go`.
-- The follow-up round additionally used explicit shared-hotspot exceptions for `server/internal/app/runtime.go` and `server/internal/plugin/**` only to expose runtime metadata snapshots to plugins.
-- No web scope or other plugin scope expansion was required.
+- This slice used only the explicit shared-hotspot exception for `server/internal/moduleregistry/generated.go`.
+- The follow-up round additionally used explicit shared-hotspot exceptions for `server/internal/app/runtime.go` and `server/internal/module/**` only to expose runtime metadata snapshots to modules.
+- No web scope or other module scope expansion was required.
 
 ## Active Risks
 
@@ -81,6 +81,6 @@
 
 - No immediate implementation gap remains for the current IA-alignment slice after validation.
 - If a later round is requested, keep it inside `server-status` depth improvements such as:
-  - richer plugin runtime-status semantics
+  - richer module runtime-status semantics
   - splitting `概览` / `性能趋势` into separate real pages only when data density justifies it
   - adding `健康检查日志` or `配置诊断` as new explicit monitor capabilities rather than placeholder contracts

@@ -34,11 +34,11 @@ func NewAuthRepositoryForReset(sqlDB *sql.DB) (AuthRepositoryForReset, error) {
 
 // ResetDefaultAdminForDevelopment 在开发环境里把默认管理员重置回首次登录受限态。
 //
-// 该 helper 只复用当前 user 插件已冻结的默认管理员真值：
+// 该 helper 只复用当前 user 模块已冻结的默认管理员真值：
 //   - 确保 `graft` 存在
 //   - 把密码重置为初始化例外密码 `graft-admin`
 //   - 把 `must_change_password` 重新置为 true
-//   - 重新绑定最小管理员角色与当前插件声明的权限
+//   - 重新绑定最小管理员角色与当前模块声明的权限
 //
 // 这个入口只用于 CLI 的 dev-only 调试能力，不应被运行时业务链路或 HTTP 路由直接复用。
 func ResetDefaultAdminForDevelopment(

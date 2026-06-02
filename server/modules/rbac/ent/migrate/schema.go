@@ -26,7 +26,7 @@ var (
 	// PermissionsTable holds the schema information for the "permissions" table.
 	PermissionsTable = &schema.Table{
 		Name:       "permissions",
-		Comment:    "权限点信息表（RBAC 插件）",
+		Comment:    "权限点信息表（RBAC 模块）",
 		Columns:    PermissionsColumns,
 		PrimaryKey: []*schema.Column{PermissionsColumns[0]},
 	}
@@ -47,7 +47,7 @@ var (
 	// RolesTable holds the schema information for the "roles" table.
 	RolesTable = &schema.Table{
 		Name:       "roles",
-		Comment:    "角色信息表（RBAC 插件）",
+		Comment:    "角色信息表（RBAC 模块）",
 		Columns:    RolesColumns,
 		PrimaryKey: []*schema.Column{RolesColumns[0]},
 	}
@@ -61,7 +61,7 @@ var (
 	// RolePermissionsTable holds the schema information for the "role_permissions" table.
 	RolePermissionsTable = &schema.Table{
 		Name:       "role_permissions",
-		Comment:    "角色与权限关联表（RBAC 插件）",
+		Comment:    "角色与权限关联表（RBAC 模块）",
 		Columns:    RolePermissionsColumns,
 		PrimaryKey: []*schema.Column{RolePermissionsColumns[0]},
 		ForeignKeys: []*schema.ForeignKey{
@@ -101,7 +101,7 @@ var (
 	// UserRolesTable holds the schema information for the "user_roles" table.
 	UserRolesTable = &schema.Table{
 		Name:       "user_roles",
-		Comment:    "用户与角色关联表（RBAC 插件）",
+		Comment:    "用户与角色关联表（RBAC 模块）",
 		Columns:    UserRolesColumns,
 		PrimaryKey: []*schema.Column{UserRolesColumns[0]},
 		ForeignKeys: []*schema.ForeignKey{

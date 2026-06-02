@@ -12,7 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 )
 
-// 角色信息表（RBAC 插件）
+// 角色信息表（RBAC 模块）
 type Role struct {
 	config `json:"-"`
 	// ID of the ent.

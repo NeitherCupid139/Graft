@@ -54,7 +54,7 @@ type securityAuditError struct {
 // RequirePermission 以真实请求鉴权上下文保护路由。
 //
 // 该中间件只负责从请求中提取访问令牌、解析当前主体并调用授权器，不直接
-// 依赖任何具体插件实现。缺少登录态返回 401，认证成功但权限不足返回 403。
+// 依赖任何具体模块实现。缺少登录态返回 401，认证成功但权限不足返回 403。
 func RequirePermission(
 	localizer *i18n.Service,
 	authService moduleapi.AuthService,

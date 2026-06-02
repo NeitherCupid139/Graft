@@ -72,7 +72,7 @@ type Runtime struct {
 //   - modules: 需要接入当前进程的模块集合；这里只注册模块元数据，不执行模块生命周期。
 //
 // 返回：
-//   - *Runtime: 已完成 core 资源装配和插件登记的运行时对象。
+//   - *Runtime: 已完成 core 资源装配和模块登记的运行时对象。
 //   - error: 当配置、数据库、Redis 或核心服务注册失败时返回错误，并尽力回收已创建资源。
 func NewRuntime() (*Runtime, error) {
 	cfg, err := config.Load()

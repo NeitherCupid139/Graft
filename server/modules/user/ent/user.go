@@ -12,7 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 )
 
-// 用户基础信息表（用户插件）
+// 用户基础信息表（用户模块）
 type User struct {
 	config `json:"-"`
 	// ID of the ent.

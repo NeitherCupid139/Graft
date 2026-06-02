@@ -16,7 +16,7 @@ import (
 
 // bootstrapReader 收敛 web 启动阶段依赖的最小后端快照装配。
 //
-// 该读模型继续停留在 user 插件边界内，避免为了一个受保护的 bootstrap
+// 该读模型继续停留在 user 模块边界内，避免为了一个受保护的 bootstrap
 // 契约，把菜单过滤、locale 快照或权限聚合拆散到 core 或新增共享抽象里。
 type bootstrapReader struct {
 	auth         userstore.AuthRepository

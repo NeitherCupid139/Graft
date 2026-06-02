@@ -35,7 +35,7 @@
 | detail | 已有 | `server/modules/rbac/route_read_handlers.go` `handleGetPermission`；`openapi/paths/permissions.detail.yaml`；`web/src/modules/rbac/api/rbac.ts` `getPermissionDetail`；`web/src/modules/rbac/pages/permissions/index.vue` | 权限页已接入详情抽屉与失败回退 |
 | search/filter | 后端缺失，前端本地过滤 | `permissions.list.yaml` 无 query 参数；`web/src/modules/rbac/pages/permissions/index.vue` 在前端 `computed` 里按 keyword/category 过滤 | 现状是全量拉取再本地筛选 |
 | create | 不应在当前 MVP 默认存在 | `web/src/modules/rbac/pages/permissions/index.vue` 明确 `readonlyNotice` / `readonlyDescription`；`server/modules/rbac/route_registration.go` 只注册 `PermissionReadPermission` | 当前权限元数据以注册中心/模块声明为 canonical source，不应先做后台 CRUD |
-| update | 不应在当前 MVP 默认存在 | 同上 | 否则会与插件声明式权限真值冲突 |
+| update | 不应在当前 MVP 默认存在 | 同上 | 否则会与模块声明式权限真值冲突 |
 | delete | 不应在当前 MVP 默认存在 | 同上 | 删除声明式权限同样不是当前管理面应承担的真值 |
 
 ### Role

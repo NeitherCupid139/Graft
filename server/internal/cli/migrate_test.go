@@ -243,7 +243,7 @@ func TestResolveMigrationDirsUsesCompileTimeRegistry(t *testing.T) {
 }
 
 // TestResolveMigrationDirsSkipsRegistryDirsWithoutAtlasState 验证默认迁移目录会跳过
-// 尚未形成 Atlas 状态的插件自有目录，避免空目录参与默认 apply 链路。
+// 尚未形成 Atlas 状态的模块自有目录，避免空目录参与默认 apply 链路。
 func TestResolveMigrationDirsSkipsRegistryDirsWithoutAtlasState(t *testing.T) {
 	originalRegistryMigrationDirs := migrateRegistryMigrationDirs
 	originalReadDir := migrateReadDir
@@ -285,7 +285,7 @@ func TestResolveMigrationDirsSkipsRegistryDirsWithoutAtlasState(t *testing.T) {
 }
 
 // TestResolveMigrationDirsSkipsMissingRegistryDirs 验证默认 registry 链路会跳过
-// 尚未创建的插件迁移目录，而不是让缺失目录阻断全部迁移。
+// 尚未创建的模块迁移目录，而不是让缺失目录阻断全部迁移。
 func TestResolveMigrationDirsSkipsMissingRegistryDirs(t *testing.T) {
 	originalRegistryMigrationDirs := migrateRegistryMigrationDirs
 	originalReadDir := migrateReadDir

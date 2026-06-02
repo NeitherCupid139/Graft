@@ -1,4 +1,4 @@
-// Package container 提供核心与插件共用的显式单例注册能力。
+// Package container 提供核心与模块共用的显式单例注册能力。
 package container
 
 import (
@@ -62,7 +62,7 @@ type inflightCall struct {
 
 // New 创建一个空的单例容器。
 //
-// 返回的 Container 可以被 core 和插件共享，并在并发解析同一服务时复用
+// 返回的 Container 可以被 core 和模块共享，并在并发解析同一服务时复用
 // 同一次构造过程。
 func New() *Container {
 	return &Container{

@@ -37,7 +37,7 @@
 | AppLogger | shared `*zap.Logger` direct write | process logger output only | core runtime init / close | `server/internal/logger/**` |
 | AccessLogger | `httpx` middleware direct write | process logger output only | HTTP middleware | `server/internal/httpx/**` |
 | AuditRecorder | request middleware or eventbus candidate -> recorder -> repository | PostgreSQL `audit_logs` | audit module + shared DB runtime | `server/internal/audit/**` + `server/modules/audit/**` |
-| SecurityEvent | auth/authz guard publish -> eventbus -> audit recorder | persisted into `audit_logs` when policy includes it | publish in `httpx`, persist in audit plugin | publish: `server/internal/httpx/**`; persistence: audit path |
+| SecurityEvent | auth/authz guard publish -> eventbus -> audit recorder | persisted into `audit_logs` when policy includes it | publish in `httpx`, persist in audit module | publish: `server/internal/httpx/**`; persistence: audit path |
 
 ## Retention Matrix
 

@@ -20,7 +20,7 @@
 - authority summary:
   - `server/internal/httpx/**` owns access-log field semantics, durable table lifecycle, and retention policy
   - `web` remains a downstream explorer consumer only
-  - no audit, monitor, or plugin-registry authority supersedes `httpx` for access-log retention
+  - no audit, monitor, or module-registry authority supersedes `httpx` for access-log retention
 
 ## Goal
 

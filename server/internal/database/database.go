@@ -11,7 +11,7 @@ import (
 
 // Resources 持有数据库层对外暴露的运行时资源句柄。
 //
-// 当前 core runtime 只在这里持有共享的 SQL 连接池；更高层或插件私有 ORM
+// 当前 core runtime 只在这里持有共享的 SQL 连接池；更高层或模块私有 ORM
 // 句柄应由各自边界显式构造，而不是重新注册回 core。
 type Resources struct {
 	SQL *sql.DB

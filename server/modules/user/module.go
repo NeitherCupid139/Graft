@@ -672,7 +672,7 @@ func parseUserID(input string) (uint64, error) {
 
 // parseSessionListOptions 将列表查询参数收敛为模块内最小会话列表约束。
 //
-// 当前只允许显式 limit，并把约束留在插件层，避免为了轻量分页提前扩展仓储
+// 当前只允许显式 limit，并把约束留在模块层，避免为了轻量分页提前扩展仓储
 // 或跨模块契约。
 func parseSessionListOptions(rawLimit string) (sessionListOptions, error) {
 	rawLimit = strings.TrimSpace(rawLimit)

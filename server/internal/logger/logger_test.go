@@ -9,7 +9,7 @@ import (
 )
 
 // TestNewUsesConfiguredLogLevel 验证日志预留口子至少会把配置中的级别装配
-// 到统一 logger 上，避免 runtime 与插件读取到不同的日志阈值。
+// 到统一 logger 上，避免 runtime 与模块读取到不同的日志阈值。
 func TestNewUsesConfiguredLogLevel(t *testing.T) {
 	cfg := &config.Config{
 		App: config.AppConfig{

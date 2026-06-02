@@ -16,7 +16,7 @@ func newPasswordHasher() passwordHasher {
 	return passwordHasher{cost: bcrypt.DefaultCost}
 }
 
-// Hash 使用 bcrypt 生成单向密码散列，避免插件保留明文口令。
+// Hash 使用 bcrypt 生成单向密码散列，避免模块保留明文口令。
 func (h passwordHasher) Hash(password string) (string, error) {
 	if password == "" {
 		return "", errPasswordRequired

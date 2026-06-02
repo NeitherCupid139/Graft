@@ -10,7 +10,7 @@
 
 - runtime error investigation by time window, severity, component, operation, and bounded message search
 - background job failure investigation by component, operation, and failure window
-- plugin startup/config failure investigation by plugin component and boot window
+- module startup/config failure investigation by module component and boot window
 - request-correlated troubleshooting through `request_id` / `trace_id`
 
 ## Forbidden Expansion

@@ -23,7 +23,7 @@ type Runtime interface {
 // CronRuntime 是基于 robfig/cron/v3 的最小进程内调度器封装。
 //
 // 它把底层 cron 细节留在包内部，对外只保留显式 job 注册、启动、停止与
-// 移除语义，避免业务插件直接依赖第三方调度器实现。
+// 移除语义，避免业务模块直接依赖第三方调度器实现。
 type CronRuntime struct {
 	logger *zap.Logger
 

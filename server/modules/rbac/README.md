@@ -28,8 +28,8 @@
 * `module_registration.go`：模块生命周期与授权服务注册
 * `route_read_handlers.go`：角色/权限/详情只读路由与绑定快照路由
 * `route_write_handlers.go`：角色状态/删除、角色权限、用户角色与批量用户角色写接口路由
-* `read_service.go`：插件内只读管理服务收口
-* `write_service.go`：插件内管理写接口服务收口
+* `read_service.go`：模块内只读管理服务收口
+* `write_service.go`：模块内管理写接口服务收口
 
 ## 维护提示
 

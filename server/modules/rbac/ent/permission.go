@@ -12,7 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 )
 
-// 权限点信息表（RBAC 插件）
+// 权限点信息表（RBAC 模块）
 type Permission struct {
 	config `json:"-"`
 	// ID of the ent.

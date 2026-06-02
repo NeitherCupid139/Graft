@@ -21,7 +21,7 @@ const (
 // New 按运行时配置创建统一的结构化日志实例。
 //
 // local 与 test 环境默认使用更适合本地排查的 console 编码，其它环境
-// 保持生产配置，避免插件自行决定日志编码或级别。
+// 保持生产配置，避免模块自行决定日志编码或级别。
 func New(cfg *config.Config) (*zap.Logger, error) {
 	if cfg == nil {
 		return nil, errors.New("config is required")
