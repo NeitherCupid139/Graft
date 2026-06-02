@@ -47,10 +47,10 @@ import type { ThemeWorkbenchGroupKey } from '@/types/theme';
 const settingStore = useSettingStore();
 
 const quickEntries = [
-  { group: 'brand' as const, icon: 'fill-color', labelKey: 'layout.setting.workbench.groups.brand' },
-  { group: 'semantic' as const, icon: 'component-grid', labelKey: 'layout.setting.workbench.groups.semantic' },
-  { group: 'font' as const, icon: 'text', labelKey: 'layout.setting.workbench.groups.font' },
-  { group: 'radius' as const, icon: 'chart-bubble', labelKey: 'layout.setting.workbench.groups.radius' },
+  { group: 'appearance' as const, icon: 'fill-color', labelKey: 'layout.setting.workbench.groups.appearance' },
+  { group: 'typography' as const, icon: 'text', labelKey: 'layout.setting.workbench.groups.typography' },
+  { group: 'style' as const, icon: 'chart-bubble', labelKey: 'layout.setting.workbench.groups.style' },
+  { group: 'advanced' as const, icon: 'settings', labelKey: 'layout.setting.workbench.groups.advanced' },
 ];
 
 const openGroup = (group: ThemeWorkbenchGroupKey) => {
@@ -64,7 +64,7 @@ const isGroupActive = (group: ThemeWorkbenchGroupKey) => {
 // 底部 dock 作为全局入口，概览按钮在工作台已打开且停留在概览页时直接承担关闭动作。
 const toggleOverview = () => {
   if (isGroupActive('overview')) {
-    settingStore.closeThemeWorkbench();
+    settingStore.cancelThemeDraft();
     return;
   }
 

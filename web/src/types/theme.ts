@@ -3,19 +3,11 @@ import type { ModeType } from '@/utils/types';
 
 export type SettingStyleConfig = typeof STYLE_CONFIG;
 
-export type ThemeWorkbenchGroupKey =
-  | 'overview'
-  | 'brand'
-  | 'semantic'
-  | 'neutral'
-  | 'font'
-  | 'radius'
-  | 'shadow'
-  | 'size';
+export type ThemeWorkbenchGroupKey = 'overview' | 'appearance' | 'typography' | 'style' | 'advanced';
 
-export type ThemeTokenGroupKey = Exclude<ThemeWorkbenchGroupKey, 'overview'>;
+export type ThemeTokenGroupKey = 'brand' | 'semantic' | 'neutral' | 'font' | 'radius' | 'shadow' | 'size';
 
-export type ThemeSourceType = 'preset' | 'custom';
+export type ThemeSourceType = 'preset' | 'customized';
 
 export type ThemeTokenMap = Record<string, string>;
 
@@ -44,4 +36,16 @@ export interface ThemePresetDefinition {
   brandTheme: string;
   mode?: ModeType | 'auto';
   tokenOverrides?: Partial<ThemeModeTokenState>;
+}
+
+export interface ThemeAuthorityState {
+  mode: ModeType | 'auto';
+  brandTheme: string;
+  selectedThemePresetId: string | null;
+  themeSource: ThemeSourceType;
+  fontFamilyPreset: 'system' | 'harmonyos' | 'inter' | 'source-han-sans';
+  radiusPreset: 'business' | 'standard' | 'rounded' | 'capsule';
+  shadowPreset: 'flat' | 'standard' | 'floating';
+  densityPreset: 'compact' | 'standard' | 'comfortable';
+  themeTokenOverrides: ThemeModeTokenState;
 }

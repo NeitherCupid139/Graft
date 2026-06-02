@@ -105,6 +105,10 @@
         },
         "groups": {
           "overview": "Overview",
+          "appearance": "Appearance",
+          "typography": "Typography",
+          "style": "Style",
+          "advanced": "Advanced",
           "brand": "Brand",
           "semantic": "Semantic",
           "neutral": "Neutral",
@@ -127,6 +131,61 @@
         "presets": {
           "title": "Recommended"
         },
+        "overview": {
+          "currentTheme": "Current Theme",
+          "quickActions": "Quick Actions",
+          "toggleDark": "Toggle Dark Mode",
+          "resetColor": "Reset Theme Color"
+        },
+        "layoutPreference": {
+          "title": "Layout Preference (Compatibility Entry)",
+          "description": "These options belong to layout preference, not Theme Authority. They remain here only as a compatibility entry for now."
+        },
+        "typography": {
+          "fontFamily": "Font Family",
+          "system": "System Default"
+        },
+        "style": {
+          "radius": "Radius Style",
+          "shadow": "Shadow Style",
+          "density": "Density",
+          "business": "Business",
+          "standard": "Standard",
+          "rounded": "Rounded",
+          "capsule": "Capsule",
+          "flat": "Flat",
+          "floating": "Floating",
+          "compact": "Compact",
+          "comfortable": "Comfortable"
+        },
+        "advanced": {
+          "title": "Advanced Mode",
+          "description": "Editing low-level design tokens may affect the visual consistency of the whole system. Use only when necessary.",
+          "enter": "Enter Advanced Mode",
+          "hide": "Hide Advanced Mode"
+        },
+        "preview": {
+          "title": "Admin Preview",
+          "pageTitle": "Audit and Access Log",
+          "pageDesc": "Preview how the theme affects query toolbars, tables, status tags, stat cards, and log lists.",
+          "keyword": "Keyword / Actor / Resource",
+          "timeRange": "Time Range",
+          "status": "Status",
+          "alert": "The preview is synced to admin business samples in real time so you can judge the theme on real management surfaces.",
+          "pending": "Pending",
+          "risk": "High Risk",
+          "tableTitle": "User and Permission List",
+          "logTitle": "Log List Sample",
+          "totalUsers": "Total Users",
+          "onlineUsers": "Online Users",
+          "alertCount": "Alerts",
+          "userColumn": "User",
+          "roleColumn": "Role",
+          "statusColumn": "Status",
+          "logAuth": "Admin sign-in failed and triggered an authentication alert.",
+          "logAudit": "An auditor exported a high-risk event and recorded the evidence chain.",
+          "logAccess": "The gateway detected an abnormal access pattern and is waiting for investigation."
+        },
         "token": {
           "targetMode": "Target Mode",
           "light": "Light",
@@ -137,7 +196,9 @@
         },
         "actions": {
           "reset": "Reset Theme",
-          "clearGroup": "Clear Group"
+          "clearGroup": "Clear Group",
+          "cancel": "Cancel",
+          "apply": "Apply"
         }
       }
     }

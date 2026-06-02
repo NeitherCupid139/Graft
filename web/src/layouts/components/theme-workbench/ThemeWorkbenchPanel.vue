@@ -37,185 +37,292 @@
           </button>
         </aside>
 
-        <section class="theme-workbench-panel__content">
-          <template v-if="settingStore.activeThemeWorkbenchGroup === 'overview'">
-            <div class="section">
-              <div class="section-title">{{ t('layout.setting.theme.mode') }}</div>
-              <div class="mode-grid">
-                <button
-                  v-for="item in modeOptions"
-                  :key="item.type"
-                  type="button"
-                  class="mode-card"
-                  :class="{ 'mode-card--active': settingStore.mode === item.type }"
-                  @click="settingStore.updateConfig({ mode: item.type })"
-                >
-                  <span class="mode-card__preview">
-                    <component :is="item.icon" class="mode-card__icon" />
-                    <span v-if="settingStore.mode === item.type" class="mode-card__check">
-                      <t-icon name="check" />
+        <div class="theme-workbench-panel__main">
+          <section class="theme-workbench-panel__content">
+            <template v-if="activeGroup === 'overview'">
+              <div class="section">
+                <div class="section-title">{{ t('layout.setting.workbench.overview.currentTheme') }}</div>
+                <div class="theme-summary">
+                  <div class="theme-summary__name">{{ settingStore.effectiveThemeDisplayName }}</div>
+                  <div class="theme-summary__meta">
+                    <t-tag theme="primary" variant="light-outline">{{ modeLabel }}</t-tag>
+                    <t-tag variant="light-outline">{{ radiusLabel }}</t-tag>
+                    <t-tag variant="light-outline">{{ densityLabel }}</t-tag>
+                  </div>
+                </div>
+              </div>
+
+              <component
+                :is="ThemeWorkbenchPresetSection"
+                :title="t('layout.setting.workbench.presets.title')"
+                :presets="presetDefinitions"
+                :active-preset-id="effectivePresetId"
+                @select="settingStore.selectThemePreset"
+              />
+
+              <div class="section">
+                <div class="section-title">{{ t('layout.setting.workbench.overview.quickActions') }}</div>
+                <div class="quick-actions">
+                  <t-button variant="outline" @click="toggleDarkMode">{{
+                    t('layout.setting.workbench.overview.toggleDark')
+                  }}</t-button>
+                  <t-button variant="outline" @click="settingStore.setCustomBrandTheme(brandOptions[0])">
+                    {{ t('layout.setting.workbench.overview.resetColor') }}
+                  </t-button>
+                  <t-button theme="primary" @click="settingStore.resetThemeDraftToDefault()">
+                    {{ t('layout.setting.workbench.actions.reset') }}
+                  </t-button>
+                </div>
+              </div>
+
+              <div class="section">
+                <div class="section-title">{{ t('layout.setting.workbench.layoutPreference.title') }}</div>
+                <div class="section-desc">{{ t('layout.setting.workbench.layoutPreference.description') }}</div>
+                <div class="switch-list">
+                  <div class="switch-item">
+                    <span>{{ t('layout.setting.element.showHeader') }}</span>
+                    <t-switch
+                      :model-value="settingStore.showHeader"
+                      @update:model-value="(value) => settingStore.updateConfig({ showHeader: value })"
+                    />
+                  </div>
+                  <div class="switch-item">
+                    <span>{{ t('layout.setting.element.showBreadcrumb') }}</span>
+                    <t-switch
+                      :model-value="settingStore.showBreadcrumb"
+                      @update:model-value="(value) => settingStore.updateConfig({ showBreadcrumb: value })"
+                    />
+                  </div>
+                  <div class="switch-item">
+                    <span>{{ t('layout.setting.element.showFooter') }}</span>
+                    <t-switch
+                      :model-value="settingStore.showFooter"
+                      @update:model-value="(value) => settingStore.updateConfig({ showFooter: value })"
+                    />
+                  </div>
+                </div>
+              </div>
+            </template>
+
+            <template v-else-if="activeGroup === 'appearance'">
+              <div class="section">
+                <div class="section-title">{{ t('layout.setting.theme.mode') }}</div>
+                <div class="mode-grid">
+                  <button
+                    v-for="item in modeOptions"
+                    :key="item.type"
+                    type="button"
+                    class="mode-card"
+                    :class="{ 'mode-card--active': effectiveTheme.mode === item.type }"
+                    @click="settingStore.updateThemeDraftAppearance({ mode: item.type })"
+                  >
+                    <span class="mode-card__preview">
+                      <component :is="item.icon" class="mode-card__icon" />
                     </span>
-                  </span>
-                  <span class="mode-card__label">{{ item.text }}</span>
-                </button>
+                    <span class="mode-card__label">{{ item.text }}</span>
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <div class="section">
-              <div class="section-title">{{ t('layout.setting.workbench.presets.title') }}</div>
-              <div class="preset-grid">
-                <button
-                  v-for="preset in presetDefinitions"
-                  :key="preset.id"
-                  type="button"
-                  class="preset-card"
-                  :class="{ 'preset-card--active': selectedPresetId === preset.id }"
-                  @click="settingStore.selectThemePreset(preset.id)"
+              <div class="section">
+                <div class="section-title">{{ t('layout.setting.theme.color') }}</div>
+                <div class="brand-palette">
+                  <button
+                    v-for="color in brandOptions"
+                    :key="color"
+                    type="button"
+                    class="brand-palette__item"
+                    :class="{ 'brand-palette__item--active': effectiveTheme.brandTheme === color }"
+                    :style="{ background: color }"
+                    @click="settingStore.setCustomBrandTheme(color)"
+                  />
+                </div>
+                <div class="brand-input">
+                  <input
+                    type="color"
+                    :value="effectiveTheme.brandTheme"
+                    @input="settingStore.setCustomBrandTheme(($event.target as HTMLInputElement).value)"
+                  />
+                  <t-input
+                    :model-value="effectiveTheme.brandTheme"
+                    @update:model-value="(value) => settingStore.setCustomBrandTheme(String(value ?? ''))"
+                  />
+                </div>
+              </div>
+
+              <theme-workbench-preset-section
+                :title="t('layout.setting.workbench.presets.title')"
+                :presets="presetDefinitions"
+                :active-preset-id="effectivePresetId"
+                @select="settingStore.selectThemePreset"
+              />
+            </template>
+
+            <template v-else-if="activeGroup === 'typography'">
+              <div class="section">
+                <div class="section-title">{{ t('layout.setting.workbench.typography.fontFamily') }}</div>
+                <t-radio-group
+                  :model-value="effectiveTheme.fontFamilyPreset"
+                  variant="default-filled"
+                  @update:model-value="
+                    (value) =>
+                      settingStore.updateThemeDraftAppearance({
+                        fontFamilyPreset: value as typeof effectiveTheme.fontFamilyPreset,
+                      })
+                  "
                 >
-                  <span class="preset-card__swatch" :style="{ background: preset.brandTheme }" />
-                  <span class="preset-card__title">{{ preset.label }}</span>
-                  <span class="preset-card__desc">{{ preset.description }}</span>
-                </button>
+                  <t-radio-button v-for="item in fontFamilyOptions" :key="item.value" :value="item.value">
+                    {{ item.label }}
+                  </t-radio-button>
+                </t-radio-group>
               </div>
-            </div>
+            </template>
 
-            <div class="section">
-              <div class="section-title">{{ t('layout.setting.theme.color') }}</div>
-              <div class="brand-palette">
-                <button
-                  v-for="color in brandOptions"
-                  :key="color"
-                  type="button"
-                  class="brand-palette__item"
-                  :class="{ 'brand-palette__item--active': settingStore.brandTheme === color }"
-                  :style="{ background: color }"
-                  @click="settingStore.setCustomBrandTheme(color)"
-                />
-              </div>
-              <div class="brand-input">
-                <input
-                  type="color"
-                  :value="settingStore.brandTheme"
-                  @input="settingStore.setCustomBrandTheme(($event.target as HTMLInputElement).value)"
-                />
-                <t-input
-                  :model-value="settingStore.brandTheme"
-                  @update:model-value="(value) => settingStore.setCustomBrandTheme(value)"
-                />
-              </div>
-            </div>
-
-            <div class="section">
-              <div class="section-heading">
-                <div class="section-title">{{ t('layout.setting.navigationLayout') }}</div>
-                <div class="section-tip">{{ t('layout.setting.workbench.layout.tip') }}</div>
-              </div>
-              <div class="layout-grid">
-                <button
-                  v-for="layoutOption in layoutOptions"
-                  :key="layoutOption.value"
-                  type="button"
-                  class="layout-card"
-                  :class="{
-                    'layout-card--active': settingStore.layout === layoutOption.value,
-                  }"
-                  @click="selectLayout(layoutOption.value)"
+            <template v-else-if="activeGroup === 'style'">
+              <div class="section">
+                <div class="section-title">{{ t('layout.setting.workbench.style.radius') }}</div>
+                <t-radio-group
+                  :model-value="effectiveTheme.radiusPreset"
+                  variant="default-filled"
+                  @update:model-value="
+                    (value) =>
+                      settingStore.updateThemeDraftAppearance({
+                        radiusPreset: value as typeof effectiveTheme.radiusPreset,
+                      })
+                  "
                 >
-                  <thumbnail :src="layoutOption.thumbnail" />
-                  <span class="layout-card__title">{{ layoutOption.label }}</span>
-                </button>
+                  <t-radio-button v-for="item in radiusOptions" :key="item.value" :value="item.value">
+                    {{ item.label }}
+                  </t-radio-button>
+                </t-radio-group>
               </div>
-              <div v-if="settingStore.layout === 'mix'" class="switch-list switch-list--layout">
-                <div class="switch-item">
-                  <span>{{ t('layout.setting.splitMenu') }}</span>
-                  <t-switch v-model="settingStore.splitMenu" />
-                </div>
-                <div class="switch-item">
-                  <span>{{ t('layout.setting.fixedSidebar') }}</span>
-                  <t-switch v-model="settingStore.isSidebarFixed" />
-                </div>
-              </div>
-            </div>
 
-            <div class="section">
-              <div class="section-title">{{ t('layout.setting.element.title') }}</div>
-              <div class="switch-list">
-                <div class="switch-item">
-                  <span>{{ t('layout.setting.element.showHeader') }}</span>
-                  <t-switch v-model="settingStore.showHeader" />
-                </div>
-                <div class="switch-item">
-                  <span>{{ t('layout.setting.element.showBreadcrumb') }}</span>
-                  <t-switch v-model="settingStore.showBreadcrumb" />
-                </div>
-                <div class="switch-item">
-                  <span>{{ t('layout.setting.element.showFooter') }}</span>
-                  <t-switch v-model="settingStore.showFooter" />
-                </div>
-                <div class="switch-item">
-                  <span>{{ t('layout.setting.element.useTagTabs') }}</span>
-                  <t-switch v-model="settingStore.isUseTabsRouter" />
-                </div>
-                <div class="switch-item">
-                  <span>{{ t('layout.setting.element.menuAutoCollapsed') }}</span>
-                  <t-switch v-model="settingStore.menuAutoCollapsed" />
-                </div>
+              <div class="section">
+                <div class="section-title">{{ t('layout.setting.workbench.style.shadow') }}</div>
+                <t-radio-group
+                  :model-value="effectiveTheme.shadowPreset"
+                  variant="default-filled"
+                  @update:model-value="
+                    (value) =>
+                      settingStore.updateThemeDraftAppearance({
+                        shadowPreset: value as typeof effectiveTheme.shadowPreset,
+                      })
+                  "
+                >
+                  <t-radio-button v-for="item in shadowOptions" :key="item.value" :value="item.value">
+                    {{ item.label }}
+                  </t-radio-button>
+                </t-radio-group>
               </div>
-              <div class="section-actions">
-                <t-button block variant="outline" @click="settingStore.resetThemeWorkbench()">
-                  {{ t('layout.setting.workbench.actions.reset') }}
+
+              <div class="section">
+                <div class="section-title">{{ t('layout.setting.workbench.style.density') }}</div>
+                <t-radio-group
+                  :model-value="effectiveTheme.densityPreset"
+                  variant="default-filled"
+                  @update:model-value="
+                    (value) =>
+                      settingStore.updateThemeDraftAppearance({
+                        densityPreset: value as typeof effectiveTheme.densityPreset,
+                      })
+                  "
+                >
+                  <t-radio-button v-for="item in densityOptions" :key="item.value" :value="item.value">
+                    {{ item.label }}
+                  </t-radio-button>
+                </t-radio-group>
+              </div>
+            </template>
+
+            <template v-else>
+              <div class="section section--compact">
+                <div class="section-title">{{ t('layout.setting.workbench.advanced.title') }}</div>
+                <div class="section-desc">{{ t('layout.setting.workbench.advanced.description') }}</div>
+                <t-button theme="warning" variant="outline" @click="advancedVisible = !advancedVisible">
+                  {{
+                    advancedVisible
+                      ? t('layout.setting.workbench.advanced.hide')
+                      : t('layout.setting.workbench.advanced.enter')
+                  }}
                 </t-button>
               </div>
-            </div>
-          </template>
 
-          <template v-else>
-            <div class="section section--compact">
-              <div class="section-title">{{ activeGroupLabel }}</div>
-              <div class="section-desc">{{ t('layout.setting.workbench.token.description') }}</div>
-            </div>
-            <theme-token-editor
-              :group-key="settingStore.activeThemeTokenGroup"
-              :token-definitions="activeTokenDefinitions"
-            />
-          </template>
-        </section>
+              <template v-if="advancedVisible">
+                <div class="section">
+                  <div class="section-title">{{ activeTokenGroupLabel }}</div>
+                  <div class="token-tab-list">
+                    <t-button
+                      v-for="group in tokenGroups"
+                      :key="group.value"
+                      variant="outline"
+                      size="small"
+                      :theme="settingStore.activeThemeTokenGroup === group.value ? 'primary' : 'default'"
+                      @click="settingStore.activeThemeTokenGroup = group.value"
+                    >
+                      {{ group.label }}
+                    </t-button>
+                  </div>
+                </div>
+                <theme-token-editor
+                  :group-key="settingStore.activeThemeTokenGroup"
+                  :token-definitions="activeTokenDefinitions"
+                />
+              </template>
+            </template>
+          </section>
+
+          <theme-workbench-preview class="theme-workbench-panel__preview" />
+        </div>
       </div>
+      <footer class="theme-workbench-panel__footer">
+        <t-button variant="outline" @click="settingStore.resetThemeDraftToDefault()">
+          {{ t('layout.setting.workbench.actions.reset') }}
+        </t-button>
+        <div class="theme-workbench-panel__footer-actions">
+          <t-button variant="outline" @click="settingStore.cancelThemeDraft()">
+            {{ t('layout.setting.workbench.actions.cancel') }}
+          </t-button>
+          <t-button theme="primary" @click="settingStore.applyThemeDraft()">
+            {{ t('layout.setting.workbench.actions.apply') }}
+          </t-button>
+        </div>
+      </footer>
     </div>
   </t-drawer>
 </template>
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 
 import SettingAutoIcon from '@/assets/assets-setting-auto.svg';
 import SettingDarkIcon from '@/assets/assets-setting-dark.svg';
 import SettingLightIcon from '@/assets/assets-setting-light.svg';
 import { DEFAULT_COLOR_OPTIONS } from '@/config/color';
 import { t } from '@/locales';
-import Thumbnail from '@/shared/components/ThumbnailImage.vue';
 import { useSettingStore } from '@/store';
-import type { ThemeWorkbenchGroupKey } from '@/types/theme';
+import type { ThemeTokenGroupKey, ThemeWorkbenchGroupKey } from '@/types/theme';
 
 import ThemeTokenEditor from './ThemeTokenEditor.vue';
+import ThemeWorkbenchPresetSection from './ThemeWorkbenchPresetSection.vue';
+import ThemeWorkbenchPreview from './ThemeWorkbenchPreview.vue';
 
 const settingStore = useSettingStore();
+const advancedVisible = ref(false);
 
 const groupIconMap: Record<ThemeWorkbenchGroupKey, string> = {
   overview: 'app',
-  brand: 'fill-color',
-  semantic: 'component-grid',
-  neutral: 'layers',
-  font: 'text',
-  radius: 'chart-bubble',
-  shadow: 'gesture-pray',
-  size: 'fullscreen',
+  appearance: 'fill-color',
+  typography: 'text',
+  style: 'chart-bubble',
+  advanced: 'settings',
 };
 
 const groups = computed(() => settingStore.themeWorkbenchGroups);
 const presetDefinitions = computed(() => settingStore.themePresetDefinitions);
-const selectedPresetId = computed(() => settingStore.selectedThemePresetId);
+const effectiveTheme = computed(() => settingStore.effectiveThemeState);
+const effectivePresetId = computed(() => settingStore.effectiveThemeState.selectedThemePresetId);
+const activeGroup = computed(() => settingStore.activeThemeWorkbenchGroup);
 const brandOptions = DEFAULT_COLOR_OPTIONS;
-const drawerSize = 'min(520px, calc(100vw - 16px))';
+const drawerSize = 'min(1280px, calc(100vw - 24px))';
 
 const modeOptions = [
   { type: 'light' as const, text: t('layout.setting.theme.options.light'), icon: SettingLightIcon },
@@ -223,11 +330,71 @@ const modeOptions = [
   { type: 'auto' as const, text: t('layout.setting.theme.options.auto'), icon: SettingAutoIcon },
 ];
 
+const fontFamilyOptions = [
+  { value: 'system', label: t('layout.setting.workbench.typography.system') },
+  { value: 'harmonyos', label: 'HarmonyOS Sans' },
+  { value: 'inter', label: 'Inter' },
+  { value: 'source-han-sans', label: 'Source Han Sans' },
+] as const;
+
+const radiusOptions = [
+  { value: 'business', label: t('layout.setting.workbench.style.business') },
+  { value: 'standard', label: t('layout.setting.workbench.style.standard') },
+  { value: 'rounded', label: t('layout.setting.workbench.style.rounded') },
+  { value: 'capsule', label: t('layout.setting.workbench.style.capsule') },
+] as const;
+
+const shadowOptions = [
+  { value: 'flat', label: t('layout.setting.workbench.style.flat') },
+  { value: 'standard', label: t('layout.setting.workbench.style.standard') },
+  { value: 'floating', label: t('layout.setting.workbench.style.floating') },
+] as const;
+
+const densityOptions = [
+  { value: 'compact', label: t('layout.setting.workbench.style.compact') },
+  { value: 'standard', label: t('layout.setting.workbench.style.standard') },
+  { value: 'comfortable', label: t('layout.setting.workbench.style.comfortable') },
+] as const;
+
+const tokenGroups: Array<{ value: ThemeTokenGroupKey; label: string }> = [
+  { value: 'brand', label: t('layout.setting.workbench.groups.brand') },
+  { value: 'semantic', label: t('layout.setting.workbench.groups.semantic') },
+  { value: 'neutral', label: t('layout.setting.workbench.groups.neutral') },
+  { value: 'font', label: t('layout.setting.workbench.groups.font') },
+  { value: 'radius', label: t('layout.setting.workbench.groups.radius') },
+  { value: 'shadow', label: t('layout.setting.workbench.groups.shadow') },
+  { value: 'size', label: t('layout.setting.workbench.groups.size') },
+];
+
+const activeTokenDefinitions = computed(() =>
+  settingStore.themeTokenDefinitions.filter((item) => item.group === settingStore.activeThemeTokenGroup),
+);
+
+const activeTokenGroupLabel = computed(() => {
+  const matched = tokenGroups.find((item) => item.value === settingStore.activeThemeTokenGroup);
+  return matched?.label ?? t('layout.setting.workbench.advanced.title');
+});
+
+const modeLabel = computed(() => {
+  const matched = modeOptions.find((item) => item.type === effectiveTheme.value.mode);
+  return matched?.text ?? effectiveTheme.value.mode;
+});
+
+const radiusLabel = computed(() => {
+  const matched = radiusOptions.find((item) => item.value === effectiveTheme.value.radiusPreset);
+  return matched?.label ?? effectiveTheme.value.radiusPreset;
+});
+
+const densityLabel = computed(() => {
+  const matched = densityOptions.find((item) => item.value === effectiveTheme.value.densityPreset);
+  return matched?.label ?? effectiveTheme.value.densityPreset;
+});
+
 const drawerVisible = computed({
   get: () => settingStore.showThemeWorkbench,
   set: (visible: boolean) => {
     if (!visible) {
-      settingStore.closeThemeWorkbench();
+      settingStore.cancelThemeDraft();
       return;
     }
 
@@ -235,49 +402,21 @@ const drawerVisible = computed({
   },
 });
 
-const layoutOptions = computed(() => [
-  {
-    value: 'side' as const,
-    label: t('layout.setting.workbench.layout.side'),
-    description: t('layout.setting.workbench.layout.descriptions.side'),
-    thumbnail: 'https://tdesign.gtimg.com/tdesign-pro/setting/side.png',
-  },
-  {
-    value: 'top' as const,
-    label: t('layout.setting.workbench.layout.top'),
-    description: t('layout.setting.workbench.layout.descriptions.top'),
-    thumbnail: 'https://tdesign.gtimg.com/tdesign-pro/setting/top.png',
-  },
-  {
-    value: 'mix' as const,
-    label: t('layout.setting.workbench.layout.mix'),
-    description: t('layout.setting.workbench.layout.descriptions.mix'),
-    thumbnail: 'https://tdesign.gtimg.com/tdesign-pro/setting/mix.png',
-  },
-]);
-
-const activeTokenDefinitions = computed(() =>
-  settingStore.themeTokenDefinitions.filter((item) => item.group === settingStore.activeThemeTokenGroup),
-);
-
-const activeGroupLabel = computed(() => {
-  const group = groups.value.find((item) => item.key === settingStore.activeThemeWorkbenchGroup);
-  return group ? t(group.labelKey) : t('layout.setting.workbench.title');
-});
-
 const openGroup = (group: ThemeWorkbenchGroupKey) => {
   settingStore.setActiveThemeWorkbenchGroup(group);
 };
 
 const closeWorkbench = () => {
-  settingStore.closeThemeWorkbench();
+  settingStore.cancelThemeDraft();
 };
 
-const selectLayout = (layout: 'side' | 'top' | 'mix') => {
-  settingStore.updateConfig({ layout });
+const toggleDarkMode = () => {
+  settingStore.updateThemeDraftAppearance({ mode: effectiveTheme.value.mode === 'dark' ? 'light' : 'dark' });
 };
 </script>
 <style lang="less" scoped>
+@import './theme-surface.less';
+
 .theme-workbench-panel {
   :deep(.t-drawer) {
     background: transparent;
@@ -302,12 +441,11 @@ const selectLayout = (layout: 'side' | 'top' | 'mix') => {
 
 .theme-workbench-panel__header {
   align-items: flex-start;
-  background: linear-gradient(90deg, #6c42f6 0%, #5a33ec 100%);
-  border-bottom: 1px solid rgb(255 255 255 / 14%);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--td-brand-color) 84%, #fff), var(--td-brand-color));
   color: #fff;
   display: flex;
   justify-content: space-between;
-  padding: 16px 18px 14px;
+  padding: 18px 20px 16px;
 }
 
 .theme-workbench-panel__header :deep(.t-button) {
@@ -315,32 +453,29 @@ const selectLayout = (layout: 'side' | 'top' | 'mix') => {
 }
 
 .panel-title {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
-  line-height: 1.1;
 }
 
 .panel-subtitle {
   font-size: 13px;
-  margin-top: 3px;
-  opacity: 0.72;
+  margin-top: 4px;
+  opacity: 0.78;
 }
 
 .theme-workbench-panel__body {
-  align-items: start;
   display: grid;
   flex: 1;
-  gap: 14px;
-  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 16px;
+  grid-template-columns: 72px minmax(0, 1fr);
   min-height: 0;
-  padding: 16px 14px 0;
+  padding: 16px;
 }
 
 .theme-workbench-panel__nav {
   display: grid;
   gap: 8px;
   height: fit-content;
-  min-width: 0;
 }
 
 .nav-item {
@@ -353,26 +488,17 @@ const selectLayout = (layout: 'side' | 'top' | 'mix') => {
   display: grid;
   gap: 5px;
   padding: 10px 4px;
-  place-items: center center;
-  transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease,
-    color 0.2s ease,
-    transform 0.2s ease;
+  place-items: center;
 }
 
 .nav-item--active {
   border-color: var(--td-brand-color);
-  box-shadow: 0 6px 18px color-mix(in srgb, var(--td-brand-color) 12%, transparent);
+  box-shadow: var(--td-shadow-1);
   color: var(--td-brand-color);
-  transform: translateY(-1px);
 }
 
 .nav-item__icon {
-  align-items: center;
-  display: inline-flex;
   font-size: 20px;
-  justify-content: center;
 }
 
 .nav-item__text {
@@ -381,21 +507,29 @@ const selectLayout = (layout: 'side' | 'top' | 'mix') => {
   text-align: center;
 }
 
+.theme-workbench-panel__main {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 420px);
+  min-height: 0;
+}
+
 .theme-workbench-panel__content {
   display: flex;
   flex-direction: column;
   gap: 16px;
   min-height: 0;
-  min-width: 0;
   overflow: auto;
-  padding-right: 2px;
+  padding-right: 4px;
+}
+
+.theme-workbench-panel__preview {
+  min-width: 0;
 }
 
 .section {
-  background: var(--td-bg-color-container);
-  border: 1px solid var(--td-component-stroke);
-  border-radius: 20px;
-  display: grid;
+  .theme-workbench-surface();
+
   gap: 14px;
   padding: 16px;
 }
@@ -410,164 +544,108 @@ const selectLayout = (layout: 'side' | 'top' | 'mix') => {
   font-weight: 700;
 }
 
-.section-heading {
-  display: grid;
-  gap: 6px;
-}
-
-.section-tip {
-  color: var(--td-text-color-secondary);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
 .section-desc {
   color: var(--td-text-color-secondary);
-  font: var(--td-font-body-medium);
 }
 
-.mode-grid,
-.preset-grid,
-.layout-grid {
-  display: grid;
+.theme-summary__name {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.theme-summary__meta,
+.quick-actions,
+.switch-list,
+.switch-item,
+.token-tab-list,
+.brand-input {
+  display: flex;
   gap: 12px;
 }
 
+.theme-summary__meta,
+.quick-actions,
+.token-tab-list {
+  flex-wrap: wrap;
+}
+
+.switch-list {
+  flex-direction: column;
+}
+
+.switch-item {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.preset-grid,
 .mode-grid {
-  grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+  display: grid;
+  gap: 12px;
 }
 
 .preset-grid {
   grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
 }
 
-.layout-grid {
-  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+.mode-grid {
+  grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
 }
 
-.mode-card,
 .preset-card,
-.layout-card {
+.mode-card {
   appearance: none;
   background: var(--td-bg-color-page);
   border: 1px solid var(--td-component-stroke);
-  border-radius: 16px;
+  border-radius: var(--td-radius-large);
   cursor: pointer;
   display: grid;
   gap: 8px;
-  min-width: 0;
   padding: 12px;
   text-align: left;
-  transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease,
-    transform 0.2s ease;
 }
 
-.mode-card--active,
 .preset-card--active,
-.layout-card--active {
+.mode-card--active {
   border-color: var(--td-brand-color);
-  box-shadow: 0 10px 24px color-mix(in srgb, var(--td-brand-color) 12%, transparent);
-  transform: translateY(-1px);
+  box-shadow: var(--td-shadow-1);
 }
 
 .mode-card {
-  align-content: start;
   justify-items: center;
-  padding-bottom: 10px;
   text-align: center;
 }
 
 .mode-card__preview {
   display: grid;
-  inline-size: min(100%, 88px);
   place-items: center;
-  position: relative;
-  width: 100%;
 }
 
 .mode-card__icon {
-  aspect-ratio: 11 / 6;
-  display: block;
-  height: auto;
   max-width: 88px;
   width: 100%;
-}
-
-.mode-card__preview :deep(svg) {
-  aspect-ratio: 11 / 6;
-  border-radius: 12px;
-  display: block;
-  height: auto;
-  max-width: 88px;
-  overflow: hidden;
-  width: 100%;
-}
-
-.mode-card__check {
-  align-items: center;
-  background: rgb(0 0 0 / 58%);
-  border-radius: 999px;
-  bottom: 4px;
-  color: #fff;
-  display: inline-flex;
-  height: 22px;
-  justify-content: center;
-  position: absolute;
-  right: 6px;
-  width: 22px;
-}
-
-.mode-card__label {
-  color: var(--td-text-color-primary);
-  font-size: 13px;
-  font-weight: 600;
 }
 
 .preset-card__swatch {
   border-radius: 12px;
-  display: inline-flex;
-  height: 34px;
-  width: 100%;
+  display: block;
+  height: 48px;
 }
 
 .preset-card__title {
-  color: var(--td-text-color-primary);
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .preset-card__desc {
   color: var(--td-text-color-secondary);
   font-size: 12px;
-  line-height: 1.4;
-}
-
-.layout-card {
-  align-content: start;
-  justify-items: center;
-  min-width: 0;
-  padding: 10px 8px 12px;
-  text-align: center;
-}
-
-.layout-card :deep(.thumbnail-layout) {
-  aspect-ratio: 11 / 6;
-  display: block;
-  height: auto;
-  width: min(88px, 100%);
-}
-
-.layout-card__title {
-  color: var(--td-text-color-primary);
-  font-size: 12px;
-  font-weight: 600;
+  line-height: 1.5;
 }
 
 .brand-palette {
   display: grid;
   gap: 10px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(8, minmax(0, 1fr));
 }
 
 .brand-palette__item {
@@ -576,121 +654,53 @@ const selectLayout = (layout: 'side' | 'top' | 'mix') => {
   border-radius: 14px;
   cursor: pointer;
   height: 40px;
-  transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease,
-    transform 0.2s ease;
 }
 
 .brand-palette__item--active {
   border-color: var(--td-text-color-primary);
-  box-shadow: 0 8px 18px rgb(15 23 42 / 12%);
-  transform: translateY(-1px);
 }
 
 .brand-input {
   align-items: center;
-  display: grid;
-  gap: 10px;
-  grid-template-columns: 40px 1fr;
 }
 
 .brand-input input[type='color'] {
   appearance: none;
   background: transparent;
   border: 0;
-  border-radius: 10px;
   cursor: pointer;
   height: 40px;
   padding: 0;
-  width: 40px;
+  width: 48px;
 }
 
-.switch-list {
-  display: grid;
-  gap: 8px;
+.brand-input :deep(.t-input) {
+  flex: 1;
 }
 
-.switch-list--layout {
-  margin-top: 2px;
-}
-
-.section-actions {
-  display: grid;
-  gap: 10px;
-}
-
-.switch-item {
+.theme-workbench-panel__footer {
   align-items: center;
-  background: var(--td-bg-color-page);
-  border: 1px solid var(--td-component-stroke);
-  border-radius: 12px;
+  border-top: 1px solid var(--td-component-stroke);
   display: flex;
   justify-content: space-between;
-  min-height: 52px;
-  padding: 10px 14px;
+  padding: 12px 16px;
 }
 
-@media (width <= 860px) {
-  .theme-workbench-panel__body {
-    gap: 12px;
-    grid-template-columns: 1fr;
-    padding-inline: 12px;
-  }
-
-  .theme-workbench-panel__nav {
-    grid-template-columns: repeat(auto-fit, minmax(68px, 1fr));
-    padding-bottom: 4px;
-  }
-
-  .nav-item {
-    min-height: 64px;
-    min-width: 0;
-  }
-
-  .section {
-    padding: 14px;
-  }
-
-  .brand-palette {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
+.theme-workbench-panel__footer-actions {
+  display: flex;
+  gap: 12px;
 }
 
-@media (width <= 560px) {
-  .theme-workbench-panel {
-    :deep(.t-drawer) {
-      max-width: 100vw;
-    }
-  }
-
-  .theme-workbench-panel__header {
-    padding: 14px 14px 12px;
-  }
-
-  .panel-title {
-    font-size: 18px;
-  }
-
+@media (width <= 1024px) {
   .theme-workbench-panel__body {
-    padding: 12px 12px 0;
-  }
-
-  .theme-workbench-panel__nav {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .mode-grid,
-  .preset-grid,
-  .layout-grid {
     grid-template-columns: 1fr;
   }
 
-  .brand-palette {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .theme-workbench-panel__nav {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 
-  .brand-input {
+  .theme-workbench-panel__main {
     grid-template-columns: 1fr;
   }
 }

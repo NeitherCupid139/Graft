@@ -105,6 +105,10 @@
         },
         "groups": {
           "overview": "概览",
+          "appearance": "外观",
+          "typography": "字体",
+          "style": "风格",
+          "advanced": "高级",
           "brand": "色彩",
           "semantic": "语义",
           "neutral": "中性",
@@ -127,6 +131,61 @@
         "presets": {
           "title": "官方推荐"
         },
+        "overview": {
+          "currentTheme": "当前主题",
+          "quickActions": "快速操作",
+          "toggleDark": "切换深色模式",
+          "resetColor": "恢复默认主题色"
+        },
+        "layoutPreference": {
+          "title": "布局偏好（兼容入口）",
+          "description": "这些配置属于布局偏好，不属于 Theme Authority。本轮仅保留兼容入口，后续如有独立布局中心应迁移。"
+        },
+        "typography": {
+          "fontFamily": "字体选择",
+          "system": "系统默认"
+        },
+        "style": {
+          "radius": "圆角风格",
+          "shadow": "阴影风格",
+          "density": "信息密度",
+          "business": "商务",
+          "standard": "标准",
+          "rounded": "圆润",
+          "capsule": "胶囊",
+          "flat": "扁平",
+          "floating": "浮层",
+          "compact": "紧凑",
+          "comfortable": "宽松"
+        },
+        "advanced": {
+          "title": "高级模式",
+          "description": "修改底层 Design Token 可能影响整个系统的视觉一致性和可维护性，建议仅在明确需要时使用。",
+          "enter": "进入高级模式",
+          "hide": "收起高级模式"
+        },
+        "preview": {
+          "title": "后台业务样板预览",
+          "pageTitle": "审计与访问日志",
+          "pageDesc": "预览主题对查询工具栏、数据表格、状态标签、统计卡片与日志列表的实际影响。",
+          "keyword": "关键词 / 操作人 / 资源",
+          "timeRange": "时间范围",
+          "status": "状态",
+          "alert": "主题预览已实时同步到后台业务样板，帮助你判断风格在真实管理页面中的效果。",
+          "pending": "待处理",
+          "risk": "高风险",
+          "tableTitle": "用户与权限列表",
+          "logTitle": "日志列表样板",
+          "totalUsers": "总用户",
+          "onlineUsers": "在线用户",
+          "alertCount": "告警数",
+          "userColumn": "用户",
+          "roleColumn": "角色",
+          "statusColumn": "状态",
+          "logAuth": "管理员登录失败，触发认证异常告警。",
+          "logAudit": "审计员导出高风险事件，记录审计证据链。",
+          "logAccess": "网关检测到异常访问模式，等待进一步排查。"
+        },
         "token": {
           "targetMode": "目标模式",
           "light": "亮色",
@@ -137,7 +196,9 @@
         },
         "actions": {
           "reset": "恢复默认主题",
-          "clearGroup": "清空当前分组"
+          "clearGroup": "清空当前分组",
+          "cancel": "取消",
+          "apply": "应用"
         }
       }
     }

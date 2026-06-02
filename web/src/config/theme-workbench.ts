@@ -4,13 +4,10 @@ export const DEFAULT_THEME_PRESET_ID = 'tdesign-default';
 
 export const THEME_WORKBENCH_GROUPS: ThemeWorkbenchGroupDefinition[] = [
   { key: 'overview', labelKey: 'layout.setting.workbench.groups.overview' },
-  { key: 'brand', labelKey: 'layout.setting.workbench.groups.brand' },
-  { key: 'semantic', labelKey: 'layout.setting.workbench.groups.semantic' },
-  { key: 'neutral', labelKey: 'layout.setting.workbench.groups.neutral' },
-  { key: 'font', labelKey: 'layout.setting.workbench.groups.font' },
-  { key: 'radius', labelKey: 'layout.setting.workbench.groups.radius' },
-  { key: 'shadow', labelKey: 'layout.setting.workbench.groups.shadow' },
-  { key: 'size', labelKey: 'layout.setting.workbench.groups.size' },
+  { key: 'appearance', labelKey: 'layout.setting.workbench.groups.appearance' },
+  { key: 'typography', labelKey: 'layout.setting.workbench.groups.typography' },
+  { key: 'style', labelKey: 'layout.setting.workbench.groups.style' },
+  { key: 'advanced', labelKey: 'layout.setting.workbench.groups.advanced' },
 ];
 
 export const THEME_TOKEN_DEFINITIONS: ThemeTokenDefinition[] = [

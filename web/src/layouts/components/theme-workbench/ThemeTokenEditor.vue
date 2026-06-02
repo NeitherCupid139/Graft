@@ -169,6 +169,8 @@ const toHex = (value: string) => {
 };
 </script>
 <style lang="less" scoped>
+@import './theme-surface.less';
+
 .theme-token-editor {
   display: flex;
   flex-direction: column;
@@ -200,10 +202,8 @@ const toHex = (value: string) => {
 }
 
 .token-item {
-  background: var(--td-bg-color-container);
-  border: 1px solid var(--td-component-stroke);
-  border-radius: var(--td-radius-large);
-  display: grid;
+  .theme-workbench-surface();
+
   gap: 12px;
   padding: 14px 16px;
 }
