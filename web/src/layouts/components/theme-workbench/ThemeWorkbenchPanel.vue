@@ -21,7 +21,7 @@
       </header>
 
       <div class="theme-workbench-panel__body">
-        <aside class="theme-workbench-panel__nav">
+        <aside class="theme-workbench-panel__nav narrow-scrollbar">
           <button
             v-for="group in groups"
             :key="group.key"
@@ -37,9 +37,9 @@
           </button>
         </aside>
 
-        <section class="theme-workbench-panel__content">
-          <template v-if="activeGroup === 'overview'">
-            <div class="section">
+        <section class="theme-workbench-panel__content narrow-scrollbar">
+          <div v-if="activeGroup === 'overview'" class="overview-layout">
+            <div class="section overview-layout__summary">
               <div class="section-title">{{ t('layout.setting.workbench.overview.currentConfig') }}</div>
               <div class="section-desc">{{ t('layout.setting.workbench.overview.description') }}</div>
               <div class="config-summary-card">
@@ -53,10 +53,18 @@
                 </div>
               </div>
             </div>
-          </template>
 
-          <template v-else-if="activeGroup === 'appearance'">
-            <div class="section">
+            <theme-workbench-preset-section
+              class="overview-layout__presets"
+              :title="t('layout.setting.workbench.presets.title')"
+              :presets="presetDefinitions"
+              :active-preset-id="effectivePresetId"
+              @select="settingStore.selectThemePreset"
+            />
+          </div>
+
+          <div v-else-if="activeGroup === 'appearance'" class="settings-layout settings-layout--appearance">
+            <div class="section settings-layout__section settings-layout__section--mode">
               <div class="section-heading">
                 <div class="section-title">{{ t('layout.setting.theme.mode') }}</div>
                 <div class="section-desc">{{ t('layout.setting.workbench.appearance.description') }}</div>
@@ -81,7 +89,7 @@
               </div>
             </div>
 
-            <div class="section">
+            <div class="section settings-layout__section settings-layout__section--color">
               <div class="section-heading">
                 <div class="section-title">{{ t('layout.setting.theme.color') }}</div>
                 <div class="section-desc">{{ t('layout.setting.workbench.appearance.colorDescription') }}</div>
@@ -118,7 +126,7 @@
               </div>
             </div>
 
-            <div class="section">
+            <div class="section settings-layout__section settings-layout__section--nav">
               <div class="section-heading">
                 <div class="section-title">{{ t('layout.setting.workbench.appearance.navigationAppearance') }}</div>
                 <div class="section-desc">{{ t('layout.setting.workbench.appearance.navigationDescription') }}</div>
@@ -145,7 +153,7 @@
               </div>
             </div>
 
-            <div class="section">
+            <div class="section settings-layout__section settings-layout__section--content">
               <div class="section-heading">
                 <div class="section-title">{{ t('layout.setting.workbench.appearance.contentAppearance') }}</div>
                 <div class="section-desc">{{ t('layout.setting.workbench.appearance.contentDescription') }}</div>
@@ -167,10 +175,18 @@
                 </button>
               </div>
             </div>
-          </template>
 
-          <template v-else-if="activeGroup === 'layout'">
-            <div class="section">
+            <theme-workbench-preset-section
+              class="settings-layout__presets"
+              :title="t('layout.setting.workbench.presets.title')"
+              :presets="presetDefinitions"
+              :active-preset-id="effectivePresetId"
+              @select="settingStore.selectThemePreset"
+            />
+          </div>
+
+          <div v-else-if="activeGroup === 'layout'" class="settings-layout settings-layout--layout">
+            <div class="section settings-layout__section settings-layout__section--layout-choices">
               <div class="section-title">{{ t('layout.setting.navigationLayout') }}</div>
               <div class="section-desc">{{ t('layout.setting.workbench.layout.tip') }}</div>
               <div class="choice-grid">
@@ -200,7 +216,7 @@
               <div class="section-desc">{{ t('layout.setting.workbench.layout.behaviorDescription') }}</div>
               <div class="switch-list">
                 <div class="switch-item">
-                  <div>
+                  <div class="switch-item__content">
                     <div class="switch-item__label">{{ t('layout.setting.splitMenuShort') }}</div>
                     <div class="switch-item__hint">{{ splitMenuHint }}</div>
                   </div>
@@ -211,7 +227,7 @@
                   />
                 </div>
                 <div class="switch-item">
-                  <div>
+                  <div class="switch-item__content">
                     <div class="switch-item__label">{{ t('layout.setting.fixedSidebar') }}</div>
                     <div class="switch-item__hint">{{ fixedSidebarHint }}</div>
                   </div>
@@ -222,7 +238,7 @@
                   />
                 </div>
                 <div class="switch-item">
-                  <div>
+                  <div class="switch-item__content">
                     <div class="switch-item__label">{{ t('layout.setting.element.menuAutoCollapsed') }}</div>
                     <div class="switch-item__hint">
                       {{ t('layout.setting.workbench.layout.menuAutoCollapsedHint') }}
@@ -241,28 +257,40 @@
               <div class="section-desc">{{ t('layout.setting.workbench.layout.elementsDescription') }}</div>
               <div class="switch-list">
                 <div class="switch-item">
-                  <div class="switch-item__label">{{ t('layout.setting.element.showHeader') }}</div>
+                  <div class="switch-item__content">
+                    <div class="switch-item__label">{{ t('layout.setting.element.showHeader') }}</div>
+                    <div class="switch-item__hint">{{ t('layout.setting.workbench.layout.showHeaderHint') }}</div>
+                  </div>
                   <t-switch
                     :model-value="settingStore.showHeader"
                     @update:model-value="(value) => settingStore.updateConfig({ showHeader: value })"
                   />
                 </div>
                 <div class="switch-item">
-                  <div class="switch-item__label">{{ t('layout.setting.element.showBreadcrumb') }}</div>
+                  <div class="switch-item__content">
+                    <div class="switch-item__label">{{ t('layout.setting.element.showBreadcrumb') }}</div>
+                    <div class="switch-item__hint">{{ t('layout.setting.workbench.layout.showBreadcrumbHint') }}</div>
+                  </div>
                   <t-switch
                     :model-value="settingStore.showBreadcrumb"
                     @update:model-value="(value) => settingStore.updateConfig({ showBreadcrumb: value })"
                   />
                 </div>
                 <div v-if="footerOptionVisible" class="switch-item">
-                  <div class="switch-item__label">{{ t('layout.setting.element.showFooter') }}</div>
+                  <div class="switch-item__content">
+                    <div class="switch-item__label">{{ t('layout.setting.element.showFooter') }}</div>
+                    <div class="switch-item__hint">{{ t('layout.setting.workbench.layout.showFooterHint') }}</div>
+                  </div>
                   <t-switch
                     :model-value="settingStore.showFooter"
                     @update:model-value="(value) => settingStore.updateConfig({ showFooter: value })"
                   />
                 </div>
                 <div class="switch-item">
-                  <div class="switch-item__label">{{ t('layout.setting.element.useTagTabs') }}</div>
+                  <div class="switch-item__content">
+                    <div class="switch-item__label">{{ t('layout.setting.element.useTagTabs') }}</div>
+                    <div class="switch-item__hint">{{ t('layout.setting.workbench.layout.useTagTabsHint') }}</div>
+                  </div>
                   <t-switch
                     :model-value="settingStore.isUseTabsRouter"
                     @update:model-value="(value) => settingStore.updateConfig({ isUseTabsRouter: value })"
@@ -270,9 +298,9 @@
                 </div>
               </div>
             </div>
-          </template>
+          </div>
 
-          <template v-else-if="activeGroup === 'typography'">
+          <div v-else-if="activeGroup === 'typography'" class="settings-layout settings-layout--typography">
             <div class="section">
               <div class="section-title">{{ t('layout.setting.workbench.typography.fontFamily') }}</div>
               <div class="section-desc">{{ t('layout.setting.workbench.typography.description') }}</div>
@@ -310,18 +338,10 @@
                   </span>
                 </label>
               </div>
-              <div class="font-preview-strip" :style="{ fontFamily: activeFontPreviewFamily }">
-                <span class="font-preview-strip__label">{{
-                  t('layout.setting.workbench.typography.sampleTitle')
-                }}</span>
-                <span class="font-preview-strip__content">{{
-                  t('layout.setting.workbench.typography.previewLine')
-                }}</span>
-              </div>
             </div>
-          </template>
+          </div>
 
-          <template v-else-if="activeGroup === 'style'">
+          <div v-else-if="activeGroup === 'style'" class="settings-layout settings-layout--style">
             <div class="section">
               <div class="section-heading">
                 <div class="section-title">{{ t('layout.setting.workbench.style.radius') }}</div>
@@ -401,9 +421,9 @@
                 </button>
               </div>
             </div>
-          </template>
+          </div>
 
-          <template v-else>
+          <div v-else class="advanced-layout">
             <div class="advanced-settings-card">
               <div class="advanced-settings-card__content">
                 <div class="section-title">{{ t('layout.setting.workbench.advanced.title') }}</div>
@@ -459,15 +479,7 @@
                 </t-collapse>
               </section>
             </div>
-          </template>
-
-          <theme-workbench-preset-section
-            v-if="showPresetSection"
-            :title="t('layout.setting.workbench.presets.title')"
-            :presets="presetDefinitions"
-            :active-preset-id="effectivePresetId"
-            @select="settingStore.selectThemePreset"
-          />
+          </div>
         </section>
       </div>
 
@@ -669,11 +681,6 @@ const layoutLabel = computed(() => {
   return matched?.label ?? settingStore.layout;
 });
 
-const activeFontPreviewFamily = computed(() => {
-  const matched = fontFamilyOptions.find((item) => item.value === effectiveTheme.value.fontFamilyPreset);
-  return matched?.previewFamily ?? fontFamilyOptions[0].previewFamily;
-});
-
 const activeFontLabel = computed(() => {
   const matched = fontFamilyOptions.find((item) => item.value === effectiveTheme.value.fontFamilyPreset);
   return matched?.label ?? fontFamilyOptions[0].label;
@@ -718,7 +725,6 @@ const overviewSummaryItems = computed(() => [
 ]);
 
 const hasPendingChanges = computed(() => themeDiffItems.value.length > 0);
-const showPresetSection = computed(() => activeGroup.value === 'overview' || activeGroup.value === 'appearance');
 const splitMenuAvailable = computed(() => settingStore.layout === 'mix');
 const splitMenuHint = computed(() =>
   splitMenuAvailable.value
@@ -817,17 +823,23 @@ const toggleAdvancedVisible = (value: boolean) => {
 .theme-workbench-panel__body {
   display: grid;
   flex: 1;
-  gap: 16px;
-  grid-template-columns: 82px minmax(0, 1fr);
+  gap: 12px;
+  grid-template-columns: 72px minmax(0, 1fr);
   min-height: 0;
   overflow: hidden;
   padding: 16px;
 }
 
 .theme-workbench-panel__nav {
+  align-content: start;
+  align-self: stretch;
   display: grid;
   gap: 8px;
-  height: fit-content;
+  max-height: 100%;
+  min-height: 0;
+  overflow: hidden auto;
+  overscroll-behavior: contain;
+  padding-right: 2px;
 }
 
 .theme-workbench-selectable-card() {
@@ -844,10 +856,12 @@ const toggleAdvancedVisible = (value: boolean) => {
 
   color: var(--td-text-color-secondary);
   display: grid;
-  gap: 8px;
-  min-height: 56px;
-  padding: 12px 8px;
+  gap: 6px;
+  height: 64px;
+  min-height: 64px;
+  padding: 8px 6px;
   place-items: center;
+  width: 64px;
 }
 
 .nav-item--active {
@@ -871,43 +885,29 @@ const toggleAdvancedVisible = (value: boolean) => {
 .theme-workbench-panel__content {
   display: flex;
   flex-direction: column;
-  gap: 16px;
   min-height: 0;
   overflow: hidden auto;
   padding-bottom: 104px;
   padding-right: 4px;
-  scrollbar-color: color-mix(in srgb, var(--td-brand-color) 18%, var(--td-scrollbar-color)) transparent;
-}
-
-.theme-workbench-panel__content::-webkit-scrollbar {
-  width: 8px;
-}
-
-.theme-workbench-panel__content::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--td-brand-color) 18%, var(--td-scrollbar-color));
-  border-radius: 999px;
 }
 
 .section {
   .theme-workbench-surface();
 
-  gap: 14px;
+  gap: 12px;
   max-width: 100%;
   min-width: 0;
-  overflow: hidden;
   padding: 16px;
-}
-
-.section--compact {
-  align-items: center;
-  gap: 12px 16px;
-  grid-template-columns: minmax(0, 1fr) auto;
 }
 
 .section-title {
   color: var(--td-text-color-primary);
   font-size: 16px;
   font-weight: 700;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .section-heading {
@@ -917,40 +917,36 @@ const toggleAdvancedVisible = (value: boolean) => {
 }
 
 .section-desc {
+  -webkit-box-orient: vertical;
   color: var(--td-text-color-secondary);
-  font-size: 13px;
-  line-height: 1.5;
+  display: -webkit-box;
+  font-size: 12px;
+  -webkit-line-clamp: 2;
+  line-height: 1.45;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
 }
 
-.section--compact .section-desc {
-  margin-right: auto;
-}
-
-.advanced-settings-card {
-  align-items: center;
-  background: color-mix(in srgb, var(--td-bg-color-container) 96%, var(--td-bg-color-page));
-  border: 1px solid var(--td-component-stroke);
-  border-radius: 16px;
+.overview-layout,
+.settings-layout,
+.advanced-layout {
   display: grid;
-  gap: 16px;
-  grid-template-columns: minmax(0, 1fr) auto;
-  padding: 14px 16px;
-}
-
-.advanced-settings-card__content {
-  display: grid;
-  gap: 6px;
-}
-
-.advanced-settings-card__desc {
-  color: color-mix(in srgb, var(--td-text-color-secondary) 90%, var(--td-text-color-primary));
+  gap: 12px;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .choice-grid,
 .brand-palette {
   display: grid;
   gap: 12px;
+  max-width: 100%;
   min-width: 0;
+}
+
+.overview-layout .section {
+  padding: 14px;
 }
 
 .config-summary-card {
@@ -958,15 +954,19 @@ const toggleAdvancedVisible = (value: boolean) => {
   border: 1px solid var(--td-component-stroke);
   border-radius: var(--td-radius-large);
   display: grid;
-  gap: 12px;
-  padding: 16px;
+  gap: 8px 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  padding: 12px;
 }
 
 .config-summary-row {
   align-items: center;
   display: grid;
-  gap: 16px;
-  grid-template-columns: minmax(96px, 0.35fr) minmax(0, 1fr);
+  gap: 8px;
+  grid-template-columns: minmax(72px, 0.75fr) minmax(0, 1fr);
   min-width: 0;
 }
 
@@ -980,13 +980,16 @@ const toggleAdvancedVisible = (value: boolean) => {
   font-size: 14px;
   font-weight: 600;
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .config-summary-row__value--color {
   align-items: center;
   display: inline-flex;
   gap: 10px;
+  max-width: 100%;
 }
 
 .config-summary-color {
@@ -1005,11 +1008,14 @@ const toggleAdvancedVisible = (value: boolean) => {
   color: var(--td-text-color-primary);
   font-family: var(--td-font-family);
   font-size: 13px;
-  letter-spacing: 0.01em;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .choice-grid {
-  grid-template-columns: repeat(auto-fit, minmax(142px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
 }
 
 .choice-card {
@@ -1018,6 +1024,7 @@ const toggleAdvancedVisible = (value: boolean) => {
 
   display: grid;
   gap: 10px;
+  max-width: 100%;
   min-width: 0;
   overflow: hidden;
   padding: 12px;
@@ -1028,6 +1035,365 @@ const toggleAdvancedVisible = (value: boolean) => {
 .choice-card--active {
   border-color: var(--td-brand-color);
   box-shadow: var(--td-shadow-1);
+}
+
+.settings-layout__section--mode .choice-grid,
+.settings-layout__section--nav .choice-grid,
+.settings-layout--layout .choice-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.settings-layout--appearance .section {
+  gap: 10px;
+  padding: 16px;
+}
+
+.settings-layout--layout .section {
+  gap: 10px;
+  padding: 14px 16px;
+}
+
+.choice-card__check {
+  color: var(--td-brand-color);
+  position: absolute;
+  right: 8px;
+  top: 8px;
+}
+
+.choice-card__title {
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mode-thumbnail,
+.layout-thumbnail {
+  background: var(--td-bg-color-page);
+  border: 1px solid var(--td-component-stroke);
+  border-radius: 12px;
+  display: block;
+  height: 92px;
+  overflow: hidden;
+  position: relative;
+}
+
+.mode-thumbnail {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  padding: 12px;
+}
+
+.mode-thumbnail--light {
+  background: linear-gradient(180deg, #fff, #f3f5f9);
+}
+
+.mode-thumbnail--dark {
+  background: linear-gradient(180deg, #1f2937, #111827);
+}
+
+.mode-thumbnail--auto {
+  background: linear-gradient(135deg, #fff 0 50%, #111827 50% 100%);
+}
+
+.mode-thumbnail__icon {
+  max-height: 68px;
+  max-width: 92px;
+  width: 100%;
+}
+
+.layout-thumbnail {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  grid-template-rows: 18px 1fr;
+  padding: 10px;
+}
+
+.layout-thumbnail__header,
+.layout-thumbnail__sidebar,
+.layout-thumbnail__content {
+  border-radius: 8px;
+  display: block;
+}
+
+.layout-thumbnail__header {
+  background: color-mix(in srgb, var(--td-brand-color) 18%, var(--td-bg-color-container));
+  grid-column: 1 / span 2;
+}
+
+.layout-thumbnail__sidebar {
+  background: color-mix(in srgb, var(--td-brand-color) 10%, var(--td-bg-color-container));
+  grid-row: 2;
+  margin-top: 8px;
+}
+
+.layout-thumbnail__content {
+  background: var(--td-bg-color-container);
+  border: 1px solid var(--td-component-stroke);
+  grid-row: 2;
+  margin-left: 8px;
+  margin-top: 8px;
+}
+
+.layout-thumbnail--top {
+  grid-template-columns: 1fr;
+  grid-template-rows: 18px 1fr;
+}
+
+.layout-thumbnail--top .layout-thumbnail__header {
+  grid-column: 1;
+}
+
+.layout-thumbnail--top .layout-thumbnail__sidebar {
+  display: none;
+}
+
+.layout-thumbnail--top .layout-thumbnail__content {
+  grid-column: 1;
+  margin-left: 0;
+}
+
+.layout-thumbnail--mix::after {
+  background: color-mix(in srgb, var(--td-brand-color) 16%, var(--td-bg-color-container));
+  border-radius: 6px;
+  content: '';
+  height: 38px;
+  left: 42px;
+  position: absolute;
+  top: 34px;
+  width: 16px;
+}
+
+.switch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.switch-item {
+  align-items: center;
+  background: var(--td-bg-color-page);
+  border: 1px solid var(--td-component-stroke);
+  border-radius: 12px;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  min-height: 52px;
+  min-width: 0;
+  overflow: hidden;
+  padding: 8px 12px;
+}
+
+.switch-item__label {
+  color: var(--td-text-color-primary);
+  font-weight: 500;
+}
+
+.switch-item__content {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.switch-item__hint {
+  -webkit-box-orient: vertical;
+  color: var(--td-text-color-secondary);
+  display: -webkit-box;
+  font-size: 12px;
+  -webkit-line-clamp: 2;
+  line-height: 1.35;
+  overflow: hidden;
+}
+
+.brand-palette {
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+}
+
+.brand-palette__item {
+  align-items: center;
+  appearance: none;
+  border: 2px solid transparent;
+  border-radius: 14px;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  height: 40px;
+  justify-content: center;
+}
+
+.brand-palette__item--active {
+  border-color: var(--td-text-color-primary);
+}
+
+.brand-input {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto minmax(132px, 176px) minmax(92px, 1fr);
+  max-width: 100%;
+  min-width: 0;
+}
+
+.brand-input input[type='color'] {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  height: 40px;
+  padding: 0;
+  width: 48px;
+}
+
+.brand-input :deep(.t-input) {
+  max-width: 180px;
+  min-width: 0;
+}
+
+.brand-input__preview {
+  align-items: center;
+  background: var(--td-bg-color-page);
+  border: 1px solid var(--td-component-stroke);
+  border-radius: 12px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 28px minmax(0, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  min-height: 40px;
+  min-width: 0;
+  overflow: hidden;
+  padding: 8px 10px;
+}
+
+.brand-input__preview-main {
+  border-radius: 8px;
+  display: block;
+  grid-row: 1 / span 2;
+  height: 24px;
+}
+
+.brand-input__preview-line {
+  background: color-mix(in srgb, var(--td-brand-color) 14%, var(--td-text-color-placeholder));
+  border-radius: 999px;
+  display: block;
+  height: 6px;
+  min-width: 0;
+}
+
+.brand-input__preview-line--short {
+  width: 68%;
+}
+
+.appearance-summary-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  min-width: 0;
+}
+
+.appearance-summary-card {
+  appearance: none;
+  background: var(--td-bg-color-page);
+  border: 1px solid var(--td-component-stroke);
+  border-radius: 14px;
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  padding: 12px;
+  text-align: left;
+}
+
+.appearance-summary-card:hover {
+  background: color-mix(in srgb, var(--td-brand-color) 4%, var(--td-bg-color-page));
+  border-color: color-mix(in srgb, var(--td-brand-color) 24%, var(--td-component-stroke));
+}
+
+.appearance-summary-card__label,
+.appearance-summary-card__value {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.appearance-summary-card__label {
+  color: var(--td-text-color-secondary);
+  font-size: 12px;
+}
+
+.appearance-summary-card__value {
+  color: var(--td-text-color-primary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.font-option-list {
+  display: grid;
+  gap: 10px;
+}
+
+.font-option {
+  align-items: center;
+  background: var(--td-bg-color-page);
+  border: 1px solid var(--td-component-stroke);
+  border-radius: 14px;
+  cursor: pointer;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 12px 14px;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background-color 0.18s ease;
+}
+
+.font-option:hover {
+  background: color-mix(in srgb, var(--td-bg-color-container) 82%, var(--td-bg-color-page));
+  border-color: color-mix(in srgb, var(--td-brand-color) 20%, var(--td-component-stroke));
+}
+
+.font-option--active {
+  border-color: color-mix(in srgb, var(--td-brand-color) 40%, var(--td-component-stroke));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--td-brand-color) 12%, transparent);
+}
+
+.font-option__input {
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+.font-option__main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.font-option__title {
+  color: var(--td-text-color-primary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.font-option__preview {
+  color: var(--td-text-color-secondary);
+  display: block;
+  font-size: 13px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.font-option__check {
+  color: var(--td-brand-color);
 }
 
 .style-preview-grid {
@@ -1226,9 +1592,7 @@ const toggleAdvancedVisible = (value: boolean) => {
 }
 
 .density-preview__line {
-  -webkit-box-orient: vertical;
   display: block;
-  -webkit-line-clamp: 1;
   max-width: 100%;
   min-width: 0;
   overflow: hidden;
@@ -1244,352 +1608,28 @@ const toggleAdvancedVisible = (value: boolean) => {
   margin-top: 0.45em;
 }
 
-.choice-card__check {
-  color: var(--td-brand-color);
-  position: absolute;
-  right: 10px;
-  top: 10px;
-}
-
-.choice-card__title {
-  font-weight: 600;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.mode-thumbnail,
-.layout-thumbnail {
-  background: var(--td-bg-color-page);
-  border: 1px solid var(--td-component-stroke);
-  border-radius: 12px;
-  display: block;
-  height: 92px;
-  overflow: hidden;
-  position: relative;
-}
-
-.mode-thumbnail {
+.advanced-layout .advanced-settings-card {
   align-items: center;
-  display: flex;
-  justify-content: center;
-  padding: 12px;
-}
-
-.mode-thumbnail--light {
-  background: linear-gradient(180deg, #fff, #f3f5f9);
-}
-
-.mode-thumbnail--dark {
-  background: linear-gradient(180deg, #1f2937, #111827);
-}
-
-.mode-thumbnail--auto {
-  background: linear-gradient(135deg, #fff 0 50%, #111827 50% 100%);
-}
-
-.mode-thumbnail__icon {
-  max-width: 92px;
-  width: 100%;
-}
-
-.layout-thumbnail {
+  background: color-mix(in srgb, var(--td-bg-color-container) 96%, var(--td-bg-color-page));
+  border: 1px solid var(--td-component-stroke);
+  border-radius: 16px;
   display: grid;
-  grid-template-columns: 24px 1fr;
-  grid-template-rows: 18px 1fr;
-  padding: 10px;
-}
-
-.layout-thumbnail__header,
-.layout-thumbnail__sidebar,
-.layout-thumbnail__content {
-  border-radius: 8px;
-  display: block;
-}
-
-.layout-thumbnail__header {
-  background: color-mix(in srgb, var(--td-brand-color) 18%, var(--td-bg-color-container));
-  grid-column: 1 / span 2;
-}
-
-.layout-thumbnail__sidebar {
-  background: color-mix(in srgb, var(--td-brand-color) 10%, var(--td-bg-color-container));
-  grid-row: 2;
-  margin-top: 8px;
-}
-
-.layout-thumbnail__content {
-  background: var(--td-bg-color-container);
-  border: 1px solid var(--td-component-stroke);
-  grid-row: 2;
-  margin-left: 8px;
-  margin-top: 8px;
-}
-
-.layout-thumbnail--top {
-  grid-template-columns: 1fr;
-  grid-template-rows: 18px 1fr;
-}
-
-.layout-thumbnail--top .layout-thumbnail__header {
-  grid-column: 1;
-}
-
-.layout-thumbnail--top .layout-thumbnail__sidebar {
-  display: none;
-}
-
-.layout-thumbnail--top .layout-thumbnail__content {
-  grid-column: 1;
-  margin-left: 0;
-}
-
-.layout-thumbnail--mix::after {
-  background: color-mix(in srgb, var(--td-brand-color) 16%, var(--td-bg-color-container));
-  border-radius: 6px;
-  content: '';
-  height: 38px;
-  left: 42px;
-  position: absolute;
-  top: 34px;
-  width: 16px;
-}
-
-.switch-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.switch-item {
-  align-items: center;
-  display: flex;
   gap: 16px;
-  justify-content: space-between;
-}
-
-.switch-item__label {
-  color: var(--td-text-color-primary);
-  font-weight: 500;
-}
-
-.switch-item__hint {
-  color: var(--td-text-color-secondary);
-  font-size: 12px;
-  margin-top: 4px;
-}
-
-.brand-palette {
-  grid-template-columns: repeat(8, minmax(0, 1fr));
-}
-
-.brand-palette__item {
-  align-items: center;
-  appearance: none;
-  border: 2px solid transparent;
-  border-radius: 14px;
-  color: #fff;
-  cursor: pointer;
-  display: inline-flex;
-  height: 40px;
-  justify-content: center;
-}
-
-.brand-palette__item--active {
-  border-color: var(--td-text-color-primary);
-}
-
-.brand-input {
-  align-items: center;
-  display: grid;
-  gap: 12px;
-  grid-template-columns: auto minmax(140px, 180px) minmax(92px, 1fr);
-  max-width: 100%;
-  min-width: 0;
-}
-
-.brand-input input[type='color'] {
-  appearance: none;
-  background: transparent;
-  border: 0;
-  cursor: pointer;
-  height: 40px;
-  padding: 0;
-  width: 48px;
-}
-
-.brand-input :deep(.t-input) {
-  max-width: 180px;
-  min-width: 0;
-}
-
-.brand-input__preview {
-  align-items: center;
-  background: var(--td-bg-color-page);
-  border: 1px solid var(--td-component-stroke);
-  border-radius: 12px;
-  display: grid;
-  gap: 8px;
-  grid-template-columns: 28px minmax(0, 1fr);
-  grid-template-rows: repeat(2, 1fr);
-  min-height: 40px;
-  min-width: 0;
-  overflow: hidden;
-  padding: 8px 10px;
-}
-
-.brand-input__preview-main {
-  border-radius: 8px;
-  display: block;
-  grid-row: 1 / span 2;
-  height: 24px;
-}
-
-.brand-input__preview-line {
-  background: color-mix(in srgb, var(--td-brand-color) 14%, var(--td-text-color-placeholder));
-  border-radius: 999px;
-  display: block;
-  height: 6px;
-  min-width: 0;
-}
-
-.brand-input__preview-line--short {
-  width: 68%;
-}
-
-.appearance-summary-grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
-  min-width: 0;
-}
-
-.appearance-summary-card {
-  appearance: none;
-  background: var(--td-bg-color-page);
-  border: 1px solid var(--td-component-stroke);
-  border-radius: 14px;
-  color: inherit;
-  cursor: pointer;
-  display: grid;
-  gap: 6px;
-  min-width: 0;
-  overflow: hidden;
-  padding: 12px;
-  text-align: left;
-}
-
-.appearance-summary-card:hover {
-  background: color-mix(in srgb, var(--td-brand-color) 4%, var(--td-bg-color-page));
-  border-color: color-mix(in srgb, var(--td-brand-color) 24%, var(--td-component-stroke));
-}
-
-.appearance-summary-card__label,
-.appearance-summary-card__value {
-  display: block;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.appearance-summary-card__label {
-  color: var(--td-text-color-secondary);
-  font-size: 12px;
-}
-
-.appearance-summary-card__value {
-  color: var(--td-text-color-primary);
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.font-option-list {
-  display: grid;
-  gap: 10px;
-}
-
-.font-option {
-  align-items: center;
-  background: var(--td-bg-color-page);
-  border: 1px solid var(--td-component-stroke);
-  border-radius: 14px;
-  cursor: pointer;
-  display: grid;
-  gap: 12px;
   grid-template-columns: minmax(0, 1fr) auto;
-  padding: 12px 14px;
-  transition:
-    border-color 0.18s ease,
-    box-shadow 0.18s ease,
-    background-color 0.18s ease;
+  padding: 14px 16px;
 }
 
-.font-option:hover {
-  background: color-mix(in srgb, var(--td-bg-color-container) 82%, var(--td-bg-color-page));
-  border-color: color-mix(in srgb, var(--td-brand-color) 20%, var(--td-component-stroke));
-}
-
-.font-option--active {
-  border-color: color-mix(in srgb, var(--td-brand-color) 40%, var(--td-component-stroke));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--td-brand-color) 12%, transparent);
-}
-
-.font-option__input {
-  opacity: 0;
-  pointer-events: none;
-  position: absolute;
-}
-
-.font-option__main {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
-.font-option__title {
-  color: var(--td-text-color-primary);
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.font-option__preview {
-  color: var(--td-text-color-secondary);
-  display: block;
-  font-size: 13px;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.font-option__check {
-  color: var(--td-brand-color);
-}
-
-.font-preview-strip {
-  align-items: center;
-  background: var(--td-bg-color-page);
-  border: 1px solid var(--td-component-stroke);
-  border-radius: 14px;
+.advanced-layout .advanced-settings-card__content {
   display: grid;
   gap: 6px;
-  padding: 12px 14px;
+  min-width: 0;
 }
 
-.font-preview-strip__label {
-  color: var(--td-text-color-secondary);
-  font-size: 12px;
+.advanced-layout .advanced-settings-card__desc {
+  color: color-mix(in srgb, var(--td-text-color-secondary) 90%, var(--td-text-color-primary));
 }
 
-.font-preview-strip__content {
-  color: var(--td-text-color-primary);
-  font-size: 16px;
-  line-height: 1.4;
-}
-
-.advanced-mode-toolbar {
+.advanced-layout .advanced-mode-toolbar {
   align-items: center;
   background: var(--td-bg-color-container);
   border: 1px solid var(--td-component-stroke);
@@ -1600,73 +1640,72 @@ const toggleAdvancedVisible = (value: boolean) => {
   padding: 14px 16px;
 }
 
-.advanced-mode-toolbar__label {
+.advanced-layout .advanced-mode-toolbar__label {
   color: var(--td-text-color-primary);
   font-size: 14px;
   font-weight: 600;
 }
 
-.advanced-sections {
+.advanced-layout .advanced-sections {
   display: grid;
   gap: 16px;
 }
 
-.advanced-section {
+.advanced-layout .advanced-section {
   display: grid;
   gap: 10px;
 }
 
-.advanced-section__title {
+.advanced-layout .advanced-section__title {
   color: var(--td-text-color-secondary);
   font-size: 13px;
   font-weight: 700;
-  letter-spacing: 0.02em;
 }
 
-.advanced-collapse {
+.advanced-layout .advanced-collapse {
   background: transparent;
   border: 0;
   display: grid;
   gap: 12px;
 }
 
-.advanced-collapse :deep(.t-collapse-panel) {
+.advanced-layout .advanced-collapse :deep(.t-collapse-panel) {
   background: var(--td-bg-color-container);
-  border: 1px solid var(--td-component-border);
+  border: 1px solid var(--td-component-stroke);
   border-radius: 16px;
   max-width: 100%;
   min-width: 0;
   overflow: hidden;
 }
 
-.advanced-collapse :deep(.t-collapse-panel__wrapper) {
+.advanced-layout .advanced-collapse :deep(.t-collapse-panel__wrapper) {
   border: 0;
 }
 
-.advanced-collapse :deep(.t-collapse-panel__header) {
+.advanced-layout .advanced-collapse :deep(.t-collapse-panel__header) {
   background: transparent;
   border: 0;
-  min-height: 64px;
+  min-height: 58px;
   padding: 12px 14px;
 }
 
-.advanced-collapse :deep(.t-collapse-panel__header:hover) {
+.advanced-layout .advanced-collapse :deep(.t-collapse-panel__header:hover) {
   background: color-mix(in srgb, var(--td-brand-color) 4%, var(--td-bg-color-container));
 }
 
-.advanced-collapse :deep(.t-collapse-panel__icon--active) {
+.advanced-layout .advanced-collapse :deep(.t-collapse-panel__icon--active) {
   color: var(--td-brand-color);
 }
 
-.advanced-collapse :deep(.t-collapse-panel__body) {
-  border-top: 1px solid var(--td-component-border);
+.advanced-layout .advanced-collapse :deep(.t-collapse-panel__body) {
+  border-top: 1px solid var(--td-component-stroke);
 }
 
-.advanced-collapse :deep(.t-collapse-panel__content) {
+.advanced-layout .advanced-collapse :deep(.t-collapse-panel__content) {
   padding: 14px;
 }
 
-.advanced-group__header {
+.advanced-layout .advanced-group__header {
   align-items: center;
   display: grid;
   gap: 12px;
@@ -1675,7 +1714,7 @@ const toggleAdvancedVisible = (value: boolean) => {
   width: 100%;
 }
 
-.advanced-group__icon {
+.advanced-layout .advanced-group__icon {
   align-items: center;
   background: color-mix(in srgb, var(--td-brand-color) 10%, var(--td-bg-color-page));
   border: 1px solid color-mix(in srgb, var(--td-brand-color) 16%, var(--td-component-stroke));
@@ -1688,13 +1727,7 @@ const toggleAdvancedVisible = (value: boolean) => {
   width: 40px;
 }
 
-.advanced-group__title-block {
-  display: grid;
-  gap: 5px;
-  min-width: 0;
-}
-
-.advanced-group__title {
+.advanced-layout .advanced-group__title {
   color: var(--td-text-color-primary);
   font-size: 14px;
   font-weight: 700;
@@ -1704,10 +1737,40 @@ const toggleAdvancedVisible = (value: boolean) => {
   white-space: nowrap;
 }
 
-.advanced-group__count {
+.advanced-layout .advanced-group__count {
   color: var(--td-text-color-secondary);
   font-size: 12px;
   white-space: nowrap;
+}
+
+.overview-layout :deep(.preset-grid),
+.settings-layout--appearance :deep(.preset-grid) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.overview-layout :deep(.preset-card),
+.settings-layout--appearance :deep(.preset-card) {
+  gap: 10px;
+  padding: 12px;
+}
+
+.overview-layout :deep(.preset-card__thumb-shell),
+.settings-layout--appearance :deep(.preset-card__thumb-shell) {
+  min-height: 112px;
+}
+
+.overview-layout :deep(.preset-card__thumbnail),
+.settings-layout--appearance :deep(.preset-card__thumbnail) {
+  padding: 8px;
+}
+
+.overview-layout :deep(.preset-card__desc),
+.settings-layout--appearance :deep(.preset-card__desc) {
+  -webkit-box-orient: vertical;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-height: 1.45;
+  overflow: hidden;
 }
 
 .theme-workbench-panel__footer {
@@ -1732,14 +1795,34 @@ const toggleAdvancedVisible = (value: boolean) => {
 @media (width <= 768px) {
   .theme-workbench-panel__body {
     grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
   }
 
   .theme-workbench-panel__nav {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    align-content: initial;
+    display: flex;
+    max-width: 100%;
+    overflow: auto hidden;
+    padding-bottom: 2px;
+    padding-right: 0;
+  }
+
+  .nav-item {
+    flex: 0 0 64px;
   }
 
   .choice-grid,
-  .style-preview-grid {
+  .settings-layout__section--mode .choice-grid,
+  .settings-layout__section--nav .choice-grid,
+  .settings-layout--layout .choice-grid,
+  .style-preview-grid,
+  .appearance-summary-grid,
+  .overview-layout :deep(.preset-grid),
+  .settings-layout--appearance :deep(.preset-grid) {
+    grid-template-columns: 1fr;
+  }
+
+  .config-summary-card {
     grid-template-columns: 1fr;
   }
 
@@ -1748,12 +1831,8 @@ const toggleAdvancedVisible = (value: boolean) => {
     grid-template-columns: 1fr;
   }
 
-  .section--compact {
-    grid-template-columns: 1fr;
-  }
-
-  .advanced-settings-card,
-  .advanced-mode-toolbar {
+  .advanced-layout .advanced-settings-card,
+  .advanced-layout .advanced-mode-toolbar {
     align-items: flex-start;
     flex-direction: column;
     grid-template-columns: 1fr;

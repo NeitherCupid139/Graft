@@ -128,6 +128,10 @@
           "splitMenuHint": "切换后立即更新当前混合布局导航。",
           "fixedSidebarHint": "切换侧边栏固定与随内容滚动。",
           "menuAutoCollapsedHint": "同级菜单展开时自动收起其他分组。",
+          "showHeaderHint": "显示顶部导航与账号操作区。",
+          "showBreadcrumbHint": "显示当前位置路径。",
+          "showFooterHint": "显示页面底部信息。",
+          "useTagTabsHint": "开启多页面标签切换。",
           "onlyMix": "仅混合布局可用",
           "notIntegrated": "暂未接入"
         },
@@ -157,8 +161,6 @@
           "fontFamily": "字体选择",
           "system": "系统默认",
           "description": "调整后台字体。",
-          "sampleTitle": "Aa 字体示意",
-          "sampleBody": "示意文字会跟随当前字体设置。",
           "previewLine": "Aa 后台管理 Dashboard 123"
         },
         "style": {

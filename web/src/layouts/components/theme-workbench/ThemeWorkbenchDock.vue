@@ -10,7 +10,9 @@
       <template #icon>
         <t-icon name="palette" size="20px" />
       </template>
-      <span class="theme-workbench-dock__action-label">{{ t('layout.setting.workbench.dock.title') }}</span>
+      <span v-if="settingStore.showThemeWorkbench" class="theme-workbench-dock__action-label">
+        {{ t('layout.setting.workbench.dock.title') }}
+      </span>
     </t-button>
   </div>
 </template>
@@ -113,12 +115,14 @@ const toggleOverview = () => {
   padding-inline: 0;
   transition:
     min-width 0.22s ease,
+    width 0.22s ease,
     padding-inline 0.22s ease,
     background-color 0.18s ease,
     border-color 0.18s ease,
     box-shadow 0.18s ease,
     color 0.18s ease,
     transform 0.18s ease;
+  width: 48px;
 }
 
 :deep(.theme-workbench-dock__main .t-button__content) {
@@ -159,6 +163,7 @@ const toggleOverview = () => {
 :deep(.theme-workbench-dock__main--active.t-button) {
   min-width: 118px;
   padding-inline: 16px;
+  width: auto;
 }
 
 :deep(.theme-workbench-dock__main--active .t-button__prefix) {
@@ -179,11 +184,13 @@ const toggleOverview = () => {
   :deep(.theme-workbench-dock__main.t-button) {
     height: 44px;
     min-width: 44px;
+    width: 44px;
   }
 
   :deep(.theme-workbench-dock__main--active.t-button) {
     min-width: 108px;
     padding-inline: 14px;
+    width: auto;
   }
 }
 </style>

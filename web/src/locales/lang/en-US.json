@@ -128,6 +128,10 @@
           "splitMenuHint": "Updates mixed-layout navigation immediately.",
           "fixedSidebarHint": "Switch between fixed and scrolling sidebar behavior.",
           "menuAutoCollapsedHint": "Collapse other menu groups when one group expands.",
+          "showHeaderHint": "Show top navigation and account actions.",
+          "showBreadcrumbHint": "Show the current location path.",
+          "showFooterHint": "Show page footer information.",
+          "useTagTabsHint": "Enable multi-page tab switching.",
           "onlyMix": "Only available in mixed layout",
           "notIntegrated": "Not integrated yet"
         },
@@ -157,8 +161,6 @@
           "fontFamily": "Font Family",
           "system": "System Default",
           "description": "Adjust admin font settings.",
-          "sampleTitle": "Aa Font Sample",
-          "sampleBody": "Sample text follows the current font setting.",
           "previewLine": "Aa Admin Dashboard 123"
         },
         "style": {
