@@ -108,25 +108,31 @@
                 </button>
               </div>
               <div class="brand-input">
-                <t-color-picker
-                  class="brand-input__picker"
-                  :color-modes="colorPickerModes"
-                  format="HEX"
-                  :model-value="effectiveTheme.brandTheme"
-                  :show-primary-color-preview="false"
-                  :swatch-colors="brandOptions"
-                  @change="(value) => settingStore.setCustomBrandTheme(value)"
-                />
-                <t-input
-                  class="brand-input__value"
-                  :model-value="effectiveTheme.brandTheme"
-                  @update:model-value="(value) => settingStore.setCustomBrandTheme(String(value ?? ''))"
-                />
-                <span class="brand-input__preview" aria-hidden="true">
-                  <span class="brand-input__preview-main" :style="{ background: effectiveTheme.brandTheme }" />
+                <div class="brand-input__preview" aria-hidden="true" :style="{ background: effectiveTheme.brandTheme }">
                   <span class="brand-input__preview-line" />
                   <span class="brand-input__preview-line brand-input__preview-line--short" />
-                </span>
+                </div>
+                <div class="brand-input__content">
+                  <div class="brand-input__title-row">
+                    <span class="brand-input__title">{{
+                      t('layout.setting.workbench.appearance.customBrandColor')
+                    }}</span>
+                    <t-color-picker
+                      class="brand-input__picker"
+                      :color-modes="colorPickerModes"
+                      format="HEX"
+                      :model-value="effectiveTheme.brandTheme"
+                      :popup-props="{ placement: 'bottom-right' }"
+                      :show-primary-color-preview="false"
+                      :swatch-colors="brandOptions"
+                      @change="(value) => settingStore.setCustomBrandTheme(value)"
+                    />
+                  </div>
+                  <div class="brand-input__hex-row">
+                    <span class="brand-input__hex-label">{{ t('layout.setting.workbench.appearance.hexLabel') }}:</span>
+                    <span class="brand-input__hex-value">{{ effectiveTheme.brandTheme }}</span>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -1402,50 +1408,121 @@ const toggleAdvancedVisible = (value: boolean) => {
 
 .brand-input {
   align-items: center;
+  background: color-mix(in srgb, var(--td-brand-color) 5%, var(--td-bg-color-container));
+  border: 1px solid color-mix(in srgb, var(--td-brand-color) 44%, var(--td-component-stroke));
+  border-radius: 12px;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--td-brand-color) 10%, transparent),
+    0 12px 24px color-mix(in srgb, var(--td-brand-color) 8%, transparent);
   display: grid;
-  gap: 12px;
-  grid-template-columns: auto minmax(132px, 176px) minmax(92px, 1fr);
+  gap: 14px;
+  grid-template-columns: 46px minmax(0, 1fr);
   max-width: 100%;
   min-width: 0;
+  overflow: hidden;
+  padding: 10px 12px;
+}
+
+.brand-input__content {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.brand-input__title-row {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.brand-input__title {
+  color: var(--td-text-color-primary);
+  font: var(--td-font-body-medium);
+  font-weight: 700;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .brand-input__picker {
-  min-width: 0;
-  width: 136px;
+  flex: 0 0 auto;
+  width: 34px;
 }
 
-.brand-input :deep(.t-input) {
-  max-width: 180px;
+.brand-input__picker :deep(.t-color-picker__trigger) {
+  width: 34px;
+}
+
+.brand-input__picker :deep(.t-input__wrap) {
+  width: 34px;
+}
+
+.brand-input__picker :deep(.t-input) {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
+.brand-input__picker :deep(.t-input__inner),
+.brand-input__picker :deep(.t-input__input-pre) {
+  display: none;
+}
+
+.brand-input__picker :deep(.t-input__prefix) {
+  margin-right: 0;
+}
+
+.brand-input__picker :deep(.t-color-picker__trigger--default__color) {
+  border: 1px solid color-mix(in srgb, var(--td-text-color-primary) 28%, transparent);
+  border-radius: 8px;
+  height: 24px;
+  width: 24px;
+}
+
+.brand-input__hex-row {
+  align-items: center;
+  display: flex;
+  gap: 6px;
   min-width: 0;
+}
+
+.brand-input__hex-label {
+  color: var(--td-text-color-secondary);
+  font: var(--td-font-body-small);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.brand-input__hex-value {
+  color: var(--td-text-color-primary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  font-size: 12px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .brand-input__preview {
   align-items: center;
-  background: var(--td-bg-color-page);
-  border: 1px solid var(--td-component-stroke);
-  border-radius: 12px;
+  border-radius: 8px;
   display: grid;
-  gap: 8px;
-  grid-template-columns: 28px minmax(0, 1fr);
-  grid-template-rows: repeat(2, 1fr);
-  min-height: 40px;
+  gap: 5px;
+  height: 34px;
   min-width: 0;
   overflow: hidden;
-  padding: 8px 10px;
-}
-
-.brand-input__preview-main {
-  border-radius: 8px;
-  display: block;
-  grid-row: 1 / span 2;
-  height: 24px;
+  padding: 8px;
 }
 
 .brand-input__preview-line {
-  background: color-mix(in srgb, var(--td-brand-color) 14%, var(--td-text-color-placeholder));
+  background: color-mix(in srgb, white 72%, transparent);
   border-radius: 999px;
   display: block;
-  height: 6px;
+  height: 5px;
   min-width: 0;
 }
 
@@ -2140,11 +2217,7 @@ const toggleAdvancedVisible = (value: boolean) => {
   }
 
   .brand-input {
-    grid-template-columns: auto minmax(0, 1fr);
-  }
-
-  .brand-input__preview {
-    grid-column: 1 / -1;
+    grid-template-columns: 42px minmax(0, 1fr);
   }
 
   .font-size-control {
