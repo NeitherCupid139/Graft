@@ -340,17 +340,17 @@ export const useSettingStore = defineStore('setting', {
       const effectivePresetId = state.themeDraft?.selectedThemePresetId ?? state.selectedThemePresetId;
       return THEME_PRESET_DEFINITIONS.find((item) => item.id === resolvePresetId(effectivePresetId)) ?? null;
     },
-    effectiveThemeDisplayName(): string {
+    effectiveThemeDisplayNameKey(): string {
       const preset = this.effectiveSelectedThemePreset;
       if (!preset) {
-        return 'Customized Theme';
+        return 'layout.setting.workbench.presets.customized.label';
       }
 
-      return preset.label;
+      return preset.labelKey;
     },
-    effectiveThemeSourceLabel(): string {
+    effectiveThemeSourceLabelKey(): string {
       const preset = this.effectiveSelectedThemePreset;
-      return preset?.label ?? 'Customized Theme';
+      return preset?.labelKey ?? 'layout.setting.workbench.presets.customized.label';
     },
     themeAuthorityDiff(state): ThemeAuthorityDiffItem[] {
       const persistedSnapshot = createPersistedThemeAuthoritySnapshot(state);
@@ -379,8 +379,8 @@ export const useSettingStore = defineStore('setting', {
     },
     themeIdentitySummary(): ThemeIdentitySummary {
       return {
-        currentLabel: this.effectiveThemeDisplayName,
-        sourceLabel: this.effectiveThemeSourceLabel,
+        currentLabelKey: this.effectiveThemeDisplayNameKey,
+        sourceLabelKey: this.effectiveThemeSourceLabelKey,
         sourceType: this.effectiveThemeState.themeSource,
         modifiedCount: this.themeAuthorityDiff.length,
         lastModifiedAt: this.themeAuthorityLastModifiedAt,

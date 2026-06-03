@@ -136,7 +136,26 @@
           "notIntegrated": "暂未接入"
         },
         "presets": {
-          "title": "官方主题"
+          "title": "官方主题",
+          "customized": {
+            "label": "自定义主题"
+          },
+          "tdesignDefault": {
+            "label": "TDesign 原始主题",
+            "description": "保留 TDesign 默认主题基线。"
+          },
+          "tencentCloud": {
+            "label": "腾讯云",
+            "description": "使用更贴近腾讯云控制台的亮色主色，并保持页面中性色。"
+          },
+          "mountainGreen": {
+            "label": "山野绿",
+            "description": "用温和绿色主色驱动按钮、选中态与状态强调。"
+          },
+          "midnightBlue": {
+            "label": "午夜蓝",
+            "description": "默认以暗色模式启动，保持 TDesign 中性深色工作区。"
+          }
         },
         "overview": {
           "currentConfig": "当前配置",
@@ -161,6 +180,12 @@
           "fontFamily": "字体选择",
           "fontSize": "字体大小",
           "system": "系统默认",
+          "fontFamilies": {
+            "system": "系统默认",
+            "harmonyos": "HarmonyOS Sans",
+            "inter": "Inter",
+            "sourceHanSans": "Source Han Sans"
+          },
           "description": "调整后台字体。",
           "fontSizeDescription": "调整后台字号。",
           "previewLine": "Aa 后台管理 Dashboard 123",
@@ -210,6 +235,50 @@
           "reset": "恢复继承",
           "description": "按分组调整 Design Token。",
           "empty": "当前分组暂无可编辑变量"
+        },
+        "tokenDefinitions": {
+          "primaryBrand": "主品牌色",
+          "brandScale1": "品牌色阶 1",
+          "brandScale2": "品牌色阶 2",
+          "brandScale3": "品牌色阶 3",
+          "brandScale4": "品牌色阶 4",
+          "brandScale5": "品牌色阶 5",
+          "brandScale6": "品牌色阶 6",
+          "brandScale7": "品牌色阶 7",
+          "brandScale8": "品牌色阶 8",
+          "brandScale9": "品牌色阶 9",
+          "brandScale10": "品牌色阶 10",
+          "primaryText": "主文本",
+          "secondaryText": "次级文本",
+          "placeholderText": "占位文本",
+          "pageBackground": "页面背景",
+          "containerBackground": "容器背景",
+          "containerHoverBackground": "容器悬停背景",
+          "componentBorder": "组件边框",
+          "componentStroke": "组件描边",
+          "level1Border": "一级边框",
+          "scrollbar": "滚动条",
+          "successFeedback": "成功反馈",
+          "errorFeedback": "错误反馈",
+          "warningFeedback": "警告反馈",
+          "fontFamily": "字体家族",
+          "bodyMedium": "正文中号",
+          "titleMedium": "标题中号",
+          "titleLarge": "标题大号",
+          "smallRadius": "小圆角",
+          "defaultRadius": "默认圆角",
+          "mediumRadius": "中圆角",
+          "largeRadius": "大圆角",
+          "extraLargeRadius": "特大圆角",
+          "circleRadius": "圆形圆角",
+          "shadowLevel1": "一级阴影",
+          "shadowLevel2": "二级阴影",
+          "shadowLevel3": "三级阴影",
+          "componentSizeXs": "组件尺寸 XS",
+          "componentSizeS": "组件尺寸 S",
+          "componentSizeM": "组件尺寸 M",
+          "componentSizeL": "组件尺寸 L",
+          "componentSizeXl": "组件尺寸 XL"
         },
         "actions": {
           "reset": "恢复默认主题",

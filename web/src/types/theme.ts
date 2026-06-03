@@ -30,8 +30,8 @@ export interface ThemeAuthorityDiffItem {
 }
 
 export interface ThemeIdentitySummary {
-  currentLabel: string;
-  sourceLabel: string;
+  currentLabelKey: string;
+  sourceLabelKey: string;
   sourceType: ThemeSourceType;
   modifiedCount: number;
   lastModifiedAt: string | null;
@@ -40,14 +40,14 @@ export interface ThemeIdentitySummary {
 export interface ThemeTokenDefinition {
   key: string;
   group: ThemeTokenGroupKey;
-  label: string;
+  labelKey: string;
   followsBrandColor?: boolean;
 }
 
 export interface ThemePresetDefinition {
   id: string;
-  label: string;
-  description: string;
+  labelKey: string;
+  descriptionKey: string;
   brandTheme: string;
   mode?: ModeType | 'auto';
   tokenOverrides?: Partial<ThemeModeTokenState>;

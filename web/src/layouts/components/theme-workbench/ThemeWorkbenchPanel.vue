@@ -4,7 +4,7 @@
     class="theme-workbench-panel"
     destroy-on-close
     placement="right"
-    size="620px"
+    size="720px"
     :close-btn="false"
     :footer="false"
     :header="false"
@@ -22,19 +22,19 @@
 
       <div class="theme-workbench-panel__body">
         <aside class="theme-workbench-panel__nav narrow-scrollbar">
-          <button
-            v-for="group in groups"
-            :key="group.key"
-            type="button"
-            class="nav-item"
-            :class="{ 'nav-item--active': group.key === activeGroup }"
-            @click="openGroup(group.key)"
-          >
-            <span class="nav-item__icon">
-              <t-icon :name="groupIconMap[group.key]" />
-            </span>
-            <span class="nav-item__text">{{ t(group.labelKey) }}</span>
-          </button>
+          <t-tooltip v-for="group in groups" :key="group.key" :content="t(group.labelKey)" placement="right" show-arrow>
+            <button
+              type="button"
+              class="nav-item"
+              :class="{ 'nav-item--active': group.key === activeGroup }"
+              @click="openGroup(group.key)"
+            >
+              <span class="nav-item__icon">
+                <t-icon :name="groupIconMap[group.key]" />
+              </span>
+              <span class="nav-item__text">{{ t(group.labelKey) }}</span>
+            </button>
+          </t-tooltip>
         </aside>
 
         <section class="theme-workbench-panel__content narrow-scrollbar">
@@ -334,7 +334,7 @@
                     "
                   />
                   <span class="font-option__main">
-                    <span class="font-option__title">{{ item.label }}</span>
+                    <span class="font-option__title">{{ t(item.labelKey) }}</span>
                     <span class="font-option__preview" :style="{ fontFamily: item.previewFamily }">
                       {{ t('layout.setting.workbench.typography.previewLine') }}
                     </span>
@@ -563,6 +563,8 @@ import SettingDarkIcon from '@/assets/assets-setting-dark.svg';
 import SettingLightIcon from '@/assets/assets-setting-light.svg';
 import { DEFAULT_COLOR_OPTIONS } from '@/config/color';
 import { t } from '@/locales';
+import { warnTranslationLengthBudget } from '@/locales/length-budgets';
+import { useLocale } from '@/locales/useLocale';
 import { useSettingStore } from '@/store';
 import type { ThemeAuthorityState, ThemeTokenGroupKey, ThemeWorkbenchGroupKey } from '@/types/theme';
 import type { ModeType } from '@/utils/types';
@@ -572,6 +574,7 @@ import ThemeWorkbenchPresetSection from './ThemeWorkbenchPresetSection.vue';
 
 const settingStore = useSettingStore();
 const route = useRoute();
+const { locale } = useLocale();
 const advancedVisible = ref(false);
 const expandedAdvancedGroups = ref<Array<string | number>>(['brand']);
 
@@ -593,84 +596,97 @@ const themeIdentity = computed(() => settingStore.themeIdentitySummary);
 const themeDiffItems = computed(() => settingStore.themeAuthorityDiff);
 const brandOptions = DEFAULT_COLOR_OPTIONS;
 
-const modeOptions = [
+const modeOptions = computed(() => [
   { type: 'light' as const, text: t('layout.setting.theme.options.light'), icon: SettingLightIcon },
   { type: 'dark' as const, text: t('layout.setting.theme.options.dark'), icon: SettingDarkIcon },
   { type: 'auto' as const, text: t('layout.setting.theme.options.auto'), icon: SettingAutoIcon },
-];
+]);
 
 const fontFamilyOptions = [
   {
     value: 'system',
-    label: t('layout.setting.workbench.typography.system'),
+    labelKey: 'layout.setting.workbench.typography.fontFamilies.system',
     previewFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
   },
   {
     value: 'harmonyos',
-    label: 'HarmonyOS Sans',
+    labelKey: 'layout.setting.workbench.typography.fontFamilies.harmonyos',
     previewFamily: '"HarmonyOS Sans SC", "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif',
   },
   {
     value: 'inter',
-    label: 'Inter',
+    labelKey: 'layout.setting.workbench.typography.fontFamilies.inter',
     previewFamily: '"Inter", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
   },
   {
     value: 'source-han-sans',
-    label: 'Source Han Sans',
+    labelKey: 'layout.setting.workbench.typography.fontFamilies.sourceHanSans',
     previewFamily: '"Source Han Sans SC", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif',
   },
 ] as const;
 
-const fontSizeOptions: Array<{
-  value: ThemeAuthorityState['fontSizePreset'];
-  label: string;
-  scale: string;
-}> = [
+const fontSizeOptions = computed<
+  Array<{
+    value: ThemeAuthorityState['fontSizePreset'];
+    label: string;
+    scale: string;
+  }>
+>(() => [
   { value: 'extra-small', label: t('layout.setting.workbench.typography.extraSmall'), scale: '88%' },
   { value: 'small', label: t('layout.setting.workbench.typography.small'), scale: '94%' },
   { value: 'standard', label: t('layout.setting.workbench.typography.standard'), scale: '100%' },
   { value: 'large', label: t('layout.setting.workbench.typography.large'), scale: '106%' },
   { value: 'extra-large', label: t('layout.setting.workbench.typography.extraLarge'), scale: '112%' },
-];
+]);
 
-const fontSizeSelectOptions = fontSizeOptions.map(({ label, value }) => ({ label, value }));
+const fontSizeSelectOptions = computed(() => fontSizeOptions.value.map(({ label, value }) => ({ label, value })));
 
-const radiusOptions = [
-  { value: 'business', label: t('layout.setting.workbench.style.business') },
-  { value: 'standard', label: t('layout.setting.workbench.style.standard') },
-  { value: 'rounded', label: t('layout.setting.workbench.style.rounded') },
-  { value: 'capsule', label: t('layout.setting.workbench.style.capsule') },
-] as const;
+const radiusOptions = computed(
+  () =>
+    [
+      { value: 'business', label: t('layout.setting.workbench.style.business') },
+      { value: 'standard', label: t('layout.setting.workbench.style.standard') },
+      { value: 'rounded', label: t('layout.setting.workbench.style.rounded') },
+      { value: 'capsule', label: t('layout.setting.workbench.style.capsule') },
+    ] as const,
+);
 
-const shadowOptions = [
-  { value: 'flat', label: t('layout.setting.workbench.style.flat') },
-  { value: 'standard', label: t('layout.setting.workbench.style.standard') },
-  { value: 'floating', label: t('layout.setting.workbench.style.floating') },
-] as const;
+const shadowOptions = computed(
+  () =>
+    [
+      { value: 'flat', label: t('layout.setting.workbench.style.flat') },
+      { value: 'standard', label: t('layout.setting.workbench.style.standard') },
+      { value: 'floating', label: t('layout.setting.workbench.style.floating') },
+    ] as const,
+);
 
-const densityOptions = [
-  { value: 'compact', label: t('layout.setting.workbench.style.compact') },
-  { value: 'standard', label: t('layout.setting.workbench.style.standard') },
-  { value: 'comfortable', label: t('layout.setting.workbench.style.comfortable') },
-] as const;
+const densityOptions = computed(
+  () =>
+    [
+      { value: 'compact', label: t('layout.setting.workbench.style.compact') },
+      { value: 'standard', label: t('layout.setting.workbench.style.standard') },
+      { value: 'comfortable', label: t('layout.setting.workbench.style.comfortable') },
+    ] as const,
+);
 
-const densityPreviewLines = [
+const densityPreviewLines = computed(() => [
   t('layout.setting.workbench.style.densityPreviewLinePrimary'),
   t('layout.setting.workbench.style.densityPreviewLineSecondary'),
   t('layout.setting.workbench.style.densityPreviewLineMeta'),
-];
+]);
 
-const tokenSections: Array<{
-  key: 'color' | 'component';
-  label: string;
-  groups: Array<{
-    value: ThemeTokenGroupKey;
+const tokenSections = computed<
+  Array<{
+    key: 'color' | 'component';
     label: string;
-    icon: string;
-    countLabelKey: string;
-  }>;
-}> = [
+    groups: Array<{
+      value: ThemeTokenGroupKey;
+      label: string;
+      icon: string;
+      countLabelKey: string;
+    }>;
+  }>
+>(() => [
   {
     key: 'color',
     label: t('layout.setting.workbench.advanced.colorSystem'),
@@ -713,12 +729,12 @@ const tokenSections: Array<{
       },
     ],
   },
-];
+]);
 
-const tokenGroups = tokenSections.flatMap((section) => section.groups);
+const tokenGroups = computed(() => tokenSections.value.flatMap((section) => section.groups));
 
 const tokenDefinitionsByGroup = computed(() =>
-  tokenGroups.reduce(
+  tokenGroups.value.reduce(
     (acc, group) => {
       acc[group.value] = settingStore.themeTokenDefinitions.filter((item) => item.group === group.value);
       return acc;
@@ -737,7 +753,7 @@ const layoutOptions = computed(
 );
 
 const modeLabel = computed(() => {
-  const matched = modeOptions.find((item) => item.type === effectiveTheme.value.mode);
+  const matched = modeOptions.value.find((item) => item.type === effectiveTheme.value.mode);
   return matched?.text ?? effectiveTheme.value.mode;
 });
 
@@ -748,30 +764,30 @@ const layoutLabel = computed(() => {
 
 const activeFontLabel = computed(() => {
   const matched = fontFamilyOptions.find((item) => item.value === effectiveTheme.value.fontFamilyPreset);
-  return matched?.label ?? fontFamilyOptions[0].label;
+  return t(matched?.labelKey ?? fontFamilyOptions[0].labelKey);
 });
 
 const activeFontSizeIndex = computed(() => {
-  const matchedIndex = fontSizeOptions.findIndex((item) => item.value === effectiveTheme.value.fontSizePreset);
+  const matchedIndex = fontSizeOptions.value.findIndex((item) => item.value === effectiveTheme.value.fontSizePreset);
   return Math.max(matchedIndex, 0);
 });
 
-const activeFontSizeLabel = computed(() => fontSizeOptions[activeFontSizeIndex.value].label);
+const activeFontSizeLabel = computed(() => fontSizeOptions.value[activeFontSizeIndex.value].label);
 
-const activeFontSizeScale = computed(() => fontSizeOptions[activeFontSizeIndex.value].scale);
+const activeFontSizeScale = computed(() => fontSizeOptions.value[activeFontSizeIndex.value].scale);
 
 const fontSizePreviewStyle = computed(() => ({
   '--font-size-preview-scale': activeFontSizeScale.value,
 }));
 
 const activeRadiusLabel = computed(() => {
-  const matched = radiusOptions.find((item) => item.value === effectiveTheme.value.radiusPreset);
-  return matched?.label ?? radiusOptions[0].label;
+  const matched = radiusOptions.value.find((item) => item.value === effectiveTheme.value.radiusPreset);
+  return matched?.label ?? radiusOptions.value[0].label;
 });
 
 const activeDensityLabel = computed(() => {
-  const matched = densityOptions.find((item) => item.value === effectiveTheme.value.densityPreset);
-  return matched?.label ?? densityOptions[1].label;
+  const matched = densityOptions.value.find((item) => item.value === effectiveTheme.value.densityPreset);
+  return matched?.label ?? densityOptions.value[1].label;
 });
 
 const overviewSummaryItems = computed(() => [
@@ -783,7 +799,7 @@ const overviewSummaryItems = computed(() => [
   {
     key: 'theme',
     label: t('layout.setting.workbench.overview.currentTheme'),
-    value: themeIdentity.value.currentLabel,
+    value: t(themeIdentity.value.currentLabelKey),
   },
   {
     key: 'layout',
@@ -823,13 +839,6 @@ const fixedSidebarHint = computed(() =>
 const footerOptionVisible = computed(() => route.meta.footer !== false);
 const activeTokenEditorMode = ref<ModeType>(settingStore.displayMode);
 
-watch(
-  () => settingStore.displayMode,
-  (mode) => {
-    activeTokenEditorMode.value = mode;
-  },
-);
-
 const drawerVisible = computed({
   get: () => settingStore.showThemeWorkbench,
   set: (visible: boolean) => {
@@ -842,12 +851,40 @@ const drawerVisible = computed({
   },
 });
 
+const themeWorkbenchBudgetKeys = computed(() => [
+  ...groups.value.map((group) => ({ scope: 'navigation' as const, key: group.labelKey })),
+  { scope: 'button' as const, key: 'layout.setting.workbench.actions.reset' },
+  { scope: 'button' as const, key: 'layout.setting.workbench.actions.cancel' },
+  { scope: 'button' as const, key: 'layout.setting.workbench.actions.apply' },
+]);
+
+watch(
+  [drawerVisible, locale, themeWorkbenchBudgetKeys],
+  ([visible]) => {
+    if (!visible) {
+      return;
+    }
+
+    themeWorkbenchBudgetKeys.value.forEach((item) => {
+      warnTranslationLengthBudget(item.scope, locale.value, item.key, t(item.key));
+    });
+  },
+  { immediate: true },
+);
+
+watch(
+  () => settingStore.displayMode,
+  (mode) => {
+    activeTokenEditorMode.value = mode;
+  },
+);
+
 const openGroup = (group: ThemeWorkbenchGroupKey) => {
   settingStore.setActiveThemeWorkbenchGroup(group);
 };
 
 const updateFontSizePreset = (value: unknown) => {
-  const matched = fontSizeOptions.find((item) => item.value === value);
+  const matched = fontSizeOptions.value.find((item) => item.value === value);
   if (!matched) {
     return;
   }
@@ -866,7 +903,7 @@ const handleFontSizeSliderChange = (value: unknown) => {
     return;
   }
 
-  updateFontSizePreset(fontSizeOptions[value]?.value);
+  updateFontSizePreset(fontSizeOptions.value[value]?.value);
 };
 
 const closeWorkbench = () => {
@@ -914,23 +951,36 @@ const toggleAdvancedVisible = (value: boolean) => {
   padding: 18px 20px 16px;
 }
 
+.theme-workbench-panel__header :deep(.t-button) {
+  flex: 0 0 auto;
+}
+
 .panel-title {
   color: var(--td-text-color-primary);
   font: var(--td-font-title-medium);
   font-weight: 700;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  word-break: keep-all;
 }
 
 .panel-subtitle {
   color: var(--td-text-color-secondary);
   font: var(--td-font-body-small);
+  line-height: 22px;
   margin-top: 4px;
+  min-height: 44px;
+  overflow: hidden;
+  word-break: keep-all;
 }
 
 .theme-workbench-panel__body {
   display: grid;
   flex: 1;
   gap: 12px;
-  grid-template-columns: 72px minmax(0, 1fr);
+  grid-template-columns: minmax(120px, 140px) minmax(0, 1fr);
   min-height: 0;
   overflow: hidden;
   padding: 16px;
@@ -957,17 +1007,17 @@ const toggleAdvancedVisible = (value: boolean) => {
 }
 
 .nav-item {
+  align-items: center;
   appearance: none;
   .theme-workbench-selectable-card();
 
   color: var(--td-text-color-secondary);
-  display: grid;
-  gap: 6px;
-  height: 64px;
-  min-height: 64px;
-  padding: 8px 6px;
-  place-items: center;
-  width: 64px;
+  display: flex;
+  gap: 8px;
+  min-height: 48px;
+  min-width: 120px;
+  padding: 10px 12px;
+  width: 100%;
 }
 
 .nav-item--active {
@@ -977,15 +1027,22 @@ const toggleAdvancedVisible = (value: boolean) => {
 }
 
 .nav-item__icon {
+  flex: 0 0 auto;
   font-size: 20px;
+  line-height: 1;
 }
 
 .nav-item__text {
   font: var(--td-font-body-small);
   line-height: 1.3;
   max-width: 100%;
-  overflow-wrap: anywhere;
+  min-width: 0;
+  overflow: hidden;
+  overflow-wrap: normal;
   text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  word-break: keep-all;
 }
 
 .theme-workbench-panel__content {
@@ -1012,8 +1069,10 @@ const toggleAdvancedVisible = (value: boolean) => {
   font-weight: 700;
   min-width: 0;
   overflow: hidden;
+  overflow-wrap: normal;
   text-overflow: ellipsis;
   white-space: nowrap;
+  word-break: keep-all;
 }
 
 .section-heading {
@@ -1028,10 +1087,13 @@ const toggleAdvancedVisible = (value: boolean) => {
   display: -webkit-box;
   font: var(--td-font-body-small);
   -webkit-line-clamp: 2;
-  line-height: 1.45;
+  line-height: 22px;
   max-width: 100%;
+  min-height: 44px;
   min-width: 0;
   overflow: hidden;
+  overflow-wrap: normal;
+  word-break: keep-all;
 }
 
 .overview-layout,
@@ -1588,8 +1650,9 @@ const toggleAdvancedVisible = (value: boolean) => {
   gap: 6px;
   grid-template-columns: auto minmax(0, 1fr);
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
   padding: 12px 14px;
+  word-break: keep-all;
 }
 
 .font-size-preview__label {
@@ -1607,8 +1670,11 @@ const toggleAdvancedVisible = (value: boolean) => {
   font-weight: 600;
   line-height: 1.45;
   min-width: 0;
-  overflow-wrap: anywhere;
-  white-space: normal;
+  overflow: hidden;
+  overflow-wrap: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  word-break: keep-all;
 }
 
 .style-preview-grid {
@@ -2007,6 +2073,11 @@ const toggleAdvancedVisible = (value: boolean) => {
   gap: 12px;
 }
 
+.theme-workbench-panel__footer :deep(.t-button) {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 @media (width <= 768px) {
   .theme-workbench-panel__body {
     grid-template-columns: 1fr;
@@ -2024,6 +2095,21 @@ const toggleAdvancedVisible = (value: boolean) => {
 
   .nav-item {
     flex: 0 0 64px;
+    justify-content: center;
+    min-height: 48px;
+    min-width: 48px;
+    padding: 8px;
+    width: 48px;
+  }
+
+  .nav-item__text {
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    height: 1px;
+    overflow: hidden;
+    position: absolute;
+    white-space: nowrap;
+    width: 1px;
   }
 
   .choice-grid,

@@ -33,14 +33,15 @@
           </span>
         </span>
       </span>
-      <span class="preset-card__title">{{ preset.label }}</span>
-      <span class="preset-card__desc">{{ preset.description }}</span>
+      <span class="preset-card__title">{{ t(preset.labelKey) }}</span>
+      <span class="preset-card__desc">{{ t(preset.descriptionKey) }}</span>
     </button>
   </div>
 </template>
 <script setup lang="ts">
 import type { CSSProperties } from 'vue';
 
+import { t } from '@/locales';
 import type { ThemePresetDefinition } from '@/types/theme';
 
 defineProps<{

@@ -9,7 +9,7 @@
     <div v-if="tokenDefinitions.length" class="token-grid">
       <div v-for="token in tokenDefinitions" :key="token.key" class="token-item">
         <div class="token-meta">
-          <div class="token-label">{{ token.label }}</div>
+          <div class="token-label">{{ t(token.labelKey) }}</div>
           <div class="token-key">{{ token.key }}</div>
         </div>
         <div class="token-preview-rail">
@@ -19,7 +19,7 @@
             :style="{ background: getResolvedTokenValue(token.key) }"
           />
           <div v-else class="token-preview token-preview--text">
-            <span>Aa</span>
+            <span aria-hidden="true">Aa</span>
           </div>
           <div class="token-preview-sample">
             <span class="token-preview-sample__line" />
@@ -230,7 +230,8 @@ const toHex = (value: string) => {
   max-width: 100%;
   min-width: 0;
   overflow: hidden;
-  word-break: break-all;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 
 .token-preview-rail {
