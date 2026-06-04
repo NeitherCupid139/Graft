@@ -301,6 +301,9 @@ Prefer the repository skills below when their trigger matches the task:
 - `graft-worktree-init`
   - use when creating or rebuilding a local `Graft` git worktree and the setup should follow the repository-standard
     shared local resource rules without hard-coded machine paths
+- `graft-codegraph-mcp`
+  - use when installing, registering, initializing, validating, or troubleshooting CodeGraph MCP as a developer-local
+    AI navigation aid for this repository
 - `graft-commit`
   - use as the canonical scoped commit workflow when the current task slice is ready to commit, whether the trigger is
   an explicit user request or a `graft-task-closeout` decision that the validated owned scope should be committed
