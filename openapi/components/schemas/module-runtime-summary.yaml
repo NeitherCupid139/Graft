@@ -1,0 +1,21 @@
+type: object
+required:
+  - total_modules
+  - enabled_modules
+  - registered_modules
+  - healthy_modules
+  - degraded_modules
+  - unknown_modules
+properties:
+  total_modules:
+    type: integer
+  enabled_modules:
+    type: integer
+  registered_modules:
+    type: integer
+  healthy_modules:
+    type: integer
+  degraded_modules:
+    type: integer
+  unknown_modules:
+    type: integer
