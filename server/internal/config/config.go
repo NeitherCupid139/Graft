@@ -21,6 +21,7 @@ const (
 	defaultDatabaseURL           = "postgres://graft:graft@localhost:5432/graft?sslmode=disable"
 	defaultRedisAddr             = "localhost:6379"
 	defaultLogLevel              = "info"
+	defaultAppLogPersistence     = true
 	defaultLocale                = "zh-CN"
 	defaultSecondaryLocale       = "en-US"
 	defaultSupported             = "zh-CN,en-US"
@@ -96,7 +97,9 @@ type RedisConfig struct {
 
 // LogConfig 描述日志核心服务接入后的日志行为配置。
 type LogConfig struct {
-	Level string
+	Level           string
+	AppLogPersist   bool
+	AppLogRetention time.Duration
 }
 
 // I18nConfig 描述平台级语言解析与消息回退配置。
@@ -167,7 +170,9 @@ func Load() (*Config, error) {
 			DB:       reader.GetInt("redis.db"),
 		},
 		Log: LogConfig{
-			Level: reader.GetString("log.level"),
+			Level:           reader.GetString("log.level"),
+			AppLogPersist:   reader.GetBool("log.app_log_persist"),
+			AppLogRetention: reader.GetDuration("log.app_log_retention"),
 		},
 		I18n: I18nConfig{
 			DefaultLocale:    reader.GetString("i18n.default_locale"),
@@ -233,6 +238,7 @@ func (c *Config) Validate() error {
 		validateHTTPConfig,
 		validateHTTPXConfig,
 		validateAuditConfig,
+		validateLogConfig,
 		validateModulesConfig,
 		validateDatabaseConfig,
 		validateRedisConfig,
@@ -274,6 +280,14 @@ func validateHTTPXConfig(c *Config) error {
 func validateAuditConfig(c *Config) error {
 	if c.Audit.LogRetention <= 0 {
 		return errors.New("GRAFT_AUDIT_LOG_RETENTION must be greater than zero")
+	}
+
+	return nil
+}
+
+func validateLogConfig(c *Config) error {
+	if c.Log.AppLogRetention <= 0 {
+		return errors.New("GRAFT_LOG_APP_LOG_RETENTION must be greater than zero")
 	}
 
 	return nil
@@ -519,6 +533,8 @@ func setDefaults(reader *viper.Viper) {
 	reader.SetDefault("redis.password", "")
 	reader.SetDefault("redis.db", 0)
 	reader.SetDefault("log.level", defaultLogLevel)
+	reader.SetDefault("log.app_log_persist", defaultAppLogPersistence)
+	reader.SetDefault("log.app_log_retention", defaultAppLogRetentionForEnv(reader.GetString("app.env")))
 	reader.SetDefault("i18n.default_locale", defaultLocale)
 	reader.SetDefault("i18n.fallback_locale", defaultLocale)
 	reader.SetDefault("i18n.supported_locales", defaultSupported)
@@ -587,5 +603,18 @@ func defaultAuditLogRetentionForEnv(env string) time.Duration {
 		return 30 * 24 * time.Hour
 	default:
 		return 90 * 24 * time.Hour
+	}
+}
+
+func defaultAppLogRetentionForEnv(env string) time.Duration {
+	switch strings.ToLower(strings.TrimSpace(env)) {
+	case "prod", "production":
+		return 14 * 24 * time.Hour
+	case "staging", "stage":
+		return 7 * 24 * time.Hour
+	case "", "local", "development", "dev", "test":
+		return 3 * 24 * time.Hour
+	default:
+		return 7 * 24 * time.Hour
 	}
 }

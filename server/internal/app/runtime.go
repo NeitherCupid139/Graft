@@ -34,11 +34,13 @@ const moduleShutdownTimeout = 5 * time.Second
 
 type runtimeCoreDeps struct {
 	newAccessLogRepository func(*sql.DB) (httpx.AccessLogRepository, error)
+	newAppLogRepository    func(*sql.DB) (logger.AppLogRepository, error)
 	openRedisClient        func(context.Context, config.RedisConfig) (*redis.Client, error)
 }
 
 var defaultRuntimeCoreDeps = runtimeCoreDeps{
 	newAccessLogRepository: httpx.NewAccessLogRepository,
+	newAppLogRepository:    logger.NewAppLogRepository,
 	openRedisClient:        redisx.Open,
 }
 
@@ -64,6 +66,7 @@ type Runtime struct {
 	cronRegistry       *cronx.Registry
 	moduleManager      *module.Manager
 	runtimeMetadata    module.RuntimeMetadata
+	appLogRepository   logger.AppLogRepository
 }
 
 // NewRuntime 使用给定模块构造显式的 MVP 运行时外壳。
@@ -98,6 +101,10 @@ func NewRuntime() (*Runtime, error) {
 	if err := runtime.registerAccessLogRetentionJob(); err != nil {
 		_ = runtime.closeCoreResources()
 		return nil, fmt.Errorf("register access-log retention job: %w", err)
+	}
+	if err := runtime.registerAppLogRetentionJob(); err != nil {
+		_ = runtime.closeCoreResources()
+		return nil, fmt.Errorf("register app-log retention job: %w", err)
 	}
 
 	runtime.registerCoreRoutes(runtime.server.Engine())
@@ -134,6 +141,9 @@ func newRuntimeCore(cfg *config.Config) (*Runtime, error) {
 func newRuntimeCoreWithDeps(cfg *config.Config, deps runtimeCoreDeps) (*Runtime, error) {
 	if deps.newAccessLogRepository == nil {
 		deps.newAccessLogRepository = httpx.NewAccessLogRepository
+	}
+	if deps.newAppLogRepository == nil {
+		deps.newAppLogRepository = logger.NewAppLogRepository
 	}
 	if deps.openRedisClient == nil {
 		deps.openRedisClient = redisx.Open
@@ -173,6 +183,17 @@ func newRuntimeCoreWithDeps(cfg *config.Config, deps runtimeCoreDeps) (*Runtime,
 		return nil, fmt.Errorf("create access log repository: %w", err)
 	}
 
+	var appLogRepo logger.AppLogRepository
+	if cfg.Log.AppLogPersist {
+		appLogRepo, err = deps.newAppLogRepository(databaseResources.SQL)
+		if err != nil {
+			_ = redisClient.Close()
+			_ = database.Close(databaseResources)
+			_ = logger.Close(runtimeLogger)
+			return nil, fmt.Errorf("create app log repository: %w", err)
+		}
+	}
+
 	return &Runtime{
 		config:             cfg,
 		logger:             runtimeLogger,
@@ -186,6 +207,7 @@ func newRuntimeCoreWithDeps(cfg *config.Config, deps runtimeCoreDeps) (*Runtime,
 		permissionRegistry: permission.NewRegistry(),
 		cronRegistry:       cronx.NewRegistry(),
 		moduleManager:      module.NewManager(),
+		appLogRepository:   appLogRepo,
 	}, nil
 }
 
@@ -428,7 +450,16 @@ func (r *Runtime) registerCoreServices() error {
 		{
 			key: (*logger.AppLogger)(nil),
 			provider: func() (any, error) {
-				return logger.NewAppLogger(r.logger), nil
+				return r.newAppLogger(), nil
+			},
+		},
+		{
+			key: (*logger.AppLogRepository)(nil),
+			provider: func() (any, error) {
+				if r.appLogRepository == nil {
+					return nil, errors.New("app log repository is unavailable")
+				}
+				return r.appLogRepository, nil
 			},
 		},
 		{
@@ -480,6 +511,32 @@ func (r *Runtime) registerAccessLogRetentionJob() error {
 		r.server.AccessLogRepository(),
 		r.config.HTTPX,
 	)
+}
+
+func (r *Runtime) registerAppLogRetentionJob() error {
+	if r == nil {
+		return errors.New("runtime is unavailable")
+	}
+	if r.appLogRepository == nil {
+		return nil
+	}
+
+	return logger.RegisterAppLogRetentionCleanupJob(
+		r.cronRegistry,
+		r.logger,
+		r.appLogRepository,
+		r.config.Log,
+	)
+}
+
+func (r *Runtime) newAppLogger() logger.AppLogger {
+	if r == nil {
+		return logger.NewAppLogger(nil)
+	}
+	if r.appLogRepository == nil {
+		return logger.NewAppLogger(r.logger)
+	}
+	return logger.NewAppLogger(r.logger, logger.WithAppLogRepository(r.appLogRepository))
 }
 
 func (r *Runtime) registerSingleton(key any, provider func() (any, error)) error {
