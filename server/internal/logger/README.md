@@ -81,7 +81,8 @@
 * persistence strategy：沿用当前 Zap runtime sink，不在此主题内新增 durable storage
 * async behavior：不引入额外异步队列，沿用 Zap 当前写入语义
 * sanitization：按字段名脱敏 `password` / `secret` / `token` / `authorization` / `cookie`
-* retention boundary：当前仅存在进程日志基线；audit-log retention 已完成，App Log retention/authz/storage readiness 仍必须单独审批
+* retention boundary：当前仅存在进程日志基线；audit-log retention 已完成，App Log retention/authz/storage readiness 已完成
+  `deferred-not-approved` 判定，但 durable storage runtime approval 仍必须单独审批
 
 ## App Log storage authority foundation
 
@@ -91,7 +92,8 @@
 * retention owner：`none`
 * default retention policy：`0`，表示仓库 runtime 当前没有 App Log retention authority
 * future durable-store owner：仍然预留给 `server/internal/logger/**`，但只有在后续主题显式批准 App Log schema、repository、operator contract、authz/query permission 与 cleanup lifecycle 后才允许落地
-* durable-store decision status：`defer-until-operator-workflow`，当前不得把 developer debugging 的 process output 直接升级为仓库内 durable dataset
+* durable-store decision status：`deferred-not-approved`，operator workflow 与 readiness criteria 已明确，但当前不得把 process output 直接升级为仓库内 durable dataset
+* next approval gate：必须先完成 durable-storage runtime approval，记录 retention owner、默认窗口、cleanup lifecycle、read permission、query dimensions、persisted fields、index rationale 与验证范围，之后才允许新增 schema / API / UI
 
 当前 canonical persisted fields 定义为：
 
@@ -119,3 +121,4 @@ repository / service boundary：
 * `AppLogRecord` 是 future durable storage 的 canonical persisted shape
 * `AppLogRepository` 只作为 future durable-store boundary 占位，不在本主题内注册 runtime 实现
 * retention / archive / purge 仍然不可由仓库 runtime 执行，直到 App Log durable storage authority 被单独批准
+* `openapi/**` 与 `web/**` 只能在 durable storage 明确批准后作为 downstream consumer 进入实现范围

@@ -165,6 +165,23 @@ Overlay note:
     - future app-log workflow expansion must open a new bounded topic instead of reopening this definition slice
   - Next-session prompt: `Re-run startup preflight from root AGENTS.md. Treat phase-d-app-log-operator-workflow-definition as archived workflow evidence and open a new bounded topic instead of resuming it in place.`
 
+- `phase-d-app-log-retention-authz-and-storage-readiness`
+  - Status: `archived`
+  - Recovery status: completed the bounded cross-boundary App Log retention/authz/storage readiness topic.
+  - Archive reason: readiness criteria are now explicit, and the truthful verdict remains no schema/API/UI approval.
+  - Final result:
+    - preserved `server/internal/logger/**` and `AppLogger` as canonical `App Log` authority
+    - recorded App Log runtime readiness as `Partially Ready`
+    - recorded durable storage approval as `deferred-not-approved`
+    - kept `openapi/**` and `web/**` as downstream future consumers only
+  - Follow-up status: `new-topic-only`
+  - Archived topic directory:
+    - `ai-plan/public/archive/phase-d-app-log-retention-authz-and-storage-readiness`
+  - Archive notes:
+    - no `app_logs` schema, OpenAPI path, or App Log Explorer UI is approved by this topic
+    - future durable storage must first pass a dedicated runtime-approval topic with retention owner, cleanup lifecycle, authz, query dimensions, persisted fields, and validation scope
+  - Next-session prompt: `Re-run startup preflight from root AGENTS.md. Treat phase-d-app-log-retention-authz-and-storage-readiness as archived readiness evidence. Open a new bounded durable-storage runtime-approval topic only if repository-owned App Log durable storage is explicitly being approved before schema/API/UI work.`
+
 - `audit-monitor-phase-b-integration`
   - Status: `archived`
   - Recovery status: completed the bounded Phase B authority-discovery, design, and final maturity-review loop; Phase B is closed and no active continuation remains until a new bounded topic is opened.
