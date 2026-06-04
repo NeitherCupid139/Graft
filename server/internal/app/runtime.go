@@ -265,7 +265,7 @@ func (r *Runtime) Run(runCtx context.Context) error {
 		return err
 	}
 
-	if err := r.registerLogExplorers(moduleCtx, booted); err != nil {
+	if err := r.registerLogExplorers(); err != nil {
 		return r.cleanupAfterFailure(moduleCtx, booted, err)
 	}
 
@@ -339,7 +339,7 @@ func (r *Runtime) newModuleContext(runCtx context.Context) *module.Context {
 	}
 }
 
-func (r *Runtime) registerLogExplorers(moduleCtx *module.Context, booted []module.RuntimeModule) error {
+func (r *Runtime) registerLogExplorers() error {
 	authService, authorizer, err := r.resolveLogExplorerAuth()
 	if errors.Is(err, container.ErrServiceNotRegistered) {
 		return nil
@@ -348,10 +348,10 @@ func (r *Runtime) registerLogExplorers(moduleCtx *module.Context, booted []modul
 		return fmt.Errorf("resolve log explorer auth service: %w", err)
 	}
 
-	if err := r.registerAccessLogExplorerWithAuth(moduleCtx, booted, authService, authorizer); err != nil {
+	if err := r.registerAccessLogExplorerWithAuth(authService, authorizer); err != nil {
 		return err
 	}
-	if err := r.registerAppLogExplorerWithAuth(moduleCtx, booted, authService, authorizer); err != nil {
+	if err := r.registerAppLogExplorerWithAuth(authService, authorizer); err != nil {
 		return err
 	}
 
@@ -359,8 +359,6 @@ func (r *Runtime) registerLogExplorers(moduleCtx *module.Context, booted []modul
 }
 
 func (r *Runtime) registerAccessLogExplorerWithAuth(
-	moduleCtx *module.Context,
-	booted []module.RuntimeModule,
 	authService moduleapi.AuthService,
 	authorizer moduleapi.Authorizer,
 ) error {
@@ -379,14 +377,10 @@ func (r *Runtime) registerAccessLogExplorerWithAuth(
 		return fmt.Errorf("register access-log explorer: %w", err)
 	}
 
-	_ = moduleCtx
-	_ = booted
 	return nil
 }
 
 func (r *Runtime) registerAppLogExplorerWithAuth(
-	moduleCtx *module.Context,
-	booted []module.RuntimeModule,
 	authService moduleapi.AuthService,
 	authorizer moduleapi.Authorizer,
 ) error {
@@ -409,8 +403,6 @@ func (r *Runtime) registerAppLogExplorerWithAuth(
 		return fmt.Errorf("register app-log explorer: %w", err)
 	}
 
-	_ = moduleCtx
-	_ = booted
 	return nil
 }
 

@@ -58,7 +58,9 @@ Fresh-environment runtime proof completed on 2026-06-04:
 - Disposable PostgreSQL: `postgres:16` on `localhost:55433`, database `graft_access_log_proof`
 - Disposable Redis: `redis:7.2-alpine` on `localhost:56380`
 - Command:
-  - `cd server && GRAFT_APP_ENV=local GRAFT_HTTP_ADDR=127.0.0.1:18080 GRAFT_DATABASE_DRIVER=postgres GRAFT_DATABASE_URL='postgres://graft:graft@localhost:55433/graft_access_log_proof?sslmode=disable' GRAFT_REDIS_ADDR=127.0.0.1:56380 GRAFT_REDIS_PASSWORD= GRAFT_REDIS_DB=0 GRAFT_AUTH_JWT_SECRET='access-log-proof-secret' go run ./cmd/graft validate smoke --timeout 20s`
+  - `cd server && GRAFT_APP_ENV=local GRAFT_HTTP_ADDR=127.0.0.1:18080 GRAFT_DATABASE_DRIVER=postgres GRAFT_DATABASE_URL='postgres://graft:graft@localhost:55433/graft_access_log_proof?sslmode=disable' GRAFT_REDIS_ADDR=127.0.0.1:56380 GRAFT_REDIS_PASSWORD= GRAFT_REDIS_DB=0 GRAFT_AUTH_JWT_SECRET='<local-secret>' go run ./cmd/graft validate smoke --timeout 20s`
+- Secret note:
+  - `<local-secret>` is a disposable local smoke-test value only.
 - Result:
   - all live migrations applied against a fresh PostgreSQL database
   - runtime started and served `/healthz`
@@ -80,4 +82,3 @@ Basis:
 - access-log middleware durable write is active for actual server requests
 - the repository-default migration chain applies `access_logs` through the owner-aligned `server/internal/httpx/migrations/**` authority
 - fresh PostgreSQL smoke proof confirms one live request is persisted to `access_logs`
-

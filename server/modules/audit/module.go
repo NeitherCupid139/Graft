@@ -132,7 +132,7 @@ func handleAuditRecordEvent(eventCtx context.Context, logger *zap.Logger, record
 		logger.Error("drop malformed audit event payload",
 			zap.String("module", moduleID),
 			zap.String("event", string(moduleapi.AuditRecordEventName)),
-			zap.Error(fmt.Errorf("unexpected audit event payload type %T", event.Payload)),
+			zap.Error(err),
 		)
 		return nil
 	}

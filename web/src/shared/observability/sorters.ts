@@ -270,7 +270,9 @@ export function assignEncodedSorters<Field extends string>(
   const encodedSorters = encodeSorters(normalizeSorters(sorters, options), options);
   if (encodedSorters.length) {
     query.sort = encodedSorters;
+    return;
   }
+  delete query.sort;
 }
 
 export function encodeSorters<Field extends string>(sorters: QuerySorter<Field>[], options?: Array<SortOption<Field>>) {

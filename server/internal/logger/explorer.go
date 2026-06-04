@@ -141,9 +141,18 @@ func registerAppLogExplorerRoutes(
 	authService moduleapi.AuthService,
 	authorizer moduleapi.Authorizer,
 	bus eventbus.Bus,
-) {
-	if router == nil || repo == nil || authService == nil {
-		return
+) error {
+	if router == nil {
+		return errors.New("app log explorer router is required")
+	}
+	if repo == nil {
+		return errors.New("app log explorer repository is required")
+	}
+	if authService == nil {
+		return errors.New("app log explorer auth service is required")
+	}
+	if authorizer == nil {
+		return errors.New("app log explorer authorizer is required")
 	}
 
 	publisher := httpx.NewSecurityAuditPublisher(bus, nil, appLogModuleOwner)
@@ -153,6 +162,7 @@ func registerAppLogExplorerRoutes(
 	group := router.Group(appLogRouteGroup)
 	group.GET("", guard.read, handleListAppLogs(localizer, repo))
 	group.GET("/:"+appLogRouteItemParam, guard.read, handleGetAppLogDetail(localizer, repo))
+	return nil
 }
 
 // RegisterAppLogExplorer registers the logger-owned App Log Explorer messages, permission, menu, and routes.
@@ -168,7 +178,9 @@ func RegisterAppLogExplorer(
 	}
 	registerAppLogExplorerPermissions(ctx.PermissionRegistry)
 	registerAppLogExplorerMenu(ctx.MenuRegistry)
-	registerAppLogExplorerRoutes(router, ctx.I18n, repo, authService, authorizer, ctx.EventBus)
+	if err := registerAppLogExplorerRoutes(router, ctx.I18n, repo, authService, authorizer, ctx.EventBus); err != nil {
+		return fmt.Errorf("register app log explorer routes: %w", err)
+	}
 	return nil
 }
 
@@ -436,6 +448,9 @@ func parseOptionalAppLogIntQueryValue(raw string) (int, bool, error) {
 	parsed, err := strconv.Atoi(value)
 	if err != nil {
 		return 0, false, err
+	}
+	if parsed <= 0 {
+		return 0, false, fmt.Errorf("must be positive")
 	}
 
 	return parsed, true, nil

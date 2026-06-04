@@ -130,6 +130,7 @@ import type {
   AuditLogConvertibleFilters,
   AuditLogListItem,
   AuditLogQuery,
+  AuditResult,
   AuditSortBy,
   DrilldownScopeProjection,
 } from '../../types/audit';
@@ -139,6 +140,7 @@ defineOptions({
 });
 
 const logger = createLogger('audit.logs');
+const securityEventPresetResults: AuditResult[] = ['DENIED', 'FAILED', 'ERROR'];
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
@@ -733,7 +735,13 @@ function joinRouteList(values: string[]) {
 }
 
 function inferPresetFromState(value: AuditClientFilterState, scope: string): AuditQuickPresetKey {
-  if (!scope && value.source === 'SECURITY_EVENT' && !value.businessCategory) {
+  const isSecurityEventPreset =
+    !scope &&
+    value.source === 'SECURITY_EVENT' &&
+    !value.businessCategory &&
+    value.results.length === securityEventPresetResults.length &&
+    securityEventPresetResults.every((result) => value.results.includes(result));
+  if (isSecurityEventPreset) {
     return 'security-events';
   }
   if (scope === AUDIT_DRILLDOWN_SCOPE.FAILED_OPERATIONS) {

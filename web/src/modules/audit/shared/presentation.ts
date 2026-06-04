@@ -103,11 +103,13 @@ export function permissionForRecord(row: AuditLogListItem) {
 }
 
 export function securityTargetForRecord(row: AuditLogListItem, t: Translate) {
+  const permission = permissionForRecord(row);
+
   return (
     metadataLookup(row, 'targetName') ||
     metadataLookup(row, 'target_name') ||
-    resourceDetailLabel(row, t) ||
-    permissionForRecord(row)
+    (permission === '-' ? '' : permission) ||
+    resourceDetailLabel(row, t)
   );
 }
 

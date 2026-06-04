@@ -41,6 +41,7 @@ const (
 )
 
 const redactedValue = "[REDACTED]"
+const appLogPersistTimeout = 2 * time.Second
 
 // AppLogger defines the canonical application-log contract for runtime and modules.
 type AppLogger interface {
@@ -179,7 +180,9 @@ func (l appLogger) persist(ctx context.Context, severity AppLogSeverity, message
 		l.base.Warn("app log persistence skipped", zap.Error(err))
 		return
 	}
-	if _, err := l.sink.CreateAppLog(ctx, record); err != nil {
+	persistCtx, cancel := context.WithTimeout(ctx, appLogPersistTimeout)
+	defer cancel()
+	if _, err := l.sink.CreateAppLog(persistCtx, record); err != nil {
 		l.base.Warn("app log persistence failed", zap.Error(err))
 	}
 }

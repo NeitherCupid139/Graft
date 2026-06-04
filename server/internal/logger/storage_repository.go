@@ -457,9 +457,10 @@ func scanAppLog(scanner appLogScanner) (AppLogRecord, error) {
 	); err != nil {
 		return AppLogRecord{}, err
 	}
-	if id >= 0 {
-		record.ID = uint64(id)
+	if id < 0 {
+		return AppLogRecord{}, fmt.Errorf("app log id must be non-negative: %d", id)
 	}
+	record.ID = uint64(id)
 	record.OccurredAt = record.OccurredAt.UTC()
 	record.Severity = AppLogSeverity(severity)
 	record.Operation = operation.String

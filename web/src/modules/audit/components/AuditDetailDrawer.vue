@@ -501,6 +501,7 @@ const sameResourceRows = computed(() => {
 @media (width <= 768px) {
   .audit-detail__hero,
   .audit-detail__grid,
+  .audit-detail__security-panel,
   .audit-detail__related-grid {
     grid-template-columns: 1fr;
   }

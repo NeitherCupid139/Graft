@@ -476,9 +476,20 @@ func TestValidateRejectsNonPositiveAuditLogRetention(t *testing.T) {
 
 func TestValidateRejectsNonPositiveAppLogRetention(t *testing.T) {
 	cfg := validConfigForValidateTests()
+	cfg.Log.AppLogPersist = true
 	cfg.Log.AppLogRetention = 0
 
 	assertValidateError(t, cfg, "GRAFT_LOG_APP_LOG_RETENTION must be greater than zero")
+}
+
+func TestValidateAllowsNonPositiveAppLogRetentionWhenPersistenceDisabled(t *testing.T) {
+	cfg := validConfigForValidateTests()
+	cfg.Log.AppLogPersist = false
+	cfg.Log.AppLogRetention = 0
+
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("validate config with disabled app log persistence: %v", err)
+	}
 }
 
 func TestDefaultLogRetentionForEnv(t *testing.T) {

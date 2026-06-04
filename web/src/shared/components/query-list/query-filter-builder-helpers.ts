@@ -263,12 +263,20 @@ function buildFieldFilterTags<State extends Record<string, unknown>, Key extends
 
     const rawValue = state[definition.key];
     const value = typeof rawValue === 'string' ? rawValue.trim() : rawValue;
-    if (!value) {
+    const listValue = Array.isArray(value) ? value.filter((item) => String(item).trim()) : null;
+    if (!value || (listValue && listValue.length === 0)) {
       return tags;
     }
 
-    const label =
-      definition.kind === 'select'
+    const label = listValue
+      ? listValue
+          .map((item) =>
+            definition.kind === 'select'
+              ? definition.options?.find((option) => option.value === item)?.label || String(item)
+              : String(item),
+          )
+          .join(', ')
+      : definition.kind === 'select'
         ? definition.options?.find((option) => option.value === value)?.label || String(value)
         : String(value);
     const separatorGap = separator === '：' ? '' : ' ';

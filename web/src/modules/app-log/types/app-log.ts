@@ -4,7 +4,7 @@ import type { QuerySorter } from '@/shared/observability';
 export type AppLogSeverity = components['schemas']['app-log-detail-response']['severity'];
 export type AppLogItem = components['schemas']['app-log-detail-response'];
 export type AppLogListResponse = components['schemas']['app-log-list-response'];
-export type AppLogDetailResponse = components['schemas']['AppLogDetailResponse'];
+export type AppLogDetailResponse = components['schemas']['app-log-detail-response'];
 export type AppLogSortBy = 'occurred_at' | 'severity' | 'component';
 export type AppLogSortOrder = 'asc' | 'desc';
 export type AppLogSorter = QuerySorter<AppLogSortBy>;

@@ -511,7 +511,12 @@ func (s *Service) DeleteBefore(ctx context.Context, createdBefore time.Time) (in
 		return 0, errors.New("audit log cleanup cutoff is required")
 	}
 
-	return s.repo.DeleteAuditLogsBefore(ctx, createdBefore.UTC())
+	deleted, err := s.repo.DeleteAuditLogsBefore(ctx, createdBefore.UTC())
+	if err != nil {
+		return 0, fmt.Errorf("delete audit logs before cutoff: %w", err)
+	}
+
+	return deleted, nil
 }
 
 // RecordCandidate writes one normalized candidate after policy evaluation approves it.

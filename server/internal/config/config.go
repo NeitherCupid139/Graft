@@ -286,6 +286,9 @@ func validateAuditConfig(c *Config) error {
 }
 
 func validateLogConfig(c *Config) error {
+	if !c.Log.AppLogPersist {
+		return nil
+	}
 	if c.Log.AppLogRetention <= 0 {
 		return errors.New("GRAFT_LOG_APP_LOG_RETENTION must be greater than zero")
 	}

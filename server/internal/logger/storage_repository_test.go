@@ -16,6 +16,8 @@ func newAppLogSQLiteDB(t *testing.T) *sql.DB {
 	if err != nil {
 		t.Fatalf("open sqlite db: %v", err)
 	}
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
 	t.Cleanup(func() {
 		_ = db.Close()
 	})

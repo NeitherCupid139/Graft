@@ -8,7 +8,7 @@ export function restartLogListQuery(config: {
 }) {
   config.activePreset.value = config.preset ?? 'all';
   config.pagination.value.current = 1;
-  void config.updateRouteQuery();
+  return config.updateRouteQuery();
 }
 
 async function openLogDetailRecord<Row, Detail>(config: {
@@ -19,7 +19,12 @@ async function openLogDetailRecord<Row, Detail>(config: {
   visible: Ref<boolean>;
 }) {
   try {
-    config.record.value = await config.fetchDetail(Number(config.row.id));
+    const id = Number(config.row.id);
+    if (!Number.isFinite(id)) {
+      config.onError(new Error(`Invalid log id: ${String(config.row.id)}`));
+      return;
+    }
+    config.record.value = await config.fetchDetail(id);
     config.visible.value = true;
   } catch (error) {
     config.onError(error);
