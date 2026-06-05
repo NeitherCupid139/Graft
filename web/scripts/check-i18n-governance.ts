@@ -3,7 +3,9 @@ import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT_DIR = fileURLToPath(new URL('..', import.meta.url));
+const REPOSITORY_DIR = fileURLToPath(new URL('../..', import.meta.url));
 const SRC_DIR = join(ROOT_DIR, 'src');
+const SERVER_TITLE_KEY_DIRS = [join(REPOSITORY_DIR, 'server/internal'), join(REPOSITORY_DIR, 'server/modules')];
 
 const SCANNED_EXTENSIONS = new Set(['.vue', '.ts', '.tsx']);
 const EXCLUDED_DIRS = new Set(['node_modules', 'dist', 'coverage', 'mock', '__mocks__', 'ai-libs']);
@@ -929,7 +931,67 @@ function collectRuntimeReferenceSet(): RuntimeReferenceSet {
     }
   }
 
+  for (const key of collectServerMenuTitleKeys()) {
+    referenced.add(key);
+    required.add(key);
+  }
+
   return { exactKeys: referenced, requiredKeys: required, dynamicPatterns };
+}
+
+function shouldScanServerTitleKeyFile(file: string): boolean {
+  const normalized = relative(REPOSITORY_DIR, file).replaceAll('\\', '/');
+  return (
+    file.endsWith('.go') &&
+    (normalized.startsWith('server/internal/') || normalized.startsWith('server/modules/')) &&
+    !normalized.includes('/contract/openapi/generated/')
+  );
+}
+
+function walkServerTitleKeyFiles(dir: string): string[] {
+  const files: string[] = [];
+
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const fullPath = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...walkServerTitleKeyFiles(fullPath));
+      continue;
+    }
+
+    if (shouldScanServerTitleKeyFile(fullPath)) {
+      files.push(fullPath);
+    }
+  }
+
+  return files;
+}
+
+function collectServerMenuTitleKeys(): Set<string> {
+  const keys = new Set<string>();
+  const stringConstantPattern = /\b([A-Za-z_]\w*)\s*=\s*"([^"$]+)"/g;
+  const titleKeyPattern = /\b(?:TitleKey|title_key)\s*:\s*(?:"([^"$]+)"|([A-Za-z_]\w*))/g;
+
+  for (const dir of SERVER_TITLE_KEY_DIRS) {
+    for (const filePath of walkServerTitleKeyFiles(dir)) {
+      const source = preserveLineStructure(readFileSync(filePath, 'utf8'));
+      const stringConstants = new Map<string, string>();
+
+      for (const match of source.matchAll(stringConstantPattern)) {
+        stringConstants.set(match[1], match[2]);
+      }
+
+      for (const match of source.matchAll(titleKeyPattern)) {
+        const literalKey = match[1];
+        const constantKey = match[2] ? stringConstants.get(match[2]) : undefined;
+        const key = literalKey ?? constantKey;
+        if (key) {
+          keys.add(key);
+        }
+      }
+    }
+  }
+
+  return keys;
 }
 
 function isRuntimeReferenced(key: string, referenceSet: RuntimeReferenceSet): boolean {
@@ -975,7 +1037,7 @@ function collectMissingReferenceFindings(catalogs: LocaleCatalog[]): LocaleFindi
   }
 
   for (const key of [...referenceSet.requiredKeys].sort()) {
-    if (!definedKeys.has(key) && !isAllowedUnusedLocaleKey(key)) {
+    if (!definedKeys.has(key)) {
       findings.push({
         file: 'src',
         message: `referenced locale key ${key} is missing from locale catalogs`,

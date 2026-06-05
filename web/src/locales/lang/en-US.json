@@ -276,6 +276,9 @@
         "title": "Dependencies"
       }
     },
+    "modulesRuntime": {
+      "title": "Module Runtime"
+    },
     "logCenter": {
       "title": "Log Center"
     }

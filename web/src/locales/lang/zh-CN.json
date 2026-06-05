@@ -276,6 +276,9 @@
         "title": "依赖服务"
       }
     },
+    "modulesRuntime": {
+      "title": "模块运行时"
+    },
     "logCenter": {
       "title": "日志中心"
     }

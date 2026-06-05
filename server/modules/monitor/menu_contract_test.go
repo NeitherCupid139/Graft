@@ -21,7 +21,7 @@ func TestRegisterMonitorMenuIncludesThreeLevelEntries(t *testing.T) {
 	sectionMenu := menus[0]
 	assertMenuItem(t, sectionMenu, expectedMenuItem{
 		code:       "monitor.section",
-		titleKey:   monitorcontract.MonitorSectionTitle.String(),
+		titleKey:   monitorcontract.ServerStatusMenuTitle.String(),
 		path:       monitorcontract.ServerStatusMenuPath,
 		icon:       "server",
 		order:      100,

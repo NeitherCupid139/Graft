@@ -55,6 +55,7 @@ func TestRegisterExposesProtectedSnapshotRoutesAndMetadata(t *testing.T) {
 	}
 
 	assertRegisteredMetadata(t, menuRegistry.Items(), permissionRegistry.Items())
+	assertMenuTitleKeysRegistered(t, localizer, menuRegistry.Items())
 
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/api/modules/runtime", nil)
@@ -120,6 +121,36 @@ func TestRegisterExposesProtectedDetailRoute(t *testing.T) {
 	if payload.Data.ModuleKey != "audit" || string(payload.Data.SchemaStatus.Status) != schemaStatusDeclared {
 		t.Fatalf("unexpected module detail: %#v", payload.Data)
 	}
+}
+
+func TestRegisterAddsRootMenuWhenServerSectionIsMissing(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	localizer := i18n.MustNew(config.I18nConfig{
+		DefaultLocale:    "zh-CN",
+		FallbackLocale:   "en-US",
+		SupportedLocales: []string{"zh-CN", "en-US"},
+	})
+	menuRegistry := menu.NewRegistry()
+	permissionRegistry := permission.NewRegistry()
+	engine := gin.New()
+
+	if err := Register(
+		Registration{
+			I18n:               localizer,
+			MenuRegistry:       menuRegistry,
+			PermissionRegistry: permissionRegistry,
+		},
+		engine.Group("/api"),
+		allowAuthService{},
+		&recordingAuthorizer{},
+	); err != nil {
+		t.Fatalf("register module runtime: %v", err)
+	}
+
+	menus := menuRegistry.Items()
+	assertRegisteredMetadata(t, menus, permissionRegistry.Items())
+	assertMenuTitleKeysRegistered(t, localizer, menus)
 }
 
 func TestRegisterDetailRouteReturnsNotFoundForUnknownModule(t *testing.T) {
@@ -228,6 +259,43 @@ func assertRegisteredMetadata(t *testing.T, menus []menu.Item, permissions []per
 	}
 	if !foundRuntimeMenu {
 		t.Fatalf("expected %s menu item in %#v", menuRuntimePath, menus)
+	}
+}
+
+func assertMenuTitleKeysRegistered(t *testing.T, localizer *i18n.Service, menus []menu.Item) {
+	t.Helper()
+
+	for _, item := range menus {
+		if item.TitleKey == "" {
+			continue
+		}
+
+		for _, locale := range []i18n.LocaleTag{i18n.LocaleZHCN, i18n.LocaleENUS} {
+			assertMenuTitleKeyRegistered(t, localizer, item, locale)
+		}
+	}
+}
+
+func assertMenuTitleKeyRegistered(t *testing.T, localizer *i18n.Service, item menu.Item, locale i18n.LocaleTag) {
+	t.Helper()
+
+	matches := localizer.RegisteredMessageResources(locale, i18n.MessageKey(item.TitleKey))
+	if len(matches) == 0 {
+		t.Fatalf("menu %q title_key %q is not registered for locale %s", item.Code, item.TitleKey, locale)
+	}
+	for _, match := range matches {
+		assertRegisteredMenuTitleMessage(t, item, locale, match)
+	}
+}
+
+func assertRegisteredMenuTitleMessage(t *testing.T, item menu.Item, locale i18n.LocaleTag, message i18n.MessageResource) {
+	t.Helper()
+
+	if message.Text == "" || message.Text == item.TitleKey {
+		t.Fatalf("menu %q title_key %q has invalid registered message for locale %s: %#v", item.Code, item.TitleKey, locale, message)
+	}
+	if locale == i18n.LocaleENUS && message.Text == item.Title {
+		t.Fatalf("menu %q title_key %q falls back to zh-CN title for locale %s: %#v", item.Code, item.TitleKey, locale, message)
 	}
 }
 

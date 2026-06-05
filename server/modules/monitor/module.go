@@ -170,7 +170,6 @@ func registerMessages(localizer *i18n.Service) error {
 			Locale:    i18n.LocaleZHCN,
 			Messages: []i18n.MessageResource{
 				{Key: i18n.MessageKey(monitorcontract.MonitorSectionTitle.String()), Text: "服务器管理"},
-				{Key: i18n.MessageKey(monitorcontract.ServerStatusMenuTitle.String()), Text: "服务器状态"},
 				{Key: i18n.MessageKey(monitorcontract.ServerStatusOverviewMenuTitle.String()), Text: "概览"},
 				{Key: i18n.MessageKey(monitorcontract.ServerStatusRuntimeMenuTitle.String()), Text: "运行时"},
 				{Key: i18n.MessageKey(monitorcontract.ServerStatusDependenciesMenuTitle.String()), Text: "依赖服务"},
@@ -181,7 +180,6 @@ func registerMessages(localizer *i18n.Service) error {
 			Locale:    i18n.LocaleENUS,
 			Messages: []i18n.MessageResource{
 				{Key: i18n.MessageKey(monitorcontract.MonitorSectionTitle.String()), Text: "Server Management"},
-				{Key: i18n.MessageKey(monitorcontract.ServerStatusMenuTitle.String()), Text: "Server Status"},
 				{Key: i18n.MessageKey(monitorcontract.ServerStatusOverviewMenuTitle.String()), Text: "Overview"},
 				{Key: i18n.MessageKey(monitorcontract.ServerStatusRuntimeMenuTitle.String()), Text: "Runtime"},
 				{Key: i18n.MessageKey(monitorcontract.ServerStatusDependenciesMenuTitle.String()), Text: "Dependencies"},
@@ -280,7 +278,7 @@ func registerMonitorMenu(registry *menu.Registry, moduleName string) {
 	registry.Register(menu.Item{
 		Code:       "monitor.section",
 		Title:      "服务器管理",
-		TitleKey:   monitorcontract.MonitorSectionTitle.String(),
+		TitleKey:   monitorcontract.ServerStatusMenuTitle.String(),
 		Path:       monitorcontract.ServerStatusMenuPath,
 		Icon:       "server",
 		Order:      monitorMenuOrderRoot,
