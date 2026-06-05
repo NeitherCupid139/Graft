@@ -149,7 +149,7 @@ const ManagementTableActionMenu = Management.TableActionMenu;
 .stack-cell {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--graft-density-gap-4);
 }
 
 .duration-danger {

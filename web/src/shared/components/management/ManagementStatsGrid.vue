@@ -33,7 +33,7 @@ withDefaults(
 
 .management-stats-grid {
   display: grid;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
   grid-template-columns: repeat(auto-fit, minmax(180px, minmax(0, 1fr)));
 }
 
@@ -50,22 +50,22 @@ withDefaults(
 
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--graft-density-gap-8);
   min-height: 112px;
-  padding: 14px 16px;
+  padding: var(--graft-density-gap-14) var(--graft-density-gap-16);
 }
 
 .management-stats-grid--compact .management-stats-grid__item {
-  gap: 6px;
+  gap: var(--graft-density-gap-6);
   min-height: 96px;
-  padding: 12px 14px;
+  padding: var(--graft-density-gap-12) var(--graft-density-gap-14);
 }
 
 .management-stats-grid__head {
   color: var(--td-text-color-secondary);
   display: flex;
   font: var(--td-font-body-small);
-  gap: 8px;
+  gap: var(--graft-density-gap-8);
   justify-content: space-between;
 }
 

@@ -43,6 +43,6 @@ const crumbs = computed(() => {
 </script>
 <style scoped>
 .tdesign-breadcrumb {
-  margin-bottom: 8px;
+  margin-bottom: var(--graft-density-gap-8);
 }
 </style>

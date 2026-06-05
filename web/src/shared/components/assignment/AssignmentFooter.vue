@@ -51,7 +51,7 @@ const emit = defineEmits<{
   background: color-mix(in srgb, var(--td-bg-color-container) 92%, var(--td-bg-color-page));
   gap: var(--td-comp-margin-l);
   justify-content: space-between;
-  padding: var(--td-comp-paddingTB-l) 0 2px;
+  padding: var(--td-comp-paddingTB-l) 0 var(--graft-density-gap-2);
 }
 
 .assignment-footer__summary {

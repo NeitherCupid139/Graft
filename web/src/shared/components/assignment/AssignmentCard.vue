@@ -171,7 +171,7 @@ const emit = defineEmits<{
 .assignment-card__body {
   flex: 1;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--graft-density-gap-6);
 }
 
 .assignment-card__title {

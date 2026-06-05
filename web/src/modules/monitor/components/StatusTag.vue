@@ -22,7 +22,7 @@ const theme = computed(() => props.themeOverride ?? serverStatusTagTheme(props.s
   font: var(--td-font-body-small);
   font-weight: 600;
   line-height: 20px;
-  padding-inline: 10px;
+  padding-inline: var(--graft-density-gap-10);
 }
 
 .monitor-status-tag--disabled {

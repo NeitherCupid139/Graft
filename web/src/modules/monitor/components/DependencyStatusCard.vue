@@ -45,15 +45,15 @@ defineProps<{
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 16px;
+  padding: var(--graft-density-gap-16);
 }
 
 .server-status-dependency-card__header {
   align-items: flex-start;
   display: flex;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
   justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: var(--graft-density-gap-12);
 }
 
 .server-status-dependency-card__copy {
@@ -69,6 +69,6 @@ defineProps<{
 .server-status-dependency-card__description {
   color: var(--td-text-color-secondary);
   font: var(--td-font-body-small);
-  margin: 4px 0 0;
+  margin: var(--graft-density-gap-4) 0 0;
 }
 </style>

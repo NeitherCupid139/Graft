@@ -486,7 +486,7 @@ onMounted(() => {
 
 .access-control-overview__grid {
   display: grid;
-  gap: 16px;
+  gap: var(--graft-density-gap-16);
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -497,7 +497,7 @@ onMounted(() => {
 .issue-section__heading {
   align-items: flex-start;
   display: flex;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
   justify-content: space-between;
 }
 
@@ -511,19 +511,19 @@ onMounted(() => {
 .quick-link-card__action {
   color: var(--td-text-color-secondary);
   font: var(--td-font-body-small);
-  margin: 4px 0 0;
+  margin: var(--graft-density-gap-4) 0 0;
 }
 
 .issue-section {
   display: grid;
-  gap: 16px;
+  gap: var(--graft-density-gap-16);
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .issue-section__block,
 .status-list {
   display: grid;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
 }
 
 .issue-section__heading h3 {
@@ -540,7 +540,7 @@ onMounted(() => {
 
 .risk-list {
   display: grid;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
 }
 
 .risk-list__item,
@@ -550,8 +550,8 @@ onMounted(() => {
   border: 1px solid var(--td-component-stroke);
   border-radius: var(--td-radius-medium);
   display: grid;
-  gap: 6px;
-  padding: 12px 14px;
+  gap: var(--graft-density-gap-6);
+  padding: var(--graft-density-gap-12) var(--graft-density-gap-14);
 }
 
 .risk-list__label,
@@ -578,7 +578,7 @@ onMounted(() => {
 
 .quick-link-grid {
   display: grid;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -590,8 +590,8 @@ onMounted(() => {
   color: inherit;
   cursor: pointer;
   display: grid;
-  gap: 8px;
-  padding: 14px;
+  gap: var(--graft-density-gap-8);
+  padding: var(--graft-density-gap-14);
   text-align: left;
   transition:
     border-color 0.2s ease,

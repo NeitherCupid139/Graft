@@ -8,15 +8,18 @@
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--graft-density-gap-16);
   min-width: 0;
-  padding-bottom: max(calc(var(--td-comp-margin-xxl) + 8px), calc(var(--graft-floating-toolbar-safe-area) + 8px));
+  padding-bottom: max(
+    calc(var(--td-comp-margin-xxl) + var(--graft-density-gap-8)),
+    calc(var(--graft-floating-toolbar-safe-area) + var(--graft-density-gap-8))
+  );
   width: 100%;
 }
 
 @media (width <= 768px) {
   .management-page-content {
-    gap: 12px;
+    gap: var(--graft-density-gap-12);
     padding-bottom: var(--td-comp-margin-xl);
   }
 }

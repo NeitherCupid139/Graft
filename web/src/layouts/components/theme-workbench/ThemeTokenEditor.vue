@@ -169,7 +169,7 @@ const toHex = (value: string) => {
 .theme-token-editor {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
   max-width: 100%;
   min-width: 0;
   overflow: hidden;
@@ -178,7 +178,7 @@ const toHex = (value: string) => {
 .editor-toolbar {
   align-items: center;
   display: flex;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
   justify-content: flex-end;
 }
 
@@ -188,7 +188,7 @@ const toHex = (value: string) => {
 
 .token-grid {
   display: grid;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
   min-width: 0;
 }
 
@@ -196,17 +196,17 @@ const toHex = (value: string) => {
   .theme-workbench-surface();
 
   align-items: center;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
   grid-template-columns: minmax(120px, 1.1fr) minmax(96px, 0.72fr) minmax(180px, 0.9fr);
   max-width: 100%;
   min-width: 0;
   overflow: hidden;
-  padding: 12px 14px;
+  padding: var(--graft-density-gap-12) var(--graft-density-gap-14);
 }
 
 .token-meta {
   display: grid;
-  gap: 4px;
+  gap: var(--graft-density-gap-4);
   min-width: 0;
 }
 
@@ -243,19 +243,19 @@ const toHex = (value: string) => {
   border: 1px solid color-mix(in srgb, var(--td-component-stroke) 88%, transparent);
   border-radius: 12px;
   display: grid;
-  gap: 10px;
+  gap: var(--graft-density-gap-10);
   grid-template-columns: 32px minmax(0, 1fr);
   max-width: 100%;
   min-height: 48px;
   min-width: 0;
   overflow: hidden;
-  padding: 8px 10px;
+  padding: var(--graft-density-gap-8) var(--graft-density-gap-10);
 }
 
 .token-inputs {
   align-items: center;
   display: grid;
-  gap: 10px;
+  gap: var(--graft-density-gap-10);
   grid-template-columns: auto minmax(96px, 160px) auto;
   justify-content: end;
   max-width: 100%;
@@ -300,7 +300,7 @@ const toHex = (value: string) => {
 
 .token-preview-sample {
   display: grid;
-  gap: 6px;
+  gap: var(--graft-density-gap-6);
   min-width: 0;
   overflow: hidden;
 }

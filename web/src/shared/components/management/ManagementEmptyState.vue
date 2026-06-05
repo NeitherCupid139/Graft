@@ -32,8 +32,8 @@ const toneClass = computed(() =>
   border-radius: var(--td-radius-large);
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 28px 24px;
+  gap: var(--graft-density-gap-10);
+  padding: var(--graft-density-gap-28) var(--graft-density-gap-24);
 }
 
 .management-empty-state--default {
@@ -60,6 +60,6 @@ const toneClass = computed(() =>
 .management-empty-state__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
 }
 </style>

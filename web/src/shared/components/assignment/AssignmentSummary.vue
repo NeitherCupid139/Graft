@@ -78,7 +78,7 @@ const emit = defineEmits<{
   border-radius: var(--td-radius-medium);
   flex: 1 1 0;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--graft-density-gap-4);
   min-width: 0;
   padding: var(--td-comp-paddingTB-m) var(--td-comp-paddingLR-l);
 }

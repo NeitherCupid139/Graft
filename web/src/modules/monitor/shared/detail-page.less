@@ -1,14 +1,14 @@
 .monitor-detail-page {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--graft-density-gap-16);
 }
 
 .monitor-detail-page__header {
   align-items: flex-start;
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: var(--graft-density-gap-16);
   justify-content: space-between;
 }
 
@@ -16,7 +16,7 @@
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--graft-density-gap-8);
   min-width: 0;
 }
 
@@ -45,14 +45,14 @@
   display: flex;
   flex: 0 1 auto;
   flex-wrap: wrap;
-  gap: 10px 12px;
+  gap: var(--graft-density-gap-10) var(--graft-density-gap-12);
   justify-content: flex-end;
   max-width: 100%;
 }
 
 .monitor-detail-page__grid {
   display: grid;
-  gap: 16px;
+  gap: var(--graft-density-gap-16);
 }
 
 .monitor-detail-page__grid--summary {
@@ -78,7 +78,7 @@
 .monitor-note {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--graft-density-gap-8);
 }
 
 .monitor-note__title {
@@ -97,7 +97,7 @@
 .monitor-summary-metric {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--graft-density-gap-8);
 }
 
 .monitor-summary-metric__label {
@@ -118,14 +118,14 @@
 
 .monitor-kv-grid {
   display: grid;
-  gap: 16px;
+  gap: var(--graft-density-gap-16);
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
 .monitor-kv {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--graft-density-gap-8);
   min-width: 0;
 }
 
@@ -149,20 +149,20 @@
 .monitor-service-card {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--graft-density-gap-16);
 }
 
 .monitor-service-card__header {
   align-items: flex-start;
   display: flex;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
   justify-content: space-between;
 }
 
 .monitor-service-card__heading {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--graft-density-gap-6);
 }
 
 .monitor-service-card__title {
@@ -186,7 +186,7 @@
   display: flex;
   justify-content: center;
   min-height: 120px;
-  padding: 24px;
+  padding: var(--graft-density-gap-24);
   text-align: center;
 }
 
@@ -198,23 +198,23 @@
     border-radius: var(--td-radius-medium);
     display: flex;
     flex-wrap: wrap;
-    gap: 8px 16px;
-    margin-top: 6px;
-    padding: 10px 14px;
+    gap: var(--graft-density-gap-8) var(--graft-density-gap-16);
+    margin-top: var(--graft-density-gap-6);
+    padding: var(--graft-density-gap-10) var(--graft-density-gap-14);
   }
 
   .monitor-runtime-meta-bar__item {
     align-items: center;
     display: inline-flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: var(--graft-density-gap-6);
     min-width: 0;
   }
 
   .monitor-runtime-meta-bar__item:not(:last-child)::after {
     color: var(--td-component-stroke);
     content: '|';
-    margin-left: 4px;
+    margin-left: var(--graft-density-gap-4);
   }
 
   .monitor-runtime-header-summary__label {
@@ -235,7 +235,7 @@
     border: 1px solid color-mix(in srgb, var(--td-brand-color-5) 10%, var(--td-component-stroke));
     border-radius: var(--td-radius-medium);
     color: var(--td-text-color-secondary);
-    padding: 8px 12px;
+    padding: var(--graft-density-gap-8) var(--graft-density-gap-12);
   }
 
   .monitor-runtime-tip__content {
@@ -257,8 +257,8 @@
   }
 
   .monitor-summary-metric {
-    gap: 6px;
-    padding: 12px 16px;
+    gap: var(--graft-density-gap-6);
+    padding: var(--graft-density-gap-12) var(--graft-density-gap-16);
   }
 
   .monitor-summary-metric__value {
@@ -270,7 +270,7 @@
   .monitor-runtime-layout {
     align-items: start;
     display: grid;
-    gap: 16px;
+    gap: var(--graft-density-gap-16);
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
@@ -278,8 +278,8 @@
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    gap: 14px;
-    padding: 18px 20px;
+    gap: var(--graft-density-gap-14);
+    padding: var(--graft-density-gap-18) var(--graft-density-gap-20);
   }
 
   .monitor-runtime-card__heading {
@@ -291,7 +291,7 @@
   .monitor-runtime-card__copy {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--graft-density-gap-6);
     min-width: 0;
   }
 
@@ -311,12 +311,12 @@
   .monitor-runtime-memory {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: var(--graft-density-gap-14);
   }
 
   .monitor-runtime-memory__hero {
     display: grid;
-    gap: 12px;
+    gap: var(--graft-density-gap-12);
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -326,9 +326,9 @@
     border-radius: var(--td-radius-large);
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: var(--graft-density-gap-10);
     min-width: 0;
-    padding: 14px 16px;
+    padding: var(--graft-density-gap-14) var(--graft-density-gap-16);
   }
 
   .monitor-runtime-memory__label {
@@ -353,10 +353,10 @@
   .monitor-runtime-memory-list__item {
     align-items: start;
     border-top: 1px solid var(--td-component-stroke);
-    column-gap: 16px;
+    column-gap: var(--graft-density-gap-16);
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    padding: 12px 0;
+    padding: var(--graft-density-gap-12) 0;
   }
 
   .monitor-runtime-memory-list__item:first-child {
@@ -376,7 +376,7 @@
   .monitor-runtime-memory-list__term {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--graft-density-gap-4);
     min-width: 0;
   }
 
@@ -409,10 +409,10 @@
   .monitor-description-list__item {
     align-items: start;
     border-top: 1px solid var(--td-component-stroke);
-    column-gap: 16px;
+    column-gap: var(--graft-density-gap-16);
     display: grid;
     grid-template-columns: minmax(104px, 136px) minmax(0, 1fr);
-    padding: 10px 0;
+    padding: var(--graft-density-gap-10) 0;
   }
 
   .monitor-description-list__item:first-child {
@@ -476,7 +476,7 @@
     .monitor-runtime-meta-bar {
       align-items: flex-start;
       flex-direction: column;
-      gap: 8px;
+      gap: var(--graft-density-gap-8);
     }
 
     .monitor-runtime-meta-bar__item::after {
@@ -484,12 +484,12 @@
     }
 
     .monitor-runtime-card {
-      padding: 18px;
+      padding: var(--graft-density-gap-18);
     }
 
     .monitor-runtime-memory-list__item,
     .monitor-description-list__item {
-      gap: 6px;
+      gap: var(--graft-density-gap-6);
       grid-template-columns: minmax(0, 1fr);
     }
 

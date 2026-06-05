@@ -76,7 +76,7 @@ const thumbnailStyle = (preset: ThemePresetDefinition): CSSProperties => {
 <style lang="less" scoped>
 .preset-grid {
   display: grid;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
 }
 
@@ -85,11 +85,11 @@ const thumbnailStyle = (preset: ThemePresetDefinition): CSSProperties => {
   border: 1px solid var(--td-component-stroke);
   border-radius: var(--td-radius-large);
   display: grid;
-  gap: 10px;
+  gap: var(--graft-density-gap-10);
   isolation: isolate;
   min-width: 0;
   overflow: hidden;
-  padding: 12px;
+  padding: var(--graft-density-gap-12);
   position: relative;
   text-align: left;
   transition:
@@ -146,7 +146,7 @@ const thumbnailStyle = (preset: ThemePresetDefinition): CSSProperties => {
   border-radius: calc(var(--td-radius-large) - 2px);
   display: block;
   overflow: hidden;
-  padding: 8px;
+  padding: var(--graft-density-gap-8);
 }
 
 .preset-card__thumb-shell {
@@ -154,7 +154,7 @@ const thumbnailStyle = (preset: ThemePresetDefinition): CSSProperties => {
   border: 1px solid var(--preset-thumbnail-border);
   border-radius: 12px;
   display: grid;
-  gap: 8px;
+  gap: var(--graft-density-gap-8);
   grid-template-columns: 40px 1fr;
   min-height: 112px;
   overflow: hidden;
@@ -164,8 +164,8 @@ const thumbnailStyle = (preset: ThemePresetDefinition): CSSProperties => {
   background: color-mix(in srgb, var(--preset-brand-color) 12%, var(--preset-thumbnail-surface));
   border-right: 1px solid var(--preset-thumbnail-border);
   display: grid;
-  gap: 6px;
-  padding: 8px 6px;
+  gap: var(--graft-density-gap-6);
+  padding: var(--graft-density-gap-8) var(--graft-density-gap-6);
 }
 
 .preset-card__thumb-brand,
@@ -197,14 +197,14 @@ const thumbnailStyle = (preset: ThemePresetDefinition): CSSProperties => {
 
 .preset-card__thumb-main {
   display: grid;
-  gap: 8px;
-  padding: 10px;
+  gap: var(--graft-density-gap-8);
+  padding: var(--graft-density-gap-10);
 }
 
 .preset-card__thumb-header {
   align-items: center;
   display: flex;
-  gap: 8px;
+  gap: var(--graft-density-gap-8);
   justify-content: space-between;
 }
 
@@ -222,7 +222,7 @@ const thumbnailStyle = (preset: ThemePresetDefinition): CSSProperties => {
 
 .preset-card__thumb-tags {
   display: flex;
-  gap: 6px;
+  gap: var(--graft-density-gap-6);
 }
 
 .preset-card__thumb-tag {
@@ -242,8 +242,8 @@ const thumbnailStyle = (preset: ThemePresetDefinition): CSSProperties => {
   border: 1px solid var(--preset-thumbnail-border);
   border-radius: 10px;
   display: grid;
-  gap: 6px;
-  padding: 8px;
+  gap: var(--graft-density-gap-6);
+  padding: var(--graft-density-gap-8);
 }
 
 .preset-card__thumb-table-head {

@@ -959,7 +959,7 @@ const toggleAdvancedVisible = (value: boolean) => {
   border-bottom: 1px solid var(--td-component-stroke);
   display: flex;
   justify-content: space-between;
-  padding: 18px 20px 16px;
+  padding: var(--graft-density-gap-18) var(--graft-density-gap-20) var(--graft-density-gap-16);
 }
 
 .theme-workbench-panel__header :deep(.t-button) {
@@ -981,7 +981,7 @@ const toggleAdvancedVisible = (value: boolean) => {
   color: var(--td-text-color-secondary);
   font: var(--td-font-body-small);
   line-height: 22px;
-  margin-top: 4px;
+  margin-top: var(--graft-density-gap-4);
   min-height: 44px;
   overflow: hidden;
   word-break: keep-all;
@@ -990,23 +990,23 @@ const toggleAdvancedVisible = (value: boolean) => {
 .theme-workbench-panel__body {
   display: grid;
   flex: 1;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
   grid-template-columns: minmax(120px, 140px) minmax(0, 1fr);
   min-height: 0;
   overflow: hidden;
-  padding: 16px;
+  padding: var(--graft-density-gap-16);
 }
 
 .theme-workbench-panel__nav {
   align-content: start;
   align-self: stretch;
   display: grid;
-  gap: 8px;
+  gap: var(--graft-density-gap-8);
   max-height: 100%;
   min-height: 0;
   overflow: hidden auto;
   overscroll-behavior: contain;
-  padding-right: 2px;
+  padding-right: var(--graft-density-gap-2);
 }
 
 .theme-workbench-selectable-card() {
@@ -1024,10 +1024,10 @@ const toggleAdvancedVisible = (value: boolean) => {
 
   color: var(--td-text-color-secondary);
   display: flex;
-  gap: 8px;
+  gap: var(--graft-density-gap-8);
   min-height: 48px;
   min-width: 120px;
-  padding: 10px 12px;
+  padding: var(--graft-density-gap-10) var(--graft-density-gap-12);
   width: 100%;
 }
 
@@ -1061,17 +1061,17 @@ const toggleAdvancedVisible = (value: boolean) => {
   flex-direction: column;
   min-height: 0;
   overflow: hidden auto;
-  padding-bottom: 104px;
-  padding-right: 4px;
+  padding-bottom: calc(var(--graft-density-gap-48) + var(--graft-density-gap-32) + var(--graft-density-gap-24));
+  padding-right: var(--graft-density-gap-4);
 }
 
 .section {
   .theme-workbench-surface();
 
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
   max-width: 100%;
   min-width: 0;
-  padding: 16px;
+  padding: var(--graft-density-gap-16);
 }
 
 .section-title {
@@ -1088,7 +1088,7 @@ const toggleAdvancedVisible = (value: boolean) => {
 
 .section-heading {
   display: grid;
-  gap: 4px;
+  gap: var(--graft-density-gap-4);
   min-width: 0;
 }
 
@@ -1111,7 +1111,7 @@ const toggleAdvancedVisible = (value: boolean) => {
 .settings-layout,
 .advanced-layout {
   display: grid;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
   max-width: 100%;
   min-width: 0;
 }
@@ -1119,13 +1119,13 @@ const toggleAdvancedVisible = (value: boolean) => {
 .choice-grid,
 .brand-palette {
   display: grid;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
   max-width: 100%;
   min-width: 0;
 }
 
 .overview-layout .section {
-  padding: 14px;
+  padding: var(--graft-density-gap-14);
 }
 
 .config-summary-card {
@@ -1133,18 +1133,18 @@ const toggleAdvancedVisible = (value: boolean) => {
   border: 1px solid var(--td-component-stroke);
   border-radius: var(--td-radius-large);
   display: grid;
-  gap: 8px 16px;
+  gap: var(--graft-density-gap-8) var(--graft-density-gap-16);
   grid-template-columns: repeat(2, minmax(0, 1fr));
   max-width: 100%;
   min-width: 0;
   overflow: hidden;
-  padding: 12px;
+  padding: var(--graft-density-gap-12);
 }
 
 .config-summary-row {
   align-items: center;
   display: grid;
-  gap: 8px;
+  gap: var(--graft-density-gap-8);
   grid-template-columns: minmax(72px, 0.75fr) minmax(0, 1fr);
   min-width: 0;
 }
@@ -1167,7 +1167,7 @@ const toggleAdvancedVisible = (value: boolean) => {
 .config-summary-row__value--color {
   align-items: center;
   display: inline-flex;
-  gap: 10px;
+  gap: var(--graft-density-gap-10);
   max-width: 100%;
 }
 
@@ -1201,11 +1201,11 @@ const toggleAdvancedVisible = (value: boolean) => {
   .theme-workbench-selectable-card();
 
   display: grid;
-  gap: 10px;
+  gap: var(--graft-density-gap-10);
   max-width: 100%;
   min-width: 0;
   overflow: hidden;
-  padding: 12px;
+  padding: var(--graft-density-gap-12);
   position: relative;
   text-align: left;
 }
@@ -1272,13 +1272,13 @@ const toggleAdvancedVisible = (value: boolean) => {
 }
 
 .settings-layout--appearance .section {
-  gap: 10px;
-  padding: 16px;
+  gap: var(--graft-density-gap-10);
+  padding: var(--graft-density-gap-16);
 }
 
 .settings-layout--layout .section {
-  gap: 10px;
-  padding: 14px 16px;
+  gap: var(--graft-density-gap-10);
+  padding: var(--graft-density-gap-14) var(--graft-density-gap-16);
 }
 
 .choice-card__check {
@@ -1312,7 +1312,7 @@ const toggleAdvancedVisible = (value: boolean) => {
   align-items: center;
   display: flex;
   justify-content: center;
-  padding: 12px;
+  padding: var(--graft-density-gap-12);
 }
 
 .mode-thumbnail--light {
@@ -1337,7 +1337,7 @@ const toggleAdvancedVisible = (value: boolean) => {
   display: grid;
   grid-template-columns: 24px 1fr;
   grid-template-rows: 18px 1fr;
-  padding: 10px;
+  padding: var(--graft-density-gap-10);
 }
 
 .layout-thumbnail__header,
@@ -1355,15 +1355,15 @@ const toggleAdvancedVisible = (value: boolean) => {
 .layout-thumbnail__sidebar {
   background: color-mix(in srgb, var(--td-brand-color) 10%, var(--td-bg-color-container));
   grid-row: 2;
-  margin-top: 8px;
+  margin-top: var(--graft-density-gap-8);
 }
 
 .layout-thumbnail__content {
   background: var(--td-bg-color-container);
   border: 1px solid var(--td-component-stroke);
   grid-row: 2;
-  margin-left: 8px;
-  margin-top: 8px;
+  margin-left: var(--graft-density-gap-8);
+  margin-top: var(--graft-density-gap-8);
 }
 
 .layout-thumbnail--top {
@@ -1398,7 +1398,7 @@ const toggleAdvancedVisible = (value: boolean) => {
 .switch-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--graft-density-gap-8);
 }
 
 .switch-item {
@@ -1407,12 +1407,12 @@ const toggleAdvancedVisible = (value: boolean) => {
   border: 1px solid var(--td-component-stroke);
   border-radius: 12px;
   display: flex;
-  gap: 16px;
+  gap: var(--graft-density-gap-16);
   justify-content: space-between;
   min-height: 52px;
   min-width: 0;
   overflow: hidden;
-  padding: 8px 12px;
+  padding: var(--graft-density-gap-8) var(--graft-density-gap-12);
 }
 
 .switch-item__label {
@@ -1422,7 +1422,7 @@ const toggleAdvancedVisible = (value: boolean) => {
 
 .switch-item__content {
   display: grid;
-  gap: 2px;
+  gap: var(--graft-density-gap-2);
   min-width: 0;
 }
 
@@ -1438,7 +1438,7 @@ const toggleAdvancedVisible = (value: boolean) => {
 
 .brand-palette {
   grid-template-columns: repeat(8, minmax(0, 1fr));
-  margin-bottom: 6px;
+  margin-bottom: var(--graft-density-gap-6);
 }
 
 .brand-palette__item {
@@ -1467,13 +1467,13 @@ const toggleAdvancedVisible = (value: boolean) => {
     0 8px 18px color-mix(in srgb, var(--td-brand-color) 5%, transparent);
   box-sizing: border-box;
   display: grid;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
   grid-template-columns: 42px minmax(0, 1fr) 34px;
   height: 68px;
   max-width: 100%;
   min-width: 0;
   overflow: hidden;
-  padding: 12px 14px;
+  padding: var(--graft-density-gap-12) var(--graft-density-gap-14);
   position: relative;
   transition:
     border-color 200ms ease,
@@ -1516,7 +1516,7 @@ const toggleAdvancedVisible = (value: boolean) => {
 
 .brand-input__content {
   display: grid;
-  gap: 4px;
+  gap: var(--graft-density-gap-4);
   min-width: 0;
 }
 
@@ -1641,7 +1641,7 @@ const toggleAdvancedVisible = (value: boolean) => {
 
 .appearance-summary-grid {
   display: grid;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
   grid-template-columns: repeat(3, minmax(0, 1fr));
   min-width: 0;
 }
@@ -1654,10 +1654,10 @@ const toggleAdvancedVisible = (value: boolean) => {
   color: inherit;
   cursor: pointer;
   display: grid;
-  gap: 6px;
+  gap: var(--graft-density-gap-6);
   min-width: 0;
   overflow: hidden;
-  padding: 12px;
+  padding: var(--graft-density-gap-12);
   text-align: left;
 }
 
@@ -1688,7 +1688,7 @@ const toggleAdvancedVisible = (value: boolean) => {
 
 .font-option-list {
   display: grid;
-  gap: 10px;
+  gap: var(--graft-density-gap-10);
 }
 
 .font-option {
@@ -1698,9 +1698,9 @@ const toggleAdvancedVisible = (value: boolean) => {
   border-radius: 14px;
   cursor: pointer;
   display: grid;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
   grid-template-columns: minmax(0, 1fr) auto;
-  padding: 12px 14px;
+  padding: var(--graft-density-gap-12) var(--graft-density-gap-14);
   transition:
     border-color 0.18s ease,
     box-shadow 0.18s ease,
@@ -1725,7 +1725,7 @@ const toggleAdvancedVisible = (value: boolean) => {
 
 .font-option__main {
   display: grid;
-  gap: 4px;
+  gap: var(--graft-density-gap-4);
   min-width: 0;
 }
 
@@ -1751,7 +1751,7 @@ const toggleAdvancedVisible = (value: boolean) => {
 
 .font-size-control-stack {
   display: grid;
-  gap: 8px;
+  gap: var(--graft-density-gap-8);
   min-width: 0;
 }
 
@@ -1761,12 +1761,12 @@ const toggleAdvancedVisible = (value: boolean) => {
   border: 1px solid var(--td-component-stroke);
   border-radius: 14px;
   display: grid;
-  gap: 10px;
+  gap: var(--graft-density-gap-10);
   grid-template-columns: auto minmax(132px, 1fr) auto minmax(136px, 160px);
   max-width: 100%;
   min-height: 56px;
   min-width: 0;
-  padding: 10px 12px;
+  padding: var(--graft-density-gap-10) var(--graft-density-gap-12);
 }
 
 .font-size-control__icon {
@@ -1797,10 +1797,10 @@ const toggleAdvancedVisible = (value: boolean) => {
   color: var(--td-text-color-secondary);
   display: grid;
   font: var(--td-font-body-small);
-  gap: 8px;
+  gap: var(--graft-density-gap-8);
   grid-template-columns: repeat(5, minmax(0, 1fr));
   min-width: 0;
-  padding: 0 12px;
+  padding: 0 var(--graft-density-gap-12);
 }
 
 .font-size-control__mark {
@@ -1833,11 +1833,11 @@ const toggleAdvancedVisible = (value: boolean) => {
   border: 1px solid color-mix(in srgb, var(--td-component-stroke) 86%, transparent);
   border-radius: 14px;
   display: grid;
-  gap: 6px;
+  gap: var(--graft-density-gap-6);
   grid-template-columns: minmax(0, 1fr);
   min-width: 0;
   overflow-wrap: normal;
-  padding: 12px 14px;
+  padding: var(--graft-density-gap-12) var(--graft-density-gap-14);
   word-break: keep-all;
 }
 
@@ -1858,7 +1858,7 @@ const toggleAdvancedVisible = (value: boolean) => {
 
 .style-preview-grid {
   display: grid;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
   grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
   min-width: 0;
 }
@@ -1871,12 +1871,12 @@ const toggleAdvancedVisible = (value: boolean) => {
   border-radius: 14px;
   color: var(--td-text-color-primary);
   display: grid;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
   grid-template-rows: auto 1fr;
   min-height: 144px;
   min-width: 0;
   overflow: hidden;
-  padding: 12px;
+  padding: var(--graft-density-gap-12);
   text-align: left;
   transition:
     border-color 0.18s ease,
@@ -1920,13 +1920,13 @@ const toggleAdvancedVisible = (value: boolean) => {
   max-width: 100%;
   min-width: 0;
   overflow: hidden;
-  padding: 14px;
+  padding: var(--graft-density-gap-14);
 }
 
 .radius-preview {
   align-items: end;
   display: flex;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
 }
 
 .radius-preview__surface {
@@ -2038,17 +2038,17 @@ const toggleAdvancedVisible = (value: boolean) => {
 
 .density-preview--compact {
   line-height: 1.16;
-  padding: 10px 12px;
+  padding: var(--graft-density-gap-10) var(--graft-density-gap-12);
 }
 
 .density-preview--standard {
   line-height: 1.42;
-  padding: 12px 14px;
+  padding: var(--graft-density-gap-12) var(--graft-density-gap-14);
 }
 
 .density-preview--comfortable {
   line-height: 1.5;
-  padding: 14px;
+  padding: var(--graft-density-gap-14);
 }
 
 .density-preview__line {
@@ -2061,11 +2061,11 @@ const toggleAdvancedVisible = (value: boolean) => {
 }
 
 .density-preview__line + .density-preview__line {
-  margin-top: 0.15em;
+  margin-top: var(--graft-density-gap-2);
 }
 
 .density-preview--comfortable .density-preview__line + .density-preview__line {
-  margin-top: 0.45em;
+  margin-top: var(--graft-density-gap-6);
 }
 
 .advanced-layout .advanced-settings-card {
@@ -2074,14 +2074,14 @@ const toggleAdvancedVisible = (value: boolean) => {
   border: 1px solid var(--td-component-stroke);
   border-radius: 16px;
   display: grid;
-  gap: 16px;
+  gap: var(--graft-density-gap-16);
   grid-template-columns: minmax(0, 1fr) auto;
-  padding: 14px 16px;
+  padding: var(--graft-density-gap-14) var(--graft-density-gap-16);
 }
 
 .advanced-layout .advanced-settings-card__content {
   display: grid;
-  gap: 6px;
+  gap: var(--graft-density-gap-6);
   min-width: 0;
 }
 
@@ -2095,9 +2095,9 @@ const toggleAdvancedVisible = (value: boolean) => {
   border: 1px solid var(--td-component-stroke);
   border-radius: 16px;
   display: flex;
-  gap: 14px;
+  gap: var(--graft-density-gap-14);
   justify-content: space-between;
-  padding: 14px 16px;
+  padding: var(--graft-density-gap-14) var(--graft-density-gap-16);
 }
 
 .advanced-layout .advanced-mode-toolbar__label {
@@ -2108,12 +2108,12 @@ const toggleAdvancedVisible = (value: boolean) => {
 
 .advanced-layout .advanced-sections {
   display: grid;
-  gap: 16px;
+  gap: var(--graft-density-gap-16);
 }
 
 .advanced-layout .advanced-section {
   display: grid;
-  gap: 10px;
+  gap: var(--graft-density-gap-10);
 }
 
 .advanced-layout .advanced-section__title {
@@ -2126,7 +2126,7 @@ const toggleAdvancedVisible = (value: boolean) => {
   background: transparent;
   border: 0;
   display: grid;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
 }
 
 .advanced-layout .advanced-collapse :deep(.t-collapse-panel) {
@@ -2146,7 +2146,7 @@ const toggleAdvancedVisible = (value: boolean) => {
   background: transparent;
   border: 0;
   min-height: 58px;
-  padding: 12px 14px;
+  padding: var(--graft-density-gap-12) var(--graft-density-gap-14);
 }
 
 .advanced-layout .advanced-collapse :deep(.t-collapse-panel__header:hover) {
@@ -2162,13 +2162,13 @@ const toggleAdvancedVisible = (value: boolean) => {
 }
 
 .advanced-layout .advanced-collapse :deep(.t-collapse-panel__content) {
-  padding: 14px;
+  padding: var(--graft-density-gap-14);
 }
 
 .advanced-layout .advanced-group__header {
   align-items: center;
   display: grid;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
   grid-template-columns: auto minmax(0, 1fr) auto;
   min-width: 0;
   width: 100%;
@@ -2210,8 +2210,8 @@ const toggleAdvancedVisible = (value: boolean) => {
 
 .overview-layout :deep(.preset-card),
 .settings-layout--appearance :deep(.preset-card) {
-  gap: 10px;
-  padding: 12px;
+  gap: var(--graft-density-gap-10);
+  padding: var(--graft-density-gap-12);
 }
 
 .overview-layout :deep(.preset-card__thumb-shell),
@@ -2221,7 +2221,7 @@ const toggleAdvancedVisible = (value: boolean) => {
 
 .overview-layout :deep(.preset-card__thumbnail),
 .settings-layout--appearance :deep(.preset-card__thumbnail) {
-  padding: 8px;
+  padding: var(--graft-density-gap-8);
 }
 
 .overview-layout :deep(.preset-card__desc),
@@ -2239,17 +2239,18 @@ const toggleAdvancedVisible = (value: boolean) => {
   border-top: 1px solid var(--td-component-stroke);
   bottom: 0;
   display: flex;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
   justify-content: space-between;
   left: 0;
-  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  padding: var(--graft-density-gap-12) var(--graft-density-gap-16)
+    calc(var(--graft-density-gap-12) + env(safe-area-inset-bottom, 0px));
   position: sticky;
   z-index: 2;
 }
 
 .theme-workbench-panel__footer-actions {
   display: flex;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
 }
 
 .theme-workbench-panel__footer :deep(.t-button) {
@@ -2268,7 +2269,7 @@ const toggleAdvancedVisible = (value: boolean) => {
     display: flex;
     max-width: 100%;
     overflow: auto hidden;
-    padding-bottom: 2px;
+    padding-bottom: var(--graft-density-gap-2);
     padding-right: 0;
   }
 
@@ -2277,7 +2278,7 @@ const toggleAdvancedVisible = (value: boolean) => {
     justify-content: center;
     min-height: 48px;
     min-width: 48px;
-    padding: 8px;
+    padding: var(--graft-density-gap-8);
     width: 48px;
   }
 
@@ -2307,7 +2308,7 @@ const toggleAdvancedVisible = (value: boolean) => {
   }
 
   .config-summary-row {
-    gap: 4px;
+    gap: var(--graft-density-gap-4);
     grid-template-columns: 1fr;
   }
 

@@ -13,13 +13,30 @@ vi.mock('@/utils/color', () => ({
 
 import { useSettingStore } from './setting';
 
+const stubMatchMedia = (matches: boolean) => {
+  const matchMedia = vi.fn(() => ({ matches }));
+  const documentElement = {
+    setAttribute: vi.fn(),
+  };
+
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: { matchMedia },
+  });
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    value: { documentElement },
+  });
+  Object.defineProperty(globalThis, 'matchMedia', {
+    configurable: true,
+    value: matchMedia,
+  });
+};
+
 describe('setting store theme authority', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
-    vi.stubGlobal(
-      'matchMedia',
-      vi.fn(() => ({ matches: false })),
-    );
+    stubMatchMedia(false);
   });
 
   it('uses the standard font size preset by default', () => {
@@ -52,7 +69,10 @@ describe('setting store theme authority', () => {
     expect(store.densityPreset).toBe('compact');
     expect(store.themeResolvedTokens.light['--graft-theme-density-scale']).toBe('0.88');
     expect(store.themeResolvedTokens.light['--td-comp-size-m']).toBe('28.16px');
+    expect(store.themeResolvedTokens.light['--graft-density-gap-16']).toBe('14.08px');
+    expect(store.themeResolvedTokens.light['--graft-density-card-padding']).toBe('14.08px');
     expect(store.themeResolvedTokens.dark['--td-comp-paddingLR-l']).toBe('14.08px');
+    expect(store.themeResolvedTokens.dark['--graft-density-section-padding']).toBe('21.12px');
   });
 
   it('includes font size preset in draft diff tracking', () => {
@@ -93,10 +113,7 @@ describe('setting store theme authority', () => {
   it('resolves display tokens using the actual display mode when mode is auto', () => {
     const store = useSettingStore();
 
-    vi.stubGlobal(
-      'matchMedia',
-      vi.fn(() => ({ matches: true })),
-    );
+    stubMatchMedia(true);
     store.themeResolvedTokens = {
       light: { '--td-brand-color': '#ffffff' },
       dark: { '--td-brand-color': '#000000' },

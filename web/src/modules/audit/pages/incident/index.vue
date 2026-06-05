@@ -71,7 +71,7 @@
                 >
                   {{ incident.monitor_context.reason }}
                 </p>
-                <t-space v-if="monitorContextMeta.length" size="8px" wrap>
+                <t-space v-if="monitorContextMeta.length" size="var(--graft-density-gap-8)" wrap>
                   <t-tag
                     v-for="item in monitorContextMeta"
                     :key="item.label"
@@ -108,7 +108,7 @@
                   v-for="(link, index) in incident.monitor_context.evidence_links"
                   :key="`${link.target_kind}-${index}`"
                 >
-                  <t-space direction="vertical" size="4">
+                  <t-space direction="vertical" size="var(--graft-density-gap-4)">
                     <strong>{{ link.title }}</strong>
                     <span class="audit-incident-page__text">{{ evidenceStateLabel(link.link_state) }}</span>
                     <span v-if="link.reason" class="audit-incident-page__text">{{ link.reason }}</span>
@@ -141,7 +141,7 @@
             <t-card :title="t('audit.incident.sections.relatedEvents')">
               <t-list split>
                 <t-list-item v-for="item in incident.related_events" :key="item.id">
-                  <t-space direction="vertical" size="2">
+                  <t-space direction="vertical" size="var(--graft-density-gap-2)">
                     <strong>{{ item.action }}</strong>
                     <span>{{ resourceLabel(item, t) }}</span>
                     <span>{{ formatAuditTimestamp(item.created_at, locale) }}</span>
@@ -167,7 +167,7 @@
                   v-for="actor in incident.related_actors"
                   :key="`${actor.actor_user_id ?? 'guest'}-${actor.actor_username ?? actor.actor_display_name ?? 'unknown'}`"
                 >
-                  <t-space direction="vertical" size="2">
+                  <t-space direction="vertical" size="var(--graft-density-gap-2)">
                     <strong>{{
                       actor.actor_display_name || actor.actor_username || t('audit.common.unknownActor')
                     }}</strong>
@@ -194,7 +194,7 @@
                   v-for="resource in incident.related_resources"
                   :key="`${resource.resource_type}:${resource.resource_id}`"
                 >
-                  <t-space direction="vertical" size="2">
+                  <t-space direction="vertical" size="var(--graft-density-gap-2)">
                     <strong>{{ resource.resource_name || resource.resource_type }}</strong>
                     <span>{{ resource.resource_type }} / {{ resource.resource_id }}</span>
                     <span>{{ t('audit.incident.eventCount', { count: resource.event_count }) }}</span>
@@ -218,7 +218,7 @@
             <t-card :title="t('audit.incident.sections.relatedRequests')">
               <t-list split>
                 <t-list-item v-for="request in incident.related_requests" :key="request.request_id">
-                  <t-space direction="vertical" size="2">
+                  <t-space direction="vertical" size="var(--graft-density-gap-2)">
                     <strong>{{ request.request_id }}</strong>
                     <span>{{ t('audit.incident.eventCount', { count: request.event_count }) }}</span>
                     <span
@@ -389,7 +389,7 @@ onMounted(fetchIncident);
 </script>
 <style scoped>
 .audit-incident-page__panels {
-  margin-top: 16px;
+  margin-top: var(--graft-density-gap-16);
 }
 
 .audit-incident-page__text {

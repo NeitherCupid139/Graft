@@ -6,8 +6,30 @@
   --graft-footer-height: 44px;
   --graft-floating-toolbar-height: 60px;
   --graft-floating-toolbar-offset: 28px;
-  --graft-floating-toolbar-gap: 20px;
-  --graft-page-side-padding: clamp(24px, 2vw, 32px);
+  --graft-floating-toolbar-gap: var(--graft-density-gap-20);
+  --graft-density-gap-2: 2px;
+  --graft-density-gap-4: 4px;
+  --graft-density-gap-6: 6px;
+  --graft-density-gap-8: 8px;
+  --graft-density-gap-10: 10px;
+  --graft-density-gap-12: 12px;
+  --graft-density-gap-14: 14px;
+  --graft-density-gap-16: 16px;
+  --graft-density-gap-18: 18px;
+  --graft-density-gap-20: 20px;
+  --graft-density-gap-24: 24px;
+  --graft-density-gap-28: 28px;
+  --graft-density-gap-32: 32px;
+  --graft-density-gap-48: 48px;
+  --graft-density-padding-xs: 8px;
+  --graft-density-padding-sm: 10px;
+  --graft-density-padding-md: 12px;
+  --graft-density-padding-lg: 14px;
+  --graft-density-card-padding: var(--graft-density-gap-16);
+  --graft-density-card-padding-lg: 20px;
+  --graft-density-section-padding: var(--graft-density-gap-24);
+  --graft-density-empty-padding: var(--graft-density-gap-28);
+  --graft-page-side-padding: clamp(var(--graft-density-gap-24), 2vw, var(--graft-density-gap-32));
   --graft-floating-toolbar-safe-area: calc(
     var(--graft-floating-toolbar-height) + var(--graft-floating-toolbar-offset) + var(--graft-floating-toolbar-gap)
   );
@@ -19,7 +41,7 @@
   --graft-page-bottom-safe-space: var(--graft-page-bottom-safe-area);
   --graft-page-width-ratio: 86vw;
   --graft-page-max-width: 1440px;
-  --graft-page-min-padding: 24px;
+  --graft-page-min-padding: var(--graft-density-gap-24);
   --graft-page-shell-max-width: 1440px;
   --graft-page-overview-max-width: 1440px;
   --graft-page-management-max-width: 1440px;
@@ -44,7 +66,7 @@
 .@{starter-prefix}-link {
   color: var(--td-brand-color);
   cursor: pointer;
-  margin-right: 24px;
+  margin-right: var(--graft-density-gap-24);
   text-decoration: none;
   transition: color 0.2s cubic-bezier(0.38, 0, 0.24, 1);
 }
@@ -100,7 +122,7 @@
     &__body {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: var(--graft-density-gap-12);
       min-height: 100%;
     }
   }
@@ -266,21 +288,21 @@
 
 @media (width <= 768px) {
   :root {
-    --graft-page-min-padding: 16px;
-    --graft-page-side-padding: 16px;
+    --graft-page-min-padding: var(--graft-density-gap-16);
+    --graft-page-side-padding: var(--graft-density-gap-16);
   }
 }
 
 .route-tabs-dropdown {
   .t-icon {
-    margin-right: 8px;
+    margin-right: var(--graft-density-gap-8);
   }
 }
 
 .logo-container {
   cursor: pointer;
   display: inline-flex;
-  margin-left: 24px;
+  margin-left: var(--graft-density-gap-24);
 }
 
 .version-container {
@@ -293,5 +315,5 @@
 }
 
 .container-base-margin-top {
-  margin-top: 16px;
+  margin-top: var(--graft-density-gap-16);
 }

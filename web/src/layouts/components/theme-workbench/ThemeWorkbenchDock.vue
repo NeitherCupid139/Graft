@@ -279,7 +279,7 @@ onBeforeUnmount(() => {
   justify-content: center;
   left: 50%;
   max-width: calc(100vw - 24px);
-  padding: 6px;
+  padding: var(--graft-density-gap-6);
   position: fixed;
   touch-action: none;
   transform: translateX(-50%);
@@ -396,12 +396,12 @@ onBeforeUnmount(() => {
 
 :deep(.theme-workbench-dock__main--active.t-button) {
   min-width: 118px;
-  padding-inline: 16px;
+  padding-inline: var(--graft-density-gap-16);
   width: auto;
 }
 
 :deep(.theme-workbench-dock__main--active .t-button__prefix) {
-  margin-right: 8px;
+  margin-right: var(--graft-density-gap-8);
 }
 
 :deep(.theme-workbench-dock__main--active .t-button__text) {
@@ -412,7 +412,7 @@ onBeforeUnmount(() => {
 @media (width <= 768px) {
   .theme-workbench-dock {
     bottom: 16px;
-    padding: 6px;
+    padding: var(--graft-density-gap-6);
   }
 
   :deep(.theme-workbench-dock__main.t-button) {
@@ -423,7 +423,7 @@ onBeforeUnmount(() => {
 
   :deep(.theme-workbench-dock__main--active.t-button) {
     min-width: 108px;
-    padding-inline: 14px;
+    padding-inline: var(--graft-density-gap-14);
     width: auto;
   }
 }

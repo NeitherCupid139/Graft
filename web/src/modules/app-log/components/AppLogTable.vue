@@ -127,6 +127,6 @@ void emit;
 .stack-cell {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--graft-density-gap-4);
 }
 </style>

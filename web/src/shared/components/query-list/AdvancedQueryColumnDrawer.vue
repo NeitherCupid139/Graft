@@ -26,6 +26,6 @@ const selectedKeys = defineModel<string[]>('selectedKeys', { required: true });
 <style scoped lang="less">
 .advanced-query-column-drawer__grid {
   display: grid;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
 }
 </style>

@@ -111,3 +111,41 @@
   - `web/src/shared/components/management/ManagementPageContent.vue`
 - Updated at:
   2026-05-22
+
+## LESSON-WEB-UI-DENSITY-TOKEN-001：信息密度切换必须治理 token 消费面
+
+- Status: active
+- Level: L2
+- Applies to:
+  - `web` theme workbench and density presets
+  - `web/src/style/**` global layout tokens
+  - `web/src/layouts/**`, `web/src/shared/**`, and module page styles
+- Source:
+  - information-density switch remediation after user feedback that only a small amount of text spacing changed
+  - full-web density governance gate added for `web/src/**`
+- Problem:
+  信息密度 preset 如果只更新 TDesign component size token 或单个 `--graft-theme-density-scale`，而页面继续写死
+  `gap`、`padding`、`margin`、`t-space size` 和图表 tooltip 内联间距，设置面板会显示可切换，但真实页面节奏几乎不变。
+  这种分叉会让主题工作台变成“看得见的配置、感受不到的体验”。
+- Correct pattern:
+  信息密度能力必须同时覆盖 source token 和消费面。密度相关布局应使用 `--td-comp-*`、`--graft-density-*` 或
+  `calc(...var(--graft-theme-density-scale)...)`，并让共享组件、业务页面、TDesign `Space` 尺寸和图表 tooltip
+  内联模板共同响应同一套 density authority。
+- Anti-pattern:
+  - 只在 store 里生成密度 token，不替换页面里的固定间距
+  - 在业务页面继续新增裸 `gap: 16px`、`padding: 12px 14px` 或 `<t-space size="8px">`
+  - 用局部 class 名如 `compact` 伪装为全局信息密度响应
+  - 把图表 tooltip HTML 字符串排除在密度治理之外
+- Enforcement:
+  修改前端布局或新增页面时，运行 `bun run density:check` 或完整 `bun run check`。扫描发现的固定密度间距必须改为
+  TDesign/Graft density token；只有图标盒、断点、安全区、滚动条、媒体尺寸等非信息密度几何值才允许进入脚本白名单，
+  且白名单必须写明具体原因。
+- Promotion:
+  - AGENTS.md: no
+  - Design doc: no
+- Related:
+  - `web/scripts/check-density-governance.ts`
+  - `web/src/store/modules/setting.ts`
+  - `web/src/style/layout.less`
+- Updated at:
+  2026-06-05

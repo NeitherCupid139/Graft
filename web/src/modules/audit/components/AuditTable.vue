@@ -175,7 +175,7 @@ function emitPageChange() {
 .table-head {
   align-items: center;
   display: flex;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
   justify-content: space-between;
 }
 
@@ -189,12 +189,12 @@ function emitPageChange() {
 .stack-cell {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--graft-density-gap-4);
   min-width: 0;
 }
 
 .table-empty-state {
-  padding: 24px 0 8px;
+  padding: var(--graft-density-gap-24) 0 var(--graft-density-gap-8);
 }
 
 @media (width <= 768px) {

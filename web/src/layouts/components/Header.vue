@@ -239,7 +239,7 @@ const navToHelper = () => {
   color: var(--td-text-color-primary);
   display: flex;
   height: 26px;
-  margin-left: 24px;
+  margin-left: var(--graft-density-gap-24);
   width: 184px;
 
   .t-logo {
@@ -304,7 +304,7 @@ const navToHelper = () => {
 
   &:last-child {
     :deep(.t-dropdown__item) {
-      margin-bottom: 8px;
+      margin-bottom: var(--graft-density-gap-8);
     }
   }
 }

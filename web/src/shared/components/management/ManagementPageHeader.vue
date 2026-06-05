@@ -30,22 +30,22 @@ defineProps<{
   .management-card-surface();
 
   display: flex;
-  gap: 16px;
+  gap: var(--graft-density-gap-16);
   justify-content: space-between;
-  padding: 18px 20px;
+  padding: var(--graft-density-gap-18) var(--graft-density-gap-20);
 }
 
 .management-page-header__side,
 .management-page-header__actions {
   display: flex;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
 }
 
 .management-page-header__copy {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--graft-density-gap-4);
   min-width: 0;
 }
 
@@ -76,7 +76,7 @@ defineProps<{
 .management-page-header__meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
 }
 
 .management-page-header__actions {
@@ -88,7 +88,7 @@ defineProps<{
 @media (width <= 768px) {
   .management-page-header {
     flex-direction: column;
-    padding: 16px;
+    padding: var(--graft-density-gap-16);
   }
 
   .management-page-header__side,

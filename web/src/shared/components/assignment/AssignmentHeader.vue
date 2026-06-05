@@ -111,7 +111,7 @@ withDefaults(
 .assignment-header__copy {
   flex: 1;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--graft-density-gap-4);
   min-width: 0;
 }
 
@@ -162,7 +162,7 @@ withDefaults(
 .assignment-header__stat {
   align-items: flex-end;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--graft-density-gap-2);
 }
 
 .assignment-header__stat-value {

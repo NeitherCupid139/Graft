@@ -27,7 +27,7 @@ defineProps<{
 <style scoped lang="less">
 .audit-stats {
   display: grid;
-  gap: 16px;
+  gap: var(--graft-density-gap-16);
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
@@ -43,7 +43,7 @@ defineProps<{
 }
 
 .audit-stats__head {
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
 }
 
 .audit-stats__title,
@@ -52,7 +52,7 @@ defineProps<{
 }
 
 .audit-stats__value-row {
-  margin-top: 16px;
+  margin-top: var(--graft-density-gap-16);
 }
 
 .audit-stats__value {

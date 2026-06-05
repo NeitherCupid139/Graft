@@ -121,7 +121,7 @@ function resolveOptionValue(value: ToolbarOptionValue, options: ToolbarOption[])
   align-items: center;
   display: flex;
   flex-wrap: nowrap;
-  gap: 10px 12px;
+  gap: var(--graft-density-gap-10) var(--graft-density-gap-12);
   justify-content: flex-end;
   max-width: 100%;
 }
@@ -133,7 +133,7 @@ function resolveOptionValue(value: ToolbarOptionValue, options: ToolbarOption[])
 .monitor-toolbar__field {
   align-items: center;
   display: inline-flex;
-  gap: 8px;
+  gap: var(--graft-density-gap-8);
   min-width: 0;
 }
 

@@ -159,16 +159,16 @@ async function copyValue(value: string) {
 .app-log-detail {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: var(--graft-density-gap-24);
 }
 
 .app-log-detail__section h4 {
-  margin: 0 0 12px;
+  margin: 0 0 var(--graft-density-gap-12);
 }
 
 .app-log-detail__grid {
   display: grid;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -178,9 +178,9 @@ async function copyValue(value: string) {
   border-radius: var(--td-radius-medium);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--graft-density-gap-6);
   min-width: 0;
-  padding: 12px;
+  padding: var(--graft-density-gap-12);
 }
 
 .app-log-detail__item span {
@@ -198,7 +198,7 @@ async function copyValue(value: string) {
 .app-log-detail__copy-line {
   align-items: center;
   display: flex;
-  gap: 8px;
+  gap: var(--graft-density-gap-8);
   min-width: 0;
 }
 

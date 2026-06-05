@@ -47,14 +47,14 @@ const changeSearchFocus = (value: boolean) => {
 </script>
 <style lang="less" scoped>
 .t-button {
-  margin: 0 8px;
+  margin: 0 var(--graft-density-gap-8);
   transition: opacity @anim-duration-base @anim-time-fn-easing;
 
   .t-icon {
     font-size: 20px;
 
     &.general {
-      margin-right: 16px;
+      margin-right: var(--graft-density-gap-16);
     }
   }
 }

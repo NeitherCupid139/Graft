@@ -9,7 +9,7 @@
             </div>
           </template>
           <template #headerRightContent>
-            <t-space size="8px" align="center">
+            <t-space size="var(--graft-density-gap-8)" align="center">
               <t-button v-if="!isEmpty" size="small" theme="default" variant="text" @click.stop="copyJson">
                 {{ copyLabel }}
               </t-button>
@@ -116,7 +116,7 @@ async function copyJson() {
   max-height: min(56vh, 560px);
   overflow: auto;
   overflow-wrap: anywhere;
-  padding: 10px 12px;
+  padding: var(--graft-density-gap-10) var(--graft-density-gap-12);
   white-space: pre-wrap;
   width: 100%;
 }

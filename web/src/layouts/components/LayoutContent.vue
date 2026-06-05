@@ -252,6 +252,6 @@ const handleDragend = (options: { currentIndex: number; targetIndex: number }) =
 }
 
 .t-layout[data-page-type='overview-dashboard'] :deep(.tdesign-starter-content-layout) {
-  padding-top: 16px;
+  padding-top: var(--graft-density-gap-16);
 }
 </style>

@@ -34,16 +34,16 @@
   border-bottom: 1px solid var(--td-component-stroke);
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
   justify-content: space-between;
-  padding: 16px 20px;
+  padding: var(--graft-density-gap-16) var(--graft-density-gap-20);
 }
 
 .management-table-card__body {
   --td-comp-paddingTB-m: 11px;
 
   min-width: 0;
-  padding: 0 20px 16px;
+  padding: 0 var(--graft-density-gap-20) var(--graft-density-gap-16);
 }
 
 .management-table-card__footer {
@@ -61,11 +61,11 @@
   .management-table-card__footer {
     align-items: stretch;
     flex-direction: column;
-    padding: 16px;
+    padding: var(--graft-density-gap-16);
   }
 
   .management-table-card__body {
-    padding: 0 16px 16px;
+    padding: 0 var(--graft-density-gap-16) var(--graft-density-gap-16);
   }
 }
 </style>
