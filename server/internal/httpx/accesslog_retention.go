@@ -13,9 +13,11 @@ import (
 )
 
 const (
-	accessLogRetentionCleanupJobName     = "httpx.access-log-retention-cleanup"
-	accessLogRetentionCleanupJobModule   = "core.httpx"
-	accessLogRetentionCleanupJobSchedule = "0 0 17 * * *"
+	accessLogRetentionCleanupJobName           = "httpx.access-log-retention-cleanup"
+	accessLogRetentionCleanupJobModule         = "core.httpx"
+	accessLogRetentionCleanupJobSchedule       = "0 0 17 * * *"
+	accessLogRetentionCleanupJobDisplayKey     = "scheduledTask.accessLogRetention.title"
+	accessLogRetentionCleanupJobDescriptionKey = "scheduledTask.accessLogRetention.description"
 )
 
 type accessLogRetentionPolicy struct {
@@ -140,9 +142,15 @@ func RegisterAccessLogRetentionCleanupJob(
 	}
 
 	registry.Register(cronx.Job{
-		Name:     accessLogRetentionCleanupJobName,
-		Schedule: accessLogRetentionCleanupJobSchedule,
-		Module:   accessLogRetentionCleanupJobModule,
+		Name:                  accessLogRetentionCleanupJobName,
+		Key:                   accessLogRetentionCleanupJobName,
+		Owner:                 accessLogRetentionCleanupJobModule,
+		Type:                  cronx.TaskTypeCron,
+		DisplayMessageKey:     accessLogRetentionCleanupJobDisplayKey,
+		DescriptionMessageKey: accessLogRetentionCleanupJobDescriptionKey,
+		Schedule:              accessLogRetentionCleanupJobSchedule,
+		DefaultEnabled:        true,
+		Module:                accessLogRetentionCleanupJobModule,
 		Run: func(ctx context.Context) error {
 			_, runErr := cleaner.cleanup(ctx)
 			return runErr

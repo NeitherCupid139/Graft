@@ -2,9 +2,11 @@ package scheduler
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 	"time"
 
+	_ "github.com/mattn/go-sqlite3"
 	"go.uber.org/zap"
 
 	"graft/server/internal/config"
@@ -15,6 +17,7 @@ import (
 	"graft/server/internal/menu"
 	"graft/server/internal/module"
 	"graft/server/internal/permission"
+	schedulercore "graft/server/internal/scheduler"
 )
 
 type stopContextRecorderRuntime struct {
@@ -40,16 +43,79 @@ func (r *stopContextRecorderRuntime) Stop(ctx context.Context) error {
 	return nil
 }
 
+func (r *stopContextRecorderRuntime) ListTasks(context.Context) ([]schedulercore.TaskSnapshot, error) {
+	return nil, nil
+}
+
+func (r *stopContextRecorderRuntime) GetTask(context.Context, string) (schedulercore.TaskSnapshot, error) {
+	return schedulercore.TaskSnapshot{}, nil
+}
+
+func (r *stopContextRecorderRuntime) ListRuns(context.Context, schedulercore.RunListQuery) (schedulercore.RunListResult, error) {
+	return schedulercore.RunListResult{}, nil
+}
+
+func (r *stopContextRecorderRuntime) RunOnce(context.Context, string) (schedulercore.TaskRun, error) {
+	return schedulercore.TaskRun{}, nil
+}
+
 func newModuleTestContext() *module.Context {
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		panic(err)
+	}
+	db.SetMaxOpenConns(1)
+	if _, err := db.Exec(`CREATE TABLE scheduler_task_runs (
+		id integer PRIMARY KEY AUTOINCREMENT,
+		task_key text NOT NULL,
+		task_name text NOT NULL DEFAULT '',
+		owner text NOT NULL DEFAULT '',
+		module text NOT NULL DEFAULT '',
+		task_type text NOT NULL DEFAULT 'cron',
+		trigger_type text NOT NULL,
+		status text NOT NULL,
+		error text NOT NULL DEFAULT '',
+		started_at datetime NOT NULL,
+		finished_at datetime NULL,
+		duration_ms integer NULL,
+		created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		panic(err)
+	}
+	services := container.New()
+	if err := services.RegisterSingleton((*sql.DB)(nil), func(container.Resolver) (any, error) {
+		return db, nil
+	}); err != nil {
+		panic(err)
+	}
+
 	return &module.Context{
 		Logger:             zap.NewNop(),
 		Config:             &config.Config{},
 		I18n:               i18n.MustNew(config.I18nConfig{DefaultLocale: "zh-CN", FallbackLocale: "zh-CN", SupportedLocales: []string{"zh-CN"}}),
 		EventBus:           eventbus.New(zap.NewNop()),
-		Services:           container.New(),
+		Services:           services,
 		MenuRegistry:       menu.NewRegistry(),
 		PermissionRegistry: permission.NewRegistry(),
 		CronRegistry:       cronx.NewRegistry(),
+	}
+}
+
+// TestRegisterExposesRuntimeService 验证 scheduler 模块会把运行时能力注册到服务容器。
+func TestRegisterExposesRuntimeService(t *testing.T) {
+	ctx := newModuleTestContext()
+	moduleInstance := NewModule()
+
+	if err := moduleInstance.Register(ctx); err != nil {
+		t.Fatalf("register module: %v", err)
+	}
+
+	resolved, err := ctx.Services.Resolve((*schedulercore.Runtime)(nil))
+	if err != nil {
+		t.Fatalf("resolve runtime service: %v", err)
+	}
+	if _, ok := resolved.(schedulercore.Runtime); !ok {
+		t.Fatalf("expected scheduler runtime service, got %T", resolved)
 	}
 }
 
@@ -63,7 +129,12 @@ func TestBootRejectsInvalidJobs(t *testing.T) {
 		t.Fatalf("register module: %v", err)
 	}
 
-	err := moduleInstance.Boot(&module.Context{LifecycleContext: context.Background(), CronRegistry: ctx.CronRegistry, Logger: ctx.Logger})
+	err := moduleInstance.Boot(&module.Context{
+		LifecycleContext: context.Background(),
+		CronRegistry:     ctx.CronRegistry,
+		Logger:           ctx.Logger,
+		Services:         ctx.Services,
+	})
 	if err == nil {
 		t.Fatal("expected invalid job boot to fail")
 	}
@@ -98,6 +169,7 @@ func TestBootRegistersJobsAddedAfterRegister(t *testing.T) {
 		LifecycleContext: lifecycleCtx,
 		Logger:           ctx.Logger,
 		CronRegistry:     ctx.CronRegistry,
+		Services:         ctx.Services,
 	}); err != nil {
 		t.Fatalf("boot module: %v", err)
 	}

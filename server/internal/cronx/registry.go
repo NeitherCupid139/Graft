@@ -7,12 +7,32 @@ import (
 	"strings"
 )
 
+// TaskType marks the runtime kind of a scheduled task declaration.
+type TaskType string
+
+const (
+	// TaskTypeCron is the MVP runtime job kind backed by a cron schedule.
+	TaskTypeCron TaskType = "cron"
+)
+
 // Job 描述一个待注册的定时任务。
 type Job struct {
 	// Name 是任务的稳定标识，便于日志、观测与后续幂等装配。
 	Name string
+	// Key 是对外可见的任务稳定标识；为空时沿用 Name，便于保留既有声明兼容。
+	Key string
+	// Owner 标记任务所有者，优先使用 module 名称；为空时沿用 Module。
+	Owner string
+	// Type 标记任务运行时类型；为空时默认视为 cron。
+	Type TaskType
+	// DisplayMessageKey 是任务名称的稳定 i18n key。
+	DisplayMessageKey string
+	// DescriptionMessageKey 是任务说明的稳定 i18n key。
+	DescriptionMessageKey string
 	// Schedule 保存面向调度器的 cron 表达式语义，当前阶段仅做声明透传。
 	Schedule string
+	// DefaultEnabled 表示任务默认是否随运行时启用。MVP 不提供动态启停能力。
+	DefaultEnabled bool
 	// Module 标记任务来源模块，方便在启动失败或停机清理时定位责任边界。
 	Module string
 	// Run 是调度器实际调用的执行入口。
@@ -20,6 +40,30 @@ type Job struct {
 	// 模块应在 Register 阶段显式提供该函数，而不是在 Boot 阶段隐式拼装
 	// 或依赖全局单例回填执行体。
 	Run func(ctx context.Context) error
+}
+
+// RuntimeKey returns the visible stable task key.
+func (j Job) RuntimeKey() string {
+	if key := strings.TrimSpace(j.Key); key != "" {
+		return key
+	}
+	return strings.TrimSpace(j.Name)
+}
+
+// RuntimeOwner returns the visible owner/module key.
+func (j Job) RuntimeOwner() string {
+	if owner := strings.TrimSpace(j.Owner); owner != "" {
+		return owner
+	}
+	return strings.TrimSpace(j.Module)
+}
+
+// RuntimeType returns the normalized runtime job type.
+func (j Job) RuntimeType() TaskType {
+	if j.Type == "" {
+		return TaskTypeCron
+	}
+	return j.Type
 }
 
 // Registry 按注册顺序保存任务声明，供后续调度器接线阶段消费。
@@ -48,8 +92,11 @@ func (r *Registry) Items() []Job {
 
 // Validate 校验任务声明是否满足当前最小调度契约。
 func (j Job) Validate() error {
-	if strings.TrimSpace(j.Name) == "" {
+	if strings.TrimSpace(j.Name) == "" && strings.TrimSpace(j.Key) == "" {
 		return errors.New("job name is required")
+	}
+	if jobType := j.RuntimeType(); jobType != TaskTypeCron {
+		return errors.New("job type is unsupported")
 	}
 	if strings.TrimSpace(j.Schedule) == "" {
 		return errors.New("job schedule is required")

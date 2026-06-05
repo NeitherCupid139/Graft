@@ -1,8 +1,10 @@
 package scheduler
 
 import (
+	"database/sql"
 	"fmt"
 
+	"graft/server/internal/container"
 	"graft/server/internal/module"
 	schedulercore "graft/server/internal/scheduler"
 )
@@ -26,8 +28,62 @@ func NewModule() *Module {
 	return &Module{}
 }
 
-// Register 保持为空，由 Boot 在所有模块完成声明后统一装配任务。
-func (p *Module) Register(_ *module.Context) error {
+// Register 声明 scheduler 模块对后续 API 路由可消费的运行时能力。
+func (p *Module) Register(ctx *module.Context) error {
+	if ctx == nil || ctx.Services == nil {
+		return fmt.Errorf("scheduler register context is required")
+	}
+
+	return ctx.Services.RegisterSingleton((*schedulercore.Runtime)(nil), func(resolver container.Resolver) (any, error) {
+		db, err := module.ResolveService[*sql.DB](resolver, (*sql.DB)(nil))
+		if err != nil {
+			return nil, err
+		}
+
+		repo, err := schedulercore.NewSQLRunRepository(db)
+		if err != nil {
+			return nil, err
+		}
+
+		if p.runtime != nil {
+			return p.runtime, nil
+		}
+		return schedulercore.New(ctx.Logger, repo), nil
+	})
+}
+
+func (p *Module) resolveRuntime(ctx *module.Context) (schedulercore.Runtime, error) {
+	if p.runtime != nil {
+		return p.runtime, nil
+	}
+	if ctx == nil || ctx.Services == nil {
+		return nil, fmt.Errorf("scheduler services are required")
+	}
+
+	resolved, err := ctx.Services.Resolve((*schedulercore.Runtime)(nil))
+	if err != nil {
+		return nil, err
+	}
+	runtime, ok := resolved.(schedulercore.Runtime)
+	if !ok || runtime == nil {
+		return nil, fmt.Errorf("scheduler runtime service has unexpected type %T", resolved)
+	}
+
+	return runtime, nil
+}
+
+func (p *Module) ensureRuntimeService(ctx *module.Context) error {
+	if p.runtime != nil {
+		return nil
+	}
+	if ctx == nil || ctx.Services == nil {
+		return fmt.Errorf("scheduler services are required")
+	}
+	_, err := ctx.Services.Resolve((*schedulercore.Runtime)(nil))
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -37,9 +93,13 @@ func (p *Module) Boot(ctx *module.Context) error {
 		return fmt.Errorf("scheduler boot context is required")
 	}
 
-	runtime := p.runtime
-	if runtime == nil {
-		runtime = schedulercore.New(ctx.Logger)
+	if err := p.ensureRuntimeService(ctx); err != nil {
+		return fmt.Errorf("resolve scheduler runtime: %w", err)
+	}
+
+	runtime, err := p.resolveRuntime(ctx)
+	if err != nil {
+		return fmt.Errorf("resolve scheduler runtime: %w", err)
 	}
 
 	for _, job := range ctx.CronRegistry.Items() {

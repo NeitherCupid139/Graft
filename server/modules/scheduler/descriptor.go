@@ -5,8 +5,9 @@ import "graft/server/internal/module"
 // NewModuleSpec exposes the scheduler module's stable compile-time metadata and builder.
 func NewModuleSpec() module.Spec {
 	return module.Spec{
-		ID:           moduleID,
-		Dependencies: nil,
-		Builder:      module.BuilderFunc(func(module.BuildContext) (module.Module, error) { return NewModule(), nil }),
+		ID:            moduleID,
+		Dependencies:  nil,
+		MigrationPath: []string{"modules/scheduler/migrations"},
+		Builder:       module.BuilderFunc(func(module.BuildContext) (module.Module, error) { return NewModule(), nil }),
 	}
 }

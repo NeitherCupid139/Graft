@@ -13,9 +13,11 @@ import (
 )
 
 const (
-	appLogRetentionCleanupJobName     = "logger.app-log-retention-cleanup"
-	appLogRetentionCleanupJobModule   = "core.logger"
-	appLogRetentionCleanupJobSchedule = "0 15 17 * * *"
+	appLogRetentionCleanupJobName           = "logger.app-log-retention-cleanup"
+	appLogRetentionCleanupJobModule         = "core.logger"
+	appLogRetentionCleanupJobSchedule       = "0 15 17 * * *"
+	appLogRetentionCleanupJobDisplayKey     = "scheduledTask.appLogRetention.title"
+	appLogRetentionCleanupJobDescriptionKey = "scheduledTask.appLogRetention.description"
 )
 
 type appLogRetentionPolicy struct {
@@ -163,9 +165,15 @@ func RegisterAppLogRetentionCleanupJob(
 	}
 
 	registry.Register(cronx.Job{
-		Name:     appLogRetentionCleanupJobName,
-		Schedule: appLogRetentionCleanupJobSchedule,
-		Module:   appLogRetentionCleanupJobModule,
+		Name:                  appLogRetentionCleanupJobName,
+		Key:                   appLogRetentionCleanupJobName,
+		Owner:                 appLogRetentionCleanupJobModule,
+		Type:                  cronx.TaskTypeCron,
+		DisplayMessageKey:     appLogRetentionCleanupJobDisplayKey,
+		DescriptionMessageKey: appLogRetentionCleanupJobDescriptionKey,
+		Schedule:              appLogRetentionCleanupJobSchedule,
+		DefaultEnabled:        true,
+		Module:                appLogRetentionCleanupJobModule,
 		Run: func(ctx context.Context) error {
 			_, runErr := cleaner.cleanup(ctx)
 			return runErr

@@ -11,6 +11,59 @@ import (
 	"graft/server/internal/cronx"
 )
 
+type runRepositoryRecorder struct {
+	created []TaskRun
+	updated []TaskRun
+	latest  map[string]TaskRun
+	nextID  uint64
+}
+
+func newRunRepositoryRecorder() *runRepositoryRecorder {
+	return &runRepositoryRecorder{latest: make(map[string]TaskRun), nextID: 1}
+}
+
+func (r *runRepositoryRecorder) CreateRun(_ context.Context, run TaskRun) (TaskRun, error) {
+	run.ID = r.nextID
+	r.nextID++
+	r.created = append(r.created, run)
+	r.latest[run.TaskKey] = run
+	return run, nil
+}
+
+func (r *runRepositoryRecorder) FinishRun(_ context.Context, id uint64, status RunStatus, finishedAt time.Time, errorMessage string) (TaskRun, error) {
+	for _, run := range r.created {
+		if run.ID != id {
+			continue
+		}
+
+		run.Status = status
+		run.Error = errorMessage
+		run.FinishedAt = &finishedAt
+		duration := int64(0)
+		run.DurationMS = &duration
+		r.updated = append(r.updated, run)
+		r.latest[run.TaskKey] = run
+		return run, nil
+	}
+
+	return TaskRun{}, errors.New("run not found")
+}
+
+func (r *runRepositoryRecorder) ListRuns(_ context.Context, query RunListQuery) (RunListResult, error) {
+	items := make([]TaskRun, 0)
+	for _, run := range r.updated {
+		if run.TaskKey == query.TaskKey {
+			items = append(items, run)
+		}
+	}
+	return RunListResult{Items: items, Total: len(items)}, nil
+}
+
+func (r *runRepositoryRecorder) LatestRunByTask(_ context.Context, taskKey string) (TaskRun, bool, error) {
+	run, ok := r.latest[taskKey]
+	return run, ok, nil
+}
+
 // TestRegisterJobRejectsInvalidDeclarations 验证调度器会拒绝缺失执行入口或非法表达式的任务声明。
 func TestRegisterJobRejectsInvalidDeclarations(t *testing.T) {
 	runtime := New(zap.NewNop())
@@ -40,6 +93,118 @@ func TestRegisterJobRejectsDuplicateName(t *testing.T) {
 	}
 	if err := runtime.RegisterJob(job); err == nil {
 		t.Fatal("expected duplicate registration to fail")
+	}
+}
+
+// TestListTasksReturnsRuntimeJobSnapshots 验证运行时快照会保留任务声明中的展示与 owner 元数据。
+func TestListTasksReturnsRuntimeJobSnapshots(t *testing.T) {
+	repo := newRunRepositoryRecorder()
+	runtime := New(zap.NewNop(), repo)
+
+	if err := runtime.RegisterJob(cronx.Job{
+		Name:                  "audit.audit-log-retention-cleanup",
+		Key:                   "audit.audit-log-retention-cleanup",
+		Owner:                 "audit",
+		Type:                  cronx.TaskTypeCron,
+		DisplayMessageKey:     "scheduledTask.auditLogRetention.title",
+		DescriptionMessageKey: "scheduledTask.auditLogRetention.description",
+		Schedule:              "*/1 * * * * *",
+		DefaultEnabled:        true,
+		Module:                "audit",
+		Run:                   func(context.Context) error { return nil },
+	}); err != nil {
+		t.Fatalf("register job: %v", err)
+	}
+
+	items, err := runtime.ListTasks(context.Background())
+	if err != nil {
+		t.Fatalf("list tasks: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("expected one task, got %d", len(items))
+	}
+	item := items[0]
+	if item.Key != "audit.audit-log-retention-cleanup" || item.Owner != "audit" || item.Type != cronx.TaskTypeCron {
+		t.Fatalf("unexpected task snapshot: %#v", item)
+	}
+	if item.DisplayMessageKey != "scheduledTask.auditLogRetention.title" || item.DescriptionMessageKey == "" {
+		t.Fatalf("expected display metadata, got %#v", item)
+	}
+	if !item.DefaultEnabled {
+		t.Fatal("expected runtime job to be default-enabled")
+	}
+}
+
+// TestRunOncePersistsManualRunHistory 验证手动运行会写入运行历史并完成成功状态。
+func TestRunOncePersistsManualRunHistory(t *testing.T) {
+	repo := newRunRepositoryRecorder()
+	runtime := New(zap.NewNop(), repo)
+	triggered := false
+
+	if err := runtime.RegisterJob(cronx.Job{
+		Name:           "manual",
+		Schedule:       "*/1 * * * * *",
+		DefaultEnabled: true,
+		Run: func(context.Context) error {
+			triggered = true
+			return nil
+		},
+	}); err != nil {
+		t.Fatalf("register job: %v", err)
+	}
+
+	run, err := runtime.RunOnce(context.Background(), "manual")
+	if err != nil {
+		t.Fatalf("run once: %v", err)
+	}
+	if !triggered {
+		t.Fatal("expected manual run to execute job")
+	}
+	if run.TriggerType != TriggerTypeManual || run.Status != RunStatusSuccess {
+		t.Fatalf("expected successful manual run, got %#v", run)
+	}
+	if len(repo.created) != 1 || len(repo.updated) != 1 {
+		t.Fatalf("expected one persisted run lifecycle, got created=%d updated=%d", len(repo.created), len(repo.updated))
+	}
+}
+
+// TestRunOnceRejectsConcurrentSameTask 验证同一任务运行中再次手动触发会返回冲突式错误。
+func TestRunOnceRejectsConcurrentSameTask(t *testing.T) {
+	repo := newRunRepositoryRecorder()
+	runtime := New(zap.NewNop(), repo)
+	started := make(chan struct{}, 1)
+	release := make(chan struct{})
+
+	if err := runtime.RegisterJob(cronx.Job{
+		Name:     "blocking",
+		Schedule: "*/1 * * * * *",
+		Run: func(context.Context) error {
+			select {
+			case started <- struct{}{}:
+			default:
+			}
+			<-release
+			return nil
+		},
+	}); err != nil {
+		t.Fatalf("register job: %v", err)
+	}
+
+	firstDone := make(chan error, 1)
+	go func() {
+		_, err := runtime.RunOnce(context.Background(), "blocking")
+		firstDone <- err
+	}()
+
+	waitForSignal(t, started, time.Second, "expected first manual run to start")
+
+	if _, err := runtime.RunOnce(context.Background(), "blocking"); !errors.Is(err, ErrTaskAlreadyRunning) {
+		t.Fatalf("expected already-running conflict, got %v", err)
+	}
+
+	close(release)
+	if err := <-firstDone; err != nil {
+		t.Fatalf("first manual run failed: %v", err)
 	}
 }
 
