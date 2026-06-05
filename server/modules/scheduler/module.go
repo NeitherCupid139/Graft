@@ -21,7 +21,9 @@ const (
 // 收敛关闭”。若 Boot 阶段任务装配或启动失败，模块不会进入可运行状态；
 // Shutdown 会把运行时停止错误上抛给调用方，便于宿主决定是否继续整体退出流程。
 type Module struct {
-	runtime schedulercore.Runtime
+	runtime         schedulercore.Runtime
+	routeAuth       *deferredAuthService
+	routeAuthorizer *deferredAuthorizer
 }
 
 // NewModule 创建最小调度模块。
@@ -43,7 +45,9 @@ func (p *Module) Register(ctx *module.Context) error {
 	if err := registerSchedulerRuntimeService(ctx, p); err != nil {
 		return err
 	}
-	return registerSchedulerRoutes(ctx, moduleID)
+	p.routeAuth = newDeferredAuthService()
+	p.routeAuthorizer = newDeferredAuthorizer()
+	return registerSchedulerRoutesWithSecurity(ctx, moduleID, p.routeAuth, p.routeAuthorizer)
 }
 
 func registerSchedulerRuntimeService(ctx *module.Context, p *Module) error {
@@ -130,6 +134,10 @@ func (p *Module) Boot(ctx *module.Context) error {
 		return fmt.Errorf("scheduler boot context is required")
 	}
 
+	if err := p.bindRouteSecurityServices(ctx); err != nil {
+		return err
+	}
+
 	if err := p.ensureRuntimeService(ctx); err != nil {
 		return fmt.Errorf("resolve scheduler runtime: %w", err)
 	}
@@ -150,6 +158,30 @@ func (p *Module) Boot(ctx *module.Context) error {
 	}
 
 	p.runtime = runtime
+	return nil
+}
+
+func (p *Module) bindRouteSecurityServices(ctx *module.Context) error {
+	if p.routeAuth == nil || p.routeAuthorizer == nil {
+		return nil
+	}
+
+	authService, err := resolveAuthService(ctx)
+	if err != nil {
+		return err
+	}
+	if err := p.routeAuth.SetTarget(authService); err != nil {
+		return fmt.Errorf("bind scheduler route auth service: %w", err)
+	}
+
+	authorizer, err := resolveAuthorizer(ctx)
+	if err != nil {
+		return err
+	}
+	if err := p.routeAuthorizer.SetTarget(authorizer); err != nil {
+		return fmt.Errorf("bind scheduler route authorizer: %w", err)
+	}
+
 	return nil
 }
 

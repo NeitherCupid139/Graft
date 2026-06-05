@@ -195,6 +195,10 @@ func TestScheduledTaskListRouteReturnsRuntimeTasks(t *testing.T) {
 	if err := moduleInstance.Register(ctx); err != nil {
 		t.Fatalf("register module: %v", err)
 	}
+	ctx.LifecycleContext = context.Background()
+	if err := moduleInstance.Boot(ctx); err != nil {
+		t.Fatalf("boot module: %v", err)
+	}
 
 	request := httptest.NewRequest(http.MethodGet, "/api/scheduled-tasks", nil)
 	request.Header.Set("Authorization", "Bearer token")
@@ -205,25 +209,7 @@ func TestScheduledTaskListRouteReturnsRuntimeTasks(t *testing.T) {
 		t.Fatalf("expected status 200, got %d with body %s", recorder.Code, recorder.Body.String())
 	}
 
-	var payload struct {
-		Success bool `json:"success"`
-		Data    struct {
-			Total int `json:"total"`
-			Items []struct {
-				Key            string `json:"key"`
-				TaskType       string `json:"task_type"`
-				ScheduleType   string `json:"schedule_type"`
-				DisplayNameKey string `json:"display_name_key"`
-				Module         string `json:"module"`
-				Enabled        bool   `json:"enabled"`
-				Status         string `json:"status"`
-				Running        bool   `json:"running"`
-			} `json:"items"`
-		} `json:"data"`
-	}
-	if err := json.Unmarshal(recorder.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
+	payload := decodeScheduledTaskListPayload(t, recorder.Body.Bytes())
 	if !payload.Success || payload.Data.Total != 1 || len(payload.Data.Items) != 1 {
 		t.Fatalf("unexpected scheduled task list payload: %#v", payload)
 	}
@@ -238,6 +224,34 @@ func TestScheduledTaskListRouteReturnsRuntimeTasks(t *testing.T) {
 		item.Running {
 		t.Fatalf("unexpected scheduled task item: %#v", item)
 	}
+}
+
+type scheduledTaskListPayload struct {
+	Success bool `json:"success"`
+	Data    struct {
+		Total int `json:"total"`
+		Items []struct {
+			Key            string `json:"key"`
+			TaskType       string `json:"task_type"`
+			ScheduleType   string `json:"schedule_type"`
+			DisplayNameKey string `json:"display_name_key"`
+			Module         string `json:"module"`
+			Enabled        bool   `json:"enabled"`
+			Status         string `json:"status"`
+			Running        bool   `json:"running"`
+		} `json:"items"`
+	} `json:"data"`
+}
+
+func decodeScheduledTaskListPayload(t *testing.T, body []byte) scheduledTaskListPayload {
+	t.Helper()
+
+	var payload scheduledTaskListPayload
+	if err := json.Unmarshal(body, &payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	return payload
 }
 
 // TestBootRejectsInvalidJobs 验证 scheduler 模块会在 Boot 阶段拒绝非法任务声明。

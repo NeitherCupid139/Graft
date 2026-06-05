@@ -14,6 +14,7 @@ import (
 	scheduleropenapi "graft/server/internal/contract/openapi/scheduler"
 	"graft/server/internal/httpx"
 	"graft/server/internal/module"
+	"graft/server/internal/moduleapi"
 	schedulercore "graft/server/internal/scheduler"
 	schedulercontract "graft/server/modules/scheduler/contract"
 )
@@ -30,18 +31,27 @@ type schedulerRouteRuntime struct {
 	runtime    schedulercore.Runtime
 }
 
-func registerSchedulerRoutes(ctx *module.Context, moduleName string) error {
+func registerSchedulerRoutesWithSecurity(
+	ctx *module.Context,
+	moduleName string,
+	authService moduleapi.AuthService,
+	authorizer moduleapi.Authorizer,
+) error {
 	runtime, err := resolveSchedulerRuntime(ctx)
 	if err != nil {
 		return err
 	}
-	authService, err := resolveAuthService(ctx)
-	if err != nil {
-		return err
+	if authService == nil {
+		authService, err = resolveAuthService(ctx)
+		if err != nil {
+			return err
+		}
 	}
-	authorizer, err := resolveAuthorizer(ctx)
-	if err != nil {
-		return err
+	if authorizer == nil {
+		authorizer, err = resolveAuthorizer(ctx)
+		if err != nil {
+			return err
+		}
 	}
 
 	routeRuntime := schedulerRouteRuntime{
