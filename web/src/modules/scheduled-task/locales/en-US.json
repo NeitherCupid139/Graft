@@ -19,6 +19,29 @@
       "title": "App Log Retention Cleanup",
       "description": "Deletes retained app logs beyond the configured retention window."
     },
+    "cronDescription": {
+      "everyMinute": "Runs once every minute.",
+      "everyNMinutes": "Runs once every {interval} minutes.",
+      "hourly": "Runs at the top of every hour.",
+      "daily": "Runs every day at {hour}:00.",
+      "weekly": "Runs weekly on day {dayOfWeek} at {hour}:00.",
+      "monthly": "Runs monthly on day {dayOfMonth} at {hour}:00.",
+      "custom": "Current expression: {expression}",
+      "invalid": "Cron expression is invalid."
+    },
+    "cronValidation": {
+      "fieldCount": "Cron expression must contain either {unixFields} Unix fields or {secondsFields} seconds-based fields.",
+      "stepRange": "Cron {field} step must be between {min} and {max}.",
+      "fieldRange": "Cron {field} field must be * or a number between {min} and {max}."
+    },
+    "cronEditor": {
+      "title": "Cron Schedule",
+      "expressionLabel": "Cron Expression",
+      "expressionPlaceholder": "For example */5 * * * *",
+      "inputHint": "Use 5-field Unix or 6-field seconds Cron. Saved values are normalized for backend scheduling.",
+      "validStatus": "Valid",
+      "emptyExpression": "No expression"
+    },
     "list": {
       "eyebrow": "Service Management",
       "title": "Scheduled Tasks",
@@ -95,39 +118,21 @@
       "scheduleType": {
         "cron": "Cron"
       },
-      "cronMode": {
-        "everyMinute": "Every Minute",
-        "every5Minutes": "Every 5 Minutes",
-        "hourly": "Hourly",
-        "daily": "Daily",
-        "weekly": "Weekly",
-        "monthly": "Monthly",
-        "custom": "Custom"
-      },
-      "cronHint": {
-        "everyMinute": "Runs once every minute.",
-        "every5Minutes": "Runs once every 5 minutes.",
-        "hourly": "Runs at the top of every hour.",
-        "daily": "Runs every day at 00:00.",
-        "weekly": "Runs every Sunday at 00:00.",
-        "monthly": "Runs on day 1 of every month at 00:00.",
-        "custom": "Edit the Cron expression directly. Backend validation is authoritative on save."
-      },
-      "cronDescription": {
-        "everyMinute": "Expression: * * * * *",
-        "every5Minutes": "Expression: */5 * * * *",
-        "hourly": "Expression: 0 * * * *",
-        "daily": "Expression: 0 0 * * *",
-        "weekly": "Expression: 0 0 * * 0",
-        "monthly": "Expression: 0 0 1 * *",
-        "custom": "Current expression: {expression}"
-      },
       "form": {
         "createTitle": "Create Scheduled Task",
         "editTitle": "Edit Task",
+        "sectionJobType": "Job Type",
+        "sectionBasic": "Task Description",
+        "sectionExecutionPlan": "Execution Plan",
+        "sectionEnabled": "Enabled Status",
+        "sectionAdvancedParams": "Advanced Parameters",
         "jobType": "Job Type",
         "jobTypePlaceholder": "Select a Job Definition",
-        "jobDefaults": "Module {module} · Owner {owner} · Default cron {cron}",
+        "jobKey": "Job Key",
+        "module": "Module",
+        "owner": "Owner",
+        "defaultCron": "Default Cron",
+        "defaultParams": "Default Parameters",
         "paramsSchema": "Parameter Schema",
         "taskKey": "Task Key",
         "taskKeyPlaceholder": "For example audit.retention.daily",
@@ -135,17 +140,17 @@
         "titlePlaceholder": "Enter task name",
         "description": "Description",
         "descriptionPlaceholder": "Enter task description",
-        "cronBuilder": "Cron Builder",
         "cronExpression": "Cron Expression",
-        "cronExpressionPlaceholder": "For example */5 * * * *",
         "enabled": "Enabled",
         "paramsJson": "Parameters JSON",
         "paramsJsonPlaceholder": "{\n  \"window_days\": 30\n}",
+        "formatJson": "Format JSON",
         "taskKeyRequiredHint": "Task Key is required.",
         "jobTypeRequiredHint": "Job Type is required.",
         "titleRequiredHint": "Title is required.",
         "paramsJsonInvalidHint": "Parameters must be valid JSON.",
-        "cronRequiredHint": "Cron Expression is required."
+        "cronRequiredHint": "Cron Expression is required.",
+        "cronInvalidHint": "Cron Expression is invalid."
       },
       "runDialog": {
         "title": "Run Task Now?",
@@ -189,6 +194,7 @@
         "duration": "Duration",
         "result": "Result",
         "none": "None",
+        "noError": "No Error Recorded",
         "notAvailable": "N/A",
         "enabledYes": "Yes",
         "enabledNo": "No",

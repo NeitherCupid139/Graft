@@ -34,6 +34,7 @@
     "check": "bun run format:check && bun run typecheck && bun run openapi:frontend-governance:check && bun run lint:i18n && bun run lint && bun run stylelint && bun run hygiene:check && bun run test:run && bun run build"
   },
   "dependencies": {
+    "@vue-js-cron/light": "^5.1.1",
     "@vueuse/core": "^14.2.0",
     "axios": "^1.16.1",
     "consola": "^3.4.2",

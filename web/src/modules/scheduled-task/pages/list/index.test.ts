@@ -5,9 +5,12 @@ import { defineComponent, h, nextTick } from 'vue';
 import ScheduledTaskListPage from './index.vue';
 
 const apiMocks = vi.hoisted(() => ({
+  createScheduledTask: vi.fn(),
+  getScheduledTask: vi.fn(),
   getScheduledTaskJobs: vi.fn(),
   getScheduledTaskRuns: vi.fn(),
   getScheduledTasks: vi.fn(),
+  updateScheduledTask: vi.fn(),
 }));
 
 const translations = vi.hoisted(
@@ -18,6 +21,7 @@ const translations = vi.hoisted(
     'scheduledTask.appLogRetention.title': '应用日志保留清理',
     'scheduledTask.auditLogRetention.description': '删除超过配置保留窗口的审计日志。',
     'scheduledTask.auditLogRetention.title': '审计日志保留清理',
+    'scheduledTask.cronDescription.everyNMinutes': '每 {interval} 分钟执行一次。',
     'scheduledTask.list.columnSettings': '列设置',
     'scheduledTask.list.columns.cron': 'Cron',
     'scheduledTask.list.columns.jobType': 'Job 类型',
@@ -28,19 +32,12 @@ const translations = vi.hoisted(
     'scheduledTask.list.columns.successRate': '成功率',
     'scheduledTask.list.columns.task': '任务',
     'scheduledTask.list.columns.taskName': '任务名称',
-    'scheduledTask.list.cronDescription.every5Minutes': '表达式：*/5 * * * *',
-    'scheduledTask.list.cronHint.every5Minutes': '每 5 分钟执行一次。',
-    'scheduledTask.list.cronMode.custom': '自定义',
-    'scheduledTask.list.cronMode.daily': '每天',
-    'scheduledTask.list.cronMode.every5Minutes': '每 5 分钟',
-    'scheduledTask.list.cronMode.everyMinute': '每分钟',
-    'scheduledTask.list.cronMode.hourly': '每小时',
-    'scheduledTask.list.cronMode.monthly': '每月',
-    'scheduledTask.list.cronMode.weekly': '每周',
     'scheduledTask.list.create': '新建任务',
+    'scheduledTask.list.cancel': '取消',
     'scheduledTask.list.delete': '删除',
     'scheduledTask.list.description': '管理绑定到 Job Definition 的定时任务。',
     'scheduledTask.list.detail.none': '无',
+    'scheduledTask.list.detail.noError': '未记录错误',
     'scheduledTask.list.disable': '停用',
     'scheduledTask.list.edit': '编辑',
     'scheduledTask.list.enable': '启用',
@@ -51,7 +48,7 @@ const translations = vi.hoisted(
     'scheduledTask.list.filters.searchPlaceholder': '搜索任务',
     'scheduledTask.list.filters.status': '状态',
     'scheduledTask.list.form.cronExpression': 'Cron Expression',
-    'scheduledTask.list.form.cronExpressionPlaceholder': '例如 */5 * * * *',
+    'scheduledTask.list.form.formatJson': '格式化 JSON',
     'scheduledTask.list.form.cronRequiredHint': '请填写 Cron 表达式。',
     'scheduledTask.list.loadError': '定时任务数据加载失败。',
     'scheduledTask.list.metric.enabled': '已启用',
@@ -65,7 +62,10 @@ const translations = vi.hoisted(
     'scheduledTask.list.more': '更多',
     'scheduledTask.list.refresh': '刷新',
     'scheduledTask.list.run': '立即执行',
+    'scheduledTask.list.save': '保存',
+    'scheduledTask.list.status.failed': '失败',
     'scheduledTask.list.status.idle': '空闲',
+    'scheduledTask.list.status.success': '成功',
     'scheduledTask.list.tableHint': '当前筛选显示 {count} 个任务。',
     'scheduledTask.list.tableTitle': '任务列表',
     'scheduledTask.list.title': '定时任务',
@@ -74,17 +74,17 @@ const translations = vi.hoisted(
 );
 
 vi.mock('../../api/scheduled-task', () => ({
-  createScheduledTask: vi.fn(),
+  createScheduledTask: apiMocks.createScheduledTask,
   deleteScheduledTask: vi.fn(),
   disableScheduledTask: vi.fn(),
   enableScheduledTask: vi.fn(),
-  getScheduledTask: vi.fn(),
+  getScheduledTask: apiMocks.getScheduledTask,
   getScheduledTaskJobs: apiMocks.getScheduledTaskJobs,
   getScheduledTaskRun: vi.fn(),
   getScheduledTaskRuns: apiMocks.getScheduledTaskRuns,
   getScheduledTasks: apiMocks.getScheduledTasks,
   runScheduledTask: vi.fn(),
-  updateScheduledTask: vi.fn(),
+  updateScheduledTask: apiMocks.updateScheduledTask,
 }));
 
 vi.mock('@/utils/logger', () => ({
@@ -140,6 +140,15 @@ function scheduledTasksResponse() {
         status: 'idle',
         running: false,
         params_json: '{}',
+        last_run: {
+          id: 101,
+          trigger_type: 'cron',
+          status: 'success',
+          started_at: '2026-06-05T00:00:00Z',
+          finished_at: '2026-06-05T00:00:05Z',
+          duration_ms: 5000,
+          error_summary: '',
+        },
       },
       {
         key: 'logger.app-log-retention-cleanup',
@@ -157,6 +166,15 @@ function scheduledTasksResponse() {
         status: 'idle',
         running: false,
         params_json: '{}',
+        last_run: {
+          id: 102,
+          trigger_type: 'cron',
+          status: 'failed',
+          started_at: '2026-06-05T00:10:00Z',
+          finished_at: '2026-06-05T00:10:01Z',
+          duration_ms: 1000,
+          error_summary: 'retention window is invalid',
+        },
       },
       {
         key: 'audit.audit-log-retention-cleanup',
@@ -339,11 +357,34 @@ const InputStub = defineComponent({
   },
 });
 
+const CronExpressionEditorStub = defineComponent({
+  name: 'CronExpressionEditor',
+  props: ['modelValue', 'error'],
+  emits: ['update:modelValue', 'validate'],
+  setup(props, { emit }) {
+    return () =>
+      h('label', { class: 'cron-editor-stub' }, [
+        h('span', 'Cron Expression'),
+        h('input', {
+          'data-testid': 'cron-editor-input',
+          value: props.modelValue,
+          onInput: (event: Event) => {
+            const value = (event.target as HTMLInputElement).value;
+            const normalized = value.trim().split(/\s+/).length === 5 ? `0 ${value.trim()}` : value.trim();
+            emit('update:modelValue', normalized);
+            emit('validate', { valid: true, normalizedExpression: normalized });
+          },
+        }),
+        props.error ? h('span', { 'data-testid': 'cron-editor-error' }, String(props.error)) : null,
+      ]);
+  },
+});
+
 const PassthroughStub = defineComponent({
   name: 'PassthroughStub',
   props: ['header', 'label'],
-  setup(props, { slots }) {
-    return () => h('div', [props.header, props.label, slots.default?.(), slots.footer?.(), slots.action?.()]);
+  setup(props, { attrs, slots }) {
+    return () => h('div', attrs, [props.header, props.label, slots.default?.(), slots.footer?.(), slots.action?.()]);
   },
 });
 
@@ -364,6 +405,7 @@ function mountPage() {
         PauseIcon: true,
         PlayIcon: true,
         SearchIcon: true,
+        CronExpressionEditor: CronExpressionEditorStub,
         TButton: ButtonStub,
         TCard: PassthroughStub,
         TCollapse: PassthroughStub,
@@ -398,8 +440,21 @@ describe('ScheduledTaskListPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     apiMocks.getScheduledTasks.mockResolvedValue(scheduledTasksResponse());
+    apiMocks.getScheduledTask.mockImplementation(async (taskKey: string) => {
+      const task = scheduledTasksResponse().items.find((item) => item.key === taskKey);
+      if (!task) {
+        throw new Error('not found');
+      }
+      return task;
+    });
     apiMocks.getScheduledTaskJobs.mockResolvedValue(jobDefinitionsResponse());
     apiMocks.getScheduledTaskRuns.mockResolvedValue({ items: [], total: 0, limit: 20, offset: 0 });
+    apiMocks.updateScheduledTask.mockImplementation(async (taskKey: string, payload: Record<string, unknown>) => ({
+      ...scheduledTasksResponse().items[0],
+      key: taskKey,
+      schedule: payload.cron_expression,
+      enabled: payload.enabled,
+    }));
   });
 
   it('localizes builtin task and job definition title keys before rendering', async () => {
@@ -441,13 +496,45 @@ describe('ScheduledTaskListPage', () => {
     expect(firstOperationCell.text()).toContain('删除');
   });
 
-  it('renders cron expression hint below the input inside a vertical container', async () => {
+  it('renders normalized cron descriptions and recent result summaries in list cells', async () => {
     const wrapper = mountPage();
     await flushPromises();
 
-    const container = wrapper.find('.scheduled-task-cron-expression');
-    expect(container.exists()).toBe(true);
-    expect(container.find('input[placeholder="例如 */5 * * * *"]').exists()).toBe(true);
-    expect(container.text()).toContain('表达式：*/5 * * * *');
+    const firstScheduleCell = wrapper.find('tbody tr:first-child td[data-col="schedule"]');
+    expect(firstScheduleCell.text()).toContain('0 */5 * * * *');
+    expect(firstScheduleCell.text()).toContain('每 5 分钟执行一次。');
+
+    const firstResultCell = wrapper.find('tbody tr:first-child td[data-col="recent_result"]');
+    expect(firstResultCell.text()).toContain('成功');
+    expect(firstResultCell.text()).toContain('未记录错误');
+    expect(firstResultCell.text()).not.toContain('成功无');
+
+    const secondResultCell = wrapper.find('tbody tr:nth-child(2) td[data-col="recent_result"]');
+    expect(secondResultCell.text()).toContain('失败');
+    expect(secondResultCell.text()).toContain('retention window is invalid');
+  });
+
+  it('normalizes cron editor values before submitting an update payload', async () => {
+    const wrapper = mountPage();
+    await flushPromises();
+
+    const editTrigger = wrapper.findAll('*').find((node) => node.text() === '编辑');
+    expect(editTrigger).toBeTruthy();
+    await editTrigger!.trigger('click');
+    await flushPromises();
+
+    await wrapper.get('[data-testid="cron-editor-input"]').setValue('*/10 * * * *');
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === '保存')!
+      .trigger('click');
+    await flushPromises();
+
+    expect(apiMocks.updateScheduledTask).toHaveBeenCalledWith(
+      'httpx.access-log-retention-cleanup',
+      expect.objectContaining({
+        cron_expression: '0 */10 * * * *',
+      }),
+    );
   });
 });

@@ -114,7 +114,12 @@
           </template>
 
           <template #schedule="{ row }">
-            <span class="scheduled-task-mono">{{ row.schedule }}</span>
+            <div class="scheduled-task-schedule">
+              <span class="scheduled-task-mono">{{ scheduleExpressionText(row) }}</span>
+              <span v-if="cronScheduleDescriptionText(row.schedule)">{{
+                cronScheduleDescriptionText(row.schedule)
+              }}</span>
+            </div>
           </template>
 
           <template #recent_result="{ row }">
@@ -213,98 +218,152 @@
       />
       <t-drawer v-model:visible="formVisible" :header="formTitle" size="720px" placement="right" destroy-on-close>
         <t-form :data="taskForm" label-align="top">
-          <t-form-item v-if="formMode === 'create'" :label="t('scheduledTask.list.form.jobType')" name="jobKey">
-            <t-select
-              v-model="taskForm.jobKey"
-              :loading="jobDefinitionsLoading"
-              :placeholder="t('scheduledTask.list.form.jobTypePlaceholder')"
-              filterable
-              @change="handleJobDefinitionChange"
-            >
-              <t-option-group
-                v-for="group in groupedJobDefinitions"
-                :key="group.module"
-                :label="moduleDisplayName(group.module)"
-              >
-                <t-option v-for="job in group.items" :key="job.key" :value="job.key" :label="jobDefinitionTitle(job)" />
-              </t-option-group>
-            </t-select>
-          </t-form-item>
-          <div v-if="selectedJobDefinition" class="scheduled-task-job-summary">
-            <div>
-              <strong>{{ jobDefinitionTitle(selectedJobDefinition) }}</strong>
-              <span>{{ selectedJobDefinition.key }}</span>
+          <section v-if="formMode === 'create'" class="scheduled-task-form-section">
+            <div class="scheduled-task-form-section__head">
+              <h3>{{ t('scheduledTask.list.form.sectionJobType') }}</h3>
             </div>
-            <p>{{ jobDefinitionDescription(selectedJobDefinition) }}</p>
-            <p class="scheduled-task-form-hint">
-              {{
-                t('scheduledTask.list.form.jobDefaults', {
-                  module: selectedJobDefinition.module,
-                  owner: selectedJobDefinition.owner,
-                  cron: selectedJobDefinition.default_cron_expression,
-                })
-              }}
-            </p>
-            <t-collapse v-if="selectedJobDefinition.params_schema_json" expand-icon-placement="right">
-              <t-collapse-panel value="paramsSchema" :header="t('scheduledTask.list.form.paramsSchema')">
-                <pre class="scheduled-task-json-preview">{{
-                  formatJsonPreview(selectedJobDefinition.params_schema_json)
-                }}</pre>
+            <t-form-item :label="t('scheduledTask.list.form.jobType')" name="jobKey">
+              <t-select
+                v-model="taskForm.jobKey"
+                :loading="jobDefinitionsLoading"
+                :placeholder="t('scheduledTask.list.form.jobTypePlaceholder')"
+                filterable
+                @change="handleJobDefinitionChange"
+              >
+                <t-option-group
+                  v-for="group in groupedJobDefinitions"
+                  :key="group.module"
+                  :label="moduleDisplayName(group.module)"
+                >
+                  <t-option v-for="job in group.items" :key="job.key" :value="job.key" :label="jobDefinitionTitle(job)">
+                    <div class="scheduled-task-job-option">
+                      <div class="scheduled-task-job-option__main">
+                        <strong>{{ jobDefinitionTitle(job) }}</strong>
+                        <span>{{ job.key }}</span>
+                      </div>
+                      <t-tag size="small" variant="light">{{ moduleDisplayName(job.module) }}</t-tag>
+                    </div>
+                  </t-option>
+                </t-option-group>
+              </t-select>
+            </t-form-item>
+            <t-card
+              v-if="selectedJobDefinition"
+              class="scheduled-task-job-summary"
+              size="small"
+              :title="jobDefinitionTitle(selectedJobDefinition)"
+              :bordered="true"
+            >
+              <p>{{ jobDefinitionDescription(selectedJobDefinition) }}</p>
+              <t-descriptions size="small" :column="2" table-layout="auto">
+                <t-descriptions-item :label="t('scheduledTask.list.form.jobKey')">
+                  {{ selectedJobDefinition.key }}
+                </t-descriptions-item>
+                <t-descriptions-item :label="t('scheduledTask.list.form.module')">
+                  <t-tag size="small" variant="light">{{ moduleDisplayName(selectedJobDefinition.module) }}</t-tag>
+                </t-descriptions-item>
+                <t-descriptions-item :label="t('scheduledTask.list.form.defaultCron')">
+                  <code>{{ normalizeCronForForm(selectedJobDefinition.default_cron_expression) }}</code>
+                </t-descriptions-item>
+                <t-descriptions-item :label="t('scheduledTask.list.form.owner')">
+                  {{ selectedJobDefinition.owner }}
+                </t-descriptions-item>
+                <t-descriptions-item :label="t('scheduledTask.list.form.defaultParams')" :span="2">
+                  <pre class="scheduled-task-json-preview">{{
+                    formatJsonPreview(selectedJobDefinition.default_params_json) || t('scheduledTask.list.detail.none')
+                  }}</pre>
+                </t-descriptions-item>
+              </t-descriptions>
+              <t-collapse v-if="selectedJobDefinition.params_schema_json" expand-icon-placement="right">
+                <t-collapse-panel value="paramsSchema" :header="t('scheduledTask.list.form.paramsSchema')">
+                  <pre class="scheduled-task-json-preview">{{
+                    formatJsonPreview(selectedJobDefinition.params_schema_json)
+                  }}</pre>
+                </t-collapse-panel>
+              </t-collapse>
+            </t-card>
+          </section>
+
+          <section class="scheduled-task-form-section">
+            <div class="scheduled-task-form-section__head">
+              <h3>{{ t('scheduledTask.list.form.sectionBasic') }}</h3>
+            </div>
+            <t-form-item :label="t('scheduledTask.list.form.taskKey')" name="taskKey">
+              <t-input
+                v-model="taskForm.taskKey"
+                :disabled="formMode === 'edit'"
+                :placeholder="t('scheduledTask.list.form.taskKeyPlaceholder')"
+              />
+            </t-form-item>
+            <t-form-item :label="t('scheduledTask.list.form.title')" name="title">
+              <t-input
+                v-model="taskForm.title"
+                :disabled="isSystemEdit"
+                :placeholder="t('scheduledTask.list.form.titlePlaceholder')"
+              />
+            </t-form-item>
+            <t-form-item :label="t('scheduledTask.list.form.description')" name="description">
+              <t-textarea
+                v-model="taskForm.description"
+                :disabled="isSystemEdit"
+                :autosize="{ minRows: 3, maxRows: 5 }"
+                :placeholder="t('scheduledTask.list.form.descriptionPlaceholder')"
+              />
+            </t-form-item>
+          </section>
+
+          <section class="scheduled-task-form-section">
+            <div class="scheduled-task-form-section__head">
+              <h3>{{ t('scheduledTask.list.form.sectionExecutionPlan') }}</h3>
+            </div>
+            <t-form-item
+              :label="t('scheduledTask.list.form.cronExpression')"
+              name="cronExpression"
+              :status="formFieldErrors.cronExpression ? 'error' : undefined"
+              :tips="formFieldErrors.cronExpression"
+            >
+              <cron-expression-editor
+                v-model="taskForm.cronExpression"
+                :error="formFieldErrors.cronExpression"
+                @update:model-value="handleCronEditorUpdate"
+                @validate="handleCronEditorValidate"
+              />
+            </t-form-item>
+          </section>
+
+          <section class="scheduled-task-form-section">
+            <div class="scheduled-task-form-section__head">
+              <h3>{{ t('scheduledTask.list.form.sectionEnabled') }}</h3>
+            </div>
+            <t-form-item :label="t('scheduledTask.list.form.enabled')" name="enabled">
+              <t-switch v-model="taskForm.enabled" />
+            </t-form-item>
+          </section>
+
+          <section v-if="!isSystemEdit" class="scheduled-task-form-section">
+            <t-collapse expand-icon-placement="right">
+              <t-collapse-panel value="advancedParams" :header="t('scheduledTask.list.form.sectionAdvancedParams')">
+                <t-form-item
+                  :label="t('scheduledTask.list.form.paramsJson')"
+                  name="paramsJson"
+                  :status="formFieldErrors.paramsJson ? 'error' : undefined"
+                  :tips="formFieldErrors.paramsJson"
+                >
+                  <div class="scheduled-task-params-field">
+                    <t-button size="small" variant="outline" @click="formatParamsJson">
+                      {{ t('scheduledTask.list.form.formatJson') }}
+                    </t-button>
+                    <t-textarea
+                      v-model="taskForm.paramsJson"
+                      :autosize="{ minRows: 4, maxRows: 8 }"
+                      :placeholder="t('scheduledTask.list.form.paramsJsonPlaceholder')"
+                      @change="clearFormFieldError('paramsJson')"
+                    />
+                  </div>
+                </t-form-item>
               </t-collapse-panel>
             </t-collapse>
-          </div>
-          <t-form-item :label="t('scheduledTask.list.form.taskKey')" name="taskKey">
-            <t-input
-              v-model="taskForm.taskKey"
-              :disabled="formMode === 'edit'"
-              :placeholder="t('scheduledTask.list.form.taskKeyPlaceholder')"
-            />
-          </t-form-item>
-          <t-form-item :label="t('scheduledTask.list.form.title')" name="title">
-            <t-input
-              v-model="taskForm.title"
-              :disabled="isSystemEdit"
-              :placeholder="t('scheduledTask.list.form.titlePlaceholder')"
-            />
-          </t-form-item>
-          <t-form-item :label="t('scheduledTask.list.form.description')" name="description">
-            <t-textarea
-              v-model="taskForm.description"
-              :disabled="isSystemEdit"
-              :autosize="{ minRows: 3, maxRows: 5 }"
-              :placeholder="t('scheduledTask.list.form.descriptionPlaceholder')"
-            />
-          </t-form-item>
-          <t-form-item :label="t('scheduledTask.list.form.cronBuilder')" name="cronMode">
-            <div class="scheduled-task-cron-builder">
-              <t-radio-group v-model="taskForm.cronMode" variant="default-filled" @change="handleCronModeChange">
-                <t-radio-button v-for="mode in cronModes" :key="mode.value" :value="mode.value">
-                  {{ mode.label }}
-                </t-radio-button>
-              </t-radio-group>
-              <p class="scheduled-task-form-hint">{{ cronHint }}</p>
-            </div>
-          </t-form-item>
-          <t-form-item :label="t('scheduledTask.list.form.cronExpression')" name="cronExpression">
-            <div class="scheduled-task-cron-expression">
-              <t-input
-                v-model="taskForm.cronExpression"
-                :placeholder="t('scheduledTask.list.form.cronExpressionPlaceholder')"
-                @input="handleCronInput"
-              />
-              <p class="scheduled-task-form-hint">{{ cronDescription }}</p>
-            </div>
-          </t-form-item>
-          <t-form-item :label="t('scheduledTask.list.form.enabled')" name="enabled">
-            <t-switch v-model="taskForm.enabled" />
-          </t-form-item>
-          <t-form-item v-if="!isSystemEdit" :label="t('scheduledTask.list.form.paramsJson')" name="paramsJson">
-            <t-textarea
-              v-model="taskForm.paramsJson"
-              :autosize="{ minRows: 4, maxRows: 8 }"
-              :placeholder="t('scheduledTask.list.form.paramsJsonPlaceholder')"
-            />
-          </t-form-item>
+          </section>
         </t-form>
 
         <template #footer>
@@ -547,8 +606,10 @@ import { MessagePlugin, Tag, type TdBaseTableProps } from 'tdesign-vue-next';
 import { computed, defineComponent, h, onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
+import { readErrorField } from '@/modules/shared/error-field';
 import { buildVisibleColumns, calculateTableContentWidth } from '@/shared/components/management';
 import { AdvancedQueryColumnDrawer, AdvancedQueryListPage } from '@/shared/components/query-list';
+import type { ApiRequestError } from '@/types/axios';
 import { createLogger } from '@/utils/logger';
 
 import {
@@ -564,6 +625,7 @@ import {
   runScheduledTask,
   updateScheduledTask,
 } from '../../api/scheduled-task';
+import CronExpressionEditor from '../../components/CronExpressionEditor.vue';
 import { SCHEDULED_TASK_PERMISSION_CODE } from '../../contract/permissions';
 import type {
   CreateScheduledTaskRequest,
@@ -576,21 +638,30 @@ import type {
   ScheduledTaskStatus,
   UpdateScheduledTaskRequest,
 } from '../../types/scheduled-task';
+import {
+  type CronDescriptionResult,
+  type CronValidationResult,
+  describeCronExpression,
+  normalizeCronExpression,
+  validateCronExpression,
+} from '../../utils/cron';
 
 defineOptions({
   name: 'ScheduledTaskListPage',
 });
 
-type CronMode = 'everyMinute' | 'every5Minutes' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'custom';
-
 type TaskFormModel = {
   taskKey: string;
   title: string;
   description: string;
-  cronMode: CronMode;
   cronExpression: string;
   enabled: boolean;
   jobKey: ScheduledTaskJobKey | '';
+  paramsJson: string;
+};
+
+type FormFieldErrors = {
+  cronExpression: string;
   paramsJson: string;
 };
 
@@ -612,14 +683,7 @@ type JobDefinitionGroup = {
   items: ScheduledTaskJobDefinitionItem[];
 };
 
-const CRON_PRESETS: Record<Exclude<CronMode, 'custom'>, string> = {
-  everyMinute: '* * * * *',
-  every5Minutes: '*/5 * * * *',
-  hourly: '0 * * * *',
-  daily: '0 0 * * *',
-  weekly: '0 0 * * 0',
-  monthly: '0 0 1 * *',
-};
+const DEFAULT_CRON_EXPRESSION = '0 */5 * * * *';
 
 const statusOptions: ScheduledTaskStatus[] = ['idle', 'running', 'success', 'failed', 'unknown'];
 const builtinTaskMessageKeys = [
@@ -693,17 +757,11 @@ const filters = reactive<FilterModel>({
 });
 
 const taskForm = reactive<TaskFormModel>(createEmptyTaskForm());
+const formFieldErrors = reactive<FormFieldErrors>({
+  cronExpression: '',
+  paramsJson: '',
+});
 const visibleColumnKeys = ref(['task', 'job_key', 'status', 'schedule', 'recent_result', 'recent_run']);
-
-const cronModes = computed(() => [
-  { value: 'everyMinute' as const, label: t('scheduledTask.list.cronMode.everyMinute') },
-  { value: 'every5Minutes' as const, label: t('scheduledTask.list.cronMode.every5Minutes') },
-  { value: 'hourly' as const, label: t('scheduledTask.list.cronMode.hourly') },
-  { value: 'daily' as const, label: t('scheduledTask.list.cronMode.daily') },
-  { value: 'weekly' as const, label: t('scheduledTask.list.cronMode.weekly') },
-  { value: 'monthly' as const, label: t('scheduledTask.list.cronMode.monthly') },
-  { value: 'custom' as const, label: t('scheduledTask.list.cronMode.custom') },
-]);
 
 const filteredTasks = computed(() => {
   const keyword = filters.keyword.trim().toLowerCase();
@@ -795,23 +853,6 @@ const groupedJobDefinitions = computed<JobDefinitionGroup[]>(() => {
     }));
 });
 
-const cronHint = computed(() => {
-  const key = `scheduledTask.list.cronHint.${taskForm.cronMode}`;
-  return t(key);
-});
-
-const cronDescription = computed(() => {
-  const expression = taskForm.cronExpression.trim();
-  const matchingMode = presetModeFromExpression(expression);
-  if (matchingMode) {
-    return t(`scheduledTask.list.cronDescription.${matchingMode}`);
-  }
-
-  return expression
-    ? t('scheduledTask.list.cronDescription.custom', { expression })
-    : t('scheduledTask.list.form.cronRequiredHint');
-});
-
 const columnSettingOptions = computed(() => [
   { label: t('scheduledTask.list.columns.taskName'), value: 'task' },
   { label: t('scheduledTask.list.columns.jobType'), value: 'job_key' },
@@ -842,7 +883,7 @@ const allColumns = computed<TdBaseTableProps['columns']>(() => [
   {
     colKey: 'schedule',
     title: t('scheduledTask.list.columns.cron'),
-    width: 170,
+    width: 220,
   },
   {
     colKey: 'recent_result',
@@ -1016,6 +1057,7 @@ async function loadRuns(taskKey: string) {
 
 function openCreateDrawer() {
   Object.assign(taskForm, createEmptyTaskForm());
+  resetFormFieldErrors();
   formMode.value = 'create';
   editingTask.value = null;
   formVisible.value = true;
@@ -1026,6 +1068,7 @@ function openCreateDrawer() {
 
 async function openEditDrawer(row: ScheduledTaskItem) {
   editingTask.value = row;
+  resetFormFieldErrors();
   formMode.value = 'edit';
   formVisible.value = true;
   try {
@@ -1067,6 +1110,9 @@ async function submitTaskForm() {
       taskKey: taskForm.taskKey,
       operation: 'scheduled_task_save',
     });
+    if (applyBackendFieldError(error)) {
+      return;
+    }
     void MessagePlugin.error(t('scheduledTask.list.saveError'));
   } finally {
     submittingTask.value = false;
@@ -1074,11 +1120,20 @@ async function submitTaskForm() {
 }
 
 function buildTaskPayload(): CreateScheduledTaskRequest | UpdateScheduledTaskRequest | null {
-  const cronExpression = taskForm.cronExpression.trim();
+  const cronExpression = normalizeCronForForm(taskForm.cronExpression);
   if (!cronExpression) {
-    void MessagePlugin.warning(t('scheduledTask.list.form.cronRequiredHint'));
+    formFieldErrors.cronExpression = t('scheduledTask.list.form.cronRequiredHint');
     return null;
   }
+
+  const cronResult = validateCronExpression(cronExpression);
+  if (!cronResult.valid) {
+    formFieldErrors.cronExpression =
+      cronValidationMessageText(cronResult) || t('scheduledTask.list.form.cronInvalidHint');
+    return null;
+  }
+  taskForm.cronExpression = cronExpression;
+  formFieldErrors.cronExpression = '';
 
   if (formMode.value === 'edit' && isSystemEdit.value) {
     return {
@@ -1099,9 +1154,10 @@ function buildTaskPayload(): CreateScheduledTaskRequest | UpdateScheduledTaskReq
 
   const paramsJson = normalizeJsonString(taskForm.paramsJson);
   if (paramsJson === null) {
-    void MessagePlugin.warning(t('scheduledTask.list.form.paramsJsonInvalidHint'));
+    formFieldErrors.paramsJson = t('scheduledTask.list.form.paramsJsonInvalidHint');
     return null;
   }
+  formFieldErrors.paramsJson = '';
 
   if (formMode.value === 'create') {
     if (!taskForm.taskKey.trim()) {
@@ -1263,8 +1319,7 @@ function createEmptyTaskForm(): TaskFormModel {
     taskKey: '',
     title: '',
     description: '',
-    cronMode: 'every5Minutes',
-    cronExpression: CRON_PRESETS.every5Minutes,
+    cronExpression: DEFAULT_CRON_EXPRESSION,
     enabled: true,
     jobKey: '',
     paramsJson: '',
@@ -1272,12 +1327,11 @@ function createEmptyTaskForm(): TaskFormModel {
 }
 
 function taskToForm(task: ScheduledTaskItem): TaskFormModel {
-  const expression = task.schedule || CRON_PRESETS.every5Minutes;
+  const expression = normalizeCronForForm(task.schedule || DEFAULT_CRON_EXPRESSION);
   return {
     taskKey: task.key,
     title: taskDisplayName(task),
     description: isSystemTask(task) ? taskDescription(task) : task.description || '',
-    cronMode: presetModeFromExpression(expression) ?? 'custom',
     cronExpression: expression,
     enabled: task.enabled,
     jobKey: task.job_key,
@@ -1299,19 +1353,90 @@ function normalizeJsonString(value: string): string | null {
   }
 }
 
-function handleCronModeChange(value: string | number | boolean) {
-  if (typeof value !== 'string') {
-    return;
+function normalizeCronForForm(expression: string) {
+  return normalizeCronExpression(expression || '');
+}
+
+function scheduleExpressionText(task: ScheduledTaskItem) {
+  return normalizeCronForForm(task.schedule || DEFAULT_CRON_EXPRESSION);
+}
+
+function cronScheduleDescriptionText(expression: string) {
+  const description = describeCronExpression(expression) as CronDescriptionResult;
+  if (!description.valid || description.key === 'scheduledTask.cronDescription.custom') {
+    return '';
   }
 
-  const mode = value as CronMode;
-  if (mode !== 'custom') {
-    taskForm.cronExpression = CRON_PRESETS[mode];
+  return t(description.key, description.params ?? {});
+}
+
+function cronValidationMessageText(result: CronValidationResult) {
+  switch (result.messageKey) {
+    case 'scheduledTask.cronValidation.fieldCount':
+      return t('scheduledTask.cronValidation.fieldCount', result.messageParams ?? {});
+    case 'scheduledTask.cronValidation.stepRange':
+      return t('scheduledTask.cronValidation.stepRange', result.messageParams ?? {});
+    case 'scheduledTask.cronValidation.fieldRange':
+      return t('scheduledTask.cronValidation.fieldRange', result.messageParams ?? {});
+    default:
+      return '';
   }
 }
 
-function handleCronInput(value: string) {
-  taskForm.cronMode = presetModeFromExpression(value.trim()) ?? 'custom';
+function handleCronEditorUpdate(value: string) {
+  taskForm.cronExpression = normalizeCronForForm(value);
+  if (validateCronExpression(taskForm.cronExpression).valid) {
+    clearFormFieldError('cronExpression');
+  }
+}
+
+function handleCronEditorValidate(result: CronValidationResult & { normalizedExpression: string }) {
+  if (result.valid) {
+    clearFormFieldError('cronExpression');
+  }
+}
+
+function formatParamsJson() {
+  const normalized = normalizeJsonString(taskForm.paramsJson);
+  if (normalized === null) {
+    formFieldErrors.paramsJson = t('scheduledTask.list.form.paramsJsonInvalidHint');
+    return;
+  }
+
+  taskForm.paramsJson = formatJsonPreview(normalized);
+  clearFormFieldError('paramsJson');
+}
+
+function clearFormFieldError(field: keyof FormFieldErrors) {
+  formFieldErrors[field] = '';
+}
+
+function resetFormFieldErrors() {
+  formFieldErrors.cronExpression = '';
+  formFieldErrors.paramsJson = '';
+}
+
+function applyBackendFieldError(error: unknown) {
+  if (!isApiRequestErrorShape(error)) {
+    return false;
+  }
+
+  const field = readErrorField(error.responseData);
+  const fieldMap: Record<string, keyof FormFieldErrors> = {
+    cron_expression: 'cronExpression',
+    params_json: 'paramsJson',
+  };
+  const formField = field ? fieldMap[field] : null;
+  if (!formField) {
+    return false;
+  }
+
+  formFieldErrors[formField] = error.message || t('scheduledTask.list.saveError');
+  return true;
+}
+
+function isApiRequestErrorShape(error: unknown): error is ApiRequestError {
+  return Boolean(error && typeof error === 'object' && (error as Partial<ApiRequestError>).isApiRequestError);
 }
 
 function handleJobDefinitionChange(value: unknown) {
@@ -1326,15 +1451,10 @@ function handleJobDefinitionChange(value: unknown) {
 
   taskForm.title = jobDefinitionTitle(job);
   taskForm.description = jobDefinitionDescription(job);
-  taskForm.cronExpression = job.default_cron_expression || CRON_PRESETS.every5Minutes;
-  taskForm.cronMode = presetModeFromExpression(taskForm.cronExpression) ?? 'custom';
+  taskForm.cronExpression = normalizeCronForForm(job.default_cron_expression || DEFAULT_CRON_EXPRESSION);
   taskForm.enabled = job.default_enabled;
   taskForm.paramsJson = formatJsonPreview(job.default_params_json);
-}
-
-function presetModeFromExpression(expression: string): CronMode | null {
-  const entry = Object.entries(CRON_PRESETS).find(([, value]) => value === expression);
-  return entry ? (entry[0] as CronMode) : null;
+  resetFormFieldErrors();
 }
 
 function taskDisplayName(task: ScheduledTaskItem) {
@@ -1468,6 +1588,14 @@ function successRateLabel(taskKey: string) {
 }
 
 function runResultText(run: ScheduledTaskRunItem | NonNullable<ScheduledTaskItem['last_run']>) {
+  if (run.status === 'success') {
+    return run.result_summary || t('scheduledTask.list.detail.noError');
+  }
+
+  if (run.status === 'failed') {
+    return run.error_summary || run.result_summary || t('scheduledTask.list.detail.none');
+  }
+
   return run.result_summary || run.error_summary || t('scheduledTask.list.detail.none');
 }
 
@@ -1556,6 +1684,7 @@ function formatDuration(value?: number | null) {
 .scheduled-task-metric-card p,
 .scheduled-task-metric-card span,
 .scheduled-task-muted,
+.scheduled-task-schedule span:last-child,
 .scheduled-task-identity__key,
 .scheduled-task-last-run span,
 .scheduled-task-form-hint {
@@ -1623,12 +1752,14 @@ function formatDuration(value?: number | null) {
 }
 
 .scheduled-task-identity,
+.scheduled-task-schedule,
 .scheduled-task-last-run {
   display: flex;
   min-width: 0;
 }
 
-.scheduled-task-identity {
+.scheduled-task-identity,
+.scheduled-task-schedule {
   flex-direction: column;
 }
 
@@ -1643,6 +1774,7 @@ function formatDuration(value?: number | null) {
 }
 
 .scheduled-task-identity__key,
+.scheduled-task-schedule span,
 .scheduled-task-last-run span,
 .scheduled-task-mono {
   overflow: hidden;
@@ -1697,34 +1829,57 @@ function formatDuration(value?: number | null) {
   gap: var(--graft-density-gap-12);
 }
 
-.scheduled-task-job-summary {
-  background: var(--td-bg-color-container-hover);
-  border: 1px solid var(--td-component-stroke);
-  border-radius: var(--td-radius-medium);
+.scheduled-task-form-section {
   display: flex;
   flex-direction: column;
-  gap: var(--graft-density-gap-8);
-  margin-bottom: var(--graft-density-gap-16);
-  padding: var(--graft-density-gap-12);
+  gap: var(--graft-density-gap-12);
+  margin-bottom: var(--graft-density-gap-20);
 }
 
-.scheduled-task-job-summary div {
+.scheduled-task-form-section__head h3 {
+  color: var(--td-text-color-primary);
+  font: var(--td-font-title-small);
+  margin: 0;
+}
+
+.scheduled-task-job-option {
+  align-items: center;
+  display: flex;
+  gap: var(--graft-density-gap-12);
+  justify-content: space-between;
+  min-width: 0;
+  width: 100%;
+}
+
+.scheduled-task-job-option__main {
   display: flex;
   flex-direction: column;
   gap: var(--graft-density-gap-4);
   min-width: 0;
 }
 
-.scheduled-task-job-summary strong {
+.scheduled-task-job-option__main strong {
   color: var(--td-text-color-primary);
+  font-weight: 600;
 }
 
-.scheduled-task-job-summary span,
-.scheduled-task-json-preview {
+.scheduled-task-job-option__main span {
   color: var(--td-text-color-secondary);
+  overflow-wrap: anywhere;
 }
 
-.scheduled-task-job-summary p {
+.scheduled-task-job-summary {
+  background: var(--td-bg-color-container);
+}
+
+.scheduled-task-job-summary :deep(.t-card__body) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--graft-density-gap-12);
+}
+
+.scheduled-task-job-summary p,
+.scheduled-task-form-section p {
   margin: 0;
 }
 
@@ -1741,14 +1896,14 @@ function formatDuration(value?: number | null) {
   white-space: pre-wrap;
 }
 
-.scheduled-task-cron-builder {
+.scheduled-task-params-field {
   display: flex;
   flex-direction: column;
   gap: var(--graft-density-gap-8);
 }
 
-.scheduled-task-cron-builder :deep(.t-radio-group) {
-  flex-wrap: wrap;
+.scheduled-task-params-field > .t-button {
+  align-self: flex-start;
 }
 
 .scheduled-task-drawer-footer {

@@ -19,6 +19,29 @@
       "title": "应用日志保留清理",
       "description": "删除超过配置保留窗口的应用日志。"
     },
+    "cronDescription": {
+      "everyMinute": "每分钟执行一次。",
+      "everyNMinutes": "每 {interval} 分钟执行一次。",
+      "hourly": "每小时整点执行一次。",
+      "daily": "每天 {hour}:00 执行一次。",
+      "weekly": "每周第 {dayOfWeek} 天 {hour}:00 执行一次。",
+      "monthly": "每月 {dayOfMonth} 日 {hour}:00 执行一次。",
+      "custom": "当前表达式：{expression}",
+      "invalid": "Cron 表达式不合法。"
+    },
+    "cronValidation": {
+      "fieldCount": "Cron 表达式必须是 {unixFields} 字段 Unix Cron 或 {secondsFields} 字段秒级 Cron。",
+      "stepRange": "Cron {field} 步长必须介于 {min} 到 {max} 之间。",
+      "fieldRange": "Cron {field} 字段必须是 * 或 {min} 到 {max} 之间的数字。"
+    },
+    "cronEditor": {
+      "title": "Cron 调度",
+      "expressionLabel": "Cron Expression",
+      "expressionPlaceholder": "例如 */5 * * * *",
+      "inputHint": "支持 5 字段 Unix Cron 或 6 字段秒级 Cron，保存值会按后端调度规范归一化。",
+      "validStatus": "有效",
+      "emptyExpression": "暂无表达式"
+    },
     "list": {
       "eyebrow": "服务管理",
       "title": "定时任务",
@@ -95,39 +118,21 @@
       "scheduleType": {
         "cron": "Cron"
       },
-      "cronMode": {
-        "everyMinute": "每分钟",
-        "every5Minutes": "每 5 分钟",
-        "hourly": "每小时",
-        "daily": "每天",
-        "weekly": "每周",
-        "monthly": "每月",
-        "custom": "自定义"
-      },
-      "cronHint": {
-        "everyMinute": "每分钟执行一次。",
-        "every5Minutes": "每 5 分钟执行一次。",
-        "hourly": "每小时整点执行一次。",
-        "daily": "每天 00:00 执行一次。",
-        "weekly": "每周日 00:00 执行一次。",
-        "monthly": "每月 1 日 00:00 执行一次。",
-        "custom": "直接编辑 Cron 表达式，保存时以后端校验为准。"
-      },
-      "cronDescription": {
-        "everyMinute": "表达式：* * * * *",
-        "every5Minutes": "表达式：*/5 * * * *",
-        "hourly": "表达式：0 * * * *",
-        "daily": "表达式：0 0 * * *",
-        "weekly": "表达式：0 0 * * 0",
-        "monthly": "表达式：0 0 1 * *",
-        "custom": "当前表达式：{expression}"
-      },
       "form": {
         "createTitle": "新建定时任务",
         "editTitle": "编辑任务",
+        "sectionJobType": "Job 类型",
+        "sectionBasic": "任务说明",
+        "sectionExecutionPlan": "执行计划",
+        "sectionEnabled": "启用状态",
+        "sectionAdvancedParams": "高级参数",
         "jobType": "Job 类型",
         "jobTypePlaceholder": "选择一个 Job Definition",
-        "jobDefaults": "模块 {module} · 归属 {owner} · 默认 Cron {cron}",
+        "jobKey": "Job Key",
+        "module": "模块",
+        "owner": "归属",
+        "defaultCron": "默认 Cron",
+        "defaultParams": "默认参数",
         "paramsSchema": "参数 Schema",
         "taskKey": "Task Key",
         "taskKeyPlaceholder": "例如 audit.retention.daily",
@@ -135,17 +140,17 @@
         "titlePlaceholder": "输入任务名称",
         "description": "描述",
         "descriptionPlaceholder": "输入任务说明",
-        "cronBuilder": "Cron Builder",
         "cronExpression": "Cron Expression",
-        "cronExpressionPlaceholder": "例如 */5 * * * *",
         "enabled": "启用",
         "paramsJson": "参数 JSON",
         "paramsJsonPlaceholder": "{\n  \"window_days\": 30\n}",
+        "formatJson": "格式化 JSON",
         "taskKeyRequiredHint": "请填写 Task Key。",
         "jobTypeRequiredHint": "请选择 Job 类型。",
         "titleRequiredHint": "请填写标题。",
         "paramsJsonInvalidHint": "参数必须是合法 JSON。",
-        "cronRequiredHint": "请填写 Cron 表达式。"
+        "cronRequiredHint": "请填写 Cron 表达式。",
+        "cronInvalidHint": "Cron 表达式不合法。"
       },
       "runDialog": {
         "title": "确认执行任务？",
@@ -189,6 +194,7 @@
         "duration": "耗时",
         "result": "结果",
         "none": "无",
+        "noError": "未记录错误",
         "notAvailable": "不可用",
         "enabledYes": "是",
         "enabledNo": "否",
