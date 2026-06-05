@@ -3,49 +3,12 @@
   "common": {
     "appName": "Graft Admin",
     "copyright": "Copyright (C) 2021-2026 Graft. All Rights Reserved",
-    "conjunction": "and",
-    "admin": "admin"
+    "conjunction": "and"
   },
   "components": {
-    "isSetup": {
-      "on": "Enabled",
-      "off": "Disabled"
-    },
-    "manage": "Manage",
-    "delete": "Delete",
-    "deleteSuccess": "Deleted successfully",
-    "copySuccess": "Copied successfully",
-    "copyFail": "Copy failed",
-    "submitSuccess": "Submitted successfully",
     "commonTable": {
-      "contractName": "Name",
-      "contractStatus": "Status",
-      "contractNum": "Number",
-      "contractType": "Type",
-      "contractPayType": "Pay Type",
-      "contractAmount": "Amount",
-      "contractNamePlaceholder": "enter contract name",
-      "contractStatusPlaceholder": "enter contract status",
-      "contractNumPlaceholder": "enter contract number",
-      "contractTypePlaceholder": "enter contract type",
       "operation": "Operation",
-      "detail": "detail",
-      "delete": "delete",
-      "placeholder": "please enter to search",
-      "contractStatusEnum": {
-        "fail": "fail",
-        "audit": "audit",
-        "executing": "executing",
-        "pending": "pending",
-        "finish": "finish"
-      },
-      "contractTypeEnum": {
-        "main": "main",
-        "sub": "sub",
-        "supplement": "supplement"
-      },
-      "reset": "reset",
-      "query": "query"
+      "detail": "detail"
     }
   },
   "layout": {
@@ -62,7 +25,6 @@
       "clear": "Clear",
       "setRead": "Set Read",
       "empty": "Empty",
-      "emptyNotice": "No Notice",
       "viewAll": "View All"
     },
     "tagTabs": {
@@ -71,12 +33,10 @@
       "closeRight": "close right",
       "refresh": "refresh"
     },
-    "searchPlaceholder": "Enter search content",
     "search": {
       "placeholder": "Enter search content"
     },
     "setting": {
-      "title": "Setting",
       "theme": {
         "mode": "Theme Mode",
         "color": "Theme Color",
@@ -87,8 +47,6 @@
         }
       },
       "navigationLayout": "Navigation Layout",
-      "sideMode": "Side Menu Mode",
-      "splitMenu": "Split Menu (Only Mix mode)",
       "splitMenuShort": "Split Menu",
       "fixedSidebar": "Fixed Sidebar",
       "element": {
@@ -161,13 +119,7 @@
         "overview": {
           "currentConfig": "Current Configuration",
           "currentTheme": "Current Theme",
-          "description": "Review the appearance settings currently in effect.",
-          "currentLayout": "Current Layout",
-          "modifiedCount": "Modified Items"
-        },
-        "identity": {
-          "customized": "{name} (Customized)",
-          "basedOn": "Based on {name}"
+          "description": "Review the appearance settings currently in effect."
         },
         "appearance": {
           "description": "Choose theme mode, theme color, and preset themes.",
@@ -181,7 +133,6 @@
         "typography": {
           "fontFamily": "Font Family",
           "fontSize": "Font Size",
-          "system": "System Default",
           "fontFamilies": {
             "system": "System Default",
             "harmonyos": "HarmonyOS Sans",
@@ -236,7 +187,6 @@
           "light": "Light",
           "dark": "Dark",
           "reset": "Reset Inheritance",
-          "description": "Adjust Design Tokens by group.",
           "empty": "No editable tokens in this group"
         },
         "tokenDefinitions": {
@@ -292,40 +242,6 @@
       }
     }
   },
-  "constants": {
-    "contract": {
-      "name": "Name",
-      "status": "Status",
-      "num": "Number",
-      "type": "Type",
-      "typePlaceholder": "Please enter type",
-      "payType": "Pay Type",
-      "amount": "Amount",
-      "amountPlaceholder": "Please enter amount",
-      "signDate": "Sign Date",
-      "effectiveDate": "Effective Date",
-      "endDate": "End Date",
-      "createDate": "Create Date",
-      "attachment": "Attachment",
-      "company": "Company",
-      "employee": "Employee",
-      "pay": "pay",
-      "receive": "received",
-      "remark": "remark",
-      "statusOptions": {
-        "fail": "Failure",
-        "auditPending": "Pending audit",
-        "execPending": "Pending performance",
-        "executing": "Successful",
-        "finish": "Finish"
-      },
-      "typeOptions": {
-        "main": "Master contract",
-        "sub": "Subcontract",
-        "supplement": "Supplementary contract"
-      }
-    }
-  },
   "menu": {
     "access_control": {
       "title": "Access Control",
@@ -348,15 +264,6 @@
     "user_list": {
       "title": "User Management"
     },
-    "audit": {
-      "title": "Security Audit",
-      "overview": {
-        "title": "Overview"
-      },
-      "logs": {
-        "title": "Audit Logs"
-      }
-    },
     "server": {
       "title": "Service Management",
       "overview": {
@@ -368,6 +275,9 @@
       "dependencies": {
         "title": "Dependencies"
       }
+    },
+    "logCenter": {
+      "title": "Log Center"
     }
   },
   "app": {
@@ -380,31 +290,6 @@
         "remember": "Remember me",
         "forget": "Forgot account?",
         "signIn": "Sign in",
-        "register": {
-          "phonePlaceholder": "Please enter your phone number",
-          "emailPlaceholder": "Please enter your email",
-          "passwordPlaceholder": "Please enter your password",
-          "verifyCodePlaceholder": "Please enter verification code",
-          "sendVerifyCode": "Send verification code",
-          "resendCountdown": "Resend in {count} seconds",
-          "agreeTerms": "I have read and agree to",
-          "serviceTerms": "TDesign Service Terms",
-          "privacyStatement": "TDesign Privacy Statement",
-          "registerBtn": "Register",
-          "useEmailRegister": "Register with email",
-          "usePhoneRegister": "Register with phone",
-          "validation": {
-            "phone": "Phone number is required",
-            "email": "Email is required",
-            "emailFormat": "Please enter a valid email",
-            "password": "Password is required",
-            "verifyCode": "Verification code is required",
-            "agreeTerms": "You must agree to the service terms and privacy statement"
-          },
-          "messages": {
-            "registerSuccess": "Registration successful"
-          }
-        },
         "refresh": "refresh",
         "wechatLogin": "Login with WeChat",
         "accountLogin": "Login with Account",
@@ -441,11 +326,11 @@
           },
           "errors": {
             "confirmMismatch": "The new passwords do not match",
-            "defaultPasswordForbidden": "You cannot keep using the default password graft-admin",
             "policyViolation": "The new password must be at least 12 characters and include both letters and numbers",
             "submitFailed": "Failed to update the password. Please try again."
           }
-        }
+        },
+        "sendVerification": "Send verification code"
       },
       "register": {
         "phonePlaceholder": "Please enter your phone number",
@@ -488,35 +373,6 @@
         "title": "500 Internal Server Error",
         "subtitle": "Sorry, the server encountered an error",
         "back": "Back to home"
-      },
-      "fail": {
-        "title": "Creation failed",
-        "subtitle": "Sorry, your project creation has failed",
-        "back": "Back to home",
-        "modify": "Back to modify"
-      },
-      "success": {
-        "title": "Project created",
-        "subtitle": "Contact the person in charge of distributing the application",
-        "back": "Back to home",
-        "progress": "Check Progress"
-      },
-      "maintenance": {
-        "title": "System maintenance",
-        "subtitle": "Please try again later",
-        "back": "Back to home"
-      },
-      "browserIncompatible": {
-        "title": "Browser is incompatible",
-        "subtitle": "The browser version you are using is too outdated to open this page.",
-        "back": "Back to homepage",
-        "recommend": "Recommended browsers"
-      },
-      "networkError": {
-        "title": "Network Error",
-        "subtitle": "Network error, please try again later",
-        "back": "Back to homepage",
-        "reload": "Reload"
       }
     },
     "notification": {
@@ -527,35 +383,6 @@
       "msg2": "Third Quarter Raw Material Procurement Project invoicing successful!",
       "msg3": "Meeting 【State Grid Offline Signing】at 2021-01-01 10:00 is about to start, please arrive at Conference Room 1 10 minutes early for check-in!",
       "msg4": "First Quarter Raw Material Procurement Project invoicing successful!"
-    },
-    "list": {
-      "base": {
-        "export": "export",
-        "create": "create",
-        "select": "select",
-        "items": "items",
-        "contractName": "Name",
-        "contractStatus": "Status",
-        "contractNum": "Number",
-        "contractType": "Type",
-        "contractPayType": "Pay Type",
-        "contractAmount": "Amount",
-        "operation": "Operation",
-        "detail": "detail",
-        "delete": "delete",
-        "pay": "pay",
-        "receive": "received",
-        "placeholder": "please enter to search",
-        "deleteConfirm": "Confirm delete selected contracts?",
-        "deleteTip": "After deletion, all contract information of {name} will be cleared and cannot be recovered",
-        "contractStatusEnum": {
-          "fail": "fail",
-          "audit": "audit",
-          "executing": "executing",
-          "pending": "pending",
-          "finish": "finish"
-        }
-      }
     }
   }
 }

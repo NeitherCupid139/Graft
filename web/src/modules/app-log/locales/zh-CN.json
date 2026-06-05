@@ -1,8 +1,5 @@
 {
   "menu": {
-    "logCenter": {
-      "title": "日志中心"
-    },
     "appLog": {
       "title": "应用日志"
     }
@@ -46,7 +43,6 @@
     },
     "filters": {
       "occurredRange": "发生时间",
-      "severity": "级别",
       "component": "组件",
       "operation": "操作",
       "requestId": "请求 ID",
@@ -55,7 +51,6 @@
       "method": "方法",
       "message": "消息",
       "error": "错误",
-      "keyword": "关键词",
       "allSeverity": "全部级别",
       "sortOccurredAt": "发生时间",
       "sortSeverity": "级别",

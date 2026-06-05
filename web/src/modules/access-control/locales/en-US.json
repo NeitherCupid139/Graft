@@ -30,8 +30,6 @@
         "builtinRolesDescription": "Protect the system baseline and keep critical fields constrained"
       },
       "risk": {
-        "title": "Risks and Follow-up",
-        "subtitle": "Review unassigned users, empty roles, and builtin-role constraints first.",
         "groupTitle": "Current Risks",
         "emptyTitle": "No recognizable access control risks",
         "emptyDescription": "Role and permission history can be shown after audit logs are added.",
@@ -91,9 +89,6 @@
         "unknown": "-"
       },
       "navHint": "Access Control"
-    },
-    "todo": {
-      "menuContractAlignment": "Dynamic menu hierarchy and title_key still need backend contract alignment. The frontend aggregation layer currently bridges the gap."
     }
   }
 }

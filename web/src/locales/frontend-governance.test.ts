@@ -13,6 +13,8 @@ type VisibleScope = {
 
 const rootZh = loadJson(resolve(process.cwd(), 'src/locales/lang/zh-CN.json'));
 const rootEn = loadJson(resolve(process.cwd(), 'src/locales/lang/en-US.json'));
+const auditZh = loadJson(resolve(process.cwd(), 'src/modules/audit/locales/zh-CN.json'));
+const auditEn = loadJson(resolve(process.cwd(), 'src/modules/audit/locales/en-US.json'));
 
 const visibleScopes: VisibleScope[] = [
   {
@@ -93,7 +95,7 @@ describe('frontend visible-copy governance', () => {
     });
   });
 
-  it('keeps root menu title keys available in both locales', () => {
+  it('keeps owned menu title keys available in both locales', () => {
     const requiredKeys = [
       'menu.role_list.title',
       'menu.user_list.title',
@@ -103,14 +105,17 @@ describe('frontend visible-copy governance', () => {
       'menu.server.overview.title',
       'menu.server.runtime.title',
       'menu.server.dependencies.title',
-      'menu.audit.title',
-      'menu.audit.overview.title',
-      'menu.audit.logs.title',
+      'menu.logCenter.title',
     ];
 
     requiredKeys.forEach((key) => {
       expect(resolvePath(rootZh, key)).toEqual(expect.any(String));
       expect(resolvePath(rootEn, key)).toEqual(expect.any(String));
+    });
+
+    ['menu.audit.title', 'menu.audit.overview.title', 'menu.audit.logs.title'].forEach((key) => {
+      expect(resolvePath(auditZh, key)).toEqual(expect.any(String));
+      expect(resolvePath(auditEn, key)).toEqual(expect.any(String));
     });
   });
 

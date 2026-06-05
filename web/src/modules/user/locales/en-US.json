@@ -1,33 +1,5 @@
 {
   "user": {
-    "profile": {
-      "markDay": "Good afternoon, today marks your 100th day at Tencent",
-      "greeting": "Hi, Image",
-      "unit": "(times)",
-      "account": "My Account",
-      "organization": "Tencent / Tencent Company / Business Group / Product Department / Operations Center / Merchant Services Group",
-      "personalInfo": {
-        "title": "Personal Info",
-        "position": "Employee of the Hong Kong and Macau Business Expansion team",
-        "desc": {
-          "phone": "Phone",
-          "mobile": "Mobile",
-          "seat": "Seat",
-          "email": "Email",
-          "position": "Position",
-          "leader": "Leader",
-          "entity": "Entity",
-          "joinDay": "Day of join",
-          "group": "Group"
-        },
-        "tencentGroup": "Tencent Group",
-        "seniorDesigner": "Senior UI Designer"
-      },
-      "visitData": "Visit Data",
-      "contentList": "Content List",
-      "teamMember": "Team Member",
-      "serviceProduction": "Service Product"
-    },
     "userList": {
       "listTitle": "User Management",
       "hint": "Manage admin accounts, status switches, role assignments, and security actions.",
@@ -51,7 +23,6 @@
       "deleteFailed": "Failed to delete user",
       "assignRoles": "Manage Roles",
       "columnSettings": "Columns",
-      "empty": "No user data",
       "emptyDescription": "No data matches the current filters. Clear filters or create a new record.",
       "loadFailed": "Failed to load users",
       "errorTitle": "User data is temporarily unavailable",
@@ -85,7 +56,6 @@
         "searchPlaceholder": "Search username, display name, or email",
         "statusAll": "All Statuses",
         "statusPlaceholder": "Filter status",
-        "roleAll": "All Roles",
         "rolePlaceholder": "Filter role",
         "clearFilters": "Clear Filters"
       },
@@ -94,10 +64,7 @@
         "disabled": "Disabled"
       },
       "roleSummary": {
-        "empty": "Unassigned",
-        "loading": "Loading",
-        "loadFailed": "Failed to load role summary",
-        "unavailable": "-"
+        "empty": "Unassigned"
       },
       "unavailable": {
         "create": "You do not have permission to create users",
@@ -188,10 +155,13 @@
           "availableRoles": "Assignable roles",
           "assignedRoles": "Currently assigned"
         },
-        "submitBlocked": "Role changes are temporarily unavailable. Retry after refreshing the latest role data.",
         "retry": "Retry",
         "cancel": "Cancel",
         "confirm": "Save Assignment"
+      },
+      "detailTitle": "User Details",
+      "detailFields": {
+        "email": "Email"
       }
     }
   }

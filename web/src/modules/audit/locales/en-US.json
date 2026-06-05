@@ -77,10 +77,6 @@
         "riskWatch": "Recent Risk"
       },
       "riskGroups": {
-        "criticalSecurity": "Critical Security Failures",
-        "highRiskOperations": "High-Risk Operations",
-        "authFailures": "Authentication Failures",
-        "permissionDenials": "Permission Denials",
         "meta": "{count} events in the current window",
         "action": "View related events"
       },
@@ -89,10 +85,7 @@
         "emptyDescription": "Trend analysis will appear after more audit events are collected.",
         "totalMetric": "Total events",
         "highRiskMetric": "High risk",
-        "securityMetric": "Security events",
-        "totalValue": "Total {value}",
-        "highRiskValue": "High risk: {value}",
-        "securityValue": "Security events: {value}"
+        "securityMetric": "Security events"
       },
       "timeline": {
         "openEvent": "Open Event"
@@ -122,96 +115,19 @@
       "stats": {
         "totalLogs": {
           "title": "Audit Log Count",
-          "unit": "events",
-          "meta": "all records",
-          "values": {
-            "24h": "4,812",
-            "7d": "26,430",
-            "30d": "101,208"
-          }
+          "unit": "events"
         },
         "failedWindow": {
           "title": "Security Failure Count",
-          "unit": "events",
-          "meta": "current window",
-          "values": {
-            "24h": "37",
-            "7d": "126",
-            "30d": "482"
-          }
+          "unit": "events"
         },
         "highRisk": {
           "title": "High-Risk Event Count",
-          "unit": "items",
-          "meta": "current window",
-          "values": {
-            "24h": "12",
-            "7d": "41",
-            "30d": "159"
-          }
+          "unit": "items"
         },
         "sensitiveOps": {
           "title": "Sensitive Operation Count",
-          "unit": "actions",
-          "meta": "current window",
-          "values": {
-            "24h": "28",
-            "7d": "94",
-            "30d": "312"
-          }
-        }
-      },
-      "items": {
-        "failedAuth": {
-          "one": {
-            "actor": "ops-admin",
-            "resource": "Console sign-in / 10.24.18.9",
-            "time": "10:42"
-          },
-          "two": {
-            "actor": "release-bot",
-            "resource": "API token check / api-gateway",
-            "time": "09:18"
-          },
-          "three": {
-            "actor": "auditor",
-            "resource": "SSO sign-in / rbac-console",
-            "time": "08:57"
-          }
-        },
-        "permissionDenied": {
-          "one": {
-            "actor": "ops-admin",
-            "resource": "Role delete / role:ops-admin",
-            "time": "10:26"
-          },
-          "two": {
-            "actor": "audit-bot",
-            "resource": "Permission read / permission:rbac.role.assign",
-            "time": "09:51"
-          },
-          "three": {
-            "actor": "viewer-01",
-            "resource": "Policy update / policy:session-lock",
-            "time": "08:33"
-          }
-        },
-        "sensitiveOps": {
-          "one": {
-            "actor": "ops-admin",
-            "resource": "Role grant / role:ops-admin",
-            "time": "10:08"
-          },
-          "two": {
-            "actor": "security-lead",
-            "resource": "Password reset / user:demo-owner",
-            "time": "09:22"
-          },
-          "three": {
-            "actor": "platform-root",
-            "resource": "Session revoke / session:edge-12",
-            "time": "08:10"
-          }
+          "unit": "actions"
         }
       },
       "shortcuts": {
@@ -226,23 +142,6 @@
         "sensitiveOps": {
           "title": "Open Sensitive Operations",
           "description": "Locate export, delete, and other privileged write audit events"
-        }
-      },
-      "watch": {
-        "permissionBurst": {
-          "title": "Permission denies cluster on role resources",
-          "description": "role.delete and role.assign repeated in the last 30 minutes.",
-          "tag": "Role resource"
-        },
-        "multiFail": {
-          "title": "Repeated failed authentication from one network",
-          "description": "Edge network 10.24.18.0/24 triggered failed sign-ins across multiple accounts.",
-          "tag": "Auth failure"
-        },
-        "rbacWindow": {
-          "title": "Sensitive operations still active during permission configuration changes",
-          "description": "Session and permission writes continued after role grants.",
-          "tag": "Needs review"
         }
       }
     },
@@ -334,18 +233,11 @@
         "all": "All",
         "securityEvents": "Security Events",
         "failedOperations": "Failed Operations",
-        "todayAnomalies": "Today's Security Anomalies",
         "rbacChanges": "Permission Configuration Changes",
         "permissionDenied": "Permission Denied",
         "sensitiveOps": "Sensitive Operations",
         "authFailed": "Auth Failed",
         "highRisk": "High Risk"
-      },
-      "time": {
-        "last24h": "Last 24 Hours",
-        "last7d": "Last 7 Days",
-        "last30d": "Last 30 Days",
-        "custom": "Custom Time Range"
       },
       "actions": {
         "search": "Search",
@@ -355,9 +247,7 @@
         "addSorter": "Add Sort Item",
         "removeSorter": "Remove Sort Item",
         "moveSorterUp": "Move Up",
-        "moveSorterDown": "Move Down",
-        "showAdvanced": "Advanced Filters",
-        "hideAdvanced": "Hide Advanced"
+        "moveSorterDown": "Move Down"
       },
       "scope": {
         "drilldownTag": "Drilldown: {name}",
@@ -379,14 +269,7 @@
         "title": "Filter fields",
         "hint": "Choose a field and set its value. Active conditions appear as removable tags.",
         "groups": {
-          "time": "Time Range",
-          "filters": "Filter Conditions",
-          "sort": "Sort"
-        },
-        "summary": {
-          "customTime": "{range}",
-          "result": "Result {value}",
-          "sortBy": "Sort by {field} {direction}"
+          "filters": "Filter Conditions"
         },
         "fields": {
           "timeRange": "Time Range",
@@ -434,7 +317,6 @@
         "requestPathPrefixesPlaceholder": "Type a request path prefix and press Enter"
       },
       "sort": {
-        "title": "Sort",
         "tagPrefix": "Sort",
         "fieldPlaceholder": "Sort By",
         "directionPlaceholder": "Sort Order",
@@ -443,9 +325,6 @@
         "desc": "Descending"
       },
       "filterOptions": {
-        "allActions": "All actions",
-        "allSource": "All event types",
-        "allResourceTypes": "All target types",
         "auth": "Authentication",
         "authPrefix": "Authentication actions",
         "rbacPrefix": "Permission configuration actions",
@@ -458,12 +337,10 @@
         "roleResource": "Role",
         "permissionResource": "Permission",
         "authResource": "Authentication",
-        "allResults": "All results",
         "SUCCESS": "Success",
         "FAILED": "Failed",
         "DENIED": "Denied",
         "ERROR": "System Error",
-        "allRisk": "All risk",
         "LOW": "Low",
         "MEDIUM": "Medium",
         "HIGH": "High",

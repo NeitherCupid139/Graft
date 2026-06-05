@@ -1,33 +1,5 @@
 {
   "user": {
-    "profile": {
-      "markDay": "下午好，今天是你加入鹅厂的第 100 天",
-      "greeting": "你好，Image",
-      "unit": "（次）",
-      "account": "我的账户",
-      "organization": "腾讯/腾讯公司/某事业群/某产品部/某运营中心/商户服务组",
-      "personalInfo": {
-        "title": "个人信息",
-        "position": "港澳业务拓展组员工 直客销售 ",
-        "desc": {
-          "phone": "座机",
-          "mobile": "手机",
-          "seat": "座位",
-          "email": "邮箱",
-          "position": "职位",
-          "leader": "上级",
-          "entity": "主体",
-          "joinDay": "入职时间",
-          "group": "所属团队"
-        },
-        "tencentGroup": "腾讯集团",
-        "seniorDesigner": "高级 UI 设计师"
-      },
-      "visitData": "首页访问数据",
-      "contentList": "内容列表",
-      "teamMember": "团队成员",
-      "serviceProduction": "服务产品"
-    },
     "userList": {
       "listTitle": "用户管理",
       "hint": "管理后台账号、启停状态、角色授权与安全操作。",
@@ -51,7 +23,6 @@
       "deleteFailed": "用户删除失败",
       "assignRoles": "管理角色",
       "columnSettings": "列设置",
-      "empty": "暂无用户数据",
       "emptyDescription": "当前筛选条件下没有数据，可清空筛选或创建新数据。",
       "loadFailed": "用户列表加载失败",
       "errorTitle": "用户数据暂时不可用",
@@ -85,7 +56,6 @@
         "searchPlaceholder": "搜索用户名、显示名、邮箱",
         "statusAll": "全部状态",
         "statusPlaceholder": "筛选状态",
-        "roleAll": "全部角色",
         "rolePlaceholder": "筛选角色",
         "clearFilters": "清空筛选"
       },
@@ -94,10 +64,7 @@
         "disabled": "禁用"
       },
       "roleSummary": {
-        "empty": "-",
-        "loading": "加载中",
-        "loadFailed": "角色摘要加载失败",
-        "unavailable": "-"
+        "empty": "-"
       },
       "unavailable": {
         "create": "无权创建用户",
@@ -188,10 +155,13 @@
           "availableRoles": "可分配角色",
           "assignedRoles": "当前已分配"
         },
-        "submitBlocked": "角色变更暂时不可用，请刷新最新角色数据后重试",
         "retry": "重试",
         "cancel": "取消",
         "confirm": "保存角色分配"
+      },
+      "detailTitle": "用户详情",
+      "detailFields": {
+        "email": "邮箱"
       }
     }
   }

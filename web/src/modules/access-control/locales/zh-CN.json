@@ -30,8 +30,6 @@
         "builtinRolesDescription": "保留系统基线能力，限制删除和关键字段修改"
       },
       "risk": {
-        "title": "风险与待处理事项",
-        "subtitle": "优先处理未分配角色、空角色与内置角色限制说明。",
         "groupTitle": "当前风险",
         "emptyTitle": "暂无可识别的访问控制风险",
         "emptyDescription": "后续接入审计日志后可展示角色与权限变更历史",
@@ -91,9 +89,6 @@
         "unknown": "-"
       },
       "navHint": "访问控制"
-    },
-    "todo": {
-      "menuContractAlignment": "动态菜单层级与 title_key 仍需后端菜单契约对齐，当前由前端聚合层兼容。"
     }
   }
 }

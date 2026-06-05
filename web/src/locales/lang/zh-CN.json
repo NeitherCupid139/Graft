@@ -3,49 +3,12 @@
   "common": {
     "appName": "Graft 管理台",
     "copyright": "Copyright (C) 2021-2026 Graft. All Rights Reserved",
-    "conjunction": "和",
-    "admin": "admin"
+    "conjunction": "和"
   },
   "components": {
-    "isSetup": {
-      "on": "已启用",
-      "off": "已停用"
-    },
-    "manage": "管理",
-    "delete": "删除",
-    "deleteSuccess": "删除成功",
-    "copySuccess": "复制成功",
-    "copyFail": "复制失败",
-    "submitSuccess": "提交成功",
     "commonTable": {
-      "contractName": "合同名称",
-      "contractNamePlaceholder": "请输入合同名称",
-      "contractStatus": "合同状态",
-      "contractStatusPlaceholder": "请输入合同状态",
-      "contractNum": "合同编号",
-      "contractNumPlaceholder": "请输入合同编号",
-      "contractType": "合同类型",
-      "contractTypePlaceholder": "请选择合同类型",
-      "contractPayType": "合同支付类型",
-      "contractAmount": "合同金额",
       "operation": "操作",
-      "detail": "详情",
-      "delete": "删除",
-      "placeholder": "请输入内容搜索",
-      "contractStatusEnum": {
-        "fail": "审核失败",
-        "audit": "待审核",
-        "executing": "履行中",
-        "pending": "待履行",
-        "finish": "已完成"
-      },
-      "contractTypeEnum": {
-        "main": "主合同",
-        "sub": "子合同",
-        "supplement": "补充合同"
-      },
-      "reset": "重置",
-      "query": "查询"
+      "detail": "详情"
     }
   },
   "layout": {
@@ -62,10 +25,8 @@
       "clear": "清空",
       "setRead": "设为已读",
       "empty": "空",
-      "emptyNotice": "暂无通知",
       "viewAll": "查看全部"
     },
-    "searchPlaceholder": "请输入搜索内容",
     "search": {
       "placeholder": "输入要搜索内容"
     },
@@ -76,7 +37,6 @@
       "refresh": "刷新"
     },
     "setting": {
-      "title": "页面配置",
       "theme": {
         "mode": "主题模式",
         "color": "主题色",
@@ -87,8 +47,6 @@
         }
       },
       "navigationLayout": "导航布局",
-      "sideMode": "侧边栏模式",
-      "splitMenu": "分割菜单（混合模式下有效）",
       "splitMenuShort": "分割菜单",
       "fixedSidebar": "固定侧边栏",
       "element": {
@@ -161,13 +119,7 @@
         "overview": {
           "currentConfig": "当前配置",
           "currentTheme": "当前主题",
-          "description": "查看当前正在生效的外观配置。",
-          "modifiedCount": "修改数量",
-          "currentLayout": "当前布局"
-        },
-        "identity": {
-          "customized": "{name}（已自定义）",
-          "basedOn": "基于 {name}"
+          "description": "查看当前正在生效的外观配置。"
         },
         "appearance": {
           "description": "选择主题模式、主题色和预设主题。",
@@ -181,7 +133,6 @@
         "typography": {
           "fontFamily": "字体选择",
           "fontSize": "字体大小",
-          "system": "系统默认",
           "fontFamilies": {
             "system": "系统默认",
             "harmonyos": "HarmonyOS Sans",
@@ -236,7 +187,6 @@
           "light": "亮色",
           "dark": "暗色",
           "reset": "恢复继承",
-          "description": "按分组调整 Design Token。",
           "empty": "当前分组暂无可编辑变量"
         },
         "tokenDefinitions": {
@@ -292,40 +242,6 @@
       }
     }
   },
-  "constants": {
-    "contract": {
-      "name": "合同名称",
-      "status": "合同状态",
-      "num": "合同编号",
-      "type": "合同类型",
-      "typePlaceholder": "请输入类型",
-      "payType": "合同收支类型",
-      "amount": "合同金额",
-      "amountPlaceholder": "请输入金额",
-      "signDate": "合同签订日期",
-      "effectiveDate": "合同生效日期",
-      "endDate": "合同结束日期",
-      "createDate": "合同创建时间",
-      "company": "甲方",
-      "employee": "乙方",
-      "pay": "付款",
-      "receive": "收款",
-      "remark": "备注",
-      "attachment": "附件",
-      "statusOptions": {
-        "fail": "审核失败",
-        "auditPending": "待审核",
-        "execPending": "待履行",
-        "executing": "审核成功",
-        "finish": "已完成"
-      },
-      "typeOptions": {
-        "main": "主合同",
-        "sub": "子合同",
-        "supplement": "补充合同"
-      }
-    }
-  },
   "menu": {
     "access_control": {
       "title": "访问控制",
@@ -348,15 +264,6 @@
     "user_list": {
       "title": "用户管理"
     },
-    "audit": {
-      "title": "安全审计",
-      "overview": {
-        "title": "概览"
-      },
-      "logs": {
-        "title": "审计日志"
-      }
-    },
     "server": {
       "title": "服务管理",
       "overview": {
@@ -368,6 +275,9 @@
       "dependencies": {
         "title": "依赖服务"
       }
+    },
+    "logCenter": {
+      "title": "日志中心"
     }
   },
   "app": {
@@ -380,31 +290,6 @@
         "remember": "记住账号",
         "forget": "忘记账号",
         "signIn": "登录",
-        "register": {
-          "phonePlaceholder": "请输入您的手机号",
-          "emailPlaceholder": "请输入您的邮箱",
-          "passwordPlaceholder": "请输入登录密码",
-          "verifyCodePlaceholder": "请输入验证码",
-          "sendVerifyCode": "发送验证码",
-          "resendCountdown": "{count}秒后可重发",
-          "agreeTerms": "我已阅读并同意",
-          "serviceTerms": "TDesign服务协议",
-          "privacyStatement": "TDesign 隐私声明",
-          "registerBtn": "注册",
-          "useEmailRegister": "使用邮箱注册",
-          "usePhoneRegister": "使用手机号注册",
-          "validation": {
-            "phone": "手机号必填",
-            "email": "邮箱必填",
-            "emailFormat": "请输入正确的邮箱",
-            "password": "密码必填",
-            "verifyCode": "验证码必填",
-            "agreeTerms": "请同意TDesign服务协议和TDesign 隐私声明"
-          },
-          "messages": {
-            "registerSuccess": "注册成功"
-          }
-        },
         "refresh": "刷新",
         "wechatLogin": "使用微信扫一扫登录",
         "accountLogin": "使用账号登录",
@@ -441,11 +326,11 @@
           },
           "errors": {
             "confirmMismatch": "两次输入的新密码不一致",
-            "defaultPasswordForbidden": "不能继续使用默认密码 graft-admin",
             "policyViolation": "新密码至少 12 位，且必须同时包含字母和数字",
             "submitFailed": "密码修改失败，请稍后重试"
           }
-        }
+        },
+        "sendVerification": "发送验证码"
       },
       "register": {
         "phonePlaceholder": "请输入您的手机号",
@@ -488,35 +373,6 @@
         "title": "500 Internal Server Error",
         "subtitle": "抱歉，服务器出错啦",
         "back": "返回首页"
-      },
-      "fail": {
-        "title": "创建失败",
-        "subtitle": "抱歉，您的项目创建失败，企业微信联系检查创建者权限，或返回修改。",
-        "back": "回到首页",
-        "modify": "返回修改"
-      },
-      "success": {
-        "title": "项目已创建成功",
-        "subtitle": "可以联系负责人分发应用",
-        "back": "回到首页",
-        "progress": "查看进度"
-      },
-      "maintenance": {
-        "title": "系统维护中",
-        "subtitle": "系统维护中，请稍后再试",
-        "back": "回到首页"
-      },
-      "browserIncompatible": {
-        "title": "浏览器不兼容",
-        "subtitle": "抱歉，您正在使用的浏览器版本过低，无法打开当前网页。",
-        "back": "回到首页",
-        "recommend": "推荐使用以下主流浏览器"
-      },
-      "networkError": {
-        "title": "网络异常",
-        "subtitle": "网络异常, 请稍后重试",
-        "back": "回到首页",
-        "reload": "重新加载"
       }
     },
     "notification": {
@@ -527,35 +383,6 @@
       "msg2": "三季度生产原材料采购项目 开票成功！",
       "msg3": "2021-01-01 10:00的【国家电网线下签约】会议即将开始，请提前10分钟前往 会议室1 进行签到！",
       "msg4": "一季度生产原材料采购项目 开票成功！"
-    },
-    "list": {
-      "base": {
-        "export": "导出合同",
-        "create": "新建合同",
-        "select": "已选",
-        "items": "项",
-        "contractName": "合同名称",
-        "contractStatus": "合同状态",
-        "contractNum": "合同编号",
-        "contractType": "合同类型",
-        "contractPayType": "合同收支类型",
-        "contractAmount": "合同金额",
-        "operation": "操作",
-        "detail": "详情",
-        "delete": "删除",
-        "pay": "付款",
-        "receive": "收款",
-        "placeholder": "请输入内容搜索",
-        "deleteConfirm": "确认删除当前所选合同？",
-        "deleteTip": "删除后，{name}的所有合同信息将被清空，且无法恢复",
-        "contractStatusEnum": {
-          "fail": "审核失败",
-          "audit": "待审核",
-          "executing": "履行中",
-          "pending": "待履行",
-          "finish": "已完成"
-        }
-      }
     }
   }
 }

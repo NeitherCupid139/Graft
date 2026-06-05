@@ -91,9 +91,21 @@ cd "$repo_root"
 sh "$python_runner" "$migration_version_checker" --mode all
 
 changed_files="$(git diff --name-only "$base_ref...HEAD")"
+run_i18n_lint=0
+for path in $changed_files; do
+  case "$path" in
+    web/src/*|web/scripts/check-i18n-governance.ts|web/package.json)
+      run_i18n_lint=1
+      ;;
+  esac
+done
+
 if printf '%s\n' "$changed_files" | grep -q '^web/'; then
   (
     cd "$repo_root/web"
+    if [ "$run_i18n_lint" -eq 1 ]; then
+      bun run lint:i18n
+    fi
     bun run hygiene:check
   )
 else
