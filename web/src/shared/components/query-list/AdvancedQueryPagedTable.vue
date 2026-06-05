@@ -83,6 +83,6 @@ const tableContentWidth = computed(() => calculateTableContentWidth(props.column
 }
 
 .advanced-query-paged-table__empty {
-  padding: 24px 0 8px;
+  padding: var(--graft-density-gap-24) 0 var(--graft-density-gap-8);
 }
 </style>

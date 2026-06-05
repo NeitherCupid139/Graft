@@ -13,7 +13,7 @@
 .management-toolbar__filters,
 .management-toolbar__actions {
   display: flex;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
 }
 
 .management-toolbar {
@@ -25,7 +25,7 @@
   flex-wrap: wrap;
   justify-content: space-between;
   min-height: 72px;
-  padding: 14px 20px;
+  padding: var(--graft-density-gap-14) var(--graft-density-gap-20);
 }
 
 .management-toolbar__filters,
@@ -42,7 +42,7 @@
 
 @media (width <= 768px) {
   .management-toolbar {
-    padding: 16px;
+    padding: var(--graft-density-gap-16);
   }
 
   .management-toolbar__filters,

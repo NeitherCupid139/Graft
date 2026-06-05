@@ -60,9 +60,9 @@ withDefaults(
 </script>
 <style scoped lang="less">
 .governance-dashboard-shell {
-  --governance-shell-gap: 18px;
-  --governance-shell-header-gap: 18px;
-  --governance-shell-heading-gap: 6px;
+  --governance-shell-gap: var(--graft-density-gap-18);
+  --governance-shell-header-gap: var(--graft-density-gap-18);
+  --governance-shell-heading-gap: var(--graft-density-gap-6);
   --governance-shell-summary-columns: 4;
 
   display: flex;
@@ -122,7 +122,7 @@ withDefaults(
 
 .governance-dashboard-shell__summary {
   display: grid;
-  gap: 16px;
+  gap: var(--graft-density-gap-16);
   grid-template-columns: repeat(var(--governance-shell-summary-columns), minmax(0, 1fr));
 }
 
@@ -132,9 +132,9 @@ withDefaults(
 }
 
 .governance-dashboard-shell--compact {
-  --governance-shell-gap: 16px;
-  --governance-shell-header-gap: 14px;
-  --governance-shell-heading-gap: 4px;
+  --governance-shell-gap: var(--graft-density-gap-16);
+  --governance-shell-header-gap: var(--graft-density-gap-14);
+  --governance-shell-heading-gap: var(--graft-density-gap-4);
 }
 
 .governance-dashboard-shell--compact .governance-dashboard-shell__title {
@@ -160,7 +160,7 @@ withDefaults(
   content: '';
   display: inline-flex;
   height: 8px;
-  margin-right: 8px;
+  margin-right: var(--graft-density-gap-8);
   width: 8px;
 }
 
@@ -173,7 +173,7 @@ withDefaults(
 @media (width <= 991px) {
   .governance-dashboard-shell__hero {
     flex-direction: column;
-    gap: 12px;
+    gap: var(--graft-density-gap-12);
   }
 
   .governance-dashboard-shell__actions {

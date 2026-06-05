@@ -77,10 +77,6 @@
         "riskWatch": "最近风险"
       },
       "riskGroups": {
-        "criticalSecurity": "严重安全异常",
-        "highRiskOperations": "高风险操作聚集",
-        "authFailures": "认证失败聚集",
-        "permissionDenials": "权限拒绝聚集",
         "meta": "当前窗口共 {count} 条",
         "action": "查看相关事件"
       },
@@ -89,10 +85,7 @@
         "emptyDescription": "产生更多审计事件后将展示趋势分析。",
         "totalMetric": "总事件",
         "highRiskMetric": "高风险",
-        "securityMetric": "安全事件",
-        "totalValue": "总量 {value}",
-        "highRiskValue": "高风险：{value}",
-        "securityValue": "安全事件：{value}"
+        "securityMetric": "安全事件"
       },
       "timeline": {
         "openEvent": "查看事件"
@@ -122,96 +115,19 @@
       "stats": {
         "totalLogs": {
           "title": "审计日志数",
-          "unit": "条",
-          "meta": "全量",
-          "values": {
-            "24h": "4,812",
-            "7d": "26,430",
-            "30d": "101,208"
-          }
+          "unit": "条"
         },
         "failedWindow": {
           "title": "安全失败事件数",
-          "unit": "次",
-          "meta": "当前窗口",
-          "values": {
-            "24h": "37",
-            "7d": "126",
-            "30d": "482"
-          }
+          "unit": "次"
         },
         "highRisk": {
           "title": "高风险事件数",
-          "unit": "条",
-          "meta": "当前窗口",
-          "values": {
-            "24h": "12",
-            "7d": "41",
-            "30d": "159"
-          }
+          "unit": "条"
         },
         "sensitiveOps": {
           "title": "敏感操作数",
-          "unit": "次",
-          "meta": "当前窗口",
-          "values": {
-            "24h": "28",
-            "7d": "94",
-            "30d": "312"
-          }
-        }
-      },
-      "items": {
-        "failedAuth": {
-          "one": {
-            "actor": "ops-admin",
-            "resource": "控制台登录 / 10.24.18.9",
-            "time": "10:42"
-          },
-          "two": {
-            "actor": "release-bot",
-            "resource": "API 令牌校验 / api-gateway",
-            "time": "09:18"
-          },
-          "three": {
-            "actor": "auditor",
-            "resource": "单点登录 / rbac-console",
-            "time": "08:57"
-          }
-        },
-        "permissionDenied": {
-          "one": {
-            "actor": "ops-admin",
-            "resource": "角色删除 / role:ops-admin",
-            "time": "10:26"
-          },
-          "two": {
-            "actor": "audit-bot",
-            "resource": "权限读取 / permission:rbac.role.assign",
-            "time": "09:51"
-          },
-          "three": {
-            "actor": "viewer-01",
-            "resource": "策略更新 / policy:session-lock",
-            "time": "08:33"
-          }
-        },
-        "sensitiveOps": {
-          "one": {
-            "actor": "ops-admin",
-            "resource": "角色授权 / role:ops-admin",
-            "time": "10:08"
-          },
-          "two": {
-            "actor": "security-lead",
-            "resource": "密码重置 / user:demo-owner",
-            "time": "09:22"
-          },
-          "three": {
-            "actor": "platform-root",
-            "resource": "会话失效 / session:edge-12",
-            "time": "08:10"
-          }
+          "unit": "次"
         }
       },
       "shortcuts": {
@@ -226,23 +142,6 @@
         "sensitiveOps": {
           "title": "查看敏感操作",
           "description": "定位导出、删除与高权限写操作审计事件"
-        }
-      },
-      "watch": {
-        "permissionBurst": {
-          "title": "权限拒绝在角色资源上集中",
-          "description": "最近 30 分钟内重复出现 role.delete 与 role.assign。",
-          "tag": "角色资源"
-        },
-        "multiFail": {
-          "title": "同一来源网络连续失败认证",
-          "description": "边缘网络 10.24.18.0/24 在多个账号上出现失败登录。",
-          "tag": "认证失败"
-        },
-        "rbacWindow": {
-          "title": "权限配置调整期间仍有敏感操作",
-          "description": "角色授权后仍有会话与权限类写操作进入日志。",
-          "tag": "持续复核"
         }
       }
     },
@@ -334,18 +233,11 @@
         "all": "全部",
         "securityEvents": "安全事件",
         "failedOperations": "失败操作",
-        "todayAnomalies": "今日安全异常",
         "rbacChanges": "权限配置变更",
         "permissionDenied": "权限拒绝",
         "sensitiveOps": "敏感操作",
         "authFailed": "认证失败",
         "highRisk": "高风险"
-      },
-      "time": {
-        "last24h": "最近 24 小时",
-        "last7d": "最近 7 天",
-        "last30d": "最近 30 天",
-        "custom": "自定义时间范围"
       },
       "actions": {
         "search": "查询",
@@ -355,9 +247,7 @@
         "addSorter": "添加排序项",
         "removeSorter": "移除排序项",
         "moveSorterUp": "上移",
-        "moveSorterDown": "下移",
-        "showAdvanced": "高级筛选",
-        "hideAdvanced": "收起高级筛选"
+        "moveSorterDown": "下移"
       },
       "scope": {
         "drilldownTag": "钻取：{name}",
@@ -379,14 +269,7 @@
         "title": "筛选字段",
         "hint": "选择一个字段后立即设置条件，已设置字段会显示为可移除标签。",
         "groups": {
-          "time": "时间范围",
-          "filters": "筛选条件",
-          "sort": "排序方式"
-        },
-        "summary": {
-          "customTime": "{range}",
-          "result": "结果 {value}",
-          "sortBy": "按{field}{direction}"
+          "filters": "筛选条件"
         },
         "fields": {
           "timeRange": "时间范围",
@@ -434,7 +317,6 @@
         "requestPathPrefixesPlaceholder": "输入请求路径前缀后回车"
       },
       "sort": {
-        "title": "排序",
         "tagPrefix": "排序",
         "fieldPlaceholder": "排序字段",
         "directionPlaceholder": "排序方向",
@@ -443,9 +325,6 @@
         "desc": "降序"
       },
       "filterOptions": {
-        "allActions": "全部操作",
-        "allSource": "全部事件类型",
-        "allResourceTypes": "全部目标类型",
         "auth": "认证",
         "authPrefix": "认证动作",
         "rbacPrefix": "权限配置动作",
@@ -458,12 +337,10 @@
         "roleResource": "角色",
         "permissionResource": "权限",
         "authResource": "认证",
-        "allResults": "全部结果",
         "SUCCESS": "成功",
         "FAILED": "失败",
         "DENIED": "权限拒绝",
         "ERROR": "系统异常",
-        "allRisk": "全部风险",
         "LOW": "低风险",
         "MEDIUM": "中风险",
         "HIGH": "高风险",

@@ -382,7 +382,7 @@ function formatHostMemoryPercent(
 <style scoped lang="less">
 .server-status-runtime-grid {
   display: grid;
-  gap: 16px;
+  gap: var(--graft-density-gap-16);
   grid-template-columns: repeat(12, minmax(0, 1fr));
 }
 
@@ -396,14 +396,14 @@ function formatHostMemoryPercent(
   border-radius: var(--td-radius-medium);
   color: var(--td-text-color-secondary);
   font: var(--td-font-body-small);
-  padding: 6px 10px;
+  padding: var(--graft-density-gap-6) var(--graft-density-gap-10);
 }
 
 .server-status-runtime-memory-hero {
   display: grid;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin-bottom: 16px;
+  margin-bottom: var(--graft-density-gap-16);
 }
 
 .server-status-runtime-memory-hero__item {
@@ -411,14 +411,14 @@ function formatHostMemoryPercent(
   border: 1px solid var(--server-status-card-border, var(--td-component-stroke));
   border-radius: calc(var(--td-radius-large) - 2px);
   min-height: 92px;
-  padding: 16px;
+  padding: var(--graft-density-gap-16);
 }
 
 .server-status-runtime-memory-hero__label {
   color: var(--td-text-color-secondary);
   display: block;
   font: var(--td-font-body-small);
-  margin-bottom: 8px;
+  margin-bottom: var(--graft-density-gap-8);
 }
 
 .server-status-runtime-memory-hero__value {

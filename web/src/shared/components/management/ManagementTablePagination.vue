@@ -19,7 +19,7 @@ defineProps<{
 .management-table-pagination {
   align-items: center;
   display: flex;
-  gap: 20px;
+  gap: var(--graft-density-gap-20);
   justify-content: space-between;
   min-height: 60px;
   width: 100%;
@@ -45,7 +45,7 @@ defineProps<{
   align-items: center;
   display: flex;
   flex-wrap: nowrap;
-  gap: 14px;
+  gap: var(--graft-density-gap-14);
   justify-content: flex-end;
   margin-left: auto;
   width: auto;

@@ -1538,8 +1538,8 @@ function buildTooltip(chartColors: TChartColor, metrics: TrendMetricDefinition[]
                   : formatLoadAverage(param.data);
 
           return [
-            `<div style="display:flex;align-items:center;justify-content:space-between;gap:16px;">`,
-            `<span style="display:flex;align-items:center;gap:8px;">`,
+            `<div style="display:flex;align-items:center;justify-content:space-between;gap: var(--graft-density-gap-16);">`,
+            `<span style="display:flex;align-items:center;gap: var(--graft-density-gap-8);">`,
             `<i style="width:8px;height:8px;border-radius:999px;background:${param.color};display:inline-block;"></i>`,
             `<span>${metric.label}</span>`,
             `</span>`,
@@ -1550,7 +1550,7 @@ function buildTooltip(chartColors: TChartColor, metrics: TrendMetricDefinition[]
         .filter(Boolean)
         .join('');
 
-      return `<div style="display:flex;flex-direction:column;gap:8px;"><strong>${params[0]?.axisValueLabel ?? ''}</strong>${rows}</div>`;
+      return `<div style="display:flex;flex-direction:column;gap: var(--graft-density-gap-8);"><strong>${params[0]?.axisValueLabel ?? ''}</strong>${rows}</div>`;
     },
   };
 }

@@ -1,19 +1,10 @@
 {
   "menu": {
-    "logCenter": {
-      "title": "Log Center"
-    },
     "accessLog": {
       "title": "Access Logs"
     }
   },
   "accessLog": {
-    "time": {
-      "last24h": "Last 24 Hours",
-      "last7d": "Last 7 Days",
-      "last30d": "Last 30 Days",
-      "custom": "Custom Time Range"
-    },
     "page": {
       "title": "Access Logs",
       "description": "Inspect request traffic for troubleshooting with fast pivots across correlation, actor, and response facts.",
@@ -41,7 +32,6 @@
       "moveSorterDown": "Move Down",
       "detail": "Detail",
       "viewRelatedAuditRecords": "View Related Audit Records",
-      "openAuditByRequestId": "Open Audit Search By Request ID",
       "copy": "Copy",
       "copySuccess": "Copied",
       "copyFail": "Copy failed"
@@ -59,29 +49,22 @@
     "filters": {
       "requestId": "Request ID",
       "userId": "User ID",
-      "user": "User",
       "method": "Method",
       "path": "Path",
-      "pathMatch": "Path Match",
-      "route": "Route Template",
       "statusCode": "Status Code",
       "durationMin": "Min Duration",
       "durationMax": "Max Duration",
       "startedRange": "Request Start Time",
       "occurredRange": "Request End Time",
-      "sortBy": "Sort By",
-      "sortOrder": "Sort Order",
-      "pathMatchExact": "Exact",
-      "pathMatchPrefix": "Prefix",
       "sortStartedAt": "Started At",
       "sortOccurredAt": "Occurred At",
       "sortDuration": "Duration",
       "sortStatusCode": "Status Code",
       "sortAsc": "Ascending",
-      "sortDesc": "Descending"
+      "sortDesc": "Descending",
+      "username": "Username"
     },
     "sort": {
-      "title": "Sort",
       "tagPrefix": "Sort",
       "fieldPlaceholder": "Sort By",
       "directionPlaceholder": "Sort Order"
@@ -90,13 +73,7 @@
       "title": "Filters",
       "hint": "Add only the conditions you need instead of filling a large static form.",
       "groups": {
-        "time": "Time Range",
-        "filters": "Filter Conditions",
-        "sort": "Sort"
-      },
-      "summary": {
-        "customTime": "{range}",
-        "sortBy": "Sort by {field} {direction}"
+        "filters": "Filter Conditions"
       },
       "fields": {
         "requestId": "Request ID",

@@ -85,6 +85,9 @@ func TestMessageFallsBackToConfiguredLocalesAndKey(t *testing.T) {
 	if message := service.Message("zh-CN", "common.copyright"); message != "Copyright (C) 2021-2026 Tencent. All Rights Reserved" {
 		t.Fatalf("expected zh-CN shared copyright message, got %q", message)
 	}
+	if message := service.Message("en-US", "menu.server.title"); message != "Service Management" {
+		t.Fatalf("expected en-US shared server menu title, got %q", message)
+	}
 	if message := service.Message("en-US", "missing.key"); message != "missing.key" {
 		t.Fatalf("expected missing key fallback, got %q", message)
 	}
@@ -224,5 +227,49 @@ func TestLookupUsesModuleNamespaceAndFallbackMessage(t *testing.T) {
 	})
 	if message != "个人中心" {
 		t.Fatalf("expected explicit fallback title message, got %q", message)
+	}
+}
+
+func TestRegisteredMessageKeyIDsFindsBareKeyAcrossNamespaces(t *testing.T) {
+	service := newTestService()
+
+	if err := service.RegisterMessages(Registration{
+		Namespace: "module-runtime",
+		Locale:    LocaleENUS,
+		Messages: []MessageResource{
+			{Key: "menu.modulesRuntime.title", Text: "Module Runtime"},
+		},
+	}); err != nil {
+		t.Fatalf("register module runtime message: %v", err)
+	}
+
+	matches := service.RegisteredMessageKeyIDs(LocaleENUS, "menu.modulesRuntime.title")
+	if len(matches) != 1 || matches[0] != "module-runtime.menu.modulesRuntime.title" {
+		t.Fatalf("expected module runtime canonical key, got %v", matches)
+	}
+
+	if matches := service.RegisteredMessageKeyIDs(LocaleZHCN, "menu.modulesRuntime.title"); len(matches) != 0 {
+		t.Fatalf("expected no zh-CN matches, got %v", matches)
+	}
+}
+
+func TestRegisteredMessageResourcesFindsRegisteredTextAcrossNamespaces(t *testing.T) {
+	service := newTestService()
+
+	if err := service.RegisterMessages(Registration{
+		Namespace: "module-runtime",
+		Locale:    LocaleENUS,
+		Messages: []MessageResource{
+			{Key: "menu.modulesRuntime.title", Text: "Module Runtime"},
+		},
+	}); err != nil {
+		t.Fatalf("register module runtime message: %v", err)
+	}
+
+	matches := service.RegisteredMessageResources(LocaleENUS, "menu.modulesRuntime.title")
+	if len(matches) != 1 ||
+		matches[0].Key != "module-runtime.menu.modulesRuntime.title" ||
+		matches[0].Text != "Module Runtime" {
+		t.Fatalf("expected module runtime message resource, got %v", matches)
 	}
 }

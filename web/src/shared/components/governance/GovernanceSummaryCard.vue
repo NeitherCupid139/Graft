@@ -41,15 +41,15 @@ withDefaults(
 
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--graft-density-gap-10);
   min-height: 132px;
-  padding: 16px 18px;
+  padding: var(--graft-density-gap-16) var(--graft-density-gap-18);
 }
 
 .governance-summary-card__top {
   align-items: flex-start;
   display: flex;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
   justify-content: space-between;
 }
 
@@ -63,7 +63,7 @@ withDefaults(
   align-items: baseline;
   display: flex;
   flex: 1;
-  gap: 10px;
+  gap: var(--graft-density-gap-10);
 }
 
 .governance-summary-card__value {

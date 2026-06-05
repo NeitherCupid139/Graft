@@ -192,6 +192,12 @@ i18n 与标题规则：
 - `title_key` 是前端菜单与动态路由标题的唯一长期真值
 - 上游返回的 `title` 只允许在 adapter 或 bootstrap 装配边界作为外部输入回退
 - 模块和壳层内部不得长期并行维护 `title_key + 自己的 title 文案` 两套真值
+- 根级 `web/src/locales/**` 只承载壳层拥有的 root catalog、locale 状态、消息聚合入口、回退语言与持久化策略
+- 模块消息源由 `web/src/modules/<name>/locales/**` 拥有，模块 key 不得复制到 root catalog 形成第二套真值
+- 应用运行时必须通过 `web/src/locales/**` 的中心聚合入口合并 root catalog 与各模块 catalog；页面、壳层和模块不得绕过聚合入口直接拼装第二套 messages
+- 同一个 locale 内不得出现重复的 exact key 定义；不同边界需要相同展示值时，只有语义不同且 key 归属不同才允许重复 value
+- i18n 治理必须检查 unused key，删除不再被源码、路由、菜单或稳定映射消费的 key
+- 英文 locale 的可见 UI 文案必须首字母大写；只有连接词、统计单位等刻意作为语法片段展示的值允许小写
 - 新增消息 key 必须带边界前缀，能从 key 看出归属边界
 - 建议前缀：
   - `app.*`
@@ -359,18 +365,20 @@ bun run check
 
 1. `format:check`
 2. `typecheck`
-3. `lint`
-4. `stylelint`
-5. `hygiene:check`
-6. `test:run`
-7. `build`
+3. `openapi:frontend-governance:check`
+4. `lint:i18n`
+5. `lint`
+6. `stylelint`
+7. `hygiene:check`
+8. `test:run`
+9. `build`
 
 执行规则：
 
 - 功能完成、任务完成、准备合并时，必须跑完整 `bun run check`
 - 中间迭代可先跑最小直接验证，但不能把局部验证当作完成态
 - 默认完成态要求 `typecheck`、`lint`、`stylelint`、`test:run`、`build` 全部零 warning
-- `hygiene:check` 进入完成态后，`deadcode` 与约定范围内的 `dupcode` 必须同时为 0
+- `hygiene:check` 进入完成态后，`deadcode`、约定范围内的 `dupcode`、以及非白名单固定字号必须同时为 0
 - 前端治理测试应至少覆盖：
   - 用户可见文案禁词范围
   - 关键 `title_key` 解析
@@ -416,6 +424,10 @@ dead-code / duplicate-code 治理规则：
   - 注释必须明确“若未来删除/改造该代码，必须同步移除对应排除”
 - 重复代码治理优先做“语义一致、抽象后更清晰”的合并
 - 禁止为了压低重复率制造过度抽象、万能组件或失去边界的共享层
+- `bun run font-size:check`
+  - 扫描 `web/src` 中非白名单固定 `font-size` 与 font shorthand 字号
+  - 页面和组件字号优先使用 TDesign / Graft 字体 token，不得新增裸 `px` / `rem` / `em` 字号
+  - 必要固定图标字号、代码字号或受限控件字号必须在脚本白名单中写清 selector、值与原因
 - 清理顺序固定为：
   1. 先接入工具与脚本
   2. 再清理 `deadcode` 基线
@@ -425,6 +437,11 @@ dead-code / duplicate-code 治理规则：
   - `bun run check` 必须包含 `hygiene:check`
   - `.husky/pre-push` 命中 `web/**` 改动时必须执行 `cd web && bun run hygiene:check`
   - CI 保持 `web-check -> bun run check` 入口不变，由 `check` 内部阻断 dead-code / duplicate-code 问题
+- i18n governance hook 规则：
+  - `bun run check` 必须包含 `lint:i18n`，CI 继续复用 `bun run check`，不得为同一规则新增第二个 CI 真值
+  - `.husky/pre-commit` 在 staged changes 命中 `web/src/**`、`web/scripts/check-i18n-governance.ts` 或 `web/package.json` 时必须执行 `cd web && bun run lint:i18n`
+  - `.husky/pre-push` 在当前分支相对 base ref 命中上述 i18n 相关路径时必须执行 `cd web && bun run lint:i18n`
+  - `lint:i18n` 负责阻断 root catalog 与 module catalog 的重复 exact key、未使用 key、聚合漂移和第二套消息真值；重复 value 只要语义边界不同，不作为违规
 - 人工验证 `pre-push` 时，可在有 `web/**` 改动的分支上执行：
   - `GRAFT_LINT_BASE_REF=origin/main .husky/pre-push`
   - 预期：命中 `web/**` 时先跑 `cd web && bun run hygiene:check`，无 `web/**` 改动时输出跳过提示，再继续后端 lint gate

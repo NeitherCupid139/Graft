@@ -624,8 +624,8 @@ function buildTrendChartOption(): EChartsCoreOption {
         const rows = params
           .map((param) => {
             return [
-              `<div style="display:flex;align-items:center;justify-content:space-between;gap:16px;">`,
-              `<span style="display:flex;align-items:center;gap:8px;">`,
+              `<div style="display:flex;align-items:center;justify-content:space-between;gap: var(--graft-density-gap-16);">`,
+              `<span style="display:flex;align-items:center;gap: var(--graft-density-gap-8);">`,
               `<i style="width:8px;height:8px;border-radius:999px;background:${param.color};display:inline-block;"></i>`,
               `<span>${param.seriesName}</span>`,
               `</span>`,
@@ -636,7 +636,7 @@ function buildTrendChartOption(): EChartsCoreOption {
           .join('');
 
         return [
-          `<div style="display:flex;flex-direction:column;gap:8px;">`,
+          `<div style="display:flex;flex-direction:column;gap: var(--graft-density-gap-8);">`,
           `<strong>${activePoint?.tooltipLabel ?? params[0]?.axisValueLabel ?? ''}</strong>`,
           rows,
           `</div>`,
@@ -842,7 +842,7 @@ onUnmounted(() => {
 
 .audit-overview__grid {
   display: grid;
-  gap: 16px;
+  gap: var(--graft-density-gap-16);
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -854,7 +854,7 @@ onUnmounted(() => {
 .audit-overview__list,
 .audit-overview__watch-list,
 .audit-overview__timeline {
-  gap: 16px;
+  gap: var(--graft-density-gap-16);
 }
 
 .audit-overview__list-item,
@@ -863,9 +863,9 @@ onUnmounted(() => {
   border: 1px solid var(--td-component-stroke);
   border-radius: var(--td-radius-medium);
   display: flex;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
   justify-content: space-between;
-  padding: 14px 16px;
+  padding: var(--graft-density-gap-14) var(--graft-density-gap-16);
 }
 
 .audit-overview__list-item,
@@ -882,13 +882,13 @@ onUnmounted(() => {
 .audit-overview__watch-content {
   flex: 1;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--graft-density-gap-4);
   min-width: 0;
 }
 
 .audit-overview__watch-actions {
   flex-shrink: 0;
-  gap: 8px;
+  gap: var(--graft-density-gap-8);
 }
 
 .audit-overview__list-item p,
@@ -903,7 +903,7 @@ onUnmounted(() => {
   align-items: flex-end;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--graft-density-gap-8);
 }
 
 .audit-overview__shortcut {
@@ -962,13 +962,13 @@ onUnmounted(() => {
 .audit-overview__trend-panel {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--graft-density-gap-16);
 }
 
 .audit-overview__trend-metrics {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: var(--graft-density-gap-16);
 }
 
 .audit-overview__trend-metric {
@@ -977,9 +977,9 @@ onUnmounted(() => {
   border-radius: var(--td-radius-medium);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--graft-density-gap-6);
   min-width: 120px;
-  padding: 12px 14px;
+  padding: var(--graft-density-gap-12) var(--graft-density-gap-14);
 }
 
 .audit-overview__trend-metric span {
@@ -1001,13 +1001,13 @@ onUnmounted(() => {
 .audit-overview__timeline-item {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--graft-density-gap-8);
 }
 
 .audit-overview__timeline-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--graft-density-gap-8);
 }
 
 .audit-overview__timeline-item p {
@@ -1017,7 +1017,7 @@ onUnmounted(() => {
 
 .audit-overview__timeline-meta {
   display: flex;
-  gap: 8px;
+  gap: var(--graft-density-gap-8);
 }
 
 @media (width <= 1280px) {

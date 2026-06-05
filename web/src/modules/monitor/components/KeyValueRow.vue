@@ -19,9 +19,9 @@ defineProps<{
   align-items: flex-start;
   border-top: 1px solid var(--td-component-border);
   display: flex;
-  gap: 16px;
+  gap: var(--graft-density-gap-16);
   justify-content: space-between;
-  padding: 12px 0;
+  padding: var(--graft-density-gap-12) 0;
 }
 
 .server-status-kv-row:first-child {
@@ -37,7 +37,7 @@ defineProps<{
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--graft-density-gap-4);
   min-width: 0;
 }
 

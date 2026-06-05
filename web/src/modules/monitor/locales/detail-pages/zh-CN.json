@@ -1,7 +1,6 @@
 {
   "monitor": {
     "shared": {
-      "refresh": "立即刷新",
       "loadFailed": "服务器状态加载失败",
       "empty": "当前还没有可用的服务器状态快照",
       "errorTitle": "快照请求失败",
@@ -13,7 +12,6 @@
       "snapshotReady": "快照已就绪",
       "snapshotPending": "等待快照",
       "memoryBoundaryNotice": "内存口径：服务器内存统计整台服务器，Go Runtime 内存统计当前服务进程。",
-      "refreshFrequencyUnit": " 秒",
       "runtimeMemoryTitle": "Go Runtime 内存",
       "runtimeMemoryDescription": "当前 Go 进程内部内存使用与垃圾回收快照。",
       "processBuildTitle": "进程与构建信息",
@@ -48,24 +46,12 @@
         "hostMemory": "服务器内存",
         "hostMemoryUsage": "内存使用率",
         "observedAt": "最近观测",
-        "refreshFrequency": "刷新频率",
         "loadAverage": "负载均值"
       },
       "fieldDescriptions": {
-        "runtimeAlloc": "Go Runtime 当前已分配的内存字节数。",
-        "runtimeHeap": "当前 Go 进程正在使用的堆内存。",
         "runtimeSys": "Go Runtime 向系统申请的总内存。",
         "gcCycles": "当前快照中已完成的 GC 轮次。",
         "lastGc": "预留字段，等待后端补充最近一次 GC 时间。",
-        "buildVersion": "当前后端已有版本字段时直接复用。",
-        "gitCommit": "预留字段，等待后端补充显式提交标识。",
-        "appName": "服务上报的应用标识。",
-        "appEnv": "当前运行环境标签。",
-        "startedAt": "进程首次稳定启动时间。",
-        "hostName": "运行时快照上报的服务器主机名。",
-        "platform": "服务器操作系统与架构信息。",
-        "cpuCores": "当前进程可见的逻辑 CPU 核心数。",
-        "hostMemory": "整机内存快照，不等同于 Go Runtime 内存。",
         "observedAt": "最近一次聚合快照时间。",
         "loadAverage": "当前服务器 1m / 5m / 15m 负载均值。"
       }
@@ -74,7 +60,6 @@
       "title": "依赖服务",
       "subtitle": "查看 PostgreSQL、Redis 以及未来模块自有依赖检查的健康状态。",
       "serviceListTitle": "依赖服务列表",
-      "noteTitle": "依赖健康范围",
       "noteDescription": "当前页面基于最近一次聚合快照展示依赖状态。后续接入的新服务健康检查也会在这里继续展示。",
       "statusHealthy": "健康",
       "statusAbnormal": "异常",
@@ -84,7 +69,6 @@
       "redisSubtitle": "缓存与轻量 KV 服务健康状态",
       "futureEntryTitle": "模块依赖扩展入口",
       "futureEntrySubtitle": "预留给模块自有健康探测项",
-      "futureEntryLabel": "预留入口",
       "futureEntryHint": "后续模块可以在这里接入自己的依赖检查，无需再调整菜单结构。",
       "futureEntryDescription": "当新的依赖检查可用时，会显示在这个区域。",
       "noError": "当前无错误",
@@ -102,8 +86,7 @@
         "latency": "响应耗时",
         "checkedAt": "最近检测时间",
         "errorInfo": "错误信息",
-        "detail": "探测详情",
-        "extensionEntry": "扩展入口"
+        "detail": "探测详情"
       },
       "fieldDescriptions": {
         "latency": "最近一次探测的响应耗时。",

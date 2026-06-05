@@ -301,7 +301,7 @@ function handleRefreshIntervalChange(value: number | string) {
 <style scoped lang="less">
 .server-status-dependencies-layout {
   display: grid;
-  gap: 16px;
+  gap: var(--graft-density-gap-16);
   grid-template-columns: repeat(12, minmax(0, 1fr));
 }
 
@@ -315,7 +315,7 @@ function handleRefreshIntervalChange(value: number | string) {
 
 .server-status-dependency-grid {
   display: grid;
-  gap: 16px;
+  gap: var(--graft-density-gap-16);
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -326,9 +326,9 @@ function handleRefreshIntervalChange(value: number | string) {
   border-radius: calc(var(--td-radius-large) - 2px);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
   min-height: 100%;
-  padding: 16px;
+  padding: var(--graft-density-gap-16);
 }
 
 .server-status-module-entry__title {

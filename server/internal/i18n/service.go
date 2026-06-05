@@ -89,6 +89,7 @@ var defaultCatalogEntries = []catalogEntry{
 	{key: messagecontract.CommonCopyright, zhCN: "Copyright (C) 2021-2026 Tencent. All Rights Reserved", enUS: "Copyright (C) 2021-2026 Tencent. All Rights Reserved"},
 	{key: messagecontract.CommonInternalError, zhCN: "服务内部错误", enUS: "Internal server error"},
 	{key: messagecontract.CommonInvalidArgument, zhCN: "请求参数不合法", enUS: "Invalid request parameters"},
+	{key: messagecontract.MenuServerTitle, zhCN: "服务管理", enUS: "Service Management"},
 	{key: messagecontract.RbacCannotRemoveOwnAdminRole, zhCN: "不能移除当前登录用户自己的管理员角色", enUS: "You cannot remove your own admin role from the current session"},
 	{key: messagecontract.PermissionNotFound, zhCN: "权限不存在", enUS: "Permission not found"},
 	{key: messagecontract.RoleNotFound, zhCN: "角色不存在", enUS: "Role not found"},
@@ -471,4 +472,77 @@ func (s *Service) RegisteredMessageKeys(namespace Namespace, locale LocaleTag) [
 	}
 	slices.Sort(keys)
 	return keys
+}
+
+// RegisteredMessageKeyIDs returns canonical message IDs currently registered for
+// a bare message key in the given locale.
+//
+// This is intended for diagnostics and governance tests that validate external
+// descriptors, such as menu title keys, without coupling those descriptors to a
+// runtime namespace lookup path.
+func (s *Service) RegisteredMessageKeyIDs(locale LocaleTag, key MessageKey) []string {
+	normalizedLocale, err := s.normalizeSupportedLocale(string(locale))
+	if err != nil {
+		return nil
+	}
+
+	keyValue := strings.TrimSpace(string(key))
+	if keyValue == "" {
+		return nil
+	}
+	suffix := "." + keyValue
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	catalog, ok := s.catalogs[normalizedLocale]
+	if !ok {
+		return nil
+	}
+
+	keys := make([]string, 0)
+	for canonicalKey := range catalog {
+		if canonicalKey == keyValue || strings.HasSuffix(canonicalKey, suffix) {
+			keys = append(keys, canonicalKey)
+		}
+	}
+	slices.Sort(keys)
+	return keys
+}
+
+// RegisteredMessageResources returns canonical message IDs and texts registered
+// for a bare message key in the given locale.
+//
+// Like RegisteredMessageKeyIDs, this is intended for diagnostics and governance
+// tests that need to prove descriptors resolve to real catalog messages.
+func (s *Service) RegisteredMessageResources(locale LocaleTag, key MessageKey) []MessageResource {
+	normalizedLocale, err := s.normalizeSupportedLocale(string(locale))
+	if err != nil {
+		return nil
+	}
+
+	keyValue := strings.TrimSpace(string(key))
+	if keyValue == "" {
+		return nil
+	}
+	suffix := "." + keyValue
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	catalog, ok := s.catalogs[normalizedLocale]
+	if !ok {
+		return nil
+	}
+
+	items := make([]MessageResource, 0)
+	for canonicalKey, text := range catalog {
+		if canonicalKey == keyValue || strings.HasSuffix(canonicalKey, suffix) {
+			items = append(items, MessageResource{Key: MessageKey(canonicalKey), Text: text})
+		}
+	}
+	slices.SortFunc(items, func(left, right MessageResource) int {
+		return strings.Compare(string(left.Key), string(right.Key))
+	})
+	return items
 }

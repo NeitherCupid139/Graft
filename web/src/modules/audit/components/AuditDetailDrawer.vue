@@ -395,8 +395,8 @@ const sameResourceRows = computed(() => {
 .audit-detail__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: var(--graft-density-gap-8);
+  margin-bottom: var(--graft-density-gap-12);
 }
 
 .audit-detail__link-button {
@@ -409,7 +409,7 @@ const sameResourceRows = computed(() => {
 }
 
 .audit-detail {
-  gap: 20px;
+  gap: var(--graft-density-gap-20);
 }
 
 .audit-detail__hero,
@@ -418,7 +418,7 @@ const sameResourceRows = computed(() => {
 .audit-detail__security-panel,
 .audit-detail__tags {
   display: grid;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
 }
 
 .audit-detail__hero {
@@ -427,7 +427,7 @@ const sameResourceRows = computed(() => {
   border: 1px solid var(--td-component-stroke);
   border-radius: var(--td-radius-large);
   grid-template-columns: minmax(0, 1fr) auto;
-  padding: 16px;
+  padding: var(--graft-density-gap-16);
 }
 
 .audit-detail__hero p,
@@ -450,13 +450,13 @@ const sameResourceRows = computed(() => {
   border: 1px solid var(--td-component-stroke);
   border-radius: var(--td-radius-default);
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  padding: 12px;
+  padding: var(--graft-density-gap-12);
 }
 
 .audit-detail__item {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--graft-density-gap-6);
 }
 
 .audit-detail__item--full {
@@ -471,7 +471,7 @@ const sameResourceRows = computed(() => {
 .audit-detail__copy-line {
   align-items: center;
   display: flex;
-  gap: 8px;
+  gap: var(--graft-density-gap-8);
 }
 
 .audit-detail__related-grid {
@@ -482,16 +482,16 @@ const sameResourceRows = computed(() => {
   background: var(--td-bg-color-container-hover);
   border: 1px solid var(--td-component-stroke);
   border-radius: var(--td-radius-medium);
-  gap: 10px;
-  padding: 14px;
+  gap: var(--graft-density-gap-10);
+  padding: var(--graft-density-gap-14);
 }
 
 .audit-detail__related-card ul {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--graft-density-gap-8);
   margin: 0;
-  padding-left: 16px;
+  padding-left: var(--graft-density-gap-16);
 }
 
 .audit-detail__tags {

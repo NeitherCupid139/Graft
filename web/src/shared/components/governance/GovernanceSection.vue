@@ -51,15 +51,15 @@ const sectionStyle = computed(() => {
 
   display: flex;
   flex-direction: column;
-  padding: 18px;
+  padding: var(--graft-density-gap-18);
 }
 
 .governance-section__header {
   align-items: flex-start;
   display: flex;
-  gap: 16px;
+  gap: var(--graft-density-gap-16);
   justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: var(--graft-density-gap-14);
 }
 
 .governance-section__copy {
@@ -75,7 +75,7 @@ const sectionStyle = computed(() => {
 .governance-section__description {
   color: var(--td-text-color-secondary);
   font: var(--td-font-body-small);
-  margin: 4px 0 0;
+  margin: var(--graft-density-gap-4) 0 0;
 }
 
 .governance-section__actions {

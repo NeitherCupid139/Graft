@@ -13,7 +13,7 @@
 .table-actions {
   align-items: center;
   display: flex;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
   justify-content: space-between;
 }
 
@@ -38,7 +38,7 @@
 }
 
 .role-identity {
-  gap: 4px;
+  gap: var(--graft-density-gap-4);
 }
 
 .role-identity__display {
@@ -52,25 +52,25 @@
   border-radius: var(--td-radius-medium);
   color: var(--td-warning-color-7);
   display: flex;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
   justify-content: space-between;
-  padding: 12px 14px;
+  padding: var(--graft-density-gap-12) var(--graft-density-gap-14);
 }
 
 .assignment-panel,
 .column-grid,
 .assignment-toolbar-stack {
-  gap: 16px;
+  gap: var(--graft-density-gap-16);
 }
 
 .assignment-panel--compact {
-  gap: 16px;
+  gap: var(--graft-density-gap-16);
 }
 
 .assignment-card-grid,
 .permission-card-grid {
   display: grid;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
   grid-template-columns: repeat(2, minmax(0, 1fr));
   width: 100%;
 }
@@ -86,7 +86,7 @@
 
 .table-actions {
   flex-wrap: nowrap;
-  gap: 8px;
+  gap: var(--graft-density-gap-8);
   justify-content: flex-end;
   width: 100%;
 }

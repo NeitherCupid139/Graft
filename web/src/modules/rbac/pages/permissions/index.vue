@@ -467,7 +467,7 @@ watch(
 .permission-page {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--graft-density-gap-16);
   .management-list-header();
   .management-list-table-empty();
   .management-list-table-shell();
@@ -479,8 +479,8 @@ watch(
   border-radius: var(--td-radius-medium);
   color: var(--td-text-color-secondary);
   display: grid;
-  gap: 4px;
-  padding: 12px 14px;
+  gap: var(--graft-density-gap-4);
+  padding: var(--graft-density-gap-12) var(--graft-density-gap-14);
 }
 
 .inline-note p {
@@ -498,7 +498,7 @@ watch(
 .permission-cell {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--graft-density-gap-4);
 }
 
 .permission-cell__name {
@@ -510,7 +510,7 @@ watch(
 .column-grid {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
 }
 
 .table-actions {
@@ -519,7 +519,7 @@ watch(
 }
 
 .permission-detail-panel {
-  gap: 16px;
+  gap: var(--graft-density-gap-16);
 }
 
 .detail-warning {
@@ -529,7 +529,7 @@ watch(
 .detail-header {
   align-items: flex-start;
   display: flex;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
   justify-content: space-between;
 }
 
@@ -552,15 +552,16 @@ watch(
 
 .detail-grid {
   display: grid;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
 }
 
 .detail-item {
   background: var(--td-bg-color-container-hover);
   border-radius: var(--td-radius-medium);
-  display: grid;
-  gap: 6px;
-  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--graft-density-gap-6);
+  padding: var(--graft-density-gap-12) var(--graft-density-gap-14);
 }
 
 .detail-item__value {
@@ -575,7 +576,7 @@ watch(
 
   .table-empty-state {
     min-height: 260px;
-    padding-inline: 16px;
+    padding-inline: var(--graft-density-gap-16);
   }
 
   .permission-page :deep(.management-toolbar__filters) {

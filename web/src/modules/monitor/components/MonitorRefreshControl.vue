@@ -148,7 +148,7 @@ function resolveOptionValue(value: ControlOptionValue, options: ControlOption[])
 .monitor-refresh-control {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px 12px;
+  gap: var(--graft-density-gap-10) var(--graft-density-gap-12);
   justify-content: flex-end;
   min-width: 0;
 }
@@ -162,7 +162,7 @@ function resolveOptionValue(value: ControlOptionValue, options: ControlOption[])
 .monitor-refresh-control__field {
   align-items: center;
   display: inline-flex;
-  gap: 8px;
+  gap: var(--graft-density-gap-8);
   min-width: 0;
 }
 

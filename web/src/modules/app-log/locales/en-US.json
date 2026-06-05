@@ -1,8 +1,5 @@
 {
   "menu": {
-    "logCenter": {
-      "title": "Log Center"
-    },
     "appLog": {
       "title": "App Logs"
     }
@@ -46,7 +43,6 @@
     },
     "filters": {
       "occurredRange": "Occurrence Time",
-      "severity": "Severity",
       "component": "Component",
       "operation": "Operation",
       "requestId": "Request ID",
@@ -55,7 +51,6 @@
       "method": "Method",
       "message": "Message",
       "error": "Error",
-      "keyword": "Keyword",
       "allSeverity": "All Severities",
       "sortOccurredAt": "Occurrence Time",
       "sortSeverity": "Severity",

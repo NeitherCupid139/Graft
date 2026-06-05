@@ -95,7 +95,7 @@ function handleMenuClick(payload: { value?: string | number | Record<string, unk
 .table-action-menu {
   align-items: center;
   display: inline-flex;
-  gap: 8px;
+  gap: var(--graft-density-gap-8);
   justify-content: center;
   width: 100%;
 }

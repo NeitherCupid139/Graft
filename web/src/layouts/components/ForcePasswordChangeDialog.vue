@@ -164,11 +164,11 @@ const handleSubmit = async (ctx: SubmitContext) => {
   &__hint {
     color: var(--td-text-color-secondary);
     line-height: 22px;
-    margin: 0 0 16px;
+    margin: 0 0 var(--graft-density-gap-16);
   }
 
   &__actions {
-    margin-top: 8px;
+    margin-top: var(--graft-density-gap-8);
   }
 }
 </style>

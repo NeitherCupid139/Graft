@@ -898,7 +898,7 @@ function resolveNonRedundantScopeValue(localizedValue: string, key: string) {
 
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--graft-density-gap-16);
 }
 
 .audit-scope-banner {
@@ -907,10 +907,10 @@ function resolveNonRedundantScopeValue(localizedValue: string, key: string) {
   border: 1px solid var(--td-component-stroke);
   border-radius: var(--td-radius-medium);
   display: flex;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
   justify-content: space-between;
   min-height: 48px;
-  padding: 8px 12px;
+  padding: var(--graft-density-gap-8) var(--graft-density-gap-12);
 }
 
 .audit-scope-banner__main {
@@ -923,7 +923,7 @@ function resolveNonRedundantScopeValue(localizedValue: string, key: string) {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--graft-density-gap-8);
 }
 
 .audit-scope-banner__condition {

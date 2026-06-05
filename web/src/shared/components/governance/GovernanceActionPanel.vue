@@ -25,6 +25,6 @@ withDefaults(
 <style scoped lang="less">
 .governance-action-panel {
   display: grid;
-  gap: 12px;
+  gap: var(--graft-density-gap-12);
 }
 </style>

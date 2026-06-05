@@ -3,7 +3,9 @@ import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT_DIR = fileURLToPath(new URL('..', import.meta.url));
+const REPOSITORY_DIR = fileURLToPath(new URL('../..', import.meta.url));
 const SRC_DIR = join(ROOT_DIR, 'src');
+const SERVER_TITLE_KEY_DIRS = [join(REPOSITORY_DIR, 'server/internal'), join(REPOSITORY_DIR, 'server/modules')];
 
 const SCANNED_EXTENSIONS = new Set(['.vue', '.ts', '.tsx']);
 const EXCLUDED_DIRS = new Set(['node_modules', 'dist', 'coverage', 'mock', '__mocks__', 'ai-libs']);
@@ -55,11 +57,32 @@ type LocaleFinding = {
   message: string;
 };
 
+type LocaleCode = 'zh-CN' | 'en-US';
+
+type LocaleCatalog = {
+  file: string;
+  locale: LocaleCode;
+  messages: Map<string, string>;
+};
+
+type RuntimeReferenceSet = {
+  exactKeys: Set<string>;
+  requiredKeys: Set<string>;
+  dynamicPatterns: RegExp[];
+};
+
 type ParsedString = {
   value: string;
   endIndex: number;
   hasInterpolation: boolean;
 };
+
+const EXTERNAL_BOOTSTRAP_KEY_ALLOWLIST = [
+  // Menu title keys are also supplied by backend bootstrap metadata at runtime.
+  /^menu\./,
+  // Language labels are consumed by locale aggregation rather than page code.
+  /^lang$/,
+];
 
 function walk(dir: string): string[] {
   const entries = readdirSync(dir, { withFileTypes: true });
@@ -124,7 +147,7 @@ function hasVisibleLetters(value: string): boolean {
 }
 
 function isLikelyI18nKey(value: string): boolean {
-  return /^[a-z][a-z0-9]*(?:[.-][a-zA-Z0-9][\w-]*){2,}$/.test(value);
+  return /^[a-z][a-z0-9]*(?:[.-][a-zA-Z0-9][\w-]*)+$/.test(value);
 }
 
 function isTechnicalString(value: string): boolean {
@@ -632,9 +655,9 @@ function localePairKey(file: string): string {
   return file.replace(/(?:zh-CN|en-US)\.json$/, '{locale}.json');
 }
 
-function localeFromFile(file: string): 'zh-CN' | 'en-US' | null {
+function localeFromFile(file: string): LocaleCode | null {
   const match = file.match(/(?:^|\/)(zh-CN|en-US)\.json$/);
-  return match ? (match[1] as 'zh-CN' | 'en-US') : null;
+  return match ? (match[1] as LocaleCode) : null;
 }
 
 function collectLocaleFiles(dir: string): string[] {
@@ -677,9 +700,47 @@ function flattenLocaleStrings(value: unknown, prefix = '', output = new Map<stri
   return output;
 }
 
-function collectLocaleFindings(): LocaleFinding[] {
-  const groupedFiles = new Map<string, Partial<Record<'zh-CN' | 'en-US', string>>>();
-  const findings: LocaleFinding[] = [];
+function resolveSourceOwner(file: string): string {
+  const moduleMatch = file.match(/^src\/modules\/([^/]+)\/locales\//);
+  if (moduleMatch) {
+    return `module:${moduleMatch[1]}`;
+  }
+
+  if (file.startsWith('src/locales/lang/')) {
+    return 'root';
+  }
+
+  return 'unknown';
+}
+
+function moduleMenuPrefix(moduleName: string): string {
+  return moduleName.replace(/-([a-z0-9])/g, (_, value: string) => value.toUpperCase());
+}
+
+function resolveKeyOwner(file: string, key: string): string {
+  const sourceOwner = resolveSourceOwner(file);
+  if (sourceOwner === 'root') {
+    return 'root';
+  }
+
+  const moduleName = sourceOwner.match(/^module:(.+)$/)?.[1];
+  if (!moduleName) {
+    return sourceOwner;
+  }
+
+  const camelMenu = moduleMenuPrefix(moduleName);
+  const snakeMenu = moduleName.replaceAll('-', '_');
+  const modulePrefixes = [`${moduleName}.`, `${camelMenu}.`, `menu.${camelMenu}.`, `menu.${snakeMenu}.`];
+
+  if (modulePrefixes.some((prefix) => key === prefix.slice(0, -1) || key.startsWith(prefix))) {
+    return sourceOwner;
+  }
+
+  return `module:${moduleName}:foreign`;
+}
+
+function collectLocaleCatalogs(): LocaleCatalog[] {
+  const catalogs: LocaleCatalog[] = [];
 
   for (const filePath of collectLocaleFiles(SRC_DIR)) {
     const file = relative(ROOT_DIR, filePath).replaceAll('\\', '/');
@@ -688,11 +749,355 @@ function collectLocaleFindings(): LocaleFinding[] {
       continue;
     }
 
-    const pairKey = localePairKey(file);
+    catalogs.push({
+      file,
+      locale,
+      messages: flattenLocaleStrings(JSON.parse(readFileSync(filePath, 'utf8'))),
+    });
+  }
+
+  return catalogs.sort((left, right) => left.file.localeCompare(right.file));
+}
+
+function collectDuplicateKeyFindings(catalogs: LocaleCatalog[]): LocaleFinding[] {
+  const keyDefinitions = new Map<string, LocaleCatalog[]>();
+  const findings: LocaleFinding[] = [];
+
+  for (const catalog of catalogs) {
+    for (const key of catalog.messages.keys()) {
+      const definitionKey = `${catalog.locale}:${key}`;
+      const definitions = keyDefinitions.get(definitionKey) ?? [];
+      definitions.push(catalog);
+      keyDefinitions.set(definitionKey, definitions);
+    }
+  }
+
+  for (const [definitionKey, definitions] of keyDefinitions) {
+    if (definitions.length <= 1) {
+      continue;
+    }
+
+    const [, key] = definitionKey.split(/:(.*)/s);
+    findings.push({
+      file: definitions.map((definition) => definition.file).join(', '),
+      message: `duplicate locale key ${key} for ${definitions[0].locale}`,
+    });
+  }
+
+  return findings;
+}
+
+function collectSplitOwnerFindings(catalogs: LocaleCatalog[]): LocaleFinding[] {
+  const ownerDefinitions = new Map<string, Map<string, Set<string>>>();
+  const findings: LocaleFinding[] = [];
+
+  for (const catalog of catalogs) {
+    for (const key of catalog.messages.keys()) {
+      const keyOwner = resolveKeyOwner(catalog.file, key);
+      const sourceOwners = ownerDefinitions.get(key) ?? new Map<string, Set<string>>();
+      const files = sourceOwners.get(keyOwner) ?? new Set<string>();
+      files.add(catalog.file);
+      sourceOwners.set(keyOwner, files);
+      ownerDefinitions.set(key, sourceOwners);
+    }
+  }
+
+  for (const [key, owners] of ownerDefinitions) {
+    const rootFiles = owners.get('root');
+    if (!rootFiles) {
+      continue;
+    }
+
+    const moduleOwners = [...owners.entries()].filter(([owner]) => owner.startsWith('module:'));
+    if (moduleOwners.length === 0) {
+      continue;
+    }
+
+    const moduleFiles = moduleOwners.flatMap(([, files]) => [...files]);
+    findings.push({
+      file: [...rootFiles, ...moduleFiles].sort().join(', '),
+      message: `split locale ownership for ${key} between root and module catalogs`,
+    });
+  }
+
+  return findings;
+}
+
+function shouldScanRuntimeFile(file: string): boolean {
+  if (!shouldScanFile(file)) {
+    return false;
+  }
+
+  const normalized = relative(ROOT_DIR, file).replaceAll('\\', '/');
+  if (
+    normalized.includes('/locales/') ||
+    normalized.startsWith('src/locales/') ||
+    normalized.includes('/mock/') ||
+    normalized.includes('/mocks/') ||
+    normalized.includes('/__mocks__/')
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+function isAllowedUnusedLocaleKey(key: string): boolean {
+  return EXTERNAL_BOOTSTRAP_KEY_ALLOWLIST.some((pattern) => pattern.test(key));
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function buildTemplateKeyPattern(template: string): RegExp | null {
+  if (!template.includes('${')) {
+    return null;
+  }
+
+  const expressionPattern = /\$\{[^}]+\}/g;
+  const staticParts = template.split(expressionPattern);
+  if (!staticParts.some((part) => isLikelyI18nKey(part.replace(/\.$/, '')) || part.includes('.'))) {
+    return null;
+  }
+
+  return new RegExp(`^${staticParts.map((part) => escapeRegExp(part)).join('.+')}$`);
+}
+
+function collectRuntimeReferenceSet(): RuntimeReferenceSet {
+  const referenced = new Set<string>();
+  const required = new Set<string>();
+  const dynamicPatterns: RegExp[] = [];
+  const messagePrefixes = new Set<string>();
+  const messagePrefixSuffixes = new Set<string>();
+  const literalPattern = /(['"`])([a-z][a-z0-9]*(?:[.-][a-zA-Z0-9][\w-]*)+)\1/g;
+  const templateLiteralPattern = /`([^`]*\$\{[^`]+}[^`]*)`/g;
+  const directTranslatePattern = /\b(?:t|i18n\.global\.t)\(\s*(['"`])([^'"`$]+)\1/g;
+  const dynamicTranslatePattern = /\b(?:t|i18n\.global\.t)\(\s*`([^`]+)`/g;
+  const keyFieldPattern = /\b(?:titleKey|title_key)\b\s*[:=]\s*(['"`])([^'"`$]+)\1/g;
+  const messagePrefixPropPattern = /\bmessage-prefix\s*=\s*(['"])([^'"`$]+)\1/g;
+  const messagePrefixTemplatePattern = /\$\{messagePrefix\}((?:\.[a-zA-Z0-9][\w-]*)+)/g;
+
+  for (const filePath of walk(SRC_DIR)) {
+    if (!shouldScanRuntimeFile(filePath)) {
+      continue;
+    }
+
+    const source = preserveLineStructure(readFileSync(filePath, 'utf8'));
+    for (const match of source.matchAll(directTranslatePattern)) {
+      referenced.add(match[2]);
+      required.add(match[2]);
+    }
+
+    for (const match of source.matchAll(dynamicTranslatePattern)) {
+      const pattern = buildTemplateKeyPattern(match[1]);
+      if (pattern) {
+        dynamicPatterns.push(pattern);
+      }
+    }
+
+    for (const match of source.matchAll(templateLiteralPattern)) {
+      const pattern = buildTemplateKeyPattern(match[1]);
+      if (pattern) {
+        dynamicPatterns.push(pattern);
+      }
+    }
+
+    for (const match of source.matchAll(keyFieldPattern)) {
+      referenced.add(match[2]);
+      required.add(match[2]);
+    }
+
+    for (const match of source.matchAll(messagePrefixPropPattern)) {
+      messagePrefixes.add(match[2]);
+    }
+
+    for (const match of source.matchAll(messagePrefixTemplatePattern)) {
+      messagePrefixSuffixes.add(match[1]);
+    }
+
+    for (const match of source.matchAll(literalPattern)) {
+      const value = match[2];
+      if (isLikelyI18nKey(value)) {
+        referenced.add(value);
+      }
+    }
+  }
+
+  for (const prefix of messagePrefixes) {
+    for (const suffix of messagePrefixSuffixes) {
+      referenced.add(`${prefix}${suffix}`);
+      required.add(`${prefix}${suffix}`);
+    }
+  }
+
+  for (const key of collectServerMenuTitleKeys()) {
+    referenced.add(key);
+    required.add(key);
+  }
+
+  return { exactKeys: referenced, requiredKeys: required, dynamicPatterns };
+}
+
+function shouldScanServerTitleKeyFile(file: string): boolean {
+  const normalized = relative(REPOSITORY_DIR, file).replaceAll('\\', '/');
+  return (
+    file.endsWith('.go') &&
+    (normalized.startsWith('server/internal/') || normalized.startsWith('server/modules/')) &&
+    !normalized.includes('/contract/openapi/generated/')
+  );
+}
+
+function walkServerTitleKeyFiles(dir: string): string[] {
+  const files: string[] = [];
+
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const fullPath = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...walkServerTitleKeyFiles(fullPath));
+      continue;
+    }
+
+    if (shouldScanServerTitleKeyFile(fullPath)) {
+      files.push(fullPath);
+    }
+  }
+
+  return files;
+}
+
+function collectServerMenuTitleKeys(): Set<string> {
+  const keys = new Set<string>();
+  const stringConstantPattern = /\b([A-Za-z_]\w*)(?:\s+[A-Za-z_]\w*)?\s*=\s*"([^"$]+)"/g;
+  const titleKeyPattern =
+    /\b(?:TitleKey|title_key)\s*:\s*(?:"([^"$]+)"|(?:(?:[A-Za-z_]\w*)\.)?([A-Za-z_]\w*)(?:\.String\(\))?)/g;
+
+  for (const dir of SERVER_TITLE_KEY_DIRS) {
+    for (const filePath of walkServerTitleKeyFiles(dir)) {
+      const source = preserveLineStructure(readFileSync(filePath, 'utf8'));
+      const stringConstants = new Map<string, string>();
+
+      for (const match of source.matchAll(stringConstantPattern)) {
+        stringConstants.set(match[1], match[2]);
+      }
+
+      for (const match of source.matchAll(titleKeyPattern)) {
+        const literalKey = match[1];
+        const constantKey = match[2] ? stringConstants.get(match[2]) : undefined;
+        const key = literalKey ?? constantKey;
+        if (key) {
+          keys.add(key);
+        }
+      }
+    }
+  }
+
+  return keys;
+}
+
+function isRuntimeReferenced(key: string, referenceSet: RuntimeReferenceSet): boolean {
+  return referenceSet.exactKeys.has(key) || referenceSet.dynamicPatterns.some((pattern) => pattern.test(key));
+}
+
+function collectUnusedKeyFindings(catalogs: LocaleCatalog[]): LocaleFinding[] {
+  const referenceSet = collectRuntimeReferenceSet();
+  const keyDefinitions = new Map<string, Set<string>>();
+  const findings: LocaleFinding[] = [];
+
+  for (const catalog of catalogs) {
+    for (const key of catalog.messages.keys()) {
+      const files = keyDefinitions.get(key) ?? new Set<string>();
+      files.add(catalog.file);
+      keyDefinitions.set(key, files);
+    }
+  }
+
+  for (const [key, files] of [...keyDefinitions.entries()].sort(([left], [right]) => left.localeCompare(right))) {
+    if (isRuntimeReferenced(key, referenceSet) || isAllowedUnusedLocaleKey(key)) {
+      continue;
+    }
+
+    findings.push({
+      file: [...files].sort().join(', '),
+      message: `unused locale key ${key}`,
+    });
+  }
+
+  return findings;
+}
+
+function collectMissingReferenceFindings(catalogs: LocaleCatalog[]): LocaleFinding[] {
+  const referenceSet = collectRuntimeReferenceSet();
+  const definedKeys = new Set<string>();
+  const findings: LocaleFinding[] = [];
+
+  for (const catalog of catalogs) {
+    for (const key of catalog.messages.keys()) {
+      definedKeys.add(key);
+    }
+  }
+
+  for (const key of [...referenceSet.requiredKeys].sort()) {
+    if (!definedKeys.has(key)) {
+      findings.push({
+        file: 'src',
+        message: `referenced locale key ${key} is missing from locale catalogs`,
+      });
+    }
+  }
+
+  return findings;
+}
+
+function isEnglishInitialCaseExempt(key: string): boolean {
+  const conjunctionKey = ['common', 'conjunction'].join('.');
+  return key === conjunctionKey || key.endsWith('.unit');
+}
+
+function startsWithLowercaseLetter(value: string): boolean {
+  return /^[a-z]/.test(normalizeText(value));
+}
+
+function collectEnglishInitialCaseFindings(catalogs: LocaleCatalog[]): LocaleFinding[] {
+  const findings: LocaleFinding[] = [];
+
+  for (const catalog of catalogs) {
+    if (catalog.locale !== 'en-US') {
+      continue;
+    }
+
+    for (const [key, value] of catalog.messages) {
+      if (isEnglishInitialCaseExempt(key) || !startsWithLowercaseLetter(value)) {
+        continue;
+      }
+
+      findings.push({
+        file: catalog.file,
+        message: `English locale value for ${key} should start with an uppercase letter`,
+      });
+    }
+  }
+
+  return findings;
+}
+
+function collectLocaleFindings(): LocaleFinding[] {
+  const catalogs = collectLocaleCatalogs();
+  const groupedFiles = new Map<string, Partial<Record<LocaleCode, LocaleCatalog>>>();
+  const findings: LocaleFinding[] = [];
+
+  for (const catalog of catalogs) {
+    const pairKey = localePairKey(catalog.file);
     const group = groupedFiles.get(pairKey) ?? {};
-    group[locale] = filePath;
+    group[catalog.locale] = catalog;
     groupedFiles.set(pairKey, group);
   }
+
+  findings.push(...collectDuplicateKeyFindings(catalogs));
+  findings.push(...collectSplitOwnerFindings(catalogs));
+  findings.push(...collectMissingReferenceFindings(catalogs));
+  findings.push(...collectUnusedKeyFindings(catalogs));
+  findings.push(...collectEnglishInitialCaseFindings(catalogs));
 
   for (const [pairKey, group] of groupedFiles) {
     if (!group['zh-CN'] || !group['en-US']) {
@@ -703,10 +1108,10 @@ function collectLocaleFindings(): LocaleFinding[] {
       continue;
     }
 
-    const zhFile = relative(ROOT_DIR, group['zh-CN']).replaceAll('\\', '/');
-    const enFile = relative(ROOT_DIR, group['en-US']).replaceAll('\\', '/');
-    const zhMessages = flattenLocaleStrings(JSON.parse(readFileSync(group['zh-CN'], 'utf8')));
-    const enMessages = flattenLocaleStrings(JSON.parse(readFileSync(group['en-US'], 'utf8')));
+    const zhFile = group['zh-CN'].file;
+    const enFile = group['en-US'].file;
+    const zhMessages = group['zh-CN'].messages;
+    const enMessages = group['en-US'].messages;
     const zhKeys = new Set(zhMessages.keys());
     const enKeys = new Set(enMessages.keys());
 
