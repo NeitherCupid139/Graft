@@ -8,12 +8,21 @@
   },
   "scheduledTask": {
     "accessLogRetention": {
-      "title": "Access Log Retention"
+      "title": "Access Log Retention Cleanup",
+      "description": "Deletes retained access logs beyond the configured retention window."
+    },
+    "auditLogRetention": {
+      "title": "Audit Log Retention Cleanup",
+      "description": "Deletes retained audit logs beyond the configured retention window."
+    },
+    "appLogRetention": {
+      "title": "App Log Retention Cleanup",
+      "description": "Deletes retained app logs beyond the configured retention window."
     },
     "list": {
       "eyebrow": "Service Management",
       "title": "Scheduled Tasks",
-      "description": "Manage system tasks and user HTTP tasks, inspect run history, and trigger background runs.",
+      "description": "Manage scheduled tasks bound to registered Job Definitions, inspect run history, and trigger background runs.",
       "refresh": "Refresh",
       "create": "Create Task",
       "edit": "Edit",
@@ -27,9 +36,10 @@
       "tableTitle": "Task List",
       "tableHint": "{count} tasks match the current filters.",
       "emptyTitle": "No Scheduled Tasks",
-      "emptyDescription": "HTTP tasks and registered system tasks will appear here.",
+      "emptyDescription": "Scheduled tasks bound to registered Job Definitions will appear here.",
       "loadError": "Scheduled task data could not be loaded.",
       "detailLoadError": "Scheduled task details could not be loaded.",
+      "jobLoadError": "Job Definitions could not be loaded.",
       "runSuccess": "Manual run started.",
       "runError": "Manual run could not be started.",
       "createSuccess": "Task created.",
@@ -51,16 +61,16 @@
         "failures24hDescription": "Failed runs in the last 24 hours"
       },
       "filters": {
-        "searchPlaceholder": "Search name, key, owner, or module",
-        "type": "Task Type",
+        "searchPlaceholder": "Search task, job key, owner, or module",
+        "jobType": "Job Type",
         "status": "Status",
-        "allTypes": "All Types",
+        "allJobTypes": "All Job Types",
         "allStatuses": "All Statuses"
       },
       "columns": {
         "task": "Task",
         "taskName": "Task Name",
-        "type": "Type",
+        "jobType": "Job Type",
         "status": "Status",
         "cron": "Cron",
         "recentResult": "Recent Result",
@@ -79,10 +89,6 @@
         "cron": "Scheduled",
         "manual": "Manual",
         "startup": "Startup"
-      },
-      "taskType": {
-        "system": "System",
-        "http": "HTTP"
       },
       "scheduleType": {
         "cron": "Cron"
@@ -115,10 +121,14 @@
         "custom": "Current expression: {expression}"
       },
       "form": {
-        "createTitle": "Create HTTP Task",
+        "createTitle": "Create Scheduled Task",
         "editTitle": "Edit Task",
+        "jobType": "Job Type",
+        "jobTypePlaceholder": "Select a Job Definition",
+        "jobDefaults": "Module {module} · Owner {owner} · Default cron {cron}",
+        "paramsSchema": "Parameter Schema",
         "taskKey": "Task Key",
-        "taskKeyPlaceholder": "For example webhook.health",
+        "taskKeyPlaceholder": "For example audit.retention.daily",
         "title": "Title",
         "titlePlaceholder": "Enter task name",
         "description": "Description",
@@ -127,18 +137,12 @@
         "cronExpression": "Cron Expression",
         "cronExpressionPlaceholder": "For example */5 * * * *",
         "enabled": "Enabled",
-        "method": "Method",
-        "url": "URL",
-        "urlPlaceholder": "HTTPS://example.com/job",
-        "headers": "Headers",
-        "headersPlaceholder": "{\n  \"Authorization\": \"Bearer token\"\n}",
-        "body": "Body",
-        "bodyPlaceholder": "Optional POST request body",
-        "timeout": "Timeout",
+        "paramsJson": "Parameters JSON",
+        "paramsJsonPlaceholder": "{\n  \"window_days\": 30\n}",
         "taskKeyRequiredHint": "Task Key is required.",
+        "jobTypeRequiredHint": "Job Type is required.",
         "titleRequiredHint": "Title is required.",
-        "urlRequiredHint": "URL is required.",
-        "headersInvalidHint": "Headers must be a JSON object with string values.",
+        "paramsJsonInvalidHint": "Parameters must be valid JSON.",
         "cronRequiredHint": "Cron Expression is required."
       },
       "runDialog": {
@@ -166,7 +170,9 @@
         "owner": "Owner",
         "module": "Module",
         "enabled": "Enabled",
-        "taskType": "Task Type",
+        "jobType": "Job Type",
+        "jobKey": "Job Key",
+        "paramsJson": "Parameters JSON",
         "scheduleType": "Schedule Type",
         "scheduleRule": "Schedule Rule",
         "nextRun": "Next Run",

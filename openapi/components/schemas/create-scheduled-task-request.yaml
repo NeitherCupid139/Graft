@@ -1,7 +1,7 @@
 type: object
 required:
   - task_key
-  - task_type
+  - job_key
   - title
   - cron_expression
   - enabled
@@ -9,9 +9,11 @@ properties:
   task_key:
     type: string
     minLength: 1
-  task_type:
+    description: Stable scheduled task instance key.
+  job_key:
     type: string
-    enum: [http]
+    minLength: 1
+    description: Stable Job Definition key this Scheduled Task executes.
   title:
     type: string
     minLength: 1
@@ -22,5 +24,6 @@ properties:
     minLength: 1
   enabled:
     type: boolean
-  config:
-    $ref: ./scheduled-task-http-config.yaml
+  params_json:
+    type: string
+    description: JSON parameters passed to the Job Definition handler when this Scheduled Task runs.

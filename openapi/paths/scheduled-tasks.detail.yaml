@@ -2,7 +2,7 @@ get:
   tags: [scheduled-tasks]
   summary: Read scheduled task detail
   operationId: getScheduledTask
-  description: Returns one Task Scheduling Runtime job snapshot.
+  description: Returns one Scheduled Task schedule definition with its latest run state.
   parameters:
     - $ref: ../components/parameters/locale-header.yaml
     - $ref: ../components/parameters/request-id-header.yaml
@@ -38,7 +38,7 @@ put:
   tags: [scheduled-tasks]
   summary: Update scheduled task
   operationId: putScheduledTask
-  description: Updates cron/enabled fields for system tasks and mutable management fields for user HTTP tasks.
+  description: Updates mutable Scheduled Task fields without changing the bound Job Definition.
   parameters:
     - $ref: ../components/parameters/locale-header.yaml
     - $ref: ../components/parameters/request-id-header.yaml
@@ -87,9 +87,9 @@ put:
       $ref: ../components/responses/internal-server-error.yaml
 delete:
   tags: [scheduled-tasks]
-  summary: Delete HTTP scheduled task
+  summary: Delete scheduled task
   operationId: deleteScheduledTask
-  description: Soft-deletes one user HTTP scheduled task. System tasks cannot be deleted.
+  description: Soft-deletes one non-builtin Scheduled Task.
   parameters:
     - $ref: ../components/parameters/locale-header.yaml
     - $ref: ../components/parameters/request-id-header.yaml
@@ -107,7 +107,7 @@ delete:
           schema:
             $ref: ../components/schemas/enveloped-empty-response.yaml
     '400':
-      description: Builtin or system scheduled task cannot be deleted.
+      description: Builtin Scheduled Task cannot be deleted.
       headers:
         X-Request-Id:
           $ref: ../components/headers/request-id.yaml

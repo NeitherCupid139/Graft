@@ -1,0 +1,39 @@
+type: object
+required:
+  - key
+  - owner
+  - module
+  - display_name_key
+  - description_key
+  - params_schema_json
+  - default_params_json
+  - default_cron_expression
+  - default_enabled
+properties:
+  key:
+    type: string
+    description: Stable Job Definition key registered by a module.
+  owner:
+    type: string
+  module:
+    type: string
+  display_name_key:
+    type: string
+  description_key:
+    type: string
+  title:
+    type: string
+  description:
+    type: string
+  params_schema_json:
+    type: string
+    description: JSON Schema string for Scheduled Task parameters accepted by this Job Definition.
+  default_params_json:
+    type: string
+    description: Default parameter JSON for a new Scheduled Task bound to this Job Definition.
+  default_cron_expression:
+    type: string
+    description: Default cron expression declared by the Job Definition.
+  default_enabled:
+    type: boolean
+    description: Whether new Scheduled Tasks for this Job Definition should be enabled by default.

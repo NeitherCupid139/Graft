@@ -17,6 +17,7 @@ import {
   disableScheduledTask,
   enableScheduledTask,
   getScheduledTask,
+  getScheduledTaskJobs,
   getScheduledTaskRun,
   getScheduledTaskRuns,
   getScheduledTasks,
@@ -49,6 +50,17 @@ describe('scheduled task api', () => {
     });
   });
 
+  it('calls the canonical job definition list path through request.ts', async () => {
+    const requestGet = vi.mocked(request.get);
+    requestGet.mockResolvedValueOnce({ items: [], total: 0 } as never);
+
+    await getScheduledTaskJobs();
+
+    expect(requestGet).toHaveBeenCalledWith({
+      url: SCHEDULED_TASK_API_PATH.JOBS,
+    });
+  });
+
   it('encodes scheduled task keys for detail reads', async () => {
     const requestGet = vi.mocked(request.get);
     requestGet.mockResolvedValueOnce({ key: 'audit/job' } as never);
@@ -64,18 +76,14 @@ describe('scheduled task api', () => {
   it('posts create payloads to the canonical collection path', async () => {
     const requestPost = vi.mocked(request.post);
     const payload = {
-      task_key: 'webhook.health',
-      task_type: 'http',
-      title: 'Webhook health',
+      task_key: 'audit.retention.daily',
+      job_key: 'audit.retention',
+      title: 'Audit retention',
       cron_expression: '*/5 * * * *',
       enabled: true,
-      config: {
-        method: 'GET',
-        url: 'https://example.test/health',
-        timeout_seconds: 30,
-      },
+      params_json: '{"window_days":30}',
     } as const;
-    requestPost.mockResolvedValueOnce({ key: 'webhook.health' } as never);
+    requestPost.mockResolvedValueOnce({ key: 'audit.retention.daily' } as never);
 
     await createScheduledTask(payload);
 

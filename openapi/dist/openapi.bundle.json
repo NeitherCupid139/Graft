@@ -5166,7 +5166,7 @@
         ],
         "summary": "List scheduled tasks",
         "operationId": "getScheduledTasks",
-        "description": "Returns registered Task Scheduling Runtime jobs for view and diagnosis workflows.",
+        "description": "Returns Scheduled Tasks that bind Job Definitions to cron schedules.",
         "parameters": [
           {
             "$ref": "#/components/parameters/locale-header"
@@ -5211,9 +5211,9 @@
         "tags": [
           "scheduled-tasks"
         ],
-        "summary": "Create HTTP scheduled task",
+        "summary": "Create scheduled task",
         "operationId": "postScheduledTask",
-        "description": "Creates one user-managed HTTP scheduled task. System tasks are seeded by the backend scheduler module and cannot be created through this endpoint.",
+        "description": "Creates one Scheduled Task bound to a registered Job Definition.",
         "parameters": [
           {
             "$ref": "#/components/parameters/locale-header"
@@ -5265,6 +5265,55 @@
         }
       }
     },
+    "/api/scheduled-tasks/jobs": {
+      "get": {
+        "tags": [
+          "scheduled-tasks"
+        ],
+        "summary": "List scheduler job definitions",
+        "operationId": "getScheduledTaskJobs",
+        "description": "Returns registered Job Definitions that can be bound to Scheduled Tasks.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/locale-header"
+          },
+          {
+            "$ref": "#/components/parameters/request-id-header"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scheduler Job Definition list.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/enveloped-scheduled-task-job-definition-list-response"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/internal-server-error"
+          }
+        }
+      }
+    },
     "/api/scheduled-tasks/{taskKey}": {
       "get": {
         "tags": [
@@ -5272,7 +5321,7 @@
         ],
         "summary": "Read scheduled task detail",
         "operationId": "getScheduledTask",
-        "description": "Returns one Task Scheduling Runtime job snapshot.",
+        "description": "Returns one Scheduled Task schedule definition with its latest run state.",
         "parameters": [
           {
             "$ref": "#/components/parameters/locale-header"
@@ -5337,7 +5386,7 @@
         ],
         "summary": "Update scheduled task",
         "operationId": "putScheduledTask",
-        "description": "Updates cron/enabled fields for system tasks and mutable management fields for user HTTP tasks.",
+        "description": "Updates mutable Scheduled Task fields without changing the bound Job Definition.",
         "parameters": [
           {
             "$ref": "#/components/parameters/locale-header"
@@ -5425,9 +5474,9 @@
         "tags": [
           "scheduled-tasks"
         ],
-        "summary": "Delete HTTP scheduled task",
+        "summary": "Delete scheduled task",
         "operationId": "deleteScheduledTask",
-        "description": "Soft-deletes one user HTTP scheduled task. System tasks cannot be deleted.",
+        "description": "Soft-deletes one non-builtin Scheduled Task.",
         "parameters": [
           {
             "$ref": "#/components/parameters/locale-header"
@@ -5461,7 +5510,7 @@
             }
           },
           "400": {
-            "description": "Builtin or system scheduled task cannot be deleted.",
+            "description": "Builtin Scheduled Task cannot be deleted.",
             "headers": {
               "X-Request-Id": {
                 "$ref": "#/components/headers/request-id"
@@ -5509,7 +5558,7 @@
         ],
         "summary": "Enable scheduled task",
         "operationId": "postScheduledTaskEnable",
-        "description": "Enables one scheduled task and dynamically registers its cron schedule.",
+        "description": "Enables one Scheduled Task and dynamically registers its cron schedule.",
         "parameters": [
           {
             "$ref": "#/components/parameters/locale-header"
@@ -5576,7 +5625,7 @@
         ],
         "summary": "Disable scheduled task",
         "operationId": "postScheduledTaskDisable",
-        "description": "Disables one scheduled task and dynamically removes its cron schedule.",
+        "description": "Disables one Scheduled Task and dynamically removes its cron schedule.",
         "parameters": [
           {
             "$ref": "#/components/parameters/locale-header"
@@ -5643,7 +5692,7 @@
         ],
         "summary": "List scheduled task runs",
         "operationId": "getScheduledTaskRuns",
-        "description": "Returns persisted run history for one Task Scheduling Runtime job.",
+        "description": "Returns persisted Job Run history for one Scheduled Task.",
         "parameters": [
           {
             "$ref": "#/components/parameters/locale-header"
@@ -5668,7 +5717,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Scheduled task run history.",
+            "description": "Scheduled Task Job Run history.",
             "headers": {
               "X-Request-Id": {
                 "$ref": "#/components/headers/request-id"
@@ -5716,7 +5765,7 @@
         ],
         "summary": "Read scheduled task run detail",
         "operationId": "getScheduledTaskRun",
-        "description": "Returns one persisted run history record for a scheduled task.",
+        "description": "Returns one persisted Job Run history record for a Scheduled Task.",
         "parameters": [
           {
             "$ref": "#/components/parameters/locale-header"
@@ -5783,7 +5832,7 @@
         ],
         "summary": "Run scheduled task once",
         "operationId": "postScheduledTaskRun",
-        "description": "Triggers one Task Scheduling Runtime job immediately and returns the persisted manual run result.",
+        "description": "Triggers one Scheduled Task immediately and returns the persisted manual Job Run result.",
         "parameters": [
           {
             "$ref": "#/components/parameters/locale-header"
@@ -5802,7 +5851,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Manual scheduled task run result.",
+            "description": "Manual Job Run result.",
             "headers": {
               "X-Request-Id": {
                 "$ref": "#/components/headers/request-id"
@@ -6696,8 +6745,11 @@
       "ScheduledTaskItem": {
         "$ref": "#/components/schemas/scheduled-task-item"
       },
-      "ScheduledTaskHTTPConfig": {
-        "$ref": "#/components/schemas/scheduled-task-http-config"
+      "ScheduledTaskJobDefinitionItem": {
+        "$ref": "#/components/schemas/scheduled-task-job-definition-item"
+      },
+      "ScheduledTaskJobDefinitionListResponse": {
+        "$ref": "#/components/schemas/scheduled-task-job-definition-list-response"
       },
       "CreateScheduledTaskRequest": {
         "$ref": "#/components/schemas/create-scheduled-task-request"
@@ -6719,6 +6771,9 @@
       },
       "EnvelopedScheduledTaskListResponse": {
         "$ref": "#/components/schemas/enveloped-scheduled-task-list-response"
+      },
+      "EnvelopedScheduledTaskJobDefinitionListResponse": {
+        "$ref": "#/components/schemas/enveloped-scheduled-task-job-definition-list-response"
       },
       "EnvelopedScheduledTaskRunItem": {
         "$ref": "#/components/schemas/enveloped-scheduled-task-run-item"
@@ -9715,7 +9770,7 @@
         "type": "object",
         "required": [
           "key",
-          "task_type",
+          "job_key",
           "schedule_type",
           "display_name_key",
           "description_key",
@@ -9728,14 +9783,12 @@
         ],
         "properties": {
           "key": {
-            "type": "string"
-          },
-          "task_type": {
             "type": "string",
-            "enum": [
-              "system",
-              "http"
-            ]
+            "description": "Stable Scheduled Task instance key."
+          },
+          "job_key": {
+            "type": "string",
+            "description": "Stable Job Definition key executed by this Scheduled Task."
           },
           "schedule_type": {
             "type": "string",
@@ -9757,11 +9810,11 @@
           },
           "enabled": {
             "type": "boolean",
-            "description": "Whether the scheduled task is enabled in the DB-backed task definition."
+            "description": "Whether the Scheduled Task is enabled in the DB-backed schedule definition."
           },
           "builtin": {
             "type": "boolean",
-            "description": "System tasks are builtin and cannot be deleted or change task_key/task_type."
+            "description": "Builtin Scheduled Tasks cannot be deleted or change task_key/job_key."
           },
           "title": {
             "type": "string"
@@ -9773,9 +9826,9 @@
             "type": "string",
             "description": "Cron expression."
           },
-          "config_json": {
+          "params_json": {
             "type": "string",
-            "description": "Task-type private JSON config. HTTP task responses contain persisted config only for management views."
+            "description": "Parameter JSON passed to the Job Definition handler when this Scheduled Task runs."
           },
           "last_run": {
             "$ref": "#/components/schemas/scheduled-task-last-run",
@@ -9839,46 +9892,11 @@
           }
         ]
       },
-      "scheduled-task-http-config": {
-        "type": "object",
-        "required": [
-          "method",
-          "url"
-        ],
-        "properties": {
-          "method": {
-            "type": "string",
-            "enum": [
-              "GET",
-              "POST"
-            ]
-          },
-          "url": {
-            "type": "string",
-            "minLength": 1
-          },
-          "headers": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string"
-            }
-          },
-          "body": {
-            "type": "string"
-          },
-          "timeout_seconds": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 120,
-            "default": 30
-          }
-        }
-      },
       "create-scheduled-task-request": {
         "type": "object",
         "required": [
           "task_key",
-          "task_type",
+          "job_key",
           "title",
           "cron_expression",
           "enabled"
@@ -9886,13 +9904,13 @@
         "properties": {
           "task_key": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "Stable scheduled task instance key."
           },
-          "task_type": {
+          "job_key": {
             "type": "string",
-            "enum": [
-              "http"
-            ]
+            "minLength": 1,
+            "description": "Stable Job Definition key this Scheduled Task executes."
           },
           "title": {
             "type": "string",
@@ -9908,8 +9926,9 @@
           "enabled": {
             "type": "boolean"
           },
-          "config": {
-            "$ref": "#/components/schemas/scheduled-task-http-config"
+          "params_json": {
+            "type": "string",
+            "description": "JSON parameters passed to the Job Definition handler when this Scheduled Task runs."
           }
         }
       },
@@ -9926,6 +9945,97 @@
             "properties": {
               "data": {
                 "$ref": "#/components/schemas/scheduled-task-item"
+              }
+            }
+          }
+        ]
+      },
+      "scheduled-task-job-definition-item": {
+        "type": "object",
+        "required": [
+          "key",
+          "owner",
+          "module",
+          "display_name_key",
+          "description_key",
+          "params_schema_json",
+          "default_params_json",
+          "default_cron_expression",
+          "default_enabled"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "Stable Job Definition key registered by a module."
+          },
+          "owner": {
+            "type": "string"
+          },
+          "module": {
+            "type": "string"
+          },
+          "display_name_key": {
+            "type": "string"
+          },
+          "description_key": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "params_schema_json": {
+            "type": "string",
+            "description": "JSON Schema string for Scheduled Task parameters accepted by this Job Definition."
+          },
+          "default_params_json": {
+            "type": "string",
+            "description": "Default parameter JSON for a new Scheduled Task bound to this Job Definition."
+          },
+          "default_cron_expression": {
+            "type": "string",
+            "description": "Default cron expression declared by the Job Definition."
+          },
+          "default_enabled": {
+            "type": "boolean",
+            "description": "Whether new Scheduled Tasks for this Job Definition should be enabled by default."
+          }
+        }
+      },
+      "scheduled-task-job-definition-list-response": {
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/scheduled-task-job-definition-item"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "enveloped-scheduled-task-job-definition-list-response": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/api-envelope"
+          },
+          {
+            "type": "object",
+            "required": [
+              "data"
+            ],
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/scheduled-task-job-definition-list-response"
               }
             }
           }
@@ -9948,8 +10058,9 @@
           "enabled": {
             "type": "boolean"
           },
-          "config": {
-            "$ref": "#/components/schemas/scheduled-task-http-config"
+          "params_json": {
+            "type": "string",
+            "description": "JSON parameters passed to the Job Definition handler when this Scheduled Task runs."
           }
         }
       },
@@ -9958,10 +10069,10 @@
         "required": [
           "id",
           "task_key",
+          "job_key",
           "task_name",
           "owner",
           "module",
-          "task_type",
           "trigger_type",
           "status",
           "error_summary",
@@ -9977,6 +10088,9 @@
           "task_key": {
             "type": "string"
           },
+          "job_key": {
+            "type": "string"
+          },
           "task_name": {
             "type": "string"
           },
@@ -9985,13 +10099,6 @@
           },
           "module": {
             "type": "string"
-          },
-          "task_type": {
-            "type": "string",
-            "enum": [
-              "system",
-              "http"
-            ]
           },
           "trigger_type": {
             "type": "string",

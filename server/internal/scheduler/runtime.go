@@ -5,9 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
-	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -18,13 +15,14 @@ import (
 	"graft/server/internal/cronx"
 )
 
-// Runtime 暴露仓库内稳定的最小调度能力。
+// Runtime exposes the repository-stable scheduler capability.
 type Runtime interface {
 	RegisterJob(job cronx.Job) error
 	SeedBuiltinJobs(ctx context.Context, jobs []cronx.Job) error
 	RemoveJob(name string) error
 	Start(ctx context.Context) error
 	Stop(ctx context.Context) error
+	ListJobDefinitions(ctx context.Context) ([]JobDefinitionSnapshot, error)
 	ListTasks(ctx context.Context) ([]TaskSnapshot, error)
 	GetTask(ctx context.Context, key string) (TaskSnapshot, error)
 	CreateTask(ctx context.Context, command TaskMutation) (TaskSnapshot, error)
@@ -40,11 +38,11 @@ type Runtime interface {
 type RunStatus string
 
 const (
-	// RunStatusRunning indicates a scheduler task run has started but not finished.
+	// RunStatusRunning means the job execution has been created but not finished.
 	RunStatusRunning RunStatus = "running"
-	// RunStatusSuccess indicates a scheduler task run completed successfully.
+	// RunStatusSuccess means the job execution finished without a handler error.
 	RunStatusSuccess RunStatus = "success"
-	// RunStatusFailed indicates a scheduler task run completed with an error.
+	// RunStatusFailed means the job execution finished with a handler error.
 	RunStatusFailed RunStatus = "failed"
 )
 
@@ -52,34 +50,52 @@ const (
 type TriggerType string
 
 const (
-	// TriggerTypeCron indicates a scheduler task run was started by its configured cron schedule.
+	// TriggerTypeCron records a run started by cron scheduling.
 	TriggerTypeCron TriggerType = "cron"
-	// TriggerTypeManual indicates a scheduler task run was started by an explicit API/runtime request.
+	// TriggerTypeManual records a run started by an explicit API request.
 	TriggerTypeManual TriggerType = "manual"
-	// TriggerTypeStartup indicates a scheduler task run was started during runtime startup.
+	// TriggerTypeStartup records a run started during scheduler startup.
 	TriggerTypeStartup TriggerType = "startup"
 )
 
-// ErrTaskNotFound indicates the requested runtime job key is unknown.
-var ErrTaskNotFound = errors.New("scheduler task not found")
+var (
+	// ErrTaskNotFound is returned when a scheduled task or run cannot be found.
+	ErrTaskNotFound = errors.New("scheduler task not found")
+	// ErrJobDefinitionNotFound is returned when a scheduled task references an unknown job definition.
+	ErrJobDefinitionNotFound = errors.New("scheduler job definition not found")
+	// ErrTaskAlreadyRunning is returned when a manual run is requested while the task is active.
+	ErrTaskAlreadyRunning = errors.New("scheduler task already running")
+	// ErrTaskImmutable is returned when a caller tries to change builtin or identity fields.
+	ErrTaskImmutable = errors.New("scheduler task field is immutable")
+	// ErrTaskValidation is returned when task, job, or cron input is invalid.
+	ErrTaskValidation = errors.New("scheduler task validation failed")
+)
 
-// ErrTaskAlreadyRunning indicates the same task already has an active execution.
-var ErrTaskAlreadyRunning = errors.New("scheduler task already running")
+// JobDefinitionSnapshot describes one persisted, creatable scheduler job type.
+type JobDefinitionSnapshot struct {
+	ID             uint64
+	JobKey         string
+	ModuleKey      string
+	TitleKey       string
+	Title          string
+	DescriptionKey string
+	Description    string
+	ParamsSchema   string
+	DefaultParams  string
+	DefaultCron    string
+	Enabled        bool
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	DeletedAt      *time.Time
+}
 
-// ErrTaskImmutable indicates a protected builtin field was modified.
-var ErrTaskImmutable = errors.New("scheduler task field is immutable")
-
-// ErrTaskValidation indicates a persisted task definition is invalid.
-var ErrTaskValidation = errors.New("scheduler task validation failed")
-
-// TaskSnapshot is the internal service model consumed by later API routes.
+// TaskSnapshot is the internal service model for scheduled task instances.
 type TaskSnapshot struct {
 	ID                    uint64
 	Key                   string
+	JobKey                string
+	ModuleKey             string
 	Name                  string
-	Owner                 string
-	Module                string
-	Type                  cronx.TaskType
 	Title                 string
 	Description           string
 	DisplayMessageKey     string
@@ -87,7 +103,7 @@ type TaskSnapshot struct {
 	Schedule              string
 	Enabled               bool
 	Builtin               bool
-	ConfigJSON            string
+	ParamsJSON            string
 	Running               bool
 	LastRun               *TaskRun
 	CreatedAt             time.Time
@@ -99,10 +115,10 @@ type TaskSnapshot struct {
 type TaskRun struct {
 	ID          uint64
 	TaskKey     string
+	JobKey      string
 	TaskName    string
 	Owner       string
 	Module      string
-	TaskType    cronx.TaskType
 	TriggerType TriggerType
 	Status      RunStatus
 	Error       string
@@ -113,17 +129,36 @@ type TaskRun struct {
 	CreatedAt   time.Time
 }
 
-// TaskDefinition is the DB-backed authority for one scheduled task.
+// JobDefinition is the DB-backed authority for one creatable job type.
+type JobDefinition struct {
+	ID             uint64
+	JobKey         string
+	ModuleKey      string
+	TitleKey       string
+	Title          string
+	DescriptionKey string
+	Description    string
+	ParamsSchema   string
+	DefaultParams  string
+	DefaultCron    string
+	Enabled        bool
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	DeletedAt      *time.Time
+}
+
+// TaskDefinition is the DB-backed authority for one scheduled task instance.
 type TaskDefinition struct {
 	ID             uint64
 	TaskKey        string
-	TaskType       cronx.TaskType
+	JobKey         string
+	ModuleKey      string
 	Title          string
 	Description    string
 	CronExpression string
 	Enabled        bool
 	Builtin        bool
-	ConfigJSON     string
+	ParamsJSON     string
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 	DeletedAt      *time.Time
@@ -132,30 +167,14 @@ type TaskDefinition struct {
 // TaskMutation carries create/update input before HTTP routes are bound.
 type TaskMutation struct {
 	TaskKey        string
-	TaskType       cronx.TaskType
+	JobKey         string
 	Title          string
 	Description    string
 	CronExpression string
 	Enabled        bool
 	EnabledSet     bool
-	ConfigJSON     string
+	ParamsJSON     string
 }
-
-// HTTPTaskConfig is the persisted config_json shape for user HTTP tasks.
-type HTTPTaskConfig struct {
-	Method         string            `json:"method"`
-	URL            string            `json:"url"`
-	Headers        map[string]string `json:"headers,omitempty"`
-	Body           string            `json:"body,omitempty"`
-	TimeoutSeconds int               `json:"timeout_seconds,omitempty"`
-}
-
-const (
-	defaultHTTPTaskTimeoutSeconds = 30
-	minHTTPTaskTimeoutSeconds     = 1
-	maxHTTPTaskTimeoutSeconds     = 120
-	maxHTTPTaskResponseBytes      = 64 * 1024
-)
 
 // RunListQuery scopes run-history lookup for one task.
 type RunListQuery struct {
@@ -170,7 +189,7 @@ type RunListResult struct {
 	Total int
 }
 
-// RunRepository persists scheduler_task_runs records.
+// RunRepository persists execution history for scheduled task runs.
 type RunRepository interface {
 	CreateRun(ctx context.Context, run TaskRun) (TaskRun, error)
 	FinishRun(ctx context.Context, id uint64, status RunStatus, finishedAt time.Time, resultSummary string, errorMessage string) (TaskRun, error)
@@ -179,7 +198,7 @@ type RunRepository interface {
 	GetRun(ctx context.Context, id uint64) (TaskRun, error)
 }
 
-// TaskRepository persists scheduled_tasks task definitions.
+// TaskRepository persists user-created and builtin scheduled task instances.
 type TaskRepository interface {
 	SeedBuiltinTasks(ctx context.Context, tasks []TaskDefinition) error
 	CreateTask(ctx context.Context, task TaskDefinition) (TaskDefinition, error)
@@ -190,10 +209,14 @@ type TaskRepository interface {
 	GetTask(ctx context.Context, key string) (TaskDefinition, error)
 }
 
-// CronRuntime 是基于 robfig/cron/v3 的最小进程内调度器封装。
-//
-// 它把底层 cron 细节留在包内部，对外只保留显式 job 注册、启动、停止与
-// 移除语义，避免业务模块直接依赖第三方调度器实现。
+// JobDefinitionRepository persists module-registered scheduler job definitions.
+type JobDefinitionRepository interface {
+	SyncJobDefinitions(ctx context.Context, definitions []JobDefinition) error
+	ListJobDefinitions(ctx context.Context) ([]JobDefinition, error)
+	GetJobDefinition(ctx context.Context, key string) (JobDefinition, error)
+}
+
+// CronRuntime is the in-process scheduler backed by robfig/cron.
 type CronRuntime struct {
 	logger *zap.Logger
 
@@ -209,10 +232,11 @@ type CronRuntime struct {
 	lifecycleCancel context.CancelFunc
 	runs            RunRepository
 	tasks           TaskRepository
+	jobDefinitions  JobDefinitionRepository
 	now             func() time.Time
 }
 
-// New 创建一个新的最小调度器运行时。
+// New constructs an in-process cron runtime with an optional run repository.
 func New(logger *zap.Logger, repositories ...RunRepository) *CronRuntime {
 	if logger == nil {
 		logger = zap.NewNop()
@@ -236,17 +260,23 @@ func New(logger *zap.Logger, repositories ...RunRepository) *CronRuntime {
 	}
 }
 
-// SetTaskRepository binds the DB-backed task definition authority to the runtime.
+// SetTaskRepository attaches the scheduled task persistence backend.
 func (r *CronRuntime) SetTaskRepository(repository TaskRepository) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-
 	r.tasks = repository
 }
 
-// RegisterJob 注册一个显式调度任务。
+// SetJobDefinitionRepository attaches the job definition persistence backend.
+func (r *CronRuntime) SetJobDefinitionRepository(repository JobDefinitionRepository) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.jobDefinitions = repository
+}
+
+// RegisterJob adds an in-memory job handler declaration to the runtime.
 func (r *CronRuntime) RegisterJob(job cronx.Job) error {
-	if err := job.Validate(); err != nil {
+	if err := validateJob(job); err != nil {
 		return err
 	}
 
@@ -254,73 +284,71 @@ func (r *CronRuntime) RegisterJob(job cronx.Job) error {
 	defer r.mu.Unlock()
 
 	key := job.RuntimeKey()
-	if _, exists := r.entries[key]; exists {
+	if _, exists := r.jobs[key]; exists {
 		return fmt.Errorf("job already registered: %s", key)
 	}
-
-	entryID, err := r.addCronFuncLocked(key, job.Schedule, func(runCtx context.Context) (TaskRun, error) {
-		return r.runJob(runCtx, job, TriggerTypeCron)
-	})
-	if err != nil {
-		return fmt.Errorf("register job %s: %w", job.Name, err)
-	}
-
-	r.entries[key] = entryID
 	r.jobs[key] = job
 	r.order = append(r.order, key)
 	return nil
 }
 
-// SeedBuiltinJobs persists cron registry declarations as builtin system tasks.
+// SeedBuiltinJobs syncs module-registered jobs and their builtin scheduled task instances.
 func (r *CronRuntime) SeedBuiltinJobs(ctx context.Context, jobs []cronx.Job) error {
-	definitions := make([]TaskDefinition, 0, len(jobs))
+	definitions := make([]JobDefinition, 0, len(jobs))
+	tasks := make([]TaskDefinition, 0, len(jobs))
 	for _, job := range jobs {
-		if err := job.Validate(); err != nil {
+		if err := r.RegisterJob(job); err != nil {
+			var duplicateErr error
+			if strings.Contains(err.Error(), "job already registered") {
+				duplicateErr = nil
+			} else {
+				duplicateErr = err
+			}
+			if duplicateErr != nil {
+				return duplicateErr
+			}
+		}
+		definitions = append(definitions, jobDefinitionFromJob(job, r.now()))
+		tasks = append(tasks, builtinTaskDefinition(job, r.now()))
+	}
+	if r.jobDefinitions != nil {
+		if err := r.jobDefinitions.SyncJobDefinitions(ctx, definitions); err != nil {
 			return err
 		}
-		if err := r.rememberBuiltin(job); err != nil {
-			return err
-		}
-		definitions = append(definitions, builtinTaskDefinition(job, r.now()))
 	}
-	if r.tasks == nil {
-		return nil
+	if r.tasks != nil {
+		return r.tasks.SeedBuiltinTasks(ctx, tasks)
 	}
-
-	return r.tasks.SeedBuiltinTasks(ctx, definitions)
+	return nil
 }
 
-// RemoveJob 按稳定名称移除一个已注册任务。
+// RemoveJob removes a registered in-memory job and any active cron schedule for it.
 func (r *CronRuntime) RemoveJob(name string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	entryID, ok := r.entries[name]
-	if !ok {
+	if entryID, ok := r.entries[name]; ok {
+		r.cron.Remove(entryID)
+		delete(r.entries, name)
+	}
+	if _, ok := r.jobs[name]; !ok {
 		return errors.New("job not found")
 	}
-
-	r.cron.Remove(entryID)
-	delete(r.entries, name)
 	delete(r.jobs, name)
 	r.order = removeKey(r.order, name)
 	return nil
 }
 
-// ListTasks returns visible runtime job snapshots for later API routes.
-func (r *CronRuntime) ListTasks(ctx context.Context) ([]TaskSnapshot, error) {
-	if r.tasks != nil {
-		definitions, err := r.tasks.ListTasks(ctx)
+// ListJobDefinitions returns the creatable scheduler job definitions.
+func (r *CronRuntime) ListJobDefinitions(ctx context.Context) ([]JobDefinitionSnapshot, error) {
+	if r.jobDefinitions != nil {
+		definitions, err := r.jobDefinitions.ListJobDefinitions(ctx)
 		if err != nil {
 			return nil, err
 		}
-		items := make([]TaskSnapshot, 0, len(definitions))
+		items := make([]JobDefinitionSnapshot, 0, len(definitions))
 		for _, definition := range definitions {
-			snapshot, err := r.snapshotDefinition(ctx, definition)
-			if err != nil {
-				return nil, err
-			}
-			items = append(items, snapshot)
+			items = append(items, jobDefinitionSnapshot(definition))
 		}
 		return items, nil
 	}
@@ -332,42 +360,55 @@ func (r *CronRuntime) ListTasks(ctx context.Context) ([]TaskSnapshot, error) {
 	}
 	r.mu.RUnlock()
 
-	items := make([]TaskSnapshot, 0, len(jobs))
+	items := make([]JobDefinitionSnapshot, 0, len(jobs))
 	for _, job := range jobs {
-		snapshot, err := r.snapshot(ctx, job)
+		items = append(items, jobDefinitionSnapshot(jobDefinitionFromJob(job, r.now())))
+	}
+	return items, nil
+}
+
+// ListTasks returns all active scheduled task instances.
+func (r *CronRuntime) ListTasks(ctx context.Context) ([]TaskSnapshot, error) {
+	if r.tasks == nil {
+		return nil, errors.New("scheduler task repository is unavailable")
+	}
+	definitions, err := r.tasks.ListTasks(ctx)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]TaskSnapshot, 0, len(definitions))
+	for _, definition := range definitions {
+		snapshot, err := r.snapshotDefinition(ctx, definition)
 		if err != nil {
 			return nil, err
 		}
 		items = append(items, snapshot)
 	}
-
 	return items, nil
 }
 
-// GetTask returns one visible runtime job snapshot.
+// GetTask returns one active scheduled task instance by key.
 func (r *CronRuntime) GetTask(ctx context.Context, key string) (TaskSnapshot, error) {
-	if r.tasks != nil {
-		definition, err := r.tasks.GetTask(ctx, key)
-		if err != nil {
-			return TaskSnapshot{}, err
-		}
-		return r.snapshotDefinition(ctx, definition)
+	if r.tasks == nil {
+		return TaskSnapshot{}, errors.New("scheduler task repository is unavailable")
 	}
-
-	job, ok := r.findJob(key)
-	if !ok {
-		return TaskSnapshot{}, ErrTaskNotFound
+	definition, err := r.tasks.GetTask(ctx, key)
+	if err != nil {
+		return TaskSnapshot{}, err
 	}
-
-	return r.snapshot(ctx, job)
+	return r.snapshotDefinition(ctx, definition)
 }
 
-// CreateTask persists and dynamically schedules one user HTTP task.
+// CreateTask persists and schedules a user-created scheduled task instance.
 func (r *CronRuntime) CreateTask(ctx context.Context, command TaskMutation) (TaskSnapshot, error) {
 	if r.tasks == nil {
 		return TaskSnapshot{}, errors.New("scheduler task repository is unavailable")
 	}
-	definition, err := mutationToDefinition(command, r.now())
+	job, err := r.requireKnownJob(ctx, command.JobKey)
+	if err != nil {
+		return TaskSnapshot{}, err
+	}
+	definition, err := mutationToDefinition(command, job, r.now())
 	if err != nil {
 		return TaskSnapshot{}, err
 	}
@@ -381,10 +422,15 @@ func (r *CronRuntime) CreateTask(ctx context.Context, command TaskMutation) (Tas
 	return r.snapshotDefinition(ctx, created)
 }
 
-// UpdateTask updates mutable task fields and refreshes the in-process schedule.
+// UpdateTask updates mutable scheduled task fields and refreshes its cron schedule.
 func (r *CronRuntime) UpdateTask(ctx context.Context, key string, command TaskMutation) (TaskSnapshot, error) {
 	if r.tasks == nil {
 		return TaskSnapshot{}, errors.New("scheduler task repository is unavailable")
+	}
+	if command.JobKey != "" {
+		if _, err := r.requireKnownJob(ctx, command.JobKey); err != nil {
+			return TaskSnapshot{}, err
+		}
 	}
 	updated, err := r.tasks.UpdateTask(ctx, key, command)
 	if err != nil {
@@ -396,7 +442,7 @@ func (r *CronRuntime) UpdateTask(ctx context.Context, key string, command TaskMu
 	return r.snapshotDefinition(ctx, updated)
 }
 
-// DeleteTask soft-deletes a user task and removes its runtime schedule.
+// DeleteTask soft-deletes a user-created scheduled task and removes its cron schedule.
 func (r *CronRuntime) DeleteTask(ctx context.Context, key string) error {
 	if r.tasks == nil {
 		return errors.New("scheduler task repository is unavailable")
@@ -407,7 +453,7 @@ func (r *CronRuntime) DeleteTask(ctx context.Context, key string) error {
 	return r.removeScheduleIfExists(key)
 }
 
-// SetTaskEnabled toggles one task and refreshes its runtime schedule.
+// SetTaskEnabled toggles a scheduled task and refreshes its cron schedule.
 func (r *CronRuntime) SetTaskEnabled(ctx context.Context, key string, enabled bool) (TaskSnapshot, error) {
 	if r.tasks == nil {
 		return TaskSnapshot{}, errors.New("scheduler task repository is unavailable")
@@ -422,7 +468,7 @@ func (r *CronRuntime) SetTaskEnabled(ctx context.Context, key string, enabled bo
 	return r.snapshotDefinition(ctx, updated)
 }
 
-// ListRuns returns persisted run history for one task.
+// ListRuns returns a page of run history for one scheduled task.
 func (r *CronRuntime) ListRuns(ctx context.Context, query RunListQuery) (RunListResult, error) {
 	if r.runs == nil {
 		return RunListResult{}, errors.New("scheduler run repository is unavailable")
@@ -430,11 +476,10 @@ func (r *CronRuntime) ListRuns(ctx context.Context, query RunListQuery) (RunList
 	if err := r.ensureKnownTask(ctx, query.TaskKey); err != nil {
 		return RunListResult{}, err
 	}
-
 	return r.runs.ListRuns(ctx, query)
 }
 
-// GetRun returns one persisted run detail.
+// GetRun returns one persisted run-history record by id.
 func (r *CronRuntime) GetRun(ctx context.Context, id uint64) (TaskRun, error) {
 	if r.runs == nil {
 		return TaskRun{}, errors.New("scheduler run repository is unavailable")
@@ -442,28 +487,19 @@ func (r *CronRuntime) GetRun(ctx context.Context, id uint64) (TaskRun, error) {
 	return r.runs.GetRun(ctx, id)
 }
 
-// RunOnce executes one visible runtime job immediately.
+// RunOnce starts one manual execution for a scheduled task.
 func (r *CronRuntime) RunOnce(ctx context.Context, key string) (TaskRun, error) {
-	if r.tasks != nil {
-		definition, err := r.tasks.GetTask(ctx, key)
-		if err != nil {
-			return TaskRun{}, err
-		}
-		return r.runDefinition(ctx, definition, TriggerTypeManual)
+	if r.tasks == nil {
+		return TaskRun{}, errors.New("scheduler task repository is unavailable")
 	}
-
-	job, ok := r.findJob(key)
-	if !ok {
-		return TaskRun{}, ErrTaskNotFound
+	definition, err := r.tasks.GetTask(ctx, key)
+	if err != nil {
+		return TaskRun{}, err
 	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
-
-	return r.runJob(ctx, job, TriggerTypeManual)
+	return r.runDefinition(ctx, definition, TriggerTypeManual)
 }
 
-// Start 绑定生命周期上下文并启动当前调度器。
+// Start schedules persisted enabled tasks and starts the cron engine.
 func (r *CronRuntime) Start(ctx context.Context) error {
 	if ctx == nil {
 		return errors.New("lifecycle context is required")
@@ -475,7 +511,6 @@ func (r *CronRuntime) Start(ctx context.Context) error {
 	if r.started {
 		return nil
 	}
-
 	r.lifecycleCtx, r.lifecycleCancel = context.WithCancel(ctx)
 	if r.tasks != nil {
 		definitions, err := r.tasks.ListTasks(ctx)
@@ -493,10 +528,7 @@ func (r *CronRuntime) Start(ctx context.Context) error {
 	return nil
 }
 
-// Stop 停止当前调度器并等待在途任务结束。
-//
-// 若传入的 ctx 为 nil，则无限期等待所有已启动任务完成；若 ctx 非 nil，
-// 则在 ctx 取消时立即返回 ctx.Err()，但底层任务仍会继续执行到自然结束。
+// Stop cancels runtime-owned contexts and stops the cron engine.
 func (r *CronRuntime) Stop(ctx context.Context) error {
 	r.mu.Lock()
 	if !r.started {
@@ -514,12 +546,10 @@ func (r *CronRuntime) Stop(ctx context.Context) error {
 	if lifecycleCancel != nil {
 		lifecycleCancel()
 	}
-
 	if ctx == nil {
 		<-stopCtx.Done()
 		return nil
 	}
-
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -531,219 +561,60 @@ func (r *CronRuntime) Stop(ctx context.Context) error {
 func (r *CronRuntime) jobContext() context.Context {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-
 	return r.lifecycleCtx
 }
 
 func (r *CronRuntime) findJob(key string) (cronx.Job, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-
 	job, ok := r.jobs[key]
 	return job, ok
 }
 
-func (r *CronRuntime) snapshot(ctx context.Context, job cronx.Job) (TaskSnapshot, error) {
-	key := job.RuntimeKey()
-	snapshot := TaskSnapshot{
-		Key:                   key,
-		Name:                  job.Name,
-		Owner:                 job.RuntimeOwner(),
-		Module:                job.Module,
-		Type:                  job.RuntimeType(),
-		DisplayMessageKey:     job.DisplayMessageKey,
-		DescriptionMessageKey: job.DescriptionMessageKey,
-		Schedule:              job.Schedule,
-		Enabled:               job.DefaultEnabled,
+func (r *CronRuntime) requireKnownJob(ctx context.Context, key string) (JobDefinition, error) {
+	if strings.TrimSpace(key) == "" {
+		return JobDefinition{}, ErrJobDefinitionNotFound
 	}
-
-	r.mu.RLock()
-	_, snapshot.Running = r.running[key]
-	r.mu.RUnlock()
-
-	if r.runs == nil {
-		return snapshot, nil
-	}
-
-	latest, ok, err := r.runs.LatestRunByTask(ctx, key)
-	if err != nil {
-		return TaskSnapshot{}, err
-	}
-	if ok {
-		snapshot.LastRun = &latest
-	}
-
-	return snapshot, nil
-}
-
-func (r *CronRuntime) runJob(ctx context.Context, job cronx.Job, trigger TriggerType) (TaskRun, error) {
-	if err := job.Validate(); err != nil {
-		return TaskRun{}, err
-	}
-
-	key := job.RuntimeKey()
-	if err := r.markRunning(key); err != nil {
-		return TaskRun{}, err
-	}
-	defer r.markFinished(key)
-
-	if r.runs == nil {
-		if err := job.Run(ctx); err != nil {
-			return TaskRun{}, err
+	if r.jobDefinitions != nil {
+		definition, err := r.jobDefinitions.GetJobDefinition(ctx, key)
+		if err != nil {
+			return JobDefinition{}, err
 		}
-		return TaskRun{
-			TaskKey:     key,
-			TaskName:    job.Name,
-			Owner:       job.RuntimeOwner(),
-			Module:      job.Module,
-			TaskType:    job.RuntimeType(),
-			TriggerType: trigger,
-			Status:      RunStatusSuccess,
-			StartedAt:   r.now(),
-			CreatedAt:   r.now(),
-		}, nil
-	}
-
-	startedAt := r.now()
-	run, err := r.runs.CreateRun(ctx, TaskRun{
-		TaskKey:     key,
-		TaskName:    job.Name,
-		Owner:       job.RuntimeOwner(),
-		Module:      job.Module,
-		TaskType:    job.RuntimeType(),
-		TriggerType: trigger,
-		Status:      RunStatusRunning,
-		StartedAt:   startedAt,
-		CreatedAt:   startedAt,
-	})
-	if err != nil {
-		return TaskRun{}, err
-	}
-
-	runErr := job.Run(ctx)
-	finishedAt := r.now()
-	status := RunStatusSuccess
-	errorMessage := ""
-	if runErr != nil {
-		status = RunStatusFailed
-		errorMessage = runErr.Error()
-	}
-
-	finishedRun, finishErr := r.runs.FinishRun(ctx, run.ID, status, finishedAt, "", errorMessage)
-	if finishErr != nil {
-		return finishedRun, finishErr
-	}
-	if runErr != nil {
-		return finishedRun, runErr
-	}
-
-	return finishedRun, nil
-}
-
-func (r *CronRuntime) rememberBuiltin(job cronx.Job) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	key := job.RuntimeKey()
-	if _, exists := r.jobs[key]; exists {
-		return nil
-	}
-	r.jobs[key] = job
-	r.order = append(r.order, key)
-	return nil
-}
-
-func (r *CronRuntime) refreshDefinitionSchedule(definition TaskDefinition) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	return r.refreshDefinitionScheduleLocked(definition)
-}
-
-func (r *CronRuntime) refreshDefinitionScheduleLocked(definition TaskDefinition) error {
-	key := definition.TaskKey
-	if entryID, ok := r.entries[key]; ok {
-		r.cron.Remove(entryID)
-		delete(r.entries, key)
-	}
-	if !definition.Enabled || definition.DeletedAt != nil {
-		return nil
-	}
-
-	entryID, err := r.addCronFuncLocked(key, definition.CronExpression, func(runCtx context.Context) (TaskRun, error) {
-		return r.runDefinition(runCtx, definition, TriggerTypeCron)
-	})
-	if err != nil {
-		return err
-	}
-	r.entries[key] = entryID
-	return nil
-}
-
-func (r *CronRuntime) addCronFuncLocked(key string, schedule string, run func(context.Context) (TaskRun, error)) (cron.EntryID, error) {
-	return r.cron.AddFunc(schedule, func() {
-		runCtx := r.jobContext()
-		if runCtx == nil {
-			r.logger.Error("scheduler job skipped because lifecycle context is unavailable", zap.String("job", key))
-			return
+		if !definition.Enabled || definition.DeletedAt != nil {
+			return JobDefinition{}, ErrJobDefinitionNotFound
 		}
-		if _, runErr := run(runCtx); runErr != nil {
-			if errors.Is(runErr, ErrTaskAlreadyRunning) {
-				r.logger.Warn("scheduler job skipped because task is already running", zap.String("job", key))
-				return
-			}
-			r.logger.Error("scheduler job failed", zap.String("job", key), zap.Error(runErr))
-		}
-	})
-}
-
-func (r *CronRuntime) removeScheduleIfExists(key string) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if entryID, ok := r.entries[key]; ok {
-		r.cron.Remove(entryID)
-		delete(r.entries, key)
+		return definition, nil
 	}
-	return nil
-}
-
-func (r *CronRuntime) ensureKnownTask(ctx context.Context, key string) error {
-	if r.tasks != nil {
-		_, err := r.tasks.GetTask(ctx, key)
-		return err
+	job, ok := r.findJob(key)
+	if !ok {
+		return JobDefinition{}, ErrJobDefinitionNotFound
 	}
-	if _, ok := r.findJob(key); !ok {
-		return ErrTaskNotFound
-	}
-	return nil
+	return jobDefinitionFromJob(job, r.now()), nil
 }
 
 func (r *CronRuntime) snapshotDefinition(ctx context.Context, definition TaskDefinition) (TaskSnapshot, error) {
 	snapshot := TaskSnapshot{
 		ID:          definition.ID,
 		Key:         definition.TaskKey,
+		JobKey:      definition.JobKey,
+		ModuleKey:   definition.ModuleKey,
 		Name:        definition.TaskKey,
-		Owner:       ownerForDefinition(definition),
-		Module:      ownerForDefinition(definition),
-		Type:        definition.TaskType,
 		Title:       definition.Title,
 		Description: definition.Description,
 		Schedule:    definition.CronExpression,
 		Enabled:     definition.Enabled,
 		Builtin:     definition.Builtin,
-		ConfigJSON:  definition.ConfigJSON,
+		ParamsJSON:  definition.ParamsJSON,
 		CreatedAt:   definition.CreatedAt,
 		UpdatedAt:   definition.UpdatedAt,
 		DeletedAt:   definition.DeletedAt,
 	}
-	if definition.Builtin {
-		if job, ok := r.findJob(definition.TaskKey); ok {
-			snapshot.Name = job.Name
-			snapshot.Owner = job.RuntimeOwner()
-			snapshot.Module = job.Module
-			snapshot.DisplayMessageKey = job.DisplayMessageKey
-			snapshot.DescriptionMessageKey = job.DescriptionMessageKey
+	if job, ok := r.findJob(definition.JobKey); ok {
+		snapshot.Name = job.RuntimeKey()
+		snapshot.DisplayMessageKey = job.DisplayMessageKey
+		snapshot.DescriptionMessageKey = job.DescriptionMessageKey
+		if snapshot.ModuleKey == "" {
+			snapshot.ModuleKey = job.Module
 		}
 	}
 	r.mu.RLock()
@@ -763,24 +634,15 @@ func (r *CronRuntime) snapshotDefinition(ctx context.Context, definition TaskDef
 }
 
 func (r *CronRuntime) runDefinition(ctx context.Context, definition TaskDefinition, trigger TriggerType) (TaskRun, error) {
-	if definition.Builtin {
-		job, ok := r.findJob(definition.TaskKey)
-		if !ok {
-			return TaskRun{}, ErrTaskNotFound
-		}
-		job.Schedule = definition.CronExpression
-		job.DefaultEnabled = definition.Enabled
-		return r.runJob(ctx, job, trigger)
-	}
-	return r.runHTTPTask(ctx, definition, trigger)
-}
-
-func (r *CronRuntime) runHTTPTask(ctx context.Context, definition TaskDefinition, trigger TriggerType) (TaskRun, error) {
 	if r.runs == nil {
 		return TaskRun{}, errors.New("scheduler run repository is unavailable")
 	}
-	if err := validateHTTPDefinition(definition); err != nil {
+	if err := validateDefinition(definition); err != nil {
 		return TaskRun{}, err
+	}
+	job, ok := r.findJob(definition.JobKey)
+	if !ok {
+		return TaskRun{}, ErrJobDefinitionNotFound
 	}
 	if err := r.markRunning(definition.TaskKey); err != nil {
 		return TaskRun{}, err
@@ -790,10 +652,10 @@ func (r *CronRuntime) runHTTPTask(ctx context.Context, definition TaskDefinition
 	startedAt := r.now()
 	run, err := r.runs.CreateRun(ctx, TaskRun{
 		TaskKey:     definition.TaskKey,
+		JobKey:      definition.JobKey,
 		TaskName:    definition.Title,
-		Owner:       ownerForDefinition(definition),
-		Module:      moduleForDefinition(definition),
-		TaskType:    definition.TaskType,
+		Owner:       definition.ModuleKey,
+		Module:      definition.ModuleKey,
 		TriggerType: trigger,
 		Status:      RunStatusRunning,
 		StartedAt:   startedAt,
@@ -803,59 +665,132 @@ func (r *CronRuntime) runHTTPTask(ctx context.Context, definition TaskDefinition
 		return TaskRun{}, err
 	}
 
-	resultSummary, errorMessage := executeHTTPTask(ctx, definition.ConfigJSON)
+	runErr := job.Invoke(ctx, definition.ParamsJSON)
 	finishedAt := r.now()
 	status := RunStatusSuccess
-	if errorMessage != "" {
+	errorMessage := ""
+	if runErr != nil {
 		status = RunStatusFailed
+		errorMessage = runErr.Error()
 	}
-	finishedRun, finishErr := r.runs.FinishRun(ctx, run.ID, status, finishedAt, resultSummary, errorMessage)
+	finishedRun, finishErr := r.runs.FinishRun(ctx, run.ID, status, finishedAt, "", errorMessage)
 	if finishErr != nil {
 		return finishedRun, finishErr
 	}
-	if errorMessage != "" {
-		return finishedRun, errors.New(errorMessage)
+	if runErr != nil {
+		return finishedRun, runErr
 	}
 	return finishedRun, nil
 }
 
-func builtinTaskDefinition(job cronx.Job, now time.Time) TaskDefinition {
-	title := strings.TrimSpace(job.DisplayMessageKey)
-	if title == "" {
-		title = job.RuntimeKey()
+func (r *CronRuntime) refreshDefinitionSchedule(definition TaskDefinition) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.refreshDefinitionScheduleLocked(definition)
+}
+
+func (r *CronRuntime) refreshDefinitionScheduleLocked(definition TaskDefinition) error {
+	key := definition.TaskKey
+	if entryID, ok := r.entries[key]; ok {
+		r.cron.Remove(entryID)
+		delete(r.entries, key)
 	}
-	description := strings.TrimSpace(job.DescriptionMessageKey)
-	if description == "" {
-		description = title
+	if !definition.Enabled || definition.DeletedAt != nil {
+		return nil
 	}
-	return TaskDefinition{
-		TaskKey:        job.RuntimeKey(),
-		TaskType:       cronx.TaskTypeSystem,
-		Title:          title,
-		Description:    description,
-		CronExpression: job.Schedule,
-		Enabled:        job.DefaultEnabled,
-		Builtin:        true,
-		ConfigJSON:     "{}",
+	entryID, err := r.addCronFuncLocked(key, definition.CronExpression, func(runCtx context.Context) (TaskRun, error) {
+		return r.runDefinition(runCtx, definition, TriggerTypeCron)
+	})
+	if err != nil {
+		return err
+	}
+	r.entries[key] = entryID
+	return nil
+}
+
+func (r *CronRuntime) addCronFuncLocked(key string, schedule string, run func(context.Context) (TaskRun, error)) (cron.EntryID, error) {
+	return r.cron.AddFunc(schedule, func() {
+		runCtx := r.jobContext()
+		if runCtx == nil {
+			r.logger.Error("scheduler job skipped because lifecycle context is unavailable", zap.String("task", key))
+			return
+		}
+		if _, runErr := run(runCtx); runErr != nil {
+			if errors.Is(runErr, ErrTaskAlreadyRunning) {
+				r.logger.Warn("scheduler job skipped because task is already running", zap.String("task", key))
+				return
+			}
+			r.logger.Error("scheduler job failed", zap.String("task", key), zap.Error(runErr))
+		}
+	})
+}
+
+func (r *CronRuntime) removeScheduleIfExists(key string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if entryID, ok := r.entries[key]; ok {
+		r.cron.Remove(entryID)
+		delete(r.entries, key)
+	}
+	return nil
+}
+
+func (r *CronRuntime) ensureKnownTask(ctx context.Context, key string) error {
+	if r.tasks == nil {
+		return errors.New("scheduler task repository is unavailable")
+	}
+	_, err := r.tasks.GetTask(ctx, key)
+	return err
+}
+
+func jobDefinitionFromJob(job cronx.Job, now time.Time) JobDefinition {
+	return JobDefinition{
+		JobKey:         job.RuntimeKey(),
+		ModuleKey:      job.RuntimeOwner(),
+		TitleKey:       strings.TrimSpace(job.DisplayMessageKey),
+		Title:          job.RuntimeTitle(),
+		DescriptionKey: strings.TrimSpace(job.DescriptionMessageKey),
+		Description:    job.RuntimeDescription(),
+		ParamsSchema:   job.RuntimeParamsSchema(),
+		DefaultParams:  job.RuntimeDefaultParams(),
+		DefaultCron:    strings.TrimSpace(job.Schedule),
+		Enabled:        true,
 		CreatedAt:      now,
 		UpdatedAt:      now,
 	}
 }
 
-func mutationToDefinition(command TaskMutation, now time.Time) (TaskDefinition, error) {
-	taskType := command.TaskType
-	if taskType == "" {
-		taskType = cronx.TaskTypeHTTP
+func builtinTaskDefinition(job cronx.Job, now time.Time) TaskDefinition {
+	return TaskDefinition{
+		TaskKey:        job.RuntimeKey(),
+		JobKey:         job.RuntimeKey(),
+		ModuleKey:      job.RuntimeOwner(),
+		Title:          job.RuntimeTitle(),
+		Description:    job.RuntimeDescription(),
+		CronExpression: strings.TrimSpace(job.Schedule),
+		Enabled:        job.DefaultEnabled,
+		Builtin:        true,
+		ParamsJSON:     job.RuntimeDefaultParams(),
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}
+}
+
+func mutationToDefinition(command TaskMutation, job JobDefinition, now time.Time) (TaskDefinition, error) {
+	paramsJSON := strings.TrimSpace(command.ParamsJSON)
+	if paramsJSON == "" {
+		paramsJSON = job.DefaultParams
 	}
 	definition := TaskDefinition{
-		TaskKey:        command.TaskKey,
-		TaskType:       taskType,
-		Title:          command.Title,
-		Description:    command.Description,
-		CronExpression: command.CronExpression,
+		TaskKey:        strings.TrimSpace(command.TaskKey),
+		JobKey:         strings.TrimSpace(command.JobKey),
+		ModuleKey:      strings.TrimSpace(job.ModuleKey),
+		Title:          strings.TrimSpace(command.Title),
+		Description:    strings.TrimSpace(command.Description),
+		CronExpression: strings.TrimSpace(command.CronExpression),
 		Enabled:        command.Enabled,
 		Builtin:        false,
-		ConfigJSON:     command.ConfigJSON,
+		ParamsJSON:     paramsJSON,
 		CreatedAt:      now,
 		UpdatedAt:      now,
 	}
@@ -865,18 +800,51 @@ func mutationToDefinition(command TaskMutation, now time.Time) (TaskDefinition, 
 	return definition, nil
 }
 
-func validateDefinition(definition TaskDefinition) error {
-	if definition.TaskKey == "" || definition.CronExpression == "" || definition.Title == "" {
-		return ErrTaskValidation
+func validateJob(job cronx.Job) error {
+	if err := job.Validate(); err != nil {
+		return err
 	}
-	if definition.TaskType != cronx.TaskTypeSystem && definition.TaskType != cronx.TaskTypeHTTP {
+	if err := validateCronExpression(job.Schedule); err != nil {
+		return err
+	}
+	if !isJSONObject(job.RuntimeDefaultParams()) {
+		return fmt.Errorf("%w: invalid default params", ErrTaskValidation)
+	}
+	if !isJSONObject(job.RuntimeParamsSchema()) {
+		return fmt.Errorf("%w: invalid params schema", ErrTaskValidation)
+	}
+	return nil
+}
+
+func validateDefinition(definition TaskDefinition) error {
+	if strings.TrimSpace(definition.TaskKey) == "" ||
+		strings.TrimSpace(definition.JobKey) == "" ||
+		strings.TrimSpace(definition.ModuleKey) == "" ||
+		strings.TrimSpace(definition.CronExpression) == "" ||
+		strings.TrimSpace(definition.Title) == "" {
 		return ErrTaskValidation
 	}
 	if err := validateCronExpression(definition.CronExpression); err != nil {
 		return err
 	}
-	if definition.TaskType == cronx.TaskTypeHTTP {
-		return validateHTTPDefinition(definition)
+	if !isJSONObject(definition.ParamsJSON) {
+		return fmt.Errorf("%w: invalid params json", ErrTaskValidation)
+	}
+	return nil
+}
+
+func validateJobDefinition(definition JobDefinition) error {
+	if strings.TrimSpace(definition.JobKey) == "" ||
+		strings.TrimSpace(definition.ModuleKey) == "" ||
+		strings.TrimSpace(definition.Title) == "" ||
+		strings.TrimSpace(definition.DefaultCron) == "" {
+		return ErrTaskValidation
+	}
+	if err := validateCronExpression(definition.DefaultCron); err != nil {
+		return err
+	}
+	if !isJSONObject(definition.ParamsSchema) || !isJSONObject(definition.DefaultParams) {
+		return fmt.Errorf("%w: invalid job definition json", ErrTaskValidation)
 	}
 	return nil
 }
@@ -889,132 +857,21 @@ func validateCronExpression(expression string) error {
 	return nil
 }
 
-func validateHTTPDefinition(definition TaskDefinition) error {
-	var config HTTPTaskConfig
-	if err := json.Unmarshal([]byte(definition.ConfigJSON), &config); err != nil {
-		return fmt.Errorf("%w: invalid http config", ErrTaskValidation)
-	}
-	_, err := normalizeHTTPTaskConfig(config)
-	return err
+func isJSONObject(value string) bool {
+	var decoded map[string]any
+	return json.Unmarshal([]byte(strings.TrimSpace(value)), &decoded) == nil
 }
 
-func normalizeHTTPTaskConfig(config HTTPTaskConfig) (HTTPTaskConfig, error) {
-	method, err := normalizeHTTPTaskMethod(config.Method)
-	if err != nil {
-		return HTTPTaskConfig{}, fmt.Errorf("%w: unsupported http method", ErrTaskValidation)
-	}
-
-	normalizedURL, err := normalizeHTTPTaskURL(config.URL)
-	if err != nil {
-		return HTTPTaskConfig{}, err
-	}
-
-	timeout, err := normalizeHTTPTaskTimeout(config.TimeoutSeconds)
-	if err != nil {
-		return HTTPTaskConfig{}, err
-	}
-
-	config.Method = method
-	config.URL = normalizedURL
-	config.TimeoutSeconds = timeout
-	return config, nil
-}
-
-func normalizeHTTPTaskMethod(method string) (string, error) {
-	normalized := strings.ToUpper(strings.TrimSpace(method))
-	if normalized == "" {
-		return http.MethodGet, nil
-	}
-	if normalized != http.MethodGet && normalized != http.MethodPost {
-		return "", ErrTaskValidation
-	}
-	return normalized, nil
-}
-
-func normalizeHTTPTaskURL(rawURL string) (string, error) {
-	parsed, err := url.Parse(strings.TrimSpace(rawURL))
-	if err != nil || parsed == nil || parsed.Host == "" {
-		return "", fmt.Errorf("%w: invalid http url", ErrTaskValidation)
-	}
-	if parsed.Scheme != "http" && parsed.Scheme != "https" {
-		return "", fmt.Errorf("%w: unsupported http scheme", ErrTaskValidation)
-	}
-	return parsed.String(), nil
-}
-
-func normalizeHTTPTaskTimeout(timeout int) (int, error) {
-	if timeout == 0 {
-		return defaultHTTPTaskTimeoutSeconds, nil
-	}
-	if timeout < minHTTPTaskTimeoutSeconds || timeout > maxHTTPTaskTimeoutSeconds {
-		return 0, fmt.Errorf("%w: invalid http timeout", ErrTaskValidation)
-	}
-	return timeout, nil
-}
-
-func executeHTTPTask(ctx context.Context, rawConfig string) (string, string) {
-	var config HTTPTaskConfig
-	if err := json.Unmarshal([]byte(rawConfig), &config); err != nil {
-		return "", err.Error()
-	}
-	config, err := normalizeHTTPTaskConfig(config)
-	if err != nil {
-		return "", err.Error()
-	}
-
-	timeoutCtx, cancel := context.WithTimeout(ctx, time.Duration(config.TimeoutSeconds)*time.Second)
-	defer cancel()
-	var body io.Reader
-	if config.Method == http.MethodPost {
-		body = strings.NewReader(config.Body)
-	}
-	request, err := http.NewRequestWithContext(timeoutCtx, config.Method, config.URL, body)
-	if err != nil {
-		return "", err.Error()
-	}
-	for key, value := range config.Headers {
-		request.Header.Set(key, value)
-	}
-	response, err := http.DefaultClient.Do(request)
-	if err != nil {
-		return "", err.Error()
-	}
-	defer func() {
-		_ = response.Body.Close()
-	}()
-	limited, err := io.ReadAll(io.LimitReader(response.Body, maxHTTPTaskResponseBytes))
-	if err != nil {
-		return "", err.Error()
-	}
-	summary := fmt.Sprintf("HTTP %d %s", response.StatusCode, strings.TrimSpace(string(limited)))
-	if response.StatusCode >= http.StatusBadRequest {
-		return summary, fmt.Sprintf("http status %d", response.StatusCode)
-	}
-	return summary, ""
-}
-
-func ownerForDefinition(definition TaskDefinition) string {
-	if definition.Builtin {
-		return "system"
-	}
-	return "scheduler"
-}
-
-func moduleForDefinition(definition TaskDefinition) string {
-	if definition.Builtin {
-		return "system"
-	}
-	return "scheduler"
+func jobDefinitionSnapshot(definition JobDefinition) JobDefinitionSnapshot {
+	return JobDefinitionSnapshot(definition)
 }
 
 func (r *CronRuntime) markRunning(key string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-
 	if _, exists := r.running[key]; exists {
 		return ErrTaskAlreadyRunning
 	}
-
 	r.running[key] = struct{}{}
 	return nil
 }
@@ -1022,18 +879,14 @@ func (r *CronRuntime) markRunning(key string) error {
 func (r *CronRuntime) markFinished(key string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-
 	delete(r.running, key)
 }
 
 func removeKey(values []string, key string) []string {
 	for index, value := range values {
-		if value != key {
-			continue
+		if value == key {
+			return append(values[:index], values[index+1:]...)
 		}
-
-		return append(values[:index], values[index+1:]...)
 	}
-
 	return values
 }

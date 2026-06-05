@@ -1,7 +1,6 @@
 package scheduler
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -13,7 +12,6 @@ import (
 	"graft/server/internal/contract/httpheader"
 	messagecontract "graft/server/internal/contract/message"
 	scheduleropenapi "graft/server/internal/contract/openapi/scheduler"
-	"graft/server/internal/cronx"
 	"graft/server/internal/httpx"
 	"graft/server/internal/module"
 	"graft/server/internal/moduleapi"
@@ -72,6 +70,11 @@ func registerSchedulerRoutesWithSecurity(
 		schedulercontract.ScheduledTaskCollectionRoute,
 		httpx.RequirePermission(ctx.I18n, authService, authorizer, schedulercontract.ScheduledTaskCreatePermission.String(), publisher),
 		routeRuntime.handleCreateTask,
+	)
+	group.GET(
+		schedulercontract.ScheduledTaskJobsRoute,
+		httpx.RequirePermission(ctx.I18n, authService, authorizer, schedulercontract.ScheduledTaskReadPermission.String(), publisher),
+		routeRuntime.handleListJobDefinitions,
 	)
 	group.GET(
 		schedulercontract.ScheduledTaskRunDetailRoute,
@@ -141,6 +144,18 @@ func (r schedulerRouteRuntime) handleListTasks(ginCtx *gin.Context) {
 	httpx.WriteSuccess(ginCtx, http.StatusOK, toScheduledTaskListResponse(tasks))
 }
 
+func (r schedulerRouteRuntime) handleListJobDefinitions(ginCtx *gin.Context) {
+	schedulerGeneratedHandler{}.GetScheduledTaskJobs(bindGeneratedTaskJobsHeaders(ginCtx))
+
+	definitions, err := r.runtime.ListJobDefinitions(ginCtx.Request.Context())
+	if err != nil {
+		r.writeRouteError(ginCtx, "list scheduled task job definitions failed", err)
+		return
+	}
+
+	httpx.WriteSuccess(ginCtx, http.StatusOK, toScheduledTaskJobDefinitionListResponse(definitions))
+}
+
 func (r schedulerRouteRuntime) handleGetTask(ginCtx *gin.Context) {
 	key, ok := readScheduledTaskKey(ginCtx, r.ctx)
 	if !ok {
@@ -168,7 +183,7 @@ func (r schedulerRouteRuntime) handleCreateTask(ginCtx *gin.Context) {
 	command, ok := createTaskMutation(request)
 	if !ok {
 		httpx.AbortLocalizedError(ginCtx, r.ctx.I18n, http.StatusBadRequest, schedulercontract.ScheduledTaskInvalidRequest.String(), map[string]any{
-			"field": "task_type",
+			"field": "job_key",
 		})
 		return
 	}
@@ -374,6 +389,11 @@ func bindGeneratedTaskCreateHeaders(ginCtx *gin.Context) scheduleropenapi.PostSc
 	return scheduleropenapi.PostScheduledTaskParams{XGraftLocale: locale, XRequestId: requestID}
 }
 
+func bindGeneratedTaskJobsHeaders(ginCtx *gin.Context) scheduleropenapi.GetScheduledTaskJobsParams {
+	locale, requestID := bindGeneratedSchedulerHeaders(ginCtx)
+	return scheduleropenapi.GetScheduledTaskJobsParams{XGraftLocale: locale, XRequestId: requestID}
+}
+
 func bindGeneratedTaskDetailHeaders(ginCtx *gin.Context) scheduleropenapi.GetScheduledTaskParams {
 	locale, requestID := bindGeneratedSchedulerHeaders(ginCtx)
 	return scheduleropenapi.GetScheduledTaskParams{XGraftLocale: locale, XRequestId: requestID}
@@ -470,22 +490,18 @@ func writeInvalidSchedulerField(ginCtx *gin.Context, ctx *module.Context, field 
 }
 
 func createTaskMutation(request scheduleropenapi.PostScheduledTaskJSONRequestBody) (schedulercore.TaskMutation, bool) {
-	if string(request.TaskType) != string(cronx.TaskTypeHTTP) {
-		return schedulercore.TaskMutation{}, false
-	}
-	configJSON, ok := marshalHTTPConfig(request.Config)
-	if !ok {
+	if strings.TrimSpace(request.JobKey) == "" {
 		return schedulercore.TaskMutation{}, false
 	}
 	return schedulercore.TaskMutation{
 		TaskKey:        strings.TrimSpace(request.TaskKey),
-		TaskType:       cronx.TaskTypeHTTP,
+		JobKey:         strings.TrimSpace(request.JobKey),
 		Title:          strings.TrimSpace(request.Title),
 		Description:    trimOptionalString(request.Description),
 		CronExpression: strings.TrimSpace(request.CronExpression),
 		Enabled:        request.Enabled,
 		EnabledSet:     true,
-		ConfigJSON:     configJSON,
+		ParamsJSON:     trimOptionalString(request.ParamsJson),
 	}, true
 }
 
@@ -510,25 +526,10 @@ func updateTaskMutation(request scheduleropenapi.PutScheduledTaskJSONRequestBody
 		mutation.Enabled = *request.Enabled
 		mutation.EnabledSet = true
 	}
-	if request.Config != nil {
-		configJSON, ok := marshalHTTPConfig(request.Config)
-		if !ok {
-			return schedulercore.TaskMutation{}, errors.New("config")
-		}
-		mutation.ConfigJSON = configJSON
+	if request.ParamsJson != nil {
+		mutation.ParamsJSON = strings.TrimSpace(*request.ParamsJson)
 	}
 	return mutation, nil
-}
-
-func marshalHTTPConfig(config any) (string, bool) {
-	if config == nil {
-		return "{}", true
-	}
-	raw, err := json.Marshal(config)
-	if err != nil {
-		return "", false
-	}
-	return string(raw), true
 }
 
 func trimOptionalString(value *string) string {
@@ -541,6 +542,10 @@ func trimOptionalString(value *string) string {
 type schedulerGeneratedHandler struct{}
 
 func (schedulerGeneratedHandler) GetScheduledTasks(params scheduleropenapi.GetScheduledTasksParams) {
+	_ = params
+}
+
+func (schedulerGeneratedHandler) GetScheduledTaskJobs(params scheduleropenapi.GetScheduledTaskJobsParams) {
 	_ = params
 }
 

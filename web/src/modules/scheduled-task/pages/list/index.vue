@@ -52,13 +52,18 @@
           <template #prefix-icon><search-icon /></template>
         </t-input>
         <t-select
-          v-model="filters.taskType"
+          v-model="filters.jobKey"
           class="scheduled-task-toolbar__select"
-          :placeholder="t('scheduledTask.list.filters.type')"
+          :placeholder="t('scheduledTask.list.filters.jobType')"
         >
-          <t-option value="all" :label="t('scheduledTask.list.filters.allTypes')" />
-          <t-option value="system" :label="taskTypeLabel('system')" />
-          <t-option value="http" :label="taskTypeLabel('http')" />
+          <t-option value="all" :label="t('scheduledTask.list.filters.allJobTypes')" />
+          <t-option-group
+            v-for="group in groupedJobDefinitions"
+            :key="group.module"
+            :label="moduleDisplayName(group.module)"
+          >
+            <t-option v-for="job in group.items" :key="job.key" :value="job.key" :label="jobDefinitionTitle(job)" />
+          </t-option-group>
         </t-select>
         <t-select
           v-model="filters.status"
@@ -99,9 +104,9 @@
           </div>
         </template>
 
-        <template #task_type="{ row }">
-          <t-tag variant="light-outline" :theme="row.task_type === 'system' ? 'primary' : 'success'">
-            {{ taskTypeLabel(row.task_type) }}
+        <template #job_key="{ row }">
+          <t-tag variant="light-outline" theme="primary">
+            {{ jobTypeLabel(row.job_key) }}
           </t-tag>
         </template>
 
@@ -201,6 +206,46 @@
 
     <t-drawer v-model:visible="formVisible" :header="formTitle" size="720px" placement="right" destroy-on-close>
       <t-form :data="taskForm" label-align="top">
+        <t-form-item v-if="formMode === 'create'" :label="t('scheduledTask.list.form.jobType')" name="jobKey">
+          <t-select
+            v-model="taskForm.jobKey"
+            :loading="jobDefinitionsLoading"
+            :placeholder="t('scheduledTask.list.form.jobTypePlaceholder')"
+            filterable
+            @change="handleJobDefinitionChange"
+          >
+            <t-option-group
+              v-for="group in groupedJobDefinitions"
+              :key="group.module"
+              :label="moduleDisplayName(group.module)"
+            >
+              <t-option v-for="job in group.items" :key="job.key" :value="job.key" :label="jobDefinitionTitle(job)" />
+            </t-option-group>
+          </t-select>
+        </t-form-item>
+        <div v-if="selectedJobDefinition" class="scheduled-task-job-summary">
+          <div>
+            <strong>{{ jobDefinitionTitle(selectedJobDefinition) }}</strong>
+            <span>{{ selectedJobDefinition.key }}</span>
+          </div>
+          <p>{{ jobDefinitionDescription(selectedJobDefinition) }}</p>
+          <p class="scheduled-task-form-hint">
+            {{
+              t('scheduledTask.list.form.jobDefaults', {
+                module: selectedJobDefinition.module,
+                owner: selectedJobDefinition.owner,
+                cron: selectedJobDefinition.default_cron_expression,
+              })
+            }}
+          </p>
+          <t-collapse v-if="selectedJobDefinition.params_schema_json" expand-icon-placement="right">
+            <t-collapse-panel value="paramsSchema" :header="t('scheduledTask.list.form.paramsSchema')">
+              <pre class="scheduled-task-json-preview">{{
+                formatJsonPreview(selectedJobDefinition.params_schema_json)
+              }}</pre>
+            </t-collapse-panel>
+          </t-collapse>
+        </div>
         <t-form-item :label="t('scheduledTask.list.form.taskKey')" name="taskKey">
           <t-input
             v-model="taskForm.taskKey"
@@ -244,43 +289,11 @@
         <t-form-item :label="t('scheduledTask.list.form.enabled')" name="enabled">
           <t-switch v-model="taskForm.enabled" />
         </t-form-item>
-        <t-form-item :label="t('scheduledTask.list.form.method')" name="method">
-          <t-select v-model="taskForm.method" :disabled="isSystemEdit">
-            <t-option value="GET" label="GET" />
-            <t-option value="POST" label="POST" />
-          </t-select>
-        </t-form-item>
-        <t-form-item :label="t('scheduledTask.list.form.url')" name="url">
-          <t-input
-            v-model="taskForm.url"
-            :disabled="isSystemEdit"
-            :placeholder="t('scheduledTask.list.form.urlPlaceholder')"
-          />
-        </t-form-item>
-        <t-form-item :label="t('scheduledTask.list.form.headers')" name="headers">
+        <t-form-item v-if="!isSystemEdit" :label="t('scheduledTask.list.form.paramsJson')" name="paramsJson">
           <t-textarea
-            v-model="taskForm.headers"
-            :disabled="isSystemEdit"
+            v-model="taskForm.paramsJson"
             :autosize="{ minRows: 4, maxRows: 8 }"
-            :placeholder="t('scheduledTask.list.form.headersPlaceholder')"
-          />
-        </t-form-item>
-        <t-form-item :label="t('scheduledTask.list.form.body')" name="body">
-          <t-textarea
-            v-model="taskForm.body"
-            :disabled="isSystemEdit"
-            :autosize="{ minRows: 4, maxRows: 8 }"
-            :placeholder="t('scheduledTask.list.form.bodyPlaceholder')"
-          />
-        </t-form-item>
-        <t-form-item :label="t('scheduledTask.list.form.timeout')" name="timeoutSeconds">
-          <t-input-number
-            v-model="taskForm.timeoutSeconds"
-            :disabled="isSystemEdit"
-            :min="1"
-            :max="300"
-            :step="1"
-            suffix="s"
+            :placeholder="t('scheduledTask.list.form.paramsJsonPlaceholder')"
           />
         </t-form-item>
       </t-form>
@@ -327,8 +340,14 @@
             <t-descriptions-item :label="t('scheduledTask.list.detail.module')">
               {{ selectedTask.module }}
             </t-descriptions-item>
-            <t-descriptions-item :label="t('scheduledTask.list.detail.taskType')">
-              {{ taskTypeLabel(selectedTask.task_type) }}
+            <t-descriptions-item :label="t('scheduledTask.list.detail.jobType')">
+              {{ jobTypeLabel(selectedTask.job_key) }}
+            </t-descriptions-item>
+            <t-descriptions-item :label="t('scheduledTask.list.detail.jobKey')">
+              {{ selectedTask.job_key }}
+            </t-descriptions-item>
+            <t-descriptions-item v-if="selectedTask.params_json" :label="t('scheduledTask.list.detail.paramsJson')">
+              <pre class="scheduled-task-json-preview">{{ formatJsonPreview(selectedTask.params_json) }}</pre>
             </t-descriptions-item>
           </t-descriptions>
         </section>
@@ -517,6 +536,7 @@ import {
   disableScheduledTask,
   enableScheduledTask,
   getScheduledTask,
+  getScheduledTaskJobs,
   getScheduledTaskRun,
   getScheduledTaskRuns,
   getScheduledTasks,
@@ -526,13 +546,13 @@ import {
 import { SCHEDULED_TASK_PERMISSION_CODE } from '../../contract/permissions';
 import type {
   CreateScheduledTaskRequest,
-  ScheduledTaskHTTPConfig,
   ScheduledTaskItem,
+  ScheduledTaskJobDefinitionItem,
+  ScheduledTaskJobKey,
   ScheduledTaskRunItem,
   ScheduledTaskRunStatus,
   ScheduledTaskRunTriggerType,
   ScheduledTaskStatus,
-  ScheduledTaskType,
   UpdateScheduledTaskRequest,
 } from '../../types/scheduled-task';
 
@@ -549,16 +569,13 @@ type TaskFormModel = {
   cronMode: CronMode;
   cronExpression: string;
   enabled: boolean;
-  method: ScheduledTaskHTTPConfig['method'];
-  url: string;
-  headers: string;
-  body: string;
-  timeoutSeconds: number;
+  jobKey: ScheduledTaskJobKey | '';
+  paramsJson: string;
 };
 
 type FilterModel = {
   keyword: string;
-  taskType: ScheduledTaskType | 'all';
+  jobKey: ScheduledTaskJobKey | 'all';
   status: ScheduledTaskStatus | 'all';
 };
 
@@ -567,6 +584,11 @@ type FormMode = 'create' | 'edit';
 type RunSummary = {
   runs24h: number;
   failures24h: number;
+};
+
+type JobDefinitionGroup = {
+  module: string;
+  items: ScheduledTaskJobDefinitionItem[];
 };
 
 const CRON_PRESETS: Record<Exclude<CronMode, 'custom'>, string> = {
@@ -609,11 +631,13 @@ const logger = createLogger('scheduled-task.list.page');
 const permissionCodes = SCHEDULED_TASK_PERMISSION_CODE;
 
 const tasks = ref<ScheduledTaskItem[]>([]);
+const jobDefinitions = ref<ScheduledTaskJobDefinitionItem[]>([]);
 const selectedTask = ref<ScheduledTaskItem | null>(null);
 const recentRuns = ref<ScheduledTaskRunItem[]>([]);
 const runHistoryByTaskKey = ref<Record<string, ScheduledTaskRunItem[]>>({});
 const selectedRun = ref<ScheduledTaskRunItem | null>(null);
 const loading = ref(false);
+const jobDefinitionsLoading = ref(false);
 const runsLoading = ref(false);
 const detailVisible = ref(false);
 const formVisible = ref(false);
@@ -632,7 +656,7 @@ const deleteDialogTask = ref<ScheduledTaskItem | null>(null);
 
 const filters = reactive<FilterModel>({
   keyword: '',
-  taskType: 'all',
+  jobKey: 'all',
   status: 'all',
 });
 
@@ -653,12 +677,12 @@ const filteredTasks = computed(() => {
   return tasks.value.filter((task) => {
     const matchesKeyword =
       !keyword ||
-      [task.key, taskDisplayName(task), taskDescription(task), task.owner, task.module]
+      [task.key, task.job_key, taskDisplayName(task), taskDescription(task), task.owner, task.module]
         .filter(Boolean)
         .some((value) => value.toLowerCase().includes(keyword));
-    const matchesType = filters.taskType === 'all' || task.task_type === filters.taskType;
+    const matchesJob = filters.jobKey === 'all' || task.job_key === filters.jobKey;
     const matchesStatus = filters.status === 'all' || task.status === filters.status;
-    return matchesKeyword && matchesType && matchesStatus;
+    return matchesKeyword && matchesJob && matchesStatus;
   });
 });
 
@@ -714,6 +738,30 @@ const isSystemEdit = computed(
   () => formMode.value === 'edit' && editingTask.value !== null && isSystemTask(editingTask.value),
 );
 
+const selectedJobDefinition = computed(() => {
+  if (!taskForm.jobKey) {
+    return null;
+  }
+  return jobDefinitions.value.find((job) => job.key === taskForm.jobKey) ?? null;
+});
+
+const groupedJobDefinitions = computed<JobDefinitionGroup[]>(() => {
+  const groups = new Map<string, ScheduledTaskJobDefinitionItem[]>();
+  for (const job of jobDefinitions.value) {
+    const moduleKey = job.module || job.owner || 'scheduler';
+    groups.set(moduleKey, [...(groups.get(moduleKey) ?? []), job]);
+  }
+
+  return Array.from(groups.entries())
+    .sort(([left], [right]) => moduleDisplayName(left).localeCompare(moduleDisplayName(right), locale.value))
+    .map(([module, items]) => ({
+      module,
+      items: [...items].sort((left, right) =>
+        jobDefinitionTitle(left).localeCompare(jobDefinitionTitle(right), locale.value),
+      ),
+    }));
+});
+
 const cronHint = computed(() => {
   const key = `scheduledTask.list.cronHint.${taskForm.cronMode}`;
   return t(key);
@@ -739,9 +787,9 @@ const columns = computed<TdBaseTableProps['columns']>(() => [
     fixed: 'left',
   },
   {
-    colKey: 'task_type',
-    title: t('scheduledTask.list.columns.type'),
-    width: 100,
+    colKey: 'job_key',
+    title: t('scheduledTask.list.columns.jobType'),
+    width: 180,
   },
   {
     colKey: 'status',
@@ -811,7 +859,23 @@ const runColumns = computed<TdBaseTableProps['columns']>(() => [
 
 onMounted(() => {
   void refreshTasks();
+  void refreshJobDefinitions();
 });
+
+async function refreshJobDefinitions() {
+  jobDefinitionsLoading.value = true;
+  try {
+    const response = await getScheduledTaskJobs();
+    jobDefinitions.value = response.items;
+  } catch (error) {
+    logger.error(error instanceof Error ? error : 'load scheduled task job definitions failed', {
+      operation: 'scheduled_task_jobs',
+    });
+    void MessagePlugin.error(t('scheduledTask.list.jobLoadError'));
+  } finally {
+    jobDefinitionsLoading.value = false;
+  }
+}
 
 async function refreshTasks() {
   loading.value = true;
@@ -906,6 +970,9 @@ function openCreateDrawer() {
   formMode.value = 'create';
   editingTask.value = null;
   formVisible.value = true;
+  if (jobDefinitions.value.length === 0) {
+    void refreshJobDefinitions();
+  }
 }
 
 async function openEditDrawer(row: ScheduledTaskItem) {
@@ -976,24 +1043,16 @@ function buildTaskPayload(): CreateScheduledTaskRequest | UpdateScheduledTaskReq
     return null;
   }
 
-  if (!taskForm.url.trim()) {
-    void MessagePlugin.warning(t('scheduledTask.list.form.urlRequiredHint'));
+  if (!taskForm.jobKey.trim()) {
+    void MessagePlugin.warning(t('scheduledTask.list.form.jobTypeRequiredHint'));
     return null;
   }
 
-  const headers = tryParseHeaders(taskForm.headers);
-  if (headers === null) {
-    void MessagePlugin.warning(t('scheduledTask.list.form.headersInvalidHint'));
+  const paramsJson = normalizeJsonString(taskForm.paramsJson);
+  if (paramsJson === null) {
+    void MessagePlugin.warning(t('scheduledTask.list.form.paramsJsonInvalidHint'));
     return null;
   }
-
-  const config: ScheduledTaskHTTPConfig = {
-    method: taskForm.method,
-    url: taskForm.url.trim(),
-    headers,
-    body: taskForm.body || undefined,
-    timeout_seconds: taskForm.timeoutSeconds,
-  };
 
   if (formMode.value === 'create') {
     if (!taskForm.taskKey.trim()) {
@@ -1003,12 +1062,12 @@ function buildTaskPayload(): CreateScheduledTaskRequest | UpdateScheduledTaskReq
 
     return {
       task_key: taskForm.taskKey.trim(),
-      task_type: 'http',
+      job_key: taskForm.jobKey.trim(),
       title: taskForm.title.trim(),
       description: taskForm.description.trim() || undefined,
       cron_expression: cronExpression,
       enabled: taskForm.enabled,
-      config,
+      params_json: paramsJson || undefined,
     };
   }
 
@@ -1017,7 +1076,7 @@ function buildTaskPayload(): CreateScheduledTaskRequest | UpdateScheduledTaskReq
     description: taskForm.description.trim() || undefined,
     cron_expression: cronExpression,
     enabled: taskForm.enabled,
-    config,
+    params_json: paramsJson || undefined,
   };
 }
 
@@ -1147,7 +1206,7 @@ function canRunTask(task: ScheduledTaskItem) {
 }
 
 function isSystemTask(task: ScheduledTaskItem) {
-  return task.task_type === 'system' || task.builtin === true;
+  return task.builtin === true;
 }
 
 function createEmptyTaskForm(): TaskFormModel {
@@ -1158,16 +1217,12 @@ function createEmptyTaskForm(): TaskFormModel {
     cronMode: 'every5Minutes',
     cronExpression: CRON_PRESETS.every5Minutes,
     enabled: true,
-    method: 'GET',
-    url: '',
-    headers: '',
-    body: '',
-    timeoutSeconds: 30,
+    jobKey: '',
+    paramsJson: '',
   };
 }
 
 function taskToForm(task: ScheduledTaskItem): TaskFormModel {
-  const config = parseConfigJson(task.config_json);
   const expression = task.schedule || CRON_PRESETS.every5Minutes;
   return {
     taskKey: task.key,
@@ -1176,68 +1231,23 @@ function taskToForm(task: ScheduledTaskItem): TaskFormModel {
     cronMode: presetModeFromExpression(expression) ?? 'custom',
     cronExpression: expression,
     enabled: task.enabled,
-    method: config.method,
-    url: config.url,
-    headers: formatHeaders(config.headers),
-    body: config.body ?? '',
-    timeoutSeconds: config.timeout_seconds,
+    jobKey: task.job_key,
+    paramsJson: formatJsonPreview(task.params_json || ''),
   };
 }
 
-function parseConfigJson(value?: string): ScheduledTaskHTTPConfig {
-  const fallback: ScheduledTaskHTTPConfig = {
-    method: 'GET',
-    url: '',
-    headers: {},
-    timeout_seconds: 30,
-  };
-
-  if (!value) {
-    return fallback;
-  }
-
-  try {
-    const parsed = JSON.parse(value) as Partial<ScheduledTaskHTTPConfig>;
-    return {
-      method: parsed.method === 'POST' ? 'POST' : 'GET',
-      url: typeof parsed.url === 'string' ? parsed.url : '',
-      headers: isRecordOfStrings(parsed.headers) ? parsed.headers : {},
-      body: typeof parsed.body === 'string' ? parsed.body : undefined,
-      timeout_seconds: typeof parsed.timeout_seconds === 'number' ? parsed.timeout_seconds : 30,
-    };
-  } catch {
-    return fallback;
-  }
-}
-
-function tryParseHeaders(value: string): Record<string, string> | null {
+function normalizeJsonString(value: string): string | null {
   const trimmed = value.trim();
   if (!trimmed) {
-    return {};
+    return '';
   }
 
   try {
-    const parsed = JSON.parse(trimmed) as unknown;
-    return isRecordOfStrings(parsed) ? parsed : null;
+    JSON.parse(trimmed);
+    return trimmed;
   } catch {
     return null;
   }
-}
-
-function formatHeaders(headers?: Record<string, string>) {
-  if (!headers || Object.keys(headers).length === 0) {
-    return '';
-  }
-  return JSON.stringify(headers, null, 2);
-}
-
-function isRecordOfStrings(value: unknown): value is Record<string, string> {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    !Array.isArray(value) &&
-    Object.values(value).every((item) => typeof item === 'string')
-  );
 }
 
 function handleCronModeChange(value: string | number | boolean) {
@@ -1253,6 +1263,24 @@ function handleCronModeChange(value: string | number | boolean) {
 
 function handleCronInput(value: string) {
   taskForm.cronMode = presetModeFromExpression(value.trim()) ?? 'custom';
+}
+
+function handleJobDefinitionChange(value: unknown) {
+  if (typeof value !== 'string') {
+    return;
+  }
+
+  const job = jobDefinitions.value.find((item) => item.key === value);
+  if (!job) {
+    return;
+  }
+
+  taskForm.title = jobDefinitionTitle(job);
+  taskForm.description = jobDefinitionDescription(job);
+  taskForm.cronExpression = job.default_cron_expression || CRON_PRESETS.every5Minutes;
+  taskForm.cronMode = presetModeFromExpression(taskForm.cronExpression) ?? 'custom';
+  taskForm.enabled = job.default_enabled;
+  taskForm.paramsJson = formatJsonPreview(job.default_params_json);
 }
 
 function presetModeFromExpression(expression: string): CronMode | null {
@@ -1278,14 +1306,60 @@ function localizeMessageKey(key?: string) {
   if (!key) {
     return '';
   }
-  if (key === 'scheduledTask.accessLogRetention.title') {
-    return t('scheduledTask.accessLogRetention.title');
+
+  switch (key) {
+    case 'scheduledTask.accessLogRetention.title':
+      return t('scheduledTask.accessLogRetention.title');
+    case 'scheduledTask.accessLogRetention.description':
+      return t('scheduledTask.accessLogRetention.description');
+    case 'scheduledTask.auditLogRetention.title':
+      return t('scheduledTask.auditLogRetention.title');
+    case 'scheduledTask.auditLogRetention.description':
+      return t('scheduledTask.auditLogRetention.description');
+    case 'scheduledTask.appLogRetention.title':
+      return t('scheduledTask.appLogRetention.title');
+    case 'scheduledTask.appLogRetention.description':
+      return t('scheduledTask.appLogRetention.description');
+    default:
+      return te(key) ? t(key) : key;
   }
-  return te(key) ? t(key) : key;
 }
 
-function taskTypeLabel(type: ScheduledTaskType) {
-  return t(`scheduledTask.list.taskType.${type}`);
+function jobTypeLabel(jobKey: ScheduledTaskJobKey) {
+  const job = jobDefinitions.value.find((item) => item.key === jobKey);
+  return job ? jobDefinitionTitle(job) : jobKey;
+}
+
+function jobDefinitionTitle(job: ScheduledTaskJobDefinitionItem) {
+  if (job.title) {
+    return job.title;
+  }
+  return localizeMessageKey(job.display_name_key) || job.key;
+}
+
+function jobDefinitionDescription(job: ScheduledTaskJobDefinitionItem) {
+  if (job.description) {
+    return job.description;
+  }
+  return localizeMessageKey(job.description_key) || t('scheduledTask.list.detail.none');
+}
+
+function moduleDisplayName(moduleKey: string) {
+  const messageKey = `module.${moduleKey}.title`;
+  return te(messageKey) ? t(messageKey) : moduleKey;
+}
+
+function formatJsonPreview(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  try {
+    return JSON.stringify(JSON.parse(trimmed), null, 2);
+  } catch {
+    return trimmed;
+  }
 }
 
 function scheduleTypeLabel(type: ScheduledTaskItem['schedule_type']) {
@@ -1549,6 +1623,50 @@ function formatDuration(value?: number | null) {
   display: flex;
   flex-direction: column;
   gap: var(--graft-density-gap-12);
+}
+
+.scheduled-task-job-summary {
+  background: var(--td-bg-color-container-hover);
+  border: 1px solid var(--td-component-stroke);
+  border-radius: var(--td-radius-medium);
+  display: flex;
+  flex-direction: column;
+  gap: var(--graft-density-gap-8);
+  margin-bottom: var(--graft-density-gap-16);
+  padding: var(--graft-density-gap-12);
+}
+
+.scheduled-task-job-summary div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--graft-density-gap-4);
+  min-width: 0;
+}
+
+.scheduled-task-job-summary strong {
+  color: var(--td-text-color-primary);
+}
+
+.scheduled-task-job-summary span,
+.scheduled-task-json-preview {
+  color: var(--td-text-color-secondary);
+}
+
+.scheduled-task-job-summary p {
+  margin: 0;
+}
+
+.scheduled-task-json-preview {
+  background: var(--td-bg-color-page);
+  border-radius: var(--td-radius-small);
+  box-sizing: border-box;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  margin: 0;
+  max-width: 100%;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  padding: var(--graft-density-gap-8);
+  white-space: pre-wrap;
 }
 
 .scheduled-task-cron-builder {

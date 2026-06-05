@@ -168,7 +168,6 @@ func RegisterAppLogRetentionCleanupJob(
 		Name:                  appLogRetentionCleanupJobName,
 		Key:                   appLogRetentionCleanupJobName,
 		Owner:                 appLogRetentionCleanupJobModule,
-		Type:                  cronx.TaskTypeCron,
 		DisplayMessageKey:     appLogRetentionCleanupJobDisplayKey,
 		DescriptionMessageKey: appLogRetentionCleanupJobDescriptionKey,
 		Schedule:              appLogRetentionCleanupJobSchedule,

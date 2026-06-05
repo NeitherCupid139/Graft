@@ -112,6 +112,8 @@ paths:
     $ref: ./paths/modules.runtime.detail.yaml
   /api/scheduled-tasks:
     $ref: ./paths/scheduled-tasks.list.yaml
+  /api/scheduled-tasks/jobs:
+    $ref: ./paths/scheduled-tasks.jobs.yaml
   /api/scheduled-tasks/{taskKey}:
     $ref: ./paths/scheduled-tasks.detail.yaml
   /api/scheduled-tasks/{taskKey}/enable:
@@ -294,8 +296,10 @@ components:
       $ref: ./components/schemas/scheduled-task-last-run.yaml
     ScheduledTaskItem:
       $ref: ./components/schemas/scheduled-task-item.yaml
-    ScheduledTaskHTTPConfig:
-      $ref: ./components/schemas/scheduled-task-http-config.yaml
+    ScheduledTaskJobDefinitionItem:
+      $ref: ./components/schemas/scheduled-task-job-definition-item.yaml
+    ScheduledTaskJobDefinitionListResponse:
+      $ref: ./components/schemas/scheduled-task-job-definition-list-response.yaml
     CreateScheduledTaskRequest:
       $ref: ./components/schemas/create-scheduled-task-request.yaml
     UpdateScheduledTaskRequest:
@@ -310,6 +314,8 @@ components:
       $ref: ./components/schemas/enveloped-scheduled-task-item.yaml
     EnvelopedScheduledTaskListResponse:
       $ref: ./components/schemas/enveloped-scheduled-task-list-response.yaml
+    EnvelopedScheduledTaskJobDefinitionListResponse:
+      $ref: ./components/schemas/enveloped-scheduled-task-job-definition-list-response.yaml
     EnvelopedScheduledTaskRunItem:
       $ref: ./components/schemas/enveloped-scheduled-task-run-item.yaml
     EnvelopedScheduledTaskRunListResponse:

@@ -2,7 +2,7 @@ get:
   tags: [scheduled-tasks]
   summary: List scheduled tasks
   operationId: getScheduledTasks
-  description: Returns registered Task Scheduling Runtime jobs for view and diagnosis workflows.
+  description: Returns Scheduled Tasks that bind Job Definitions to cron schedules.
   parameters:
     - $ref: ../components/parameters/locale-header.yaml
     - $ref: ../components/parameters/request-id-header.yaml
@@ -26,9 +26,9 @@ get:
       $ref: ../components/responses/internal-server-error.yaml
 post:
   tags: [scheduled-tasks]
-  summary: Create HTTP scheduled task
+  summary: Create scheduled task
   operationId: postScheduledTask
-  description: Creates one user-managed HTTP scheduled task. System tasks are seeded by the backend scheduler module and cannot be created through this endpoint.
+  description: Creates one Scheduled Task bound to a registered Job Definition.
   parameters:
     - $ref: ../components/parameters/locale-header.yaml
     - $ref: ../components/parameters/request-id-header.yaml

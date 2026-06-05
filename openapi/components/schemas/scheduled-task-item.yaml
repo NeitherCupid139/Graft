@@ -1,7 +1,7 @@
 type: object
 required:
   - key
-  - task_type
+  - job_key
   - schedule_type
   - display_name_key
   - description_key
@@ -14,9 +14,10 @@ required:
 properties:
   key:
     type: string
-  task_type:
+    description: Stable Scheduled Task instance key.
+  job_key:
     type: string
-    enum: [system, http]
+    description: Stable Job Definition key executed by this Scheduled Task.
   schedule_type:
     type: string
     enum: [cron]
@@ -30,10 +31,10 @@ properties:
     type: string
   enabled:
     type: boolean
-    description: Whether the scheduled task is enabled in the DB-backed task definition.
+    description: Whether the Scheduled Task is enabled in the DB-backed schedule definition.
   builtin:
     type: boolean
-    description: System tasks are builtin and cannot be deleted or change task_key/task_type.
+    description: Builtin Scheduled Tasks cannot be deleted or change task_key/job_key.
   title:
     type: string
   description:
@@ -41,9 +42,9 @@ properties:
   schedule:
     type: string
     description: Cron expression.
-  config_json:
+  params_json:
     type: string
-    description: Task-type private JSON config. HTTP task responses contain persisted config only for management views.
+    description: Parameter JSON passed to the Job Definition handler when this Scheduled Task runs.
   last_run:
     $ref: ./scheduled-task-last-run.yaml
     nullable: true

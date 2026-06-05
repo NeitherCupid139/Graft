@@ -91,24 +91,6 @@ func (e GetScheduledTasks200JSONResponseBodyDataItemsStatus) Valid() bool {
 	}
 }
 
-// Defines values for GetScheduledTasks200JSONResponseBodyDataItemsTaskType.
-const (
-	GetScheduledTasks200JSONResponseBodyDataItemsTaskTypeHttp   GetScheduledTasks200JSONResponseBodyDataItemsTaskType = "http"
-	GetScheduledTasks200JSONResponseBodyDataItemsTaskTypeSystem GetScheduledTasks200JSONResponseBodyDataItemsTaskType = "system"
-)
-
-// Valid indicates whether the value is a known member of the GetScheduledTasks200JSONResponseBodyDataItemsTaskType enum.
-func (e GetScheduledTasks200JSONResponseBodyDataItemsTaskType) Valid() bool {
-	switch e {
-	case GetScheduledTasks200JSONResponseBodyDataItemsTaskTypeHttp:
-		return true
-	case GetScheduledTasks200JSONResponseBodyDataItemsTaskTypeSystem:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for GetScheduledTasks401JSONResponseBodySuccess.
 const (
 	GetScheduledTasks401JSONResponseBodySuccessFalse GetScheduledTasks401JSONResponseBodySuccess = false
@@ -148,39 +130,6 @@ const (
 func (e GetScheduledTasks500JSONResponseBodySuccess) Valid() bool {
 	switch e {
 	case GetScheduledTasks500JSONResponseBodySuccessFalse:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for PostScheduledTaskJSONBodyConfigMethod.
-const (
-	PostScheduledTaskJSONBodyConfigMethodGET  PostScheduledTaskJSONBodyConfigMethod = "GET"
-	PostScheduledTaskJSONBodyConfigMethodPOST PostScheduledTaskJSONBodyConfigMethod = "POST"
-)
-
-// Valid indicates whether the value is a known member of the PostScheduledTaskJSONBodyConfigMethod enum.
-func (e PostScheduledTaskJSONBodyConfigMethod) Valid() bool {
-	switch e {
-	case PostScheduledTaskJSONBodyConfigMethodGET:
-		return true
-	case PostScheduledTaskJSONBodyConfigMethodPOST:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for PostScheduledTaskJSONBodyTaskType.
-const (
-	PostScheduledTaskJSONBodyTaskTypeHttp PostScheduledTaskJSONBodyTaskType = "http"
-)
-
-// Valid indicates whether the value is a known member of the PostScheduledTaskJSONBodyTaskType enum.
-func (e PostScheduledTaskJSONBodyTaskType) Valid() bool {
-	switch e {
-	case PostScheduledTaskJSONBodyTaskTypeHttp:
 		return true
 	default:
 		return false
@@ -271,24 +220,6 @@ func (e PostScheduledTask200JSONResponseBodyDataStatus) Valid() bool {
 	}
 }
 
-// Defines values for PostScheduledTask200JSONResponseBodyDataTaskType.
-const (
-	PostScheduledTask200JSONResponseBodyDataTaskTypeHttp   PostScheduledTask200JSONResponseBodyDataTaskType = "http"
-	PostScheduledTask200JSONResponseBodyDataTaskTypeSystem PostScheduledTask200JSONResponseBodyDataTaskType = "system"
-)
-
-// Valid indicates whether the value is a known member of the PostScheduledTask200JSONResponseBodyDataTaskType enum.
-func (e PostScheduledTask200JSONResponseBodyDataTaskType) Valid() bool {
-	switch e {
-	case PostScheduledTask200JSONResponseBodyDataTaskTypeHttp:
-		return true
-	case PostScheduledTask200JSONResponseBodyDataTaskTypeSystem:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for PostScheduledTask401JSONResponseBodySuccess.
 const (
 	PostScheduledTask401JSONResponseBodySuccessFalse PostScheduledTask401JSONResponseBodySuccess = false
@@ -334,6 +265,51 @@ func (e PostScheduledTask500JSONResponseBodySuccess) Valid() bool {
 	}
 }
 
+// Defines values for GetScheduledTaskJobs401JSONResponseBodySuccess.
+const (
+	GetScheduledTaskJobs401JSONResponseBodySuccessFalse GetScheduledTaskJobs401JSONResponseBodySuccess = false
+)
+
+// Valid indicates whether the value is a known member of the GetScheduledTaskJobs401JSONResponseBodySuccess enum.
+func (e GetScheduledTaskJobs401JSONResponseBodySuccess) Valid() bool {
+	switch e {
+	case GetScheduledTaskJobs401JSONResponseBodySuccessFalse:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetScheduledTaskJobs403JSONResponseBodySuccess.
+const (
+	GetScheduledTaskJobs403JSONResponseBodySuccessFalse GetScheduledTaskJobs403JSONResponseBodySuccess = false
+)
+
+// Valid indicates whether the value is a known member of the GetScheduledTaskJobs403JSONResponseBodySuccess enum.
+func (e GetScheduledTaskJobs403JSONResponseBodySuccess) Valid() bool {
+	switch e {
+	case GetScheduledTaskJobs403JSONResponseBodySuccessFalse:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetScheduledTaskJobs500JSONResponseBodySuccess.
+const (
+	GetScheduledTaskJobs500JSONResponseBodySuccessFalse GetScheduledTaskJobs500JSONResponseBodySuccess = false
+)
+
+// Valid indicates whether the value is a known member of the GetScheduledTaskJobs500JSONResponseBodySuccess enum.
+func (e GetScheduledTaskJobs500JSONResponseBodySuccess) Valid() bool {
+	switch e {
+	case GetScheduledTaskJobs500JSONResponseBodySuccessFalse:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetScheduledTaskRun200JSONResponseBodyDataStatus.
 const (
 	GetScheduledTaskRun200JSONResponseBodyDataStatusFailed  GetScheduledTaskRun200JSONResponseBodyDataStatus = "failed"
@@ -349,24 +325,6 @@ func (e GetScheduledTaskRun200JSONResponseBodyDataStatus) Valid() bool {
 	case GetScheduledTaskRun200JSONResponseBodyDataStatusRunning:
 		return true
 	case GetScheduledTaskRun200JSONResponseBodyDataStatusSuccess:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for GetScheduledTaskRun200JSONResponseBodyDataTaskType.
-const (
-	GetScheduledTaskRun200JSONResponseBodyDataTaskTypeHttp   GetScheduledTaskRun200JSONResponseBodyDataTaskType = "http"
-	GetScheduledTaskRun200JSONResponseBodyDataTaskTypeSystem GetScheduledTaskRun200JSONResponseBodyDataTaskType = "system"
-)
-
-// Valid indicates whether the value is a known member of the GetScheduledTaskRun200JSONResponseBodyDataTaskType enum.
-func (e GetScheduledTaskRun200JSONResponseBodyDataTaskType) Valid() bool {
-	switch e {
-	case GetScheduledTaskRun200JSONResponseBodyDataTaskTypeHttp:
-		return true
-	case GetScheduledTaskRun200JSONResponseBodyDataTaskTypeSystem:
 		return true
 	default:
 		return false
@@ -613,24 +571,6 @@ func (e GetScheduledTask200JSONResponseBodyDataStatus) Valid() bool {
 	}
 }
 
-// Defines values for GetScheduledTask200JSONResponseBodyDataTaskType.
-const (
-	GetScheduledTask200JSONResponseBodyDataTaskTypeHttp   GetScheduledTask200JSONResponseBodyDataTaskType = "http"
-	GetScheduledTask200JSONResponseBodyDataTaskTypeSystem GetScheduledTask200JSONResponseBodyDataTaskType = "system"
-)
-
-// Valid indicates whether the value is a known member of the GetScheduledTask200JSONResponseBodyDataTaskType enum.
-func (e GetScheduledTask200JSONResponseBodyDataTaskType) Valid() bool {
-	switch e {
-	case GetScheduledTask200JSONResponseBodyDataTaskTypeHttp:
-		return true
-	case GetScheduledTask200JSONResponseBodyDataTaskTypeSystem:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for GetScheduledTask401JSONResponseBodySuccess.
 const (
 	GetScheduledTask401JSONResponseBodySuccessFalse GetScheduledTask401JSONResponseBodySuccess = false
@@ -685,24 +625,6 @@ const (
 func (e GetScheduledTask500JSONResponseBodySuccess) Valid() bool {
 	switch e {
 	case GetScheduledTask500JSONResponseBodySuccessFalse:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for PutScheduledTaskJSONBodyConfigMethod.
-const (
-	PutScheduledTaskJSONBodyConfigMethodGET  PutScheduledTaskJSONBodyConfigMethod = "GET"
-	PutScheduledTaskJSONBodyConfigMethodPOST PutScheduledTaskJSONBodyConfigMethod = "POST"
-)
-
-// Valid indicates whether the value is a known member of the PutScheduledTaskJSONBodyConfigMethod enum.
-func (e PutScheduledTaskJSONBodyConfigMethod) Valid() bool {
-	switch e {
-	case PutScheduledTaskJSONBodyConfigMethodGET:
-		return true
-	case PutScheduledTaskJSONBodyConfigMethodPOST:
 		return true
 	default:
 		return false
@@ -787,24 +709,6 @@ func (e PutScheduledTask200JSONResponseBodyDataStatus) Valid() bool {
 	case PutScheduledTask200JSONResponseBodyDataStatusSuccess:
 		return true
 	case PutScheduledTask200JSONResponseBodyDataStatusUnknown:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for PutScheduledTask200JSONResponseBodyDataTaskType.
-const (
-	PutScheduledTask200JSONResponseBodyDataTaskTypeHttp   PutScheduledTask200JSONResponseBodyDataTaskType = "http"
-	PutScheduledTask200JSONResponseBodyDataTaskTypeSystem PutScheduledTask200JSONResponseBodyDataTaskType = "system"
-)
-
-// Valid indicates whether the value is a known member of the PutScheduledTask200JSONResponseBodyDataTaskType enum.
-func (e PutScheduledTask200JSONResponseBodyDataTaskType) Valid() bool {
-	switch e {
-	case PutScheduledTask200JSONResponseBodyDataTaskTypeHttp:
-		return true
-	case PutScheduledTask200JSONResponseBodyDataTaskTypeSystem:
 		return true
 	default:
 		return false
@@ -970,24 +874,6 @@ func (e PostScheduledTaskDisable200JSONResponseBodyDataStatus) Valid() bool {
 	}
 }
 
-// Defines values for PostScheduledTaskDisable200JSONResponseBodyDataTaskType.
-const (
-	PostScheduledTaskDisable200JSONResponseBodyDataTaskTypeHttp   PostScheduledTaskDisable200JSONResponseBodyDataTaskType = "http"
-	PostScheduledTaskDisable200JSONResponseBodyDataTaskTypeSystem PostScheduledTaskDisable200JSONResponseBodyDataTaskType = "system"
-)
-
-// Valid indicates whether the value is a known member of the PostScheduledTaskDisable200JSONResponseBodyDataTaskType enum.
-func (e PostScheduledTaskDisable200JSONResponseBodyDataTaskType) Valid() bool {
-	switch e {
-	case PostScheduledTaskDisable200JSONResponseBodyDataTaskTypeHttp:
-		return true
-	case PostScheduledTaskDisable200JSONResponseBodyDataTaskTypeSystem:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for PostScheduledTaskDisable401JSONResponseBodySuccess.
 const (
 	PostScheduledTaskDisable401JSONResponseBodySuccessFalse PostScheduledTaskDisable401JSONResponseBodySuccess = false
@@ -1132,24 +1018,6 @@ func (e PostScheduledTaskEnable200JSONResponseBodyDataStatus) Valid() bool {
 	}
 }
 
-// Defines values for PostScheduledTaskEnable200JSONResponseBodyDataTaskType.
-const (
-	PostScheduledTaskEnable200JSONResponseBodyDataTaskTypeHttp   PostScheduledTaskEnable200JSONResponseBodyDataTaskType = "http"
-	PostScheduledTaskEnable200JSONResponseBodyDataTaskTypeSystem PostScheduledTaskEnable200JSONResponseBodyDataTaskType = "system"
-)
-
-// Valid indicates whether the value is a known member of the PostScheduledTaskEnable200JSONResponseBodyDataTaskType enum.
-func (e PostScheduledTaskEnable200JSONResponseBodyDataTaskType) Valid() bool {
-	switch e {
-	case PostScheduledTaskEnable200JSONResponseBodyDataTaskTypeHttp:
-		return true
-	case PostScheduledTaskEnable200JSONResponseBodyDataTaskTypeSystem:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for PostScheduledTaskEnable401JSONResponseBodySuccess.
 const (
 	PostScheduledTaskEnable401JSONResponseBodySuccessFalse PostScheduledTaskEnable401JSONResponseBodySuccess = false
@@ -1225,24 +1093,6 @@ func (e PostScheduledTaskRun200JSONResponseBodyDataStatus) Valid() bool {
 	case PostScheduledTaskRun200JSONResponseBodyDataStatusRunning:
 		return true
 	case PostScheduledTaskRun200JSONResponseBodyDataStatusSuccess:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for PostScheduledTaskRun200JSONResponseBodyDataTaskType.
-const (
-	PostScheduledTaskRun200JSONResponseBodyDataTaskTypeHttp   PostScheduledTaskRun200JSONResponseBodyDataTaskType = "http"
-	PostScheduledTaskRun200JSONResponseBodyDataTaskTypeSystem PostScheduledTaskRun200JSONResponseBodyDataTaskType = "system"
-)
-
-// Valid indicates whether the value is a known member of the PostScheduledTaskRun200JSONResponseBodyDataTaskType enum.
-func (e PostScheduledTaskRun200JSONResponseBodyDataTaskType) Valid() bool {
-	switch e {
-	case PostScheduledTaskRun200JSONResponseBodyDataTaskTypeHttp:
-		return true
-	case PostScheduledTaskRun200JSONResponseBodyDataTaskTypeSystem:
 		return true
 	default:
 		return false
@@ -1366,24 +1216,6 @@ func (e GetScheduledTaskRuns200JSONResponseBodyDataItemsStatus) Valid() bool {
 	}
 }
 
-// Defines values for GetScheduledTaskRuns200JSONResponseBodyDataItemsTaskType.
-const (
-	GetScheduledTaskRuns200JSONResponseBodyDataItemsTaskTypeHttp   GetScheduledTaskRuns200JSONResponseBodyDataItemsTaskType = "http"
-	GetScheduledTaskRuns200JSONResponseBodyDataItemsTaskTypeSystem GetScheduledTaskRuns200JSONResponseBodyDataItemsTaskType = "system"
-)
-
-// Valid indicates whether the value is a known member of the GetScheduledTaskRuns200JSONResponseBodyDataItemsTaskType enum.
-func (e GetScheduledTaskRuns200JSONResponseBodyDataItemsTaskType) Valid() bool {
-	switch e {
-	case GetScheduledTaskRuns200JSONResponseBodyDataItemsTaskTypeHttp:
-		return true
-	case GetScheduledTaskRuns200JSONResponseBodyDataItemsTaskTypeSystem:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for GetScheduledTaskRuns200JSONResponseBodyDataItemsTriggerType.
 const (
 	Cron    GetScheduledTaskRuns200JSONResponseBodyDataItemsTriggerType = "cron"
@@ -1452,13 +1284,13 @@ func (e GetScheduledTaskRuns404JSONResponseBodySuccess) Valid() bool {
 
 // Defines values for GetScheduledTaskRuns500JSONResponseBodySuccess.
 const (
-	False GetScheduledTaskRuns500JSONResponseBodySuccess = false
+	GetScheduledTaskRuns500JSONResponseBodySuccessFalse GetScheduledTaskRuns500JSONResponseBodySuccess = false
 )
 
 // Valid indicates whether the value is a known member of the GetScheduledTaskRuns500JSONResponseBodySuccess enum.
 func (e GetScheduledTaskRuns500JSONResponseBodySuccess) Valid() bool {
 	switch e {
-	case False:
+	case GetScheduledTaskRuns500JSONResponseBodySuccessFalse:
 		return true
 	default:
 		return false
@@ -1493,9 +1325,6 @@ type GetScheduledTasks200JSONResponseBodyDataItemsScheduleType string
 // GetScheduledTasks200JSONResponseBodyDataItemsStatus defines parameters for GetScheduledTasks.
 type GetScheduledTasks200JSONResponseBodyDataItemsStatus string
 
-// GetScheduledTasks200JSONResponseBodyDataItemsTaskType defines parameters for GetScheduledTasks.
-type GetScheduledTasks200JSONResponseBodyDataItemsTaskType string
-
 // GetScheduledTasks401JSONResponseBodySuccess defines parameters for GetScheduledTasks.
 type GetScheduledTasks401JSONResponseBodySuccess bool
 
@@ -1507,19 +1336,19 @@ type GetScheduledTasks500JSONResponseBodySuccess bool
 
 // PostScheduledTaskJSONBody defines parameters for PostScheduledTask.
 type PostScheduledTaskJSONBody struct {
-	Config *struct {
-		Body           *string                               `json:"body,omitempty"`
-		Headers        *map[string]string                    `json:"headers,omitempty"`
-		Method         PostScheduledTaskJSONBodyConfigMethod `json:"method"`
-		TimeoutSeconds *int                                  `json:"timeout_seconds,omitempty"`
-		Url            string                                `json:"url"`
-	} `json:"config,omitempty"`
-	CronExpression string                            `json:"cron_expression"`
-	Description    *string                           `json:"description,omitempty"`
-	Enabled        bool                              `json:"enabled"`
-	TaskKey        string                            `json:"task_key"`
-	TaskType       PostScheduledTaskJSONBodyTaskType `json:"task_type"`
-	Title          string                            `json:"title"`
+	CronExpression string  `json:"cron_expression"`
+	Description    *string `json:"description,omitempty"`
+	Enabled        bool    `json:"enabled"`
+
+	// JobKey Stable Job Definition key this Scheduled Task executes.
+	JobKey string `json:"job_key"`
+
+	// ParamsJson JSON parameters passed to the Job Definition handler when this Scheduled Task runs.
+	ParamsJson *string `json:"params_json,omitempty"`
+
+	// TaskKey Stable scheduled task instance key.
+	TaskKey string `json:"task_key"`
+	Title   string `json:"title"`
 }
 
 // PostScheduledTaskParams defines parameters for PostScheduledTask.
@@ -1531,12 +1360,6 @@ type PostScheduledTaskParams struct {
 	// through the response header and envelope traceId field.
 	XRequestId *string `json:"X-Request-Id,omitempty"`
 }
-
-// PostScheduledTaskJSONBodyConfigMethod defines parameters for PostScheduledTask.
-type PostScheduledTaskJSONBodyConfigMethod string
-
-// PostScheduledTaskJSONBodyTaskType defines parameters for PostScheduledTask.
-type PostScheduledTaskJSONBodyTaskType string
 
 // PostScheduledTask200JSONResponseBodyDataLastRunStatus defines parameters for PostScheduledTask.
 type PostScheduledTask200JSONResponseBodyDataLastRunStatus string
@@ -1550,9 +1373,6 @@ type PostScheduledTask200JSONResponseBodyDataScheduleType string
 // PostScheduledTask200JSONResponseBodyDataStatus defines parameters for PostScheduledTask.
 type PostScheduledTask200JSONResponseBodyDataStatus string
 
-// PostScheduledTask200JSONResponseBodyDataTaskType defines parameters for PostScheduledTask.
-type PostScheduledTask200JSONResponseBodyDataTaskType string
-
 // PostScheduledTask401JSONResponseBodySuccess defines parameters for PostScheduledTask.
 type PostScheduledTask401JSONResponseBodySuccess bool
 
@@ -1561,6 +1381,25 @@ type PostScheduledTask403JSONResponseBodySuccess bool
 
 // PostScheduledTask500JSONResponseBodySuccess defines parameters for PostScheduledTask.
 type PostScheduledTask500JSONResponseBodySuccess bool
+
+// GetScheduledTaskJobsParams defines parameters for GetScheduledTaskJobs.
+type GetScheduledTaskJobsParams struct {
+	// XGraftLocale Explicit locale override header already supported by the runtime.
+	XGraftLocale *string `json:"X-Graft-Locale,omitempty"`
+
+	// XRequestId Optional caller-supplied request id. If omitted, the runtime generates one and echoes it
+	// through the response header and envelope traceId field.
+	XRequestId *string `json:"X-Request-Id,omitempty"`
+}
+
+// GetScheduledTaskJobs401JSONResponseBodySuccess defines parameters for GetScheduledTaskJobs.
+type GetScheduledTaskJobs401JSONResponseBodySuccess bool
+
+// GetScheduledTaskJobs403JSONResponseBodySuccess defines parameters for GetScheduledTaskJobs.
+type GetScheduledTaskJobs403JSONResponseBodySuccess bool
+
+// GetScheduledTaskJobs500JSONResponseBodySuccess defines parameters for GetScheduledTaskJobs.
+type GetScheduledTaskJobs500JSONResponseBodySuccess bool
 
 // GetScheduledTaskRunParams defines parameters for GetScheduledTaskRun.
 type GetScheduledTaskRunParams struct {
@@ -1574,9 +1413,6 @@ type GetScheduledTaskRunParams struct {
 
 // GetScheduledTaskRun200JSONResponseBodyDataStatus defines parameters for GetScheduledTaskRun.
 type GetScheduledTaskRun200JSONResponseBodyDataStatus string
-
-// GetScheduledTaskRun200JSONResponseBodyDataTaskType defines parameters for GetScheduledTaskRun.
-type GetScheduledTaskRun200JSONResponseBodyDataTaskType string
 
 // GetScheduledTaskRun200JSONResponseBodyDataTriggerType defines parameters for GetScheduledTaskRun.
 type GetScheduledTaskRun200JSONResponseBodyDataTriggerType string
@@ -1640,9 +1476,6 @@ type GetScheduledTask200JSONResponseBodyDataScheduleType string
 // GetScheduledTask200JSONResponseBodyDataStatus defines parameters for GetScheduledTask.
 type GetScheduledTask200JSONResponseBodyDataStatus string
 
-// GetScheduledTask200JSONResponseBodyDataTaskType defines parameters for GetScheduledTask.
-type GetScheduledTask200JSONResponseBodyDataTaskType string
-
 // GetScheduledTask401JSONResponseBodySuccess defines parameters for GetScheduledTask.
 type GetScheduledTask401JSONResponseBodySuccess bool
 
@@ -1657,17 +1490,13 @@ type GetScheduledTask500JSONResponseBodySuccess bool
 
 // PutScheduledTaskJSONBody defines parameters for PutScheduledTask.
 type PutScheduledTaskJSONBody struct {
-	Config *struct {
-		Body           *string                              `json:"body,omitempty"`
-		Headers        *map[string]string                   `json:"headers,omitempty"`
-		Method         PutScheduledTaskJSONBodyConfigMethod `json:"method"`
-		TimeoutSeconds *int                                 `json:"timeout_seconds,omitempty"`
-		Url            string                               `json:"url"`
-	} `json:"config,omitempty"`
 	CronExpression *string `json:"cron_expression,omitempty"`
 	Description    *string `json:"description,omitempty"`
 	Enabled        *bool   `json:"enabled,omitempty"`
-	Title          *string `json:"title,omitempty"`
+
+	// ParamsJson JSON parameters passed to the Job Definition handler when this Scheduled Task runs.
+	ParamsJson *string `json:"params_json,omitempty"`
+	Title      *string `json:"title,omitempty"`
 }
 
 // PutScheduledTaskParams defines parameters for PutScheduledTask.
@@ -1680,9 +1509,6 @@ type PutScheduledTaskParams struct {
 	XRequestId *string `json:"X-Request-Id,omitempty"`
 }
 
-// PutScheduledTaskJSONBodyConfigMethod defines parameters for PutScheduledTask.
-type PutScheduledTaskJSONBodyConfigMethod string
-
 // PutScheduledTask200JSONResponseBodyDataLastRunStatus defines parameters for PutScheduledTask.
 type PutScheduledTask200JSONResponseBodyDataLastRunStatus string
 
@@ -1694,9 +1520,6 @@ type PutScheduledTask200JSONResponseBodyDataScheduleType string
 
 // PutScheduledTask200JSONResponseBodyDataStatus defines parameters for PutScheduledTask.
 type PutScheduledTask200JSONResponseBodyDataStatus string
-
-// PutScheduledTask200JSONResponseBodyDataTaskType defines parameters for PutScheduledTask.
-type PutScheduledTask200JSONResponseBodyDataTaskType string
 
 // PutScheduledTask400JSONResponseBodySuccess defines parameters for PutScheduledTask.
 type PutScheduledTask400JSONResponseBodySuccess bool
@@ -1735,9 +1558,6 @@ type PostScheduledTaskDisable200JSONResponseBodyDataScheduleType string
 // PostScheduledTaskDisable200JSONResponseBodyDataStatus defines parameters for PostScheduledTaskDisable.
 type PostScheduledTaskDisable200JSONResponseBodyDataStatus string
 
-// PostScheduledTaskDisable200JSONResponseBodyDataTaskType defines parameters for PostScheduledTaskDisable.
-type PostScheduledTaskDisable200JSONResponseBodyDataTaskType string
-
 // PostScheduledTaskDisable401JSONResponseBodySuccess defines parameters for PostScheduledTaskDisable.
 type PostScheduledTaskDisable401JSONResponseBodySuccess bool
 
@@ -1772,9 +1592,6 @@ type PostScheduledTaskEnable200JSONResponseBodyDataScheduleType string
 // PostScheduledTaskEnable200JSONResponseBodyDataStatus defines parameters for PostScheduledTaskEnable.
 type PostScheduledTaskEnable200JSONResponseBodyDataStatus string
 
-// PostScheduledTaskEnable200JSONResponseBodyDataTaskType defines parameters for PostScheduledTaskEnable.
-type PostScheduledTaskEnable200JSONResponseBodyDataTaskType string
-
 // PostScheduledTaskEnable401JSONResponseBodySuccess defines parameters for PostScheduledTaskEnable.
 type PostScheduledTaskEnable401JSONResponseBodySuccess bool
 
@@ -1799,9 +1616,6 @@ type PostScheduledTaskRunParams struct {
 
 // PostScheduledTaskRun200JSONResponseBodyDataStatus defines parameters for PostScheduledTaskRun.
 type PostScheduledTaskRun200JSONResponseBodyDataStatus string
-
-// PostScheduledTaskRun200JSONResponseBodyDataTaskType defines parameters for PostScheduledTaskRun.
-type PostScheduledTaskRun200JSONResponseBodyDataTaskType string
 
 // PostScheduledTaskRun200JSONResponseBodyDataTriggerType defines parameters for PostScheduledTaskRun.
 type PostScheduledTaskRun200JSONResponseBodyDataTriggerType string
@@ -1839,9 +1653,6 @@ type GetScheduledTaskRunsParams struct {
 
 // GetScheduledTaskRuns200JSONResponseBodyDataItemsStatus defines parameters for GetScheduledTaskRuns.
 type GetScheduledTaskRuns200JSONResponseBodyDataItemsStatus string
-
-// GetScheduledTaskRuns200JSONResponseBodyDataItemsTaskType defines parameters for GetScheduledTaskRuns.
-type GetScheduledTaskRuns200JSONResponseBodyDataItemsTaskType string
 
 // GetScheduledTaskRuns200JSONResponseBodyDataItemsTriggerType defines parameters for GetScheduledTaskRuns.
 type GetScheduledTaskRuns200JSONResponseBodyDataItemsTriggerType string

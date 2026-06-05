@@ -5,6 +5,8 @@ const (
 	ScheduledTasksGroup = "/scheduled-tasks"
 	// ScheduledTaskCollectionRoute identifies the scheduled task collection route fragment.
 	ScheduledTaskCollectionRoute = ""
+	// ScheduledTaskJobsRoute identifies the creatable job definition collection route fragment.
+	ScheduledTaskJobsRoute = "/jobs"
 	// ScheduledTaskDetailRoute identifies the scheduled task detail route fragment.
 	ScheduledTaskDetailRoute = "/:taskKey"
 	// ScheduledTaskEnableRoute identifies the scheduled task enable route fragment.

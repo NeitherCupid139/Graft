@@ -145,7 +145,6 @@ func RegisterAccessLogRetentionCleanupJob(
 		Name:                  accessLogRetentionCleanupJobName,
 		Key:                   accessLogRetentionCleanupJobName,
 		Owner:                 accessLogRetentionCleanupJobModule,
-		Type:                  cronx.TaskTypeCron,
 		DisplayMessageKey:     accessLogRetentionCleanupJobDisplayKey,
 		DescriptionMessageKey: accessLogRetentionCleanupJobDescriptionKey,
 		Schedule:              accessLogRetentionCleanupJobSchedule,

@@ -62,7 +62,7 @@ func registerSchedulerPermissions(registry *permission.Registry, moduleName stri
 	registry.Register(permission.Item{
 		Code:        schedulercontract.ScheduledTaskCreatePermission.String(),
 		Name:        "Create Scheduled Tasks",
-		Description: "Allows creating user-managed HTTP scheduled tasks.",
+		Description: "Allows creating user-managed scheduled task instances.",
 		Category:    "api",
 		Module:      moduleName,
 	})
@@ -76,7 +76,7 @@ func registerSchedulerPermissions(registry *permission.Registry, moduleName stri
 	registry.Register(permission.Item{
 		Code:        schedulercontract.ScheduledTaskDeletePermission.String(),
 		Name:        "Delete Scheduled Tasks",
-		Description: "Allows deleting user-managed HTTP scheduled tasks.",
+		Description: "Allows deleting user-managed scheduled task instances.",
 		Category:    "api",
 		Module:      moduleName,
 	})

@@ -2,7 +2,7 @@ post:
   tags: [scheduled-tasks]
   summary: Enable scheduled task
   operationId: postScheduledTaskEnable
-  description: Enables one scheduled task and dynamically registers its cron schedule.
+  description: Enables one Scheduled Task and dynamically registers its cron schedule.
   parameters:
     - $ref: ../components/parameters/locale-header.yaml
     - $ref: ../components/parameters/request-id-header.yaml

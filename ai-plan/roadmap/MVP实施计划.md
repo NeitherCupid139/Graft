@@ -205,6 +205,22 @@
 * `scheduler` 负责把任务声明装配成实际运行中的调度器
 * `Runtime` 通过模块生命周期统一启动和关闭调度器
 
+当前定时任务模型采用三层边界：
+
+* `Job Definition`
+  * 表示系统中可被调度的 Job 类型
+  * 由依赖 scheduler 能力的业务模块注册并同步到持久化表
+  * 承载 `job_key`、`module_key`、展示文案、参数 schema、默认参数、默认 cron 和 handler 绑定
+* `Scheduled Task`
+  * 表示用户基于某个 `Job Definition` 创建的调度实例
+  * 承载 `task_key`、`job_key`、cron、启停状态、参数 JSON、名称说明和内置标记
+  * 同一个 `job_key` 可以创建多个 Scheduled Task 实例
+* `Job Run`
+  * 表示某次执行记录
+  * 承载触发方式、状态、耗时、结果摘要和失败信息
+
+HTTP / Workflow 只能作为后续可注册的 `Job Definition` 类型扩展，不作为当前 Scheduled Task 基础模型。
+
 明确不做：
 
 * 分布式调度

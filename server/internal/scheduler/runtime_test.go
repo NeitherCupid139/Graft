@@ -74,9 +74,99 @@ func (r *runRepositoryRecorder) GetRun(_ context.Context, id uint64) (TaskRun, e
 	return TaskRun{}, ErrTaskNotFound
 }
 
+type taskRepositoryRecorder struct {
+	tasks map[string]TaskDefinition
+}
+
+func newTaskRepositoryRecorder() *taskRepositoryRecorder {
+	return &taskRepositoryRecorder{tasks: make(map[string]TaskDefinition)}
+}
+
+func (r *taskRepositoryRecorder) SeedBuiltinTasks(_ context.Context, tasks []TaskDefinition) error {
+	for _, task := range tasks {
+		existing, exists := r.tasks[task.TaskKey]
+		if exists {
+			task.CronExpression = existing.CronExpression
+			task.Enabled = existing.Enabled
+		}
+		task.ID = uint64(len(r.tasks) + 1)
+		r.tasks[task.TaskKey] = task
+	}
+	return nil
+}
+
+func (r *taskRepositoryRecorder) CreateTask(_ context.Context, task TaskDefinition) (TaskDefinition, error) {
+	task.ID = uint64(len(r.tasks) + 1)
+	r.tasks[task.TaskKey] = task
+	return task, nil
+}
+
+func (r *taskRepositoryRecorder) UpdateTask(_ context.Context, key string, patch TaskMutation) (TaskDefinition, error) {
+	task, ok := r.tasks[key]
+	if !ok {
+		return TaskDefinition{}, ErrTaskNotFound
+	}
+	if patch.CronExpression != "" {
+		task.CronExpression = patch.CronExpression
+	}
+	if patch.EnabledSet {
+		task.Enabled = patch.Enabled
+	}
+	if patch.ParamsJSON != "" {
+		task.ParamsJSON = patch.ParamsJSON
+	}
+	r.tasks[key] = task
+	return task, nil
+}
+
+func (r *taskRepositoryRecorder) DeleteTask(_ context.Context, key string) error {
+	if _, ok := r.tasks[key]; !ok {
+		return ErrTaskNotFound
+	}
+	delete(r.tasks, key)
+	return nil
+}
+
+func (r *taskRepositoryRecorder) SetTaskEnabled(_ context.Context, key string, enabled bool) (TaskDefinition, error) {
+	task, ok := r.tasks[key]
+	if !ok {
+		return TaskDefinition{}, ErrTaskNotFound
+	}
+	task.Enabled = enabled
+	r.tasks[key] = task
+	return task, nil
+}
+
+func (r *taskRepositoryRecorder) ListTasks(context.Context) ([]TaskDefinition, error) {
+	items := make([]TaskDefinition, 0, len(r.tasks))
+	for _, task := range r.tasks {
+		items = append(items, task)
+	}
+	return items, nil
+}
+
+func (r *taskRepositoryRecorder) GetTask(_ context.Context, key string) (TaskDefinition, error) {
+	task, ok := r.tasks[key]
+	if !ok {
+		return TaskDefinition{}, ErrTaskNotFound
+	}
+	return task, nil
+}
+
+func seedRuntimeJob(t *testing.T, runtime *CronRuntime, job cronx.Job) {
+	t.Helper()
+	if job.Module == "" && job.Owner == "" {
+		job.Module = "test"
+	}
+	job.DefaultEnabled = true
+	if err := runtime.SeedBuiltinJobs(context.Background(), []cronx.Job{job}); err != nil {
+		t.Fatalf("seed job: %v", err)
+	}
+}
+
 // TestRegisterJobRejectsInvalidDeclarations 验证调度器会拒绝缺失执行入口或非法表达式的任务声明。
 func TestRegisterJobRejectsInvalidDeclarations(t *testing.T) {
-	runtime := New(zap.NewNop())
+	runtime := New(zap.NewNop(), newRunRepositoryRecorder())
 
 	if err := runtime.RegisterJob(cronx.Job{Name: "", Schedule: "* * * * * *", Run: func(context.Context) error { return nil }}); err == nil {
 		t.Fatal("expected empty job name to fail")
@@ -91,7 +181,7 @@ func TestRegisterJobRejectsInvalidDeclarations(t *testing.T) {
 
 // TestRegisterJobRejectsDuplicateName 验证重复任务名会在注册阶段显式失败。
 func TestRegisterJobRejectsDuplicateName(t *testing.T) {
-	runtime := New(zap.NewNop())
+	runtime := New(zap.NewNop(), newRunRepositoryRecorder())
 	job := cronx.Job{
 		Name:     "cleanup",
 		Schedule: "*/1 * * * * *",
@@ -110,21 +200,19 @@ func TestRegisterJobRejectsDuplicateName(t *testing.T) {
 func TestListTasksReturnsRuntimeJobSnapshots(t *testing.T) {
 	repo := newRunRepositoryRecorder()
 	runtime := New(zap.NewNop(), repo)
+	runtime.SetTaskRepository(newTaskRepositoryRecorder())
 
-	if err := runtime.RegisterJob(cronx.Job{
+	seedRuntimeJob(t, runtime, cronx.Job{
 		Name:                  "audit.audit-log-retention-cleanup",
 		Key:                   "audit.audit-log-retention-cleanup",
 		Owner:                 "audit",
-		Type:                  cronx.TaskTypeSystem,
 		DisplayMessageKey:     "scheduledTask.auditLogRetention.title",
 		DescriptionMessageKey: "scheduledTask.auditLogRetention.description",
 		Schedule:              "*/1 * * * * *",
 		DefaultEnabled:        true,
 		Module:                "audit",
 		Run:                   func(context.Context) error { return nil },
-	}); err != nil {
-		t.Fatalf("register job: %v", err)
-	}
+	})
 
 	items, err := runtime.ListTasks(context.Background())
 	if err != nil {
@@ -134,7 +222,9 @@ func TestListTasksReturnsRuntimeJobSnapshots(t *testing.T) {
 		t.Fatalf("expected one task, got %d", len(items))
 	}
 	item := items[0]
-	if item.Key != "audit.audit-log-retention-cleanup" || item.Owner != "audit" || item.Type != cronx.TaskTypeSystem {
+	if item.Key != "audit.audit-log-retention-cleanup" ||
+		item.JobKey != "audit.audit-log-retention-cleanup" ||
+		item.ModuleKey != "audit" {
 		t.Fatalf("unexpected task snapshot: %#v", item)
 	}
 	if item.DisplayMessageKey != "scheduledTask.auditLogRetention.title" || item.DescriptionMessageKey == "" {
@@ -149,9 +239,10 @@ func TestListTasksReturnsRuntimeJobSnapshots(t *testing.T) {
 func TestRunOncePersistsManualRunHistory(t *testing.T) {
 	repo := newRunRepositoryRecorder()
 	runtime := New(zap.NewNop(), repo)
+	runtime.SetTaskRepository(newTaskRepositoryRecorder())
 	triggered := false
 
-	if err := runtime.RegisterJob(cronx.Job{
+	seedRuntimeJob(t, runtime, cronx.Job{
 		Name:           "manual",
 		Schedule:       "*/1 * * * * *",
 		DefaultEnabled: true,
@@ -159,9 +250,7 @@ func TestRunOncePersistsManualRunHistory(t *testing.T) {
 			triggered = true
 			return nil
 		},
-	}); err != nil {
-		t.Fatalf("register job: %v", err)
-	}
+	})
 
 	run, err := runtime.RunOnce(context.Background(), "manual")
 	if err != nil {
@@ -182,10 +271,11 @@ func TestRunOncePersistsManualRunHistory(t *testing.T) {
 func TestRunOnceRejectsConcurrentSameTask(t *testing.T) {
 	repo := newRunRepositoryRecorder()
 	runtime := New(zap.NewNop(), repo)
+	runtime.SetTaskRepository(newTaskRepositoryRecorder())
 	started := make(chan struct{}, 1)
 	release := make(chan struct{})
 
-	if err := runtime.RegisterJob(cronx.Job{
+	seedRuntimeJob(t, runtime, cronx.Job{
 		Name:     "blocking",
 		Schedule: "*/1 * * * * *",
 		Run: func(context.Context) error {
@@ -196,9 +286,7 @@ func TestRunOnceRejectsConcurrentSameTask(t *testing.T) {
 			<-release
 			return nil
 		},
-	}); err != nil {
-		t.Fatalf("register job: %v", err)
-	}
+	})
 
 	firstDone := make(chan error, 1)
 	go func() {
@@ -220,12 +308,13 @@ func TestRunOnceRejectsConcurrentSameTask(t *testing.T) {
 
 // TestStartAndStopRunsRegisteredJob 验证最小调度器可以启动、执行一次任务并正常停止。
 func TestStartAndStopRunsRegisteredJob(t *testing.T) {
-	runtime := New(zap.NewNop())
+	runtime := New(zap.NewNop(), newRunRepositoryRecorder())
+	runtime.SetTaskRepository(newTaskRepositoryRecorder())
 	triggered := make(chan struct{}, 1)
 	runCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if err := runtime.RegisterJob(cronx.Job{
+	seedRuntimeJob(t, runtime, cronx.Job{
 		Name:     "heartbeat",
 		Schedule: "*/1 * * * * *",
 		Run: func(_ context.Context) error {
@@ -235,9 +324,7 @@ func TestStartAndStopRunsRegisteredJob(t *testing.T) {
 			}
 			return nil
 		},
-	}); err != nil {
-		t.Fatalf("register job: %v", err)
-	}
+	})
 
 	if err := runtime.Start(runCtx); err != nil {
 		t.Fatalf("start runtime: %v", err)
@@ -255,21 +342,20 @@ func TestStartAndStopRunsRegisteredJob(t *testing.T) {
 
 // TestRemoveJobPreventsFutureExecution 验证移除任务后后续调度不会再次触发该任务。
 func TestRemoveJobPreventsFutureExecution(t *testing.T) {
-	runtime := New(zap.NewNop())
+	runtime := New(zap.NewNop(), newRunRepositoryRecorder())
+	runtime.SetTaskRepository(newTaskRepositoryRecorder())
 	triggered := make(chan struct{}, 2)
 	runCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if err := runtime.RegisterJob(cronx.Job{
+	seedRuntimeJob(t, runtime, cronx.Job{
 		Name:     "cleanup",
 		Schedule: "*/1 * * * * *",
 		Run: func(_ context.Context) error {
 			triggered <- struct{}{}
 			return nil
 		},
-	}); err != nil {
-		t.Fatalf("register job: %v", err)
-	}
+	})
 	if err := runtime.Start(runCtx); err != nil {
 		t.Fatalf("start runtime: %v", err)
 	}
@@ -308,12 +394,13 @@ func TestStopHonorsContextCancellation(t *testing.T) {
 
 // TestStopCancelsJobLifecycleContext 验证显式 Stop 会取消运行中任务绑定的 lifecycle ctx。
 func TestStopCancelsJobLifecycleContext(t *testing.T) {
-	runtime := New(zap.NewNop())
+	runtime := New(zap.NewNop(), newRunRepositoryRecorder())
+	runtime.SetTaskRepository(newTaskRepositoryRecorder())
 	runCtx := context.Background()
 	started := make(chan context.Context, 1)
 	finished := make(chan struct{}, 1)
 
-	if err := runtime.RegisterJob(cronx.Job{
+	seedRuntimeJob(t, runtime, cronx.Job{
 		Name:     "watch",
 		Schedule: "*/1 * * * * *",
 		Run: func(ctx context.Context) error {
@@ -328,9 +415,7 @@ func TestStopCancelsJobLifecycleContext(t *testing.T) {
 			}
 			return nil
 		},
-	}); err != nil {
-		t.Fatalf("register job: %v", err)
-	}
+	})
 
 	if err := runtime.Start(runCtx); err != nil {
 		t.Fatalf("start runtime: %v", err)
@@ -357,14 +442,15 @@ func TestStopCancelsJobLifecycleContext(t *testing.T) {
 
 // TestStopWithNilContextWaitsForInFlightJob 验证 nil ctx 会等待当前在途任务自然结束。
 func TestStopWithNilContextWaitsForInFlightJob(t *testing.T) {
-	runtime := New(zap.NewNop())
+	runtime := New(zap.NewNop(), newRunRepositoryRecorder())
+	runtime.SetTaskRepository(newTaskRepositoryRecorder())
 	started := make(chan struct{}, 1)
 	release := make(chan struct{})
 	finished := make(chan struct{}, 1)
 	runCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if err := runtime.RegisterJob(cronx.Job{
+	seedRuntimeJob(t, runtime, cronx.Job{
 		Name:     "blocking",
 		Schedule: "*/1 * * * * *",
 		Run: func(_ context.Context) error {
@@ -379,9 +465,7 @@ func TestStopWithNilContextWaitsForInFlightJob(t *testing.T) {
 			}
 			return nil
 		},
-	}); err != nil {
-		t.Fatalf("register job: %v", err)
-	}
+	})
 
 	if err := runtime.Start(runCtx); err != nil {
 		t.Fatalf("start runtime: %v", err)

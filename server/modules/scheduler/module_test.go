@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
@@ -49,6 +48,10 @@ func (r *stopContextRecorderRuntime) Start(ctx context.Context) error {
 func (r *stopContextRecorderRuntime) Stop(ctx context.Context) error {
 	r.stopCtx = ctx
 	return nil
+}
+
+func (r *stopContextRecorderRuntime) ListJobDefinitions(context.Context) ([]schedulercore.JobDefinitionSnapshot, error) {
+	return nil, nil
 }
 
 func (r *stopContextRecorderRuntime) ListTasks(context.Context) ([]schedulercore.TaskSnapshot, error) {
@@ -98,6 +101,7 @@ func (r *stopContextRecorderRuntime) RunOnce(context.Context, string) (scheduler
 
 type schedulerAPIRuntime struct {
 	stopContextRecorderRuntime
+	jobDefinitions []schedulercore.JobDefinitionSnapshot
 	tasks          []schedulercore.TaskSnapshot
 	createInputs   []schedulercore.TaskMutation
 	createResult   schedulercore.TaskSnapshot
@@ -118,6 +122,10 @@ type schedulerAPIRuntime struct {
 	getRunID       uint64
 	getRunResult   schedulercore.TaskRun
 	getRunErr      error
+}
+
+func (r *schedulerAPIRuntime) ListJobDefinitions(context.Context) ([]schedulercore.JobDefinitionSnapshot, error) {
+	return r.jobDefinitions, nil
 }
 
 func (r *schedulerAPIRuntime) ListTasks(context.Context) ([]schedulercore.TaskSnapshot, error) {
@@ -156,11 +164,13 @@ func (r *schedulerAPIRuntime) SetTaskEnabled(_ context.Context, key string, enab
 	}
 	if r.setResult.Key == "" {
 		r.setResult = schedulercore.TaskSnapshot{
-			Key:      key,
-			Type:     cronx.TaskTypeHTTP,
-			Title:    key,
-			Schedule: "*/5 * * * * *",
-			Enabled:  enabled,
+			Key:        key,
+			JobKey:     "scheduler.test-job",
+			ModuleKey:  "scheduler",
+			Title:      key,
+			Schedule:   "*/5 * * * * *",
+			Enabled:    enabled,
+			ParamsJSON: "{}",
 		}
 	}
 	r.setResult.Enabled = enabled
@@ -176,8 +186,10 @@ func (r *schedulerAPIRuntime) RunOnce(_ context.Context, key string) (schedulerc
 		r.runOnceResult = schedulercore.TaskRun{
 			ID:          17,
 			TaskKey:     key,
+			JobKey:      "scheduler.test-job",
 			TaskName:    key,
-			TaskType:    cronx.TaskTypeHTTP,
+			Owner:       "scheduler",
+			Module:      "scheduler",
 			TriggerType: schedulercore.TriggerTypeManual,
 			Status:      schedulercore.RunStatusSuccess,
 			StartedAt:   time.Now().UTC(),
@@ -195,12 +207,13 @@ func (r *schedulerAPIRuntime) GetRun(_ context.Context, id uint64) (schedulercor
 func taskSnapshotFromMutation(command schedulercore.TaskMutation) schedulercore.TaskSnapshot {
 	return schedulercore.TaskSnapshot{
 		Key:         command.TaskKey,
-		Type:        command.TaskType,
+		JobKey:      command.JobKey,
+		ModuleKey:   "scheduler",
 		Title:       command.Title,
 		Description: command.Description,
 		Schedule:    command.CronExpression,
 		Enabled:     command.Enabled,
-		ConfigJSON:  command.ConfigJSON,
+		ParamsJSON:  command.ParamsJSON,
 	}
 }
 
@@ -255,13 +268,32 @@ func newModuleTestContextWithEngineAndAuthorizer(authorizer moduleapi.Authorizer
 	if _, err := db.Exec(`CREATE TABLE scheduled_tasks (
 		id integer PRIMARY KEY AUTOINCREMENT,
 		task_key text NOT NULL UNIQUE,
+		job_key text NOT NULL DEFAULT '',
+		module_key text NOT NULL DEFAULT '',
 		task_type text NOT NULL,
 		title text NOT NULL DEFAULT '',
 		description text NOT NULL DEFAULT '',
 		cron_expression text NOT NULL,
 		enabled boolean NOT NULL DEFAULT true,
 		builtin boolean NOT NULL DEFAULT false,
+		params_json text NOT NULL DEFAULT '{}',
 		config_json text NOT NULL DEFAULT '{}',
+		created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		deleted_at datetime NULL
+	);
+	CREATE TABLE scheduler_job_definitions (
+		id integer PRIMARY KEY AUTOINCREMENT,
+		job_key text NOT NULL UNIQUE,
+		module_key text NOT NULL DEFAULT '',
+		title_key text NOT NULL DEFAULT '',
+		title text NOT NULL DEFAULT '',
+		description_key text NOT NULL DEFAULT '',
+		description text NOT NULL DEFAULT '',
+		params_schema text NOT NULL DEFAULT '{}',
+		default_params text NOT NULL DEFAULT '{}',
+		default_cron text NOT NULL DEFAULT '',
+		enabled boolean NOT NULL DEFAULT true,
 		created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		deleted_at datetime NULL
@@ -269,6 +301,7 @@ func newModuleTestContextWithEngineAndAuthorizer(authorizer moduleapi.Authorizer
 	CREATE TABLE scheduler_task_runs (
 		id integer PRIMARY KEY AUTOINCREMENT,
 		task_key text NOT NULL,
+		job_key text NOT NULL DEFAULT '',
 		task_name text NOT NULL DEFAULT '',
 		owner text NOT NULL DEFAULT '',
 		module text NOT NULL DEFAULT '',
@@ -367,14 +400,14 @@ func TestScheduledTaskListRouteReturnsRuntimeTasks(t *testing.T) {
 		tasks: []schedulercore.TaskSnapshot{
 			{
 				Key:                   "audit.retention.cleanup",
+				JobKey:                "audit.audit-log-retention-cleanup",
 				Name:                  "audit-retention-cleanup",
-				Owner:                 "audit",
-				Module:                "audit",
-				Type:                  cronx.TaskTypeSystem,
-				DisplayMessageKey:     "audit.retention.title",
-				DescriptionMessageKey: "audit.retention.description",
+				ModuleKey:             "audit",
+				DisplayMessageKey:     "scheduledTask.auditLogRetention.title",
+				DescriptionMessageKey: "scheduledTask.auditLogRetention.description",
 				Schedule:              "0 0 * * * *",
 				Enabled:               true,
+				ParamsJSON:            "{}",
 			},
 		},
 	}
@@ -402,9 +435,9 @@ func TestScheduledTaskListRouteReturnsRuntimeTasks(t *testing.T) {
 	}
 	item := payload.Data.Items[0]
 	if item.Key != "audit.retention.cleanup" ||
-		item.TaskType != "system" ||
+		item.JobKey != "audit.audit-log-retention-cleanup" ||
 		item.ScheduleType != "cron" ||
-		item.DisplayNameKey != "audit.retention.title" ||
+		item.DisplayNameKey != "scheduledTask.auditLogRetention.title" ||
 		item.Module != "audit" ||
 		!item.Enabled ||
 		item.Status != "idle" ||
@@ -413,7 +446,47 @@ func TestScheduledTaskListRouteReturnsRuntimeTasks(t *testing.T) {
 	}
 }
 
-func TestScheduledTaskCreateRouteCreatesHTTPTask(t *testing.T) {
+func TestScheduledTaskJobsRouteReturnsRuntimeJobDefinitions(t *testing.T) {
+	ctx, engine := newModuleTestContextWithEngine()
+	moduleInstance := NewModule()
+	moduleInstance.runtime = &schedulerAPIRuntime{
+		jobDefinitions: []schedulercore.JobDefinitionSnapshot{
+			{
+				JobKey:         "audit.audit-log-retention-cleanup",
+				ModuleKey:      "audit",
+				TitleKey:       "scheduledTask.auditLogRetention.title",
+				Title:          "Retention Cleanup",
+				DescriptionKey: "scheduledTask.auditLogRetention.description",
+				Description:    "Clean audit logs",
+				ParamsSchema:   `{"type":"object"}`,
+				DefaultParams:  `{"retention_days":30}`,
+				DefaultCron:    "0 0 * * * *",
+				Enabled:        true,
+			},
+		},
+	}
+	registerAndBootSchedulerModule(t, ctx, moduleInstance)
+
+	recorder := performSchedulerRequest(engine, http.MethodGet, "/api/scheduled-tasks/jobs", "")
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d with body %s", recorder.Code, recorder.Body.String())
+	}
+
+	payload := decodeScheduledTaskJobDefinitionListPayload(t, recorder.Body.Bytes())
+	if !payload.Success || payload.Data.Total != 1 || len(payload.Data.Items) != 1 {
+		t.Fatalf("unexpected job definition list payload: %#v", payload)
+	}
+	item := payload.Data.Items[0]
+	if item.Key != "audit.audit-log-retention-cleanup" ||
+		item.Module != "audit" ||
+		item.DisplayNameKey != "scheduledTask.auditLogRetention.title" ||
+		item.DefaultCronExpression != "0 0 * * * *" ||
+		item.DefaultParamsJSON != `{"retention_days":30}` {
+		t.Fatalf("unexpected job definition item: %#v", item)
+	}
+}
+
+func TestScheduledTaskCreateRouteCreatesJobTask(t *testing.T) {
 	ctx, engine := newModuleTestContextWithEngine()
 	runtimeRecorder := &schedulerAPIRuntime{}
 	moduleInstance := NewModule()
@@ -421,17 +494,13 @@ func TestScheduledTaskCreateRouteCreatesHTTPTask(t *testing.T) {
 	registerAndBootSchedulerModule(t, ctx, moduleInstance)
 
 	recorder := performSchedulerRequest(engine, http.MethodPost, "/api/scheduled-tasks", `{
-		"task_key": "webhook.health",
-		"task_type": "http",
-		"title": "Webhook health",
-		"description": "Checks webhook health",
+		"task_key": "audit.retention.nightly",
+		"job_key": "audit.audit-log-retention-cleanup",
+		"title": "Nightly audit cleanup",
+		"description": "Cleans audit logs",
 		"cron_expression": "*/5 * * * * *",
 		"enabled": true,
-		"config": {
-			"method": "GET",
-			"url": "https://example.com/health",
-			"timeout_seconds": 10
-		}
+		"params_json": "{\"retention_days\":30}"
 	}`)
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("expected status 200, got %d with body %s", recorder.Code, recorder.Body.String())
@@ -440,15 +509,16 @@ func TestScheduledTaskCreateRouteCreatesHTTPTask(t *testing.T) {
 		t.Fatalf("expected one create call, got %d", len(runtimeRecorder.createInputs))
 	}
 	input := runtimeRecorder.createInputs[0]
-	if input.TaskKey != "webhook.health" || input.TaskType != cronx.TaskTypeHTTP || !input.EnabledSet || !input.Enabled {
+	if input.TaskKey != "audit.retention.nightly" ||
+		input.JobKey != "audit.audit-log-retention-cleanup" ||
+		input.ParamsJSON != `{"retention_days":30}` ||
+		!input.EnabledSet ||
+		!input.Enabled {
 		t.Fatalf("unexpected create input: %#v", input)
-	}
-	if !strings.Contains(input.ConfigJSON, `"url":"https://example.com/health"`) {
-		t.Fatalf("expected HTTP config JSON to include URL, got %s", input.ConfigJSON)
 	}
 }
 
-func TestScheduledTaskCreateRouteRejectsNonHTTPTaskType(t *testing.T) {
+func TestScheduledTaskCreateRouteRejectsMissingJobKey(t *testing.T) {
 	ctx, engine := newModuleTestContextWithEngine()
 	runtimeRecorder := &schedulerAPIRuntime{}
 	moduleInstance := NewModule()
@@ -456,21 +526,17 @@ func TestScheduledTaskCreateRouteRejectsNonHTTPTaskType(t *testing.T) {
 	registerAndBootSchedulerModule(t, ctx, moduleInstance)
 
 	recorder := performSchedulerRequest(engine, http.MethodPost, "/api/scheduled-tasks", `{
-		"task_key": "system.task",
-		"task_type": "system",
-		"title": "System task",
+		"task_key": "audit.retention.nightly",
+		"job_key": "",
+		"title": "Nightly audit cleanup",
 		"cron_expression": "*/5 * * * * *",
-		"enabled": true,
-		"config": {
-			"method": "GET",
-			"url": "https://example.com/health"
-		}
+		"enabled": true
 	}`)
 	if recorder.Code != http.StatusBadRequest {
 		t.Fatalf("expected status 400, got %d with body %s", recorder.Code, recorder.Body.String())
 	}
 	if len(runtimeRecorder.createInputs) != 0 {
-		t.Fatalf("expected non-http task type to skip runtime create, got %d calls", len(runtimeRecorder.createInputs))
+		t.Fatalf("expected missing job key to skip runtime create, got %d calls", len(runtimeRecorder.createInputs))
 	}
 }
 
@@ -577,10 +643,10 @@ func TestScheduledTaskRunDetailReturnsResultAndErrorFields(t *testing.T) {
 		getRunResult: schedulercore.TaskRun{
 			ID:          42,
 			TaskKey:     "webhook.health",
+			JobKey:      "scheduler.webhook-health",
 			TaskName:    "Webhook health",
 			Owner:       "scheduler",
 			Module:      "scheduler",
-			TaskType:    cronx.TaskTypeHTTP,
 			TriggerType: schedulercore.TriggerTypeManual,
 			Status:      schedulercore.RunStatusFailed,
 			Error:       "http status 500",
@@ -610,7 +676,7 @@ type scheduledTaskListPayload struct {
 		Total int `json:"total"`
 		Items []struct {
 			Key            string `json:"key"`
-			TaskType       string `json:"task_type"`
+			JobKey         string `json:"job_key"`
 			ScheduleType   string `json:"schedule_type"`
 			DisplayNameKey string `json:"display_name_key"`
 			Module         string `json:"module"`
@@ -625,6 +691,31 @@ func decodeScheduledTaskListPayload(t *testing.T, body []byte) scheduledTaskList
 	t.Helper()
 
 	var payload scheduledTaskListPayload
+	if err := json.Unmarshal(body, &payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	return payload
+}
+
+type scheduledTaskJobDefinitionListPayload struct {
+	Success bool `json:"success"`
+	Data    struct {
+		Total int `json:"total"`
+		Items []struct {
+			Key                   string `json:"key"`
+			Module                string `json:"module"`
+			DisplayNameKey        string `json:"display_name_key"`
+			DefaultCronExpression string `json:"default_cron_expression"`
+			DefaultParamsJSON     string `json:"default_params_json"`
+		} `json:"items"`
+	} `json:"data"`
+}
+
+func decodeScheduledTaskJobDefinitionListPayload(t *testing.T, body []byte) scheduledTaskJobDefinitionListPayload {
+	t.Helper()
+
+	var payload scheduledTaskJobDefinitionListPayload
 	if err := json.Unmarshal(body, &payload); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}

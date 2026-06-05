@@ -65,12 +65,17 @@ func registerSchedulerRuntimeService(ctx *module.Context, p *Module) error {
 		if err != nil {
 			return nil, err
 		}
+		jobDefinitionRepo, err := schedulercore.NewSQLJobDefinitionRepository(db)
+		if err != nil {
+			return nil, err
+		}
 
 		if p.runtime != nil {
 			return p.runtime, nil
 		}
 		runtime := schedulercore.New(ctx.Logger, repo)
 		runtime.SetTaskRepository(taskRepo)
+		runtime.SetJobDefinitionRepository(jobDefinitionRepo)
 		return runtime, nil
 	})
 }

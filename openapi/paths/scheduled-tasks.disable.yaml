@@ -2,7 +2,7 @@ post:
   tags: [scheduled-tasks]
   summary: Disable scheduled task
   operationId: postScheduledTaskDisable
-  description: Disables one scheduled task and dynamically removes its cron schedule.
+  description: Disables one Scheduled Task and dynamically removes its cron schedule.
   parameters:
     - $ref: ../components/parameters/locale-header.yaml
     - $ref: ../components/parameters/request-id-header.yaml

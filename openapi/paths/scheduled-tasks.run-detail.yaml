@@ -2,7 +2,7 @@ get:
   tags: [scheduled-tasks]
   summary: Read scheduled task run detail
   operationId: getScheduledTaskRun
-  description: Returns one persisted run history record for a scheduled task.
+  description: Returns one persisted Job Run history record for a Scheduled Task.
   parameters:
     - $ref: ../components/parameters/locale-header.yaml
     - $ref: ../components/parameters/request-id-header.yaml

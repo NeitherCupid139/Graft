@@ -13,6 +13,7 @@ import {
 import type {
   CreateScheduledTaskRequest,
   ScheduledTaskItem,
+  ScheduledTaskJobDefinitionListResponse,
   ScheduledTaskListResponse,
   ScheduledTaskRunItem,
   ScheduledTaskRunListQuery,
@@ -24,6 +25,11 @@ type ScheduledTaskListPath = (typeof SCHEDULED_TASK_API_PATH)['LIST'];
 type GetScheduledTasksOperation = paths[ScheduledTaskListPath]['get'];
 type GetScheduledTasksEnvelope = GetScheduledTasksOperation['responses'][200]['content']['application/json'];
 type GetScheduledTasksData = NonNullable<GetScheduledTasksEnvelope['data']>;
+
+type ScheduledTaskJobsPath = (typeof SCHEDULED_TASK_API_PATH)['JOBS'];
+type GetScheduledTaskJobsOperation = paths[ScheduledTaskJobsPath]['get'];
+type GetScheduledTaskJobsEnvelope = GetScheduledTaskJobsOperation['responses'][200]['content']['application/json'];
+type GetScheduledTaskJobsData = NonNullable<GetScheduledTaskJobsEnvelope['data']>;
 
 type ScheduledTaskDetailPath = (typeof SCHEDULED_TASK_API_PATH)['DETAIL'];
 type GetScheduledTaskOperation = paths[ScheduledTaskDetailPath]['get'];
@@ -82,6 +88,12 @@ export function getScheduledTasks() {
   return request.get<GetScheduledTasksData>({
     url: SCHEDULED_TASK_API_PATH.LIST,
   }) as Promise<ScheduledTaskListResponse>;
+}
+
+export function getScheduledTaskJobs() {
+  return request.get<GetScheduledTaskJobsData>({
+    url: SCHEDULED_TASK_API_PATH.JOBS,
+  }) as Promise<ScheduledTaskJobDefinitionListResponse>;
 }
 
 export function getScheduledTask(taskKey: GetScheduledTaskPathParams['taskKey']) {

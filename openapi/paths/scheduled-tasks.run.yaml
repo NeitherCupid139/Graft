@@ -2,7 +2,7 @@ post:
   tags: [scheduled-tasks]
   summary: Run scheduled task once
   operationId: postScheduledTaskRun
-  description: Triggers one Task Scheduling Runtime job immediately and returns the persisted manual run result.
+  description: Triggers one Scheduled Task immediately and returns the persisted manual Job Run result.
   parameters:
     - $ref: ../components/parameters/locale-header.yaml
     - $ref: ../components/parameters/request-id-header.yaml
@@ -11,7 +11,7 @@ post:
     - bearerAuth: []
   responses:
     '200':
-      description: Manual scheduled task run result.
+      description: Manual Job Run result.
       headers:
         X-Request-Id:
           $ref: ../components/headers/request-id.yaml

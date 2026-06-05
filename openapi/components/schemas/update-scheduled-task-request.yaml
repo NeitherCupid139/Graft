@@ -10,5 +10,6 @@ properties:
     minLength: 1
   enabled:
     type: boolean
-  config:
-    $ref: ./scheduled-task-http-config.yaml
+  params_json:
+    type: string
+    description: JSON parameters passed to the Job Definition handler when this Scheduled Task runs.

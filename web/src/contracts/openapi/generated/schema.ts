@@ -894,15 +894,35 @@ export interface paths {
     };
     /**
      * List scheduled tasks
-     * @description Returns registered Task Scheduling Runtime jobs for view and diagnosis workflows.
+     * @description Returns Scheduled Tasks that bind Job Definitions to cron schedules.
      */
     get: operations['getScheduledTasks'];
     put?: never;
     /**
-     * Create HTTP scheduled task
-     * @description Creates one user-managed HTTP scheduled task. System tasks are seeded by the backend scheduler module and cannot be created through this endpoint.
+     * Create scheduled task
+     * @description Creates one Scheduled Task bound to a registered Job Definition.
      */
     post: operations['postScheduledTask'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/scheduled-tasks/jobs': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List scheduler job definitions
+     * @description Returns registered Job Definitions that can be bound to Scheduled Tasks.
+     */
+    get: operations['getScheduledTaskJobs'];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -918,18 +938,18 @@ export interface paths {
     };
     /**
      * Read scheduled task detail
-     * @description Returns one Task Scheduling Runtime job snapshot.
+     * @description Returns one Scheduled Task schedule definition with its latest run state.
      */
     get: operations['getScheduledTask'];
     /**
      * Update scheduled task
-     * @description Updates cron/enabled fields for system tasks and mutable management fields for user HTTP tasks.
+     * @description Updates mutable Scheduled Task fields without changing the bound Job Definition.
      */
     put: operations['putScheduledTask'];
     post?: never;
     /**
-     * Delete HTTP scheduled task
-     * @description Soft-deletes one user HTTP scheduled task. System tasks cannot be deleted.
+     * Delete scheduled task
+     * @description Soft-deletes one non-builtin Scheduled Task.
      */
     delete: operations['deleteScheduledTask'];
     options?: never;
@@ -948,7 +968,7 @@ export interface paths {
     put?: never;
     /**
      * Enable scheduled task
-     * @description Enables one scheduled task and dynamically registers its cron schedule.
+     * @description Enables one Scheduled Task and dynamically registers its cron schedule.
      */
     post: operations['postScheduledTaskEnable'];
     delete?: never;
@@ -968,7 +988,7 @@ export interface paths {
     put?: never;
     /**
      * Disable scheduled task
-     * @description Disables one scheduled task and dynamically removes its cron schedule.
+     * @description Disables one Scheduled Task and dynamically removes its cron schedule.
      */
     post: operations['postScheduledTaskDisable'];
     delete?: never;
@@ -986,7 +1006,7 @@ export interface paths {
     };
     /**
      * List scheduled task runs
-     * @description Returns persisted run history for one Task Scheduling Runtime job.
+     * @description Returns persisted Job Run history for one Scheduled Task.
      */
     get: operations['getScheduledTaskRuns'];
     put?: never;
@@ -1006,7 +1026,7 @@ export interface paths {
     };
     /**
      * Read scheduled task run detail
-     * @description Returns one persisted run history record for a scheduled task.
+     * @description Returns one persisted Job Run history record for a Scheduled Task.
      */
     get: operations['getScheduledTaskRun'];
     put?: never;
@@ -1028,7 +1048,7 @@ export interface paths {
     put?: never;
     /**
      * Run scheduled task once
-     * @description Triggers one Task Scheduling Runtime job immediately and returns the persisted manual run result.
+     * @description Triggers one Scheduled Task immediately and returns the persisted manual Job Run result.
      */
     post: operations['postScheduledTaskRun'];
     delete?: never;
@@ -1195,7 +1215,8 @@ export interface components {
     EnvelopedModuleRuntimeItem: components['schemas']['enveloped-module-runtime-item'];
     ScheduledTaskLastRun: components['schemas']['scheduled-task-last-run'];
     ScheduledTaskItem: components['schemas']['scheduled-task-item'];
-    ScheduledTaskHTTPConfig: components['schemas']['scheduled-task-http-config'];
+    ScheduledTaskJobDefinitionItem: components['schemas']['scheduled-task-job-definition-item'];
+    ScheduledTaskJobDefinitionListResponse: components['schemas']['scheduled-task-job-definition-list-response'];
     CreateScheduledTaskRequest: components['schemas']['create-scheduled-task-request'];
     UpdateScheduledTaskRequest: components['schemas']['update-scheduled-task-request'];
     ScheduledTaskListResponse: components['schemas']['scheduled-task-list-response'];
@@ -1203,6 +1224,7 @@ export interface components {
     ScheduledTaskRunListResponse: components['schemas']['scheduled-task-run-list-response'];
     EnvelopedScheduledTaskItem: components['schemas']['enveloped-scheduled-task-item'];
     EnvelopedScheduledTaskListResponse: components['schemas']['enveloped-scheduled-task-list-response'];
+    EnvelopedScheduledTaskJobDefinitionListResponse: components['schemas']['enveloped-scheduled-task-job-definition-list-response'];
     EnvelopedScheduledTaskRunItem: components['schemas']['enveloped-scheduled-task-run-item'];
     EnvelopedScheduledTaskRunListResponse: components['schemas']['enveloped-scheduled-task-run-list-response'];
     AccessLogDetailResponse: components['schemas']['access-log-detail-response'];
@@ -2186,25 +2208,26 @@ export interface components {
       result_summary?: string;
     };
     'scheduled-task-item': {
+      /** @description Stable Scheduled Task instance key. */
       key: string;
-      /** @enum {string} */
-      task_type: 'system' | 'http';
+      /** @description Stable Job Definition key executed by this Scheduled Task. */
+      job_key: string;
       /** @enum {string} */
       schedule_type: 'cron';
       display_name_key: string;
       description_key: string;
       owner: string;
       module: string;
-      /** @description Whether the scheduled task is enabled in the DB-backed task definition. */
+      /** @description Whether the Scheduled Task is enabled in the DB-backed schedule definition. */
       enabled: boolean;
-      /** @description System tasks are builtin and cannot be deleted or change task_key/task_type. */
+      /** @description Builtin Scheduled Tasks cannot be deleted or change task_key/job_key. */
       builtin?: boolean;
       title?: string;
       description?: string;
       /** @description Cron expression. */
       schedule: string;
-      /** @description Task-type private JSON config. HTTP task responses contain persisted config only for management views. */
-      config_json?: string;
+      /** @description Parameter JSON passed to the Job Definition handler when this Scheduled Task runs. */
+      params_json?: string;
       last_run?: components['schemas']['scheduled-task-last-run'];
       /**
        * Format: date-time
@@ -2222,46 +2245,62 @@ export interface components {
     'enveloped-scheduled-task-list-response': components['schemas']['api-envelope'] & {
       data: components['schemas']['scheduled-task-list-response'];
     };
-    'scheduled-task-http-config': {
-      /** @enum {string} */
-      method: 'GET' | 'POST';
-      url: string;
-      headers?: {
-        [key: string]: string;
-      };
-      body?: string;
-      /** @default 30 */
-      timeout_seconds: number;
-    };
     'create-scheduled-task-request': {
+      /** @description Stable scheduled task instance key. */
       task_key: string;
-      /** @enum {string} */
-      task_type: 'http';
+      /** @description Stable Job Definition key this Scheduled Task executes. */
+      job_key: string;
       title: string;
       description?: string;
       cron_expression: string;
       enabled: boolean;
-      config?: components['schemas']['scheduled-task-http-config'];
+      /** @description JSON parameters passed to the Job Definition handler when this Scheduled Task runs. */
+      params_json?: string;
     };
     'enveloped-scheduled-task-item': components['schemas']['api-envelope'] & {
       data: components['schemas']['scheduled-task-item'];
+    };
+    'scheduled-task-job-definition-item': {
+      /** @description Stable Job Definition key registered by a module. */
+      key: string;
+      owner: string;
+      module: string;
+      display_name_key: string;
+      description_key: string;
+      title?: string;
+      description?: string;
+      /** @description JSON Schema string for Scheduled Task parameters accepted by this Job Definition. */
+      params_schema_json: string;
+      /** @description Default parameter JSON for a new Scheduled Task bound to this Job Definition. */
+      default_params_json: string;
+      /** @description Default cron expression declared by the Job Definition. */
+      default_cron_expression: string;
+      /** @description Whether new Scheduled Tasks for this Job Definition should be enabled by default. */
+      default_enabled: boolean;
+    };
+    'scheduled-task-job-definition-list-response': {
+      items: components['schemas']['scheduled-task-job-definition-item'][];
+      total: number;
+    };
+    'enveloped-scheduled-task-job-definition-list-response': components['schemas']['api-envelope'] & {
+      data: components['schemas']['scheduled-task-job-definition-list-response'];
     };
     'update-scheduled-task-request': {
       title?: string;
       description?: string;
       cron_expression?: string;
       enabled?: boolean;
-      config?: components['schemas']['scheduled-task-http-config'];
+      /** @description JSON parameters passed to the Job Definition handler when this Scheduled Task runs. */
+      params_json?: string;
     };
     'scheduled-task-run-item': {
       /** Format: uint64 */
       id: number;
       task_key: string;
+      job_key: string;
       task_name: string;
       owner: string;
       module: string;
-      /** @enum {string} */
-      task_type: 'system' | 'http';
       /** @enum {string} */
       trigger_type: 'cron' | 'manual' | 'startup';
       /** @enum {string} */
@@ -4812,6 +4851,38 @@ export interface operations {
       500: components['responses']['internal-server-error'];
     };
   };
+  getScheduledTaskJobs: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Explicit locale override header already supported by the runtime. */
+        'X-Graft-Locale'?: components['parameters']['locale-header'];
+        /**
+         * @description Optional caller-supplied request id. If omitted, the runtime generates one and echoes it
+         *     through the response header and envelope traceId field.
+         */
+        'X-Request-Id'?: components['parameters']['request-id-header'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Scheduler Job Definition list. */
+      200: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['enveloped-scheduled-task-job-definition-list-response'];
+        };
+      };
+      401: components['responses']['unauthorized'];
+      403: components['responses']['forbidden'];
+      500: components['responses']['internal-server-error'];
+    };
+  };
   getScheduledTask: {
     parameters: {
       query?: never;
@@ -4946,7 +5017,7 @@ export interface operations {
           'application/json': components['schemas']['enveloped-empty-response'];
         };
       };
-      /** @description Builtin or system scheduled task cannot be deleted. */
+      /** @description Builtin Scheduled Task cannot be deleted. */
       400: {
         headers: {
           'X-Request-Id': components['headers']['request-id'];
@@ -5086,7 +5157,7 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description Scheduled task run history. */
+      /** @description Scheduled Task Job Run history. */
       200: {
         headers: {
           'X-Request-Id': components['headers']['request-id'];
@@ -5176,7 +5247,7 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description Manual scheduled task run result. */
+      /** @description Manual Job Run result. */
       200: {
         headers: {
           'X-Request-Id': components['headers']['request-id'];

@@ -8,8 +8,6 @@ import (
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
-
-	"graft/server/internal/cronx"
 )
 
 func TestSQLRunRepositoryPersistsRunLifecycle(t *testing.T) {
@@ -22,10 +20,10 @@ func TestSQLRunRepositoryPersistsRunLifecycle(t *testing.T) {
 	startedAt := time.Date(2026, 6, 5, 8, 0, 0, 0, time.UTC)
 	run, err := repo.CreateRun(context.Background(), TaskRun{
 		TaskKey:     "audit.audit-log-retention-cleanup",
+		JobKey:      "audit.audit-log-retention-cleanup",
 		TaskName:    "audit.audit-log-retention-cleanup",
 		Owner:       "audit",
 		Module:      "audit",
-		TaskType:    cronx.TaskTypeSystem,
 		TriggerType: TriggerTypeManual,
 		Status:      RunStatusRunning,
 		StartedAt:   startedAt,
@@ -64,6 +62,41 @@ func TestSQLRunRepositoryPersistsRunLifecycle(t *testing.T) {
 	}
 }
 
+func TestSQLJobDefinitionRepositorySyncsDefinitions(t *testing.T) {
+	db := newSchedulerRepositoryTestDB(t)
+	repo, err := NewSQLJobDefinitionRepository(db)
+	if err != nil {
+		t.Fatalf("new job definition repository: %v", err)
+	}
+
+	ctx := context.Background()
+	definition := JobDefinition{
+		JobKey:        "audit.retention.cleanup",
+		ModuleKey:     "audit",
+		Title:         "Audit retention",
+		ParamsSchema:  "{}",
+		DefaultParams: "{}",
+		DefaultCron:   "0 0 * * * *",
+		Enabled:       true,
+		CreatedAt:     time.Date(2026, 6, 5, 8, 0, 0, 0, time.UTC),
+		UpdatedAt:     time.Date(2026, 6, 5, 8, 0, 0, 0, time.UTC),
+	}
+	if err := repo.SyncJobDefinitions(ctx, []JobDefinition{definition}); err != nil {
+		t.Fatalf("sync job definition: %v", err)
+	}
+	definition.Title = "Audit retention updated"
+	if err := repo.SyncJobDefinitions(ctx, []JobDefinition{definition}); err != nil {
+		t.Fatalf("sync job definition again: %v", err)
+	}
+	got, err := repo.GetJobDefinition(ctx, definition.JobKey)
+	if err != nil {
+		t.Fatalf("get job definition: %v", err)
+	}
+	if got.Title != "Audit retention updated" || got.ModuleKey != "audit" {
+		t.Fatalf("unexpected job definition: %#v", got)
+	}
+}
+
 func TestSQLTaskRepositorySeedsBuiltinWithoutOverwritingCronOrEnabled(t *testing.T) {
 	db := newSchedulerRepositoryTestDB(t)
 	repo, err := NewSQLTaskRepository(db)
@@ -74,13 +107,14 @@ func TestSQLTaskRepositorySeedsBuiltinWithoutOverwritingCronOrEnabled(t *testing
 	ctx := context.Background()
 	seeded := TaskDefinition{
 		TaskKey:        "audit.retention.cleanup",
-		TaskType:       cronx.TaskTypeSystem,
-		Title:          "audit.retention.title",
-		Description:    "audit.retention.description",
+		JobKey:         "audit.retention.cleanup",
+		ModuleKey:      "audit",
+		Title:          "scheduledTask.auditLogRetention.title",
+		Description:    "scheduledTask.auditLogRetention.description",
 		CronExpression: "0 0 * * * *",
 		Enabled:        true,
 		Builtin:        true,
-		ConfigJSON:     "{}",
+		ParamsJSON:     "{}",
 		CreatedAt:      time.Date(2026, 6, 5, 8, 0, 0, 0, time.UTC),
 		UpdatedAt:      time.Date(2026, 6, 5, 8, 0, 0, 0, time.UTC),
 	}
@@ -113,7 +147,7 @@ func TestSQLTaskRepositorySeedsBuiltinWithoutOverwritingCronOrEnabled(t *testing
 	}
 }
 
-func TestSQLTaskRepositoryCreatesAndSoftDeletesHTTPTask(t *testing.T) {
+func TestSQLTaskRepositoryCreatesMultipleTasksForOneJobAndSoftDeletes(t *testing.T) {
 	db := newSchedulerRepositoryTestDB(t)
 	repo, err := NewSQLTaskRepository(db)
 	if err != nil {
@@ -122,23 +156,35 @@ func TestSQLTaskRepositoryCreatesAndSoftDeletesHTTPTask(t *testing.T) {
 
 	ctx := context.Background()
 	task, err := repo.CreateTask(ctx, TaskDefinition{
-		TaskKey:        "http.ping",
-		TaskType:       cronx.TaskTypeHTTP,
+		TaskKey:        "audit.retention.nightly",
+		JobKey:         "audit.retention.cleanup",
+		ModuleKey:      "audit",
 		Title:          "Ping",
 		CronExpression: "*/30 * * * * *",
 		Enabled:        true,
-		ConfigJSON:     `{"method":"GET","url":"https://example.com","timeout_seconds":30}`,
+		ParamsJSON:     `{"retention_days":30}`,
 		CreatedAt:      time.Date(2026, 6, 5, 8, 0, 0, 0, time.UTC),
 		UpdatedAt:      time.Date(2026, 6, 5, 8, 0, 0, 0, time.UTC),
 	})
 	if err != nil {
-		t.Fatalf("create http task: %v", err)
+		t.Fatalf("create task: %v", err)
 	}
-	if task.TaskType != cronx.TaskTypeHTTP || !task.Enabled || task.Builtin {
+	if task.JobKey != "audit.retention.cleanup" || task.ParamsJSON == "" || !task.Enabled || task.Builtin {
 		t.Fatalf("unexpected task: %#v", task)
 	}
+	if _, err := repo.CreateTask(ctx, TaskDefinition{
+		TaskKey:        "audit.retention.weekly",
+		JobKey:         "audit.retention.cleanup",
+		ModuleKey:      "audit",
+		Title:          "Weekly cleanup",
+		CronExpression: "0 0 0 * * 0",
+		Enabled:        true,
+		ParamsJSON:     `{"retention_days":90}`,
+	}); err != nil {
+		t.Fatalf("create second task for same job: %v", err)
+	}
 	if err := repo.DeleteTask(ctx, task.TaskKey); err != nil {
-		t.Fatalf("delete http task: %v", err)
+		t.Fatalf("delete task: %v", err)
 	}
 	if _, err := repo.GetTask(ctx, task.TaskKey); !errors.Is(err, ErrTaskNotFound) {
 		t.Fatalf("expected soft-deleted task to be hidden, got %v", err)
@@ -160,13 +206,32 @@ func newSchedulerRepositoryTestDB(t *testing.T) *sql.DB {
 	_, err = db.Exec(`CREATE TABLE scheduled_tasks (
 		id integer PRIMARY KEY AUTOINCREMENT,
 		task_key text NOT NULL UNIQUE,
-		task_type text NOT NULL,
+		job_key text NOT NULL,
+		module_key text NOT NULL,
 		title text NOT NULL DEFAULT '',
 		description text NOT NULL DEFAULT '',
 		cron_expression text NOT NULL,
 		enabled boolean NOT NULL DEFAULT true,
 		builtin boolean NOT NULL DEFAULT false,
+		params_json text NOT NULL DEFAULT '{}',
+		task_type text NOT NULL DEFAULT 'job',
 		config_json text NOT NULL DEFAULT '{}',
+		created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		deleted_at datetime NULL
+	);
+	CREATE TABLE scheduler_job_definitions (
+		id integer PRIMARY KEY AUTOINCREMENT,
+		job_key text NOT NULL UNIQUE,
+		module_key text NOT NULL,
+		title_key text NOT NULL DEFAULT '',
+		title text NOT NULL DEFAULT '',
+		description_key text NOT NULL DEFAULT '',
+		description text NOT NULL DEFAULT '',
+		params_schema text NOT NULL DEFAULT '{}',
+		default_params text NOT NULL DEFAULT '{}',
+		default_cron text NOT NULL,
+		enabled boolean NOT NULL DEFAULT true,
 		created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		deleted_at datetime NULL
@@ -174,6 +239,7 @@ func newSchedulerRepositoryTestDB(t *testing.T) *sql.DB {
 	CREATE TABLE scheduler_task_runs (
 		id integer PRIMARY KEY AUTOINCREMENT,
 		task_key text NOT NULL,
+		job_key text NOT NULL DEFAULT '',
 		task_name text NOT NULL DEFAULT '',
 		owner text NOT NULL DEFAULT '',
 		module text NOT NULL DEFAULT '',

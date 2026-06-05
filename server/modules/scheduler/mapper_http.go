@@ -19,6 +19,35 @@ func toScheduledTaskListResponse(tasks []schedulercore.TaskSnapshot) generated.S
 	}
 }
 
+func toScheduledTaskJobDefinitionListResponse(definitions []schedulercore.JobDefinitionSnapshot) generated.ScheduledTaskJobDefinitionListResponse {
+	items := make([]generated.ScheduledTaskJobDefinitionItem, 0, len(definitions))
+	for _, definition := range definitions {
+		items = append(items, toScheduledTaskJobDefinitionItem(definition))
+	}
+
+	return generated.ScheduledTaskJobDefinitionListResponse{
+		Items: items,
+		Total: len(items),
+	}
+}
+
+func toScheduledTaskJobDefinitionItem(definition schedulercore.JobDefinitionSnapshot) generated.ScheduledTaskJobDefinitionItem {
+	moduleKey := strings.TrimSpace(definition.ModuleKey)
+	return generated.ScheduledTaskJobDefinitionItem{
+		Key:                   strings.TrimSpace(definition.JobKey),
+		Owner:                 moduleKey,
+		Module:                moduleKey,
+		DisplayNameKey:        strings.TrimSpace(definition.TitleKey),
+		DescriptionKey:        strings.TrimSpace(definition.DescriptionKey),
+		Title:                 stringPointer(definition.Title),
+		Description:           stringPointer(definition.Description),
+		ParamsSchemaJson:      defaultJSONObject(definition.ParamsSchema),
+		DefaultParamsJson:     defaultJSONObject(definition.DefaultParams),
+		DefaultCronExpression: strings.TrimSpace(definition.DefaultCron),
+		DefaultEnabled:        definition.Enabled,
+	}
+}
+
 func toScheduledTaskItem(task schedulercore.TaskSnapshot) generated.ScheduledTaskItem {
 	status := generated.ScheduledTaskItemStatusIdle
 	var lastRun *generated.ScheduledTaskLastRun
@@ -36,17 +65,17 @@ func toScheduledTaskItem(task schedulercore.TaskSnapshot) generated.ScheduledTas
 
 	return generated.ScheduledTaskItem{
 		Key:            strings.TrimSpace(task.Key),
-		TaskType:       generated.ScheduledTaskItemTaskType(task.Type),
+		JobKey:         strings.TrimSpace(task.JobKey),
 		ScheduleType:   generated.ScheduledTaskItemScheduleTypeCron,
 		DisplayNameKey: strings.TrimSpace(task.DisplayMessageKey),
 		DescriptionKey: strings.TrimSpace(task.DescriptionMessageKey),
-		Owner:          strings.TrimSpace(task.Owner),
-		Module:         strings.TrimSpace(task.Module),
+		Owner:          strings.TrimSpace(task.ModuleKey),
+		Module:         strings.TrimSpace(task.ModuleKey),
 		Enabled:        task.Enabled,
 		Builtin:        boolPointer(task.Builtin),
 		Title:          stringPointer(task.Title),
 		Description:    stringPointer(task.Description),
-		ConfigJson:     stringPointer(task.ConfigJSON),
+		ParamsJson:     stringPointer(task.ParamsJSON),
 		Schedule:       strings.TrimSpace(task.Schedule),
 		LastRun:        lastRun,
 		Status:         status,
@@ -92,7 +121,7 @@ func toScheduledTaskRunItem(run schedulercore.TaskRun) generated.ScheduledTaskRu
 		TaskName:      strings.TrimSpace(run.TaskName),
 		Owner:         strings.TrimSpace(run.Owner),
 		Module:        strings.TrimSpace(run.Module),
-		TaskType:      generated.ScheduledTaskRunItemTaskType(run.TaskType),
+		JobKey:        strings.TrimSpace(run.JobKey),
 		TriggerType:   generated.ScheduledTaskRunItemTriggerType(run.TriggerType),
 		Status:        generated.ScheduledTaskRunItemStatus(run.Status),
 		ErrorSummary:  strings.TrimSpace(run.Error),
@@ -114,4 +143,12 @@ func stringPointer(value string) *string {
 		return nil
 	}
 	return &trimmed
+}
+
+func defaultJSONObject(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return "{}"
+	}
+	return trimmed
 }

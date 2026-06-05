@@ -143,7 +143,6 @@ func registerAuditLogRetentionCleanupJob(
 		Name:                  auditLogRetentionCleanupJobName,
 		Key:                   auditLogRetentionCleanupJobName,
 		Owner:                 moduleID,
-		Type:                  cronx.TaskTypeCron,
 		DisplayMessageKey:     auditLogRetentionCleanupJobDisplayKey,
 		DescriptionMessageKey: auditLogRetentionCleanupJobDescriptionKey,
 		Schedule:              auditLogRetentionCleanupJobSchedule,

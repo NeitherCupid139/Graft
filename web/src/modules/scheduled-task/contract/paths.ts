@@ -4,6 +4,7 @@ export const SCHEDULED_TASK_ROUTE_PATH = {
 
 export const SCHEDULED_TASK_API_PATH = {
   LIST: '/api/scheduled-tasks',
+  JOBS: '/api/scheduled-tasks/jobs',
   DETAIL: '/api/scheduled-tasks/{taskKey}',
   ENABLE: '/api/scheduled-tasks/{taskKey}/enable',
   DISABLE: '/api/scheduled-tasks/{taskKey}/disable',
