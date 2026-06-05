@@ -35,6 +35,7 @@
       "fieldRange": "Cron {field} field must be * or a number between {min} and {max}."
     },
     "cronExpressionField": {
+      "clear": "Clear Cron Expression",
       "configure": "Configure",
       "placeholder": "For example */5 * * * *",
       "validStatus": "Valid"

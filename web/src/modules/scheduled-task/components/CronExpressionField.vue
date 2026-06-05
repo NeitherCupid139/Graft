@@ -1,28 +1,45 @@
 <template>
   <div class="cron-expression-field" :class="{ 'cron-expression-field--disabled': disabled }">
-    <t-input-adornment class="cron-expression-field__control">
-      <t-input
-        v-model="rawExpression"
-        data-testid="cron-expression-input"
-        :disabled="disabled"
-        :placeholder="t('scheduledTask.cronExpressionField.placeholder')"
-        :status="inputStatus"
-        clearable
-        @change="handleRawInput"
-        @blur="handleRawInput"
-      />
-      <template #append>
-        <t-button
-          data-testid="cron-config-button"
-          theme="default"
-          variant="text"
+    <div class="cron-expression-field__control">
+      <div class="cron-expression-field__input">
+        <t-input
+          v-model="rawExpression"
+          data-testid="cron-expression-input"
           :disabled="disabled"
-          @click="dialogVisible = true"
+          :placeholder="t('scheduledTask.cronExpressionField.placeholder')"
+          :status="inputStatus"
+          @change="handleRawInput"
+          @blur="handleInputBlur"
+          @focus="inputFocused = true"
         >
-          {{ t('scheduledTask.cronExpressionField.configure') }}
-        </t-button>
-      </template>
-    </t-input-adornment>
+          <template #suffix>
+            <span class="cron-expression-field__clear-space">
+              <button
+                v-show="showClearControl"
+                class="cron-expression-field__clear-button"
+                type="button"
+                tabindex="-1"
+                :aria-label="t('scheduledTask.cronExpressionField.clear')"
+                @click.stop="handleClearExpression"
+                @mousedown.prevent
+              >
+                <close-circle-filled-icon class="cron-expression-field__clear-icon" aria-hidden="true" />
+              </button>
+            </span>
+          </template>
+        </t-input>
+      </div>
+      <t-button
+        class="cron-expression-field__configure"
+        data-testid="cron-config-button"
+        theme="default"
+        variant="text"
+        :disabled="disabled"
+        @click="dialogVisible = true"
+      >
+        {{ t('scheduledTask.cronExpressionField.configure') }}
+      </t-button>
+    </div>
 
     <div class="cron-expression-field__meta" data-testid="cron-expression-meta">
       <t-tag v-if="displayValid" size="small" theme="success" variant="light">
@@ -42,6 +59,7 @@
   </div>
 </template>
 <script setup lang="ts">
+import { CloseCircleFilledIcon } from 'tdesign-icons-vue-next';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
@@ -74,6 +92,7 @@ const emit = defineEmits<{
 const { t } = useI18n();
 const rawExpression = ref(props.modelValue);
 const dialogVisible = ref(false);
+const inputFocused = ref(false);
 
 const normalizedExpression = computed(() => normalizeCronExpression(rawExpression.value));
 const validation = computed(() => validateCronExpression(rawExpression.value));
@@ -82,6 +101,7 @@ const invalidMessage = computed(() => props.error || cronValidationMessageText(v
 const displayValid = computed(() => validation.value.valid && !props.error);
 const inputStatus = computed(() => (invalidMessage.value ? 'error' : 'default'));
 const descriptionText = computed(() => translateCronDescription(description.value, t));
+const showClearControl = computed(() => Boolean(rawExpression.value && !props.disabled && inputFocused.value));
 
 watch(
   () => props.modelValue,
@@ -108,6 +128,15 @@ watch(
 
 function handleRawInput(value: string | number) {
   applyExpression(String(value));
+}
+
+function handleInputBlur(value: string | number) {
+  inputFocused.value = false;
+  handleRawInput(value);
+}
+
+function handleClearExpression() {
+  applyExpression('');
 }
 
 function handleDialogConfirm(expression: string) {
@@ -141,11 +170,52 @@ function cronValidationMessageText(result: CronValidationResult) {
 }
 
 .cron-expression-field__control {
+  align-items: stretch;
+  display: flex;
+  gap: var(--graft-density-gap-8);
+  min-width: 0;
   width: 100%;
 }
 
-.cron-expression-field__control :deep(.t-input-adornment__append) {
-  background: var(--td-bg-color-container);
+.cron-expression-field__input {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.cron-expression-field__clear-space {
+  align-items: center;
+  block-size: 1em;
+  display: inline-flex;
+  inline-size: var(--td-font-size-body-large);
+  justify-content: center;
+  position: relative;
+}
+
+.cron-expression-field__clear-button {
+  align-items: center;
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: var(--td-text-color-placeholder);
+  cursor: pointer;
+  display: inline-flex;
+  inset: 0;
+  justify-content: center;
+  padding: 0;
+  position: absolute;
+  transition: color 0.2s linear;
+}
+
+.cron-expression-field__clear-button:hover {
+  color: var(--td-text-color-secondary);
+}
+
+.cron-expression-field__clear-icon {
+  font-size: var(--td-font-size-body-large);
+}
+
+.cron-expression-field__configure {
+  flex: 0 0 auto;
 }
 
 .cron-expression-field__meta {

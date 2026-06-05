@@ -39,22 +39,30 @@ const tDesignStubs = {
   }),
   TInput: defineComponent({
     name: 'TInput',
+    inheritAttrs: false,
     props: ['modelValue', 'status', 'value'],
-    emits: ['update:modelValue', 'update:value', 'change', 'blur'],
-    setup(props, { emit }) {
+    emits: ['update:modelValue', 'update:value', 'change', 'blur', 'focus'],
+    setup(props, { attrs, emit, slots }) {
       return () =>
-        h('input', {
-          'data-testid': 'cron-expression-input',
-          'data-status': props.status,
-          value: props.modelValue ?? props.value,
-          onInput: (event: Event) => {
-            const value = (event.target as HTMLInputElement).value;
-            emit('update:modelValue', value);
-            emit('update:value', value);
-            emit('change', value);
-          },
-          onBlur: (event: Event) => emit('blur', (event.target as HTMLInputElement).value),
-        });
+        h('div', { class: 't-input__wrap' }, [
+          h('div', { class: 't-input' }, [
+            h('input', {
+              ...attrs,
+              'data-testid': 'cron-expression-input',
+              'data-status': props.status,
+              value: props.modelValue ?? props.value,
+              onInput: (event: Event) => {
+                const value = (event.target as HTMLInputElement).value;
+                emit('update:modelValue', value);
+                emit('update:value', value);
+                emit('change', value);
+              },
+              onBlur: (event: Event) => emit('blur', (event.target as HTMLInputElement).value),
+              onFocus: (event: Event) => emit('focus', (event.target as HTMLInputElement).value),
+            }),
+            slots.suffix?.(),
+          ]),
+        ]);
     },
   }),
   TInputAdornment: defineComponent({
@@ -88,6 +96,7 @@ const i18n = createI18n({
           weekly: '每周第 {dayOfWeek} 天 {hour}:00 执行一次。',
         },
         cronExpressionField: {
+          clear: '清空 Cron 表达式',
           configure: '配置',
           placeholder: '例如 */5 * * * *',
           validStatus: '有效',
@@ -141,6 +150,30 @@ describe('CronExpressionField', () => {
     await wrapper.get('[data-testid="cron-config-button"]').trigger('click');
 
     expect(wrapper.get('[data-testid="cron-schedule-dialog"]').attributes('data-visible')).toBe('true');
+  });
+
+  it('keeps the clear suffix reservation inside the input flex item', () => {
+    const wrapper = mountField();
+    const control = wrapper.get('.cron-expression-field__control');
+    const inputArea = wrapper.get('.cron-expression-field__input');
+    const configureButton = wrapper.get('[data-testid="cron-config-button"]');
+
+    expect(inputArea.find('.cron-expression-field__clear-space').exists()).toBe(true);
+    expect(control.element.children[0]).toBe(inputArea.element);
+    expect(control.element.children[1]).toBe(configureButton.element);
+  });
+
+  it('clears the expression without removing the reserved suffix space', async () => {
+    const wrapper = mountField();
+
+    await wrapper.get('[data-testid="cron-expression-input"]').trigger('focus');
+    await wrapper.get('.cron-expression-field__clear-button').trigger('click');
+
+    expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual(['']);
+    expect(wrapper.find('.cron-expression-field__clear-space').exists()).toBe(true);
+    expect(wrapper.get('.cron-expression-field__control').element.children[1]).toBe(
+      wrapper.get('[data-testid="cron-config-button"]').element,
+    );
   });
 
   it('applies confirmed dialog expressions', async () => {
