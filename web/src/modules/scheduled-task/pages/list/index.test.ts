@@ -14,6 +14,8 @@ const translations = vi.hoisted(
   (): Record<string, string> => ({
     'scheduledTask.accessLogRetention.description': '删除超过配置保留窗口的访问日志。',
     'scheduledTask.accessLogRetention.title': '访问日志保留清理',
+    'scheduledTask.appLogRetention.description': '删除超过配置保留窗口的应用日志。',
+    'scheduledTask.appLogRetention.title': '应用日志保留清理',
     'scheduledTask.auditLogRetention.description': '删除超过配置保留窗口的审计日志。',
     'scheduledTask.auditLogRetention.title': '审计日志保留清理',
     'scheduledTask.list.columnSettings': '列设置',
@@ -36,8 +38,12 @@ const translations = vi.hoisted(
     'scheduledTask.list.cronMode.monthly': '每月',
     'scheduledTask.list.cronMode.weekly': '每周',
     'scheduledTask.list.create': '新建任务',
+    'scheduledTask.list.delete': '删除',
     'scheduledTask.list.description': '管理绑定到 Job Definition 的定时任务。',
     'scheduledTask.list.detail.none': '无',
+    'scheduledTask.list.disable': '停用',
+    'scheduledTask.list.edit': '编辑',
+    'scheduledTask.list.enable': '启用',
     'scheduledTask.list.eyebrow': '服务管理',
     'scheduledTask.list.filters.allJobTypes': '全部 Job 类型',
     'scheduledTask.list.filters.allStatuses': '全部状态',
@@ -56,7 +62,9 @@ const translations = vi.hoisted(
     'scheduledTask.list.metric.runs24hDescription': '最近 24 小时执行次数',
     'scheduledTask.list.metric.total': '任务总数',
     'scheduledTask.list.metric.totalDescription': '已注册任务',
+    'scheduledTask.list.more': '更多',
     'scheduledTask.list.refresh': '刷新',
+    'scheduledTask.list.run': '立即执行',
     'scheduledTask.list.status.idle': '空闲',
     'scheduledTask.list.tableHint': '当前筛选显示 {count} 个任务。',
     'scheduledTask.list.tableTitle': '任务列表',
@@ -126,8 +134,42 @@ function scheduledTasksResponse() {
         module: 'core.httpx',
         enabled: true,
         builtin: true,
-        title: 'scheduledTask.accessLogRetention.title',
-        description: 'scheduledTask.accessLogRetention.description',
+        title: 'Access log retention cleanup',
+        description: 'Deletes access logs beyond the configured retention window.',
+        schedule: '*/5 * * * *',
+        status: 'idle',
+        running: false,
+        params_json: '{}',
+      },
+      {
+        key: 'logger.app-log-retention-cleanup',
+        job_key: 'logger.app-log-retention-cleanup',
+        schedule_type: 'cron',
+        display_name_key: 'scheduledTask.appLogRetention.title',
+        description_key: 'scheduledTask.appLogRetention.description',
+        owner: 'core.logger',
+        module: 'core.logger',
+        enabled: true,
+        builtin: true,
+        title: 'App log retention cleanup',
+        description: 'Deletes app logs beyond the configured retention window.',
+        schedule: '*/5 * * * *',
+        status: 'idle',
+        running: false,
+        params_json: '{}',
+      },
+      {
+        key: 'audit.audit-log-retention-cleanup',
+        job_key: 'audit.audit-log-retention-cleanup',
+        schedule_type: 'cron',
+        display_name_key: 'scheduledTask.auditLogRetention.title',
+        description_key: 'scheduledTask.auditLogRetention.description',
+        owner: 'audit',
+        module: 'audit',
+        enabled: true,
+        builtin: true,
+        title: 'Audit log retention cleanup',
+        description: 'Deletes audit logs beyond the configured retention window.',
         schedule: '*/5 * * * *',
         status: 'idle',
         running: false,
@@ -151,7 +193,7 @@ function scheduledTasksResponse() {
         params_json: '{}',
       },
     ],
-    total: 2,
+    total: 4,
   };
 }
 
@@ -164,15 +206,41 @@ function jobDefinitionsResponse() {
         module: 'core.httpx',
         display_name_key: 'scheduledTask.accessLogRetention.title',
         description_key: 'scheduledTask.accessLogRetention.description',
-        title: 'scheduledTask.accessLogRetention.title',
-        description: 'scheduledTask.accessLogRetention.description',
+        title: 'Access log retention cleanup',
+        description: 'Deletes access logs beyond the configured retention window.',
+        params_schema_json: '{}',
+        default_params_json: '{}',
+        default_cron_expression: '*/5 * * * *',
+        default_enabled: true,
+      },
+      {
+        key: 'logger.app-log-retention-cleanup',
+        owner: 'core.logger',
+        module: 'core.logger',
+        display_name_key: 'scheduledTask.appLogRetention.title',
+        description_key: 'scheduledTask.appLogRetention.description',
+        title: 'App log retention cleanup',
+        description: 'Deletes app logs beyond the configured retention window.',
+        params_schema_json: '{}',
+        default_params_json: '{}',
+        default_cron_expression: '*/5 * * * *',
+        default_enabled: true,
+      },
+      {
+        key: 'audit.audit-log-retention-cleanup',
+        owner: 'audit',
+        module: 'audit',
+        display_name_key: 'scheduledTask.auditLogRetention.title',
+        description_key: 'scheduledTask.auditLogRetention.description',
+        title: 'Audit log retention cleanup',
+        description: 'Deletes audit logs beyond the configured retention window.',
         params_schema_json: '{}',
         default_params_json: '{}',
         default_cron_expression: '*/5 * * * *',
         default_enabled: true,
       },
     ],
-    total: 1,
+    total: 3,
   };
 }
 
@@ -292,6 +360,8 @@ function mountPage() {
         BrowseIcon: true,
         DeleteIcon: true,
         EditIcon: true,
+        EllipsisIcon: true,
+        PauseIcon: true,
         PlayIcon: true,
         SearchIcon: true,
         TButton: ButtonStub,
@@ -301,6 +371,9 @@ function mountPage() {
         TDescriptions: PassthroughStub,
         TDescriptionsItem: PassthroughStub,
         TDialog: PassthroughStub,
+        TDropdown: PassthroughStub,
+        TDropdownItem: PassthroughStub,
+        TDropdownMenu: PassthroughStub,
         TDrawer: PassthroughStub,
         TEmpty: PassthroughStub,
         TForm: PassthroughStub,
@@ -334,7 +407,9 @@ describe('ScheduledTaskListPage', () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain('访问日志保留清理');
-    expect(wrapper.text()).not.toContain('scheduledTask.accessLogRetention.title');
+    expect(wrapper.text()).toContain('应用日志保留清理');
+    expect(wrapper.text()).toContain('审计日志保留清理');
+    expect(wrapper.text()).not.toContain('Access log retention cleanup');
     expect(wrapper.text()).toContain('Custom cleanup');
   });
 
@@ -350,6 +425,20 @@ describe('ScheduledTaskListPage', () => {
 
     expect(wrapper.find('th[data-col="recent_run"]').exists()).toBe(false);
     expect(wrapper.find('th[data-col="operation"]').exists()).toBe(true);
+  });
+
+  it('keeps high-frequency actions visible and folds management actions into more menu', async () => {
+    const wrapper = mountPage();
+    await flushPromises();
+
+    const firstOperationCell = wrapper.find('tbody tr:first-child td[data-col="operation"]');
+    expect(firstOperationCell.exists()).toBe(true);
+    expect(firstOperationCell.text()).toContain('查看');
+    expect(firstOperationCell.text()).toContain('立即执行');
+    expect(firstOperationCell.text()).toContain('更多');
+    expect(firstOperationCell.text()).toContain('编辑');
+    expect(firstOperationCell.text()).toContain('停用');
+    expect(firstOperationCell.text()).toContain('删除');
   });
 
   it('renders cron expression hint below the input inside a vertical container', async () => {

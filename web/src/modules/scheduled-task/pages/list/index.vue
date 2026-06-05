@@ -140,26 +140,6 @@
                 {{ t('scheduledTask.list.viewDetail') }}
               </t-button>
               <t-button
-                v-permission="permissionCodes.UPDATE"
-                theme="primary"
-                variant="text"
-                size="small"
-                @click="openEditDrawer(row)"
-              >
-                <template #icon><edit-icon /></template>
-                {{ t('scheduledTask.list.edit') }}
-              </t-button>
-              <t-button
-                v-permission="permissionCodes.ENABLE"
-                theme="primary"
-                variant="text"
-                size="small"
-                :loading="lifecycleTaskKey === row.key"
-                @click="toggleTaskEnabled(row)"
-              >
-                {{ row.enabled ? t('scheduledTask.list.disable') : t('scheduledTask.list.enable') }}
-              </t-button>
-              <t-button
                 v-permission="permissionCodes.RUN"
                 theme="primary"
                 variant="outline"
@@ -171,18 +151,38 @@
                 <template #icon><play-icon /></template>
                 {{ t('scheduledTask.list.run') }}
               </t-button>
-              <t-button
-                v-permission="permissionCodes.DELETE"
-                theme="danger"
-                variant="text"
-                size="small"
-                :disabled="isSystemTask(row)"
-                :loading="deletingTaskKey === row.key"
-                @click="openDeleteDialog(row)"
-              >
-                <template #icon><delete-icon /></template>
-                {{ t('scheduledTask.list.delete') }}
-              </t-button>
+              <t-dropdown trigger="click" placement="bottom-right">
+                <t-button theme="default" variant="outline" size="small">
+                  <template #icon><ellipsis-icon /></template>
+                  {{ t('scheduledTask.list.more') }}
+                </t-button>
+                <t-dropdown-menu>
+                  <t-dropdown-item v-permission="permissionCodes.UPDATE" @click="openEditDrawer(row)">
+                    <template #prefix-icon><edit-icon /></template>
+                    {{ t('scheduledTask.list.edit') }}
+                  </t-dropdown-item>
+                  <t-dropdown-item
+                    v-permission="permissionCodes.ENABLE"
+                    :disabled="lifecycleTaskKey === row.key"
+                    @click="toggleTaskEnabled(row)"
+                  >
+                    <template #prefix-icon>
+                      <pause-icon v-if="row.enabled" />
+                      <play-icon v-else />
+                    </template>
+                    {{ row.enabled ? t('scheduledTask.list.disable') : t('scheduledTask.list.enable') }}
+                  </t-dropdown-item>
+                  <t-dropdown-item
+                    v-permission="permissionCodes.DELETE"
+                    :disabled="isSystemTask(row) || deletingTaskKey === row.key"
+                    theme="error"
+                    @click="openDeleteDialog(row)"
+                  >
+                    <template #prefix-icon><delete-icon /></template>
+                    {{ t('scheduledTask.list.delete') }}
+                  </t-dropdown-item>
+                </t-dropdown-menu>
+              </t-dropdown>
             </t-space>
           </template>
 
@@ -533,7 +533,16 @@
   </advanced-query-list-page>
 </template>
 <script setup lang="ts">
-import { AddIcon, BrowseIcon, DeleteIcon, EditIcon, PlayIcon, SearchIcon } from 'tdesign-icons-vue-next';
+import {
+  AddIcon,
+  BrowseIcon,
+  DeleteIcon,
+  EditIcon,
+  EllipsisIcon,
+  PauseIcon,
+  PlayIcon,
+  SearchIcon,
+} from 'tdesign-icons-vue-next';
 import { MessagePlugin, Tag, type TdBaseTableProps } from 'tdesign-vue-next';
 import { computed, defineComponent, h, onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -843,7 +852,7 @@ const allColumns = computed<TdBaseTableProps['columns']>(() => [
   {
     colKey: 'recent_run',
     title: t('scheduledTask.list.columns.recentRun'),
-    width: 180,
+    width: 210,
   },
   {
     colKey: 'success_rate',
@@ -853,7 +862,8 @@ const allColumns = computed<TdBaseTableProps['columns']>(() => [
   {
     colKey: 'operation',
     title: t('scheduledTask.list.columns.operation'),
-    width: 330,
+    align: 'right',
+    width: 280,
     fixed: 'right',
   },
 ]);
@@ -1265,8 +1275,8 @@ function taskToForm(task: ScheduledTaskItem): TaskFormModel {
   const expression = task.schedule || CRON_PRESETS.every5Minutes;
   return {
     taskKey: task.key,
-    title: task.title || taskDisplayName(task),
-    description: task.description || '',
+    title: taskDisplayName(task),
+    description: isSystemTask(task) ? taskDescription(task) : task.description || '',
     cronMode: presetModeFromExpression(expression) ?? 'custom',
     cronExpression: expression,
     enabled: task.enabled,
@@ -1328,15 +1338,14 @@ function presetModeFromExpression(expression: string): CronMode | null {
 }
 
 function taskDisplayName(task: ScheduledTaskItem) {
-  const title = localizeDisplayValue(task.title);
-  if (title) return title;
-  return localizeMessageKey(task.display_name_key) || task.key;
+  return localizedDisplayText(task.display_name_key, task.title, isSystemTask(task)) || task.key;
 }
 
 function taskDescription(task: ScheduledTaskItem) {
-  const description = localizeDisplayValue(task.description);
-  if (description) return description;
-  return localizeMessageKey(task.description_key) || t('scheduledTask.list.detail.none');
+  return (
+    localizedDisplayText(task.description_key, task.description, isSystemTask(task)) ||
+    t('scheduledTask.list.detail.none')
+  );
 }
 
 function localizeMessageKey(key?: string) {
@@ -1376,21 +1385,26 @@ function localizeDisplayValue(value?: string | null) {
   return localizeMessageKey(trimmed) || trimmed;
 }
 
+function localizedDisplayText(messageKey?: string, fallback?: string | null, preferMessageKey = false) {
+  const localized = localizeMessageKey(messageKey);
+  if (preferMessageKey && localized) {
+    return localized;
+  }
+
+  return localizeDisplayValue(fallback) || localized;
+}
+
 function jobTypeLabel(jobKey: ScheduledTaskJobKey) {
   const job = jobDefinitions.value.find((item) => item.key === jobKey);
   return job ? jobDefinitionTitle(job) : jobKey;
 }
 
 function jobDefinitionTitle(job: ScheduledTaskJobDefinitionItem) {
-  const title = localizeDisplayValue(job.title);
-  if (title) return title;
-  return localizeMessageKey(job.display_name_key) || job.key;
+  return localizedDisplayText(job.display_name_key, job.title, true) || job.key;
 }
 
 function jobDefinitionDescription(job: ScheduledTaskJobDefinitionItem) {
-  const description = localizeDisplayValue(job.description);
-  if (description) return description;
-  return localizeMessageKey(job.description_key) || t('scheduledTask.list.detail.none');
+  return localizedDisplayText(job.description_key, job.description, true) || t('scheduledTask.list.detail.none');
 }
 
 function moduleDisplayName(moduleKey: string) {
@@ -1644,8 +1658,17 @@ function formatDuration(value?: number | null) {
 }
 
 .scheduled-task-actions {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: var(--graft-density-gap-4);
   justify-content: flex-end;
+  white-space: nowrap;
   width: 100%;
+}
+
+.scheduled-task-actions :deep(.t-button),
+.scheduled-task-actions :deep(.t-dropdown) {
+  flex: 0 0 auto;
 }
 
 .scheduled-task-empty,
