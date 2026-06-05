@@ -322,7 +322,7 @@
               :status="formFieldErrors.cronExpression ? 'error' : undefined"
               :tips="formFieldErrors.cronExpression"
             >
-              <cron-expression-editor
+              <cron-expression-field
                 v-model="taskForm.cronExpression"
                 :error="formFieldErrors.cronExpression"
                 @update:model-value="handleCronEditorUpdate"
@@ -625,7 +625,7 @@ import {
   runScheduledTask,
   updateScheduledTask,
 } from '../../api/scheduled-task';
-import CronExpressionEditor from '../../components/CronExpressionEditor.vue';
+import CronExpressionField from '../../components/CronExpressionField.vue';
 import { SCHEDULED_TASK_PERMISSION_CODE } from '../../contract/permissions';
 import type {
   CreateScheduledTaskRequest,

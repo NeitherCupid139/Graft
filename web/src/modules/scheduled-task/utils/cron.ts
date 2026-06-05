@@ -28,6 +28,29 @@ export type CronDescriptionResult = {
 
 export type CronDescriptionTranslate = (key: CronDescriptionKey, params?: Record<string, string | number>) => string;
 
+export type CronExecutionPreview = {
+  intervalMs?: number;
+  nextRuns: Date[];
+  normalizedExpression: string;
+  valid: boolean;
+};
+
+export type CronMode = 'intervalMinutes' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'advanced';
+
+export type CronScheduleValue = {
+  dayOfMonth: number;
+  hour: number;
+  intervalMinutes: number;
+  minute: number;
+  weekday: number;
+};
+
+export type ParsedCronExpression = {
+  expression: string;
+  mode: CronMode;
+  value: CronScheduleValue;
+};
+
 const FIELD_COUNT_UNIX = 5;
 const FIELD_COUNT_SECONDS = 6;
 
@@ -56,6 +79,123 @@ export function normalizeCronExpression(expression: string): string {
   }
 
   return normalized;
+}
+
+export function toUnixCronExpression(expression: string): string {
+  const fields = splitCronFields(expression);
+  if (fields.length === FIELD_COUNT_SECONDS && fields[0] === '0') {
+    return fields.slice(1).join(' ');
+  }
+
+  return fields.join(' ');
+}
+
+export function buildCronExpression(mode: CronMode, value: CronScheduleValue): string {
+  const minute = clampInteger(value.minute, 0, 59);
+  const hour = clampInteger(value.hour, 0, 23);
+
+  switch (mode) {
+    case 'intervalMinutes':
+      return `*/${clampInteger(value.intervalMinutes, 1, 59)} * * * *`;
+    case 'hourly':
+      return `${minute} * * * *`;
+    case 'daily':
+      return `${minute} ${hour} * * *`;
+    case 'weekly':
+      return `${minute} ${hour} * * ${clampInteger(value.weekday, 0, 6)}`;
+    case 'monthly':
+      return `${minute} ${hour} ${clampInteger(value.dayOfMonth, 1, 31)} * *`;
+    case 'advanced':
+    default:
+      return `${minute} ${hour} * * *`;
+  }
+}
+
+export function parseCronExpression(expression: string): ParsedCronExpression {
+  const unixExpression = toUnixCronExpression(expression || '0 17 * * *');
+  const fields = splitCronFields(unixExpression);
+  const defaultValue: CronScheduleValue = {
+    dayOfMonth: 1,
+    hour: 17,
+    intervalMinutes: 5,
+    minute: 0,
+    weekday: 1,
+  };
+
+  if (fields.length !== FIELD_COUNT_UNIX || !validateCronExpression(unixExpression).valid) {
+    return {
+      expression: unixExpression,
+      mode: 'advanced',
+      value: defaultValue,
+    };
+  }
+
+  const [minute, hour, dayOfMonth, month, dayOfWeek] = fields;
+  const minuteInterval = parseStepValue(minute);
+
+  if (minuteInterval !== null && hour === '*' && dayOfMonth === '*' && month === '*' && dayOfWeek === '*') {
+    return {
+      expression: unixExpression,
+      mode: 'intervalMinutes',
+      value: { ...defaultValue, intervalMinutes: minuteInterval },
+    };
+  }
+
+  if (isCronNumberInRange(minute, 0, 59) && hour === '*' && dayOfMonth === '*' && month === '*' && dayOfWeek === '*') {
+    return {
+      expression: unixExpression,
+      mode: 'hourly',
+      value: { ...defaultValue, minute: Number(minute) },
+    };
+  }
+
+  if (isCronNumberInRange(minute, 0, 59) && isCronNumberInRange(hour, 0, 23) && dayOfMonth === '*' && month === '*') {
+    if (dayOfWeek === '*') {
+      return {
+        expression: unixExpression,
+        mode: 'daily',
+        value: { ...defaultValue, hour: Number(hour), minute: Number(minute) },
+      };
+    }
+
+    if (isCronNumberInRange(dayOfWeek, 0, 7)) {
+      return {
+        expression: unixExpression,
+        mode: 'weekly',
+        value: {
+          ...defaultValue,
+          hour: Number(hour),
+          minute: Number(minute),
+          weekday: Number(dayOfWeek) === 7 ? 0 : Number(dayOfWeek),
+        },
+      };
+    }
+  }
+
+  if (
+    isCronNumberInRange(minute, 0, 59) &&
+    isCronNumberInRange(hour, 0, 23) &&
+    isCronNumberInRange(dayOfMonth, 1, 31) &&
+    month === '*' &&
+    dayOfWeek === '*'
+  ) {
+    return {
+      expression: unixExpression,
+      mode: 'monthly',
+      value: {
+        ...defaultValue,
+        dayOfMonth: Number(dayOfMonth),
+        hour: Number(hour),
+        minute: Number(minute),
+      },
+    };
+  }
+
+  return {
+    expression: unixExpression,
+    mode: 'advanced',
+    value: defaultValue,
+  };
 }
 
 export function validateCronExpression(expression: string): CronValidationResult {
@@ -105,6 +245,91 @@ export function describeCronExpression(
   return description;
 }
 
+export function previewCronExecutions(expression: string, from = new Date(), count = 4): CronExecutionPreview {
+  const validation = validateCronExpression(expression);
+  const normalizedExpression = normalizeCronExpression(expression);
+  if (!validation.valid) {
+    return {
+      nextRuns: [],
+      normalizedExpression,
+      valid: false,
+    };
+  }
+
+  const [second, minute, hour, dayOfMonth, month, dayOfWeek] = normalizedExpression.split(' ');
+  const fieldValues = {
+    seconds: expandCronField(second, 0, 59),
+    minutes: expandCronField(minute, 0, 59),
+    hours: expandCronField(hour, 0, 23),
+    dayOfMonths: expandCronField(dayOfMonth, 1, 31),
+    months: expandCronField(month, 1, 12),
+    dayOfWeeks: expandCronField(dayOfWeek, 0, 7).map((value) => (value === 7 ? 0 : value)),
+  };
+
+  const nextRuns: Date[] = [];
+  const fromTime = from.getTime();
+  const dayCursor = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const maxLookaheadDays = 366;
+
+  for (let dayOffset = 0; dayOffset <= maxLookaheadDays && nextRuns.length < count; dayOffset += 1) {
+    const candidateDay = new Date(dayCursor);
+    candidateDay.setDate(dayCursor.getDate() + dayOffset);
+
+    if (!fieldValues.months.includes(candidateDay.getMonth() + 1)) {
+      continue;
+    }
+
+    if (!fieldValues.dayOfMonths.includes(candidateDay.getDate())) {
+      continue;
+    }
+
+    if (!fieldValues.dayOfWeeks.includes(candidateDay.getDay())) {
+      continue;
+    }
+
+    for (const candidateHour of fieldValues.hours) {
+      for (const candidateMinute of fieldValues.minutes) {
+        for (const candidateSecond of fieldValues.seconds) {
+          const candidate = new Date(
+            candidateDay.getFullYear(),
+            candidateDay.getMonth(),
+            candidateDay.getDate(),
+            candidateHour,
+            candidateMinute,
+            candidateSecond,
+            0,
+          );
+          if (candidate.getTime() <= fromTime) {
+            continue;
+          }
+
+          nextRuns.push(candidate);
+          if (nextRuns.length >= count) {
+            break;
+          }
+        }
+        if (nextRuns.length >= count) {
+          break;
+        }
+      }
+      if (nextRuns.length >= count) {
+        break;
+      }
+    }
+  }
+
+  return {
+    intervalMs: nextRuns.length >= 2 ? nextRuns[1].getTime() - nextRuns[0].getTime() : undefined,
+    nextRuns,
+    normalizedExpression,
+    valid: true,
+  };
+}
+
+export function getNextRuns(expression: string, count: number, from = new Date()): Date[] {
+  return previewCronExecutions(expression, from, count).nextRuns;
+}
+
 function describeNormalizedCronExpression(normalizedExpression: string): CronDescriptionResult {
   const fields = normalizedExpression.split(' ');
   const [second, minute, hour, dayOfMonth, month, dayOfWeek] = fields;
@@ -142,7 +367,7 @@ function describeNormalizedCronExpression(normalizedExpression: string): CronDes
     };
   }
 
-  if (second === '0' && minute === '0' && isNumberInRange(hour, 0, 23) && dayOfMonth === '*' && month === '*') {
+  if (second === '0' && minute === '0' && isCronNumberInRange(hour, 0, 23) && dayOfMonth === '*' && month === '*') {
     if (dayOfWeek === '*') {
       return {
         key: 'scheduledTask.cronDescription.daily',
@@ -152,7 +377,7 @@ function describeNormalizedCronExpression(normalizedExpression: string): CronDes
       };
     }
 
-    if (isNumberInRange(dayOfWeek, 0, 7)) {
+    if (isCronNumberInRange(dayOfWeek, 0, 7)) {
       return {
         key: 'scheduledTask.cronDescription.weekly',
         params: { hour: Number(hour), dayOfWeek: Number(dayOfWeek) },
@@ -165,8 +390,8 @@ function describeNormalizedCronExpression(normalizedExpression: string): CronDes
   if (
     second === '0' &&
     minute === '0' &&
-    isNumberInRange(hour, 0, 23) &&
-    isNumberInRange(dayOfMonth, 1, 31) &&
+    isCronNumberInRange(hour, 0, 23) &&
+    isCronNumberInRange(dayOfMonth, 1, 31) &&
     month === '*' &&
     dayOfWeek === '*'
   ) {
@@ -197,7 +422,7 @@ function validateCronField(field: string, rule: CronFieldRule): CronValidationRe
 
   if (rule.allowStep && field.startsWith('*/')) {
     const step = field.slice(2);
-    if (isNumberInRange(step, 1, rule.max)) {
+    if (isCronNumberInRange(step, 1, rule.max)) {
       return { valid: true };
     }
 
@@ -208,7 +433,7 @@ function validateCronField(field: string, rule: CronFieldRule): CronValidationRe
     };
   }
 
-  if (isNumberInRange(field, rule.min, rule.max)) {
+  if (isCronNumberInRange(field, rule.min, rule.max)) {
     return { valid: true };
   }
 
@@ -217,6 +442,19 @@ function validateCronField(field: string, rule: CronFieldRule): CronValidationRe
     messageKey: 'scheduledTask.cronValidation.fieldRange',
     messageParams: { field: rule.name, min: rule.min, max: rule.max },
   };
+}
+
+function expandCronField(field: string, min: number, max: number): number[] {
+  if (field === '*') {
+    return range(min, max);
+  }
+
+  const stepValue = parseStepValue(field);
+  if (stepValue !== null) {
+    return range(min, max).filter((value) => value % stepValue === 0);
+  }
+
+  return [Number(field)];
 }
 
 function parseStepValue(field: string): number | null {
@@ -228,7 +466,7 @@ function parseStepValue(field: string): number | null {
   return isPositiveInteger(step) ? Number(step) : null;
 }
 
-function isNumberInRange(value: string, min: number, max: number): boolean {
+function isCronNumberInRange(value: string, min: number, max: number): boolean {
   if (!/^\d+$/.test(value)) {
     return false;
   }
@@ -237,6 +475,19 @@ function isNumberInRange(value: string, min: number, max: number): boolean {
   return numericValue >= min && numericValue <= max;
 }
 
+function range(min: number, max: number): number[] {
+  return Array.from({ length: max - min + 1 }, (_item, index) => min + index);
+}
+
 function isPositiveInteger(value: string): boolean {
   return /^[1-9]\d*$/.test(value);
+}
+
+function clampInteger(value: number | string, min: number, max: number): number {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return min;
+  }
+
+  return Math.min(Math.max(Math.trunc(numericValue), min), max);
 }

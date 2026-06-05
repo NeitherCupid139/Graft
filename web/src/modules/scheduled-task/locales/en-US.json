@@ -34,13 +34,70 @@
       "stepRange": "Cron {field} step must be between {min} and {max}.",
       "fieldRange": "Cron {field} field must be * or a number between {min} and {max}."
     },
-    "cronEditor": {
-      "title": "Cron Schedule",
-      "expressionLabel": "Cron Expression",
-      "expressionPlaceholder": "For example */5 * * * *",
-      "inputHint": "Use 5-field Unix or 6-field seconds Cron. Saved values are normalized for backend scheduling.",
-      "validStatus": "Valid",
-      "emptyExpression": "No expression"
+    "cronExpressionField": {
+      "configure": "Configure",
+      "placeholder": "For example */5 * * * *",
+      "validStatus": "Valid"
+    },
+    "cronScheduleDialog": {
+      "title": "Configure Schedule",
+      "cancel": "Cancel",
+      "confirm": "Use Expression",
+      "planTypeLabel": "Common schedule types",
+      "rawPlaceholder": "For example 0 17 * * *",
+      "planTypes": {
+        "intervalMinutes": "Every N Minutes",
+        "hourly": "Hourly",
+        "daily": "Daily",
+        "weekly": "Weekly",
+        "monthly": "Monthly",
+        "advanced": "Advanced Cron"
+      },
+      "fields": {
+        "intervalMinutes": "Minute Interval",
+        "weekday": "Weekday",
+        "dayOfMonth": "Day Of Month",
+        "executionMinute": "Execution Minute",
+        "executionTime": "Execution Time",
+        "rawExpression": "Cron Expression"
+      },
+      "weekdays": {
+        "0": "Sunday",
+        "1": "Monday",
+        "2": "Tuesday",
+        "3": "Wednesday",
+        "4": "Thursday",
+        "5": "Friday",
+        "6": "Saturday"
+      },
+      "examples": {
+        "everyFiveMinutes": "Every 5 Minutes",
+        "dailyAtFive": "Daily At 17:00",
+        "weeklyMonday": "Every Monday 09:00",
+        "monthlyFirst": "Monthly On Day 1 At 00:00"
+      },
+      "quickSelect": "Quick Select",
+      "quickTemplates": "Quick Templates",
+      "quickMinutes": "{count} Minutes",
+      "hourlyPrefix": "At Minute",
+      "hourlySuffix": "Of Every Hour",
+      "monthDayWarning": "Some months do not have this date, so the task will not run in those months.",
+      "preview": {
+        "expression": "Expression",
+        "status": "Status",
+        "description": "Description",
+        "nextRun": "Next Run",
+        "interval": "Estimated Interval",
+        "upcomingRuns": "Upcoming Runs",
+        "valid": "Valid",
+        "invalid": "Invalid",
+        "emptyExpression": "No expression",
+        "noPreview": "No preview",
+        "intervalSeconds": "About {count} seconds",
+        "intervalMinutes": "About {count} minutes",
+        "intervalHours": "About {count} hours",
+        "intervalDays": "About {count} days"
+      }
     },
     "list": {
       "eyebrow": "Service Management",

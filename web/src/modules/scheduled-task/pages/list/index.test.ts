@@ -47,7 +47,7 @@ const translations = vi.hoisted(
     'scheduledTask.list.filters.jobType': 'Job 类型',
     'scheduledTask.list.filters.searchPlaceholder': '搜索任务',
     'scheduledTask.list.filters.status': '状态',
-    'scheduledTask.list.form.cronExpression': 'Cron Expression',
+    'scheduledTask.list.form.cronExpression': 'Cron 表达式',
     'scheduledTask.list.form.formatJson': '格式化 JSON',
     'scheduledTask.list.form.cronRequiredHint': '请填写 Cron 表达式。',
     'scheduledTask.list.loadError': '定时任务数据加载失败。',
@@ -357,14 +357,14 @@ const InputStub = defineComponent({
   },
 });
 
-const CronExpressionEditorStub = defineComponent({
-  name: 'CronExpressionEditor',
+const CronExpressionFieldStub = defineComponent({
+  name: 'CronExpressionField',
   props: ['modelValue', 'error'],
   emits: ['update:modelValue', 'validate'],
   setup(props, { emit }) {
     return () =>
       h('label', { class: 'cron-editor-stub' }, [
-        h('span', 'Cron Expression'),
+        h('span', 'Cron 表达式'),
         h('input', {
           'data-testid': 'cron-editor-input',
           value: props.modelValue,
@@ -405,7 +405,7 @@ function mountPage() {
         PauseIcon: true,
         PlayIcon: true,
         SearchIcon: true,
-        CronExpressionEditor: CronExpressionEditorStub,
+        CronExpressionField: CronExpressionFieldStub,
         TButton: ButtonStub,
         TCard: PassthroughStub,
         TCollapse: PassthroughStub,

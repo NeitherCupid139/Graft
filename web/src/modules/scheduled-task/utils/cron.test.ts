@@ -4,6 +4,7 @@ import {
   type CronDescriptionResult,
   describeCronExpression,
   normalizeCronExpression,
+  previewCronExecutions,
   validateCronExpression,
 } from './cron';
 
@@ -81,5 +82,27 @@ describe('scheduled-task cron utility', () => {
 
     expect(description.valid).toBe(false);
     expect(description.key).toBe('scheduledTask.cronDescription.invalid');
+  });
+
+  it('previews upcoming execution times from the current local time', () => {
+    const preview = previewCronExecutions('*/5 * * * *', new Date(2026, 5, 6, 10, 2, 0), 3);
+
+    expect(preview.valid).toBe(true);
+    expect(preview.normalizedExpression).toBe('0 */5 * * * *');
+    expect(preview.intervalMs).toBe(5 * 60 * 1000);
+    expect(preview.nextRuns.map((run) => [run.getHours(), run.getMinutes(), run.getSeconds()])).toEqual([
+      [10, 5, 0],
+      [10, 10, 0],
+      [10, 15, 0],
+    ]);
+  });
+
+  it('previews daily execution times across day boundaries', () => {
+    const preview = previewCronExecutions('0 17 * * *', new Date(2026, 5, 6, 18, 0, 0), 2);
+
+    expect(preview.nextRuns.map((run) => [run.getDate(), run.getHours(), run.getMinutes()])).toEqual([
+      [7, 17, 0],
+      [8, 17, 0],
+    ]);
   });
 });
