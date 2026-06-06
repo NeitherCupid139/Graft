@@ -1,0 +1,273 @@
+{
+  "menu": {
+    "server": {
+      "scheduled_tasks": {
+        "title": "Scheduled Tasks"
+      }
+    }
+  },
+  "scheduledTask": {
+    "accessLogRetention": {
+      "title": "Access Log Retention Cleanup",
+      "description": "Deletes retained access logs beyond the configured retention window."
+    },
+    "auditLogRetention": {
+      "title": "Audit Log Retention Cleanup",
+      "description": "Deletes retained audit logs beyond the configured retention window."
+    },
+    "appLogRetention": {
+      "title": "App Log Retention Cleanup",
+      "description": "Deletes retained app logs beyond the configured retention window."
+    },
+    "cronDescription": {
+      "everyMinute": "Runs once every minute.",
+      "everyNMinutes": "Runs once every {interval} minutes.",
+      "hourly": "Runs at the top of every hour.",
+      "daily": "Runs every day at {hour}:00.",
+      "weekly": "Runs weekly on day {dayOfWeek} at {hour}:00.",
+      "monthly": "Runs monthly on day {dayOfMonth} at {hour}:00.",
+      "custom": "Current expression: {expression}",
+      "invalid": "Cron expression is invalid."
+    },
+    "cronValidation": {
+      "required": "Cron Expression is required.",
+      "fieldCount": "Cron expression must contain either {unixFields} Unix fields or {secondsFields} seconds-based fields.",
+      "stepRange": "Cron {field} step must be between {min} and {max}.",
+      "fieldRange": "Cron {field} field must be * or a number between {min} and {max}."
+    },
+    "cronExpressionField": {
+      "configure": "Configure",
+      "placeholder": "For example 0 17 * * *",
+      "validStatus": "Valid"
+    },
+    "cron": {
+      "nextRun": "Next run: {time}",
+      "nextRunUnavailable": "Unavailable",
+      "expression": "Cron expression",
+      "description": "Description",
+      "advancedExpression": "Advanced Cron expression",
+      "timezone": "Timezone"
+    },
+    "cronScheduleDialog": {
+      "title": "Configure Schedule",
+      "cancel": "Cancel",
+      "confirm": "Use Expression",
+      "planTypeLabel": "Common schedule types",
+      "rawPlaceholder": "For example 0 17 * * *",
+      "planTypes": {
+        "intervalMinutes": "Every N Minutes",
+        "hourly": "Hourly",
+        "daily": "Daily",
+        "weekly": "Weekly",
+        "monthly": "Monthly",
+        "advanced": "Advanced Cron"
+      },
+      "fields": {
+        "intervalMinutes": "Minute Interval",
+        "weekday": "Weekday",
+        "dayOfMonth": "Day Of Month",
+        "executionMinute": "Execution Minute",
+        "executionTime": "Execution Time",
+        "rawExpression": "Cron Expression"
+      },
+      "weekdays": {
+        "0": "Sunday",
+        "1": "Monday",
+        "2": "Tuesday",
+        "3": "Wednesday",
+        "4": "Thursday",
+        "5": "Friday",
+        "6": "Saturday"
+      },
+      "examples": {
+        "everyFiveMinutes": "Every 5 Minutes",
+        "dailyAtFive": "Daily At 17:00",
+        "weeklyMonday": "Every Monday 09:00",
+        "monthlyFirst": "Monthly On Day 1 At 00:00"
+      },
+      "quickSelect": "Quick Select",
+      "quickTemplates": "Quick Templates",
+      "quickMinutes": "{count} Minutes",
+      "hourlyPrefix": "At Minute",
+      "hourlySuffix": "Of Every Hour",
+      "monthDayWarning": "Some months do not have this date, so the task will not run in those months.",
+      "preview": {
+        "expression": "Expression",
+        "status": "Status",
+        "description": "Description",
+        "nextRun": "Next Run",
+        "interval": "Estimated Interval",
+        "upcomingRuns": "Upcoming Runs",
+        "valid": "Valid",
+        "invalid": "Invalid",
+        "emptyExpression": "No expression",
+        "noPreview": "No preview",
+        "intervalSeconds": "About {count} seconds",
+        "intervalMinutes": "About {count} minutes",
+        "intervalHours": "About {count} hours",
+        "intervalDays": "About {count} days"
+      }
+    },
+    "list": {
+      "eyebrow": "Service Management",
+      "title": "Scheduled Tasks",
+      "description": "Manage scheduled tasks bound to registered Job Definitions, inspect run history, and trigger background runs.",
+      "refresh": "Refresh",
+      "create": "Create Task",
+      "edit": "Edit",
+      "save": "Save",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "enable": "Enable",
+      "disable": "Disable",
+      "run": "Run Now",
+      "viewDetail": "View",
+      "more": "More",
+      "columnSettings": "Columns",
+      "tableTitle": "Task List",
+      "tableHint": "{count} tasks match the current filters.",
+      "emptyTitle": "No Scheduled Tasks",
+      "emptyDescription": "Scheduled tasks bound to registered Job Definitions will appear here.",
+      "loadError": "Scheduled task data could not be loaded.",
+      "detailLoadError": "Scheduled task details could not be loaded.",
+      "jobLoadError": "Job Definitions could not be loaded.",
+      "runSuccess": "Manual run started.",
+      "runError": "Manual run could not be started.",
+      "createSuccess": "Task created.",
+      "updateSuccess": "Task updated.",
+      "saveError": "Task could not be saved.",
+      "enableSuccess": "Task enabled.",
+      "disableSuccess": "Task disabled.",
+      "lifecycleError": "Task lifecycle update failed.",
+      "deleteSuccess": "Task deleted.",
+      "deleteError": "Task could not be deleted.",
+      "metric": {
+        "total": "Total Tasks",
+        "totalDescription": "Registered tasks",
+        "enabled": "Enabled Tasks",
+        "enabledDescription": "Included in scheduling",
+        "runs24h": "Runs In Last 24h",
+        "runs24hDescription": "Executions in the last 24 hours",
+        "failures24h": "Failures In Last 24h",
+        "failures24hDescription": "Failed runs in the last 24 hours"
+      },
+      "filters": {
+        "searchPlaceholder": "Search task, job key, owner, or module",
+        "jobType": "Job Type",
+        "status": "Status",
+        "allJobTypes": "All Job Types",
+        "allStatuses": "All Statuses"
+      },
+      "columns": {
+        "task": "Task",
+        "taskName": "Task Name",
+        "jobType": "Job Type",
+        "status": "Status",
+        "cron": "Cron",
+        "recentResult": "Recent Result",
+        "recentRun": "Recent Run",
+        "successRate": "Success Rate",
+        "operation": "Operations"
+      },
+      "status": {
+        "idle": "Idle",
+        "running": "Running",
+        "success": "Succeeded",
+        "failed": "Failed",
+        "unknown": "Unknown"
+      },
+      "trigger": {
+        "cron": "Scheduled",
+        "manual": "Manual",
+        "startup": "Startup"
+      },
+      "scheduleType": {
+        "cron": "Cron"
+      },
+      "form": {
+        "createTitle": "Create Scheduled Task",
+        "editTitle": "Edit Task",
+        "sectionJobType": "Job Type",
+        "sectionBasic": "Task Description",
+        "sectionExecutionPlan": "Execution Plan",
+        "sectionEnabled": "Enabled Status",
+        "sectionAdvancedParams": "Advanced Parameters",
+        "jobType": "Job Type",
+        "jobTypePlaceholder": "Select a Job Definition",
+        "jobKey": "Job Key",
+        "module": "Module",
+        "owner": "Owner",
+        "defaultCron": "Default Cron",
+        "defaultParams": "Default Parameters",
+        "paramsSchema": "Parameter Schema",
+        "taskKey": "Task Key",
+        "taskKeyPlaceholder": "For example audit.retention.daily",
+        "title": "Title",
+        "titlePlaceholder": "Enter task name",
+        "description": "Description",
+        "descriptionPlaceholder": "Enter task description",
+        "cronExpression": "Cron Expression",
+        "enabled": "Enabled",
+        "paramsJson": "Parameters JSON",
+        "paramsJsonPlaceholder": "{\n  \"window_days\": 30\n}",
+        "formatJson": "Format JSON",
+        "taskKeyRequiredHint": "Task Key is required.",
+        "jobTypeRequiredHint": "Job Type is required.",
+        "titleRequiredHint": "Title is required.",
+        "paramsJsonInvalidHint": "Parameters must be valid JSON.",
+        "cronRequiredHint": "Cron Expression is required.",
+        "cronInvalidHint": "Cron Expression is invalid."
+      },
+      "runDialog": {
+        "title": "Run Task Now?",
+        "taskLine": "Task: {taskName}",
+        "description": "This action will immediately trigger one background run.",
+        "cancel": "Cancel",
+        "confirm": "Run Now"
+      },
+      "deleteDialog": {
+        "title": "Delete Task",
+        "description": "Delete task {taskName}?",
+        "confirm": "Delete"
+      },
+      "detail": {
+        "title": "Task Details",
+        "titleWithName": "{name}",
+        "basics": "Basic Info",
+        "schedule": "Schedule Config",
+        "runtime": "Runtime Status",
+        "latestResult": "Recent Result",
+        "recentRuns": "Run History",
+        "key": "Task Key",
+        "description": "Description",
+        "owner": "Owner",
+        "module": "Module",
+        "enabled": "Enabled",
+        "jobType": "Job Type",
+        "jobKey": "Job Key",
+        "paramsJson": "Parameters JSON",
+        "scheduleType": "Schedule Type",
+        "scheduleRule": "Schedule Rule",
+        "nextRun": "Next Run",
+        "running": "Running",
+        "status": "Status",
+        "successRate": "Success Rate",
+        "time": "Time",
+        "runId": "Run ID",
+        "triggerType": "Trigger Mode",
+        "startedAt": "Started At",
+        "finishedAt": "Finished At",
+        "duration": "Duration",
+        "result": "Result",
+        "none": "None",
+        "noError": "No Error Recorded",
+        "notAvailable": "N/A",
+        "enabledYes": "Yes",
+        "enabledNo": "No",
+        "runsEmpty": "No run history yet",
+        "viewRun": "Details",
+        "runDetailTitle": "Run Details"
+      }
+    }
+  }
+}

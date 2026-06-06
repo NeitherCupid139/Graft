@@ -1,0 +1,11 @@
+name: taskKey
+in: path
+required: true
+description: Stable scheduled task key.
+schema:
+  type: string
+  minLength: 1
+examples:
+  cleanup:
+    summary: Module-owned scheduled task
+    value: audit.retention.cleanup

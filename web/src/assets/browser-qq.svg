@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="QQ browser">
+  <circle cx="32" cy="32" r="30" fill="#1188ff"/>
+  <path fill="#fff" d="M32 10c11 0 20 9 20 20 0 13-11 24-20 24S12 43 12 30c0-11 9-20 20-20Z"/>
+  <path fill="#1188ff" d="M43 30c0 6-5 12-11 12s-11-6-11-12 5-11 11-11 11 5 11 11Z"/>
+  <path fill="#fff" d="M26 29a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm12 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>
+  <path fill="#ffcf33" d="M22 45c3 4 7 6 10 6s7-2 10-6c-3 1-7 2-10 2s-7-1-10-2Z"/>
+</svg>

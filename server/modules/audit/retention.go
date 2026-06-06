@@ -13,8 +13,10 @@ import (
 )
 
 const (
-	auditLogRetentionCleanupJobName     = "audit.audit-log-retention-cleanup"
-	auditLogRetentionCleanupJobSchedule = "0 30 17 * * *"
+	auditLogRetentionCleanupJobName           = "audit.audit-log-retention-cleanup"
+	auditLogRetentionCleanupJobSchedule       = "0 30 17 * * *"
+	auditLogRetentionCleanupJobDisplayKey     = "scheduledTask.auditLogRetention.title"
+	auditLogRetentionCleanupJobDescriptionKey = "scheduledTask.auditLogRetention.description"
 )
 
 type auditLogRetentionPolicy struct {
@@ -138,9 +140,16 @@ func registerAuditLogRetentionCleanupJob(
 	}
 
 	registry.Register(cronx.Job{
-		Name:     auditLogRetentionCleanupJobName,
-		Schedule: auditLogRetentionCleanupJobSchedule,
-		Module:   moduleID,
+		Name:                  auditLogRetentionCleanupJobName,
+		Key:                   auditLogRetentionCleanupJobName,
+		Owner:                 moduleID,
+		Title:                 "Audit log retention cleanup",
+		Description:           "Deletes audit logs beyond the configured retention window.",
+		DisplayMessageKey:     auditLogRetentionCleanupJobDisplayKey,
+		DescriptionMessageKey: auditLogRetentionCleanupJobDescriptionKey,
+		Schedule:              auditLogRetentionCleanupJobSchedule,
+		DefaultEnabled:        true,
+		Module:                moduleID,
 		Run: func(ctx context.Context) error {
 			_, runErr := cleaner.cleanup(ctx)
 			return runErr

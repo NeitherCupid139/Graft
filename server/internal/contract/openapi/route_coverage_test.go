@@ -61,6 +61,13 @@ func TestRequiredLiveRoutesStayCoveredByRootSpec(t *testing.T) {
 		"/api/monitor/server-status",
 		"/api/modules/runtime",
 		"/api/modules/runtime/{module_key}",
+		"/api/scheduled-tasks",
+		"/api/scheduled-tasks/{taskKey}",
+		"/api/scheduled-tasks/{taskKey}/enable",
+		"/api/scheduled-tasks/{taskKey}/disable",
+		"/api/scheduled-tasks/{taskKey}/runs",
+		"/api/scheduled-tasks/runs/{runId}",
+		"/api/scheduled-tasks/{taskKey}/run",
 	}
 
 	for _, route := range requiredPaths {

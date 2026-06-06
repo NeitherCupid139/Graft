@@ -37,6 +37,8 @@
     "@vueuse/core": "^14.2.0",
     "axios": "^1.16.1",
     "consola": "^3.4.2",
+    "cron-parser": "5.5.0",
+    "cronstrue": "3.14.0",
     "echarts": "5.4.3",
     "lodash": "^4.17.23",
     "nprogress": "^0.2.0",
@@ -48,6 +50,9 @@
     "vue": "^3.5.18",
     "vue-i18n": "^9.9.1",
     "vue-router": "^4.6.0"
+  },
+  "overrides": {
+    "@babel/runtime-corejs3": "^7.26.10"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.5.3",

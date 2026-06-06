@@ -1,0 +1,8 @@
+name: runId
+in: path
+required: true
+description: Scheduled task run id.
+schema:
+  type: integer
+  format: int64
+  minimum: 1

@@ -1,0 +1,273 @@
+{
+  "menu": {
+    "server": {
+      "scheduled_tasks": {
+        "title": "定时任务"
+      }
+    }
+  },
+  "scheduledTask": {
+    "accessLogRetention": {
+      "title": "访问日志保留清理",
+      "description": "删除超过配置保留窗口的访问日志。"
+    },
+    "auditLogRetention": {
+      "title": "审计日志保留清理",
+      "description": "删除超过配置保留窗口的审计日志。"
+    },
+    "appLogRetention": {
+      "title": "应用日志保留清理",
+      "description": "删除超过配置保留窗口的应用日志。"
+    },
+    "cronDescription": {
+      "everyMinute": "每分钟执行一次。",
+      "everyNMinutes": "每 {interval} 分钟执行一次。",
+      "hourly": "每小时整点执行一次。",
+      "daily": "每天 {hour}:00 执行一次。",
+      "weekly": "每周第 {dayOfWeek} 天 {hour}:00 执行一次。",
+      "monthly": "每月 {dayOfMonth} 日 {hour}:00 执行一次。",
+      "custom": "当前表达式：{expression}",
+      "invalid": "Cron 表达式不合法。"
+    },
+    "cronValidation": {
+      "required": "请填写 Cron 表达式。",
+      "fieldCount": "Cron 表达式必须是 {unixFields} 字段 Unix Cron 或 {secondsFields} 字段秒级 Cron。",
+      "stepRange": "Cron {field} 步长必须介于 {min} 到 {max} 之间。",
+      "fieldRange": "Cron {field} 字段必须是 * 或 {min} 到 {max} 之间的数字。"
+    },
+    "cronExpressionField": {
+      "configure": "配置",
+      "placeholder": "例如 0 17 * * *",
+      "validStatus": "有效"
+    },
+    "cron": {
+      "nextRun": "下次执行：{time}",
+      "nextRunUnavailable": "无法计算",
+      "expression": "Cron 表达式",
+      "description": "规则说明",
+      "advancedExpression": "高级 Cron 表达式",
+      "timezone": "时区"
+    },
+    "cronScheduleDialog": {
+      "title": "配置执行计划",
+      "cancel": "取消",
+      "confirm": "确认使用",
+      "planTypeLabel": "常用计划类型",
+      "rawPlaceholder": "例如 0 17 * * *",
+      "planTypes": {
+        "intervalMinutes": "每 N 分钟",
+        "hourly": "每小时",
+        "daily": "每天",
+        "weekly": "每周",
+        "monthly": "每月",
+        "advanced": "高级 Cron"
+      },
+      "fields": {
+        "intervalMinutes": "间隔分钟",
+        "weekday": "星期",
+        "dayOfMonth": "每月日期",
+        "executionMinute": "执行分钟",
+        "executionTime": "执行时间",
+        "rawExpression": "Cron 表达式"
+      },
+      "weekdays": {
+        "0": "周日",
+        "1": "周一",
+        "2": "周二",
+        "3": "周三",
+        "4": "周四",
+        "5": "周五",
+        "6": "周六"
+      },
+      "examples": {
+        "everyFiveMinutes": "每 5 分钟",
+        "dailyAtFive": "每天 17:00",
+        "weeklyMonday": "每周一 09:00",
+        "monthlyFirst": "每月 1 日 00:00"
+      },
+      "quickSelect": "快捷选择",
+      "quickTemplates": "快捷模板",
+      "quickMinutes": "{count} 分钟",
+      "hourlyPrefix": "每小时第",
+      "hourlySuffix": "分钟执行",
+      "monthDayWarning": "部分月份没有该日期时不会执行。",
+      "preview": {
+        "expression": "表达式",
+        "status": "状态",
+        "description": "说明",
+        "nextRun": "下次执行",
+        "interval": "预计间隔",
+        "upcomingRuns": "后续执行",
+        "valid": "有效",
+        "invalid": "无效",
+        "emptyExpression": "暂无表达式",
+        "noPreview": "暂无预览",
+        "intervalSeconds": "约 {count} 秒",
+        "intervalMinutes": "约 {count} 分钟",
+        "intervalHours": "约 {count} 小时",
+        "intervalDays": "约 {count} 天"
+      }
+    },
+    "list": {
+      "eyebrow": "服务管理",
+      "title": "定时任务",
+      "description": "管理绑定到 Job Definition 的定时任务，查看运行历史，并按需触发后台执行。",
+      "refresh": "刷新",
+      "create": "新建任务",
+      "edit": "编辑",
+      "save": "保存",
+      "cancel": "取消",
+      "delete": "删除",
+      "enable": "启用",
+      "disable": "停用",
+      "run": "立即执行",
+      "viewDetail": "查看",
+      "more": "更多",
+      "columnSettings": "列设置",
+      "tableTitle": "任务列表",
+      "tableHint": "当前筛选显示 {count} 个任务。",
+      "emptyTitle": "暂无定时任务",
+      "emptyDescription": "绑定到已注册 Job Definition 的定时任务会显示在这里。",
+      "loadError": "定时任务数据加载失败。",
+      "detailLoadError": "定时任务详情加载失败。",
+      "jobLoadError": "Job Definition 加载失败。",
+      "runSuccess": "已发起手动执行。",
+      "runError": "手动执行发起失败。",
+      "createSuccess": "任务已创建。",
+      "updateSuccess": "任务已更新。",
+      "saveError": "任务保存失败。",
+      "enableSuccess": "任务已启用。",
+      "disableSuccess": "任务已停用。",
+      "lifecycleError": "任务启停失败。",
+      "deleteSuccess": "任务已删除。",
+      "deleteError": "任务删除失败。",
+      "metric": {
+        "total": "任务总数",
+        "totalDescription": "已注册任务",
+        "enabled": "已启用",
+        "enabledDescription": "参与调度",
+        "runs24h": "24 小时运行",
+        "runs24hDescription": "最近 24 小时执行次数",
+        "failures24h": "24 小时失败",
+        "failures24hDescription": "最近 24 小时失败次数"
+      },
+      "filters": {
+        "searchPlaceholder": "搜索任务、Job Key、归属或模块",
+        "jobType": "Job 类型",
+        "status": "状态",
+        "allJobTypes": "全部 Job 类型",
+        "allStatuses": "全部状态"
+      },
+      "columns": {
+        "task": "任务",
+        "taskName": "任务名称",
+        "jobType": "Job 类型",
+        "status": "状态",
+        "cron": "Cron",
+        "recentResult": "最近结果",
+        "recentRun": "最近运行",
+        "successRate": "成功率",
+        "operation": "操作"
+      },
+      "status": {
+        "idle": "空闲",
+        "running": "运行中",
+        "success": "成功",
+        "failed": "失败",
+        "unknown": "未知"
+      },
+      "trigger": {
+        "cron": "计划触发",
+        "manual": "手动触发",
+        "startup": "启动触发"
+      },
+      "scheduleType": {
+        "cron": "Cron"
+      },
+      "form": {
+        "createTitle": "新建定时任务",
+        "editTitle": "编辑任务",
+        "sectionJobType": "Job 类型",
+        "sectionBasic": "任务说明",
+        "sectionExecutionPlan": "执行计划",
+        "sectionEnabled": "启用状态",
+        "sectionAdvancedParams": "高级参数",
+        "jobType": "Job 类型",
+        "jobTypePlaceholder": "选择一个 Job Definition",
+        "jobKey": "Job Key",
+        "module": "模块",
+        "owner": "归属",
+        "defaultCron": "默认 Cron",
+        "defaultParams": "默认参数",
+        "paramsSchema": "参数 Schema",
+        "taskKey": "Task Key",
+        "taskKeyPlaceholder": "例如 audit.retention.daily",
+        "title": "标题",
+        "titlePlaceholder": "输入任务名称",
+        "description": "描述",
+        "descriptionPlaceholder": "输入任务说明",
+        "cronExpression": "Cron 表达式",
+        "enabled": "启用",
+        "paramsJson": "参数 JSON",
+        "paramsJsonPlaceholder": "{\n  \"window_days\": 30\n}",
+        "formatJson": "格式化 JSON",
+        "taskKeyRequiredHint": "请填写 Task Key。",
+        "jobTypeRequiredHint": "请选择 Job 类型。",
+        "titleRequiredHint": "请填写标题。",
+        "paramsJsonInvalidHint": "参数必须是合法 JSON。",
+        "cronRequiredHint": "请填写 Cron 表达式。",
+        "cronInvalidHint": "Cron 表达式不合法。"
+      },
+      "runDialog": {
+        "title": "确认执行任务？",
+        "taskLine": "任务：{taskName}",
+        "description": "本操作将立即触发一次后台执行。",
+        "cancel": "取消",
+        "confirm": "立即执行"
+      },
+      "deleteDialog": {
+        "title": "删除任务",
+        "description": "确认删除任务 {taskName}？",
+        "confirm": "删除"
+      },
+      "detail": {
+        "title": "任务详情",
+        "titleWithName": "{name}",
+        "basics": "基础信息",
+        "schedule": "调度配置",
+        "runtime": "运行状态",
+        "latestResult": "最近结果",
+        "recentRuns": "运行历史",
+        "key": "任务键",
+        "description": "描述",
+        "owner": "归属",
+        "module": "模块",
+        "enabled": "启用状态",
+        "jobType": "Job 类型",
+        "jobKey": "Job Key",
+        "paramsJson": "参数 JSON",
+        "scheduleType": "调度类型",
+        "scheduleRule": "调度规则",
+        "nextRun": "下次运行",
+        "running": "是否运行中",
+        "status": "状态",
+        "successRate": "成功率",
+        "time": "时间",
+        "runId": "运行 ID",
+        "triggerType": "触发方式",
+        "startedAt": "开始时间",
+        "finishedAt": "结束时间",
+        "duration": "耗时",
+        "result": "结果",
+        "none": "无",
+        "noError": "未记录错误",
+        "notAvailable": "不可用",
+        "enabledYes": "是",
+        "enabledNo": "否",
+        "runsEmpty": "暂无运行记录",
+        "viewRun": "详情",
+        "runDetailTitle": "运行详情"
+      }
+    }
+  }
+}

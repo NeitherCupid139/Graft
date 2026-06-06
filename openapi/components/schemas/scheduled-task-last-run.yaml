@@ -1,0 +1,33 @@
+type: object
+required:
+  - id
+  - trigger_type
+  - status
+  - started_at
+properties:
+  id:
+    type: integer
+    format: int64
+    minimum: 1
+  trigger_type:
+    type: string
+    enum: [cron, manual, startup]
+  status:
+    type: string
+    enum: [running, success, failed]
+  started_at:
+    type: string
+    format: date-time
+  finished_at:
+    type: string
+    format: date-time
+    nullable: true
+  duration_ms:
+    type: integer
+    format: int64
+    minimum: 0
+    nullable: true
+  error_summary:
+    type: string
+  result_summary:
+    type: string

@@ -1,0 +1,12 @@
+type: object
+required:
+  - items
+  - total
+properties:
+  items:
+    type: array
+    items:
+      $ref: ./scheduled-task-job-definition-item.yaml
+  total:
+    type: integer
+    minimum: 0

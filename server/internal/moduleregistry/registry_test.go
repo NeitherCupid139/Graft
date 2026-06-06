@@ -20,6 +20,7 @@ func TestMigrationDirsUsesOwnerAlignedBaseline(t *testing.T) {
 		"internal/httpx/migrations",
 		"internal/logger/migrations",
 		"internal/drilldown/migrations",
+		"modules/scheduler/migrations",
 		"modules/user/migrations",
 		"modules/auth/migrations",
 		"modules/rbac/migrations",
