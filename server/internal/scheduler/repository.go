@@ -10,9 +10,11 @@ import (
 )
 
 const (
-	defaultRunListLimit = 20
-	maxSQLRunID         = 1<<63 - 1
-	schedulerRunTypeJob = "job"
+	defaultRunListLimit  = 20
+	defaultTaskListLimit = 20
+	maxTaskListLimit     = 100
+	maxSQLRunID          = 1<<63 - 1
+	schedulerRunTypeJob  = "job"
 )
 
 // SQLJobDefinitionRepository stores scheduler job definitions in SQL.
@@ -386,12 +388,8 @@ func (r *SQLTaskRepository) ListTasks(ctx context.Context, query TaskListQuery) 
 	FROM scheduled_tasks
 	WHERE deleted_at IS NULL
 	ORDER BY builtin DESC, created_at ASC, id ASC`
-	var rows *sql.Rows
-	if query.Limit > 0 {
-		rows, err = r.db.QueryContext(ctx, statement+` LIMIT $1 OFFSET $2`, query.Limit, max(query.Offset, 0))
-	} else {
-		rows, err = r.db.QueryContext(ctx, statement)
-	}
+	normalized := normalizeTaskListQuery(query)
+	rows, err := r.db.QueryContext(ctx, statement+` LIMIT $1 OFFSET $2`, normalized.Limit, normalized.Offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list scheduled tasks: %w", err)
 	}
@@ -400,6 +398,18 @@ func (r *SQLTaskRepository) ListTasks(ctx context.Context, query TaskListQuery) 
 		return nil, 0, err
 	}
 	return items, total, nil
+}
+
+func normalizeTaskListQuery(query TaskListQuery) TaskListQuery {
+	if query.Limit <= 0 {
+		query.Limit = defaultTaskListLimit
+	} else if query.Limit > maxTaskListLimit {
+		query.Limit = maxTaskListLimit
+	}
+	if query.Offset < 0 {
+		query.Offset = 0
+	}
+	return query
 }
 
 func (r *SQLTaskRepository) countTasks(ctx context.Context) (int, error) {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -188,6 +189,65 @@ func TestSQLTaskRepositoryCreatesMultipleTasksForOneJobAndSoftDeletes(t *testing
 	}
 	if _, err := repo.GetTask(ctx, task.TaskKey); !errors.Is(err, ErrTaskNotFound) {
 		t.Fatalf("expected soft-deleted task to be hidden, got %v", err)
+	}
+}
+
+func TestSQLTaskRepositoryListTasksNormalizesPagination(t *testing.T) {
+	db := newSchedulerRepositoryTestDB(t)
+	repo, err := NewSQLTaskRepository(db)
+	if err != nil {
+		t.Fatalf("new task repository: %v", err)
+	}
+
+	ctx := context.Background()
+	for i := range maxTaskListLimit + 5 {
+		key := fmt.Sprintf("audit.retention.task-%03d", i)
+		if _, err := repo.CreateTask(ctx, TaskDefinition{
+			TaskKey:        key,
+			JobKey:         "audit.retention.cleanup",
+			ModuleKey:      "audit",
+			Title:          key,
+			CronExpression: "*/30 * * * * *",
+			Enabled:        true,
+			ParamsJSON:     "{}",
+			CreatedAt:      time.Date(2026, 6, 5, 8, i, 0, 0, time.UTC),
+			UpdatedAt:      time.Date(2026, 6, 5, 8, i, 0, 0, time.UTC),
+		}); err != nil {
+			t.Fatalf("create task %d: %v", i, err)
+		}
+	}
+
+	items, total, err := repo.ListTasks(ctx, TaskListQuery{Limit: 0, Offset: -5})
+	if err != nil {
+		t.Fatalf("list tasks: %v", err)
+	}
+	if total != maxTaskListLimit+5 {
+		t.Fatalf("expected total %d, got %d", maxTaskListLimit+5, total)
+	}
+	if len(items) != defaultTaskListLimit {
+		t.Fatalf("expected default page size %d, got %d", defaultTaskListLimit, len(items))
+	}
+	if items[0].TaskKey != "audit.retention.task-000" {
+		t.Fatalf("expected negative offset to clamp to first item, got %#v", items[0])
+	}
+
+	items, total, err = repo.ListTasks(ctx, TaskListQuery{Limit: 3, Offset: 2})
+	if err != nil {
+		t.Fatalf("list paged tasks: %v", err)
+	}
+	if total != maxTaskListLimit+5 || len(items) != 3 {
+		t.Fatalf("expected three of %d tasks, got total=%d items=%d", maxTaskListLimit+5, total, len(items))
+	}
+	if items[0].TaskKey != "audit.retention.task-002" {
+		t.Fatalf("expected offset page to start at task-002, got %#v", items[0])
+	}
+
+	items, total, err = repo.ListTasks(ctx, TaskListQuery{Limit: maxTaskListLimit + 1})
+	if err != nil {
+		t.Fatalf("list capped tasks: %v", err)
+	}
+	if total != maxTaskListLimit+5 || len(items) != maxTaskListLimit {
+		t.Fatalf("expected capped limit to keep bounded query and return available tasks, got total=%d items=%d", total, len(items))
 	}
 }
 
