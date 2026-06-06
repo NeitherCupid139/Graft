@@ -114,12 +114,15 @@
           </template>
 
           <template #schedule="{ row }">
-            <div class="scheduled-task-schedule">
-              <span class="scheduled-task-mono">{{ scheduleExpressionText(row) }}</span>
-              <span v-if="cronScheduleDescriptionText(row.schedule)">{{
-                cronScheduleDescriptionText(row.schedule)
-              }}</span>
-            </div>
+            <t-tooltip :content="cronScheduleDescriptionLine(row.schedule)" placement="top-left">
+              <div class="scheduled-task-schedule">
+                <code class="scheduled-task-mono">{{ scheduleExpressionText(row) }}</code>
+                <span class="scheduled-task-schedule__next-run">{{ cronNextRunLine(row.schedule) }}</span>
+                <span class="scheduled-task-schedule__description">{{
+                  cronScheduleDescriptionLine(row.schedule)
+                }}</span>
+              </div>
+            </t-tooltip>
           </template>
 
           <template #recent_result="{ row }">
@@ -640,13 +643,14 @@ import type {
   UpdateScheduledTaskRequest,
 } from '../../types/scheduled-task';
 import {
-  type CronDescriptionResult,
   type CronValidationResult,
-  describeCronExpression,
+  formatCronExpression,
+  getCronDescription,
+  getNextRunText,
   normalizeCronExpression,
   validateCronExpression,
 } from '../../utils/cron';
-import { translateCronDescription, translateCronValidation } from '../../utils/cron-i18n';
+import { translateCronValidation } from '../../utils/cron-i18n';
 
 defineOptions({
   name: 'ScheduledTaskListPage',
@@ -885,7 +889,7 @@ const allColumns = computed<TdBaseTableProps['columns']>(() => [
   {
     colKey: 'schedule',
     title: t('scheduledTask.list.columns.cron'),
-    width: 220,
+    width: 280,
   },
   {
     colKey: 'recent_result',
@@ -1362,16 +1366,20 @@ function normalizeCronForForm(expression: string) {
 }
 
 function scheduleExpressionText(task: ScheduledTaskItem) {
-  return normalizeCronForForm(task.schedule || DEFAULT_CRON_EXPRESSION);
+  return formatCronExpression(task.schedule || DEFAULT_CRON_EXPRESSION);
 }
 
-function cronScheduleDescriptionText(expression: string) {
-  const description = describeCronExpression(expression) as CronDescriptionResult;
-  if (!description.valid || description.key === 'scheduledTask.cronDescription.custom') {
-    return '';
-  }
+function cronNextRunLine(expression: string) {
+  const nextRun = getNextRunText(expression || DEFAULT_CRON_EXPRESSION, undefined, { locale: locale.value });
+  return t('scheduledTask.list.cron.nextRun', {
+    time: nextRun || t('scheduledTask.list.cron.nextRunUnavailable'),
+  });
+}
 
-  return translateCronDescription(description, t);
+function cronScheduleDescriptionLine(expression: string) {
+  return t('scheduledTask.list.cron.ruleDescription', {
+    description: getCronDescription(expression || DEFAULT_CRON_EXPRESSION, locale.value),
+  });
 }
 
 function cronValidationMessageText(result: CronValidationResult) {
@@ -1680,7 +1688,8 @@ function formatDuration(value?: number | null) {
 .scheduled-task-metric-card p,
 .scheduled-task-metric-card span,
 .scheduled-task-muted,
-.scheduled-task-schedule span:last-child,
+.scheduled-task-schedule__next-run,
+.scheduled-task-schedule__description,
 .scheduled-task-identity__key,
 .scheduled-task-last-run span,
 .scheduled-task-form-hint {
@@ -1783,6 +1792,20 @@ function formatDuration(value?: number | null) {
   display: inline-block;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
   max-width: 100%;
+}
+
+.scheduled-task-schedule {
+  max-width: 100%;
+}
+
+.scheduled-task-schedule__next-run {
+  margin-top: var(--graft-density-gap-4);
+}
+
+.scheduled-task-schedule__description {
+  color: var(--td-text-color-placeholder);
+  font-size: var(--td-font-size-body-small);
+  margin-top: var(--graft-density-gap-2);
 }
 
 .scheduled-task-actions {

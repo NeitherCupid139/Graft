@@ -53,6 +53,9 @@ const translations = vi.hoisted(
     'scheduledTask.list.filters.jobType': 'Job 类型',
     'scheduledTask.list.filters.searchPlaceholder': '搜索任务',
     'scheduledTask.list.filters.status': '状态',
+    'scheduledTask.list.cron.nextRun': '下次执行：{time}',
+    'scheduledTask.list.cron.nextRunUnavailable': '无法计算',
+    'scheduledTask.list.cron.ruleDescription': '规则说明：{description}',
     'scheduledTask.list.form.cronExpression': 'Cron 表达式',
     'scheduledTask.list.form.formatJson': '格式化 JSON',
     'scheduledTask.list.form.cronRequiredHint': '请填写 Cron 表达式。',
@@ -126,6 +129,8 @@ vi.mock('vue-i18n', () => ({
     te: (key: string) => Object.prototype.hasOwnProperty.call(translations, key),
   }),
 }));
+
+vi.setSystemTime(new Date('2026-06-06T08:00:00+08:00'));
 
 function scheduledTasksResponse() {
   return {
@@ -437,6 +442,7 @@ function mountPage() {
         TTable: TableStub,
         TTag: PassthroughStub,
         TTextarea: InputStub,
+        TTooltip: PassthroughStub,
       },
     },
   });
@@ -502,17 +508,19 @@ describe('ScheduledTaskListPage', () => {
     expect(firstOperationCell.text()).toContain('删除');
   });
 
-  it('renders normalized cron descriptions and recent result summaries in list cells', async () => {
+  it('renders raw cron expressions, next run diagnostics, and recent result summaries in list cells', async () => {
     const wrapper = mountPage();
     await flushPromises();
 
     const firstScheduleCell = wrapper.find('tbody tr:first-child td[data-col="schedule"]');
-    expect(firstScheduleCell.text()).toContain('0 */5 * * * *');
-    expect(firstScheduleCell.text()).toContain('每 5 分钟执行一次。');
+    expect(firstScheduleCell.text()).toContain('*/5 * * * *');
+    expect(firstScheduleCell.text()).toContain('下次执行：2026-06-06 08:05');
+    expect(firstScheduleCell.text()).toContain('规则说明：每隔 5 分钟');
 
     const customScheduleCell = wrapper.find('tbody tr:nth-child(4) td[data-col="schedule"]');
-    expect(customScheduleCell.text()).toContain('0 0 17 * * *');
-    expect(customScheduleCell.text()).toContain('每天 17:00 执行一次。');
+    expect(customScheduleCell.text()).toContain('0 17 * * *');
+    expect(customScheduleCell.text()).toContain('下次执行：2026-06-06 17:00');
+    expect(customScheduleCell.text()).toContain('规则说明：在17:00, 每天');
 
     const firstResultCell = wrapper.find('tbody tr:first-child td[data-col="recent_result"]');
     expect(firstResultCell.text()).toContain('成功');

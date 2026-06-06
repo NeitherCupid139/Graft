@@ -1,3 +1,8 @@
+import 'cronstrue/locales/zh_CN';
+
+import { CronExpressionParser } from 'cron-parser';
+import cronstrue from 'cronstrue';
+
 export type CronValidationResult = {
   valid: boolean;
   messageKey?: CronValidationMessageKey;
@@ -54,6 +59,15 @@ export type ParsedCronExpression = {
 
 const FIELD_COUNT_UNIX = 5;
 const FIELD_COUNT_SECONDS = 6;
+const ADVANCED_CRON_DESCRIPTION: Record<string, string> = {
+  en: 'Advanced Cron expression',
+  zh_CN: '高级 Cron 表达式',
+};
+
+export type CronNextRunFormatOptions = {
+  locale?: string;
+  now?: Date;
+};
 
 type CronFieldRule = {
   name: string;
@@ -80,6 +94,47 @@ export function normalizeCronExpression(expression: string): string {
   }
 
   return normalized;
+}
+
+export function formatCronExpression(expression: string): string {
+  return splitCronFields(expression).join(' ');
+}
+
+export function getNextRunText(expression: string, timezone?: string, options: CronNextRunFormatOptions = {}): string {
+  const normalizedExpression = formatCronExpression(expression);
+  if (!isSupportedCronFieldCount(normalizedExpression)) {
+    return '';
+  }
+
+  try {
+    const interval = CronExpressionParser.parse(normalizedExpression, {
+      currentDate: options.now ?? new Date(),
+      tz: timezone,
+    });
+    const nextRun = interval.next().toDate();
+    return formatCronDateTime(nextRun, options.locale, timezone);
+  } catch {
+    return '';
+  }
+}
+
+export function getCronDescription(expression: string, locale?: string): string {
+  const normalizedExpression = formatCronExpression(expression);
+  const cronstrueLocale = toCronstrueLocale(locale);
+  if (!isSupportedCronFieldCount(normalizedExpression)) {
+    return advancedCronDescription(cronstrueLocale);
+  }
+
+  try {
+    return cronstrue.toString(normalizedExpression, {
+      locale: cronstrueLocale,
+      throwExceptionOnParseError: true,
+      use24HourTimeFormat: true,
+      verbose: true,
+    });
+  } catch {
+    return advancedCronDescription(cronstrueLocale);
+  }
 }
 
 export function toUnixCronExpression(expression: string): string {
@@ -421,6 +476,38 @@ function describeNormalizedCronExpression(normalizedExpression: string): CronDes
 
 function splitCronFields(expression: string): string[] {
   return expression.trim().split(/\s+/).filter(Boolean);
+}
+
+function isSupportedCronFieldCount(expression: string): boolean {
+  const fields = splitCronFields(expression);
+  return fields.length === FIELD_COUNT_UNIX || fields.length === FIELD_COUNT_SECONDS;
+}
+
+function formatCronDateTime(date: Date, locale?: string, timezone?: string): string {
+  const parts = new Intl.DateTimeFormat(locale, {
+    day: '2-digit',
+    hour: '2-digit',
+    hourCycle: 'h23',
+    minute: '2-digit',
+    month: '2-digit',
+    timeZone: timezone,
+    year: 'numeric',
+  }).formatToParts(date);
+
+  const valueByType = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${valueByType.year}-${valueByType.month}-${valueByType.day} ${valueByType.hour}:${valueByType.minute}`;
+}
+
+function toCronstrueLocale(locale?: string): string {
+  if (locale?.toLowerCase().startsWith('zh')) {
+    return 'zh_CN';
+  }
+
+  return 'en';
+}
+
+function advancedCronDescription(locale: string): string {
+  return ADVANCED_CRON_DESCRIPTION[locale] ?? ADVANCED_CRON_DESCRIPTION.en;
 }
 
 function validateCronField(field: string, rule: CronFieldRule): CronValidationResult {

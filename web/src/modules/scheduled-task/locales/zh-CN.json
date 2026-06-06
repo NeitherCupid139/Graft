@@ -150,6 +150,11 @@
         "allJobTypes": "全部 Job 类型",
         "allStatuses": "全部状态"
       },
+      "cron": {
+        "nextRun": "下次执行：{time}",
+        "nextRunUnavailable": "无法计算",
+        "ruleDescription": "规则说明：{description}"
+      },
       "columns": {
         "task": "任务",
         "taskName": "任务名称",

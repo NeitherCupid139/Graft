@@ -3,6 +3,9 @@ import { describe, expect, it } from 'vitest';
 import {
   type CronDescriptionResult,
   describeCronExpression,
+  formatCronExpression,
+  getCronDescription,
+  getNextRunText,
   normalizeCronExpression,
   previewCronExecutions,
   validateCronExpression,
@@ -12,6 +15,11 @@ describe('scheduled-task cron utility', () => {
   it('normalizes 5-field Unix cron expressions to backend seconds cron', () => {
     expect(normalizeCronExpression('*/5 * * * *')).toBe('0 */5 * * * *');
     expect(normalizeCronExpression('  0   0  *  *  *  ')).toBe('0 0 0 * * *');
+  });
+
+  it('formats raw cron expressions without converting 5-field expressions to seconds cron', () => {
+    expect(formatCronExpression('  0   17  *  *  *  ')).toBe('0 17 * * *');
+    expect(formatCronExpression('  0   0  17  *  *  *  ')).toBe('0 0 17 * * *');
   });
 
   it('keeps 6-field seconds cron expressions canonical', () => {
@@ -127,5 +135,23 @@ describe('scheduled-task cron utility', () => {
       [7, 17, 0],
       [8, 17, 0],
     ]);
+  });
+
+  it('calculates next run text for 5-field and 6-field cron expressions', () => {
+    const now = new Date('2026-06-06T08:00:00+08:00');
+
+    expect(getNextRunText('0 17 * * *', 'Asia/Shanghai', { locale: 'zh-CN', now })).toBe('2026-06-06 17:00');
+    expect(getNextRunText('0 15 17 * * *', 'Asia/Shanghai', { locale: 'zh-CN', now })).toBe('2026-06-06 17:15');
+  });
+
+  it('returns empty next run text and advanced descriptions for invalid cron expressions', () => {
+    expect(getNextRunText('not a cron', 'Asia/Shanghai', { locale: 'zh-CN' })).toBe('');
+    expect(getCronDescription('not a cron', 'zh-CN')).toBe('高级 Cron 表达式');
+    expect(getCronDescription('not a cron', 'en-US')).toBe('Advanced Cron expression');
+  });
+
+  it('describes cron expressions with zh-CN and en-US locale support', () => {
+    expect(getCronDescription('0 0 17 * * *', 'zh-CN')).toContain('每天');
+    expect(getCronDescription('0 0 17 * * *', 'en-US')).toContain('every day');
   });
 });
