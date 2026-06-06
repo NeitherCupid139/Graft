@@ -206,7 +206,7 @@ func (r *SQLTaskRepository) SeedBuiltinTasks(ctx context.Context, tasks []TaskDe
 				title = EXCLUDED.title,
 				description = EXCLUDED.description,
 				builtin = true,
-				config_json = EXCLUDED.config_json,
+				config_json = scheduled_tasks.config_json,
 				updated_at = EXCLUDED.updated_at
 			WHERE scheduled_tasks.builtin = true AND scheduled_tasks.deleted_at IS NULL`,
 			task.TaskKey,

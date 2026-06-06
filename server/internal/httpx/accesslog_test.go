@@ -38,6 +38,10 @@ func (r *stubAccessLogRepository) DeleteAccessLogsBefore(context.Context, time.T
 	return 0, nil
 }
 
+func (r *stubAccessLogRepository) DeleteAccessLogsBeforeLimit(context.Context, time.Time, int) (int64, error) {
+	return 0, nil
+}
+
 func (r *stubAccessLogRepository) ListAccessLogs(context.Context, AccessLogListQuery) (AccessLogListResult, error) {
 	return AccessLogListResult{}, nil
 }

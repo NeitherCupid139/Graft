@@ -123,7 +123,7 @@ func (c *accessLogRetentionCleaner) cleanup(ctx context.Context, config accessLo
 		zap.Time("cutoff", cutoff),
 	)
 
-	deleted, err := c.repo.DeleteAccessLogsBefore(ctx, cutoff)
+	deleted, err := c.repo.DeleteAccessLogsBeforeLimit(ctx, cutoff, normalizedAccessLogRetentionBatchSize(config))
 	if err != nil {
 		logger.Error("access log retention cleanup failed",
 			zap.String("job", accessLogRetentionCleanupJobName),
@@ -198,6 +198,13 @@ func (c *accessLogRetentionCleaner) retentionDuration(config accessLogRetentionJ
 	return c.policy.retention
 }
 
+func normalizedAccessLogRetentionBatchSize(config accessLogRetentionJobConfig) int {
+	if config.BatchSize > 0 {
+		return config.BatchSize
+	}
+	return accessLogRetentionDefaultBatchSize
+}
+
 func accessLogRetentionSuccessResult(deleted int64, retention time.Duration, cutoff time.Time, config accessLogRetentionJobConfig, started time.Time) cronx.JobRunResult {
 	durationMS := time.Since(started).Milliseconds()
 	retentionDays := int(retention.Hours() / hoursPerDay)
@@ -208,14 +215,14 @@ func accessLogRetentionSuccessResult(deleted int64, retention time.Duration, cut
 		Metrics: map[string]any{
 			"deletedCount":  deleted,
 			"retentionDays": retentionDays,
-			"batchSize":     config.BatchSize,
+			"batchSize":     normalizedAccessLogRetentionBatchSize(config),
 			"durationMs":    durationMS,
 		},
 		Details: map[string]any{
 			"operation":     "access_log_retention_cleanup",
 			"retentionDays": retentionDays,
 			"cutoffTime":    cutoff.UTC().Format(time.RFC3339Nano),
-			"batchSize":     config.BatchSize,
+			"batchSize":     normalizedAccessLogRetentionBatchSize(config),
 			"durationMs":    durationMS,
 		},
 	}
@@ -233,21 +240,21 @@ func accessLogRetentionEstimateResult(matched int64, retained int64, retention t
 			"estimatedDeleteCount": matched,
 			"estimatedRetainCount": retained,
 			"retentionDays":        retentionDays,
-			"batchSize":            config.BatchSize,
+			"batchSize":            normalizedAccessLogRetentionBatchSize(config),
 			"durationMs":           durationMS,
 		},
 		Details: map[string]any{
 			"operation":     "access_log_retention_cleanup_estimate",
 			"retentionDays": retentionDays,
 			"cutoffTime":    cutoff.UTC().Format(time.RFC3339Nano),
-			"batchSize":     config.BatchSize,
+			"batchSize":     normalizedAccessLogRetentionBatchSize(config),
 			"durationMs":    durationMS,
 		},
 	}
 }
 
 func accessLogRetentionFailureResult(err error, cutoff time.Time, config accessLogRetentionJobConfig) cronx.JobRunResult {
-	details := map[string]any{"operation": "access_log_retention_cleanup", "batchSize": config.BatchSize}
+	details := map[string]any{"operation": "access_log_retention_cleanup", "batchSize": normalizedAccessLogRetentionBatchSize(config)}
 	if !cutoff.IsZero() {
 		details["cutoffTime"] = cutoff.UTC().Format(time.RFC3339Nano)
 	}

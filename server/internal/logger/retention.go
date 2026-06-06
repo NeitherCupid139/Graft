@@ -116,10 +116,7 @@ func (c *appLogRetentionCleaner) cleanup(ctx context.Context, config appLogReten
 		zap.Time("cutoff", cutoff),
 	)
 
-	var deleted int64
-	if !config.DryRun {
-		deleted, err = c.repo.DeleteAppLogsBefore(ctx, cutoff)
-	}
+	deleted, err := c.repo.DeleteAppLogsBeforeLimit(ctx, cutoff, normalizedAppLogRetentionBatchSize(config))
 	if err != nil {
 		logger.Error("app log retention cleanup failed",
 			zap.String("job", appLogRetentionCleanupJobName),
@@ -172,8 +169,49 @@ func appLogRetentionCutoff(now time.Time, retention time.Duration) (time.Time, e
 }
 
 func (c *appLogRetentionCleaner) estimate(ctx context.Context, config appLogRetentionJobConfig) (cronx.JobRunResult, error) {
-	config.DryRun = true
-	return c.cleanup(ctx, config)
+	if c == nil {
+		err := errors.New("app log retention cleaner is required")
+		return appLogRetentionFailureResult(err, time.Time{}, config), err
+	}
+	started := time.Now()
+	retention := c.retentionDuration(config)
+
+	cutoff, err := appLogRetentionCutoff(c.now(), retention)
+	if err != nil {
+		return appLogRetentionFailureResult(err, time.Time{}, config), err
+	}
+	if cutoff.IsZero() {
+		err := errors.New("app log retention cutoff must be non-zero")
+		return appLogRetentionFailureResult(err, cutoff, config), err
+	}
+
+	matched, total, err := c.estimateCounts(ctx, cutoff)
+	if err != nil {
+		wrapped := fmt.Errorf("estimate app logs before cutoff: %w", err)
+		return appLogRetentionFailureResult(wrapped, cutoff, config), wrapped
+	}
+	retained := total - matched
+	if retained < 0 {
+		retained = 0
+	}
+
+	return appLogRetentionEstimateResult(matched, retained, retention, cutoff, config, started), nil
+}
+
+func (c *appLogRetentionCleaner) estimateCounts(ctx context.Context, cutoff time.Time) (int64, int64, error) {
+	matched, err := c.repo.ListAppLogs(ctx, AppLogListQuery{
+		Page:       1,
+		PageSize:   1,
+		OccurredTo: &cutoff,
+	})
+	if err != nil {
+		return 0, 0, err
+	}
+	total, err := c.repo.ListAppLogs(ctx, AppLogListQuery{Page: 1, PageSize: 1})
+	if err != nil {
+		return 0, 0, err
+	}
+	return matched.Total, total.Total, nil
 }
 
 func (c *appLogRetentionCleaner) retentionDuration(config appLogRetentionJobConfig) time.Duration {
@@ -181,6 +219,13 @@ func (c *appLogRetentionCleaner) retentionDuration(config appLogRetentionJobConf
 		return time.Duration(config.RetentionDays) * hoursPerDay * time.Hour
 	}
 	return c.policy.retention
+}
+
+func normalizedAppLogRetentionBatchSize(config appLogRetentionJobConfig) int {
+	if config.BatchSize > 0 {
+		return config.BatchSize
+	}
+	return appLogRetentionDefaultBatchSize
 }
 
 func appLogRetentionSuccessResult(deleted int64, retention time.Duration, cutoff time.Time, config appLogRetentionJobConfig, started time.Time) cronx.JobRunResult {
@@ -193,21 +238,46 @@ func appLogRetentionSuccessResult(deleted int64, retention time.Duration, cutoff
 		Metrics: map[string]any{
 			"deletedCount":  deleted,
 			"retentionDays": retentionDays,
-			"batchSize":     config.BatchSize,
+			"batchSize":     normalizedAppLogRetentionBatchSize(config),
 			"durationMs":    durationMS,
 		},
 		Details: map[string]any{
 			"operation":     "app_log_retention_cleanup",
 			"retentionDays": retentionDays,
 			"cutoffTime":    cutoff.UTC().Format(time.RFC3339Nano),
-			"batchSize":     config.BatchSize,
+			"batchSize":     normalizedAppLogRetentionBatchSize(config),
+			"durationMs":    durationMS,
+		},
+	}
+}
+
+func appLogRetentionEstimateResult(matched int64, retained int64, retention time.Duration, cutoff time.Time, config appLogRetentionJobConfig, started time.Time) cronx.JobRunResult {
+	durationMS := time.Since(started).Milliseconds()
+	retentionDays := int(retention.Hours() / hoursPerDay)
+	return cronx.JobRunResult{
+		Summary:          fmt.Sprintf("estimated %d rows eligible for deletion", matched),
+		Stage:            "estimated",
+		AffectedResource: "app_log",
+		Metrics: map[string]any{
+			"estimatedScanCount":   matched,
+			"estimatedDeleteCount": matched,
+			"estimatedRetainCount": retained,
+			"retentionDays":        retentionDays,
+			"batchSize":            normalizedAppLogRetentionBatchSize(config),
+			"durationMs":           durationMS,
+		},
+		Details: map[string]any{
+			"operation":     "app_log_retention_cleanup_estimate",
+			"retentionDays": retentionDays,
+			"cutoffTime":    cutoff.UTC().Format(time.RFC3339Nano),
+			"batchSize":     normalizedAppLogRetentionBatchSize(config),
 			"durationMs":    durationMS,
 		},
 	}
 }
 
 func appLogRetentionFailureResult(err error, cutoff time.Time, config appLogRetentionJobConfig) cronx.JobRunResult {
-	details := map[string]any{"operation": "app_log_retention_cleanup", "batchSize": config.BatchSize}
+	details := map[string]any{"operation": "app_log_retention_cleanup", "batchSize": normalizedAppLogRetentionBatchSize(config)}
 	if !cutoff.IsZero() {
 		details["cutoffTime"] = cutoff.UTC().Format(time.RFC3339Nano)
 	}

@@ -865,7 +865,7 @@ describe('ScheduledTaskListPage', () => {
     await flushPromises();
 
     expect(apiMocks.executeScheduledTaskAction).toHaveBeenCalledWith('httpx.access-log-retention-cleanup', 'dryRun', {
-      config_json: '{"retentionDays":30,"batchSize":500}',
+      config_json: { retentionDays: 30, batchSize: 500 },
     });
     expect(apiMocks.updateScheduledTask).not.toHaveBeenCalled();
     expect(wrapper.text()).toContain('操作结果');

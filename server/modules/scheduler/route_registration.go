@@ -525,7 +525,7 @@ func bindScheduledTaskActionConfig(ginCtx *gin.Context, ctx *module.Context) (st
 	return configJSON, true
 }
 
-func marshalScheduledTaskActionConfig(config *scheduleropenapi.PostScheduledTaskActionJSONBody_ConfigJson) (json.RawMessage, error) {
+func marshalScheduledTaskActionConfig(config *map[string]interface{}) (json.RawMessage, error) {
 	if config == nil {
 		return nil, nil
 	}
@@ -540,20 +540,6 @@ func normalizeScheduledTaskActionConfig(raw json.RawMessage) (string, error) {
 	trimmed := strings.TrimSpace(string(raw))
 	if trimmed == "" || trimmed == "null" {
 		return "{}", nil
-	}
-	if strings.HasPrefix(trimmed, `"`) {
-		var value string
-		if err := json.Unmarshal(raw, &value); err != nil {
-			return "", err
-		}
-		value = strings.TrimSpace(value)
-		if value == "" {
-			return "{}", nil
-		}
-		if !isSchedulerJSONObject(value) {
-			return "", errors.New("config_json must be a JSON object string")
-		}
-		return value, nil
 	}
 	if !isSchedulerJSONObject(trimmed) {
 		return "", errors.New("config_json must be a JSON object")

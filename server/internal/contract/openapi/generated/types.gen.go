@@ -4,10 +4,7 @@
 package generated
 
 import (
-	"encoding/json"
 	"time"
-
-	"github.com/oapi-codegen/runtime"
 )
 
 const (
@@ -2841,19 +2838,8 @@ type RolePermissionBindingResponse struct {
 
 // ScheduledTaskActionRequest defines model for scheduled-task-action-request.
 type ScheduledTaskActionRequest struct {
-	// ConfigJson JSON object string or object merged into the action effective config.
-	ConfigJson *ScheduledTaskActionRequest_ConfigJson `json:"config_json,omitempty"`
-}
-
-// ScheduledTaskActionRequestConfigJson0 defines model for .
-type ScheduledTaskActionRequestConfigJson0 = string
-
-// ScheduledTaskActionRequestConfigJson1 defines model for .
-type ScheduledTaskActionRequestConfigJson1 map[string]interface{}
-
-// ScheduledTaskActionRequest_ConfigJson JSON object string or object merged into the action effective config.
-type ScheduledTaskActionRequest_ConfigJson struct {
-	union json.RawMessage
+	// ConfigJson JSON object merged into the action effective config.
+	ConfigJson *map[string]interface{} `json:"config_json,omitempty"`
 }
 
 // ScheduledTaskActionResult defines model for scheduled-task-action-result.
@@ -4157,65 +4143,3 @@ type PostUserStatusJSONRequestBody = UpdateUserStatusRequest
 
 // PostUserUpdateJSONRequestBody defines body for PostUserUpdate for application/json ContentType.
 type PostUserUpdateJSONRequestBody = UpdateUserRequest
-
-// AsScheduledTaskActionRequestConfigJson0 returns the union data inside the ScheduledTaskActionRequest_ConfigJson as a ScheduledTaskActionRequestConfigJson0
-func (t ScheduledTaskActionRequest_ConfigJson) AsScheduledTaskActionRequestConfigJson0() (ScheduledTaskActionRequestConfigJson0, error) {
-	var body ScheduledTaskActionRequestConfigJson0
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromScheduledTaskActionRequestConfigJson0 overwrites any union data inside the ScheduledTaskActionRequest_ConfigJson as the provided ScheduledTaskActionRequestConfigJson0
-func (t *ScheduledTaskActionRequest_ConfigJson) FromScheduledTaskActionRequestConfigJson0(v ScheduledTaskActionRequestConfigJson0) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeScheduledTaskActionRequestConfigJson0 performs a merge with any union data inside the ScheduledTaskActionRequest_ConfigJson, using the provided ScheduledTaskActionRequestConfigJson0
-func (t *ScheduledTaskActionRequest_ConfigJson) MergeScheduledTaskActionRequestConfigJson0(v ScheduledTaskActionRequestConfigJson0) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsScheduledTaskActionRequestConfigJson1 returns the union data inside the ScheduledTaskActionRequest_ConfigJson as a ScheduledTaskActionRequestConfigJson1
-func (t ScheduledTaskActionRequest_ConfigJson) AsScheduledTaskActionRequestConfigJson1() (ScheduledTaskActionRequestConfigJson1, error) {
-	var body ScheduledTaskActionRequestConfigJson1
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromScheduledTaskActionRequestConfigJson1 overwrites any union data inside the ScheduledTaskActionRequest_ConfigJson as the provided ScheduledTaskActionRequestConfigJson1
-func (t *ScheduledTaskActionRequest_ConfigJson) FromScheduledTaskActionRequestConfigJson1(v ScheduledTaskActionRequestConfigJson1) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeScheduledTaskActionRequestConfigJson1 performs a merge with any union data inside the ScheduledTaskActionRequest_ConfigJson, using the provided ScheduledTaskActionRequestConfigJson1
-func (t *ScheduledTaskActionRequest_ConfigJson) MergeScheduledTaskActionRequestConfigJson1(v ScheduledTaskActionRequestConfigJson1) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t ScheduledTaskActionRequest_ConfigJson) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *ScheduledTaskActionRequest_ConfigJson) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}

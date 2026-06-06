@@ -14,17 +14,18 @@ import (
 type accessLogSQLDialect string
 
 const (
-	accessLogSQLDialectPostgres accessLogSQLDialect = "postgres"
-	accessLogSQLDialectSQLite   accessLogSQLDialect = "sqlite"
-	accessLogDefaultPageSize                        = 20
-	accessLogMaxPageSize                            = 100
-	accessLogListClauseCapacity                     = 10
-	accessLogListOffsetArgCount                     = 2
-	accessLogKeywordClauseCount                     = 3
-	accessLogStatus4xxMin                           = 400
-	accessLogStatus4xxMax                           = 499
-	accessLogStatus5xxMin                           = 500
-	accessLogStatus5xxMax                           = 599
+	accessLogSQLDialectPostgres  accessLogSQLDialect = "postgres"
+	accessLogSQLDialectSQLite    accessLogSQLDialect = "sqlite"
+	accessLogDefaultPageSize                         = 20
+	accessLogMaxPageSize                             = 100
+	accessLogListClauseCapacity                      = 10
+	accessLogListOffsetArgCount                      = 2
+	accessLogDeleteLimitArgIndex                     = 2
+	accessLogKeywordClauseCount                      = 3
+	accessLogStatus4xxMin                            = 400
+	accessLogStatus4xxMax                            = 499
+	accessLogStatus5xxMin                            = 500
+	accessLogStatus5xxMax                            = 599
 )
 
 // AccessLog describes one persisted canonical access-log record.
@@ -71,6 +72,7 @@ type AccessLogRepository interface {
 	CreateAccessLog(ctx context.Context, input CreateAccessLogInput) (AccessLog, error)
 	CreateAccessLogs(ctx context.Context, inputs []CreateAccessLogInput) ([]AccessLog, error)
 	DeleteAccessLogsBefore(ctx context.Context, occurredBefore time.Time) (int64, error)
+	DeleteAccessLogsBeforeLimit(ctx context.Context, occurredBefore time.Time, limit int) (int64, error)
 	ListAccessLogs(ctx context.Context, query AccessLogListQuery) (AccessLogListResult, error)
 	GetAccessLogByID(ctx context.Context, id uint64) (AccessLog, error)
 }
@@ -236,6 +238,33 @@ func (r *accessLogRepository) DeleteAccessLogsBefore(ctx context.Context, occurr
 	)
 	if err != nil {
 		return 0, fmt.Errorf("delete access logs before cutoff: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("read deleted access log row count: %w", err)
+	}
+
+	return rowsAffected, nil
+}
+
+func (r *accessLogRepository) DeleteAccessLogsBeforeLimit(ctx context.Context, occurredBefore time.Time, limit int) (int64, error) {
+	if r == nil || r.db == nil {
+		return 0, errors.New("access log repository is unavailable")
+	}
+	if limit <= 0 {
+		return 0, errors.New("access log delete limit must be greater than zero")
+	}
+
+	//nolint:gosec // Query shape is fixed; placeholders come from the internal dialect helper and values stay parameterized.
+	query := fmt.Sprintf(
+		"DELETE FROM access_logs WHERE id IN (SELECT id FROM access_logs WHERE occurred_at < %s ORDER BY occurred_at ASC, id ASC LIMIT %s)",
+		r.placeholder(1),
+		r.placeholder(accessLogDeleteLimitArgIndex),
+	)
+	result, err := r.db.ExecContext(ctx, query, occurredBefore.UTC(), limit)
+	if err != nil {
+		return 0, fmt.Errorf("delete access logs before cutoff with limit: %w", err)
 	}
 
 	rowsAffected, err := result.RowsAffected()

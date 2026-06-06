@@ -2407,12 +2407,10 @@ export interface components {
       data: components['schemas']['scheduled-task-run-item'];
     };
     'scheduled-task-action-request': {
-      /** @description JSON object string or object merged into the action effective config. */
-      config_json?:
-        | string
-        | {
-            [key: string]: unknown;
-          };
+      /** @description JSON object merged into the action effective config. */
+      config_json?: {
+        [key: string]: unknown;
+      };
     };
     'job-run-result': {
       summary?: string;

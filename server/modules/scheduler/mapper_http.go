@@ -10,6 +10,22 @@ import (
 	schedulercore "graft/server/internal/scheduler"
 )
 
+type scheduledTaskJobActionItem = struct {
+	AffectedResource    *string                                               `json:"affected_resource,omitempty"`
+	AffectedResourceKey *string                                               `json:"affected_resource_key,omitempty"`
+	Behavior            *string                                               `json:"behavior,omitempty"`
+	BehaviorKey         *string                                               `json:"behavior_key,omitempty"`
+	BehaviorSummary     *string                                               `json:"behavior_summary,omitempty"`
+	BehaviorSummaryKey  *string                                               `json:"behavior_summary_key,omitempty"`
+	ConfirmRequired     *bool                                                 `json:"confirm_required,omitempty"`
+	Description         *string                                               `json:"description,omitempty"`
+	DescriptionKey      *string                                               `json:"description_key,omitempty"`
+	Key                 string                                                `json:"key"`
+	Theme               *generated.ScheduledTaskJobDefinitionItemActionsTheme `json:"theme,omitempty"`
+	Title               *string                                               `json:"title,omitempty"`
+	TitleKey            *string                                               `json:"title_key,omitempty"`
+}
+
 func toScheduledTaskListResponse(
 	result schedulercore.TaskListResult,
 	limit int,
@@ -54,38 +70,10 @@ func toScheduledTaskJobDefinitionItem(definition schedulercore.JobDefinitionSnap
 		DefaultConfigJson:     defaultJSONObject(definition.DefaultConfig),
 		DefaultCronExpression: strings.TrimSpace(definition.DefaultCron),
 		DefaultEnabled:        definition.Enabled,
-		Actions: make([]struct {
-			AffectedResource    *string                                               `json:"affected_resource,omitempty"`
-			AffectedResourceKey *string                                               `json:"affected_resource_key,omitempty"`
-			Behavior            *string                                               `json:"behavior,omitempty"`
-			BehaviorKey         *string                                               `json:"behavior_key,omitempty"`
-			BehaviorSummary     *string                                               `json:"behavior_summary,omitempty"`
-			BehaviorSummaryKey  *string                                               `json:"behavior_summary_key,omitempty"`
-			ConfirmRequired     *bool                                                 `json:"confirm_required,omitempty"`
-			Description         *string                                               `json:"description,omitempty"`
-			DescriptionKey      *string                                               `json:"description_key,omitempty"`
-			Key                 string                                                `json:"key"`
-			Theme               *generated.ScheduledTaskJobDefinitionItemActionsTheme `json:"theme,omitempty"`
-			Title               *string                                               `json:"title,omitempty"`
-			TitleKey            *string                                               `json:"title_key,omitempty"`
-		}, 0, len(definition.Actions)),
+		Actions:               make([]scheduledTaskJobActionItem, 0, len(definition.Actions)),
 	}
 	for _, action := range definition.Actions {
-		item.Actions = append(item.Actions, struct {
-			AffectedResource    *string                                               `json:"affected_resource,omitempty"`
-			AffectedResourceKey *string                                               `json:"affected_resource_key,omitempty"`
-			Behavior            *string                                               `json:"behavior,omitempty"`
-			BehaviorKey         *string                                               `json:"behavior_key,omitempty"`
-			BehaviorSummary     *string                                               `json:"behavior_summary,omitempty"`
-			BehaviorSummaryKey  *string                                               `json:"behavior_summary_key,omitempty"`
-			ConfirmRequired     *bool                                                 `json:"confirm_required,omitempty"`
-			Description         *string                                               `json:"description,omitempty"`
-			DescriptionKey      *string                                               `json:"description_key,omitempty"`
-			Key                 string                                                `json:"key"`
-			Theme               *generated.ScheduledTaskJobDefinitionItemActionsTheme `json:"theme,omitempty"`
-			Title               *string                                               `json:"title,omitempty"`
-			TitleKey            *string                                               `json:"title_key,omitempty"`
-		}{
+		item.Actions = append(item.Actions, scheduledTaskJobActionItem{
 			Key:            strings.TrimSpace(action.Key),
 			TitleKey:       stringPointer(action.TitleKey),
 			Title:          stringPointer(action.Title),
@@ -120,7 +108,7 @@ func toScheduledTaskItem(task schedulercore.TaskSnapshot) generated.ScheduledTas
 		Owner:           strings.TrimSpace(task.ModuleKey),
 		Module:          strings.TrimSpace(task.ModuleKey),
 		Enabled:         task.Enabled,
-		Builtin:         boolPointer(task.Builtin),
+		Builtin:         trueBoolPointer(task.Builtin),
 		Title:           stringPointer(task.Title),
 		Description:     stringPointer(task.Description),
 		ConfigJson:      stringPointer(task.ConfigJSON),
@@ -185,7 +173,10 @@ func toScheduledTaskRunItem(run schedulercore.TaskRun) generated.ScheduledTaskRu
 }
 
 func toScheduledTaskActionResult(result schedulercore.JobActionResult) generated.ScheduledTaskActionResult {
-	resultJSON, _ := json.Marshal(result.Result)
+	resultJSON, err := json.Marshal(result.Result)
+	if err != nil {
+		resultJSON = []byte(`{"summary":"serialization failed","stage":"failed","warnings":["job action result serialization failed"]}`)
+	}
 	return generated.ScheduledTaskActionResult{
 		ActionKey:       strings.TrimSpace(result.ActionKey),
 		TaskKey:         strings.TrimSpace(result.TaskKey),
@@ -216,6 +207,13 @@ func scheduledTaskRunID(id uint64) int64 {
 
 func boolPointer(value bool) *bool {
 	return &value
+}
+
+func trueBoolPointer(value bool) *bool {
+	if !value {
+		return nil
+	}
+	return boolPointer(value)
 }
 
 func stringPointer(value string) *string {

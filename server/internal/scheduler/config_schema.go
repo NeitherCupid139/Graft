@@ -52,15 +52,39 @@ func ValidateConfigSchema(schemaJSON string) error {
 	}
 	for name, property := range schema.Properties {
 		field := "config_schema.properties." + name
-		if !validConfigPropertyType(property.Type) {
-			return ConfigValidationError{Field: field + ".type", Reason: "unsupported type"}
+		if err := validateConfigPropertySchema(field, property); err != nil {
+			return err
 		}
-		if property.MinLength != nil && *property.MinLength < 0 {
-			return ConfigValidationError{Field: field + ".minLength", Reason: "must be non-negative"}
-		}
-		if property.MaxLength != nil && *property.MaxLength < 0 {
-			return ConfigValidationError{Field: field + ".maxLength", Reason: "must be non-negative"}
-		}
+	}
+	return nil
+}
+
+func validateConfigPropertySchema(field string, property configPropertySchema) error {
+	if !validConfigPropertyType(property.Type) {
+		return ConfigValidationError{Field: field + ".type", Reason: "unsupported type"}
+	}
+	if err := validateConfigPropertyLengthSchema(field, property); err != nil {
+		return err
+	}
+	return validateConfigPropertyRangeSchema(field, property)
+}
+
+func validateConfigPropertyLengthSchema(field string, property configPropertySchema) error {
+	if property.MinLength != nil && *property.MinLength < 0 {
+		return ConfigValidationError{Field: field + ".minLength", Reason: "must be non-negative"}
+	}
+	if property.MaxLength != nil && *property.MaxLength < 0 {
+		return ConfigValidationError{Field: field + ".maxLength", Reason: "must be non-negative"}
+	}
+	if property.MinLength != nil && property.MaxLength != nil && *property.MinLength > *property.MaxLength {
+		return ConfigValidationError{Field: field + ".minLength", Reason: "must be less than or equal to maxLength"}
+	}
+	return nil
+}
+
+func validateConfigPropertyRangeSchema(field string, property configPropertySchema) error {
+	if property.Minimum != nil && property.Maximum != nil && *property.Minimum > *property.Maximum {
+		return ConfigValidationError{Field: field + ".minimum", Reason: "must be less than or equal to maximum"}
 	}
 	return nil
 }
@@ -191,7 +215,7 @@ func validateConfigValue(field string, property configPropertySchema, value any)
 	if err != nil {
 		return err
 	}
-	if len(property.Enum) > 0 && !enumContains(property.Enum, value) {
+	if len(property.Enum) > 0 && !enumContains(property.Type, property.Enum, value) {
 		return ConfigValidationError{Field: field, Reason: "must match enum"}
 	}
 	return nil
@@ -244,13 +268,52 @@ func validateNumberRange(field string, property configPropertySchema, value floa
 	return nil
 }
 
-func enumContains(values []any, candidate any) bool {
+func enumContains(propertyType string, values []any, candidate any) bool {
 	for _, value := range values {
-		if fmt.Sprint(value) == fmt.Sprint(candidate) {
+		if enumValueMatches(propertyType, value, candidate) {
 			return true
 		}
 	}
 	return false
+}
+
+func enumValueMatches(propertyType string, value any, candidate any) bool {
+	switch propertyType {
+	case "string":
+		return stringEnumValueMatches(value, candidate)
+	case "integer":
+		return numericEnumValueMatches(value, candidate, true)
+	case "number":
+		return numericEnumValueMatches(value, candidate, false)
+	case "boolean":
+		return boolEnumValueMatches(value, candidate)
+	default:
+		return fmt.Sprint(value) == fmt.Sprint(candidate)
+	}
+}
+
+func stringEnumValueMatches(value any, candidate any) bool {
+	expected, ok := value.(string)
+	actual, actualOK := candidate.(string)
+	return ok && actualOK && expected == actual
+}
+
+func numericEnumValueMatches(value any, candidate any, requireInteger bool) bool {
+	expected, ok := value.(float64)
+	actual, actualOK := candidate.(float64)
+	if !ok || !actualOK {
+		return false
+	}
+	if requireInteger && (math.Trunc(expected) != expected || math.Trunc(actual) != actual) {
+		return false
+	}
+	return expected == actual
+}
+
+func boolEnumValueMatches(value any, candidate any) bool {
+	expected, ok := value.(bool)
+	actual, actualOK := candidate.(bool)
+	return ok && actualOK && expected == actual
 }
 
 func validConfigPropertyType(value string) bool {

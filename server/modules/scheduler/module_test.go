@@ -761,7 +761,7 @@ func TestScheduledTaskActionRouteReturnsNotFoundForUnknownAction(t *testing.T) {
 	registerAndBootSchedulerModule(t, ctx, moduleInstance)
 
 	recorder := performSchedulerRequest(engine, http.MethodPost, "/api/scheduled-tasks/webhook.health/actions/missing", `{
-		"config_json": "{}"
+		"config_json": {}
 	}`)
 	if recorder.Code != http.StatusNotFound {
 		t.Fatalf("expected status 404, got %d with body %s", recorder.Code, recorder.Body.String())

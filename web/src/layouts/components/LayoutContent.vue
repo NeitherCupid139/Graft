@@ -217,7 +217,7 @@ const handleRemove = (options: TTabRemoveOptions) => {
   const tabKey = options.value as string;
   const nextRouter = tabsRouterStore.getNextRouteAfterClose(tabKey);
 
-  tabsRouterStore.subtractCurrentTabRouter({ tabKey, path: tabKey, routeIdx: options.index });
+  tabsRouterStore.subtractCurrentTabRouter({ tabKey, path: '', routeIdx: options.index });
   if (tabKey === activeTabKey.value && nextRouter) {
     navigateToTab(nextRouter);
   }
@@ -232,18 +232,18 @@ const handleRefresh = (route: TRouterInfo, routeIdx: number) => {
   });
   activeTabKeyForMenu.value = null;
 };
-const handleCloseAhead = (path: string, routeIdx: number) => {
-  tabsRouterStore.subtractTabRouterAhead({ path, routeIdx });
+const handleCloseAhead = (tabKey: string, routeIdx: number) => {
+  tabsRouterStore.subtractTabRouterAhead({ tabKey, path: '', routeIdx });
 
   handleOperationEffect('ahead', routeIdx);
 };
-const handleCloseBehind = (path: string, routeIdx: number) => {
-  tabsRouterStore.subtractTabRouterBehind({ path, routeIdx });
+const handleCloseBehind = (tabKey: string, routeIdx: number) => {
+  tabsRouterStore.subtractTabRouterBehind({ tabKey, path: '', routeIdx });
 
   handleOperationEffect('behind', routeIdx);
 };
-const handleCloseOther = (path: string, routeIdx: number) => {
-  tabsRouterStore.subtractTabRouterOther({ path, routeIdx });
+const handleCloseOther = (tabKey: string, routeIdx: number) => {
+  tabsRouterStore.subtractTabRouterOther({ tabKey, path: '', routeIdx });
 
   handleOperationEffect('other', routeIdx);
 };

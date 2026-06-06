@@ -18,8 +18,12 @@ type appLogRetentionRepoRecorder struct {
 	mu      sync.Mutex
 	created []CreateAppLogInput
 	cutoffs []time.Time
+	limits  []int
 	deleted int64
+	matched int64
+	total   int64
 	err     error
+	listErr error
 }
 
 func (r *appLogRetentionRepoRecorder) CreateAppLog(_ context.Context, input CreateAppLogInput) (AppLogRecord, error) {
@@ -39,8 +43,26 @@ func (r *appLogRetentionRepoRecorder) DeleteAppLogsBefore(_ context.Context, cut
 	return r.deleted, nil
 }
 
-func (r *appLogRetentionRepoRecorder) ListAppLogs(context.Context, AppLogListQuery) (AppLogListResult, error) {
-	return AppLogListResult{}, nil
+func (r *appLogRetentionRepoRecorder) DeleteAppLogsBeforeLimit(_ context.Context, cutoff time.Time, limit int) (int64, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.cutoffs = append(r.cutoffs, cutoff)
+	r.limits = append(r.limits, limit)
+	if r.err != nil {
+		return 0, r.err
+	}
+	return r.deleted, nil
+}
+
+func (r *appLogRetentionRepoRecorder) ListAppLogs(_ context.Context, query AppLogListQuery) (AppLogListResult, error) {
+	if r.listErr != nil {
+		return AppLogListResult{}, r.listErr
+	}
+	total := r.total
+	if query.OccurredTo != nil {
+		total = r.matched
+	}
+	return AppLogListResult{Total: total, Page: query.Page, PageSize: query.PageSize}, nil
 }
 
 func (r *appLogRetentionRepoRecorder) GetAppLogByID(context.Context, uint64) (AppLogRecord, error) {
@@ -86,6 +108,9 @@ func TestAppLogRetentionCleanerInvokesRepositoryWithCutoff(t *testing.T) {
 	defer repo.mu.Unlock()
 	if len(repo.cutoffs) != 1 {
 		t.Fatalf("expected one cutoff, got %d", len(repo.cutoffs))
+	}
+	if len(repo.limits) != 1 || repo.limits[0] != 1000 {
+		t.Fatalf("expected cleanup limit 1000, got %#v", repo.limits)
 	}
 	wantCutoff := now.Add(-9 * hoursPerDay * time.Hour)
 	if !repo.cutoffs[0].Equal(wantCutoff) {
@@ -216,12 +241,16 @@ func assertAppLogRetentionJobActions(t *testing.T, job cronx.Job) {
 func assertAppLogRetentionDryRunAction(t *testing.T, repo *appLogRetentionRepoRecorder, job cronx.Job) {
 	t.Helper()
 
+	repo.matched = 9
+	repo.total = 20
 	actionResult, err := job.Actions[0].Handler(context.Background(), `{"retentionDays":7,"batchSize":500}`)
 	if err != nil {
 		t.Fatalf("run dryRun action: %v", err)
 	}
-	if actionResult.Metrics["deletedCount"] != int64(0) {
-		t.Fatalf("expected dryRun action to avoid deletion, got %#v", actionResult)
+	if actionResult.Stage != "estimated" ||
+		actionResult.Metrics["estimatedDeleteCount"] != int64(9) ||
+		actionResult.Metrics["estimatedRetainCount"] != int64(11) {
+		t.Fatalf("expected dryRun action to return estimate result, got %#v", actionResult)
 	}
 	repo.mu.Lock()
 	defer repo.mu.Unlock()

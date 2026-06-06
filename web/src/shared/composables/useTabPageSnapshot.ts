@@ -1,4 +1,4 @@
-import { watch } from 'vue';
+import { computed, watch } from 'vue';
 
 import { useTabsRouterStore } from '@/store';
 import type { TabPageSnapshot } from '@/utils/types';
@@ -13,8 +13,8 @@ export function useTabPageSnapshot<TSnapshot extends TabPageSnapshot>({
   read,
 }: UseTabPageSnapshotOptions<TSnapshot>) {
   const tabsRouterStore = useTabsRouterStore();
-  const tabKey = tabsRouterStore.activeTabKey;
-  const restoredSnapshot = tabsRouterStore.getPageSnapshot<TSnapshot>(tabKey);
+  const tabKey = computed(() => tabsRouterStore.activeTabKey);
+  const restoredSnapshot = tabsRouterStore.getPageSnapshot<TSnapshot>(tabKey.value);
 
   if (restoredSnapshot) {
     apply(restoredSnapshot);
@@ -23,12 +23,12 @@ export function useTabPageSnapshot<TSnapshot extends TabPageSnapshot>({
   watch(
     read,
     (snapshot) => {
-      tabsRouterStore.setPageSnapshot(tabKey, snapshot);
+      tabsRouterStore.setPageSnapshot(tabKey.value, snapshot);
     },
     {
       deep: true,
       flush: 'post',
-      immediate: true,
+      immediate: false,
     },
   );
 }

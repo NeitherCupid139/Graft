@@ -1777,7 +1777,7 @@ function buildPersistentConfigJson(configJson: string) {
 
 function sanitizeConfigBySelectedSchema(config: JsonRecord): JsonRecord {
   if (!selectedJobDefinition.value) {
-    return config;
+    return {};
   }
 
   const allowedKeys = new Set(persistentConfigSchemaFields.value.map((field) => field.key));
@@ -1880,7 +1880,7 @@ function buildActionRequestPayload(): ScheduledTaskActionRequest | undefined | n
     return null;
   }
 
-  return persistentConfigJson ? { config_json: persistentConfigJson } : undefined;
+  return persistentConfigJson ? { config_json: parseJsonRecord(persistentConfigJson) } : undefined;
 }
 
 function closeActionResultDialog() {

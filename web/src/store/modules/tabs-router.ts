@@ -73,8 +73,12 @@ function writePinnedTabKeys(keys: string[]) {
   window.localStorage.setItem(PINNED_TABS_STORAGE_KEY, JSON.stringify([...new Set(keys)]));
 }
 
+function normalizeTabKey(value?: string) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
 function getTabKey(route: Pick<TRouterInfo, 'path' | 'tabKey'>) {
-  return route.tabKey || route.path;
+  return normalizeTabKey(route.tabKey) || normalizeTabKey(route.path) || '/';
 }
 
 function cloneTab(route: TRouterInfo): TRouterInfo {
@@ -232,7 +236,8 @@ export const useTabsRouterStore = defineStore('tabsRouter', {
     subtractCurrentTabRouter(newRoute: TRouterInfo) {
       const { routeIdx, path, tabKey } = newRoute;
       if (routeIdx === undefined) return;
-      const target = this.tabRouterList[routeIdx] ?? this.tabRouterList.find((route) => route.path === path);
+      const routeKey = tabKey || path;
+      const target = this.tabRouterList[routeIdx] ?? this.tabRouterList.find((route) => getTabKey(route) === routeKey);
       if (!target?.isHome) {
         this.pushClosedTab(target);
       }
@@ -257,9 +262,10 @@ export const useTabsRouterStore = defineStore('tabsRouter', {
     },
     // 处理关闭其他
     subtractTabRouterOther(newRoute: TRouterInfo) {
-      const { routeIdx, path } = newRoute;
+      const { routeIdx } = newRoute;
       if (routeIdx === undefined) return;
-      const target = this.tabRouterList[routeIdx] ?? this.tabRouterList.find((route) => route.path === path);
+      const target =
+        this.tabRouterList[routeIdx] ?? this.tabRouterList.find((route) => getTabKey(route) === getTabKey(newRoute));
       const targetKey = target ? getTabKey(target) : getTabKey(newRoute);
       this.closeTabsByPredicate((route) => !route.isHome && !route.isPinned && getTabKey(route) !== targetKey);
     },
@@ -329,7 +335,7 @@ export const useTabsRouterStore = defineStore('tabsRouter', {
       newRoutes?.forEach((route: TRouterInfo) => this.appendTabRouterList(route));
     },
     getNextRouteAfterClose(routeKey: string) {
-      const index = this.tabRouterList.findIndex((route) => getTabKey(route) === routeKey || route.path === routeKey);
+      const index = this.tabRouterList.findIndex((route) => getTabKey(route) === routeKey);
       if (index === -1) {
         return this.tabRouterList[0] ?? null;
       }
@@ -341,14 +347,13 @@ export const useTabsRouterStore = defineStore('tabsRouter', {
     },
     setActiveRoute(route: RouteLocationNormalizedLoaded) {
       const currentActiveTab = this.tabRouterList.find((tab) => getTabKey(tab) === this.activeTabKey);
-      if (currentActiveTab && (currentActiveTab.fullPath === route.fullPath || currentActiveTab.path === route.path)) {
+      if (currentActiveTab && currentActiveTab.fullPath === route.fullPath) {
         return;
       }
 
       const activeTab =
-        this.tabRouterList.find(
-          (tab) => !tab.isDuplicate && (tab.fullPath === route.fullPath || tab.path === route.path),
-        ) ?? this.tabRouterList.find((tab) => tab.fullPath === route.fullPath || tab.path === route.path);
+        this.tabRouterList.find((tab) => !tab.isDuplicate && tab.fullPath === route.fullPath) ??
+        this.tabRouterList.find((tab) => tab.fullPath === route.fullPath);
       this.activeTabKey = activeTab ? getTabKey(activeTab) : route.path;
     },
     setActiveTabKey(tabKey: string) {

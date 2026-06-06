@@ -17,6 +17,7 @@ import (
 
 type retentionRepoRecorder struct {
 	cutoffs     []time.Time
+	limits      []int
 	listQueries []AccessLogListQuery
 	deleted     int64
 	matched     int64
@@ -35,6 +36,15 @@ func (r *retentionRepoRecorder) CreateAccessLogs(context.Context, []CreateAccess
 
 func (r *retentionRepoRecorder) DeleteAccessLogsBefore(_ context.Context, occurredBefore time.Time) (int64, error) {
 	r.cutoffs = append(r.cutoffs, occurredBefore)
+	if r.err != nil {
+		return 0, r.err
+	}
+	return r.deleted, nil
+}
+
+func (r *retentionRepoRecorder) DeleteAccessLogsBeforeLimit(_ context.Context, occurredBefore time.Time, limit int) (int64, error) {
+	r.cutoffs = append(r.cutoffs, occurredBefore)
+	r.limits = append(r.limits, limit)
 	if r.err != nil {
 		return 0, r.err
 	}
@@ -105,6 +115,9 @@ func TestAccessLogRetentionCleanerInvokesRepositoryWithCutoff(t *testing.T) {
 	}
 	if len(repo.cutoffs) != 1 {
 		t.Fatalf("expected one cleanup invocation, got %d", len(repo.cutoffs))
+	}
+	if len(repo.limits) != 1 || repo.limits[0] != 1000 {
+		t.Fatalf("expected cleanup limit 1000, got %#v", repo.limits)
 	}
 
 	wantCutoff := now.Add(-9 * 24 * time.Hour)
