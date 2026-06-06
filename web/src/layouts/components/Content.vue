@@ -3,7 +3,7 @@
     <router-view v-if="!isFramePage" v-slot="{ Component }">
       <transition name="fade" mode="out-in">
         <keep-alive :include="aliveViews">
-          <component :is="Component" />
+          <component :is="Component" :key="activeViewKey" />
         </keep-alive>
       </transition>
     </router-view>
@@ -50,6 +50,11 @@ const isRefreshing = computed(() => {
   const tabsRouterStore = useTabsRouterStore();
   const { refreshing } = tabsRouterStore;
   return refreshing;
+});
+
+const activeViewKey = computed(() => {
+  const tabsRouterStore = useTabsRouterStore();
+  return tabsRouterStore.activeTabKey || route.fullPath || route.path;
 });
 
 const route = useRoute(); // 这个不能放到computed中，切换页面时会导致被缓存

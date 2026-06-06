@@ -1,8 +1,8 @@
 import type { RouteRecordRaw } from 'vue-router';
 
-import { PAGE_NOT_FOUND_ROUTE } from '@/utils/route/constant';
+import { APP_RESULT_ROUTE_PATH } from '@/contracts/app/routes';
 
-export const RUNTIME_ENTRY_FALLBACK_PATH = PAGE_NOT_FOUND_ROUTE.redirect;
+export const RUNTIME_ENTRY_FALLBACK_PATH = APP_RESULT_ROUTE_PATH.NOT_FOUND;
 
 export function isRootEntryPath(path: string) {
   return path === '/' || path === '';

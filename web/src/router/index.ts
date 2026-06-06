@@ -3,11 +3,14 @@ import { createRouter, createWebHistory } from 'vue-router';
 
 import { APP_RESULT_ROUTE_NAME, APP_RESULT_ROUTE_PATH } from '@/contracts/app/routes';
 import { AUTH_ROUTE_NAME, AUTH_ROUTE_PATH } from '@/modules/auth/contract/routes';
-import { BLANK_LAYOUT, PAGE_NOT_FOUND_ROUTE } from '@/utils/route/constant';
+import { PAGE_NOT_FOUND_ROUTE } from '@/utils/route/constant';
+import { localizeRouteTitle } from '@/utils/route/title';
 
 const env = import.meta.env.MODE || 'development';
 
 const ROOT_ENTRY_ROUTE_NAME = 'RootEntry';
+const ROOT_ENTRY_TITLE_KEY = 'app.home.title';
+const ROOT_ENTRY_TITLE = localizeRouteTitle('Home', ROOT_ENTRY_TITLE_KEY);
 const RESTRICTED_SESSION_ROUTE_NAME = AUTH_ROUTE_NAME.RESTRICTED_SESSION;
 const RESTRICTED_SESSION_PATH = AUTH_ROUTE_PATH.RESTRICTED_SESSION;
 
@@ -97,10 +100,33 @@ const defaultRouterList: Array<RouteRecordRaw> = [
   {
     path: '/',
     name: ROOT_ENTRY_ROUTE_NAME,
-    component: BLANK_LAYOUT,
+    component: () => import('@/layouts/index.vue'),
     meta: {
-      hidden: true,
+      hiddenBreadcrumb: true,
+      keepAlive: false,
+      pageKind: 'overview',
+      semanticTitle: ROOT_ENTRY_TITLE,
+      tabTitle: ROOT_ENTRY_TITLE,
+      title: ROOT_ENTRY_TITLE_KEY,
+      titleKey: ROOT_ENTRY_TITLE_KEY,
     },
+    children: [
+      {
+        path: '',
+        name: `${ROOT_ENTRY_ROUTE_NAME}Index`,
+        component: () => import('@/app/home/index.vue'),
+        meta: {
+          hidden: true,
+          hiddenBreadcrumb: true,
+          keepAlive: false,
+          pageKind: 'overview',
+          semanticTitle: ROOT_ENTRY_TITLE,
+          tabTitle: ROOT_ENTRY_TITLE,
+          title: ROOT_ENTRY_TITLE_KEY,
+          titleKey: ROOT_ENTRY_TITLE_KEY,
+        },
+      },
+    ],
   },
   PAGE_NOT_FOUND_ROUTE,
 ];

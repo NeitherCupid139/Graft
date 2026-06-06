@@ -46,7 +46,7 @@
                   <t-icon name="copy" />
                   {{ t('layout.tagTabs.duplicate') }}
                 </t-dropdown-item>
-                <t-dropdown-item @click="handleCopyPageLink">
+                <t-dropdown-item @click="() => handleCopyPageLink(routeItem)">
                   <t-icon name="link" />
                   {{ t('layout.tagTabs.copyLink') }}
                 </t-dropdown-item>
@@ -106,10 +106,21 @@
         </page-container>
       </div>
     </t-content>
+    <t-dialog
+      v-model:visible="closeAllDialogVisible"
+      :header="t('layout.tagTabs.closeAll')"
+      :body="t('layout.tagTabs.closeAllConfirm')"
+      :cancel-btn="t('layout.tagTabs.cancel')"
+      :confirm-btn="t('layout.tagTabs.closeAll')"
+      theme="warning"
+      @confirm="handleConfirmCloseAll"
+      @cancel="handleCancelCloseAll"
+      @close="handleCancelCloseAll"
+    />
   </t-layout>
 </template>
 <script setup lang="ts">
-import { DialogPlugin, MessagePlugin, type PopupVisibleChangeContext } from 'tdesign-vue-next';
+import { MessagePlugin, type PopupVisibleChangeContext } from 'tdesign-vue-next';
 import { computed, nextTick, ref } from 'vue';
 import type { LocationQueryRaw, RouteLocationRaw } from 'vue-router';
 import { useRoute, useRouter } from 'vue-router';
@@ -136,6 +147,7 @@ const settingStore = useSettingStore();
 const tabsRouterStore = useTabsRouterStore();
 const tabRouters = computed(() => tabsRouterStore.tabRouters.filter((route) => route.isAlive || route.isHome));
 const activeTabKeyForMenu = ref<string | null>('');
+const closeAllDialogVisible = ref(false);
 const activeTabKey = computed(() => tabsRouterStore.activeTabKey || route.path);
 const canReopenClosedTab = computed(() => tabsRouterStore.canReopenClosedTab);
 const hasClosableTabs = computed(() => tabRouters.value.some((route) => !route.isHome && !route.isPinned));
@@ -238,22 +250,21 @@ const handleCloseOther = (path: string, routeIdx: number) => {
 
 const handleCloseAll = () => {
   activeTabKeyForMenu.value = null;
-  DialogPlugin.confirm({
-    header: t('layout.tagTabs.closeAll'),
-    body: t('layout.tagTabs.closeAllConfirm'),
-    cancelBtn: t('layout.tagTabs.cancel'),
-    confirmBtn: t('layout.tagTabs.closeAll'),
-    theme: 'warning',
-    onConfirm: ({ e }) => {
-      tabsRouterStore.closeAllClosableTabs();
-      const nextRoute =
-        tabsRouterStore.tabRouters.find((item) => getTabKey(item) === activeTabKey.value) ??
-        tabsRouterStore.tabRouters[0];
-      navigateToTab(nextRoute);
-      activeTabKeyForMenu.value = null;
-      e?.stopPropagation();
-    },
-  });
+  closeAllDialogVisible.value = true;
+};
+
+const handleCancelCloseAll = () => {
+  closeAllDialogVisible.value = false;
+  activeTabKeyForMenu.value = null;
+};
+
+const handleConfirmCloseAll = () => {
+  closeAllDialogVisible.value = false;
+  tabsRouterStore.closeAllClosableTabs();
+  const nextRoute =
+    tabsRouterStore.tabRouters.find((item) => getTabKey(item) === activeTabKey.value) ?? tabsRouterStore.tabRouters[0];
+  navigateToTab(nextRoute);
+  activeTabKeyForMenu.value = null;
 };
 
 const handleTogglePinned = (route: TRouterInfo) => {
@@ -273,9 +284,14 @@ const handleDuplicateTab = (route: TRouterInfo) => {
   activeTabKeyForMenu.value = null;
 };
 
-const handleCopyPageLink = async () => {
+const resolveAbsolutePageUrl = (targetRoute: TRouterInfo) => {
+  const resolved = router.resolve(resolveRouteLocation(targetRoute));
+  return new URL(resolved.href, window.location.origin).href;
+};
+
+const handleCopyPageLink = async (targetRoute: TRouterInfo) => {
   try {
-    const copied = await copyText(router.currentRoute.value.fullPath);
+    const copied = await copyText(resolveAbsolutePageUrl(targetRoute));
     MessagePlugin[copied ? 'success' : 'error'](
       t(copied ? 'layout.tagTabs.copyLinkSuccess' : 'layout.tagTabs.copyLinkFail'),
     );
@@ -287,8 +303,7 @@ const handleCopyPageLink = async () => {
 };
 
 const handleOpenInNewWindow = (route: TRouterInfo) => {
-  const targetFullPath = route.fullPath || router.resolve(resolveRouteLocation(route)).fullPath;
-  window.open(`${window.location.origin}${targetFullPath}`, '_blank', 'noopener,noreferrer');
+  window.open(resolveAbsolutePageUrl(route), '_blank', 'noopener,noreferrer');
   activeTabKeyForMenu.value = null;
 };
 

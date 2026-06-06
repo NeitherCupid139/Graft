@@ -97,7 +97,7 @@ export function registerRouteGuards(targetRouter: Router = router) {
 
           if (to.name === PAGE_NOT_FOUND_ROUTE.name) {
             // 动态添加路由后，此处应当重定向到fullPath，否则会加载404页面内容
-            next({ path: to.fullPath, replace: true, query: to.query });
+            next({ path: to.path, replace: true, query: to.query, hash: to.hash });
             return;
           } else {
             const redirect = decodeURIComponent((from.query.redirect || to.path) as string);
@@ -106,14 +106,18 @@ export function registerRouteGuards(targetRouter: Router = router) {
           }
         }
 
-        const runtimeHomePath = resolveRuntimeHomePath(permissionStore.asyncRoutes);
         if (to.path === AUTH_ROUTE_PATH.LOGIN || isRootEntryPath(to.path)) {
           if (isRestrictedSession()) {
             redirectToRestrictedSession();
             return;
           }
 
-          next({ path: runtimeHomePath, replace: true });
+          if (to.path === AUTH_ROUTE_PATH.LOGIN) {
+            next({ path: resolveRuntimeHomePath(permissionStore.asyncRoutes), replace: true });
+            return;
+          }
+
+          next();
           return;
         }
 
@@ -162,14 +166,18 @@ export function registerRouteGuards(targetRouter: Router = router) {
           return;
         }
 
-        const runtimeHomePath = resolveRuntimeHomePath(permissionStore.asyncRoutes);
         if (to.path === AUTH_ROUTE_PATH.LOGIN || isRootEntryPath(to.path)) {
-          next({ path: runtimeHomePath, replace: true });
+          if (to.path === AUTH_ROUTE_PATH.LOGIN) {
+            next({ path: resolveRuntimeHomePath(permissionStore.asyncRoutes), replace: true });
+            return;
+          }
+
+          next();
           return;
         }
 
         if (to.name === PAGE_NOT_FOUND_ROUTE.name) {
-          next({ path: to.fullPath, replace: true, query: to.query });
+          next({ path: to.path, replace: true, query: to.query, hash: to.hash });
         } else {
           next({ ...to, replace: true });
         }

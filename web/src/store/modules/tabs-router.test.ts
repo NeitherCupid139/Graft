@@ -107,6 +107,28 @@ describe('useTabsRouterStore', () => {
     expect(tabsRouterStore.closedTabs.map((route) => route.path)).toEqual(['/audit/logs', '/access/logs']);
   });
 
+  it('resolves the preserved home tab after closing every unpinned business tab', () => {
+    const tabsRouterStore = useTabsRouterStore();
+
+    tabsRouterStore.appendTabRouterList({
+      tabKey: '/access-control/roles',
+      path: '/access-control/roles',
+      name: 'RoleListIndex',
+    });
+    tabsRouterStore.setActiveTabKey('/access-control/roles');
+
+    tabsRouterStore.closeAllClosableTabs();
+    const nextRoute =
+      tabsRouterStore.tabRouters.find((item) => item.tabKey === tabsRouterStore.activeTabKey) ??
+      tabsRouterStore.tabRouters[0];
+
+    expect(tabsRouterStore.tabRouters.map((route) => route.path)).toEqual(['/']);
+    expect(tabsRouterStore.resolveNavigationTarget(nextRoute)).toEqual({
+      path: '/',
+      query: undefined,
+    });
+  });
+
   it('keeps pinned tabs when closing other tabs', () => {
     const tabsRouterStore = useTabsRouterStore();
 
@@ -200,6 +222,27 @@ describe('useTabsRouterStore', () => {
     expect(duplicated?.query).toEqual({ scope: 'failed-auth' });
     expect(duplicated?.title?.[LOCALE.ZH_CN]).toBe('审计日志(2)');
     expect(tabsRouterStore.tabRouters).toHaveLength(3);
+  });
+
+  it('keeps duplicate tabs separately addressable even when they share one route path', () => {
+    const tabsRouterStore = useTabsRouterStore();
+
+    tabsRouterStore.appendTabRouterList({
+      tabKey: '/access-control/permissions',
+      path: '/access-control/permissions',
+      fullPath: '/access-control/permissions',
+      name: 'PermissionListIndex',
+    });
+
+    const duplicated = tabsRouterStore.duplicateTab('/access-control/permissions');
+
+    expect(
+      tabsRouterStore.tabRouters
+        .filter((route) => route.path === '/access-control/permissions')
+        .map((route) => route.tabKey),
+    ).toEqual(['/access-control/permissions', duplicated?.tabKey]);
+    expect(duplicated?.isDuplicate).toBe(true);
+    expect(duplicated?.duplicatedFrom).toBe('/access-control/permissions');
   });
 
   it('keeps a duplicated tab active when the route path matches the source tab', () => {
