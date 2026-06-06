@@ -986,6 +986,7 @@ async function refreshTasks() {
 }
 
 async function refreshRunSummaries(items: ScheduledTaskItem[]) {
+  // Summary runs are enrichment only; a per-task failure must not block the list.
   const entries = await Promise.all(
     items.map(async (task) => {
       try {
@@ -1136,6 +1137,7 @@ function buildTaskPayload(): CreateScheduledTaskRequest | UpdateScheduledTaskReq
   formFieldErrors.cronExpression = '';
 
   if (formMode.value === 'edit' && isSystemEdit.value) {
+    // Builtin tasks keep their module-owned identity; users may only tune schedule and enabled state.
     return {
       cron_expression: cronExpression,
       enabled: taskForm.enabled,
@@ -1511,6 +1513,7 @@ function localizedDisplayText(messageKey?: string, fallback?: string | null, pre
     return localized;
   }
 
+  // Custom tasks usually carry literal titles, while builtin jobs prefer translated message keys.
   return localizeDisplayValue(fallback) || localized;
 }
 

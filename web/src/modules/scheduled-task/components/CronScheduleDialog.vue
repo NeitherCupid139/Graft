@@ -129,7 +129,7 @@
             <template v-if="activeMode === 'advanced'">
               <t-form-item :label="t('scheduledTask.cronScheduleDialog.fields.rawExpression')">
                 <t-input
-                  v-model="rawExpression"
+                  v-model="draftExpression"
                   :disabled="disabled"
                   :status="validation.valid ? 'default' : 'error'"
                   :placeholder="t('scheduledTask.cronScheduleDialog.rawPlaceholder')"
@@ -220,12 +220,6 @@ const formState = reactive<FormState>({
   dayOfMonth: 1,
 });
 
-const rawExpression = computed({
-  get: () => draftExpression.value,
-  set: (value: string) => {
-    draftExpression.value = value;
-  },
-});
 const validation = computed(() => validateCronExpression(draftExpression.value));
 const showExecutionTimeFields = computed(() => ['daily', 'weekly', 'monthly'].includes(activeMode.value));
 const confirmButton = computed(() => ({
