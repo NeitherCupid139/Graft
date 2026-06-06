@@ -112,6 +112,8 @@
                 <div class="cron-schedule-dialog__time-fields">
                   <template v-for="field in executionTimeFields" :key="field.key">
                     <t-input-number
+                      class="cron-schedule-dialog__time-input"
+                      :data-testid="`cron-time-${field.key}-input`"
                       :value="formState[field.key]"
                       theme="normal"
                       :min="field.min"
@@ -120,7 +122,13 @@
                       @update:value="updateNumberField(field.key, $event)"
                       @change="updateNumberField(field.key, $event)"
                     />
-                    <span v-if="field.separator">{{ field.separator }}</span>
+                    <span
+                      v-if="field.separator"
+                      class="cron-schedule-dialog__time-separator"
+                      data-testid="cron-time-separator"
+                    >
+                      {{ field.separator }}
+                    </span>
                   </template>
                 </div>
               </t-form-item>
@@ -405,15 +413,29 @@ function clampInteger(value: number | string, min: number, max: number) {
 .cron-schedule-dialog__time-fields {
   align-items: center;
   display: grid;
-  gap: var(--graft-density-gap-8);
-  grid-template-columns: 120px auto 120px;
+  gap: var(--graft-density-gap-8) var(--graft-density-gap-10);
+  grid-template-columns: 120px minmax(16px, auto) 120px;
   width: fit-content;
 }
 
-.cron-schedule-dialog__time-fields span,
 .cron-schedule-dialog__inline-field span,
 .cron-schedule-dialog__quick-group > span {
   color: var(--td-text-color-secondary);
+}
+
+.cron-schedule-dialog__time-input,
+.cron-schedule-dialog__time-fields :deep(.t-input-number) {
+  min-width: 0;
+  width: 100%;
+}
+
+.cron-schedule-dialog__time-separator {
+  color: var(--td-text-color-secondary);
+  font: var(--td-font-body-medium);
+  line-height: var(--td-line-height-body-medium);
+  min-width: 16px;
+  text-align: center;
+  user-select: none;
 }
 
 .cron-schedule-dialog__inline-field {
