@@ -41,10 +41,10 @@ properties:
     type: string
   schedule:
     type: string
-    description: Cron expression.
+    description: Cron expression validated by the scheduler runtime.
   params_json:
     type: string
-    description: Parameter JSON passed to the Job Definition handler when this Scheduled Task runs.
+    description: JSON object string validated by the scheduler runtime before it is passed to the Job Definition handler.
   last_run:
     $ref: ./scheduled-task-last-run.yaml
     nullable: true

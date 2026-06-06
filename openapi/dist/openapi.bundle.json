@@ -5253,11 +5253,41 @@
               }
             }
           },
+          "400": {
+            "description": "Scheduled task request validation failed.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
           "401": {
             "$ref": "#/components/responses/unauthorized"
           },
           "403": {
             "$ref": "#/components/responses/forbidden"
+          },
+          "409": {
+            "description": "Scheduled task already exists.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
           },
           "500": {
             "$ref": "#/components/responses/internal-server-error"
@@ -5591,6 +5621,21 @@
               }
             }
           },
+          "400": {
+            "description": "Scheduled task cannot be enabled because its definition is invalid.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
           "401": {
             "$ref": "#/components/responses/unauthorized"
           },
@@ -5654,6 +5699,21 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/enveloped-scheduled-task-item"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Scheduled task cannot be disabled because of its current lifecycle constraints.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
                 }
               }
             }
@@ -5861,6 +5921,21 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/enveloped-scheduled-task-run-item"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Scheduled task cannot be run because its current definition is invalid or disabled.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
                 }
               }
             }
@@ -9718,13 +9793,12 @@
           "id",
           "trigger_type",
           "status",
-          "started_at",
-          "error_summary"
+          "started_at"
         ],
         "properties": {
           "id": {
             "type": "integer",
-            "format": "uint64",
+            "format": "int64",
             "minimum": 1
           },
           "trigger_type": {
@@ -9824,11 +9898,11 @@
           },
           "schedule": {
             "type": "string",
-            "description": "Cron expression."
+            "description": "Cron expression validated by the scheduler runtime."
           },
           "params_json": {
             "type": "string",
-            "description": "Parameter JSON passed to the Job Definition handler when this Scheduled Task runs."
+            "description": "JSON object string validated by the scheduler runtime before it is passed to the Job Definition handler."
           },
           "last_run": {
             "$ref": "#/components/schemas/scheduled-task-last-run",
@@ -9921,14 +9995,15 @@
           },
           "cron_expression": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "Cron expression validated by the scheduler runtime."
           },
           "enabled": {
             "type": "boolean"
           },
           "params_json": {
             "type": "string",
-            "description": "JSON parameters passed to the Job Definition handler when this Scheduled Task runs."
+            "description": "JSON object string validated by the scheduler runtime before it is passed to the Job Definition handler."
           }
         }
       },
@@ -9981,10 +10056,12 @@
             "type": "string"
           },
           "title": {
-            "type": "string"
+            "type": "string",
+            "description": "Direct display fallback when the client has no translation for display_name_key."
           },
           "description": {
-            "type": "string"
+            "type": "string",
+            "description": "Direct display fallback when the client has no translation for description_key."
           },
           "params_schema_json": {
             "type": "string",
@@ -9992,7 +10069,7 @@
           },
           "default_params_json": {
             "type": "string",
-            "description": "Default parameter JSON for a new Scheduled Task bound to this Job Definition."
+            "description": "Default JSON object string for a new Scheduled Task bound to this Job Definition."
           },
           "default_cron_expression": {
             "type": "string",
@@ -10060,7 +10137,7 @@
           },
           "params_json": {
             "type": "string",
-            "description": "JSON parameters passed to the Job Definition handler when this Scheduled Task runs."
+            "description": "JSON object string validated by the scheduler runtime before it is passed to the Job Definition handler."
           }
         }
       },
@@ -10075,14 +10152,13 @@
           "module",
           "trigger_type",
           "status",
-          "error_summary",
           "started_at",
           "created_at"
         ],
         "properties": {
           "id": {
             "type": "integer",
-            "format": "uint64",
+            "format": "int64",
             "minimum": 1
           },
           "task_key": {
@@ -10608,7 +10684,7 @@
         "description": "Scheduled task run id.",
         "schema": {
           "type": "integer",
-          "format": "uint64",
+          "format": "int64",
           "minimum": 1
         }
       }

@@ -430,7 +430,7 @@ func NewSQLRunRepository(db *sql.DB) (*SQLRunRepository, error) {
 // CreateRun inserts a running job execution record.
 func (r *SQLRunRepository) CreateRun(ctx context.Context, run TaskRun) (TaskRun, error) {
 	if err := r.ensureAvailable(); err != nil {
-		return TaskRun{}, errors.New("scheduler run repository is unavailable")
+		return TaskRun{}, err
 	}
 	if run.TaskKey == "" {
 		return TaskRun{}, errors.New("scheduler run task key is required")

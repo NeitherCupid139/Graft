@@ -8,13 +8,12 @@ required:
   - module
   - trigger_type
   - status
-  - error_summary
   - started_at
   - created_at
 properties:
   id:
     type: integer
-    format: uint64
+    format: int64
     minimum: 1
   task_key:
     type: string

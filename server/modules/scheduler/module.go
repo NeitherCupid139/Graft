@@ -40,17 +40,23 @@ func (p *Module) Register(ctx *module.Context) error {
 	if err := registerMessages(ctx.I18n); err != nil {
 		return err
 	}
-	registerSchedulerPermissions(ctx.PermissionRegistry, moduleID)
-	registerSchedulerMenu(ctx.MenuRegistry, moduleID)
-	if err := registerSchedulerRuntimeService(ctx, p); err != nil {
+	if err := registerSchedulerPermissions(ctx.PermissionRegistry, moduleID); err != nil {
+		return err
+	}
+	if err := registerSchedulerMenu(ctx.MenuRegistry, moduleID); err != nil {
+		return err
+	}
+	if err := registerSchedulerRuntimeService(ctx); err != nil {
 		return err
 	}
 	p.routeAuth = newDeferredAuthService()
 	p.routeAuthorizer = newDeferredAuthorizer()
-	return registerSchedulerRoutesWithSecurity(ctx, moduleID, p.routeAuth, p.routeAuthorizer)
+	return registerSchedulerRoutesWithRuntime(ctx, moduleID, p.routeAuth, p.routeAuthorizer, func() (schedulercore.Runtime, error) {
+		return p.resolveRuntime(ctx)
+	})
 }
 
-func registerSchedulerRuntimeService(ctx *module.Context, p *Module) error {
+func registerSchedulerRuntimeService(ctx *module.Context) error {
 	return ctx.Services.RegisterSingleton((*schedulercore.Runtime)(nil), func(resolver container.Resolver) (any, error) {
 		db, err := module.ResolveService[*sql.DB](resolver, (*sql.DB)(nil))
 		if err != nil {
@@ -70,9 +76,6 @@ func registerSchedulerRuntimeService(ctx *module.Context, p *Module) error {
 			return nil, err
 		}
 
-		if p.runtime != nil {
-			return p.runtime, nil
-		}
 		runtime := schedulercore.New(ctx.Logger, repo)
 		runtime.SetTaskRepository(taskRepo)
 		runtime.SetJobDefinitionRepository(jobDefinitionRepo)
@@ -124,21 +127,6 @@ func (p *Module) resolveRuntime(ctx *module.Context) (schedulercore.Runtime, err
 	return runtime, nil
 }
 
-func (p *Module) ensureRuntimeService(ctx *module.Context) error {
-	if p.runtime != nil {
-		return nil
-	}
-	if ctx == nil || ctx.Services == nil {
-		return fmt.Errorf("scheduler services are required")
-	}
-	_, err := ctx.Services.Resolve((*schedulercore.Runtime)(nil))
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // Boot 在所有模块 Register 完成后装配并启动最小调度器。
 func (p *Module) Boot(ctx *module.Context) error {
 	if ctx == nil || ctx.CronRegistry == nil {
@@ -147,10 +135,6 @@ func (p *Module) Boot(ctx *module.Context) error {
 
 	if err := p.bindRouteSecurityServices(ctx); err != nil {
 		return err
-	}
-
-	if err := p.ensureRuntimeService(ctx); err != nil {
-		return fmt.Errorf("resolve scheduler runtime: %w", err)
 	}
 
 	runtime, err := p.resolveRuntime(ctx)

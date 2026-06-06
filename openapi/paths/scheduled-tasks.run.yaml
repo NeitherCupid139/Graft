@@ -19,6 +19,15 @@ post:
         application/json:
           schema:
             $ref: ../components/schemas/enveloped-scheduled-task-run-item.yaml
+    '400':
+      description: Scheduled task cannot be run because its current definition is invalid or disabled.
+      headers:
+        X-Request-Id:
+          $ref: ../components/headers/request-id.yaml
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/error-response.yaml
     '401':
       $ref: ../components/responses/unauthorized.yaml
     '403':

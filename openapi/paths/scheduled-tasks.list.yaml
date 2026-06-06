@@ -50,9 +50,27 @@ post:
         application/json:
           schema:
             $ref: ../components/schemas/enveloped-scheduled-task-item.yaml
+    '400':
+      description: Scheduled task request validation failed.
+      headers:
+        X-Request-Id:
+          $ref: ../components/headers/request-id.yaml
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/error-response.yaml
     '401':
       $ref: ../components/responses/unauthorized.yaml
     '403':
       $ref: ../components/responses/forbidden.yaml
+    '409':
+      description: Scheduled task already exists.
+      headers:
+        X-Request-Id:
+          $ref: ../components/headers/request-id.yaml
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/error-response.yaml
     '500':
       $ref: ../components/responses/internal-server-error.yaml

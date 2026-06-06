@@ -22,8 +22,9 @@ properties:
   cron_expression:
     type: string
     minLength: 1
+    description: Cron expression validated by the scheduler runtime.
   enabled:
     type: boolean
   params_json:
     type: string
-    description: JSON parameters passed to the Job Definition handler when this Scheduled Task runs.
+    description: JSON object string validated by the scheduler runtime before it is passed to the Job Definition handler.

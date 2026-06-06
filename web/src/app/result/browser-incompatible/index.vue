@@ -12,17 +12,11 @@
         <div class="browser-recommendations__title">{{ t('app.result.browserIncompatible.recommend') }}</div>
         <div class="browser-recommendations__list">
           <div class="browser-recommendations__item">
-            <thumbnail-image
-              class="browser-recommendations__icon"
-              src="https://tdesign.gtimg.com/starter/result-page/chorme.png"
-            />
+            <thumbnail-image class="browser-recommendations__icon" :src="chromeIcon" />
             <span>{{ t('app.result.browserIncompatible.chrome') }}</span>
           </div>
           <div class="browser-recommendations__item">
-            <thumbnail-image
-              class="browser-recommendations__icon"
-              src="https://tdesign.gtimg.com/starter/result-page/qq-browser.png"
-            />
+            <thumbnail-image class="browser-recommendations__icon" :src="qqBrowserIcon" />
             <span>{{ t('app.result.browserIncompatible.qqBrowser') }}</span>
           </div>
         </div>
@@ -33,6 +27,8 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router';
 
+import chromeIcon from '@/assets/browser-chrome.svg';
+import qqBrowserIcon from '@/assets/browser-qq.svg';
 import { ROOT_ENTRY_PATH } from '@/contracts/app/routes';
 import { t } from '@/locales';
 import Result from '@/shared/components/ResultView.vue';

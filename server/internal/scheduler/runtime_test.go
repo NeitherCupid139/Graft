@@ -196,6 +196,23 @@ func TestRegisterJobRejectsDuplicateName(t *testing.T) {
 	}
 }
 
+// TestValidateDefinitionRejectsReservedRouteKeys 验证任务 key 不会占用静态 API 路由片段。
+func TestValidateDefinitionRejectsReservedRouteKeys(t *testing.T) {
+	for _, key := range []string{"jobs", "runs"} {
+		err := validateDefinition(TaskDefinition{
+			TaskKey:        key,
+			JobKey:         "scheduler.cleanup",
+			ModuleKey:      "scheduler",
+			Title:          "Cleanup",
+			CronExpression: "*/5 * * * * *",
+			ParamsJSON:     "{}",
+		})
+		if !errors.Is(err, ErrTaskValidation) {
+			t.Fatalf("expected reserved key %q to fail validation, got %v", key, err)
+		}
+	}
+}
+
 // TestListTasksReturnsRuntimeJobSnapshots 验证运行时快照会保留任务声明中的展示与 owner 元数据。
 func TestListTasksReturnsRuntimeJobSnapshots(t *testing.T) {
 	repo := newRunRepositoryRecorder()

@@ -71,6 +71,11 @@ var (
 	ErrTaskValidation = errors.New("scheduler task validation failed")
 )
 
+var reservedTaskKeys = map[string]struct{}{
+	"jobs": {},
+	"runs": {},
+}
+
 // JobDefinitionSnapshot describes one persisted, creatable scheduler job type.
 type JobDefinitionSnapshot struct {
 	ID             uint64
@@ -673,7 +678,13 @@ func (r *CronRuntime) runDefinition(ctx context.Context, definition TaskDefiniti
 		status = RunStatusFailed
 		errorMessage = runErr.Error()
 	}
-	finishedRun, finishErr := r.runs.FinishRun(ctx, run.ID, status, finishedAt, "", errorMessage)
+	finishCtx := ctx
+	if finishCtx != nil {
+		finishCtx = context.WithoutCancel(finishCtx)
+	} else {
+		finishCtx = context.Background()
+	}
+	finishedRun, finishErr := r.runs.FinishRun(finishCtx, run.ID, status, finishedAt, "", errorMessage)
 	if finishErr != nil {
 		return finishedRun, finishErr
 	}
@@ -823,6 +834,9 @@ func validateDefinition(definition TaskDefinition) error {
 		strings.TrimSpace(definition.CronExpression) == "" ||
 		strings.TrimSpace(definition.Title) == "" {
 		return ErrTaskValidation
+	}
+	if _, reserved := reservedTaskKeys[strings.TrimSpace(definition.TaskKey)]; reserved {
+		return fmt.Errorf("%w: reserved task key", ErrTaskValidation)
 	}
 	if err := validateCronExpression(definition.CronExpression); err != nil {
 		return err

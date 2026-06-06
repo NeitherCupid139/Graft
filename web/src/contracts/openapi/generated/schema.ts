@@ -2192,7 +2192,7 @@ export interface components {
       data: components['schemas']['module-runtime-item'];
     };
     'scheduled-task-last-run': {
-      /** Format: uint64 */
+      /** Format: int64 */
       id: number;
       /** @enum {string} */
       trigger_type: 'cron' | 'manual' | 'startup';
@@ -2204,7 +2204,7 @@ export interface components {
       finished_at?: string | null;
       /** Format: int64 */
       duration_ms?: number | null;
-      error_summary: string;
+      error_summary?: string;
       result_summary?: string;
     };
     'scheduled-task-item': {
@@ -2224,9 +2224,9 @@ export interface components {
       builtin?: boolean;
       title?: string;
       description?: string;
-      /** @description Cron expression. */
+      /** @description Cron expression validated by the scheduler runtime. */
       schedule: string;
-      /** @description Parameter JSON passed to the Job Definition handler when this Scheduled Task runs. */
+      /** @description JSON object string validated by the scheduler runtime before it is passed to the Job Definition handler. */
       params_json?: string;
       last_run?: components['schemas']['scheduled-task-last-run'];
       /**
@@ -2252,9 +2252,10 @@ export interface components {
       job_key: string;
       title: string;
       description?: string;
+      /** @description Cron expression validated by the scheduler runtime. */
       cron_expression: string;
       enabled: boolean;
-      /** @description JSON parameters passed to the Job Definition handler when this Scheduled Task runs. */
+      /** @description JSON object string validated by the scheduler runtime before it is passed to the Job Definition handler. */
       params_json?: string;
     };
     'enveloped-scheduled-task-item': components['schemas']['api-envelope'] & {
@@ -2267,11 +2268,13 @@ export interface components {
       module: string;
       display_name_key: string;
       description_key: string;
+      /** @description Direct display fallback when the client has no translation for display_name_key. */
       title?: string;
+      /** @description Direct display fallback when the client has no translation for description_key. */
       description?: string;
       /** @description JSON Schema string for Scheduled Task parameters accepted by this Job Definition. */
       params_schema_json: string;
-      /** @description Default parameter JSON for a new Scheduled Task bound to this Job Definition. */
+      /** @description Default JSON object string for a new Scheduled Task bound to this Job Definition. */
       default_params_json: string;
       /** @description Default cron expression declared by the Job Definition. */
       default_cron_expression: string;
@@ -2290,11 +2293,11 @@ export interface components {
       description?: string;
       cron_expression?: string;
       enabled?: boolean;
-      /** @description JSON parameters passed to the Job Definition handler when this Scheduled Task runs. */
+      /** @description JSON object string validated by the scheduler runtime before it is passed to the Job Definition handler. */
       params_json?: string;
     };
     'scheduled-task-run-item': {
-      /** Format: uint64 */
+      /** Format: int64 */
       id: number;
       task_key: string;
       job_key: string;
@@ -2305,7 +2308,7 @@ export interface components {
       trigger_type: 'cron' | 'manual' | 'startup';
       /** @enum {string} */
       status: 'running' | 'success' | 'failed';
-      error_summary: string;
+      error_summary?: string;
       result_summary?: string;
       /** Format: date-time */
       started_at: string;
@@ -4846,8 +4849,28 @@ export interface operations {
           'application/json': components['schemas']['enveloped-scheduled-task-item'];
         };
       };
+      /** @description Scheduled task request validation failed. */
+      400: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['error-response'];
+        };
+      };
       401: components['responses']['unauthorized'];
       403: components['responses']['forbidden'];
+      /** @description Scheduled task already exists. */
+      409: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['error-response'];
+        };
+      };
       500: components['responses']['internal-server-error'];
     };
   };
@@ -5072,6 +5095,16 @@ export interface operations {
           'application/json': components['schemas']['enveloped-scheduled-task-item'];
         };
       };
+      /** @description Scheduled task cannot be enabled because its definition is invalid. */
+      400: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['error-response'];
+        };
+      };
       401: components['responses']['unauthorized'];
       403: components['responses']['forbidden'];
       /** @description Scheduled task was not found. */
@@ -5115,6 +5148,16 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['enveloped-scheduled-task-item'];
+        };
+      };
+      /** @description Scheduled task cannot be disabled because of its current lifecycle constraints. */
+      400: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['error-response'];
         };
       };
       401: components['responses']['unauthorized'];
@@ -5255,6 +5298,16 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['enveloped-scheduled-task-run-item'];
+        };
+      };
+      /** @description Scheduled task cannot be run because its current definition is invalid or disabled. */
+      400: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['error-response'];
         };
       };
       401: components['responses']['unauthorized'];

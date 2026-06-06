@@ -80,15 +80,19 @@ func (a *deferredAuthorizer) Authorize(
 	request moduleapi.RequestAuthContext,
 	permission string,
 ) error {
-	a.mu.RLock()
-	target := a.target
-	a.mu.RUnlock()
-
+	target := a.currentTarget()
 	if target == nil {
 		return errors.New("authorizer is unavailable")
 	}
 
 	return target.Authorize(ctx, request, permission)
+}
+
+func (a *deferredAuthorizer) currentTarget() moduleapi.Authorizer {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+
+	return a.target
 }
 
 var _ moduleapi.Authorizer = (*deferredAuthorizer)(nil)

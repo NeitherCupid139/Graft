@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"math"
 	"strings"
 
 	generated "graft/server/internal/contract/openapi/generated"
@@ -85,13 +86,13 @@ func toScheduledTaskItem(task schedulercore.TaskSnapshot) generated.ScheduledTas
 
 func toScheduledTaskLastRun(run schedulercore.TaskRun) generated.ScheduledTaskLastRun {
 	return generated.ScheduledTaskLastRun{
-		Id:            run.ID,
+		Id:            scheduledTaskRunID(run.ID),
 		TriggerType:   generated.ScheduledTaskLastRunTriggerType(run.TriggerType),
 		Status:        generated.ScheduledTaskLastRunStatus(run.Status),
 		StartedAt:     run.StartedAt,
 		FinishedAt:    run.FinishedAt,
 		DurationMs:    run.DurationMS,
-		ErrorSummary:  strings.TrimSpace(run.Error),
+		ErrorSummary:  stringPointer(run.Error),
 		ResultSummary: stringPointer(run.Result),
 	}
 }
@@ -116,7 +117,7 @@ func toScheduledTaskRunListResponse(
 
 func toScheduledTaskRunItem(run schedulercore.TaskRun) generated.ScheduledTaskRunItem {
 	return generated.ScheduledTaskRunItem{
-		Id:            run.ID,
+		Id:            scheduledTaskRunID(run.ID),
 		TaskKey:       strings.TrimSpace(run.TaskKey),
 		TaskName:      strings.TrimSpace(run.TaskName),
 		Owner:         strings.TrimSpace(run.Owner),
@@ -124,13 +125,20 @@ func toScheduledTaskRunItem(run schedulercore.TaskRun) generated.ScheduledTaskRu
 		JobKey:        strings.TrimSpace(run.JobKey),
 		TriggerType:   generated.ScheduledTaskRunItemTriggerType(run.TriggerType),
 		Status:        generated.ScheduledTaskRunItemStatus(run.Status),
-		ErrorSummary:  strings.TrimSpace(run.Error),
+		ErrorSummary:  stringPointer(run.Error),
 		ResultSummary: stringPointer(run.Result),
 		StartedAt:     run.StartedAt,
 		FinishedAt:    run.FinishedAt,
 		DurationMs:    run.DurationMS,
 		CreatedAt:     run.CreatedAt,
 	}
+}
+
+func scheduledTaskRunID(id uint64) int64 {
+	if id > math.MaxInt64 {
+		return math.MaxInt64
+	}
+	return int64(id)
 }
 
 func boolPointer(value bool) *bool {

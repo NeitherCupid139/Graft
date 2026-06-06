@@ -11,7 +11,9 @@ describe('router static runtime surface', () => {
 
     expect(registeredPaths).not.toContain('/dashboard');
     expect(registeredPaths).not.toContain('/result');
+    expect(registeredPaths).toContain(APP_RESULT_ROUTE_PATH.FORBIDDEN);
     expect(registeredPaths).toContain(APP_RESULT_ROUTE_PATH.NOT_FOUND);
+    expect(registeredPaths).toContain(APP_RESULT_ROUTE_PATH.SERVER_ERROR);
     expect(registeredPaths).toContain(APP_RESULT_ROUTE_PATH.SUCCESS);
     expect(registeredPaths).toContain(APP_RESULT_ROUTE_PATH.FAIL);
     expect(registeredPaths).toContain(APP_RESULT_ROUTE_PATH.NETWORK_ERROR);

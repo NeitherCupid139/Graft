@@ -362,6 +362,9 @@ func registerAndBootSchedulerModule(t *testing.T, ctx *module.Context, moduleIns
 	if err := moduleInstance.Boot(ctx); err != nil {
 		t.Fatalf("boot module: %v", err)
 	}
+	t.Cleanup(func() {
+		_ = moduleInstance.Shutdown(ctx)
+	})
 }
 
 func performSchedulerRequest(engine *gin.Engine, method string, path string, body string) *httptest.ResponseRecorder {
@@ -419,6 +422,9 @@ func TestScheduledTaskListRouteReturnsRuntimeTasks(t *testing.T) {
 	if err := moduleInstance.Boot(ctx); err != nil {
 		t.Fatalf("boot module: %v", err)
 	}
+	t.Cleanup(func() {
+		_ = moduleInstance.Shutdown(ctx)
+	})
 
 	request := httptest.NewRequest(http.MethodGet, "/api/scheduled-tasks", nil)
 	request.Header.Set("Authorization", "Bearer token")
@@ -551,9 +557,6 @@ func TestScheduledTaskUpdateSystemTaskAllowsCronAndEnabledOnly(t *testing.T) {
 	})
 	moduleInstance := NewModule()
 	registerAndBootSchedulerModule(t, ctx, moduleInstance)
-	defer func() {
-		_ = moduleInstance.Shutdown(ctx)
-	}()
 
 	recorder := performSchedulerRequest(engine, http.MethodPut, "/api/scheduled-tasks/builtin-cleanup", `{
 		"cron_expression": "*/10 * * * * *",

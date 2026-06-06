@@ -1924,6 +1924,7 @@ type CreateRoleRequest struct {
 
 // CreateScheduledTaskRequest defines model for create-scheduled-task-request.
 type CreateScheduledTaskRequest struct {
+	// CronExpression Cron expression validated by the scheduler runtime.
 	CronExpression string  `json:"cron_expression"`
 	Description    *string `json:"description,omitempty"`
 	Enabled        bool    `json:"enabled"`
@@ -1931,7 +1932,7 @@ type CreateScheduledTaskRequest struct {
 	// JobKey Stable Job Definition key this Scheduled Task executes.
 	JobKey string `json:"job_key"`
 
-	// ParamsJson JSON parameters passed to the Job Definition handler when this Scheduled Task runs.
+	// ParamsJson JSON object string validated by the scheduler runtime before it is passed to the Job Definition handler.
 	ParamsJson *string `json:"params_json,omitempty"`
 
 	// TaskKey Stable scheduled task instance key.
@@ -2781,11 +2782,11 @@ type ScheduledTaskItem struct {
 	NextRunAt *time.Time `json:"next_run_at,omitempty"`
 	Owner     string     `json:"owner"`
 
-	// ParamsJson Parameter JSON passed to the Job Definition handler when this Scheduled Task runs.
+	// ParamsJson JSON object string validated by the scheduler runtime before it is passed to the Job Definition handler.
 	ParamsJson *string `json:"params_json,omitempty"`
 	Running    bool    `json:"running"`
 
-	// Schedule Cron expression.
+	// Schedule Cron expression validated by the scheduler runtime.
 	Schedule     string                        `json:"schedule"`
 	ScheduleType ScheduledTaskItemScheduleType `json:"schedule_type"`
 	Status       ScheduledTaskItemStatus       `json:"status"`
@@ -2806,11 +2807,13 @@ type ScheduledTaskJobDefinitionItem struct {
 	// DefaultEnabled Whether new Scheduled Tasks for this Job Definition should be enabled by default.
 	DefaultEnabled bool `json:"default_enabled"`
 
-	// DefaultParamsJson Default parameter JSON for a new Scheduled Task bound to this Job Definition.
-	DefaultParamsJson string  `json:"default_params_json"`
-	Description       *string `json:"description,omitempty"`
-	DescriptionKey    string  `json:"description_key"`
-	DisplayNameKey    string  `json:"display_name_key"`
+	// DefaultParamsJson Default JSON object string for a new Scheduled Task bound to this Job Definition.
+	DefaultParamsJson string `json:"default_params_json"`
+
+	// Description Direct display fallback when the client has no translation for description_key.
+	Description    *string `json:"description,omitempty"`
+	DescriptionKey string  `json:"description_key"`
+	DisplayNameKey string  `json:"display_name_key"`
 
 	// Key Stable Job Definition key registered by a module.
 	Key    string `json:"key"`
@@ -2818,8 +2821,10 @@ type ScheduledTaskJobDefinitionItem struct {
 	Owner  string `json:"owner"`
 
 	// ParamsSchemaJson JSON Schema string for Scheduled Task parameters accepted by this Job Definition.
-	ParamsSchemaJson string  `json:"params_schema_json"`
-	Title            *string `json:"title,omitempty"`
+	ParamsSchemaJson string `json:"params_schema_json"`
+
+	// Title Direct display fallback when the client has no translation for display_name_key.
+	Title *string `json:"title,omitempty"`
 }
 
 // ScheduledTaskJobDefinitionListResponse defines model for scheduled-task-job-definition-list-response.
@@ -2831,9 +2836,9 @@ type ScheduledTaskJobDefinitionListResponse struct {
 // ScheduledTaskLastRun defines model for scheduled-task-last-run.
 type ScheduledTaskLastRun struct {
 	DurationMs    *int64                          `json:"duration_ms,omitempty"`
-	ErrorSummary  string                          `json:"error_summary"`
+	ErrorSummary  *string                         `json:"error_summary,omitempty"`
 	FinishedAt    *time.Time                      `json:"finished_at,omitempty"`
-	Id            uint64                          `json:"id"`
+	Id            int64                           `json:"id"`
 	ResultSummary *string                         `json:"result_summary,omitempty"`
 	StartedAt     time.Time                       `json:"started_at"`
 	Status        ScheduledTaskLastRunStatus      `json:"status"`
@@ -2856,9 +2861,9 @@ type ScheduledTaskListResponse struct {
 type ScheduledTaskRunItem struct {
 	CreatedAt     time.Time                       `json:"created_at"`
 	DurationMs    *int64                          `json:"duration_ms,omitempty"`
-	ErrorSummary  string                          `json:"error_summary"`
+	ErrorSummary  *string                         `json:"error_summary,omitempty"`
 	FinishedAt    *time.Time                      `json:"finished_at,omitempty"`
-	Id            uint64                          `json:"id"`
+	Id            int64                           `json:"id"`
 	JobKey        string                          `json:"job_key"`
 	Module        string                          `json:"module"`
 	Owner         string                          `json:"owner"`
@@ -3059,7 +3064,7 @@ type UpdateScheduledTaskRequest struct {
 	Description    *string `json:"description,omitempty"`
 	Enabled        *bool   `json:"enabled,omitempty"`
 
-	// ParamsJson JSON parameters passed to the Job Definition handler when this Scheduled Task runs.
+	// ParamsJson JSON object string validated by the scheduler runtime before it is passed to the Job Definition handler.
 	ParamsJson *string `json:"params_json,omitempty"`
 	Title      *string `json:"title,omitempty"`
 }
@@ -3118,7 +3123,7 @@ type RequestIdHeader = string
 type ScheduledTaskKey = string
 
 // ScheduledTaskRunId defines model for scheduled-task-run-id.
-type ScheduledTaskRunId = uint64
+type ScheduledTaskRunId = int64
 
 // ScheduledTaskRunListLimit defines model for scheduled-task-run-list-limit.
 type ScheduledTaskRunListLimit = int

@@ -220,6 +220,21 @@ func (e PostScheduledTask200JSONResponseBodyDataStatus) Valid() bool {
 	}
 }
 
+// Defines values for PostScheduledTask400JSONResponseBodySuccess.
+const (
+	PostScheduledTask400JSONResponseBodySuccessFalse PostScheduledTask400JSONResponseBodySuccess = false
+)
+
+// Valid indicates whether the value is a known member of the PostScheduledTask400JSONResponseBodySuccess enum.
+func (e PostScheduledTask400JSONResponseBodySuccess) Valid() bool {
+	switch e {
+	case PostScheduledTask400JSONResponseBodySuccessFalse:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PostScheduledTask401JSONResponseBodySuccess.
 const (
 	PostScheduledTask401JSONResponseBodySuccessFalse PostScheduledTask401JSONResponseBodySuccess = false
@@ -244,6 +259,21 @@ const (
 func (e PostScheduledTask403JSONResponseBodySuccess) Valid() bool {
 	switch e {
 	case PostScheduledTask403JSONResponseBodySuccessFalse:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PostScheduledTask409JSONResponseBodySuccess.
+const (
+	PostScheduledTask409JSONResponseBodySuccessFalse PostScheduledTask409JSONResponseBodySuccess = false
+)
+
+// Valid indicates whether the value is a known member of the PostScheduledTask409JSONResponseBodySuccess enum.
+func (e PostScheduledTask409JSONResponseBodySuccess) Valid() bool {
+	switch e {
+	case PostScheduledTask409JSONResponseBodySuccessFalse:
 		return true
 	default:
 		return false
@@ -874,6 +904,21 @@ func (e PostScheduledTaskDisable200JSONResponseBodyDataStatus) Valid() bool {
 	}
 }
 
+// Defines values for PostScheduledTaskDisable400JSONResponseBodySuccess.
+const (
+	PostScheduledTaskDisable400JSONResponseBodySuccessFalse PostScheduledTaskDisable400JSONResponseBodySuccess = false
+)
+
+// Valid indicates whether the value is a known member of the PostScheduledTaskDisable400JSONResponseBodySuccess enum.
+func (e PostScheduledTaskDisable400JSONResponseBodySuccess) Valid() bool {
+	switch e {
+	case PostScheduledTaskDisable400JSONResponseBodySuccessFalse:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PostScheduledTaskDisable401JSONResponseBodySuccess.
 const (
 	PostScheduledTaskDisable401JSONResponseBodySuccessFalse PostScheduledTaskDisable401JSONResponseBodySuccess = false
@@ -1018,6 +1063,21 @@ func (e PostScheduledTaskEnable200JSONResponseBodyDataStatus) Valid() bool {
 	}
 }
 
+// Defines values for PostScheduledTaskEnable400JSONResponseBodySuccess.
+const (
+	PostScheduledTaskEnable400JSONResponseBodySuccessFalse PostScheduledTaskEnable400JSONResponseBodySuccess = false
+)
+
+// Valid indicates whether the value is a known member of the PostScheduledTaskEnable400JSONResponseBodySuccess enum.
+func (e PostScheduledTaskEnable400JSONResponseBodySuccess) Valid() bool {
+	switch e {
+	case PostScheduledTaskEnable400JSONResponseBodySuccessFalse:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PostScheduledTaskEnable401JSONResponseBodySuccess.
 const (
 	PostScheduledTaskEnable401JSONResponseBodySuccessFalse PostScheduledTaskEnable401JSONResponseBodySuccess = false
@@ -1114,6 +1174,21 @@ func (e PostScheduledTaskRun200JSONResponseBodyDataTriggerType) Valid() bool {
 	case PostScheduledTaskRun200JSONResponseBodyDataTriggerTypeManual:
 		return true
 	case PostScheduledTaskRun200JSONResponseBodyDataTriggerTypeStartup:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PostScheduledTaskRun400JSONResponseBodySuccess.
+const (
+	PostScheduledTaskRun400JSONResponseBodySuccessFalse PostScheduledTaskRun400JSONResponseBodySuccess = false
+)
+
+// Valid indicates whether the value is a known member of the PostScheduledTaskRun400JSONResponseBodySuccess enum.
+func (e PostScheduledTaskRun400JSONResponseBodySuccess) Valid() bool {
+	switch e {
+	case PostScheduledTaskRun400JSONResponseBodySuccessFalse:
 		return true
 	default:
 		return false
@@ -1284,13 +1359,13 @@ func (e GetScheduledTaskRuns404JSONResponseBodySuccess) Valid() bool {
 
 // Defines values for GetScheduledTaskRuns500JSONResponseBodySuccess.
 const (
-	GetScheduledTaskRuns500JSONResponseBodySuccessFalse GetScheduledTaskRuns500JSONResponseBodySuccess = false
+	False GetScheduledTaskRuns500JSONResponseBodySuccess = false
 )
 
 // Valid indicates whether the value is a known member of the GetScheduledTaskRuns500JSONResponseBodySuccess enum.
 func (e GetScheduledTaskRuns500JSONResponseBodySuccess) Valid() bool {
 	switch e {
-	case GetScheduledTaskRuns500JSONResponseBodySuccessFalse:
+	case False:
 		return true
 	default:
 		return false
@@ -1336,6 +1411,7 @@ type GetScheduledTasks500JSONResponseBodySuccess bool
 
 // PostScheduledTaskJSONBody defines parameters for PostScheduledTask.
 type PostScheduledTaskJSONBody struct {
+	// CronExpression Cron expression validated by the scheduler runtime.
 	CronExpression string  `json:"cron_expression"`
 	Description    *string `json:"description,omitempty"`
 	Enabled        bool    `json:"enabled"`
@@ -1343,7 +1419,7 @@ type PostScheduledTaskJSONBody struct {
 	// JobKey Stable Job Definition key this Scheduled Task executes.
 	JobKey string `json:"job_key"`
 
-	// ParamsJson JSON parameters passed to the Job Definition handler when this Scheduled Task runs.
+	// ParamsJson JSON object string validated by the scheduler runtime before it is passed to the Job Definition handler.
 	ParamsJson *string `json:"params_json,omitempty"`
 
 	// TaskKey Stable scheduled task instance key.
@@ -1373,11 +1449,17 @@ type PostScheduledTask200JSONResponseBodyDataScheduleType string
 // PostScheduledTask200JSONResponseBodyDataStatus defines parameters for PostScheduledTask.
 type PostScheduledTask200JSONResponseBodyDataStatus string
 
+// PostScheduledTask400JSONResponseBodySuccess defines parameters for PostScheduledTask.
+type PostScheduledTask400JSONResponseBodySuccess bool
+
 // PostScheduledTask401JSONResponseBodySuccess defines parameters for PostScheduledTask.
 type PostScheduledTask401JSONResponseBodySuccess bool
 
 // PostScheduledTask403JSONResponseBodySuccess defines parameters for PostScheduledTask.
 type PostScheduledTask403JSONResponseBodySuccess bool
+
+// PostScheduledTask409JSONResponseBodySuccess defines parameters for PostScheduledTask.
+type PostScheduledTask409JSONResponseBodySuccess bool
 
 // PostScheduledTask500JSONResponseBodySuccess defines parameters for PostScheduledTask.
 type PostScheduledTask500JSONResponseBodySuccess bool
@@ -1494,7 +1576,7 @@ type PutScheduledTaskJSONBody struct {
 	Description    *string `json:"description,omitempty"`
 	Enabled        *bool   `json:"enabled,omitempty"`
 
-	// ParamsJson JSON parameters passed to the Job Definition handler when this Scheduled Task runs.
+	// ParamsJson JSON object string validated by the scheduler runtime before it is passed to the Job Definition handler.
 	ParamsJson *string `json:"params_json,omitempty"`
 	Title      *string `json:"title,omitempty"`
 }
@@ -1558,6 +1640,9 @@ type PostScheduledTaskDisable200JSONResponseBodyDataScheduleType string
 // PostScheduledTaskDisable200JSONResponseBodyDataStatus defines parameters for PostScheduledTaskDisable.
 type PostScheduledTaskDisable200JSONResponseBodyDataStatus string
 
+// PostScheduledTaskDisable400JSONResponseBodySuccess defines parameters for PostScheduledTaskDisable.
+type PostScheduledTaskDisable400JSONResponseBodySuccess bool
+
 // PostScheduledTaskDisable401JSONResponseBodySuccess defines parameters for PostScheduledTaskDisable.
 type PostScheduledTaskDisable401JSONResponseBodySuccess bool
 
@@ -1592,6 +1677,9 @@ type PostScheduledTaskEnable200JSONResponseBodyDataScheduleType string
 // PostScheduledTaskEnable200JSONResponseBodyDataStatus defines parameters for PostScheduledTaskEnable.
 type PostScheduledTaskEnable200JSONResponseBodyDataStatus string
 
+// PostScheduledTaskEnable400JSONResponseBodySuccess defines parameters for PostScheduledTaskEnable.
+type PostScheduledTaskEnable400JSONResponseBodySuccess bool
+
 // PostScheduledTaskEnable401JSONResponseBodySuccess defines parameters for PostScheduledTaskEnable.
 type PostScheduledTaskEnable401JSONResponseBodySuccess bool
 
@@ -1619,6 +1707,9 @@ type PostScheduledTaskRun200JSONResponseBodyDataStatus string
 
 // PostScheduledTaskRun200JSONResponseBodyDataTriggerType defines parameters for PostScheduledTaskRun.
 type PostScheduledTaskRun200JSONResponseBodyDataTriggerType string
+
+// PostScheduledTaskRun400JSONResponseBodySuccess defines parameters for PostScheduledTaskRun.
+type PostScheduledTaskRun400JSONResponseBodySuccess bool
 
 // PostScheduledTaskRun401JSONResponseBodySuccess defines parameters for PostScheduledTaskRun.
 type PostScheduledTaskRun401JSONResponseBodySuccess bool

@@ -27,19 +27,17 @@ const (
 type schedulerRouteRuntime struct {
 	ctx        *module.Context
 	moduleName string
-	runtime    schedulercore.Runtime
+	runtime    func() (schedulercore.Runtime, error)
 }
 
-func registerSchedulerRoutesWithSecurity(
+func registerSchedulerRoutesWithRuntime(
 	ctx *module.Context,
 	moduleName string,
 	authService moduleapi.AuthService,
 	authorizer moduleapi.Authorizer,
+	runtime func() (schedulercore.Runtime, error),
 ) error {
-	runtime, err := resolveSchedulerRuntime(ctx)
-	if err != nil {
-		return err
-	}
+	var err error
 	if authService == nil {
 		authService, err = resolveAuthService(ctx)
 		if err != nil {
@@ -120,22 +118,14 @@ func registerSchedulerRoutesWithSecurity(
 	return nil
 }
 
-func resolveSchedulerRuntime(ctx *module.Context) (schedulercore.Runtime, error) {
-	resolved, err := ctx.Services.Resolve((*schedulercore.Runtime)(nil))
-	if err != nil {
-		return nil, err
-	}
-	runtime, ok := resolved.(schedulercore.Runtime)
-	if !ok || runtime == nil {
-		return nil, errors.New("scheduler runtime service has unexpected type")
-	}
-	return runtime, nil
-}
-
 func (r schedulerRouteRuntime) handleListTasks(ginCtx *gin.Context) {
 	schedulerGeneratedHandler{}.GetScheduledTasks(bindGeneratedTaskHeaders(ginCtx))
 
-	tasks, err := r.runtime.ListTasks(ginCtx.Request.Context())
+	runtime, ok := r.resolveRuntime(ginCtx)
+	if !ok {
+		return
+	}
+	tasks, err := runtime.ListTasks(ginCtx.Request.Context())
 	if err != nil {
 		r.writeRouteError(ginCtx, "list scheduled tasks failed", err)
 		return
@@ -147,7 +137,11 @@ func (r schedulerRouteRuntime) handleListTasks(ginCtx *gin.Context) {
 func (r schedulerRouteRuntime) handleListJobDefinitions(ginCtx *gin.Context) {
 	schedulerGeneratedHandler{}.GetScheduledTaskJobs(bindGeneratedTaskJobsHeaders(ginCtx))
 
-	definitions, err := r.runtime.ListJobDefinitions(ginCtx.Request.Context())
+	runtime, ok := r.resolveRuntime(ginCtx)
+	if !ok {
+		return
+	}
+	definitions, err := runtime.ListJobDefinitions(ginCtx.Request.Context())
 	if err != nil {
 		r.writeRouteError(ginCtx, "list scheduled task job definitions failed", err)
 		return
@@ -163,7 +157,11 @@ func (r schedulerRouteRuntime) handleGetTask(ginCtx *gin.Context) {
 	}
 	schedulerGeneratedHandler{}.GetScheduledTask(key, bindGeneratedTaskDetailHeaders(ginCtx))
 
-	task, err := r.runtime.GetTask(ginCtx.Request.Context(), key)
+	runtime, ok := r.resolveRuntime(ginCtx)
+	if !ok {
+		return
+	}
+	task, err := runtime.GetTask(ginCtx.Request.Context(), key)
 	if err != nil {
 		r.writeRouteError(ginCtx, "read scheduled task failed", err, zap.String("taskKey", key))
 		return
@@ -188,7 +186,11 @@ func (r schedulerRouteRuntime) handleCreateTask(ginCtx *gin.Context) {
 		return
 	}
 
-	task, err := r.runtime.CreateTask(ginCtx.Request.Context(), command)
+	runtime, ok := r.resolveRuntime(ginCtx)
+	if !ok {
+		return
+	}
+	task, err := runtime.CreateTask(ginCtx.Request.Context(), command)
 	if err != nil {
 		r.writeRouteError(ginCtx, "create scheduled task failed", err, zap.String("taskKey", command.TaskKey))
 		return
@@ -216,7 +218,11 @@ func (r schedulerRouteRuntime) handleUpdateTask(ginCtx *gin.Context) {
 		})
 		return
 	}
-	task, err := r.runtime.UpdateTask(ginCtx.Request.Context(), key, command)
+	runtime, ok := r.resolveRuntime(ginCtx)
+	if !ok {
+		return
+	}
+	task, err := runtime.UpdateTask(ginCtx.Request.Context(), key, command)
 	if err != nil {
 		r.writeRouteError(ginCtx, "update scheduled task failed", err, zap.String("taskKey", key))
 		return
@@ -232,7 +238,11 @@ func (r schedulerRouteRuntime) handleDeleteTask(ginCtx *gin.Context) {
 	}
 	schedulerGeneratedHandler{}.DeleteScheduledTask(key, bindGeneratedTaskDeleteHeaders(ginCtx))
 
-	if err := r.runtime.DeleteTask(ginCtx.Request.Context(), key); err != nil {
+	runtime, ok := r.resolveRuntime(ginCtx)
+	if !ok {
+		return
+	}
+	if err := runtime.DeleteTask(ginCtx.Request.Context(), key); err != nil {
 		r.writeRouteError(ginCtx, "delete scheduled task failed", err, zap.String("taskKey", key))
 		return
 	}
@@ -259,7 +269,11 @@ func (r schedulerRouteRuntime) handleSetTaskEnabled(ginCtx *gin.Context, enabled
 		schedulerGeneratedHandler{}.PostScheduledTaskDisable(key, bindGeneratedTaskDisableHeaders(ginCtx))
 	}
 
-	task, err := r.runtime.SetTaskEnabled(ginCtx.Request.Context(), key, enabled)
+	runtime, ok := r.resolveRuntime(ginCtx)
+	if !ok {
+		return
+	}
+	task, err := runtime.SetTaskEnabled(ginCtx.Request.Context(), key, enabled)
 	if err != nil {
 		r.writeRouteError(ginCtx, "set scheduled task enabled failed", err, zap.String("taskKey", key), zap.Bool("enabled", enabled))
 		return
@@ -280,7 +294,11 @@ func (r schedulerRouteRuntime) handleListRuns(ginCtx *gin.Context) {
 	schedulerGeneratedHandler{}.GetScheduledTaskRuns(key, params)
 
 	limit, offset := normalizedRunListWindow(params)
-	result, err := r.runtime.ListRuns(ginCtx.Request.Context(), schedulercore.RunListQuery{
+	runtime, ok := r.resolveRuntime(ginCtx)
+	if !ok {
+		return
+	}
+	result, err := runtime.ListRuns(ginCtx.Request.Context(), schedulercore.RunListQuery{
 		TaskKey: key,
 		Limit:   limit,
 		Offset:  offset,
@@ -300,7 +318,11 @@ func (r schedulerRouteRuntime) handleGetRun(ginCtx *gin.Context) {
 	}
 	schedulerGeneratedHandler{}.GetScheduledTaskRun(runID, bindGeneratedTaskRunDetailHeaders(ginCtx))
 
-	run, err := r.runtime.GetRun(ginCtx.Request.Context(), runID)
+	runtime, ok := r.resolveRuntime(ginCtx)
+	if !ok {
+		return
+	}
+	run, err := runtime.GetRun(ginCtx.Request.Context(), runID)
 	if err != nil {
 		r.writeRouteError(ginCtx, "read scheduled task run failed", err, zap.Uint64("runID", runID))
 		return
@@ -316,13 +338,30 @@ func (r schedulerRouteRuntime) handleRunOnce(ginCtx *gin.Context) {
 	}
 	schedulerGeneratedHandler{}.PostScheduledTaskRun(key, bindGeneratedTaskRunHeaders(ginCtx))
 
-	run, err := r.runtime.RunOnce(ginCtx.Request.Context(), key)
+	runtime, ok := r.resolveRuntime(ginCtx)
+	if !ok {
+		return
+	}
+	run, err := runtime.RunOnce(ginCtx.Request.Context(), key)
 	if err != nil {
 		r.writeRouteError(ginCtx, "run scheduled task once failed", err, zap.String("taskKey", key))
 		return
 	}
 
 	httpx.WriteSuccess(ginCtx, http.StatusOK, toScheduledTaskRunItem(run))
+}
+
+func (r schedulerRouteRuntime) resolveRuntime(ginCtx *gin.Context) (schedulercore.Runtime, bool) {
+	if r.runtime == nil {
+		r.writeRouteError(ginCtx, "resolve scheduler runtime failed", errors.New("scheduler runtime resolver is unavailable"))
+		return nil, false
+	}
+	runtime, err := r.runtime()
+	if err != nil {
+		r.writeRouteError(ginCtx, "resolve scheduler runtime failed", err)
+		return nil, false
+	}
+	return runtime, true
 }
 
 func (r schedulerRouteRuntime) writeRouteError(ginCtx *gin.Context, message string, err error, fields ...zap.Field) {
@@ -539,6 +578,7 @@ func trimOptionalString(value *string) string {
 	return strings.TrimSpace(*value)
 }
 
+// schedulerGeneratedHandler 只在手写路由中引用生成类型，确保 OpenAPI 绑定在编译期持续校验。
 type schedulerGeneratedHandler struct{}
 
 func (schedulerGeneratedHandler) GetScheduledTasks(params scheduleropenapi.GetScheduledTasksParams) {

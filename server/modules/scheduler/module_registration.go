@@ -47,9 +47,9 @@ func registerMessages(localizer *i18n.Service) error {
 	return nil
 }
 
-func registerSchedulerPermissions(registry *permission.Registry, moduleName string) {
+func registerSchedulerPermissions(registry *permission.Registry, moduleName string) error {
 	if registry == nil {
-		return
+		return errors.New("permission registry is unavailable")
 	}
 
 	registry.Register(permission.Item{
@@ -94,11 +94,12 @@ func registerSchedulerPermissions(registry *permission.Registry, moduleName stri
 		Category:    "api",
 		Module:      moduleName,
 	})
+	return nil
 }
 
-func registerSchedulerMenu(registry *menu.Registry, moduleName string) {
+func registerSchedulerMenu(registry *menu.Registry, moduleName string) error {
 	if registry == nil {
-		return
+		return errors.New("menu registry is unavailable")
 	}
 
 	registry.Register(menu.Item{
@@ -111,4 +112,5 @@ func registerSchedulerMenu(registry *menu.Registry, moduleName string) {
 		Permission: schedulercontract.ScheduledTaskReadPermission.String(),
 		Module:     moduleName,
 	})
+	return nil
 }

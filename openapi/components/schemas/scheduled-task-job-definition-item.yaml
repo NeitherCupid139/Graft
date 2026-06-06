@@ -23,14 +23,16 @@ properties:
     type: string
   title:
     type: string
+    description: Direct display fallback when the client has no translation for display_name_key.
   description:
     type: string
+    description: Direct display fallback when the client has no translation for description_key.
   params_schema_json:
     type: string
     description: JSON Schema string for Scheduled Task parameters accepted by this Job Definition.
   default_params_json:
     type: string
-    description: Default parameter JSON for a new Scheduled Task bound to this Job Definition.
+    description: Default JSON object string for a new Scheduled Task bound to this Job Definition.
   default_cron_expression:
     type: string
     description: Default cron expression declared by the Job Definition.
