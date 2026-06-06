@@ -364,6 +364,107 @@ func TestUpdateTaskRejectsUnknownConfigBeforePersistence(t *testing.T) {
 	}
 }
 
+func TestUpdateBuiltinTaskAllowsSchemaBackedConfig(t *testing.T) {
+	runtime := New(zap.NewNop(), newRunRepositoryRecorder())
+	taskRepo := newTaskRepositoryRecorder()
+	runtime.SetTaskRepository(taskRepo)
+
+	seedRuntimeJob(t, runtime, cronx.Job{
+		Name:          "builtin-schema-job",
+		Schedule:      "*/1 * * * * *",
+		DefaultConfig: `{"retentionDays":30,"batchSize":1000}`,
+		ConfigSchema:  `{"type":"object","properties":{"retentionDays":{"type":"integer","minimum":1,"maximum":3650},"batchSize":{"type":"integer","minimum":1,"maximum":10000}},"additionalProperties":false}`,
+		Handler: func(context.Context, string) (cronx.JobRunResult, error) {
+			return cronx.JobRunResult{Summary: "ok"}, nil
+		},
+	})
+
+	updated, err := runtime.UpdateTask(context.Background(), "builtin-schema-job", TaskMutation{
+		CronExpression: "*/10 * * * * *",
+		Enabled:        false,
+		EnabledSet:     true,
+		ConfigJSON:     `{"retentionDays":90,"batchSize":500}`,
+	})
+	if err != nil {
+		t.Fatalf("update builtin task config: %v", err)
+	}
+	if updated.Schedule != "*/10 * * * * *" || updated.Enabled {
+		t.Fatalf("expected builtin cron/enabled update, got %#v", updated)
+	}
+	effective := decodeRuntimeJSONObject(t, updated.EffectiveConfig)
+	if effective["retentionDays"] != float64(90) || effective["batchSize"] != float64(500) {
+		t.Fatalf("unexpected effective config: %s", updated.EffectiveConfig)
+	}
+	if taskRepo.tasks["builtin-schema-job"].ConfigJSON != `{"retentionDays":90,"batchSize":500}` {
+		t.Fatalf("expected builtin config to persist, got %s", taskRepo.tasks["builtin-schema-job"].ConfigJSON)
+	}
+}
+
+func TestUpdateBuiltinTaskRejectsInvalidConfigBeforePersistence(t *testing.T) {
+	runtime := New(zap.NewNop(), newRunRepositoryRecorder())
+	taskRepo := newTaskRepositoryRecorder()
+	runtime.SetTaskRepository(taskRepo)
+
+	seedRuntimeJob(t, runtime, cronx.Job{
+		Name:          "builtin-schema-job",
+		Schedule:      "*/1 * * * * *",
+		DefaultConfig: `{"retentionDays":30,"batchSize":1000}`,
+		ConfigSchema:  `{"type":"object","properties":{"retentionDays":{"type":"integer","minimum":1,"maximum":3650},"batchSize":{"type":"integer","minimum":1,"maximum":10000}},"additionalProperties":false}`,
+		Handler: func(context.Context, string) (cronx.JobRunResult, error) {
+			return cronx.JobRunResult{Summary: "ok"}, nil
+		},
+	})
+
+	_, err := runtime.UpdateTask(context.Background(), "builtin-schema-job", TaskMutation{
+		ConfigJSON: `{"retentionDays":0,"batchSize":500}`,
+	})
+	var configErr ConfigValidationError
+	if !errors.As(err, &configErr) || configErr.Field != "config_json.retentionDays" {
+		t.Fatalf("expected retentionDays config error, got %v", err)
+	}
+	if taskRepo.tasks["builtin-schema-job"].ConfigJSON != `{"retentionDays":30,"batchSize":1000}` {
+		t.Fatalf("expected invalid builtin config update not to persist, got %s", taskRepo.tasks["builtin-schema-job"].ConfigJSON)
+	}
+}
+
+func TestSeedBuiltinJobsPreservesSchemaBackedConfigAndDropsStaleFields(t *testing.T) {
+	runtime := New(zap.NewNop(), newRunRepositoryRecorder())
+	taskRepo := newTaskRepositoryRecorder()
+	runtime.SetTaskRepository(taskRepo)
+
+	job := cronx.Job{
+		Name:          "builtin-schema-job",
+		Schedule:      "*/1 * * * * *",
+		DefaultConfig: `{"retentionDays":30,"batchSize":1000}`,
+		ConfigSchema:  `{"type":"object","properties":{"retentionDays":{"type":"integer","minimum":1,"maximum":3650},"batchSize":{"type":"integer","minimum":1,"maximum":10000}},"additionalProperties":false}`,
+		Handler: func(context.Context, string) (cronx.JobRunResult, error) {
+			return cronx.JobRunResult{Summary: "ok"}, nil
+		},
+	}
+	seedRuntimeJob(t, runtime, job)
+	taskRepo.tasks["builtin-schema-job"] = TaskDefinition{
+		TaskKey:        "builtin-schema-job",
+		JobKey:         "builtin-schema-job",
+		ModuleKey:      "test",
+		Title:          "builtin-schema-job",
+		CronExpression: "*/1 * * * * *",
+		Enabled:        true,
+		Builtin:        true,
+		ConfigJSON:     `{"retentionDays":90,"batchSize":500,"dryRun":true}`,
+	}
+
+	if err := runtime.SeedBuiltinJobs(context.Background(), []cronx.Job{job}); err != nil {
+		t.Fatalf("reseed builtin job: %v", err)
+	}
+	config := decodeRuntimeJSONObject(t, taskRepo.tasks["builtin-schema-job"].ConfigJSON)
+	if config["retentionDays"] != float64(90) || config["batchSize"] != float64(500) {
+		t.Fatalf("expected schema-backed config to survive reseed, got %s", taskRepo.tasks["builtin-schema-job"].ConfigJSON)
+	}
+	if _, ok := config["dryRun"]; ok {
+		t.Fatalf("expected stale dryRun config to be dropped, got %s", taskRepo.tasks["builtin-schema-job"].ConfigJSON)
+	}
+}
+
 // TestRunOncePersistsManualRunHistory 验证手动运行会写入运行历史并完成成功状态。
 func TestRunOncePersistsManualRunHistory(t *testing.T) {
 	repo := newRunRepositoryRecorder()

@@ -132,12 +132,14 @@ func TestSQLTaskRepositorySeedsBuiltinWithoutOverwritingCronOrEnabled(t *testing
 		CronExpression: "0 */5 * * * *",
 		Enabled:        false,
 		EnabledSet:     true,
+		ConfigJSON:     `{"retentionDays":90,"batchSize":500}`,
 	}); err != nil {
-		t.Fatalf("update builtin cron/enabled: %v", err)
+		t.Fatalf("update builtin cron/enabled/config: %v", err)
 	}
 	seeded.Title = "audit.retention.updated"
 	seeded.CronExpression = "0 0 1 * * *"
 	seeded.Enabled = true
+	seeded.ConfigJSON = `{"retentionDays":30,"batchSize":1000}`
 	if err := repo.SeedBuiltinTasks(ctx, []TaskDefinition{seeded}); err != nil {
 		t.Fatalf("seed builtin task again: %v", err)
 	}
@@ -151,6 +153,9 @@ func TestSQLTaskRepositorySeedsBuiltinWithoutOverwritingCronOrEnabled(t *testing
 	}
 	if task.CronExpression != "0 */5 * * * *" || task.Enabled {
 		t.Fatalf("expected user-edited cron/enabled to survive reseed, got %#v", task)
+	}
+	if task.ConfigJSON != `{"retentionDays":30,"batchSize":1000}` {
+		t.Fatalf("expected repository to store the caller-provided seeded config, got %#v", task)
 	}
 }
 

@@ -25,6 +25,10 @@
       "title": "审计日志保留清理",
       "description": "删除超过配置保留窗口的审计日志。",
       "config": {
+        "retentionDays": {
+          "title": "日志保留时间",
+          "description": "删除早于该保留天数的审计日志。"
+        },
         "dryRun": {
           "title": "试运行",
           "description": "只预览清理结果，不删除审计日志。"
@@ -39,6 +43,10 @@
       "title": "应用日志保留清理",
       "description": "删除超过配置保留窗口的应用日志。",
       "config": {
+        "retentionDays": {
+          "title": "日志保留时间",
+          "description": "删除早于该保留天数的应用日志。"
+        },
         "dryRun": {
           "title": "试运行",
           "description": "只预览清理结果，不删除应用日志。"
@@ -267,6 +275,8 @@
         "retentionDaysOption": "{days} 天",
         "customRetentionDays": "自定义",
         "jsonPreview": "JSON 预览",
+        "editJson": "编辑 JSON",
+        "doneJson": "完成",
         "schemaDebug": "Schema 调试信息",
         "confirm": "保存配置",
         "noJobDefinition": "请先选择 Job Definition 再配置任务行为。",

@@ -640,6 +640,8 @@ func TestScheduledTaskUpdateSystemTaskAllowsCronAndEnabledOnly(t *testing.T) {
 		Name:           "builtin-cleanup",
 		Module:         "scheduler",
 		Schedule:       "*/5 * * * * *",
+		DefaultConfig:  `{"retentionDays":30,"batchSize":1000}`,
+		ConfigSchema:   `{"type":"object","properties":{"retentionDays":{"type":"integer","minimum":1,"maximum":3650},"batchSize":{"type":"integer","minimum":1,"maximum":10000}},"additionalProperties":false}`,
 		DefaultEnabled: true,
 		Run:            func(context.Context) error { return nil },
 	})
@@ -648,10 +650,11 @@ func TestScheduledTaskUpdateSystemTaskAllowsCronAndEnabledOnly(t *testing.T) {
 
 	recorder := performSchedulerRequest(engine, http.MethodPut, "/api/scheduled-tasks/builtin-cleanup", `{
 		"cron_expression": "*/10 * * * * *",
-		"enabled": false
+		"enabled": false,
+		"config_json": "{\"retentionDays\":90,\"batchSize\":500}"
 	}`)
 	if recorder.Code != http.StatusOK {
-		t.Fatalf("expected status 200 for cron/enabled update, got %d with body %s", recorder.Code, recorder.Body.String())
+		t.Fatalf("expected status 200 for cron/enabled/config update, got %d with body %s", recorder.Code, recorder.Body.String())
 	}
 
 	recorder = performSchedulerRequest(engine, http.MethodPut, "/api/scheduled-tasks/builtin-cleanup", `{

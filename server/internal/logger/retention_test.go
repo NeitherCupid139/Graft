@@ -3,6 +3,7 @@ package logger
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -68,19 +69,25 @@ func TestAppLogRetentionCleanerInvokesRepositoryWithCutoff(t *testing.T) {
 	now := time.Date(2026, 6, 4, 10, 0, 0, 0, time.UTC)
 	cleaner.now = func() time.Time { return now }
 
-	result, err := cleaner.cleanup(context.Background(), appLogRetentionJobConfig{BatchSize: 1000})
+	result, err := cleaner.cleanup(context.Background(), appLogRetentionJobConfig{RetentionDays: 9, BatchSize: 1000})
 	if err != nil {
 		t.Fatalf("cleanup: %v", err)
 	}
 	if result.Metrics["deletedCount"] != int64(3) {
 		t.Fatalf("expected deleted rows 3, got %#v", result)
 	}
+	if result.Details["retentionDays"] != 9 {
+		t.Fatalf("expected configured retention days in result, got %#v", result)
+	}
+	if _, ok := result.Details["dryRun"]; ok {
+		t.Fatalf("did not expect dryRun in persistent cleanup result details: %#v", result.Details)
+	}
 	repo.mu.Lock()
 	defer repo.mu.Unlock()
 	if len(repo.cutoffs) != 1 {
 		t.Fatalf("expected one cutoff, got %d", len(repo.cutoffs))
 	}
-	wantCutoff := now.Add(-72 * time.Hour)
+	wantCutoff := now.Add(-9 * hoursPerDay * time.Hour)
 	if !repo.cutoffs[0].Equal(wantCutoff) {
 		t.Fatalf("expected cutoff %s, got %s", wantCutoff, repo.cutoffs[0])
 	}
@@ -145,12 +152,13 @@ func TestAppLogRetentionCleanerReturnsDeleteError(t *testing.T) {
 
 func TestRegisterAppLogRetentionCleanupJob(t *testing.T) {
 	registry := cronx.NewRegistry()
+	repo := &appLogRetentionRepoRecorder{}
 
 	if err := RegisterAppLogRetentionCleanupJob(
 		registry,
 		zap.NewNop(),
 		nil,
-		&appLogRetentionRepoRecorder{},
+		repo,
 		config.LogConfig{AppLogRetention: 7 * 24 * time.Hour},
 	); err != nil {
 		t.Fatalf("register retention job: %v", err)
@@ -160,17 +168,65 @@ func TestRegisterAppLogRetentionCleanupJob(t *testing.T) {
 	if len(items) != 1 {
 		t.Fatalf("expected one registered job, got %d", len(items))
 	}
-	if items[0].Name != appLogRetentionCleanupJobName {
-		t.Fatalf("expected job name %q, got %q", appLogRetentionCleanupJobName, items[0].Name)
+	assertAppLogRetentionJobMetadata(t, items[0])
+	assertAppLogRetentionDryRunAction(t, repo, items[0])
+}
+
+func assertAppLogRetentionJobMetadata(t *testing.T, job cronx.Job) {
+	t.Helper()
+
+	if job.Name != appLogRetentionCleanupJobName {
+		t.Fatalf("expected job name %q, got %q", appLogRetentionCleanupJobName, job.Name)
 	}
-	if items[0].Module != appLogRetentionCleanupJobModule {
-		t.Fatalf("expected job module %q, got %q", appLogRetentionCleanupJobModule, items[0].Module)
+	if job.Module != appLogRetentionCleanupJobModule {
+		t.Fatalf("expected job module %q, got %q", appLogRetentionCleanupJobModule, job.Module)
 	}
-	if items[0].Schedule != appLogRetentionCleanupJobSchedule {
-		t.Fatalf("expected job schedule %q, got %q", appLogRetentionCleanupJobSchedule, items[0].Schedule)
+	if job.Schedule != appLogRetentionCleanupJobSchedule {
+		t.Fatalf("expected job schedule %q, got %q", appLogRetentionCleanupJobSchedule, job.Schedule)
 	}
-	if items[0].ConfigSchema == "" || items[0].DefaultConfig == "" {
-		t.Fatalf("expected registered job config schema/default config, got %#v", items[0])
+	if job.DefaultConfig != appLogRetentionCleanupDefaultConfig {
+		t.Fatalf("expected default config %s, got %s", appLogRetentionCleanupDefaultConfig, job.DefaultConfig)
+	}
+	assertAppLogRetentionJobConfig(t, job)
+	assertAppLogRetentionJobActions(t, job)
+}
+
+func assertAppLogRetentionJobConfig(t *testing.T, job cronx.Job) {
+	t.Helper()
+
+	if job.ConfigSchema == "" || job.DefaultConfig == "" {
+		t.Fatalf("expected registered job config schema/default config, got %#v", job)
+	}
+	if strings.Contains(job.DefaultConfig, "dryRun") || strings.Contains(job.ConfigSchema, "dryRun") {
+		t.Fatalf("did not expect dryRun in persistent app log job config: default=%s schema=%s", job.DefaultConfig, job.ConfigSchema)
+	}
+	if !strings.Contains(job.DefaultConfig, "retentionDays") || !strings.Contains(job.ConfigSchema, "retentionDays") {
+		t.Fatalf("expected retentionDays in app log job config: default=%s schema=%s", job.DefaultConfig, job.ConfigSchema)
+	}
+}
+
+func assertAppLogRetentionJobActions(t *testing.T, job cronx.Job) {
+	t.Helper()
+
+	if len(job.Actions) != 1 || job.Actions[0].Key != appLogRetentionDryRunActionKey {
+		t.Fatalf("expected dryRun action, got %#v", job.Actions)
+	}
+}
+
+func assertAppLogRetentionDryRunAction(t *testing.T, repo *appLogRetentionRepoRecorder, job cronx.Job) {
+	t.Helper()
+
+	actionResult, err := job.Actions[0].Handler(context.Background(), `{"retentionDays":7,"batchSize":500}`)
+	if err != nil {
+		t.Fatalf("run dryRun action: %v", err)
+	}
+	if actionResult.Metrics["deletedCount"] != int64(0) {
+		t.Fatalf("expected dryRun action to avoid deletion, got %#v", actionResult)
+	}
+	repo.mu.Lock()
+	defer repo.mu.Unlock()
+	if len(repo.cutoffs) != 0 {
+		t.Fatalf("expected dryRun action to skip deletion, got cutoffs %#v", repo.cutoffs)
 	}
 }
 

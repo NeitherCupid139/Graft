@@ -168,29 +168,47 @@ func (r *SQLTaskRepository) SeedBuiltinTasks(ctx context.Context, tasks []TaskDe
 		if err := validateDefinition(task); err != nil {
 			return err
 		}
-		_, err := r.db.ExecContext(ctx, `INSERT INTO scheduled_tasks (
-			task_key,
-			job_key,
-			module_key,
+		_, err := r.db.ExecContext(ctx, `WITH existing AS (
+			SELECT cron_expression, enabled
+			FROM scheduled_tasks
+			WHERE task_key = $1 AND builtin = true AND deleted_at IS NULL
+		)
+		INSERT INTO scheduled_tasks (
+				task_key,
+				job_key,
+				module_key,
 			title,
 			description,
 			cron_expression,
 			enabled,
 			builtin,
 			task_type,
-			config_json,
-			created_at,
-			updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, true, 'job', $8, $9, $10)
-		ON CONFLICT (task_key) DO UPDATE
-		SET job_key = EXCLUDED.job_key,
-			module_key = EXCLUDED.module_key,
-			title = EXCLUDED.title,
-			description = EXCLUDED.description,
-			builtin = true,
-			config_json = EXCLUDED.config_json,
-			updated_at = EXCLUDED.updated_at
-		WHERE scheduled_tasks.builtin = true`,
+				config_json,
+				created_at,
+				updated_at
+			) VALUES (
+				$1,
+				$2,
+				$3,
+				$4,
+				$5,
+				COALESCE((SELECT cron_expression FROM existing), $6),
+				COALESCE((SELECT enabled FROM existing), $7),
+				true,
+				'job',
+				$8,
+				$9,
+				$10
+			)
+			ON CONFLICT (task_key) DO UPDATE
+			SET job_key = EXCLUDED.job_key,
+				module_key = EXCLUDED.module_key,
+				title = EXCLUDED.title,
+				description = EXCLUDED.description,
+				builtin = true,
+				config_json = EXCLUDED.config_json,
+				updated_at = EXCLUDED.updated_at
+			WHERE scheduled_tasks.builtin = true AND scheduled_tasks.deleted_at IS NULL`,
 			task.TaskKey,
 			task.JobKey,
 			task.ModuleKey,
@@ -302,7 +320,7 @@ func validateTaskPatch(key string, existing TaskDefinition, patch TaskMutation) 
 	if patch.JobKey != "" && patch.JobKey != existing.JobKey {
 		return ErrTaskImmutable
 	}
-	if existing.Builtin && (patch.Title != "" || patch.Description != "" || patch.ConfigJSON != "") {
+	if existing.Builtin && (patch.Title != "" || patch.Description != "") {
 		return ErrTaskImmutable
 	}
 	return nil

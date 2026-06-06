@@ -18,16 +18,21 @@ const (
 	auditLogRetentionCleanupJobSchedule       = "0 30 17 * * *"
 	auditLogRetentionCleanupJobDisplayKey     = "scheduledTask.auditLogRetention.title"
 	auditLogRetentionCleanupJobDescriptionKey = "scheduledTask.auditLogRetention.description"
+	auditLogRetentionDryRunActionKey          = "dryRun"
+	auditLogRetentionDryRunActionTitleKey     = "scheduledTask.action.dryRun.title"
+	auditLogRetentionDryRunActionDescKey      = "scheduledTask.action.dryRun.description"
+	auditLogRetentionDefaultDays              = 30
 	auditLogRetentionDefaultBatchSize         = 1000
 	hoursPerDay                               = 24
 )
 
-const auditLogRetentionCleanupConfigSchema = `{"type":"object","properties":{"dryRun":{"type":"boolean","title":"Dry run","description":"Preview cleanup without deleting audit logs.","x-title-key":"scheduledTask.auditLogRetention.config.dryRun.title","x-description-key":"scheduledTask.auditLogRetention.config.dryRun.description"},"batchSize":{"type":"integer","minimum":1,"maximum":10000,"title":"Batch size","description":"Maximum audit log rows to delete in one cleanup batch.","x-title-key":"scheduledTask.auditLogRetention.config.batchSize.title","x-description-key":"scheduledTask.auditLogRetention.config.batchSize.description"}},"additionalProperties":false}`
-const auditLogRetentionCleanupDefaultConfig = `{"dryRun":false,"batchSize":1000}`
+const auditLogRetentionCleanupConfigSchema = `{"type":"object","properties":{"retentionDays":{"type":"integer","minimum":1,"maximum":3650,"default":30,"title":"Retention days","description":"Delete audit logs older than this number of days.","x-title-key":"scheduledTask.auditLogRetention.config.retentionDays.title","x-description-key":"scheduledTask.auditLogRetention.config.retentionDays.description"},"batchSize":{"type":"integer","minimum":1,"maximum":10000,"default":1000,"title":"Batch size","description":"Maximum audit log rows to delete in one cleanup batch.","x-title-key":"scheduledTask.auditLogRetention.config.batchSize.title","x-description-key":"scheduledTask.auditLogRetention.config.batchSize.description"}},"additionalProperties":false}`
+const auditLogRetentionCleanupDefaultConfig = `{"retentionDays":30,"batchSize":1000}`
 
 type retentionJobConfig struct {
-	DryRun    bool `json:"dryRun"`
-	BatchSize int  `json:"batchSize"`
+	RetentionDays int  `json:"retentionDays"`
+	DryRun        bool `json:"-"`
+	BatchSize     int  `json:"batchSize"`
 }
 
 type auditLogRetentionPolicy struct {
@@ -41,22 +46,6 @@ func newAuditLogRetentionPolicy(cfg config.AuditConfig) (auditLogRetentionPolicy
 	}
 
 	return auditLogRetentionPolicy{retention: retention}, nil
-}
-
-func (p auditLogRetentionPolicy) cutoff(now time.Time) (time.Time, error) {
-	if p.retention <= 0 {
-		return time.Time{}, errors.New("audit log retention must be greater than zero")
-	}
-	if now.IsZero() {
-		return time.Time{}, errors.New("cutoff calculation requires a non-zero current time")
-	}
-
-	cutoff := now.UTC().Add(-p.retention)
-	if !cutoff.Before(now.UTC()) {
-		return time.Time{}, errors.New("audit log retention cutoff must be earlier than current time")
-	}
-
-	return cutoff, nil
 }
 
 type auditLogRetentionCleaner struct {
@@ -100,8 +89,9 @@ func (c *auditLogRetentionCleaner) cleanup(ctx context.Context, config retention
 		return cleanupFailureResult("audit_log_retention_cleanup", err, time.Time{}, retentionJobConfig{}), err
 	}
 	started := time.Now()
+	retention := c.retentionDuration(config)
 
-	cutoff, err := c.policy.cutoff(c.now())
+	cutoff, err := auditLogRetentionCutoff(c.now(), retention)
 	if err != nil {
 		return cleanupFailureResult("audit_log_retention_cleanup", err, time.Time{}, retentionJobConfig{}), err
 	}
@@ -112,7 +102,7 @@ func (c *auditLogRetentionCleaner) cleanup(ctx context.Context, config retention
 	logger := c.logger()
 	logger.Info("audit log retention cleanup started",
 		zap.String("job", auditLogRetentionCleanupJobName),
-		zap.Duration("retention", c.policy.retention),
+		zap.Duration("retention", retention),
 		zap.Time("cutoff", cutoff),
 	)
 
@@ -123,7 +113,7 @@ func (c *auditLogRetentionCleaner) cleanup(ctx context.Context, config retention
 	if err != nil {
 		logger.Error("audit log retention cleanup failed",
 			zap.String("job", auditLogRetentionCleanupJobName),
-			zap.Duration("retention", c.policy.retention),
+			zap.Duration("retention", retention),
 			zap.Time("cutoff", cutoff),
 			zap.Error(err),
 		)
@@ -133,7 +123,7 @@ func (c *auditLogRetentionCleaner) cleanup(ctx context.Context, config retention
 
 	logger.Info("audit log retention cleanup completed",
 		zap.String("job", auditLogRetentionCleanupJobName),
-		zap.Duration("retention", c.policy.retention),
+		zap.Duration("retention", retention),
 		zap.Time("cutoff", cutoff),
 		zap.Int64("deletedRows", deleted),
 	)
@@ -142,11 +132,39 @@ func (c *auditLogRetentionCleaner) cleanup(ctx context.Context, config retention
 		operation: "audit_log_retention_cleanup",
 		resource:  "audit_log",
 		deleted:   deleted,
-		retention: c.policy.retention,
+		retention: retention,
 		cutoff:    cutoff,
 		config:    config,
 		started:   started,
 	}), nil
+}
+
+func auditLogRetentionCutoff(now time.Time, retention time.Duration) (time.Time, error) {
+	if retention <= 0 {
+		return time.Time{}, errors.New("audit log retention must be greater than zero")
+	}
+	if now.IsZero() {
+		return time.Time{}, errors.New("cutoff calculation requires a non-zero current time")
+	}
+
+	cutoff := now.UTC().Add(-retention)
+	if !cutoff.Before(now.UTC()) {
+		return time.Time{}, errors.New("audit log retention cutoff must be earlier than current time")
+	}
+
+	return cutoff, nil
+}
+
+func (c *auditLogRetentionCleaner) estimate(ctx context.Context, config retentionJobConfig) (cronx.JobRunResult, error) {
+	config.DryRun = true
+	return c.cleanup(ctx, config)
+}
+
+func (c *auditLogRetentionCleaner) retentionDuration(config retentionJobConfig) time.Duration {
+	if config.RetentionDays > 0 {
+		return time.Duration(config.RetentionDays) * hoursPerDay * time.Hour
+	}
+	return c.policy.retention
 }
 
 type cleanupSuccessInput struct {
@@ -170,7 +188,6 @@ func cleanupSuccessResult(input cleanupSuccessInput) cronx.JobRunResult {
 			"deletedCount":  input.deleted,
 			"retentionDays": retentionDays,
 			"batchSize":     input.config.BatchSize,
-			"dryRun":        input.config.DryRun,
 			"durationMs":    durationMS,
 		},
 		Details: map[string]any{
@@ -178,7 +195,6 @@ func cleanupSuccessResult(input cleanupSuccessInput) cronx.JobRunResult {
 			"retentionDays": retentionDays,
 			"cutoffTime":    input.cutoff.UTC().Format(time.RFC3339Nano),
 			"batchSize":     input.config.BatchSize,
-			"dryRun":        input.config.DryRun,
 			"durationMs":    durationMS,
 		},
 	}
@@ -188,7 +204,6 @@ func cleanupFailureResult(operation string, err error, cutoff time.Time, config 
 	details := map[string]any{
 		"operation": operation,
 		"batchSize": config.BatchSize,
-		"dryRun":    config.DryRun,
 	}
 	if !cutoff.IsZero() {
 		details["cutoffTime"] = cutoff.UTC().Format(time.RFC3339Nano)
@@ -204,8 +219,11 @@ func cleanupFailureResult(operation string, err error, cutoff time.Time, config 
 }
 
 func decodeRetentionJobConfig(configJSON string) retentionJobConfig {
-	config := retentionJobConfig{DryRun: false, BatchSize: auditLogRetentionDefaultBatchSize}
+	config := retentionJobConfig{RetentionDays: auditLogRetentionDefaultDays, BatchSize: auditLogRetentionDefaultBatchSize}
 	_ = json.Unmarshal([]byte(configJSON), &config)
+	if config.RetentionDays <= 0 {
+		config.RetentionDays = auditLogRetentionDefaultDays
+	}
 	if config.BatchSize <= 0 {
 		config.BatchSize = auditLogRetentionDefaultBatchSize
 	}
@@ -237,9 +255,21 @@ func registerAuditLogRetentionCleanupJob(
 		DescriptionMessageKey: auditLogRetentionCleanupJobDescriptionKey,
 		ConfigSchema:          auditLogRetentionCleanupConfigSchema,
 		DefaultConfig:         auditLogRetentionCleanupDefaultConfig,
-		Schedule:              auditLogRetentionCleanupJobSchedule,
-		DefaultEnabled:        true,
-		Module:                moduleID,
+		Actions: []cronx.JobAction{
+			{
+				Key:            auditLogRetentionDryRunActionKey,
+				TitleKey:       auditLogRetentionDryRunActionTitleKey,
+				Title:          "Dry run",
+				DescriptionKey: auditLogRetentionDryRunActionDescKey,
+				Description:    "Preview cleanup result",
+				Handler: func(ctx context.Context, configJSON string) (cronx.JobRunResult, error) {
+					return cleaner.estimate(ctx, decodeRetentionJobConfig(configJSON))
+				},
+			},
+		},
+		Schedule:       auditLogRetentionCleanupJobSchedule,
+		DefaultEnabled: true,
+		Module:         moduleID,
 		Handler: func(ctx context.Context, configJSON string) (cronx.JobRunResult, error) {
 			return cleaner.cleanup(ctx, decodeRetentionJobConfig(configJSON))
 		},

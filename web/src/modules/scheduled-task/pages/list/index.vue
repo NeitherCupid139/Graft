@@ -504,30 +504,20 @@
             <t-collapse expand-icon-placement="right">
               <t-collapse-panel value="advancedConfig" :header="t('scheduledTask.list.form.sectionAdvancedConfig')">
                 <div class="scheduled-task-advanced-config">
-                  <section>
-                    <strong>{{ t('scheduledTask.list.configDialog.jsonPreview') }}</strong>
-                    <pre class="scheduled-task-json-preview">{{
-                      formatJsonPreview(taskForm.configJson) || t('scheduledTask.list.detail.none')
-                    }}</pre>
-                  </section>
-                  <t-form-item
-                    :label="t('scheduledTask.list.form.configJson')"
-                    name="configJson"
-                    :status="formFieldErrors.configJson ? 'error' : undefined"
-                    :tips="formFieldErrors.configJson"
-                  >
-                    <div class="scheduled-task-config-field">
-                      <t-button size="small" variant="outline" @click="formatConfigJson">
-                        {{ t('scheduledTask.list.form.formatJson') }}
-                      </t-button>
-                      <t-textarea
-                        v-model="taskForm.configJson"
-                        :autosize="{ minRows: 4, maxRows: 8 }"
-                        :placeholder="t('scheduledTask.list.form.configJsonPlaceholder')"
-                        @change="handleConfigJsonChange"
-                      />
-                    </div>
-                  </t-form-item>
+                  <config-json-editor
+                    v-model="taskForm.configJson"
+                    v-model:mode="configDialogJsonMode"
+                    :done-label="t('scheduledTask.list.configDialog.doneJson')"
+                    :edit-label="t('scheduledTask.list.configDialog.editJson')"
+                    :editor-label="t('scheduledTask.list.form.configJson')"
+                    :error="formFieldErrors.configJson"
+                    :format-label="t('scheduledTask.list.form.formatJson')"
+                    :placeholder="t('scheduledTask.list.form.configJsonPlaceholder')"
+                    :preview-text="formatJsonPreview(taskForm.configJson) || t('scheduledTask.list.detail.none')"
+                    :title="t('scheduledTask.list.configDialog.jsonPreview')"
+                    @change="handleConfigJsonChange"
+                    @format="formatConfigJson"
+                  />
                   <section>
                     <strong>{{ t('scheduledTask.list.configDialog.schemaDebug') }}</strong>
                     <pre class="scheduled-task-json-preview">{{
@@ -584,6 +574,8 @@
         :cancel-btn="null"
         width="720px"
         destroy-on-close
+        @confirm="closeActionResultDialog"
+        @close="closeActionResultDialog"
       >
         <div v-if="actionResult" class="scheduled-task-dialog-copy">
           <t-alert v-if="actionResultStructured.summary" theme="success" :message="actionResultStructured.summary" />
@@ -988,6 +980,7 @@ import {
   runScheduledTask,
   updateScheduledTask,
 } from '../../api/scheduled-task';
+import ConfigJsonEditor from '../../components/ConfigJsonEditor.vue';
 import CronExpressionField from '../../components/CronExpressionField.vue';
 import { SCHEDULED_TASK_PERMISSION_CODE } from '../../contract/permissions';
 import type {
@@ -1093,10 +1086,14 @@ const builtinTaskMessageKeys = [
   'scheduledTask.accessLogRetention.config.retentionDays.description',
   'scheduledTask.accessLogRetention.config.batchSize.title',
   'scheduledTask.accessLogRetention.config.batchSize.description',
+  'scheduledTask.auditLogRetention.config.retentionDays.title',
+  'scheduledTask.auditLogRetention.config.retentionDays.description',
   'scheduledTask.auditLogRetention.config.dryRun.title',
   'scheduledTask.auditLogRetention.config.dryRun.description',
   'scheduledTask.auditLogRetention.config.batchSize.title',
   'scheduledTask.auditLogRetention.config.batchSize.description',
+  'scheduledTask.appLogRetention.config.retentionDays.title',
+  'scheduledTask.appLogRetention.config.retentionDays.description',
   'scheduledTask.appLogRetention.config.dryRun.title',
   'scheduledTask.appLogRetention.config.dryRun.description',
   'scheduledTask.appLogRetention.config.batchSize.title',
@@ -1165,6 +1162,7 @@ const deleteDialogTask = ref<ScheduledTaskItem | null>(null);
 const selectedAction = ref<ScheduledTaskJobDefinitionAction | null>(null);
 const actionResult = ref<ScheduledTaskActionResult | null>(null);
 const customRetentionDaysSelected = ref(false);
+const configDialogJsonMode = ref<'preview' | 'edit'>('preview');
 
 const filters = reactive<FilterModel>({
   keyword: '',
@@ -1653,20 +1651,21 @@ function buildTaskPayload(): CreateScheduledTaskRequest | UpdateScheduledTaskReq
   taskForm.cronExpression = cronExpression;
   formFieldErrors.cronExpression = '';
 
-  const configJson = normalizeJsonString(taskForm.configJson);
-  if (configJson === null) {
+  const persistentConfigJson = normalizePersistentConfigJson();
+  if (persistentConfigJson === null) {
     formFieldErrors.configJson = t('scheduledTask.list.form.configJsonInvalidHint');
     return null;
   }
   formFieldErrors.configJson = '';
-  taskForm.config = parseJsonRecord(configJson);
+  taskForm.config = parseJsonRecord(persistentConfigJson);
+  taskForm.configJson = persistentConfigJson ? JSON.stringify(taskForm.config, null, 2) : '';
 
   if (formMode.value === 'edit' && isSystemEdit.value) {
     // Builtin tasks keep their module-owned identity; users may tune schedule, enabled state, and schema-backed config.
     return {
       cron_expression: cronExpression,
       enabled: taskForm.enabled,
-      config_json: buildPersistentConfigJson(configJson) || undefined,
+      config_json: persistentConfigJson || undefined,
     };
   }
 
@@ -1693,7 +1692,7 @@ function buildTaskPayload(): CreateScheduledTaskRequest | UpdateScheduledTaskReq
       description: taskForm.description.trim() || undefined,
       cron_expression: cronExpression,
       enabled: taskForm.enabled,
-      config_json: buildPersistentConfigJson(configJson) || undefined,
+      config_json: persistentConfigJson || undefined,
     };
   }
 
@@ -1702,12 +1701,13 @@ function buildTaskPayload(): CreateScheduledTaskRequest | UpdateScheduledTaskReq
     description: taskForm.description.trim() || undefined,
     cron_expression: cronExpression,
     enabled: taskForm.enabled,
-    config_json: buildPersistentConfigJson(configJson) || undefined,
+    config_json: persistentConfigJson || undefined,
   };
 }
 
 function openConfigDialog() {
   configDialogVisible.value = true;
+  configDialogJsonMode.value = 'preview';
   customRetentionDaysSelected.value = !RETENTION_DAY_PRESETS.includes(
     configNumberValue('retentionDays') as (typeof RETENTION_DAY_PRESETS)[number],
   );
@@ -1717,13 +1717,13 @@ function openConfigDialog() {
 }
 
 async function confirmConfigDialog() {
-  const configJson = normalizeJsonString(taskForm.configJson);
-  if (configJson === null) {
+  const persistentConfigJson = normalizePersistentConfigJson();
+  if (persistentConfigJson === null) {
     formFieldErrors.configJson = t('scheduledTask.list.form.configJsonInvalidHint');
+    configDialogJsonMode.value = 'edit';
     return;
   }
 
-  const persistentConfigJson = buildPersistentConfigJson(configJson);
   taskForm.config = parseJsonRecord(persistentConfigJson);
   taskForm.configJson = persistentConfigJson ? JSON.stringify(taskForm.config, null, 2) : '';
   clearFormFieldError('configJson');
@@ -1762,9 +1762,26 @@ async function confirmConfigDialog() {
   }
 }
 
+function normalizePersistentConfigJson() {
+  const configJson = normalizeJsonString(taskForm.configJson);
+  if (configJson === null) {
+    return null;
+  }
+  return buildPersistentConfigJson(configJson);
+}
+
 function buildPersistentConfigJson(configJson: string) {
-  const config = parseJsonRecord(configJson);
+  const config = sanitizeConfigBySelectedSchema(parseJsonRecord(configJson));
   return Object.keys(config).length > 0 ? JSON.stringify(config) : '';
+}
+
+function sanitizeConfigBySelectedSchema(config: JsonRecord): JsonRecord {
+  if (!selectedJobDefinition.value) {
+    return config;
+  }
+
+  const allowedKeys = new Set(persistentConfigSchemaFields.value.map((field) => field.key));
+  return Object.fromEntries(Object.entries(config).filter(([key]) => allowedKeys.has(key)));
 }
 
 function openRunDialog(task: ScheduledTaskItem) {
@@ -1855,15 +1872,20 @@ async function executeSelectedAction(action: ScheduledTaskJobDefinitionAction) {
 }
 
 function buildActionRequestPayload(): ScheduledTaskActionRequest | undefined | null {
-  const configJson = normalizeJsonString(taskForm.configJson);
-  if (configJson === null) {
+  const persistentConfigJson = normalizePersistentConfigJson();
+  if (persistentConfigJson === null) {
     formFieldErrors.configJson = t('scheduledTask.list.form.configJsonInvalidHint');
     configDialogVisible.value = true;
+    configDialogJsonMode.value = 'edit';
     return null;
   }
 
-  const persistentConfigJson = buildPersistentConfigJson(configJson);
   return persistentConfigJson ? { config_json: persistentConfigJson } : undefined;
+}
+
+function closeActionResultDialog() {
+  actionResultDialogVisible.value = false;
+  actionResult.value = null;
 }
 
 async function toggleTaskEnabled(task: ScheduledTaskItem) {
@@ -2038,10 +2060,11 @@ function formatConfigJson() {
   const normalized = normalizeJsonString(taskForm.configJson);
   if (normalized === null) {
     formFieldErrors.configJson = t('scheduledTask.list.form.configJsonInvalidHint');
+    configDialogJsonMode.value = 'edit';
     return;
   }
 
-  taskForm.config = parseJsonRecord(normalized);
+  taskForm.config = sanitizeConfigBySelectedSchema(parseJsonRecord(normalized));
   syncConfigJsonFromModel();
   clearFormFieldError('configJson');
 }
@@ -2051,7 +2074,7 @@ function handleConfigJsonChange() {
   if (normalized === null) {
     return;
   }
-  taskForm.config = parseJsonRecord(normalized);
+  taskForm.config = sanitizeConfigBySelectedSchema(parseJsonRecord(normalized));
   clearFormFieldError('configJson');
 }
 
@@ -2207,6 +2230,12 @@ function builtinTaskMessageText(key: BuiltinTaskMessageKey) {
     'scheduledTask.accessLogRetention.config.batchSize.description': t(
       'scheduledTask.accessLogRetention.config.batchSize.description',
     ),
+    'scheduledTask.auditLogRetention.config.retentionDays.title': t(
+      'scheduledTask.auditLogRetention.config.retentionDays.title',
+    ),
+    'scheduledTask.auditLogRetention.config.retentionDays.description': t(
+      'scheduledTask.auditLogRetention.config.retentionDays.description',
+    ),
     'scheduledTask.auditLogRetention.config.dryRun.title': t('scheduledTask.auditLogRetention.config.dryRun.title'),
     'scheduledTask.auditLogRetention.config.dryRun.description': t(
       'scheduledTask.auditLogRetention.config.dryRun.description',
@@ -2216,6 +2245,12 @@ function builtinTaskMessageText(key: BuiltinTaskMessageKey) {
     ),
     'scheduledTask.auditLogRetention.config.batchSize.description': t(
       'scheduledTask.auditLogRetention.config.batchSize.description',
+    ),
+    'scheduledTask.appLogRetention.config.retentionDays.title': t(
+      'scheduledTask.appLogRetention.config.retentionDays.title',
+    ),
+    'scheduledTask.appLogRetention.config.retentionDays.description': t(
+      'scheduledTask.appLogRetention.config.retentionDays.description',
     ),
     'scheduledTask.appLogRetention.config.dryRun.title': t('scheduledTask.appLogRetention.config.dryRun.title'),
     'scheduledTask.appLogRetention.config.dryRun.description': t(
@@ -2926,16 +2961,6 @@ function formatDuration(value?: number | null) {
 .scheduled-task-warning-list {
   margin: 0;
   padding-left: var(--graft-density-gap-20);
-}
-
-.scheduled-task-config-field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--graft-density-gap-8);
-}
-
-.scheduled-task-config-field > .t-button {
-  align-self: flex-start;
 }
 
 .scheduled-task-drawer-footer {

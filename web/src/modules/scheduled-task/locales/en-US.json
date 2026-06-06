@@ -25,6 +25,10 @@
       "title": "Audit Log Retention Cleanup",
       "description": "Deletes retained audit logs beyond the configured retention window.",
       "config": {
+        "retentionDays": {
+          "title": "Log Retention",
+          "description": "Delete audit logs older than this retention window."
+        },
         "dryRun": {
           "title": "Dry Run",
           "description": "Preview cleanup without deleting audit logs."
@@ -39,6 +43,10 @@
       "title": "App Log Retention Cleanup",
       "description": "Deletes retained app logs beyond the configured retention window.",
       "config": {
+        "retentionDays": {
+          "title": "Log Retention",
+          "description": "Delete app logs older than this retention window."
+        },
         "dryRun": {
           "title": "Dry Run",
           "description": "Preview cleanup without deleting app logs."
@@ -267,6 +275,8 @@
         "retentionDaysOption": "{days} Days",
         "customRetentionDays": "Custom",
         "jsonPreview": "JSON Preview",
+        "editJson": "Edit JSON",
+        "doneJson": "Done",
         "schemaDebug": "Schema Debug Info",
         "confirm": "Save Config",
         "noJobDefinition": "Select a Job Definition before configuring task behavior.",

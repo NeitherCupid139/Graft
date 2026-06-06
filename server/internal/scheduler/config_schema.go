@@ -79,6 +79,36 @@ func ValidateConfigJSON(schemaJSON string, configJSON string) error {
 	return validateConfigObject(schema, config)
 }
 
+func sanitizeConfigJSON(schemaJSON string, configJSON string) (string, error) {
+	schema, err := decodeConfigSchema(schemaJSON)
+	if err != nil {
+		return "", err
+	}
+	config, err := decodeConfigObject(configJSON)
+	if err != nil {
+		return "", err
+	}
+	sanitized := make(map[string]any, len(config))
+	for name, value := range config {
+		property, ok := schema.Properties[name]
+		if !ok {
+			if schema.AdditionalProperties {
+				sanitized[name] = value
+			}
+			continue
+		}
+		if err := validateConfigValue("config_json."+name, property, value); err != nil {
+			continue
+		}
+		sanitized[name] = value
+	}
+	encoded, err := json.Marshal(sanitized)
+	if err != nil {
+		return "", ConfigValidationError{Field: "config_json", Reason: "must be a JSON object"}
+	}
+	return string(encoded), nil
+}
+
 func decodeConfigSchema(schemaJSON string) (configSchema, error) {
 	var schema configSchema
 	if err := json.Unmarshal([]byte(defaultJSONObject(schemaJSON)), &schema); err != nil {

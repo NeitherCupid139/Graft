@@ -370,7 +370,11 @@ func (r *CronRuntime) SeedBuiltinJobs(ctx context.Context, jobs []cronx.Job) err
 			}
 		}
 		definitions = append(definitions, jobDefinitionFromJob(job, r.now()))
-		tasks = append(tasks, builtinTaskDefinition(job, r.now()))
+		task, err := r.builtinTaskDefinition(ctx, job)
+		if err != nil {
+			return err
+		}
+		tasks = append(tasks, task)
 	}
 	if r.jobDefinitions != nil {
 		if err := r.jobDefinitions.SyncJobDefinitions(ctx, definitions); err != nil {
@@ -381,6 +385,29 @@ func (r *CronRuntime) SeedBuiltinJobs(ctx context.Context, jobs []cronx.Job) err
 		return r.tasks.SeedBuiltinTasks(ctx, tasks)
 	}
 	return nil
+}
+
+func (r *CronRuntime) builtinTaskDefinition(ctx context.Context, job cronx.Job) (TaskDefinition, error) {
+	task := builtinTaskDefinition(job, r.now())
+	if r.tasks == nil {
+		return task, nil
+	}
+	existing, err := r.tasks.GetTask(ctx, task.TaskKey)
+	if errors.Is(err, ErrTaskNotFound) {
+		return task, nil
+	}
+	if err != nil {
+		return TaskDefinition{}, err
+	}
+	if !existing.Builtin {
+		return task, nil
+	}
+	configJSON, err := sanitizeConfigJSON(job.RuntimeConfigSchema(), existing.ConfigJSON)
+	if err != nil {
+		return TaskDefinition{}, err
+	}
+	task.ConfigJSON = configJSON
+	return task, nil
 }
 
 // RemoveJob removes a registered in-memory job and any active cron schedule for it.

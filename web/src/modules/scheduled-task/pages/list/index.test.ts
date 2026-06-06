@@ -29,12 +29,16 @@ const translations = vi.hoisted(
     'scheduledTask.appLogRetention.config.batchSize.title': '批量大小',
     'scheduledTask.appLogRetention.config.dryRun.description': '只预览清理结果，不删除应用日志。',
     'scheduledTask.appLogRetention.config.dryRun.title': '试运行',
+    'scheduledTask.appLogRetention.config.retentionDays.description': '删除早于该保留天数的应用日志。',
+    'scheduledTask.appLogRetention.config.retentionDays.title': '日志保留时间',
     'scheduledTask.appLogRetention.description': '删除超过配置保留窗口的应用日志。',
     'scheduledTask.appLogRetention.title': '应用日志保留清理',
     'scheduledTask.auditLogRetention.config.batchSize.description': '单次清理最多删除的审计日志行数。',
     'scheduledTask.auditLogRetention.config.batchSize.title': '批量大小',
     'scheduledTask.auditLogRetention.config.dryRun.description': '只预览清理结果，不删除审计日志。',
     'scheduledTask.auditLogRetention.config.dryRun.title': '试运行',
+    'scheduledTask.auditLogRetention.config.retentionDays.description': '删除早于该保留天数的审计日志。',
+    'scheduledTask.auditLogRetention.config.retentionDays.title': '日志保留时间',
     'scheduledTask.auditLogRetention.description': '删除超过配置保留窗口的审计日志。',
     'scheduledTask.auditLogRetention.title': '审计日志保留清理',
     'scheduledTask.cronDescription.daily': '每天 {hour}:00 执行一次。',
@@ -97,6 +101,8 @@ const translations = vi.hoisted(
     'scheduledTask.list.form.sectionConfig': '任务配置',
     'scheduledTask.list.configDialog.confirm': '保存配置',
     'scheduledTask.list.configDialog.customRetentionDays': '自定义',
+    'scheduledTask.list.configDialog.doneJson': '完成',
+    'scheduledTask.list.configDialog.editJson': '编辑 JSON',
     'scheduledTask.list.configDialog.jsonPreview': 'JSON 预览',
     'scheduledTask.list.configDialog.open': '配置',
     'scheduledTask.list.configDialog.retentionDaysOption': '{days} 天',
@@ -305,29 +311,16 @@ function jobDefinitionsResponse() {
     JSON.stringify({
       type: 'object',
       properties: {
-        ...(prefix === 'accessLogRetention'
-          ? {
-              retentionDays: {
-                type: 'integer',
-                minimum: 1,
-                maximum: 3650,
-                'x-title-key': 'scheduledTask.accessLogRetention.config.retentionDays.title',
-                'x-description-key': 'scheduledTask.accessLogRetention.config.retentionDays.description',
-                title: 'Retention days',
-                description: 'Delete access logs older than this number of days.',
-                default: 30,
-              },
-            }
-          : {
-              dryRun: {
-                type: 'boolean',
-                'x-title-key': `scheduledTask.${prefix}.config.dryRun.title`,
-                'x-description-key': `scheduledTask.${prefix}.config.dryRun.description`,
-                title: 'Dry run',
-                description: `Preview cleanup without deleting ${resource}.`,
-                default: false,
-              },
-            }),
+        retentionDays: {
+          type: 'integer',
+          minimum: 1,
+          maximum: 3650,
+          'x-title-key': `scheduledTask.${prefix}.config.retentionDays.title`,
+          'x-description-key': `scheduledTask.${prefix}.config.retentionDays.description`,
+          title: 'Retention days',
+          description: `Delete ${resource} older than this number of days.`,
+          default: 30,
+        },
         batchSize: {
           type: 'integer',
           minimum: 1,
@@ -378,7 +371,7 @@ function jobDefinitionsResponse() {
         title: 'App log retention cleanup',
         description: 'Deletes app logs beyond the configured retention window.',
         config_schema_json: configSchemaJson('appLogRetention', 'app logs'),
-        default_config_json: '{"dryRun":false,"batchSize":1000}',
+        default_config_json: '{"retentionDays":30,"batchSize":1000}',
         default_cron_expression: '*/5 * * * *',
         default_enabled: true,
         actions: [
@@ -404,7 +397,7 @@ function jobDefinitionsResponse() {
         title: 'Audit log retention cleanup',
         description: 'Deletes audit logs beyond the configured retention window.',
         config_schema_json: configSchemaJson('auditLogRetention', 'audit logs'),
-        default_config_json: '{"dryRun":false,"batchSize":1000}',
+        default_config_json: '{"retentionDays":30,"batchSize":1000}',
         default_cron_expression: '*/5 * * * *',
         default_enabled: true,
         actions: [
@@ -522,14 +515,51 @@ const InputStub = defineComponent({
   },
 });
 
+const TextareaStub = defineComponent({
+  name: 'TTextarea',
+  props: ['modelValue', 'placeholder'],
+  emits: ['change', 'update:modelValue', 'input'],
+  setup(props, { emit }) {
+    return () =>
+      h('textarea', {
+        'data-testid':
+          props.placeholder === translations['scheduledTask.list.form.configJsonPlaceholder']
+            ? 'config-json-textarea'
+            : undefined,
+        placeholder: props.placeholder,
+        value: props.modelValue,
+        onInput: (event: Event) => {
+          const value = (event.target as HTMLTextAreaElement).value;
+          emit('update:modelValue', value);
+          emit('input', value);
+          emit('change', value);
+        },
+      });
+  },
+});
+
 const DialogStub = defineComponent({
   name: 'TDialog',
-  props: ['cancelBtn', 'confirmBtn', 'header'],
-  emits: ['confirm'],
+  props: ['cancelBtn', 'confirmBtn', 'header', 'visible'],
+  emits: ['confirm', 'close', 'update:visible'],
   setup(props, { attrs, emit, slots }) {
-    return () =>
-      h('div', attrs, [
+    return () => {
+      if (props.visible === false) {
+        return null;
+      }
+      return h('div', attrs, [
         props.header,
+        h(
+          'button',
+          {
+            'data-testid': 'dialog-close',
+            onClick: () => {
+              emit('update:visible', false);
+              emit('close', { trigger: 'close-btn' });
+            },
+          },
+          'close',
+        ),
         slots.default?.(),
         props.confirmBtn === null
           ? null
@@ -541,6 +571,7 @@ const DialogStub = defineComponent({
               props.confirmBtn,
             ),
       ]);
+    };
   },
 });
 
@@ -629,11 +660,29 @@ function mountPage() {
         TAlert: PassthroughStub,
         TTable: TableStub,
         TTag: PassthroughStub,
-        TTextarea: InputStub,
+        TTextarea: TextareaStub,
         TTooltip: PassthroughStub,
       },
     },
   });
+}
+
+function findButtonByText(wrapper: ReturnType<typeof mountPage>, text: string) {
+  return wrapper.findAll('button').find((button) => button.text() === text);
+}
+
+async function openFirstTaskEditDrawer(wrapper: ReturnType<typeof mountPage>) {
+  const editTrigger = wrapper.findAll('*').find((node) => node.text() === '编辑');
+  expect(editTrigger).toBeTruthy();
+  await editTrigger!.trigger('click');
+  await flushPromises();
+}
+
+async function openConfigDialog(wrapper: ReturnType<typeof mountPage>) {
+  const configTrigger = findButtonByText(wrapper, '配置');
+  expect(configTrigger).toBeTruthy();
+  await configTrigger!.trigger('click');
+  await flushPromises();
 }
 
 describe('ScheduledTaskListPage', () => {
@@ -742,10 +791,7 @@ describe('ScheduledTaskListPage', () => {
     const wrapper = mountPage();
     await flushPromises();
 
-    const editTrigger = wrapper.findAll('*').find((node) => node.text() === '编辑');
-    expect(editTrigger).toBeTruthy();
-    await editTrigger!.trigger('click');
-    await flushPromises();
+    await openFirstTaskEditDrawer(wrapper);
 
     await wrapper.get('[data-testid="cron-editor-input"]').setValue('*/10 * * * *');
     await wrapper
@@ -767,10 +813,7 @@ describe('ScheduledTaskListPage', () => {
     const wrapper = mountPage();
     await flushPromises();
 
-    const editTrigger = wrapper.findAll('*').find((node) => node.text() === '编辑');
-    expect(editTrigger).toBeTruthy();
-    await editTrigger!.trigger('click');
-    await flushPromises();
+    await openFirstTaskEditDrawer(wrapper);
 
     expect(wrapper.text()).toContain('任务配置');
     expect(wrapper.text()).toContain('批量大小');
@@ -804,10 +847,7 @@ describe('ScheduledTaskListPage', () => {
     const wrapper = mountPage();
     await flushPromises();
 
-    const editTrigger = wrapper.findAll('*').find((node) => node.text() === '编辑');
-    expect(editTrigger).toBeTruthy();
-    await editTrigger!.trigger('click');
-    await flushPromises();
+    await openFirstTaskEditDrawer(wrapper);
 
     const actionTrigger = wrapper.findAll('button').find((button) => button.text() === '试运行');
     expect(actionTrigger).toBeTruthy();
@@ -831,5 +871,93 @@ describe('ScheduledTaskListPage', () => {
     expect(wrapper.text()).toContain('操作结果');
     expect(wrapper.text()).toContain('预计可清理 128 条访问日志');
     expect(wrapper.text()).toContain('estimated');
+  });
+
+  it('opens the config dialog in JSON preview mode without showing the editor textarea', async () => {
+    const wrapper = mountPage();
+    await flushPromises();
+
+    await openFirstTaskEditDrawer(wrapper);
+    await openConfigDialog(wrapper);
+
+    expect(wrapper.text()).toContain('JSON 预览');
+    expect(wrapper.text()).toContain('编辑 JSON');
+    expect(wrapper.text()).toContain('格式化 JSON');
+    expect(wrapper.find('[data-testid="config-json-textarea"]').exists()).toBe(false);
+    expect(wrapper.text()).toContain('"retentionDays": 30');
+    expect(wrapper.text()).toContain('"batchSize": 500');
+  });
+
+  it('switches advanced config JSON into edit mode and formats the textarea', async () => {
+    const wrapper = mountPage();
+    await flushPromises();
+
+    await openFirstTaskEditDrawer(wrapper);
+    await openConfigDialog(wrapper);
+
+    await findButtonByText(wrapper, '编辑 JSON')!.trigger('click');
+    await nextTick();
+
+    expect(wrapper.text()).toContain('完成');
+    const textarea = wrapper.get('[data-testid="config-json-textarea"]');
+    await textarea.setValue('{"retentionDays":45,"batchSize":250}');
+
+    await findButtonByText(wrapper, '格式化 JSON')!.trigger('click');
+    await nextTick();
+
+    expect(wrapper.get('[data-testid="config-json-textarea"]').element).toHaveProperty(
+      'value',
+      '{\n  "retentionDays": 45,\n  "batchSize": 250\n}',
+    );
+
+    await findButtonByText(wrapper, '完成')!.trigger('click');
+    await nextTick();
+
+    expect(wrapper.find('[data-testid="config-json-textarea"]').exists()).toBe(false);
+    expect(wrapper.text()).toContain('"retentionDays": 45');
+  });
+
+  it('sanitizes config save payload to the selected Job Definition schema', async () => {
+    const wrapper = mountPage();
+    await flushPromises();
+
+    await openFirstTaskEditDrawer(wrapper);
+    await openConfigDialog(wrapper);
+    await findButtonByText(wrapper, '编辑 JSON')!.trigger('click');
+    await nextTick();
+
+    await wrapper
+      .get('[data-testid="config-json-textarea"]')
+      .setValue('{"retentionDays":45,"batchSize":250,"dryRun":true,"unknown":"stale"}');
+
+    await findButtonByText(wrapper, '保存配置')!.trigger('click');
+    await flushPromises();
+
+    expect(apiMocks.updateScheduledTask).toHaveBeenLastCalledWith('httpx.access-log-retention-cleanup', {
+      config_json: '{"retentionDays":45,"batchSize":250}',
+    });
+  });
+
+  it('closes the action result dialog from the visible confirm button and clears the result state', async () => {
+    const wrapper = mountPage();
+    await flushPromises();
+
+    await openFirstTaskEditDrawer(wrapper);
+
+    const actionTrigger = findButtonByText(wrapper, '试运行');
+    expect(actionTrigger).toBeTruthy();
+    await actionTrigger!.trigger('click');
+    await flushPromises();
+    await findButtonByText(wrapper, '执行操作')!.trigger('click');
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('操作结果');
+    expect(wrapper.text()).toContain('预计可清理 128 条访问日志');
+
+    await findButtonByText(wrapper, '关闭')!.trigger('click');
+    await flushPromises();
+
+    expect(wrapper.text()).not.toContain('操作结果');
+    expect(wrapper.text()).not.toContain('预计可清理 128 条访问日志');
   });
 });
