@@ -1,0 +1,26 @@
+get:
+  tags: [system-config]
+  summary: List registered system configuration values
+  operationId: getSystemConfigs
+  description: Returns module-registered ConfigDefinitions merged with administrator overrides. Sensitive values are masked and never returned as plaintext.
+  parameters:
+    - $ref: ../components/parameters/locale-header.yaml
+    - $ref: ../components/parameters/request-id-header.yaml
+  security:
+    - bearerAuth: []
+  responses:
+    '200':
+      description: System configuration list.
+      headers:
+        X-Request-Id:
+          $ref: ../components/headers/request-id.yaml
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/enveloped-system-config-list-response.yaml
+    '401':
+      $ref: ../components/responses/unauthorized.yaml
+    '403':
+      $ref: ../components/responses/forbidden.yaml
+    '500':
+      $ref: ../components/responses/internal-server-error.yaml

@@ -13,6 +13,8 @@
       "more": "更多",
       "viewAudit": "查看审计",
       "assignPermissions": "分配权限",
+      "viewPermissions": "查看权限",
+      "copyAsCustom": "复制为自定义角色",
       "columnSettings": "列设置",
       "emptyTitle": "暂无角色数据",
       "emptyDescription": "当前筛选条件下没有数据，可清空筛选或创建新数据。",
@@ -32,6 +34,11 @@
       "submitFailed": "角色提交失败",
       "assignSuccess": "角色权限更新成功",
       "assignFailed": "角色权限更新失败",
+      "copySuccess": "角色已复制为自定义角色",
+      "copyPermissionsPartialSuccess": "角色已创建，但复制权限失败。请在角色列表中重新分配权限。",
+      "copyUnavailable": "当前无法复制角色，请确认已加载权限目录且具备创建与分配权限。",
+      "copyLoadFailed": "复制前加载源角色权限失败",
+      "copyDisplayTemplate": "{display} 副本",
       "permissionActions": {
         "replace": "覆盖当前权限",
         "add": "仅追加选中权限",
@@ -41,12 +48,13 @@
       "builtinNo": "自定义",
       "permissionCount": "{count} 项权限",
       "userCount": "{count} 位用户",
-      "moreBuiltinHint": "内置角色不支持删除，请通过详情查看限制说明",
+      "moreBuiltinHint": "系统角色不支持删除。",
       "moreCustomHint": "更多角色操作暂未开放",
       "lifecycle": {
         "statusLabel": "当前状态",
         "statusEnabled": "启用中",
         "statusDisabled": "已停用",
+        "deleteRequirement": "删除条件",
         "deleteReady": "这个自定义角色已经满足删除生命周期要求。",
         "deleteNeedsDisable": "删除前需要先停用这个自定义角色。",
         "deleteNeedsBindingsCleared": "删除前需要先移除这个角色的用户绑定和权限绑定。"
@@ -74,7 +82,25 @@
         "createTitle": "创建角色",
         "editTitle": "编辑角色",
         "detailTitle": "角色详情",
-        "builtinNotice": "内置角色不可删除，角色编码保持只读，其它字段按权限维护。",
+        "systemProtectionTitle": "系统保护角色",
+        "systemProtectionBody": "该角色由系统内置，用于保障平台基础功能正常运行。",
+        "systemProtectionNormal": "这是正常的保护限制，不是异常状态；不支持删除、修改编码或调整权限。",
+        "systemProtectionCopyHint": "如需自定义权限组合，请复制为自定义角色后再编辑。",
+        "basicInfoTitle": "基本信息",
+        "permissionOverviewTitle": "权限概览",
+        "permissionOverviewCount": "权限数量",
+        "permissionOverviewAction": "查看方式",
+        "editableContentTitle": "可编辑内容",
+        "meta": {
+          "roleCode": "角色编码",
+          "roleType": "角色类型",
+          "status": "状态",
+          "createdAt": "创建时间"
+        },
+        "type": {
+          "system": "系统角色",
+          "custom": "自定义角色"
+        },
         "name": "角色名",
         "namePlaceholder": "请输入稳定角色编码",
         "display": "显示名",
@@ -90,10 +116,18 @@
       },
       "permissionDialog": {
         "title": "管理角色权限",
+        "readonlyTitle": "查看权限",
         "headerEyebrow": "角色权限",
+        "readonlyHeaderEyebrow": "只读权限",
         "headerDescription": "选择该角色应授予的权限。",
         "saveStrategyLabel": "保存方式",
         "operationHelp": "覆盖当前权限会用当前勾选结果替换角色现有权限；仅追加选中权限只新增本次勾选的权限；移除选中权限只移除当前勾选的已分配权限。",
+        "readonlyHelp": "系统角色权限由系统维护。当前模式仅支持展开、搜索和查看权限说明。",
+        "readonlyProtectionTitle": "系统保护角色",
+        "readonlyProtectionBody": "该系统角色的权限由系统维护，仅支持查看；如需自定义权限组合，请复制为自定义角色后再编辑。",
+        "readonlyFooterDetail": "只读模式不会保存权限变更。",
+        "readPermissionRequired": "需要权限读取权限后才能查看权限明细。",
+        "close": "关闭",
         "loadingSelection": "正在加载当前角色权限",
         "searchPlaceholder": "搜索权限 code、名称、描述",
         "onlySelected": "只看已选",
@@ -111,7 +145,10 @@
         },
         "addSelectionCount": "本次将追加 {count} 项权限",
         "removeSelectionCount": "本次将移除 {count} 项权限",
-        "unsavedChangesConfirm": "当前权限变更尚未保存，确认取消吗？",
+        "continueEditing": "继续编辑",
+        "discardChanges": "放弃变更",
+        "unsavedChangesConfirm": "当前权限变更尚未保存，放弃后本次勾选调整将不会生效。",
+        "unsavedChangesTitle": "放弃权限变更？",
         "summary": {
           "assigned": "当前已拥有"
         },
@@ -231,6 +268,50 @@
       "monitorServerStatusRead": {
         "display": "读取服务器状态",
         "description": "允许读取服务器状态概览。"
+      },
+      "moduleRuntimeRead": {
+        "display": "读取模块运行时",
+        "description": "允许读取核心模块运行时快照。"
+      },
+      "accessLogRead": {
+        "display": "读取访问日志",
+        "description": "允许读取规范访问日志检索数据。"
+      },
+      "appLogRead": {
+        "display": "读取应用日志",
+        "description": "允许读取日志模块拥有的应用日志检索数据。"
+      },
+      "systemConfigRead": {
+        "display": "读取系统配置",
+        "description": "允许读取已注册的系统配置定义和生效值。"
+      },
+      "systemConfigWrite": {
+        "display": "更新系统配置",
+        "description": "允许写入和重置管理员配置覆盖值。"
+      },
+      "scheduledTaskRead": {
+        "display": "读取定时任务",
+        "description": "允许读取定时任务运行时数据和执行历史。"
+      },
+      "scheduledTaskCreate": {
+        "display": "创建定时任务",
+        "description": "允许创建用户管理的定时任务实例。"
+      },
+      "scheduledTaskUpdate": {
+        "display": "更新定时任务",
+        "description": "允许更新定时任务定义。"
+      },
+      "scheduledTaskDelete": {
+        "display": "删除定时任务",
+        "description": "允许删除用户管理的定时任务实例。"
+      },
+      "scheduledTaskRun": {
+        "display": "运行定时任务",
+        "description": "允许手动运行定时任务运行时作业。"
+      },
+      "scheduledTaskEnable": {
+        "display": "启停定时任务",
+        "description": "允许启用和停用定时任务。"
       },
       "auditRead": {
         "display": "读取审计日志",

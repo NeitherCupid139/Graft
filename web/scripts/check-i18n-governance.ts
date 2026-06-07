@@ -931,7 +931,7 @@ function collectRuntimeReferenceSet(): RuntimeReferenceSet {
     }
   }
 
-  for (const key of collectServerMenuTitleKeys()) {
+  for (const key of collectServerI18nKeys()) {
     referenced.add(key);
     required.add(key);
   }
@@ -939,7 +939,7 @@ function collectRuntimeReferenceSet(): RuntimeReferenceSet {
   return { exactKeys: referenced, requiredKeys: required, dynamicPatterns };
 }
 
-function shouldScanServerTitleKeyFile(file: string): boolean {
+function shouldScanServerI18nKeyFile(file: string): boolean {
   const normalized = relative(REPOSITORY_DIR, file).replaceAll('\\', '/');
   return (
     file.endsWith('.go') &&
@@ -948,17 +948,17 @@ function shouldScanServerTitleKeyFile(file: string): boolean {
   );
 }
 
-function walkServerTitleKeyFiles(dir: string): string[] {
+function walkServerI18nKeyFiles(dir: string): string[] {
   const files: string[] = [];
 
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const fullPath = join(dir, entry.name);
     if (entry.isDirectory()) {
-      files.push(...walkServerTitleKeyFiles(fullPath));
+      files.push(...walkServerI18nKeyFiles(fullPath));
       continue;
     }
 
-    if (shouldScanServerTitleKeyFile(fullPath)) {
+    if (shouldScanServerI18nKeyFile(fullPath)) {
       files.push(fullPath);
     }
   }
@@ -966,14 +966,14 @@ function walkServerTitleKeyFiles(dir: string): string[] {
   return files;
 }
 
-function collectServerMenuTitleKeys(): Set<string> {
+function collectServerI18nKeys(): Set<string> {
   const keys = new Set<string>();
   const stringConstantPattern = /\b([A-Za-z_]\w*)(?:\s+[A-Za-z_]\w*)?\s*=\s*"([^"$]+)"/g;
-  const titleKeyPattern =
-    /\b(?:TitleKey|title_key)\s*:\s*(?:"([^"$]+)"|(?:(?:[A-Za-z_]\w*)\.)?([A-Za-z_]\w*)(?:\.String\(\))?)/g;
+  const serverKeyFieldPattern =
+    /\b(?:TitleKey|DisplayKey|DescriptionKey|title_key|display_key|description_key)\s*:\s*(?:"([^"$]+)"|(?:(?:[A-Za-z_]\w*)\.)?([A-Za-z_]\w*)(?:\.String\(\))?)/g;
 
   for (const dir of SERVER_TITLE_KEY_DIRS) {
-    for (const filePath of walkServerTitleKeyFiles(dir)) {
+    for (const filePath of walkServerI18nKeyFiles(dir)) {
       const source = preserveLineStructure(readFileSync(filePath, 'utf8'));
       const stringConstants = new Map<string, string>();
 
@@ -981,7 +981,7 @@ function collectServerMenuTitleKeys(): Set<string> {
         stringConstants.set(match[1], match[2]);
       }
 
-      for (const match of source.matchAll(titleKeyPattern)) {
+      for (const match of source.matchAll(serverKeyFieldPattern)) {
         const literalKey = match[1];
         const constantKey = match[2] ? stringConstants.get(match[2]) : undefined;
         const key = literalKey ?? constantKey;

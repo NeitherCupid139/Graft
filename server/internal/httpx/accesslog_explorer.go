@@ -82,11 +82,13 @@ func registerAccessLogExplorerPermissions(registry *permission.Registry) {
 	}
 
 	registry.Register(permission.Item{
-		Code:        AccessLogReadPermission,
-		Name:        "Read Access Logs",
-		Description: "Allows reading canonical access-log explorer data.",
-		Category:    "api",
-		Module:      accessLogModuleOwner,
+		Code:           AccessLogReadPermission,
+		Name:           "Read Access Logs",
+		DisplayKey:     "rbac.permissionCatalog.accessLogRead.display",
+		Description:    "Allows reading canonical access-log explorer data.",
+		DescriptionKey: "rbac.permissionCatalog.accessLogRead.description",
+		Category:       "api",
+		Module:         accessLogModuleOwner,
 	})
 }
 

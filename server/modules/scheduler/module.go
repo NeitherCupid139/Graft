@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"graft/server/internal/container"
@@ -79,8 +80,28 @@ func registerSchedulerRuntimeService(ctx *module.Context) error {
 		runtime := schedulercore.New(ctx.Logger, repo)
 		runtime.SetTaskRepository(taskRepo)
 		runtime.SetJobDefinitionRepository(jobDefinitionRepo)
+		defaultConfigs, err := resolveDefaultConfigResolver(resolver)
+		if err != nil {
+			return nil, err
+		}
+		runtime.SetDefaultConfigResolver(defaultConfigs)
 		return runtime, nil
 	})
+}
+
+func resolveDefaultConfigResolver(resolver container.Resolver) (schedulercore.DefaultConfigResolver, error) {
+	resolved, err := resolver.Resolve((*schedulercore.DefaultConfigResolver)(nil))
+	if errors.Is(err, container.ErrServiceNotRegistered) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("resolve scheduler default config resolver: %w", err)
+	}
+	defaultConfigs, ok := resolved.(schedulercore.DefaultConfigResolver)
+	if !ok {
+		return nil, fmt.Errorf("scheduler default config resolver has unexpected type %T", resolved)
+	}
+	return defaultConfigs, nil
 }
 
 func resolveAuthService(ctx *module.Context) (moduleapi.AuthService, error) {

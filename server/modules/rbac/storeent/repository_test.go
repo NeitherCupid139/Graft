@@ -48,7 +48,9 @@ func openTestDB(t *testing.T) *sql.DB {
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			code TEXT NOT NULL UNIQUE,
 			display TEXT NOT NULL,
+			display_key TEXT NULL,
 			description TEXT NULL,
+			description_key TEXT NULL,
 			category TEXT NOT NULL DEFAULT 'api',
 			created_at DATETIME NOT NULL,
 			updated_at DATETIME NOT NULL,
@@ -169,30 +171,80 @@ func TestRepositoryEnsurePermissionAndListPermissionsIncludeTimestamps(t *testin
 	repo := &repository{db: db}
 
 	record, err := repo.EnsurePermission(context.Background(), rbacstore.EnsurePermissionInput{
-		Code:        "user.create",
-		Display:     "Create Users",
-		Description: stringPtr("Allows creating user management data."),
-		Category:    "api",
+		Code:           "user.create",
+		Display:        "Create Users",
+		DisplayKey:     stringPtr("rbac.permissionCatalog.userCreate.display"),
+		Description:    stringPtr("Allows creating user management data."),
+		DescriptionKey: stringPtr("rbac.permissionCatalog.userCreate.description"),
+		Category:       "api",
 	})
 	if err != nil {
 		t.Fatalf("ensure permission: %v", err)
 	}
+	assertEnsuredPermissionRecord(t, record)
+
+	permissions, err := repo.ListPermissions(context.Background(), rbacstore.PermissionFilter{})
+	if err != nil {
+		t.Fatalf("list permissions: %v", err)
+	}
+	assertListedPermissionRecord(t, permissions)
+
+	updated, err := repo.EnsurePermission(context.Background(), rbacstore.EnsurePermissionInput{
+		Code:           "user.create",
+		Display:        "Create Users Localized Fallback",
+		DisplayKey:     stringPtr("rbac.permissionCatalog.userCreate.display"),
+		Description:    stringPtr("Updated description fallback."),
+		DescriptionKey: stringPtr("rbac.permissionCatalog.userCreate.description"),
+		Category:       "api",
+	})
+	if err != nil {
+		t.Fatalf("reconcile permission metadata: %v", err)
+	}
+	assertReconciledPermissionRecord(t, updated)
+}
+
+func assertEnsuredPermissionRecord(t *testing.T, record rbacstore.Permission) {
+	t.Helper()
+
 	if record.Code != "user.create" {
 		t.Fatalf("expected ensured permission code user.create, got %#v", record)
 	}
 	if record.CreatedAt.IsZero() || record.UpdatedAt.IsZero() {
 		t.Fatalf("expected ensured permission timestamps, got %#v", record)
 	}
+	assertPermissionKeys(t, record, "ensured")
+}
 
-	permissions, err := repo.ListPermissions(context.Background(), rbacstore.PermissionFilter{})
-	if err != nil {
-		t.Fatalf("list permissions: %v", err)
-	}
+func assertListedPermissionRecord(t *testing.T, permissions []rbacstore.Permission) {
+	t.Helper()
+
 	if len(permissions) != 1 {
 		t.Fatalf("expected one permission, got %d", len(permissions))
 	}
 	if permissions[0].CreatedAt.IsZero() || permissions[0].UpdatedAt.IsZero() {
 		t.Fatalf("expected listed permission timestamps, got %#v", permissions[0])
+	}
+	assertPermissionKeys(t, permissions[0], "listed")
+}
+
+func assertReconciledPermissionRecord(t *testing.T, updated rbacstore.Permission) {
+	t.Helper()
+
+	if updated.Display != "Create Users Localized Fallback" ||
+		updated.Description == nil ||
+		*updated.Description != "Updated description fallback." {
+		t.Fatalf("expected reconciled permission metadata, got %#v", updated)
+	}
+}
+
+func assertPermissionKeys(t *testing.T, record rbacstore.Permission, phase string) {
+	t.Helper()
+
+	if record.DisplayKey == nil || *record.DisplayKey != "rbac.permissionCatalog.userCreate.display" {
+		t.Fatalf("expected %s permission display key, got %#v", phase, record)
+	}
+	if record.DescriptionKey == nil || *record.DescriptionKey != "rbac.permissionCatalog.userCreate.description" {
+		t.Fatalf("expected %s permission description key, got %#v", phase, record)
 	}
 }
 

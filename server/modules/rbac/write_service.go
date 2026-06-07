@@ -173,6 +173,9 @@ func (w managementWriter) ReplacePermissionsForRole(ctx context.Context, input r
 	if err != nil {
 		return err
 	}
+	if isBuiltinAdminRole(role) {
+		return rbacstore.ErrRolePermissionsImmutable
+	}
 	if err := ensurePermissionIDsExist(ctx, w.rbac, input.PermissionIDs); err != nil {
 		return err
 	}
@@ -245,6 +248,9 @@ func (w managementWriter) mutateRolePermissions(
 	if err != nil {
 		return err
 	}
+	if isBuiltinAdminRole(role) {
+		return rbacstore.ErrRolePermissionsImmutable
+	}
 	if err := ensurePermissionIDsExist(ctx, w.rbac, permissionIDs); err != nil {
 		return err
 	}
@@ -265,6 +271,10 @@ func (w managementWriter) mutateRolePermissions(
 	})
 
 	return nil
+}
+
+func isBuiltinAdminRole(role rbacstore.Role) bool {
+	return role.Builtin && role.Name == builtinAdminRoleName
 }
 
 func (w managementWriter) ReplaceRolesForUser(ctx context.Context, input rbacstore.ReplaceRolesForUserInput) error {

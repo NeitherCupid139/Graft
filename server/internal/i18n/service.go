@@ -91,6 +91,7 @@ var defaultCatalogEntries = []catalogEntry{
 	{key: messagecontract.CommonInvalidArgument, zhCN: "请求参数不合法", enUS: "Invalid request parameters"},
 	{key: messagecontract.MenuServerTitle, zhCN: "服务管理", enUS: "Service Management"},
 	{key: messagecontract.RbacCannotRemoveOwnAdminRole, zhCN: "不能移除当前登录用户自己的管理员角色", enUS: "You cannot remove your own admin role from the current session"},
+	{key: messagecontract.RbacBuiltinAdminPermissionsImmutable, zhCN: "内置管理员角色不允许变更权限", enUS: "Builtin administrator permissions cannot be changed"},
 	{key: messagecontract.PermissionNotFound, zhCN: "权限不存在", enUS: "Permission not found"},
 	{key: messagecontract.RoleNotFound, zhCN: "角色不存在", enUS: "Role not found"},
 	{key: messagecontract.UserNotFound, zhCN: "用户不存在", enUS: "User not found"},

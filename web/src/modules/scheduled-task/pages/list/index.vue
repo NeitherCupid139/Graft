@@ -1030,6 +1030,8 @@ type TaskFormModel = {
   jobKey: ScheduledTaskJobKey | '';
   config: JsonRecord;
   configJson: string;
+  configDirty: boolean;
+  taskConfigJson: string;
 };
 
 type FormFieldErrors = {
@@ -1651,22 +1653,24 @@ function buildTaskPayload(): CreateScheduledTaskRequest | UpdateScheduledTaskReq
   taskForm.cronExpression = cronExpression;
   formFieldErrors.cronExpression = '';
 
-  const persistentConfigJson = normalizePersistentConfigJson();
+  const shouldPersistConfigJson = taskForm.configDirty;
+  const persistentConfigJson = normalizeTaskLevelConfigJson();
   if (persistentConfigJson === null) {
     formFieldErrors.configJson = t('scheduledTask.list.form.configJsonInvalidHint');
     return null;
   }
   formFieldErrors.configJson = '';
-  taskForm.config = parseJsonRecord(persistentConfigJson);
-  taskForm.configJson = persistentConfigJson ? JSON.stringify(taskForm.config, null, 2) : '';
+  if (shouldPersistConfigJson) {
+    syncTaskLevelConfigAfterSave(persistentConfigJson);
+  }
 
   if (formMode.value === 'edit' && isSystemEdit.value) {
     // Builtin tasks keep their module-owned identity; users may tune schedule, enabled state, and schema-backed config.
-    return {
+    const payload = {
       cron_expression: cronExpression,
       enabled: taskForm.enabled,
-      config_json: persistentConfigJson || undefined,
     };
+    return shouldPersistConfigJson ? withOptionalConfigJson(payload, persistentConfigJson) : payload;
   }
 
   if (!taskForm.title.trim()) {
@@ -1685,24 +1689,28 @@ function buildTaskPayload(): CreateScheduledTaskRequest | UpdateScheduledTaskReq
       return null;
     }
 
-    return {
-      task_key: taskForm.taskKey.trim(),
-      job_key: taskForm.jobKey.trim(),
+    return withOptionalConfigJson(
+      {
+        task_key: taskForm.taskKey.trim(),
+        job_key: taskForm.jobKey.trim(),
+        title: taskForm.title.trim(),
+        description: taskForm.description.trim() || undefined,
+        cron_expression: cronExpression,
+        enabled: taskForm.enabled,
+      },
+      persistentConfigJson,
+    );
+  }
+
+  return withOptionalConfigJson(
+    {
       title: taskForm.title.trim(),
       description: taskForm.description.trim() || undefined,
       cron_expression: cronExpression,
       enabled: taskForm.enabled,
-      config_json: persistentConfigJson || undefined,
-    };
-  }
-
-  return {
-    title: taskForm.title.trim(),
-    description: taskForm.description.trim() || undefined,
-    cron_expression: cronExpression,
-    enabled: taskForm.enabled,
-    config_json: persistentConfigJson || undefined,
-  };
+    },
+    persistentConfigJson,
+  );
 }
 
 function openConfigDialog() {
@@ -1733,6 +1741,11 @@ async function confirmConfigDialog() {
     return;
   }
 
+  if (!taskForm.configDirty) {
+    configDialogVisible.value = false;
+    return;
+  }
+
   const taskKey = editingTask.value?.key ?? taskForm.taskKey;
   if (!taskKey) {
     return;
@@ -1748,6 +1761,8 @@ async function confirmConfigDialog() {
     const savedForm = taskToForm(saved, selectedJobDefinition.value ?? undefined);
     taskForm.config = savedForm.config;
     taskForm.configJson = savedForm.configJson;
+    taskForm.configDirty = savedForm.configDirty;
+    taskForm.taskConfigJson = savedForm.taskConfigJson;
     configDialogVisible.value = false;
     void MessagePlugin.success(t('scheduledTask.list.configDialog.saveSuccess'));
   } catch (error) {
@@ -1772,6 +1787,37 @@ function normalizePersistentConfigJson() {
   return buildPersistentConfigJson(configJson);
 }
 
+function normalizeTaskLevelConfigJson() {
+  if (taskForm.configDirty) {
+    return normalizePersistentConfigJson();
+  }
+
+  return taskForm.taskConfigJson;
+}
+
+function syncTaskLevelConfigAfterSave(persistentConfigJson: string) {
+  taskForm.config = parseJsonRecord(persistentConfigJson);
+  taskForm.configJson = persistentConfigJson ? JSON.stringify(taskForm.config, null, 2) : '';
+  taskForm.taskConfigJson = persistentConfigJson;
+  taskForm.configDirty = false;
+}
+
+function withOptionalConfigJson<T extends Record<string, unknown>>(
+  payload: T,
+  persistentConfigJson: string,
+): T & {
+  config_json?: string;
+} {
+  if (!persistentConfigJson) {
+    return payload;
+  }
+
+  return {
+    ...payload,
+    config_json: persistentConfigJson,
+  };
+}
+
 function buildPersistentConfigJson(configJson: string) {
   const config = sanitizeConfigBySelectedSchema(parseJsonRecord(configJson));
   return Object.keys(config).length > 0 ? JSON.stringify(config) : '';
@@ -1782,8 +1828,21 @@ function sanitizeConfigBySelectedSchema(config: JsonRecord): JsonRecord {
     return {};
   }
 
-  const allowedKeys = new Set(persistentConfigSchemaFields.value.map((field) => field.key));
+  return sanitizeConfigByJobDefinition(config, selectedJobDefinition.value);
+}
+
+function sanitizeConfigByJobDefinition(config: JsonRecord, job?: ScheduledTaskJobDefinitionItem): JsonRecord {
+  if (!job) {
+    return {};
+  }
+
+  const fields = getConfigSchemaFields(parseConfigSchema(job.config_schema_json));
+  const allowedKeys = new Set(fields.map((field) => field.key));
   return Object.fromEntries(Object.entries(config).filter(([key]) => allowedKeys.has(key)));
+}
+
+function serializeConfigRecord(config: JsonRecord) {
+  return Object.keys(config).length > 0 ? JSON.stringify(config) : '';
 }
 
 function openRunDialog(task: ScheduledTaskItem) {
@@ -1985,12 +2044,28 @@ function createEmptyTaskForm(): TaskFormModel {
     jobKey: '',
     config: {},
     configJson: '',
+    configDirty: false,
+    taskConfigJson: '',
   };
 }
 
 function taskToForm(task: ScheduledTaskItem, job?: ScheduledTaskJobDefinitionItem): TaskFormModel {
   const expression = normalizeCronForForm(task.schedule || DEFAULT_CRON_EXPRESSION);
-  const config = mergeConfigRecords(parseJsonRecord(job?.default_config_json), parseJsonRecord(task.config_json));
+  const taskConfig = job
+    ? sanitizeConfigByJobDefinition(parseJsonRecord(task.config_json), job)
+    : parseJsonRecord(task.config_json);
+  const defaultConfig = job
+    ? mergeConfigRecords(
+        buildDefaultConfigFromSchema(parseConfigSchema(job.config_schema_json)),
+        parseJsonRecord(job.default_config_json),
+      )
+    : {};
+  const effectiveConfig = task.effective_config?.trim()
+    ? job
+      ? sanitizeConfigByJobDefinition(parseJsonRecord(task.effective_config), job)
+      : parseJsonRecord(task.effective_config)
+    : mergeConfigRecords(defaultConfig, taskConfig);
+  const taskConfigJson = serializeConfigRecord(taskConfig);
   return {
     taskKey: task.key,
     title: taskDisplayName(task),
@@ -1998,8 +2073,10 @@ function taskToForm(task: ScheduledTaskItem, job?: ScheduledTaskJobDefinitionIte
     cronExpression: expression,
     enabled: task.enabled,
     jobKey: task.job_key,
-    config,
-    configJson: Object.keys(config).length > 0 ? JSON.stringify(config, null, 2) : '',
+    config: effectiveConfig,
+    configJson: Object.keys(effectiveConfig).length > 0 ? JSON.stringify(effectiveConfig, null, 2) : '',
+    configDirty: false,
+    taskConfigJson,
   };
 }
 
@@ -2069,6 +2146,7 @@ function formatConfigJson() {
 
   taskForm.config = sanitizeConfigBySelectedSchema(parseJsonRecord(normalized));
   syncConfigJsonFromModel();
+  markConfigDirty();
   clearFormFieldError('configJson');
 }
 
@@ -2078,6 +2156,7 @@ function handleConfigJsonChange() {
     return;
   }
   taskForm.config = sanitizeConfigBySelectedSchema(parseJsonRecord(normalized));
+  markConfigDirty();
   clearFormFieldError('configJson');
 }
 
@@ -2087,11 +2166,16 @@ function updateConfigField(key: string, value: unknown) {
     [key]: value,
   };
   syncConfigJsonFromModel();
+  markConfigDirty();
   clearFormFieldError('configJson');
 }
 
 function syncConfigJsonFromModel() {
   taskForm.configJson = JSON.stringify(taskForm.config, null, 2);
+}
+
+function markConfigDirty() {
+  taskForm.configDirty = true;
 }
 
 function configNumberValue(key: string) {
@@ -2160,6 +2244,8 @@ async function handleJobDefinitionChange(value: unknown) {
     parseJsonRecord(job.default_config_json),
   );
   syncConfigJsonFromModel();
+  taskForm.configDirty = false;
+  taskForm.taskConfigJson = '';
   resetFormFieldErrors();
 }
 

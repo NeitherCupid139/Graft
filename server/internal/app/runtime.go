@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 
 	"graft/server/internal/config"
+	"graft/server/internal/configregistry"
 	"graft/server/internal/container"
 	healthopenapi "graft/server/internal/contract/openapi/health"
 	"graft/server/internal/cronx"
@@ -66,6 +67,7 @@ type Runtime struct {
 	menuRegistry       *menu.Registry
 	permissionRegistry *permission.Registry
 	cronRegistry       *cronx.Registry
+	configRegistry     *configregistry.Registry
 	moduleManager      *module.Manager
 	runtimeMetadata    module.RuntimeMetadata
 	appLogRepository   logger.AppLogRepository
@@ -216,6 +218,7 @@ func newRuntimeCoreWithDeps(cfg *config.Config, deps runtimeCoreDeps) (*Runtime,
 		menuRegistry:       menu.NewRegistry(),
 		permissionRegistry: permission.NewRegistry(),
 		cronRegistry:       cronx.NewRegistry(),
+		configRegistry:     configregistry.NewRegistry(),
 		moduleManager:      module.NewManager(),
 		appLogRepository:   appLogRepo,
 	}, nil
@@ -371,6 +374,7 @@ func (r *Runtime) newModuleContext(runCtx context.Context) *module.Context {
 		MenuRegistry:       r.menuRegistry,
 		PermissionRegistry: r.permissionRegistry,
 		CronRegistry:       r.cronRegistry,
+		ConfigRegistry:     r.configRegistry,
 	}
 }
 
@@ -587,6 +591,12 @@ func (r *Runtime) registerCoreServices() error {
 		provider func() (any, error)
 	}{
 		{
+			key: (*configregistry.Registry)(nil),
+			provider: func() (any, error) {
+				return r.configRegistry, nil
+			},
+		},
+		{
 			key: (*config.Config)(nil),
 			provider: func() (any, error) {
 				return r.config, nil
@@ -655,13 +665,22 @@ func (r *Runtime) registerAccessLogRetentionJob() error {
 	if r == nil || r.server == nil {
 		return errors.New("runtime server is unavailable")
 	}
+	if err := httpx.RegisterAccessLogRetentionConfigMessages(r.i18n); err != nil {
+		return fmt.Errorf("register access-log retention config messages: %w", err)
+	}
+	if err := httpx.RegisterAccessLogRetentionConfigDefinition(r.configRegistry); err != nil {
+		return fmt.Errorf("register access-log retention config definition: %w", err)
+	}
 
-	return httpx.RegisterAccessLogRetentionCleanupJob(
+	if err := httpx.RegisterAccessLogRetentionCleanupJob(
 		r.cronRegistry,
 		r.logger,
 		r.server.AccessLogRepository(),
 		r.config.HTTPX,
-	)
+	); err != nil {
+		return fmt.Errorf("register access-log retention cleanup job: %w", err)
+	}
+	return nil
 }
 
 func (r *Runtime) registerAppLogRetentionJob() error {
@@ -671,14 +690,23 @@ func (r *Runtime) registerAppLogRetentionJob() error {
 	if r.appLogRepository == nil {
 		return nil
 	}
+	if err := logger.RegisterAppLogRetentionConfigMessages(r.i18n); err != nil {
+		return fmt.Errorf("register app-log retention config messages: %w", err)
+	}
+	if err := logger.RegisterAppLogRetentionConfigDefinition(r.configRegistry); err != nil {
+		return fmt.Errorf("register app-log retention config definition: %w", err)
+	}
 
-	return logger.RegisterAppLogRetentionCleanupJob(
+	if err := logger.RegisterAppLogRetentionCleanupJob(
 		r.cronRegistry,
 		r.logger,
 		r.injectedAppLogger(),
 		r.appLogRepository,
 		r.config.Log,
-	)
+	); err != nil {
+		return fmt.Errorf("register app-log retention cleanup job: %w", err)
+	}
+	return nil
 }
 
 func (r *Runtime) newAppLogger() logger.AppLogger {

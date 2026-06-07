@@ -25,8 +25,6 @@ const messageMocks = vi.hoisted(() => ({
   warning: vi.fn(),
 }));
 
-const confirmMock = vi.hoisted(() => vi.fn(() => true));
-
 const permissionState = vi.hoisted(() => ({
   grantedCodes: [] as string[],
 }));
@@ -69,6 +67,8 @@ vi.mock('@/store', () => ({
 vi.mock('vue-i18n', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-i18n')>();
   const translations: Record<string, string> = {
+    'rbac.permissionCatalog.futureRead.display': 'Future Read Localized',
+    'rbac.permissionCatalog.futureRead.description': 'Future description localized',
     'rbac.permissionCatalog.permissionRead.display': 'Read Permissions Localized',
     'rbac.permissionCatalog.permissionRead.description': 'Localized permission description',
     'rbac.permissionCatalog.roleUpdate.display': 'Update Roles Localized',
@@ -104,8 +104,6 @@ vi.mock('tdesign-vue-next', () => ({
   },
 }));
 
-vi.stubGlobal('confirm', confirmMock);
-
 const passthroughStub = defineComponent({
   name: 'PassthroughStub',
   props: {
@@ -120,6 +118,52 @@ const passthroughStub = defineComponent({
   },
   setup(props, { slots }) {
     return () => h('div', [props.title, props.description, slots.default?.(), slots.action?.()]);
+  },
+});
+
+const cardStub = defineComponent({
+  name: 'TCardStub',
+  props: {
+    title: {
+      type: String,
+      default: '',
+    },
+  },
+  setup(props, { slots, attrs }) {
+    return () => h('section', attrs, [props.title, slots.default?.()]);
+  },
+});
+
+const alertStub = defineComponent({
+  name: 'TAlertStub',
+  props: {
+    title: {
+      type: String,
+      default: '',
+    },
+  },
+  setup(props, { slots, attrs }) {
+    return () => h('aside', attrs, [props.title, slots.message?.(), slots.default?.()]);
+  },
+});
+
+const descriptionsStub = defineComponent({
+  name: 'TDescriptionsStub',
+  setup(_, { slots }) {
+    return () => h('dl', slots.default?.());
+  },
+});
+
+const descriptionsItemStub = defineComponent({
+  name: 'TDescriptionsItemStub',
+  props: {
+    label: {
+      type: String,
+      default: '',
+    },
+  },
+  setup(props, { slots }) {
+    return () => h('div', [h('dt', props.label), h('dd', slots.default?.())]);
   },
 });
 
@@ -272,6 +316,14 @@ const tableStub = defineComponent({
 const drawerStub = defineComponent({
   name: 'TDrawerStub',
   props: {
+    closeOnEscKeydown: {
+      type: Boolean,
+      default: true,
+    },
+    closeOnOverlayClick: {
+      type: Boolean,
+      default: true,
+    },
     footer: {
       type: [Boolean, Object, String, null],
       default: undefined,
@@ -285,17 +337,113 @@ const drawerStub = defineComponent({
       default: false,
     },
   },
-  setup(props, { slots }) {
+  emits: ['close', 'close-btn-click', 'esc-keydown', 'overlay-click', 'update:visible'],
+  setup(props, { emit, slots }) {
     return () =>
       props.visible
         ? h(
             'section',
             {
               'data-testid': 'drawer',
+              'data-close-on-esc': String(props.closeOnEscKeydown),
+              'data-close-on-overlay': String(props.closeOnOverlayClick),
               'data-footer': String(props.footer),
               'data-header': props.header,
             },
-            slots.default?.(),
+            [
+              h('button', {
+                'data-testid': 'drawer-close-btn',
+                onClick: () => emit('close-btn-click', { e: new MouseEvent('click') }),
+              }),
+              h('button', {
+                'data-testid': 'drawer-overlay',
+                onClick: () => emit('overlay-click', { e: new MouseEvent('click') }),
+              }),
+              h('button', {
+                'data-testid': 'drawer-esc',
+                onClick: () => emit('esc-keydown', { e: new KeyboardEvent('keydown') }),
+              }),
+              slots.default?.(),
+            ],
+          )
+        : null;
+  },
+});
+
+const dialogStub = defineComponent({
+  name: 'TDialogStub',
+  props: {
+    body: {
+      type: String,
+      default: '',
+    },
+    cancelBtn: {
+      type: [String, Object, Boolean],
+      default: '',
+    },
+    confirmBtn: {
+      type: [String, Object, Boolean],
+      default: '',
+    },
+    header: {
+      type: String,
+      default: '',
+    },
+    visible: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  emits: ['cancel', 'close', 'confirm', 'update:visible'],
+  setup(props, { emit, slots }) {
+    const buttonContent = (value: unknown) => {
+      if (typeof value === 'string') {
+        return value;
+      }
+      if (value && typeof value === 'object' && 'content' in value) {
+        return String((value as { content?: unknown }).content ?? '');
+      }
+      return '';
+    };
+
+    return () =>
+      props.visible
+        ? h(
+            'section',
+            {
+              'data-testid': 'discard-permission-confirm',
+              'data-header': props.header,
+              'data-body': props.body,
+            },
+            [
+              h('h2', props.header),
+              h('p', props.body),
+              slots.default?.(),
+              h(
+                'button',
+                {
+                  'data-testid': 'discard-confirm-cancel',
+                  onClick: () => emit('cancel', { e: new MouseEvent('click') }),
+                },
+                buttonContent(props.cancelBtn),
+              ),
+              h(
+                'button',
+                {
+                  'data-testid': 'discard-confirm-confirm',
+                  onClick: () => emit('confirm', { e: new MouseEvent('click') }),
+                },
+                buttonContent(props.confirmBtn),
+              ),
+              h(
+                'button',
+                {
+                  'data-testid': 'discard-confirm-close',
+                  onClick: () => emit('close', { e: new MouseEvent('click') }),
+                },
+                'close',
+              ),
+            ],
           )
         : null;
   },
@@ -458,6 +606,24 @@ function createRoleListResponse() {
   };
 }
 
+function createBuiltinAdminRoleListResponse() {
+  return {
+    items: [
+      {
+        id: 1,
+        name: 'admin',
+        display: 'Administrator',
+        description: 'Builtin administrator',
+        builtin: true,
+        status: 'enabled',
+        updated_at: '2026-05-18T00:00:00Z',
+        permission_count: 3,
+        user_count: 1,
+      },
+    ],
+  };
+}
+
 function createPermissionListResponse() {
   return {
     items: [
@@ -519,9 +685,14 @@ function mountRolePage() {
         },
       },
       stubs: {
+        't-alert': alertStub,
         't-button': buttonStub,
+        't-card': cardStub,
         't-checkbox': checkboxStub,
         't-checkbox-group': checkboxGroupStub,
+        't-descriptions': descriptionsStub,
+        't-descriptions-item': descriptionsItemStub,
+        't-dialog': dialogStub,
         't-dropdown': dropdownStub,
         't-drawer': drawerStub,
         't-empty': passthroughStub,
@@ -544,6 +715,12 @@ function updatePermissionSelection(wrapper: ReturnType<typeof mountRolePage>, id
   checkboxGroup.vm.$emit('update:modelValue', ids);
 }
 
+function selectedPermissionIds(wrapper: ReturnType<typeof mountRolePage>) {
+  return JSON.parse(
+    wrapper.get('[data-testid="permission-checkbox-group"]').attributes('data-selected-permission-ids') ?? '[]',
+  );
+}
+
 function setPermissionMutationMode(wrapper: ReturnType<typeof mountRolePage>, mode: 'replace' | 'add' | 'remove') {
   const selects = wrapper.findAll('select');
   const mutationSelect = selects.at(-1);
@@ -558,8 +735,6 @@ describe('RolePage', () => {
   beforeEach(() => {
     permissionState.grantedCodes = [];
     tabSnapshotState.snapshots = {};
-    confirmMock.mockReset();
-    confirmMock.mockReturnValue(true);
     rbacApiMocks.addRolePermissions.mockReset();
     rbacApiMocks.createRole.mockReset();
     rbacApiMocks.deleteRole.mockReset();
@@ -769,7 +944,6 @@ describe('RolePage', () => {
     rbacApiMocks.getRoles.mockResolvedValue(createRoleListResponse());
     rbacApiMocks.getPermissions.mockResolvedValue(createPermissionListResponse());
     rbacApiMocks.getRolePermissionBindings.mockResolvedValue({ permission_ids: [1] });
-    confirmMock.mockReturnValueOnce(false);
 
     const wrapper = mountRolePage();
     await flushPromises();
@@ -782,8 +956,103 @@ describe('RolePage', () => {
     await wrapper.get('[data-testid="permission-drawer-cancel"]').trigger('click');
     await flushPromises();
 
-    expect(confirmMock).toHaveBeenCalledWith('rbac.roleList.permissionDialog.unsavedChangesConfirm');
+    expect(wrapper.get('[data-testid="discard-permission-confirm"]').attributes('data-header')).toBe(
+      'rbac.roleList.permissionDialog.unsavedChangesTitle',
+    );
+    expect(wrapper.get('[data-testid="discard-permission-confirm"]').attributes('data-body')).toBe(
+      'rbac.roleList.permissionDialog.unsavedChangesConfirm',
+    );
     expect(wrapper.find('[data-testid="permission-drawer"]').exists()).toBe(true);
+  });
+
+  it('keeps the permission drawer state when continuing after the discard prompt', async () => {
+    permissionState.grantedCodes = [RBAC_PERMISSION_CODE.PERMISSION_READ, RBAC_PERMISSION_CODE.ROLE_PERMISSION_ASSIGN];
+    rbacApiMocks.getRoles.mockResolvedValue(createRoleListResponse());
+    rbacApiMocks.getPermissions.mockResolvedValue(createPermissionListResponse());
+    rbacApiMocks.getRolePermissionBindings.mockResolvedValue({ permission_ids: [1] });
+
+    const wrapper = mountRolePage();
+    await flushPromises();
+
+    await wrapper.get('[data-testid="role-assign-permissions"]').trigger('click');
+    await flushPromises();
+    updatePermissionSelection(wrapper, [1, 2]);
+    await flushPromises();
+    await wrapper.get('input[placeholder="rbac.roleList.permissionDialog.searchPlaceholder"]').setValue('Localized');
+    await setPermissionMutationMode(wrapper, 'replace');
+    await wrapper.get('[data-testid="permission-drawer-cancel"]').trigger('click');
+    await flushPromises();
+
+    await wrapper.get('[data-testid="discard-confirm-cancel"]').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="discard-permission-confirm"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="permission-drawer"]').exists()).toBe(true);
+    expect(selectedPermissionIds(wrapper)).toEqual([1, 2]);
+    expect(
+      (wrapper.get('input[placeholder="rbac.roleList.permissionDialog.searchPlaceholder"]').element as HTMLInputElement)
+        .value,
+    ).toBe('Localized');
+    expect(rbacApiMocks.getRolePermissionBindings).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the permission drawer open when overlay close is canceled from the discard prompt', async () => {
+    permissionState.grantedCodes = [RBAC_PERMISSION_CODE.PERMISSION_READ, RBAC_PERMISSION_CODE.ROLE_PERMISSION_ASSIGN];
+    rbacApiMocks.getRoles.mockResolvedValue(createRoleListResponse());
+    rbacApiMocks.getPermissions.mockResolvedValue(createPermissionListResponse());
+    rbacApiMocks.getRolePermissionBindings.mockResolvedValue({ permission_ids: [1] });
+
+    const wrapper = mountRolePage();
+    await flushPromises();
+
+    await wrapper.get('[data-testid="role-assign-permissions"]').trigger('click');
+    await flushPromises();
+    updatePermissionSelection(wrapper, [1, 2]);
+    await flushPromises();
+
+    expect(wrapper.get('[data-testid="drawer"]').attributes('data-close-on-overlay')).toBe('false');
+    expect(wrapper.get('[data-testid="drawer"]').attributes('data-close-on-esc')).toBe('false');
+    await wrapper.get('[data-testid="drawer-overlay"]').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="permission-drawer"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="discard-permission-confirm"]').exists()).toBe(true);
+
+    await wrapper.get('[data-testid="discard-confirm-cancel"]').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="permission-drawer"]').exists()).toBe(true);
+    expect(selectedPermissionIds(wrapper)).toEqual([1, 2]);
+    expect(rbacApiMocks.getRolePermissionBindings).toHaveBeenCalledTimes(1);
+  });
+
+  it('discards unsaved permission changes only after confirming discard', async () => {
+    permissionState.grantedCodes = [RBAC_PERMISSION_CODE.PERMISSION_READ, RBAC_PERMISSION_CODE.ROLE_PERMISSION_ASSIGN];
+    rbacApiMocks.getRoles.mockResolvedValue(createRoleListResponse());
+    rbacApiMocks.getPermissions.mockResolvedValue(createPermissionListResponse());
+    rbacApiMocks.getRolePermissionBindings
+      .mockResolvedValueOnce({ permission_ids: [1] })
+      .mockResolvedValueOnce({ permission_ids: [1] });
+
+    const wrapper = mountRolePage();
+    await flushPromises();
+
+    await wrapper.get('[data-testid="role-assign-permissions"]').trigger('click');
+    await flushPromises();
+    updatePermissionSelection(wrapper, [1, 2]);
+    await flushPromises();
+    await wrapper.get('[data-testid="permission-drawer-cancel"]').trigger('click');
+    await flushPromises();
+    await wrapper.get('[data-testid="discard-confirm-confirm"]').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="permission-drawer"]').exists()).toBe(false);
+
+    await wrapper.get('[data-testid="role-assign-permissions"]').trigger('click');
+    await flushPromises();
+
+    expect(rbacApiMocks.getRolePermissionBindings).toHaveBeenCalledTimes(2);
+    expect(selectedPermissionIds(wrapper)).toEqual([1]);
   });
 
   it('submits only newly selected permissions in add mode', async () => {
@@ -882,6 +1151,68 @@ describe('RolePage', () => {
     expect(wrapper.text()).not.toContain('Read audit logs');
   });
 
+  it('prefers backend permission locale keys when they are present', async () => {
+    permissionState.grantedCodes = [RBAC_PERMISSION_CODE.PERMISSION_READ, RBAC_PERMISSION_CODE.ROLE_PERMISSION_ASSIGN];
+    rbacApiMocks.getRoles.mockResolvedValue(createRoleListResponse());
+    rbacApiMocks.getPermissions.mockResolvedValue({
+      items: [
+        {
+          id: 9,
+          code: 'future.read',
+          display: 'Raw Permission Name',
+          display_key: 'rbac.permissionCatalog.futureRead.display',
+          description: 'Raw permission description',
+          description_key: 'rbac.permissionCatalog.futureRead.description',
+          category: 'future',
+          role_binding_count: 0,
+        },
+      ],
+    });
+    rbacApiMocks.getRolePermissionBindings.mockResolvedValue({ permission_ids: [] });
+
+    const wrapper = mountRolePage();
+    await flushPromises();
+
+    await wrapper.get('[data-testid="role-assign-permissions"]').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('Future Read Localized');
+    expect(wrapper.text()).toContain('Future description localized');
+    expect(wrapper.text()).not.toContain('Raw Permission Name');
+    expect(wrapper.text()).not.toContain('Raw permission description');
+  });
+
+  it('opens built-in admin permissions in readonly mode', async () => {
+    permissionState.grantedCodes = [RBAC_PERMISSION_CODE.PERMISSION_READ, RBAC_PERMISSION_CODE.ROLE_PERMISSION_ASSIGN];
+    rbacApiMocks.getRoles.mockResolvedValue(createBuiltinAdminRoleListResponse());
+    rbacApiMocks.getPermissions.mockResolvedValue(createPermissionListResponse());
+    rbacApiMocks.getRolePermissionBindings.mockResolvedValue({ permission_ids: [1, 2] });
+
+    const wrapper = mountRolePage();
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="role-assign-permissions"]').exists()).toBe(false);
+    expect(wrapper.get('[data-testid="role-view-permissions"]').text()).toContain('rbac.roleList.viewPermissions');
+
+    await wrapper.get('[data-testid="role-view-permissions"]').trigger('click');
+    await flushPromises();
+
+    expect(rbacApiMocks.getRolePermissionBindings).toHaveBeenCalledWith(1);
+    expect(wrapper.find('[data-testid="permission-drawer"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="permission-readonly-protection"]').exists()).toBe(true);
+    expect(wrapper.get('[data-testid="permission-checkbox-group"]').attributes('data-disabled')).toBe('true');
+    expect(wrapper.find('[data-testid="permission-drawer-save"]').exists()).toBe(false);
+    updatePermissionSelection(wrapper, [1, 2, 3]);
+    await flushPromises();
+    expect(rbacApiMocks.replaceRolePermissions).not.toHaveBeenCalled();
+
+    await wrapper.get('[data-testid="drawer-overlay"]').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="permission-drawer"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="discard-permission-confirm"]').exists()).toBe(false);
+  });
+
   it('matches permission search against localized copy', async () => {
     permissionState.grantedCodes = [RBAC_PERMISSION_CODE.PERMISSION_READ, RBAC_PERMISSION_CODE.ROLE_PERMISSION_ASSIGN];
     rbacApiMocks.getRoles.mockResolvedValue(createRoleListResponse());
@@ -900,7 +1231,7 @@ describe('RolePage', () => {
     expect(wrapper.text()).toContain('Update Roles Localized');
   });
 
-  it('shows lifecycle guidance in the detail drawer for role delete semantics', async () => {
+  it('shows overview and lifecycle guidance in the detail drawer for role delete semantics', async () => {
     permissionState.grantedCodes = [RBAC_PERMISSION_CODE.PERMISSION_READ];
     rbacApiMocks.getRoles.mockResolvedValue(createRoleListResponse());
     rbacApiMocks.getPermissions.mockResolvedValue(createPermissionListResponse());
@@ -923,15 +1254,157 @@ describe('RolePage', () => {
     await wrapper.get('[data-testid="role-detail"]').trigger('click');
     await flushPromises();
 
-    expect(wrapper.get('[data-testid="role-lifecycle-summary"]').text()).toContain(
-      'rbac.roleList.lifecycle.statusLabel',
-    );
-    expect(wrapper.get('[data-testid="role-lifecycle-summary"]').text()).toContain(
-      'rbac.roleList.lifecycle.statusEnabled',
-    );
+    expect(wrapper.get('[data-testid="role-overview"]').text()).toContain('Editor');
+    expect(wrapper.get('[data-testid="role-overview"]').text()).toContain('editor');
+    expect(wrapper.get('[data-testid="role-overview"]').text()).toContain('rbac.roleList.form.type.custom');
+    expect(wrapper.get('[data-testid="role-overview"]').text()).toContain('rbac.roleList.lifecycle.statusEnabled');
+    expect(wrapper.find('[data-testid="role-form"]').exists()).toBe(false);
     expect(wrapper.get('[data-testid="role-lifecycle-summary"]').text()).toContain(
       'rbac.roleList.lifecycle.deleteNeedsDisable',
     );
+  });
+
+  it('renders built-in admin details as overview, one rule alert, and readonly content', async () => {
+    permissionState.grantedCodes = [
+      RBAC_PERMISSION_CODE.PERMISSION_READ,
+      RBAC_PERMISSION_CODE.ROLE_DELETE,
+      RBAC_PERMISSION_CODE.ROLE_STATUS_UPDATE,
+    ];
+    rbacApiMocks.getRoles.mockResolvedValue(createBuiltinAdminRoleListResponse());
+    rbacApiMocks.getPermissions.mockResolvedValue(createPermissionListResponse());
+    rbacApiMocks.getRoleDetail.mockResolvedValue({
+      id: 1,
+      name: 'admin',
+      display: 'Administrator',
+      description: 'Builtin administrator',
+      builtin: true,
+      status: 'enabled',
+      updated_at: '2026-05-18T00:00:00Z',
+      created_at: '2026-05-17T00:00:00Z',
+      permission_count: 3,
+      user_count: 1,
+    });
+
+    const wrapper = mountRolePage();
+    await flushPromises();
+
+    wrapper.getComponent(dropdownStub).vm.$emit('click', { value: 'detail' });
+    await flushPromises();
+
+    expect(wrapper.get('[data-testid="role-overview"]').text()).toContain('Administrator');
+    expect(wrapper.get('[data-testid="role-overview"]').text()).toContain('admin');
+    expect(wrapper.get('[data-testid="role-overview"]').text()).toContain('rbac.roleList.form.type.system');
+    expect(wrapper.get('[data-testid="role-overview"]').text()).toContain('rbac.roleList.lifecycle.statusEnabled');
+    expect(wrapper.findAll('[data-testid="role-system-rules"]')).toHaveLength(1);
+    expect(wrapper.get('[data-testid="role-system-rules"]').text()).toContain(
+      'rbac.roleList.form.systemProtectionBody',
+    );
+    expect(wrapper.get('[data-testid="role-system-rules"]').text()).toContain(
+      'rbac.roleList.form.systemProtectionNormal',
+    );
+    expect(wrapper.get('[data-testid="role-system-rules"]').text()).toContain(
+      'rbac.roleList.form.systemProtectionCopyHint',
+    );
+    expect(wrapper.find('[data-testid="role-form"]').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('rbac.roleList.form.builtinNotice');
+    expect(wrapper.text()).not.toContain('rbac.roleList.moreActions.delete');
+    expect(wrapper.text()).not.toContain('rbac.roleList.edit');
+    expect(wrapper.find('[data-testid="role-drawer-delete"]').exists()).toBe(false);
+  });
+
+  it('copies a built-in role as a custom role with the source permission set', async () => {
+    permissionState.grantedCodes = [
+      RBAC_PERMISSION_CODE.PERMISSION_READ,
+      RBAC_PERMISSION_CODE.ROLE_CREATE,
+      RBAC_PERMISSION_CODE.ROLE_PERMISSION_ASSIGN,
+    ];
+    rbacApiMocks.getRoles.mockResolvedValue(createBuiltinAdminRoleListResponse());
+    rbacApiMocks.getPermissions.mockResolvedValue(createPermissionListResponse());
+    rbacApiMocks.getRolePermissionBindings.mockResolvedValue({ permission_ids: [3, 1] });
+    rbacApiMocks.createRole.mockResolvedValue({
+      id: 9,
+      name: 'custom-admin',
+      display: 'Custom Admin',
+      description: 'Builtin administrator',
+      builtin: false,
+      status: 'enabled',
+      updated_at: '2026-05-19T00:00:00Z',
+      permission_count: 0,
+      user_count: 0,
+    });
+    rbacApiMocks.replaceRolePermissions.mockResolvedValue(null);
+
+    const wrapper = mountRolePage();
+    await flushPromises();
+
+    wrapper.getComponent(dropdownStub).vm.$emit('click', { value: 'copy-role' });
+    await flushPromises();
+
+    expect(rbacApiMocks.getRolePermissionBindings).toHaveBeenCalledWith(1);
+    expect(
+      (wrapper.get('input[placeholder="rbac.roleList.form.namePlaceholder"]').element as HTMLInputElement).value,
+    ).toBe('');
+    expect(
+      (wrapper.get('input[placeholder="rbac.roleList.form.displayPlaceholder"]').element as HTMLInputElement).value,
+    ).toBe('rbac.roleList.copyDisplayTemplate');
+
+    await wrapper.get('input[placeholder="rbac.roleList.form.namePlaceholder"]').setValue(' custom-admin ');
+    await wrapper.get('[data-testid="role-form"]').trigger('submit');
+    await flushPromises();
+
+    expect(rbacApiMocks.createRole).toHaveBeenCalledWith({
+      name: 'custom-admin',
+      display: 'rbac.roleList.copyDisplayTemplate',
+      description: 'Builtin administrator',
+    });
+    expect(rbacApiMocks.replaceRolePermissions).toHaveBeenCalledWith(9, {
+      permission_ids: [1, 3],
+    });
+    expect(messageMocks.success).toHaveBeenCalledWith('rbac.roleList.copySuccess');
+  });
+
+  it('keeps a copied role visible when permission copy fails after creation', async () => {
+    permissionState.grantedCodes = [
+      RBAC_PERMISSION_CODE.PERMISSION_READ,
+      RBAC_PERMISSION_CODE.ROLE_CREATE,
+      RBAC_PERMISSION_CODE.ROLE_PERMISSION_ASSIGN,
+    ];
+    rbacApiMocks.getRoles.mockResolvedValue(createBuiltinAdminRoleListResponse());
+    rbacApiMocks.getPermissions.mockResolvedValue(createPermissionListResponse());
+    rbacApiMocks.getRolePermissionBindings.mockResolvedValue({ permission_ids: [3, 1] });
+    rbacApiMocks.createRole.mockResolvedValue({
+      id: 9,
+      name: 'custom-admin',
+      display: 'Custom Admin',
+      description: 'Builtin administrator',
+      builtin: false,
+      status: 'enabled',
+      updated_at: '2026-05-19T00:00:00Z',
+      permission_count: 0,
+      user_count: 0,
+    });
+    rbacApiMocks.replaceRolePermissions.mockRejectedValue(new Error('permission copy failed'));
+
+    const wrapper = mountRolePage();
+    await flushPromises();
+
+    wrapper.getComponent(dropdownStub).vm.$emit('click', { value: 'copy-role' });
+    await flushPromises();
+    await wrapper.get('input[placeholder="rbac.roleList.form.namePlaceholder"]').setValue(' custom-admin ');
+    await wrapper.get('[data-testid="role-form"]').trigger('submit');
+    await flushPromises();
+
+    expect(rbacApiMocks.createRole).toHaveBeenCalledWith({
+      name: 'custom-admin',
+      display: 'rbac.roleList.copyDisplayTemplate',
+      description: 'Builtin administrator',
+    });
+    expect(rbacApiMocks.replaceRolePermissions).toHaveBeenCalledWith(9, {
+      permission_ids: [1, 3],
+    });
+    expect(wrapper.text()).toContain('Custom Admin');
+    expect(messageMocks.warning).toHaveBeenCalledWith('rbac.roleList.copyPermissionsPartialSuccess');
+    expect(messageMocks.success).not.toHaveBeenCalledWith('rbac.roleList.copySuccess');
   });
 
   it('blocks delete when the role is still enabled', async () => {

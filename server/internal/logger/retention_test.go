@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"graft/server/internal/config"
+	"graft/server/internal/configregistry"
 	"graft/server/internal/cronx"
 )
 
@@ -203,6 +204,37 @@ func TestRegisterAppLogRetentionCleanupJob(t *testing.T) {
 	assertAppLogRetentionDryRunAction(t, repo, items[0])
 }
 
+func TestRegisterAppLogRetentionConfigDefinition(t *testing.T) {
+	registry := configregistry.NewRegistry()
+
+	if err := RegisterAppLogRetentionConfigDefinition(registry); err != nil {
+		t.Fatalf("register config definition: %v", err)
+	}
+
+	items := registry.Items()
+	if len(items) != 1 {
+		t.Fatalf("expected one config definition, got %d", len(items))
+	}
+	definition := items[0]
+	if definition.Key != appLogRetentionCleanupJobName ||
+		definition.Module != appLogRetentionCleanupJobModule ||
+		definition.Type != configregistry.ValueTypeObject {
+		t.Fatalf("unexpected app log config definition: %#v", definition)
+	}
+	if definition.GroupKey != appLogRetentionConfigGroupKey ||
+		definition.TitleKey != appLogRetentionConfigTitleKey ||
+		definition.DescriptionKey != appLogRetentionConfigDescriptionKey {
+		t.Fatalf("expected localized app log config metadata, got %#v", definition)
+	}
+	if string(definition.DefaultValue) != appLogRetentionCleanupDefaultConfig {
+		t.Fatalf("expected default config %s, got %s", appLogRetentionCleanupDefaultConfig, definition.DefaultValue)
+	}
+	if !strings.Contains(string(definition.Schema), `"x-i18n"`) ||
+		!strings.Contains(string(definition.Schema), `"unitKey":"systemConfig.units.rows"`) {
+		t.Fatalf("expected x-i18n schema metadata, got %s", string(definition.Schema))
+	}
+}
+
 func assertAppLogRetentionJobMetadata(t *testing.T, job cronx.Job) {
 	t.Helper()
 
@@ -289,6 +321,17 @@ func TestAppLogRetentionDryRunClampsEstimatedDeleteCountToBatchSize(t *testing.T
 	}
 	if result.Metrics["estimatedScanCount"] != int64(12) || result.Metrics["estimatedDeleteCount"] != int64(5) {
 		t.Fatalf("expected clamped delete estimate with full scan count, got %#v", result.Metrics)
+	}
+}
+
+func TestDecodeAppLogRetentionJobConfigClampsRetentionDays(t *testing.T) {
+	config := decodeAppLogRetentionJobConfig(`{"retentionDays":366,"batchSize":500}`)
+
+	if config.RetentionDays != appLogRetentionMaxDays {
+		t.Fatalf("expected retention days clamped to %d, got %d", appLogRetentionMaxDays, config.RetentionDays)
+	}
+	if config.BatchSize != 500 {
+		t.Fatalf("expected configured batch size, got %d", config.BatchSize)
 	}
 }
 

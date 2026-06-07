@@ -39,8 +39,8 @@
 * 权限判断继续统一走 `moduleapi.Authorizer` 与 `httpx.RequirePermission`
 * 用户角色最小读面只返回稳定 `role_ids` 快照，角色详情继续由 `GET /api/roles` 持有
 * 角色权限和用户角色写入继续保持 `replace | add | remove` 三种稳定语义，并继续把 `permission_ids` / `role_ids` 作为稳定请求字段
-* builtin 角色允许更新展示字段，但不允许通过写接口修改稳定名称
+* builtin 角色允许更新展示字段，但不允许通过写接口修改稳定名称；内置 `admin` 角色权限绑定不允许通过管理接口变更
 * 角色/权限写操作单独通过模块内 service/usecase 收敛，而不是在路由层散落规则
 * 目标用户不存在、角色/权限 ID 无效，以及 TOCTOU 场景下已删除 ID 的错误映射，继续保持当前 focused tests 已覆盖的稳定契约
-* 当前权限列表仍只暴露 `display` / `description` 回退文案；未来若增加 `display_key`，必须以 additive contract 方式显式演进，不能把当前返回值描述成已经 key-first
+* 权限列表以 `display_key` / `description_key` 作为 key-first 本地化契约，`display` / `description` 只作为兼容回退文案
 * RBAC 现阶段使用模块本地 SQL repository 直连共享 `*sql.DB`，不再通过 alias layer 反向依赖 `server/internal/ent/*`

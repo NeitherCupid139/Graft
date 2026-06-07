@@ -10,7 +10,9 @@ import (
 	"go.uber.org/zap"
 
 	"graft/server/internal/config"
+	"graft/server/internal/configregistry"
 	"graft/server/internal/cronx"
+	"graft/server/internal/i18n"
 )
 
 const (
@@ -23,12 +25,20 @@ const (
 	appLogRetentionDryRunActionTitleKey     = "scheduledTask.action.dryRun.title"
 	appLogRetentionDryRunActionDescKey      = "scheduledTask.action.dryRun.description"
 	appLogRetentionDefaultDays              = 30
+	appLogRetentionMaxDays                  = 365
 	appLogRetentionDefaultBatchSize         = 1000
+	appLogRetentionConfigDefinitionOrder    = 220
 	appLogRetentionFailureSummary           = "app log retention cleanup failed"
 	hoursPerDay                             = 24
 )
 
-const appLogRetentionCleanupConfigSchema = `{"type":"object","properties":{"retentionDays":{"type":"integer","minimum":1,"maximum":3650,"default":30,"title":"Retention days","description":"Delete app logs older than this number of days.","x-title-key":"scheduledTask.appLogRetention.config.retentionDays.title","x-description-key":"scheduledTask.appLogRetention.config.retentionDays.description"},"batchSize":{"type":"integer","minimum":1,"maximum":10000,"default":1000,"title":"Batch size","description":"Maximum app log rows to delete in one cleanup batch.","x-title-key":"scheduledTask.appLogRetention.config.batchSize.title","x-description-key":"scheduledTask.appLogRetention.config.batchSize.description"}},"additionalProperties":false}`
+const (
+	appLogRetentionConfigGroupKey       = "systemConfig.groups.coreLoggerLogRetention"
+	appLogRetentionConfigTitleKey       = "systemConfig.items.appLogRetentionCleanup.title"
+	appLogRetentionConfigDescriptionKey = "systemConfig.items.appLogRetentionCleanup.description"
+)
+
+const appLogRetentionCleanupConfigSchema = `{"type":"object","properties":{"retentionDays":{"type":"integer","minimum":1,"maximum":365,"default":30,"title":"Log retention days","description":"Delete logs older than this many days.","x-i18n":{"titleKey":"systemConfig.fields.retentionDays.title","descriptionKey":"systemConfig.fields.retentionDays.description","unitKey":"systemConfig.units.days"}},"batchSize":{"type":"integer","minimum":1,"maximum":10000,"default":1000,"title":"Batch size","description":"Maximum rows deleted per cleanup batch.","x-i18n":{"titleKey":"systemConfig.fields.batchSize.title","descriptionKey":"systemConfig.fields.batchSize.description","unitKey":"systemConfig.units.rows"}}},"additionalProperties":false}`
 const appLogRetentionCleanupDefaultConfig = `{"retentionDays":30,"batchSize":1000}`
 
 type appLogRetentionJobConfig struct {
@@ -296,10 +306,70 @@ func decodeAppLogRetentionJobConfig(configJSON string) appLogRetentionJobConfig 
 	if config.RetentionDays <= 0 {
 		config.RetentionDays = appLogRetentionDefaultDays
 	}
+	if config.RetentionDays > appLogRetentionMaxDays {
+		config.RetentionDays = appLogRetentionMaxDays
+	}
 	if config.BatchSize <= 0 {
 		config.BatchSize = appLogRetentionDefaultBatchSize
 	}
 	return config
+}
+
+// RegisterAppLogRetentionConfigDefinition exposes the built-in cleanup defaults as registry authority.
+func RegisterAppLogRetentionConfigDefinition(registry *configregistry.Registry) error {
+	if registry == nil {
+		return errors.New("config registry is required")
+	}
+
+	return registry.Register(configregistry.Definition{
+		Key:            appLogRetentionCleanupJobName,
+		Module:         appLogRetentionCleanupJobModule,
+		Group:          "log.retention",
+		GroupKey:       appLogRetentionConfigGroupKey,
+		GroupLabel:     "core.logger / log.retention",
+		Title:          "App log retention cleanup",
+		TitleKey:       appLogRetentionConfigTitleKey,
+		Description:    "Default cleanup configuration for app-log retention jobs.",
+		DescriptionKey: appLogRetentionConfigDescriptionKey,
+		Tags:           []string{"logger", "log.retention"},
+		Type:           configregistry.ValueTypeObject,
+		Schema:         json.RawMessage(appLogRetentionCleanupConfigSchema),
+		DefaultValue:   json.RawMessage(appLogRetentionCleanupDefaultConfig),
+		Order:          appLogRetentionConfigDefinitionOrder,
+	})
+}
+
+// RegisterAppLogRetentionConfigMessages registers system-config display metadata for the logger-owned cleanup config.
+func RegisterAppLogRetentionConfigMessages(localizer *i18n.Service) error {
+	if localizer == nil {
+		return errors.New("i18n service is required")
+	}
+
+	for _, registration := range []i18n.Registration{
+		{
+			Namespace: "system-config",
+			Locale:    i18n.LocaleZHCN,
+			Messages: []i18n.MessageResource{
+				{Key: i18n.MessageKey(appLogRetentionConfigGroupKey), Text: "core.logger / log.retention"},
+				{Key: i18n.MessageKey(appLogRetentionConfigTitleKey), Text: "应用日志保留清理"},
+				{Key: i18n.MessageKey(appLogRetentionConfigDescriptionKey), Text: "应用日志保留清理任务的默认配置。"},
+			},
+		},
+		{
+			Namespace: "system-config",
+			Locale:    i18n.LocaleENUS,
+			Messages: []i18n.MessageResource{
+				{Key: i18n.MessageKey(appLogRetentionConfigGroupKey), Text: "core.logger / log.retention"},
+				{Key: i18n.MessageKey(appLogRetentionConfigTitleKey), Text: "App log retention cleanup"},
+				{Key: i18n.MessageKey(appLogRetentionConfigDescriptionKey), Text: "Default cleanup configuration for app-log retention jobs."},
+			},
+		},
+	} {
+		if err := localizer.RegisterMessages(registration); err != nil {
+			return fmt.Errorf("register app-log retention config messages: %w", err)
+		}
+	}
+	return nil
 }
 
 // RegisterAppLogRetentionCleanupJob registers the logger-owned app-log cleanup job.
@@ -329,6 +399,7 @@ func RegisterAppLogRetentionCleanupJob(
 		DescriptionMessageKey: appLogRetentionCleanupJobDescriptionKey,
 		ConfigSchema:          appLogRetentionCleanupConfigSchema,
 		DefaultConfig:         appLogRetentionCleanupDefaultConfig,
+		DefaultConfigKey:      appLogRetentionCleanupJobName,
 		Actions: []cronx.JobAction{
 			{
 				Key:            appLogRetentionDryRunActionKey,

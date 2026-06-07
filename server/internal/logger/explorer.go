@@ -99,11 +99,13 @@ func registerAppLogExplorerPermissions(registry *permission.Registry) {
 	}
 
 	registry.Register(permission.Item{
-		Code:        AppLogReadPermission,
-		Name:        "Read App Logs",
-		Description: "Allows reading logger-owned app-log explorer data.",
-		Category:    "api",
-		Module:      appLogModuleOwner,
+		Code:           AppLogReadPermission,
+		Name:           "Read App Logs",
+		DisplayKey:     "rbac.permissionCatalog.appLogRead.display",
+		Description:    "Allows reading logger-owned app-log explorer data.",
+		DescriptionKey: "rbac.permissionCatalog.appLogRead.description",
+		Category:       "api",
+		Module:         appLogModuleOwner,
 	})
 }
 

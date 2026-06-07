@@ -41,7 +41,9 @@ type PermissionMutation struct {
 	id                      *int
 	code                    *string
 	display                 *string
+	display_key             *string
 	description             *string
+	description_key         *string
 	category                *string
 	created_at              *time.Time
 	created_by              *uint64
@@ -232,6 +234,55 @@ func (m *PermissionMutation) ResetDisplay() {
 	m.display = nil
 }
 
+// SetDisplayKey sets the "display_key" field.
+func (m *PermissionMutation) SetDisplayKey(s string) {
+	m.display_key = &s
+}
+
+// DisplayKey returns the value of the "display_key" field in the mutation.
+func (m *PermissionMutation) DisplayKey() (r string, exists bool) {
+	v := m.display_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDisplayKey returns the old "display_key" field's value of the Permission entity.
+// If the Permission object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PermissionMutation) OldDisplayKey(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDisplayKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDisplayKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDisplayKey: %w", err)
+	}
+	return oldValue.DisplayKey, nil
+}
+
+// ClearDisplayKey clears the value of the "display_key" field.
+func (m *PermissionMutation) ClearDisplayKey() {
+	m.display_key = nil
+	m.clearedFields[permission.FieldDisplayKey] = struct{}{}
+}
+
+// DisplayKeyCleared returns if the "display_key" field was cleared in this mutation.
+func (m *PermissionMutation) DisplayKeyCleared() bool {
+	_, ok := m.clearedFields[permission.FieldDisplayKey]
+	return ok
+}
+
+// ResetDisplayKey resets all changes to the "display_key" field.
+func (m *PermissionMutation) ResetDisplayKey() {
+	m.display_key = nil
+	delete(m.clearedFields, permission.FieldDisplayKey)
+}
+
 // SetDescription sets the "description" field.
 func (m *PermissionMutation) SetDescription(s string) {
 	m.description = &s
@@ -279,6 +330,55 @@ func (m *PermissionMutation) DescriptionCleared() bool {
 func (m *PermissionMutation) ResetDescription() {
 	m.description = nil
 	delete(m.clearedFields, permission.FieldDescription)
+}
+
+// SetDescriptionKey sets the "description_key" field.
+func (m *PermissionMutation) SetDescriptionKey(s string) {
+	m.description_key = &s
+}
+
+// DescriptionKey returns the value of the "description_key" field in the mutation.
+func (m *PermissionMutation) DescriptionKey() (r string, exists bool) {
+	v := m.description_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDescriptionKey returns the old "description_key" field's value of the Permission entity.
+// If the Permission object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PermissionMutation) OldDescriptionKey(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDescriptionKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDescriptionKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDescriptionKey: %w", err)
+	}
+	return oldValue.DescriptionKey, nil
+}
+
+// ClearDescriptionKey clears the value of the "description_key" field.
+func (m *PermissionMutation) ClearDescriptionKey() {
+	m.description_key = nil
+	m.clearedFields[permission.FieldDescriptionKey] = struct{}{}
+}
+
+// DescriptionKeyCleared returns if the "description_key" field was cleared in this mutation.
+func (m *PermissionMutation) DescriptionKeyCleared() bool {
+	_, ok := m.clearedFields[permission.FieldDescriptionKey]
+	return ok
+}
+
+// ResetDescriptionKey resets all changes to the "description_key" field.
+func (m *PermissionMutation) ResetDescriptionKey() {
+	m.description_key = nil
+	delete(m.clearedFields, permission.FieldDescriptionKey)
 }
 
 // SetCategory sets the "category" field.
@@ -701,15 +801,21 @@ func (m *PermissionMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *PermissionMutation) Fields() []string {
-	fields := make([]string, 0, 10)
+	fields := make([]string, 0, 12)
 	if m.code != nil {
 		fields = append(fields, permission.FieldCode)
 	}
 	if m.display != nil {
 		fields = append(fields, permission.FieldDisplay)
 	}
+	if m.display_key != nil {
+		fields = append(fields, permission.FieldDisplayKey)
+	}
 	if m.description != nil {
 		fields = append(fields, permission.FieldDescription)
+	}
+	if m.description_key != nil {
+		fields = append(fields, permission.FieldDescriptionKey)
 	}
 	if m.category != nil {
 		fields = append(fields, permission.FieldCategory)
@@ -744,8 +850,12 @@ func (m *PermissionMutation) Field(name string) (ent.Value, bool) {
 		return m.Code()
 	case permission.FieldDisplay:
 		return m.Display()
+	case permission.FieldDisplayKey:
+		return m.DisplayKey()
 	case permission.FieldDescription:
 		return m.Description()
+	case permission.FieldDescriptionKey:
+		return m.DescriptionKey()
 	case permission.FieldCategory:
 		return m.Category()
 	case permission.FieldCreatedAt:
@@ -773,8 +883,12 @@ func (m *PermissionMutation) OldField(ctx context.Context, name string) (ent.Val
 		return m.OldCode(ctx)
 	case permission.FieldDisplay:
 		return m.OldDisplay(ctx)
+	case permission.FieldDisplayKey:
+		return m.OldDisplayKey(ctx)
 	case permission.FieldDescription:
 		return m.OldDescription(ctx)
+	case permission.FieldDescriptionKey:
+		return m.OldDescriptionKey(ctx)
 	case permission.FieldCategory:
 		return m.OldCategory(ctx)
 	case permission.FieldCreatedAt:
@@ -812,12 +926,26 @@ func (m *PermissionMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetDisplay(v)
 		return nil
+	case permission.FieldDisplayKey:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDisplayKey(v)
+		return nil
 	case permission.FieldDescription:
 		v, ok := value.(string)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetDescription(v)
+		return nil
+	case permission.FieldDescriptionKey:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDescriptionKey(v)
 		return nil
 	case permission.FieldCategory:
 		v, ok := value.(string)
@@ -949,8 +1077,14 @@ func (m *PermissionMutation) AddField(name string, value ent.Value) error {
 // mutation.
 func (m *PermissionMutation) ClearedFields() []string {
 	var fields []string
+	if m.FieldCleared(permission.FieldDisplayKey) {
+		fields = append(fields, permission.FieldDisplayKey)
+	}
 	if m.FieldCleared(permission.FieldDescription) {
 		fields = append(fields, permission.FieldDescription)
+	}
+	if m.FieldCleared(permission.FieldDescriptionKey) {
+		fields = append(fields, permission.FieldDescriptionKey)
 	}
 	return fields
 }
@@ -966,8 +1100,14 @@ func (m *PermissionMutation) FieldCleared(name string) bool {
 // error if the field is not defined in the schema.
 func (m *PermissionMutation) ClearField(name string) error {
 	switch name {
+	case permission.FieldDisplayKey:
+		m.ClearDisplayKey()
+		return nil
 	case permission.FieldDescription:
 		m.ClearDescription()
+		return nil
+	case permission.FieldDescriptionKey:
+		m.ClearDescriptionKey()
 		return nil
 	}
 	return fmt.Errorf("unknown Permission nullable field %s", name)
@@ -983,8 +1123,14 @@ func (m *PermissionMutation) ResetField(name string) error {
 	case permission.FieldDisplay:
 		m.ResetDisplay()
 		return nil
+	case permission.FieldDisplayKey:
+		m.ResetDisplayKey()
+		return nil
 	case permission.FieldDescription:
 		m.ResetDescription()
+		return nil
+	case permission.FieldDescriptionKey:
+		m.ResetDescriptionKey()
 		return nil
 	case permission.FieldCategory:
 		m.ResetCategory()

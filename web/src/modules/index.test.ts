@@ -18,6 +18,7 @@ describe('module registration aggregation', () => {
     expect(getBootstrapRouteRegistration('/server/dependencies')?.routeName).toBe('MonitorServerStatusDependencies');
     expect(getBootstrapRouteRegistration('/server/modules')?.routeName).toBe('MonitorModuleRuntimeOverview');
     expect(getBootstrapRouteRegistration('/server/scheduled-tasks')?.routeName).toBe('ScheduledTaskList');
+    expect(getBootstrapRouteRegistration('/server/system-config')?.routeName).toBe('SystemConfigList');
     expect(getBootstrapRouteRegistration('/audit/overview')?.routeName).toBe('AuditOverview');
     expect(getBootstrapRouteRegistration('/audit/logs')?.routeName).toBe('AuditLogList');
   });

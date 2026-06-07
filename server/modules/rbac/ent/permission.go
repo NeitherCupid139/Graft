@@ -21,8 +21,12 @@ type Permission struct {
 	Code string `json:"code,omitempty"`
 	// 权限点显示名称
 	Display string `json:"display,omitempty"`
+	// 权限点显示名称本地化 key
+	DisplayKey *string `json:"display_key,omitempty"`
 	// 权限点描述
 	Description *string `json:"description,omitempty"`
+	// 权限点描述本地化 key
+	DescriptionKey *string `json:"description_key,omitempty"`
 	// 权限类别：api 表示接口权限
 	Category string `json:"category,omitempty"`
 	// 创建时间
@@ -68,7 +72,7 @@ func (*Permission) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case permission.FieldID, permission.FieldCreatedBy, permission.FieldUpdatedBy, permission.FieldDeletedAt, permission.FieldDeletedBy:
 			values[i] = new(sql.NullInt64)
-		case permission.FieldCode, permission.FieldDisplay, permission.FieldDescription, permission.FieldCategory:
+		case permission.FieldCode, permission.FieldDisplay, permission.FieldDisplayKey, permission.FieldDescription, permission.FieldDescriptionKey, permission.FieldCategory:
 			values[i] = new(sql.NullString)
 		case permission.FieldCreatedAt, permission.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -105,12 +109,26 @@ func (_m *Permission) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.Display = value.String
 			}
+		case permission.FieldDisplayKey:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field display_key", values[i])
+			} else if value.Valid {
+				_m.DisplayKey = new(string)
+				*_m.DisplayKey = value.String
+			}
 		case permission.FieldDescription:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field description", values[i])
 			} else if value.Valid {
 				_m.Description = new(string)
 				*_m.Description = value.String
+			}
+		case permission.FieldDescriptionKey:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field description_key", values[i])
+			} else if value.Valid {
+				_m.DescriptionKey = new(string)
+				*_m.DescriptionKey = value.String
 			}
 		case permission.FieldCategory:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -201,8 +219,18 @@ func (_m *Permission) String() string {
 	builder.WriteString("display=")
 	builder.WriteString(_m.Display)
 	builder.WriteString(", ")
+	if v := _m.DisplayKey; v != nil {
+		builder.WriteString("display_key=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
 	if v := _m.Description; v != nil {
 		builder.WriteString("description=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.DescriptionKey; v != nil {
+		builder.WriteString("description_key=")
 		builder.WriteString(*v)
 	}
 	builder.WriteString(", ")

@@ -18,8 +18,12 @@ const (
 	FieldCode = "code"
 	// FieldDisplay holds the string denoting the display field in the database.
 	FieldDisplay = "display"
+	// FieldDisplayKey holds the string denoting the display_key field in the database.
+	FieldDisplayKey = "display_key"
 	// FieldDescription holds the string denoting the description field in the database.
 	FieldDescription = "description"
+	// FieldDescriptionKey holds the string denoting the description_key field in the database.
+	FieldDescriptionKey = "description_key"
 	// FieldCategory holds the string denoting the category field in the database.
 	FieldCategory = "category"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
@@ -52,7 +56,9 @@ var Columns = []string{
 	FieldID,
 	FieldCode,
 	FieldDisplay,
+	FieldDisplayKey,
 	FieldDescription,
+	FieldDescriptionKey,
 	FieldCategory,
 	FieldCreatedAt,
 	FieldCreatedBy,
@@ -115,9 +121,19 @@ func ByDisplay(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldDisplay, opts...).ToFunc()
 }
 
+// ByDisplayKey orders the results by the display_key field.
+func ByDisplayKey(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDisplayKey, opts...).ToFunc()
+}
+
 // ByDescription orders the results by the description field.
 func ByDescription(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldDescription, opts...).ToFunc()
+}
+
+// ByDescriptionKey orders the results by the description_key field.
+func ByDescriptionKey(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDescriptionKey, opts...).ToFunc()
 }
 
 // ByCategory orders the results by the category field.

@@ -10,7 +10,9 @@ import (
 	"go.uber.org/zap"
 
 	"graft/server/internal/config"
+	"graft/server/internal/configregistry"
 	"graft/server/internal/cronx"
+	"graft/server/internal/i18n"
 )
 
 const (
@@ -23,10 +25,17 @@ const (
 	auditLogRetentionDryRunActionDescKey      = "scheduledTask.action.dryRun.description"
 	auditLogRetentionDefaultDays              = 30
 	auditLogRetentionDefaultBatchSize         = 1000
+	auditLogRetentionConfigDefinitionOrder    = 230
 	hoursPerDay                               = 24
 )
 
-const auditLogRetentionCleanupConfigSchema = `{"type":"object","properties":{"retentionDays":{"type":"integer","minimum":1,"maximum":3650,"default":30,"title":"Retention days","description":"Delete audit logs older than this number of days.","x-title-key":"scheduledTask.auditLogRetention.config.retentionDays.title","x-description-key":"scheduledTask.auditLogRetention.config.retentionDays.description"},"batchSize":{"type":"integer","minimum":1,"maximum":10000,"default":1000,"title":"Batch size","description":"Maximum audit log rows to delete in one cleanup batch.","x-title-key":"scheduledTask.auditLogRetention.config.batchSize.title","x-description-key":"scheduledTask.auditLogRetention.config.batchSize.description"}},"additionalProperties":false}`
+const (
+	auditLogRetentionConfigGroupKey       = "systemConfig.groups.auditLogRetention"
+	auditLogRetentionConfigTitleKey       = "systemConfig.items.auditLogRetentionCleanup.title"
+	auditLogRetentionConfigDescriptionKey = "systemConfig.items.auditLogRetentionCleanup.description"
+)
+
+const auditLogRetentionCleanupConfigSchema = `{"type":"object","properties":{"retentionDays":{"type":"integer","minimum":1,"maximum":365,"default":30,"title":"Log retention days","description":"Delete logs older than this many days.","x-i18n":{"titleKey":"systemConfig.fields.retentionDays.title","descriptionKey":"systemConfig.fields.retentionDays.description","unitKey":"systemConfig.units.days"}},"batchSize":{"type":"integer","minimum":1,"maximum":10000,"default":1000,"title":"Batch size","description":"Maximum rows deleted per cleanup batch.","x-i18n":{"titleKey":"systemConfig.fields.batchSize.title","descriptionKey":"systemConfig.fields.batchSize.description","unitKey":"systemConfig.units.rows"}}},"additionalProperties":false}`
 const auditLogRetentionCleanupDefaultConfig = `{"retentionDays":30,"batchSize":1000}`
 
 type retentionJobConfig struct {
@@ -230,6 +239,61 @@ func decodeRetentionJobConfig(configJSON string) retentionJobConfig {
 	return config
 }
 
+func registerAuditLogRetentionConfigDefinition(registry *configregistry.Registry) error {
+	if registry == nil {
+		return errors.New("config registry is required")
+	}
+
+	return registry.Register(configregistry.Definition{
+		Key:            auditLogRetentionCleanupJobName,
+		Module:         moduleID,
+		Group:          "log.retention",
+		GroupKey:       auditLogRetentionConfigGroupKey,
+		GroupLabel:     "audit / log.retention",
+		Title:          "Audit log retention cleanup",
+		TitleKey:       auditLogRetentionConfigTitleKey,
+		Description:    "Default cleanup configuration for audit-log retention jobs.",
+		DescriptionKey: auditLogRetentionConfigDescriptionKey,
+		Tags:           []string{"audit", "log.retention"},
+		Type:           configregistry.ValueTypeObject,
+		Schema:         json.RawMessage(auditLogRetentionCleanupConfigSchema),
+		DefaultValue:   json.RawMessage(auditLogRetentionCleanupDefaultConfig),
+		Order:          auditLogRetentionConfigDefinitionOrder,
+	})
+}
+
+func registerAuditLogRetentionConfigMessages(localizer *i18n.Service) error {
+	if localizer == nil {
+		return errors.New("i18n service is required")
+	}
+
+	for _, registration := range []i18n.Registration{
+		{
+			Namespace: "system-config",
+			Locale:    i18n.LocaleZHCN,
+			Messages: []i18n.MessageResource{
+				{Key: i18n.MessageKey(auditLogRetentionConfigGroupKey), Text: "audit / log.retention"},
+				{Key: i18n.MessageKey(auditLogRetentionConfigTitleKey), Text: "审计日志保留清理"},
+				{Key: i18n.MessageKey(auditLogRetentionConfigDescriptionKey), Text: "审计日志保留清理任务的默认配置。"},
+			},
+		},
+		{
+			Namespace: "system-config",
+			Locale:    i18n.LocaleENUS,
+			Messages: []i18n.MessageResource{
+				{Key: i18n.MessageKey(auditLogRetentionConfigGroupKey), Text: "audit / log.retention"},
+				{Key: i18n.MessageKey(auditLogRetentionConfigTitleKey), Text: "Audit log retention cleanup"},
+				{Key: i18n.MessageKey(auditLogRetentionConfigDescriptionKey), Text: "Default cleanup configuration for audit-log retention jobs."},
+			},
+		},
+	} {
+		if err := localizer.RegisterMessages(registration); err != nil {
+			return fmt.Errorf("register audit-log retention config messages: %w", err)
+		}
+	}
+	return nil
+}
+
 func registerAuditLogRetentionCleanupJob(
 	registry *cronx.Registry,
 	logger *zap.Logger,
@@ -255,6 +319,7 @@ func registerAuditLogRetentionCleanupJob(
 		DescriptionMessageKey: auditLogRetentionCleanupJobDescriptionKey,
 		ConfigSchema:          auditLogRetentionCleanupConfigSchema,
 		DefaultConfig:         auditLogRetentionCleanupDefaultConfig,
+		DefaultConfigKey:      auditLogRetentionCleanupJobName,
 		Actions: []cronx.JobAction{
 			{
 				Key:            auditLogRetentionDryRunActionKey,

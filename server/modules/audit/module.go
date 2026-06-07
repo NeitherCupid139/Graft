@@ -72,6 +72,9 @@ func (p *Module) Register(ctx *module.Context) error {
 	if err := registerAuditMessages(ctx.I18n); err != nil {
 		return err
 	}
+	if err := registerAuditLogRetentionConfigMessages(ctx.I18n); err != nil {
+		return err
+	}
 	registerAuditPermissions(ctx.PermissionRegistry, moduleID)
 	registerAuditMenu(ctx.MenuRegistry, moduleID)
 	if err := registerAuditService(ctx, p.recorder); err != nil {
@@ -97,6 +100,9 @@ func (p *Module) Register(ctx *module.Context) error {
 func (p *Module) registerRetention(ctx *module.Context, logger *zap.Logger) error {
 	if ctx.Config == nil {
 		return errors.New("audit module config is unavailable")
+	}
+	if err := registerAuditLogRetentionConfigDefinition(ctx.ConfigRegistry); err != nil {
+		return fmt.Errorf("register audit log retention config definition: %w", err)
 	}
 	if err := registerAuditLogRetentionCleanupJob(ctx.CronRegistry, logger, p.recorder, ctx.Config.Audit); err != nil {
 		return fmt.Errorf("register audit log retention cleanup job: %w", err)

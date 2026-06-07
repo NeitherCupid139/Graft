@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/robfig/cron/v3"
 	"go.uber.org/zap"
 
 	"graft/server/internal/cronx"
@@ -83,6 +84,22 @@ type taskRepositoryRecorder struct {
 	tasks map[string]TaskDefinition
 }
 
+type defaultConfigResolverRecorder struct {
+	values map[string]string
+	err    error
+}
+
+func (r defaultConfigResolverRecorder) ResolveDefaultConfig(_ context.Context, key string) (string, error) {
+	if r.err != nil {
+		return "", r.err
+	}
+	value, ok := r.values[key]
+	if !ok {
+		return "", errors.New("default config not found")
+	}
+	return value, nil
+}
+
 func newTaskRepositoryRecorder() *taskRepositoryRecorder {
 	return &taskRepositoryRecorder{tasks: make(map[string]TaskDefinition)}
 }
@@ -93,6 +110,9 @@ func (r *taskRepositoryRecorder) SeedBuiltinTasks(_ context.Context, tasks []Tas
 		if exists {
 			task.CronExpression = existing.CronExpression
 			task.Enabled = existing.Enabled
+		}
+		if task.ConfigSource == "" {
+			task.ConfigSource = taskConfigSourceSystem
 		}
 		task.ID = uint64(len(r.tasks) + 1)
 		r.tasks[task.TaskKey] = task
@@ -119,6 +139,7 @@ func (r *taskRepositoryRecorder) UpdateTask(_ context.Context, key string, patch
 	}
 	if patch.ConfigJSON != "" {
 		task.ConfigJSON = patch.ConfigJSON
+		task.ConfigSource = taskConfigSourceUser
 	}
 	r.tasks[key] = task
 	return task, nil
@@ -337,6 +358,163 @@ func TestCreateTaskReturnsEffectiveConfig(t *testing.T) {
 	}
 }
 
+func TestSeedBuiltinJobsUsesEffectiveDefaultConfig(t *testing.T) {
+	runtime := New(zap.NewNop(), newRunRepositoryRecorder())
+	taskRepo := newTaskRepositoryRecorder()
+	runtime.SetTaskRepository(taskRepo)
+	runtime.SetDefaultConfigResolver(defaultConfigResolverRecorder{
+		values: map[string]string{
+			"logger.app-log-retention-cleanup": `{"retentionDays":45,"batchSize":2000}`,
+		},
+	})
+
+	seedRuntimeJob(t, runtime, cronx.Job{
+		Name:             "logger.app-log-retention-cleanup",
+		Schedule:         "*/1 * * * * *",
+		DefaultConfig:    `{"retentionDays":30,"batchSize":1000}`,
+		DefaultConfigKey: "logger.app-log-retention-cleanup",
+		ConfigSchema:     `{"type":"object","properties":{"retentionDays":{"type":"integer","minimum":1,"maximum":3650},"batchSize":{"type":"integer","minimum":1,"maximum":10000}},"additionalProperties":false}`,
+		Handler: func(context.Context, string) (cronx.JobRunResult, error) {
+			return cronx.JobRunResult{Summary: "ok"}, nil
+		},
+	})
+
+	definitions, err := runtime.ListJobDefinitions(context.Background())
+	if err != nil {
+		t.Fatalf("list job definitions: %v", err)
+	}
+	if len(definitions) != 1 || definitions[0].DefaultConfig != `{"retentionDays":45,"batchSize":2000}` {
+		t.Fatalf("expected effective job default config, got %#v", definitions)
+	}
+	if taskRepo.tasks["logger.app-log-retention-cleanup"].ConfigSource != taskConfigSourceSystem {
+		t.Fatalf("expected builtin task to keep system config source, got %#v", taskRepo.tasks["logger.app-log-retention-cleanup"])
+	}
+	task, err := runtime.GetTask(context.Background(), "logger.app-log-retention-cleanup")
+	if err != nil {
+		t.Fatalf("get task: %v", err)
+	}
+	effective := decodeRuntimeJSONObject(t, task.EffectiveConfig)
+	if effective["retentionDays"] != float64(45) || effective["batchSize"] != float64(2000) {
+		t.Fatalf("unexpected effective config: %s", task.EffectiveConfig)
+	}
+}
+
+func TestSeedBuiltinJobsKeepsSystemConfigSourceForDefaultSnapshots(t *testing.T) {
+	runtime := New(zap.NewNop(), newRunRepositoryRecorder())
+	taskRepo := newTaskRepositoryRecorder()
+	runtime.SetTaskRepository(taskRepo)
+	runtime.SetDefaultConfigResolver(defaultConfigResolverRecorder{
+		values: map[string]string{
+			"audit.audit-log-retention-cleanup": `{"retentionDays":60,"batchSize":3000}`,
+		},
+	})
+
+	job := cronx.Job{
+		Name:             "audit.audit-log-retention-cleanup",
+		Schedule:         "*/1 * * * * *",
+		DefaultConfig:    `{"retentionDays":30,"batchSize":1000}`,
+		DefaultConfigKey: "audit.audit-log-retention-cleanup",
+		ConfigSchema:     `{"type":"object","properties":{"retentionDays":{"type":"integer","minimum":1,"maximum":3650},"batchSize":{"type":"integer","minimum":1,"maximum":10000}},"additionalProperties":false}`,
+		Handler: func(context.Context, string) (cronx.JobRunResult, error) {
+			return cronx.JobRunResult{Summary: "ok"}, nil
+		},
+	}
+	taskRepo.tasks["audit.audit-log-retention-cleanup"] = TaskDefinition{
+		TaskKey:        "audit.audit-log-retention-cleanup",
+		JobKey:         "audit.audit-log-retention-cleanup",
+		ModuleKey:      "audit",
+		Title:          "Audit cleanup",
+		CronExpression: "*/1 * * * * *",
+		Enabled:        true,
+		Builtin:        true,
+		ConfigJSON:     `{"retentionDays":30,"batchSize":1000}`,
+		ConfigSource:   taskConfigSourceSystem,
+	}
+
+	if err := runtime.SeedBuiltinJobs(context.Background(), []cronx.Job{job}); err != nil {
+		t.Fatalf("seed builtin job: %v", err)
+	}
+	if taskRepo.tasks["audit.audit-log-retention-cleanup"].ConfigSource != taskConfigSourceSystem {
+		t.Fatalf("expected system config source to survive reseed, got %#v", taskRepo.tasks["audit.audit-log-retention-cleanup"])
+	}
+}
+
+func TestSeedBuiltinJobsReclassifiesHistoricalBuiltinOverride(t *testing.T) {
+	runtime := New(zap.NewNop(), newRunRepositoryRecorder())
+	taskRepo := newTaskRepositoryRecorder()
+	runtime.SetTaskRepository(taskRepo)
+
+	job := cronx.Job{
+		Name:          "builtin-schema-job",
+		Schedule:      "*/1 * * * * *",
+		DefaultConfig: `{"retentionDays":30,"batchSize":1000}`,
+		ConfigSchema:  `{"type":"object","properties":{"retentionDays":{"type":"integer","minimum":1,"maximum":3650},"batchSize":{"type":"integer","minimum":1,"maximum":10000}},"additionalProperties":false}`,
+		Handler: func(context.Context, string) (cronx.JobRunResult, error) {
+			return cronx.JobRunResult{Summary: "ok"}, nil
+		},
+	}
+	taskRepo.tasks["builtin-schema-job"] = TaskDefinition{
+		TaskKey:        "builtin-schema-job",
+		JobKey:         "builtin-schema-job",
+		ModuleKey:      "test",
+		Title:          "builtin-schema-job",
+		CronExpression: "*/1 * * * * *",
+		Enabled:        true,
+		Builtin:        true,
+		ConfigJSON:     `{"retentionDays":90,"batchSize":500}`,
+		ConfigSource:   taskConfigSourceSystem,
+	}
+
+	if err := runtime.SeedBuiltinJobs(context.Background(), []cronx.Job{job}); err != nil {
+		t.Fatalf("reseed builtin job: %v", err)
+	}
+	task := taskRepo.tasks["builtin-schema-job"]
+	config := decodeRuntimeJSONObject(t, task.ConfigJSON)
+	if config["retentionDays"] != float64(90) || config["batchSize"] != float64(500) {
+		t.Fatalf("expected historical override to survive reseed, got %s", task.ConfigJSON)
+	}
+	if task.ConfigSource != taskConfigSourceUser {
+		t.Fatalf("expected historical override to be reclassified as user source, got %#v", task)
+	}
+}
+
+func TestBuiltinExplicitTaskConfigTakesPrecedenceOverEffectiveDefault(t *testing.T) {
+	repo := newRunRepositoryRecorder()
+	runtime := New(zap.NewNop(), repo)
+	taskRepo := newTaskRepositoryRecorder()
+	runtime.SetTaskRepository(taskRepo)
+	runtime.SetDefaultConfigResolver(defaultConfigResolverRecorder{
+		values: map[string]string{
+			"httpx.access-log-retention-cleanup": `{"retentionDays":45,"batchSize":2000}`,
+		},
+	})
+
+	seedRuntimeJob(t, runtime, cronx.Job{
+		Name:             "httpx.access-log-retention-cleanup",
+		Schedule:         "*/1 * * * * *",
+		DefaultConfig:    `{"retentionDays":30,"batchSize":1000}`,
+		DefaultConfigKey: "httpx.access-log-retention-cleanup",
+		ConfigSchema:     `{"type":"object","properties":{"retentionDays":{"type":"integer","minimum":1,"maximum":3650},"batchSize":{"type":"integer","minimum":1,"maximum":10000}},"additionalProperties":false}`,
+		Handler: func(context.Context, string) (cronx.JobRunResult, error) {
+			return cronx.JobRunResult{Summary: "ok"}, nil
+		},
+	})
+	if _, err := runtime.UpdateTask(context.Background(), "httpx.access-log-retention-cleanup", TaskMutation{
+		ConfigJSON: `{"retentionDays":90}`,
+	}); err != nil {
+		t.Fatalf("update builtin task config: %v", err)
+	}
+
+	task, err := runtime.GetTask(context.Background(), "httpx.access-log-retention-cleanup")
+	if err != nil {
+		t.Fatalf("get task: %v", err)
+	}
+	effective := decodeRuntimeJSONObject(t, task.EffectiveConfig)
+	if effective["retentionDays"] != float64(90) || effective["batchSize"] != float64(2000) {
+		t.Fatalf("expected explicit task config to override effective default, got %s", task.EffectiveConfig)
+	}
+}
+
 func TestUpdateTaskRejectsUnknownConfigBeforePersistence(t *testing.T) {
 	runtime := New(zap.NewNop(), newRunRepositoryRecorder())
 	taskRepo := newTaskRepositoryRecorder()
@@ -408,6 +586,9 @@ func TestUpdateBuiltinTaskAllowsSchemaBackedConfig(t *testing.T) {
 	if taskRepo.tasks["builtin-schema-job"].ConfigJSON != `{"retentionDays":90,"batchSize":500}` {
 		t.Fatalf("expected builtin config to persist, got %s", taskRepo.tasks["builtin-schema-job"].ConfigJSON)
 	}
+	if taskRepo.tasks["builtin-schema-job"].ConfigSource != taskConfigSourceUser {
+		t.Fatalf("expected explicit builtin config to mark user source, got %#v", taskRepo.tasks["builtin-schema-job"])
+	}
 }
 
 func TestUpdateBuiltinTaskRejectsInvalidConfigBeforePersistence(t *testing.T) {
@@ -432,7 +613,7 @@ func TestUpdateBuiltinTaskRejectsInvalidConfigBeforePersistence(t *testing.T) {
 	if !errors.As(err, &configErr) || configErr.Field != "config_json.retentionDays" {
 		t.Fatalf("expected retentionDays config error, got %v", err)
 	}
-	if taskRepo.tasks["builtin-schema-job"].ConfigJSON != `{"retentionDays":30,"batchSize":1000}` {
+	if taskRepo.tasks["builtin-schema-job"].ConfigSource != taskConfigSourceSystem {
 		t.Fatalf("expected invalid builtin config update not to persist, got %s", taskRepo.tasks["builtin-schema-job"].ConfigJSON)
 	}
 }
@@ -461,6 +642,7 @@ func TestSeedBuiltinJobsPreservesSchemaBackedConfigAndDropsStaleFields(t *testin
 		Enabled:        true,
 		Builtin:        true,
 		ConfigJSON:     `{"retentionDays":90,"batchSize":500,"dryRun":true}`,
+		ConfigSource:   taskConfigSourceUser,
 	}
 
 	if err := runtime.SeedBuiltinJobs(context.Background(), []cronx.Job{job}); err != nil {
@@ -896,9 +1078,21 @@ func TestStopWithNilContextWaitsForInFlightJob(t *testing.T) {
 	runCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	runtime.cron.Schedule(runSoonSchedule{}, cron.FuncJob(func() {
+		select {
+		case started <- struct{}{}:
+		default:
+		}
+		<-release
+		select {
+		case finished <- struct{}{}:
+		default:
+		}
+	}))
+
 	seedRuntimeJob(t, runtime, cronx.Job{
 		Name:     "blocking",
-		Schedule: "*/1 * * * * *",
+		Schedule: "0 0 0 1 1 *",
 		Run: func(_ context.Context) error {
 			select {
 			case started <- struct{}{}:
@@ -931,6 +1125,12 @@ func TestStopWithNilContextWaitsForInFlightJob(t *testing.T) {
 
 	waitForSignal(t, finished, time.Second, "expected blocked job to finish after release")
 	waitForStopResult(t, stopDone, time.Second)
+}
+
+type runSoonSchedule struct{}
+
+func (runSoonSchedule) Next(time.Time) time.Time {
+	return time.Now().Add(10 * time.Millisecond)
 }
 
 func waitForSignal(t *testing.T, signal <-chan struct{}, timeout time.Duration, failureMessage string) {

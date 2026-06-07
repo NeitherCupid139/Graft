@@ -11,6 +11,7 @@
     <div class="assignment-footer__actions">
       <t-button :data-testid="cancelTestId" variant="outline" @click="emit('cancel')">{{ cancelLabel }}</t-button>
       <t-button
+        v-if="showConfirm"
         :data-testid="confirmTestId"
         theme="primary"
         :disabled="confirmDisabled"
@@ -23,16 +24,26 @@
   </footer>
 </template>
 <script setup lang="ts">
-defineProps<{
-  cancelLabel: string;
-  cancelTestId?: string;
-  confirmDisabled?: boolean;
-  confirmLabel: string;
-  confirmLoading?: boolean;
-  confirmTestId?: string;
-  details?: string[];
-  summary?: string;
-}>();
+withDefaults(
+  defineProps<{
+    cancelLabel: string;
+    cancelTestId?: string;
+    confirmDisabled?: boolean;
+    confirmLabel: string;
+    confirmLoading?: boolean;
+    confirmTestId?: string;
+    details?: string[];
+    showConfirm?: boolean;
+    summary?: string;
+  }>(),
+  {
+    cancelTestId: undefined,
+    confirmTestId: undefined,
+    details: () => [],
+    showConfirm: true,
+    summary: undefined,
+  },
+);
 
 const emit = defineEmits<{
   cancel: [];

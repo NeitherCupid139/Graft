@@ -1,0 +1,11 @@
+type: object
+required:
+  - items
+  - total
+properties:
+  items:
+    type: array
+    items:
+      $ref: ./system-config-item.yaml
+  total:
+    type: integer

@@ -7,9 +7,11 @@ import json
 import os
 import re
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 
 def repo_root() -> Path:
@@ -23,6 +25,8 @@ def repo_root() -> Path:
 ROOT_DIR = repo_root()
 DEFAULT_OUTPUT_DIR = ROOT_DIR / ".ai" / "artifacts" / "browser"
 DEFAULT_BROWSERS_DIR = ROOT_DIR / ".ai" / "ms-playwright"
+DEFAULT_CREDENTIALS_FILE = ROOT_DIR / "temp" / "username-passward.md"
+AUTH_PATH_PREFIX = "/api/auth/"
 
 
 def parse_viewport(raw: str) -> tuple[int, int]:
@@ -46,27 +50,127 @@ def safe_session_name(raw: str | None) -> str:
     return safe or f"session-{timestamp()}"
 
 
-def collect_action(values: list[str] | None, kind: str) -> list[dict[str, str]]:
-    actions: list[dict[str, str]] = []
-    if not values:
-        return actions
-    for value in values:
-        if kind == "fill":
-            selector, separator, text = value.rpartition("=")
-            selector = selector.strip()
-            if not separator:
-                raise ValueError("--fill expects SELECTOR=TEXT")
-            if not selector:
-                raise ValueError("--fill expects a nonempty selector")
-            if not text.strip():
-                raise ValueError("--fill expects nonempty text")
-            actions.append({"kind": "fill", "selector": selector, "text": text})
+def parse_fill_action(value: str) -> dict[str, str]:
+    selector, separator, text = value.rpartition("=")
+    selector = selector.strip()
+    if not separator:
+        raise ValueError("--fill expects SELECTOR=TEXT")
+    if not selector:
+        raise ValueError("--fill expects a nonempty selector")
+    if not text.strip():
+        raise ValueError("--fill expects nonempty text")
+    return {"kind": "fill", "selector": selector, "text": text}
+
+
+def parse_click_action(value: str) -> dict[str, str]:
+    selector = value.strip()
+    if not selector:
+        raise ValueError("--click expects a nonempty selector")
+    return {"kind": "click", "selector": selector}
+
+
+class BrowserAction(argparse.Action):
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: str | list[str] | None,
+        option_string: str | None = None,
+    ) -> None:
+        actions = list(getattr(namespace, "actions", None) or [])
+        value = values if isinstance(values, str) else ""
+        if option_string == "--fill":
+            actions.append(parse_fill_action(value))
+        elif option_string == "--click":
+            actions.append(parse_click_action(value))
         else:
-            selector = value.strip()
-            if not selector:
-                raise ValueError(f"--{kind} expects a nonempty selector")
-            actions.append({"kind": kind, "selector": selector})
-    return actions
+            raise ValueError(f"unsupported browser action: {option_string}")
+        setattr(namespace, "actions", actions)
+
+
+def parse_credentials(path: Path) -> dict[str, str]:
+    if not path.exists():
+        raise FileNotFoundError(f"Credentials file does not exist: {path}")
+
+    fields: dict[str, str] = {}
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if ":" in line:
+            key, value = line.split(":", 1)
+        elif "=" in line:
+            key, value = line.split("=", 1)
+        else:
+            continue
+        fields[key.strip().lower()] = value.strip()
+
+    username = first_nonempty(fields, ("username", "account", "user"))
+    password = first_nonempty(fields, ("password", "passward", "passwd", "pwd"))
+    if not username or not password:
+        raise ValueError(
+            "Credentials file must include username/account/user and password/passward/passwd/pwd fields."
+        )
+    return {"username": username, "password": password}
+
+
+def first_nonempty(fields: dict[str, str], keys: tuple[str, ...]) -> str:
+    for key in keys:
+        value = fields.get(key, "").strip()
+        if value:
+            return value
+    return ""
+
+
+def redact_actions(actions: list[dict[str, str]]) -> list[dict[str, Any]]:
+    redacted: list[dict[str, Any]] = []
+    for action in actions:
+        if action["kind"] == "fill":
+            redacted.append(
+                {
+                    "kind": "fill",
+                    "selector": action["selector"],
+                    "text_length": len(action["text"]),
+                }
+            )
+            continue
+        redacted.append(dict(action))
+    return redacted
+
+
+def auth_response_event(response: Any) -> dict[str, Any] | None:
+    parsed = urlsplit(response.url)
+    if AUTH_PATH_PREFIX not in parsed.path:
+        return None
+    return {"status": response.status, "path": parsed.path}
+
+
+def has_auth_event(events: list[dict[str, Any]], suffix: str, status: int) -> bool:
+    return any(event["path"].endswith(suffix) and event["status"] == status for event in events)
+
+
+def wait_for_auth_events(events: list[dict[str, Any]], timeout_ms: int) -> None:
+    deadline = time.monotonic() + timeout_ms / 1000
+    while time.monotonic() < deadline:
+        if has_auth_event(events, "/login", 200) and has_auth_event(events, "/bootstrap", 200):
+            return
+        time.sleep(0.1)
+    raise TimeoutError("Timed out waiting for successful /api/auth/login and /api/auth/bootstrap responses.")
+
+
+def perform_login(page: Any, credentials: dict[str, str], timeout_ms: int) -> None:
+    text_inputs = page.locator("input:not([type='checkbox']):not([type='hidden'])")
+    text_inputs.first.wait_for(state="visible", timeout=timeout_ms)
+    text_inputs.nth(0).fill(credentials["username"])
+
+    password_inputs = page.locator("input[type='password']")
+    if password_inputs.count() > 0:
+        password_inputs.first.fill(credentials["password"])
+    else:
+        text_inputs.nth(1).fill(credentials["password"])
+
+    page.get_by_role("button", name=re.compile(r"登录|sign\s*in|login", re.IGNORECASE)).click()
+    page.wait_for_function("() => window.location.pathname !== '/login'", timeout=timeout_ms)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -80,11 +184,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--headful", action="store_true", help="Run a visible browser instead of headless mode.")
     parser.add_argument("--screenshot", action="store_true", help="Write a full-page screenshot.")
     parser.add_argument("--snapshot-text", action="store_true", help="Write visible body text to page-text.txt.")
-    parser.add_argument("--click", action="append", help="Click a Playwright selector. Repeatable.")
-    parser.add_argument("--fill", action="append", help="Fill an input with SELECTOR=TEXT. Repeatable.")
+    parser.add_argument("--click", action=BrowserAction, help="Click a Playwright selector. Repeatable.")
+    parser.add_argument("--fill", action=BrowserAction, help="Fill an input with SELECTOR=TEXT. Repeatable.")
     parser.add_argument("--wait-for", help="Wait for a Playwright selector before capturing artifacts.")
     parser.add_argument("--wait-ms", type=int, default=0, help="Extra wait time in milliseconds.")
     parser.add_argument("--timeout-ms", type=int, default=15000, help="Navigation and selector timeout.")
+    parser.add_argument("--login", action="store_true", help="Log in to the Graft admin shell before capture.")
+    parser.add_argument(
+        "--credentials",
+        default=str(DEFAULT_CREDENTIALS_FILE),
+        help="Credential file for --login. Defaults to temp/username-passward.md.",
+    )
     return parser
 
 
@@ -107,9 +217,11 @@ def main() -> int:
         )
         return 2
 
-    actions = collect_action(args.click, "click") + collect_action(args.fill, "fill")
+    actions = list(getattr(args, "actions", None) or [])
     width, height = args.viewport
     started_at = datetime.now(timezone.utc).isoformat()
+    credentials = parse_credentials(Path(args.credentials).resolve()) if args.login else None
+    auth_events: list[dict[str, Any]] = []
 
     with sync_playwright() as playwright:
         try:
@@ -128,7 +240,15 @@ def main() -> int:
         context = browser.new_context(viewport={"width": width, "height": height})
         page = context.new_page()
         page.set_default_timeout(args.timeout_ms)
+        page.on(
+            "response",
+            lambda response: auth_events.append(event) if (event := auth_response_event(response)) else None,
+        )
         page.goto(args.url, wait_until="networkidle", timeout=args.timeout_ms)
+
+        if credentials:
+            perform_login(page, credentials, args.timeout_ms)
+            wait_for_auth_events(auth_events, args.timeout_ms)
 
         for action in actions:
             if action["kind"] == "click":
@@ -156,11 +276,23 @@ def main() -> int:
         summary: dict[str, Any] = {
             "session": session,
             "url": args.url,
+            "final_url": page.url,
             "started_at": started_at,
             "finished_at": datetime.now(timezone.utc).isoformat(),
             "viewport": {"width": width, "height": height},
             "headless": not args.headful,
-            "actions": actions,
+            "actions": redact_actions(actions),
+            "login": {
+                "attempted": bool(args.login),
+                "authenticated": bool(
+                    args.login
+                    and page.url
+                    and urlsplit(page.url).path != "/login"
+                    and has_auth_event(auth_events, "/login", 200)
+                    and has_auth_event(auth_events, "/bootstrap", 200)
+                ),
+                "auth_responses": auth_events,
+            },
             "screenshot": screenshot_path,
             "text_snapshot": text_path,
             "artifact_dir": str(session_dir),

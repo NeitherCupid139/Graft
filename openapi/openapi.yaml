@@ -19,6 +19,7 @@ tags:
   - name: monitor
   - name: modules
   - name: scheduled-tasks
+  - name: system-config
   - name: access-log
   - name: app-log
 paths:
@@ -130,6 +131,12 @@ paths:
     $ref: ./paths/scheduled-tasks.run.yaml
   /api/scheduled-tasks/{taskKey}/actions/{actionKey}:
     $ref: ./paths/scheduled-tasks.action.yaml
+  /api/system-configs:
+    $ref: ./paths/system-config.list.yaml
+  /api/system-configs/{key}:
+    $ref: ./paths/system-config.detail.yaml
+  /api/system-configs/{key}/reset:
+    $ref: ./paths/system-config.reset.yaml
   /api/access-log:
     $ref: ./paths/access-log.logs.yaml
   /api/access-log/{id}:
@@ -334,6 +341,16 @@ components:
       $ref: ./components/schemas/enveloped-scheduled-task-action-result.yaml
     EnvelopedScheduledTaskRunListResponse:
       $ref: ./components/schemas/enveloped-scheduled-task-run-list-response.yaml
+    SystemConfigItem:
+      $ref: ./components/schemas/system-config-item.yaml
+    SystemConfigListResponse:
+      $ref: ./components/schemas/system-config-list-response.yaml
+    UpdateSystemConfigRequest:
+      $ref: ./components/schemas/update-system-config-request.yaml
+    EnvelopedSystemConfigItem:
+      $ref: ./components/schemas/enveloped-system-config-item.yaml
+    EnvelopedSystemConfigListResponse:
+      $ref: ./components/schemas/enveloped-system-config-list-response.yaml
     AccessLogDetailResponse:
       $ref: ./components/schemas/access-log-detail-response.yaml
     AccessLogListResponse:

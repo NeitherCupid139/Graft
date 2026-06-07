@@ -65,9 +65,19 @@ func Display(v string) predicate.Permission {
 	return predicate.Permission(sql.FieldEQ(FieldDisplay, v))
 }
 
+// DisplayKey applies equality check predicate on the "display_key" field. It's identical to DisplayKeyEQ.
+func DisplayKey(v string) predicate.Permission {
+	return predicate.Permission(sql.FieldEQ(FieldDisplayKey, v))
+}
+
 // Description applies equality check predicate on the "description" field. It's identical to DescriptionEQ.
 func Description(v string) predicate.Permission {
 	return predicate.Permission(sql.FieldEQ(FieldDescription, v))
+}
+
+// DescriptionKey applies equality check predicate on the "description_key" field. It's identical to DescriptionKeyEQ.
+func DescriptionKey(v string) predicate.Permission {
+	return predicate.Permission(sql.FieldEQ(FieldDescriptionKey, v))
 }
 
 // Category applies equality check predicate on the "category" field. It's identical to CategoryEQ.
@@ -235,6 +245,81 @@ func DisplayContainsFold(v string) predicate.Permission {
 	return predicate.Permission(sql.FieldContainsFold(FieldDisplay, v))
 }
 
+// DisplayKeyEQ applies the EQ predicate on the "display_key" field.
+func DisplayKeyEQ(v string) predicate.Permission {
+	return predicate.Permission(sql.FieldEQ(FieldDisplayKey, v))
+}
+
+// DisplayKeyNEQ applies the NEQ predicate on the "display_key" field.
+func DisplayKeyNEQ(v string) predicate.Permission {
+	return predicate.Permission(sql.FieldNEQ(FieldDisplayKey, v))
+}
+
+// DisplayKeyIn applies the In predicate on the "display_key" field.
+func DisplayKeyIn(vs ...string) predicate.Permission {
+	return predicate.Permission(sql.FieldIn(FieldDisplayKey, vs...))
+}
+
+// DisplayKeyNotIn applies the NotIn predicate on the "display_key" field.
+func DisplayKeyNotIn(vs ...string) predicate.Permission {
+	return predicate.Permission(sql.FieldNotIn(FieldDisplayKey, vs...))
+}
+
+// DisplayKeyGT applies the GT predicate on the "display_key" field.
+func DisplayKeyGT(v string) predicate.Permission {
+	return predicate.Permission(sql.FieldGT(FieldDisplayKey, v))
+}
+
+// DisplayKeyGTE applies the GTE predicate on the "display_key" field.
+func DisplayKeyGTE(v string) predicate.Permission {
+	return predicate.Permission(sql.FieldGTE(FieldDisplayKey, v))
+}
+
+// DisplayKeyLT applies the LT predicate on the "display_key" field.
+func DisplayKeyLT(v string) predicate.Permission {
+	return predicate.Permission(sql.FieldLT(FieldDisplayKey, v))
+}
+
+// DisplayKeyLTE applies the LTE predicate on the "display_key" field.
+func DisplayKeyLTE(v string) predicate.Permission {
+	return predicate.Permission(sql.FieldLTE(FieldDisplayKey, v))
+}
+
+// DisplayKeyContains applies the Contains predicate on the "display_key" field.
+func DisplayKeyContains(v string) predicate.Permission {
+	return predicate.Permission(sql.FieldContains(FieldDisplayKey, v))
+}
+
+// DisplayKeyHasPrefix applies the HasPrefix predicate on the "display_key" field.
+func DisplayKeyHasPrefix(v string) predicate.Permission {
+	return predicate.Permission(sql.FieldHasPrefix(FieldDisplayKey, v))
+}
+
+// DisplayKeyHasSuffix applies the HasSuffix predicate on the "display_key" field.
+func DisplayKeyHasSuffix(v string) predicate.Permission {
+	return predicate.Permission(sql.FieldHasSuffix(FieldDisplayKey, v))
+}
+
+// DisplayKeyIsNil applies the IsNil predicate on the "display_key" field.
+func DisplayKeyIsNil() predicate.Permission {
+	return predicate.Permission(sql.FieldIsNull(FieldDisplayKey))
+}
+
+// DisplayKeyNotNil applies the NotNil predicate on the "display_key" field.
+func DisplayKeyNotNil() predicate.Permission {
+	return predicate.Permission(sql.FieldNotNull(FieldDisplayKey))
+}
+
+// DisplayKeyEqualFold applies the EqualFold predicate on the "display_key" field.
+func DisplayKeyEqualFold(v string) predicate.Permission {
+	return predicate.Permission(sql.FieldEqualFold(FieldDisplayKey, v))
+}
+
+// DisplayKeyContainsFold applies the ContainsFold predicate on the "display_key" field.
+func DisplayKeyContainsFold(v string) predicate.Permission {
+	return predicate.Permission(sql.FieldContainsFold(FieldDisplayKey, v))
+}
+
 // DescriptionEQ applies the EQ predicate on the "description" field.
 func DescriptionEQ(v string) predicate.Permission {
 	return predicate.Permission(sql.FieldEQ(FieldDescription, v))
@@ -308,6 +393,81 @@ func DescriptionEqualFold(v string) predicate.Permission {
 // DescriptionContainsFold applies the ContainsFold predicate on the "description" field.
 func DescriptionContainsFold(v string) predicate.Permission {
 	return predicate.Permission(sql.FieldContainsFold(FieldDescription, v))
+}
+
+// DescriptionKeyEQ applies the EQ predicate on the "description_key" field.
+func DescriptionKeyEQ(v string) predicate.Permission {
+	return predicate.Permission(sql.FieldEQ(FieldDescriptionKey, v))
+}
+
+// DescriptionKeyNEQ applies the NEQ predicate on the "description_key" field.
+func DescriptionKeyNEQ(v string) predicate.Permission {
+	return predicate.Permission(sql.FieldNEQ(FieldDescriptionKey, v))
+}
+
+// DescriptionKeyIn applies the In predicate on the "description_key" field.
+func DescriptionKeyIn(vs ...string) predicate.Permission {
+	return predicate.Permission(sql.FieldIn(FieldDescriptionKey, vs...))
+}
+
+// DescriptionKeyNotIn applies the NotIn predicate on the "description_key" field.
+func DescriptionKeyNotIn(vs ...string) predicate.Permission {
+	return predicate.Permission(sql.FieldNotIn(FieldDescriptionKey, vs...))
+}
+
+// DescriptionKeyGT applies the GT predicate on the "description_key" field.
+func DescriptionKeyGT(v string) predicate.Permission {
+	return predicate.Permission(sql.FieldGT(FieldDescriptionKey, v))
+}
+
+// DescriptionKeyGTE applies the GTE predicate on the "description_key" field.
+func DescriptionKeyGTE(v string) predicate.Permission {
+	return predicate.Permission(sql.FieldGTE(FieldDescriptionKey, v))
+}
+
+// DescriptionKeyLT applies the LT predicate on the "description_key" field.
+func DescriptionKeyLT(v string) predicate.Permission {
+	return predicate.Permission(sql.FieldLT(FieldDescriptionKey, v))
+}
+
+// DescriptionKeyLTE applies the LTE predicate on the "description_key" field.
+func DescriptionKeyLTE(v string) predicate.Permission {
+	return predicate.Permission(sql.FieldLTE(FieldDescriptionKey, v))
+}
+
+// DescriptionKeyContains applies the Contains predicate on the "description_key" field.
+func DescriptionKeyContains(v string) predicate.Permission {
+	return predicate.Permission(sql.FieldContains(FieldDescriptionKey, v))
+}
+
+// DescriptionKeyHasPrefix applies the HasPrefix predicate on the "description_key" field.
+func DescriptionKeyHasPrefix(v string) predicate.Permission {
+	return predicate.Permission(sql.FieldHasPrefix(FieldDescriptionKey, v))
+}
+
+// DescriptionKeyHasSuffix applies the HasSuffix predicate on the "description_key" field.
+func DescriptionKeyHasSuffix(v string) predicate.Permission {
+	return predicate.Permission(sql.FieldHasSuffix(FieldDescriptionKey, v))
+}
+
+// DescriptionKeyIsNil applies the IsNil predicate on the "description_key" field.
+func DescriptionKeyIsNil() predicate.Permission {
+	return predicate.Permission(sql.FieldIsNull(FieldDescriptionKey))
+}
+
+// DescriptionKeyNotNil applies the NotNil predicate on the "description_key" field.
+func DescriptionKeyNotNil() predicate.Permission {
+	return predicate.Permission(sql.FieldNotNull(FieldDescriptionKey))
+}
+
+// DescriptionKeyEqualFold applies the EqualFold predicate on the "description_key" field.
+func DescriptionKeyEqualFold(v string) predicate.Permission {
+	return predicate.Permission(sql.FieldEqualFold(FieldDescriptionKey, v))
+}
+
+// DescriptionKeyContainsFold applies the ContainsFold predicate on the "description_key" field.
+func DescriptionKeyContainsFold(v string) predicate.Permission {
+	return predicate.Permission(sql.FieldContainsFold(FieldDescriptionKey, v))
 }
 
 // CategoryEQ applies the EQ predicate on the "category" field.

@@ -63,10 +63,12 @@ func ensureRolePermissions(
 	permissionIDs := make([]uint64, 0, len(permissions))
 	for _, item := range permissions {
 		record, err := rbac.EnsurePermission(ctx, rbacstore.EnsurePermissionInput{
-			Code:        item.Code,
-			Display:     item.Display,
-			Description: stringPtrOrNil(item.Description),
-			Category:    item.Category,
+			Code:           item.Code,
+			Display:        item.Display,
+			DisplayKey:     stringPtrOrNil(item.DisplayKey),
+			Description:    stringPtrOrNil(item.Description),
+			DescriptionKey: stringPtrOrNil(item.DescriptionKey),
+			Category:       item.Category,
 		})
 		if err != nil {
 			return fmt.Errorf("ensure permission %s: %w", item.Code, err)

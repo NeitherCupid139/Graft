@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"graft/server/internal/config"
+	"graft/server/internal/configregistry"
 	"graft/server/internal/cronx"
 )
 
@@ -255,6 +256,37 @@ func TestRegisterAccessLogRetentionCleanupJobMetadata(t *testing.T) {
 	}
 }
 
+func TestRegisterAccessLogRetentionConfigDefinition(t *testing.T) {
+	registry := configregistry.NewRegistry()
+
+	if err := RegisterAccessLogRetentionConfigDefinition(registry); err != nil {
+		t.Fatalf("register config definition: %v", err)
+	}
+
+	items := registry.Items()
+	if len(items) != 1 {
+		t.Fatalf("expected one config definition, got %d", len(items))
+	}
+	definition := items[0]
+	if definition.Key != accessLogRetentionCleanupJobName ||
+		definition.Module != accessLogRetentionCleanupJobModule ||
+		definition.Type != configregistry.ValueTypeObject {
+		t.Fatalf("unexpected access log config definition: %#v", definition)
+	}
+	if definition.GroupKey != accessLogRetentionConfigGroupKey ||
+		definition.TitleKey != accessLogRetentionConfigTitleKey ||
+		definition.DescriptionKey != accessLogRetentionConfigDescriptionKey {
+		t.Fatalf("expected localized access log config metadata, got %#v", definition)
+	}
+	if string(definition.DefaultValue) != accessLogRetentionCleanupDefaultConfig {
+		t.Fatalf("expected default config %s, got %s", accessLogRetentionCleanupDefaultConfig, definition.DefaultValue)
+	}
+	if !strings.Contains(string(definition.Schema), `"x-i18n"`) ||
+		!strings.Contains(string(definition.Schema), `"unitKey":"systemConfig.units.days"`) {
+		t.Fatalf("expected x-i18n schema metadata, got %s", string(definition.Schema))
+	}
+}
+
 func TestRegisterAccessLogRetentionCleanupJobHandlers(t *testing.T) {
 	items, repo := registeredAccessLogRetentionCleanupJobForTest(t)
 	item := items[0]
@@ -272,6 +304,17 @@ func TestRegisterAccessLogRetentionCleanupJobHandlers(t *testing.T) {
 	}
 	if actionResult.Stage != "estimated" || len(repo.cutoffs) != 1 {
 		t.Fatalf("expected action to estimate without deleting, got result=%#v deleteCalls=%d", actionResult, len(repo.cutoffs))
+	}
+}
+
+func TestDecodeAccessLogRetentionJobConfigClampsRetentionDays(t *testing.T) {
+	config := decodeAccessLogRetentionJobConfig(`{"retentionDays":366,"batchSize":500}`)
+
+	if config.RetentionDays != accessLogRetentionMaxDays {
+		t.Fatalf("expected retention days clamped to %d, got %d", accessLogRetentionMaxDays, config.RetentionDays)
+	}
+	if config.BatchSize != 500 {
+		t.Fatalf("expected configured batch size, got %d", config.BatchSize)
 	}
 }
 

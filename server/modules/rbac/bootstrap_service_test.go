@@ -144,13 +144,33 @@ func TestBootstrapServiceEnsuresDefaultAdminAccess(t *testing.T) {
 	repo := &bootstrapServiceTestRepository{}
 	service := bootstrapService{rbac: repo}
 	permissions := []moduleapi.PermissionSeed{
-		{Code: "user.read", Display: "Read users", Description: "  ", Category: "api"},
-		{Code: "user.write", Display: "Write users", Description: "write users", Category: "api"},
+		{
+			Code:           "user.read",
+			Display:        "Read users",
+			DisplayKey:     "rbac.permissionCatalog.userRead.display",
+			Description:    "  ",
+			DescriptionKey: "rbac.permissionCatalog.userRead.description",
+			Category:       "api",
+		},
+		{
+			Code:           "user.write",
+			Display:        "Write users",
+			DisplayKey:     "rbac.permissionCatalog.userCreate.display",
+			Description:    "write users",
+			DescriptionKey: "rbac.permissionCatalog.userCreate.description",
+			Category:       "api",
+		},
 	}
 
 	if err := service.EnsureDefaultAdminAccess(context.Background(), 7, permissions); err != nil {
 		t.Fatalf("ensure default admin access: %v", err)
 	}
+	assertDefaultAdminBootstrap(t, repo)
+}
+
+func assertDefaultAdminBootstrap(t *testing.T, repo *bootstrapServiceTestRepository) {
+	t.Helper()
+
 	if repo.ensureRoleInput.Name != builtinAdminRoleName || repo.ensureRoleInput.Display != "管理员" || !repo.ensureRoleInput.Builtin {
 		t.Fatalf("unexpected role seed: %#v", repo.ensureRoleInput)
 	}
@@ -160,6 +180,7 @@ func TestBootstrapServiceEnsuresDefaultAdminAccess(t *testing.T) {
 	if repo.ensurePermissionInputs[0].Description != nil {
 		t.Fatalf("expected blank permission description to become nil, got %#v", repo.ensurePermissionInputs[0].Description)
 	}
+	assertPermissionInputKeys(t, repo.ensurePermissionInputs[0], "rbac.permissionCatalog.userRead.display", "rbac.permissionCatalog.userRead.description")
 	if repo.ensurePermissionInputs[1].Description == nil || *repo.ensurePermissionInputs[1].Description != "write users" {
 		t.Fatalf("expected non-blank permission description to be preserved, got %#v", repo.ensurePermissionInputs[1].Description)
 	}
@@ -168,6 +189,22 @@ func TestBootstrapServiceEnsuresDefaultAdminAccess(t *testing.T) {
 	}
 	if repo.assignRoleInput.UserID != 7 || repo.assignRoleInput.RoleID != repo.roleToReturn.ID {
 		t.Fatalf("unexpected role assignment: %#v", repo.assignRoleInput)
+	}
+}
+
+func assertPermissionInputKeys(
+	t *testing.T,
+	input rbacstore.EnsurePermissionInput,
+	displayKey string,
+	descriptionKey string,
+) {
+	t.Helper()
+
+	if input.DisplayKey == nil || *input.DisplayKey != displayKey {
+		t.Fatalf("expected permission display key %q, got %#v", displayKey, input)
+	}
+	if input.DescriptionKey == nil || *input.DescriptionKey != descriptionKey {
+		t.Fatalf("expected permission description key %q, got %#v", descriptionKey, input)
 	}
 }
 

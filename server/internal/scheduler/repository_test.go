@@ -104,7 +104,7 @@ func TestSQLJobDefinitionRepositorySyncsDefinitions(t *testing.T) {
 	}
 }
 
-func TestSQLTaskRepositorySeedsBuiltinWithoutOverwritingCronOrEnabled(t *testing.T) {
+func TestSQLTaskRepositorySeedsBuiltinPreservesCronAndEnabledWhileRefreshingConfig(t *testing.T) {
 	db := newSchedulerRepositoryTestDB(t)
 	repo, err := NewSQLTaskRepository(db)
 	if err != nil {
@@ -154,8 +154,11 @@ func TestSQLTaskRepositorySeedsBuiltinWithoutOverwritingCronOrEnabled(t *testing
 	if task.CronExpression != "0 */5 * * * *" || task.Enabled {
 		t.Fatalf("expected user-edited cron/enabled to survive reseed, got %#v", task)
 	}
-	if task.ConfigJSON != `{"retentionDays":90,"batchSize":500}` {
-		t.Fatalf("expected repository to preserve existing builtin config, got %#v", task)
+	if task.ConfigJSON != `{"retentionDays":30,"batchSize":1000}` {
+		t.Fatalf("expected repository to accept runtime-selected builtin config, got %#v", task)
+	}
+	if task.ConfigSource != taskConfigSourceSystem {
+		t.Fatalf("expected reseeded builtin config to use system source, got %#v", task)
 	}
 }
 
@@ -283,12 +286,13 @@ func newSchedulerRepositoryTestDB(t *testing.T) *sql.DB {
 		description text NOT NULL DEFAULT '',
 		cron_expression text NOT NULL,
 		enabled boolean NOT NULL DEFAULT true,
-		builtin boolean NOT NULL DEFAULT false,
-		task_type text NOT NULL DEFAULT 'job',
-		config_json text NOT NULL DEFAULT '{}',
-		created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		deleted_at datetime NULL
+			builtin boolean NOT NULL DEFAULT false,
+			task_type text NOT NULL DEFAULT 'job',
+			config_json text NOT NULL DEFAULT '{}',
+			config_source text NOT NULL DEFAULT 'system',
+			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			deleted_at datetime NULL
 	);
 	CREATE TABLE scheduler_job_definitions (
 		id integer PRIMARY KEY AUTOINCREMENT,

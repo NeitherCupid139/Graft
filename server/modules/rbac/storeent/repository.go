@@ -69,7 +69,7 @@ func (r *repository) EnsureRole(ctx context.Context, input rbacstore.EnsureRoleI
 func (r *repository) EnsurePermission(ctx context.Context, input rbacstore.EnsurePermissionInput) (rbacstore.Permission, error) {
 	record, err := r.findPermissionByCode(ctx, input.Code)
 	if err == nil {
-		return record, nil
+		return r.reconcilePermissionMetadata(ctx, record, input)
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
 		return rbacstore.Permission{}, fmt.Errorf("query ensured permission by code: %w", err)
@@ -772,7 +772,7 @@ func (r *repository) ListPermissionsByUserID(ctx context.Context, userID uint64)
 		ctx,
 		r.db,
 		"list permissions by user id",
-		`SELECT DISTINCT p.id, p.code, p.display, p.description, p.category, p.created_at, p.updated_at,
+		`SELECT DISTINCT p.id, p.code, p.display, p.display_key, p.description, p.description_key, p.category, p.created_at, p.updated_at,
 			(SELECT COUNT(*) FROM role_permissions rp WHERE rp.permission_id = p.id) AS role_binding_count
 		FROM user_roles ur
 		INNER JOIN roles r ON r.id = ur.role_id
@@ -803,7 +803,7 @@ func (r *repository) ListPermissions(ctx context.Context, filter rbacstore.Permi
 		ctx,
 		r.db,
 		"list permissions",
-		fmt.Sprintf(`SELECT id, code, display, description, category, created_at, updated_at,
+		fmt.Sprintf(`SELECT id, code, display, display_key, description, description_key, category, created_at, updated_at,
 			(SELECT COUNT(*) FROM role_permissions rp WHERE rp.permission_id = permissions.id) AS role_binding_count
 		FROM permissions
 		WHERE %s
@@ -939,7 +939,7 @@ func (r *repository) setRoleBuiltin(ctx context.Context, id uint64, builtin bool
 func (r *repository) findPermissionByCode(ctx context.Context, code string) (rbacstore.Permission, error) {
 	return scanPermission(r.db.QueryRowContext(
 		ctx,
-		`SELECT id, code, display, description, category, created_at, updated_at, 0 AS role_binding_count
+		`SELECT id, code, display, display_key, description, description_key, category, created_at, updated_at, 0 AS role_binding_count
 		FROM permissions
 		WHERE code = $1 AND deleted_at = 0`,
 		strings.TrimSpace(code),
@@ -949,7 +949,7 @@ func (r *repository) findPermissionByCode(ctx context.Context, code string) (rba
 func (r *repository) queryPermissionByID(ctx context.Context, id int64) (rbacstore.Permission, error) {
 	return scanPermission(r.db.QueryRowContext(
 		ctx,
-		`SELECT id, code, display, description, category, created_at, updated_at,
+		`SELECT id, code, display, display_key, description, description_key, category, created_at, updated_at,
 			(SELECT COUNT(*) FROM role_permissions rp WHERE rp.permission_id = permissions.id) AS role_binding_count
 		FROM permissions
 		WHERE id = $1 AND deleted_at = 0`,
@@ -961,16 +961,110 @@ func (r *repository) createPermissionRecord(ctx context.Context, input rbacstore
 	now := time.Now().UTC()
 	return scanPermission(r.db.QueryRowContext(
 		ctx,
-		`INSERT INTO permissions (code, display, description, category, created_at, created_by, updated_at, updated_by, deleted_at, deleted_by)
-		VALUES ($1, $2, $3, $4, $5, 0, $6, 0, 0, 0)
-		RETURNING id, code, display, description, category, created_at, updated_at, 0 AS role_binding_count`,
+		`INSERT INTO permissions (code, display, display_key, description, description_key, category, created_at, created_by, updated_at, updated_by, deleted_at, deleted_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, 0, 0, 0)
+		RETURNING id, code, display, display_key, description, description_key, category, created_at, updated_at, 0 AS role_binding_count`,
 		strings.TrimSpace(input.Code),
 		input.Display,
+		nullableString(input.DisplayKey),
 		nullableString(input.Description),
+		nullableString(input.DescriptionKey),
 		input.Category,
 		now,
 		now,
 	))
+}
+
+func (r *repository) reconcilePermissionMetadata(
+	ctx context.Context,
+	record rbacstore.Permission,
+	input rbacstore.EnsurePermissionInput,
+) (rbacstore.Permission, error) {
+	permissionID, err := toDBID(record.ID)
+	if err != nil {
+		return rbacstore.Permission{}, err
+	}
+	metadata := permissionMetadataFromInput(record, input)
+
+	if permissionMetadataEqual(record, metadata) {
+		return record, nil
+	}
+
+	if err := r.updatePermissionMetadata(ctx, permissionID, record.Code, metadata); err != nil {
+		return rbacstore.Permission{}, err
+	}
+	updated, err := r.findPermissionByCode(ctx, record.Code)
+	if err != nil {
+		return rbacstore.Permission{}, fmt.Errorf("reload reconciled permission %s: %w", record.Code, err)
+	}
+	return updated, nil
+}
+
+type permissionMetadata struct {
+	display        string
+	displayKey     *string
+	description    *string
+	descriptionKey *string
+	category       string
+}
+
+func permissionMetadataFromInput(record rbacstore.Permission, input rbacstore.EnsurePermissionInput) permissionMetadata {
+	display := strings.TrimSpace(input.Display)
+	category := strings.TrimSpace(input.Category)
+	if display == "" {
+		display = record.Display
+	}
+	if category == "" {
+		category = record.Category
+	}
+	return permissionMetadata{
+		display:        display,
+		displayKey:     input.DisplayKey,
+		description:    input.Description,
+		descriptionKey: input.DescriptionKey,
+		category:       category,
+	}
+}
+
+func permissionMetadataEqual(record rbacstore.Permission, metadata permissionMetadata) bool {
+	return record.Display == metadata.display &&
+		stringPtrEqual(record.DisplayKey, metadata.displayKey) &&
+		stringPtrEqual(record.Description, metadata.description) &&
+		stringPtrEqual(record.DescriptionKey, metadata.descriptionKey) &&
+		record.Category == metadata.category
+}
+
+func (r *repository) updatePermissionMetadata(
+	ctx context.Context,
+	permissionID int64,
+	code string,
+	metadata permissionMetadata,
+) error {
+	now := time.Now().UTC()
+	result, err := r.db.ExecContext(
+		ctx,
+		`UPDATE permissions
+		SET display = $1, display_key = $2, description = $3, description_key = $4, category = $5, updated_at = $6, updated_by = 0
+		WHERE id = $7 AND deleted_at = 0`,
+		metadata.display,
+		nullableString(metadata.displayKey),
+		nullableString(metadata.description),
+		nullableString(metadata.descriptionKey),
+		metadata.category,
+		now,
+		permissionID,
+	)
+	if err != nil {
+		return fmt.Errorf("reconcile permission %s metadata: %w", code, err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("read reconciled permission %s rows affected: %w", code, err)
+	}
+	if affected == 0 {
+		return rbacstore.ErrPermissionNotFound
+	}
+	return nil
 }
 
 type replaceAssignmentConfig struct {
@@ -1418,13 +1512,26 @@ func scanPermission(scanner permissionScanner) (rbacstore.Permission, error) {
 		id               int64
 		code             string
 		display          string
+		displayKey       sql.NullString
 		description      sql.NullString
+		descriptionKey   sql.NullString
 		category         string
 		createdAt        time.Time
 		updatedAt        time.Time
 		roleBindingCount int
 	)
-	if err := scanner.Scan(&id, &code, &display, &description, &category, &createdAt, &updatedAt, &roleBindingCount); err != nil {
+	if err := scanner.Scan(
+		&id,
+		&code,
+		&display,
+		&displayKey,
+		&description,
+		&descriptionKey,
+		&category,
+		&createdAt,
+		&updatedAt,
+		&roleBindingCount,
+	); err != nil {
 		return rbacstore.Permission{}, err
 	}
 
@@ -1432,7 +1539,9 @@ func scanPermission(scanner permissionScanner) (rbacstore.Permission, error) {
 		ID:               toStoreID(id),
 		Code:             code,
 		Display:          display,
+		DisplayKey:       nullStringPtr(displayKey),
 		Description:      nullStringPtr(description),
+		DescriptionKey:   nullStringPtr(descriptionKey),
 		Category:         category,
 		CreatedAt:        createdAt,
 		UpdatedAt:        updatedAt,
@@ -1673,6 +1782,17 @@ func nullableString(value *string) any {
 		return nil
 	}
 	return *value
+}
+
+func stringPtrEqual(left *string, right *string) bool {
+	switch {
+	case left == nil && right == nil:
+		return true
+	case left == nil || right == nil:
+		return false
+	default:
+		return *left == *right
+	}
 }
 
 func nullStringPtr(value sql.NullString) *string {

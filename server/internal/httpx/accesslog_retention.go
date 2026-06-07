@@ -10,7 +10,9 @@ import (
 	"go.uber.org/zap"
 
 	"graft/server/internal/config"
+	"graft/server/internal/configregistry"
 	"graft/server/internal/cronx"
+	"graft/server/internal/i18n"
 )
 
 const (
@@ -23,11 +25,19 @@ const (
 	accessLogRetentionDryRunActionTitleKey     = "scheduledTask.action.dryRun.title"
 	accessLogRetentionDryRunActionDescKey      = "scheduledTask.action.dryRun.description"
 	accessLogRetentionDefaultDays              = 30
+	accessLogRetentionMaxDays                  = 365
 	accessLogRetentionDefaultBatchSize         = 1000
+	accessLogRetentionConfigDefinitionOrder    = 210
 	hoursPerDay                                = 24
 )
 
-const accessLogRetentionCleanupConfigSchema = `{"type":"object","properties":{"retentionDays":{"type":"integer","minimum":1,"maximum":3650,"default":30,"title":"Retention days","description":"Delete access logs older than this number of days.","x-title-key":"scheduledTask.accessLogRetention.config.retentionDays.title","x-description-key":"scheduledTask.accessLogRetention.config.retentionDays.description"},"batchSize":{"type":"integer","minimum":1,"maximum":10000,"default":1000,"title":"Batch size","description":"Maximum access log rows to delete in one cleanup batch.","x-title-key":"scheduledTask.accessLogRetention.config.batchSize.title","x-description-key":"scheduledTask.accessLogRetention.config.batchSize.description"}},"additionalProperties":false}`
+const (
+	accessLogRetentionConfigGroupKey       = "systemConfig.groups.coreHttpxLogRetention"
+	accessLogRetentionConfigTitleKey       = "systemConfig.items.accessLogRetentionCleanup.title"
+	accessLogRetentionConfigDescriptionKey = "systemConfig.items.accessLogRetentionCleanup.description"
+)
+
+const accessLogRetentionCleanupConfigSchema = `{"type":"object","properties":{"retentionDays":{"type":"integer","minimum":1,"maximum":365,"default":30,"title":"Log retention days","description":"Delete logs older than this many days.","x-i18n":{"titleKey":"systemConfig.fields.retentionDays.title","descriptionKey":"systemConfig.fields.retentionDays.description","unitKey":"systemConfig.units.days"}},"batchSize":{"type":"integer","minimum":1,"maximum":10000,"default":1000,"title":"Batch size","description":"Maximum rows deleted per cleanup batch.","x-i18n":{"titleKey":"systemConfig.fields.batchSize.title","descriptionKey":"systemConfig.fields.batchSize.description","unitKey":"systemConfig.units.rows"}}},"additionalProperties":false}`
 const accessLogRetentionCleanupDefaultConfig = `{"retentionDays":30,"batchSize":1000}`
 
 type accessLogRetentionJobConfig struct {
@@ -267,10 +277,70 @@ func decodeAccessLogRetentionJobConfig(configJSON string) accessLogRetentionJobC
 	if config.RetentionDays <= 0 {
 		config.RetentionDays = accessLogRetentionDefaultDays
 	}
+	if config.RetentionDays > accessLogRetentionMaxDays {
+		config.RetentionDays = accessLogRetentionMaxDays
+	}
 	if config.BatchSize <= 0 {
 		config.BatchSize = accessLogRetentionDefaultBatchSize
 	}
 	return config
+}
+
+// RegisterAccessLogRetentionConfigDefinition exposes the built-in cleanup defaults as registry authority.
+func RegisterAccessLogRetentionConfigDefinition(registry *configregistry.Registry) error {
+	if registry == nil {
+		return errors.New("config registry is required")
+	}
+
+	return registry.Register(configregistry.Definition{
+		Key:            accessLogRetentionCleanupJobName,
+		Module:         accessLogRetentionCleanupJobModule,
+		Group:          "log.retention",
+		GroupKey:       accessLogRetentionConfigGroupKey,
+		GroupLabel:     "core.httpx / log.retention",
+		Title:          "Access log retention cleanup",
+		TitleKey:       accessLogRetentionConfigTitleKey,
+		Description:    "Default cleanup configuration for access-log retention jobs.",
+		DescriptionKey: accessLogRetentionConfigDescriptionKey,
+		Tags:           []string{"httpx", "log.retention"},
+		Type:           configregistry.ValueTypeObject,
+		Schema:         json.RawMessage(accessLogRetentionCleanupConfigSchema),
+		DefaultValue:   json.RawMessage(accessLogRetentionCleanupDefaultConfig),
+		Order:          accessLogRetentionConfigDefinitionOrder,
+	})
+}
+
+// RegisterAccessLogRetentionConfigMessages registers system-config display metadata for the httpx-owned cleanup config.
+func RegisterAccessLogRetentionConfigMessages(localizer *i18n.Service) error {
+	if localizer == nil {
+		return errors.New("i18n service is required")
+	}
+
+	for _, registration := range []i18n.Registration{
+		{
+			Namespace: "system-config",
+			Locale:    i18n.LocaleZHCN,
+			Messages: []i18n.MessageResource{
+				{Key: i18n.MessageKey(accessLogRetentionConfigGroupKey), Text: "core.httpx / log.retention"},
+				{Key: i18n.MessageKey(accessLogRetentionConfigTitleKey), Text: "访问日志保留清理"},
+				{Key: i18n.MessageKey(accessLogRetentionConfigDescriptionKey), Text: "访问日志保留清理任务的默认配置。"},
+			},
+		},
+		{
+			Namespace: "system-config",
+			Locale:    i18n.LocaleENUS,
+			Messages: []i18n.MessageResource{
+				{Key: i18n.MessageKey(accessLogRetentionConfigGroupKey), Text: "core.httpx / log.retention"},
+				{Key: i18n.MessageKey(accessLogRetentionConfigTitleKey), Text: "Access log retention cleanup"},
+				{Key: i18n.MessageKey(accessLogRetentionConfigDescriptionKey), Text: "Default cleanup configuration for access-log retention jobs."},
+			},
+		},
+	} {
+		if err := localizer.RegisterMessages(registration); err != nil {
+			return fmt.Errorf("register access-log retention config messages: %w", err)
+		}
+	}
+	return nil
 }
 
 // RegisterAccessLogRetentionCleanupJob registers the bounded httpx-owned access-log cleanup job.
@@ -299,6 +369,7 @@ func RegisterAccessLogRetentionCleanupJob(
 		DescriptionMessageKey: accessLogRetentionCleanupJobDescriptionKey,
 		ConfigSchema:          accessLogRetentionCleanupConfigSchema,
 		DefaultConfig:         accessLogRetentionCleanupDefaultConfig,
+		DefaultConfigKey:      accessLogRetentionCleanupJobName,
 		Actions: []cronx.JobAction{
 			{
 				Key:            accessLogRetentionDryRunActionKey,

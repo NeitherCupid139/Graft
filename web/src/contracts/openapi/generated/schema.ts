@@ -1097,6 +1097,70 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/system-configs': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List registered system configuration values
+     * @description Returns module-registered ConfigDefinitions merged with administrator overrides. Sensitive values are masked and never returned as plaintext.
+     */
+    get: operations['getSystemConfigs'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/system-configs/{key}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Read one system configuration value
+     * @description Returns one registered ConfigDefinition merged with its administrator override. Sensitive values are masked and never returned as plaintext.
+     */
+    get: operations['getSystemConfig'];
+    /**
+     * Update one system configuration override
+     * @description Stores administrator override JSON only. Sensitive responses remain masked and do not echo plaintext values.
+     */
+    put: operations['putSystemConfig'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/system-configs/{key}/reset': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Reset one system configuration override
+     * @description Deletes the administrator override and returns the module default as the effective value. Sensitive responses remain masked.
+     */
+    post: operations['postSystemConfigReset'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/access-log': {
     parameters: {
       query?: never;
@@ -1272,6 +1336,11 @@ export interface components {
     EnvelopedScheduledTaskRunItem: components['schemas']['enveloped-scheduled-task-run-item'];
     EnvelopedScheduledTaskActionResult: components['schemas']['enveloped-scheduled-task-action-result'];
     EnvelopedScheduledTaskRunListResponse: components['schemas']['enveloped-scheduled-task-run-list-response'];
+    SystemConfigItem: components['schemas']['system-config-item'];
+    SystemConfigListResponse: components['schemas']['system-config-list-response'];
+    UpdateSystemConfigRequest: components['schemas']['update-system-config-request'];
+    EnvelopedSystemConfigItem: components['schemas']['enveloped-system-config-item'];
+    EnvelopedSystemConfigListResponse: components['schemas']['enveloped-system-config-list-response'];
     AccessLogDetailResponse: components['schemas']['access-log-detail-response'];
     AccessLogListResponse: components['schemas']['access-log-list-response'];
     EnvelopedAccessLogListResponse: components['schemas']['enveloped-access-log-list-response'];
@@ -1525,10 +1594,14 @@ export interface components {
       id: number;
       /** @description Stable permission code contract. */
       code: string;
-      /** @description Current server-provided fallback display text. This schema does not yet expose a canonical display_key contract. */
+      /** @description Server-provided fallback display text. Consumers should prefer display_key when present. */
       display: string;
-      /** @description Current server-provided fallback description text. A future key-based localization contract would be additive. */
+      /** @description Stable localization key for the permission display text. */
+      display_key?: string;
+      /** @description Server-provided fallback description text. Consumers should prefer description_key when present. */
       description?: string;
+      /** @description Stable localization key for the permission description text. */
+      description_key?: string;
       category: string;
       created_at: string;
       updated_at: string;
@@ -2436,6 +2509,65 @@ export interface components {
     };
     'enveloped-scheduled-task-action-result': components['schemas']['api-envelope'] & {
       data: components['schemas']['scheduled-task-action-result'];
+    };
+    'system-config-item': {
+      /** @description Stable ConfigDefinition key registered by a module. */
+      key: string;
+      /** @description Module that owns the ConfigDefinition authority. */
+      module: string;
+      /** @description Module-declared grouping key for the settings UI. */
+      group: string;
+      /** @description Stable localization key for the group display label. */
+      group_key?: string;
+      /** @description Direct group-label fallback when the client has no translation for group_key. */
+      group_label?: string;
+      /** @description Direct title fallback when the client has no translation for title_key. */
+      title?: string;
+      /** @description Stable localization key for the config item title. */
+      title_key?: string;
+      /** @description Direct description fallback when the client has no translation for description_key. */
+      description?: string;
+      /** @description Stable localization key for the config item description. */
+      description_key?: string;
+      /** @description Module-declared technical tags for filtering and display. */
+      tags?: string[];
+      /** @enum {string} */
+      type: 'string' | 'number' | 'integer' | 'boolean' | 'object' | 'array';
+      /** @description JSON Schema compatible object declared by the module, including Graft x-i18n extensions. */
+      config_schema: {
+        [key: string]: unknown;
+      };
+      /** @description JSON string for the module default; null when sensitive=true. */
+      default_value?: string | null;
+      /** @description JSON string after applying administrator override; null when sensitive=true. */
+      effective_value?: string | null;
+      /** @description Administrator override JSON string; null when no override or sensitive=true. */
+      override_value?: string | null;
+      /** @description Whether system_config_values currently stores an administrator override for this key. */
+      has_override: boolean;
+      /** @description Whether plaintext values must not be returned to clients. */
+      sensitive: boolean;
+      /** @description True when value fields are intentionally withheld from the response. */
+      masked: boolean;
+      /** @description Stable display placeholder for masked sensitive values. */
+      masked_placeholder?: string | null;
+      restart_required: boolean;
+      permission?: string;
+      order?: number;
+    };
+    'system-config-list-response': {
+      items: components['schemas']['system-config-item'][];
+      total: number;
+    };
+    'enveloped-system-config-list-response': components['schemas']['api-envelope'] & {
+      data: components['schemas']['system-config-list-response'];
+    };
+    'enveloped-system-config-item': components['schemas']['api-envelope'] & {
+      data: components['schemas']['system-config-item'];
+    };
+    'update-system-config-request': {
+      /** @description JSON value to store as the administrator override for the registered definition. */
+      value: unknown;
     };
     'access-log-detail-response': {
       /** Format: int64 */
@@ -5567,6 +5699,144 @@ export interface operations {
           'application/json': components['schemas']['error-response'];
         };
       };
+      500: components['responses']['internal-server-error'];
+    };
+  };
+  getSystemConfigs: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Explicit locale override header already supported by the runtime. */
+        'X-Graft-Locale'?: components['parameters']['locale-header'];
+        /**
+         * @description Optional caller-supplied request id. If omitted, the runtime generates one and echoes it
+         *     through the response header and envelope traceId field.
+         */
+        'X-Request-Id'?: components['parameters']['request-id-header'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description System configuration list. */
+      200: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['enveloped-system-config-list-response'];
+        };
+      };
+      401: components['responses']['unauthorized'];
+      403: components['responses']['forbidden'];
+      500: components['responses']['internal-server-error'];
+    };
+  };
+  getSystemConfig: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Explicit locale override header already supported by the runtime. */
+        'X-Graft-Locale'?: components['parameters']['locale-header'];
+        /**
+         * @description Optional caller-supplied request id. If omitted, the runtime generates one and echoes it
+         *     through the response header and envelope traceId field.
+         */
+        'X-Request-Id'?: components['parameters']['request-id-header'];
+      };
+      path: {
+        key: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description System configuration detail. */
+      200: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['enveloped-system-config-item'];
+        };
+      };
+      401: components['responses']['unauthorized'];
+      403: components['responses']['forbidden'];
+      500: components['responses']['internal-server-error'];
+    };
+  };
+  putSystemConfig: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Explicit locale override header already supported by the runtime. */
+        'X-Graft-Locale'?: components['parameters']['locale-header'];
+        /**
+         * @description Optional caller-supplied request id. If omitted, the runtime generates one and echoes it
+         *     through the response header and envelope traceId field.
+         */
+        'X-Request-Id'?: components['parameters']['request-id-header'];
+      };
+      path: {
+        key: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['update-system-config-request'];
+      };
+    };
+    responses: {
+      /** @description Updated system configuration detail. */
+      200: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['enveloped-system-config-item'];
+        };
+      };
+      401: components['responses']['unauthorized'];
+      403: components['responses']['forbidden'];
+      500: components['responses']['internal-server-error'];
+    };
+  };
+  postSystemConfigReset: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Explicit locale override header already supported by the runtime. */
+        'X-Graft-Locale'?: components['parameters']['locale-header'];
+        /**
+         * @description Optional caller-supplied request id. If omitted, the runtime generates one and echoes it
+         *     through the response header and envelope traceId field.
+         */
+        'X-Request-Id'?: components['parameters']['request-id-header'];
+      };
+      path: {
+        key: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Reset system configuration detail. */
+      200: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['enveloped-system-config-item'];
+        };
+      };
+      401: components['responses']['unauthorized'];
+      403: components['responses']['forbidden'];
       500: components['responses']['internal-server-error'];
     };
   };

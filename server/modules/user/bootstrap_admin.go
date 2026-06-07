@@ -91,10 +91,12 @@ func permissionSeedsFromItems(items []permission.Item) []moduleapi.PermissionSee
 	seeds := make([]moduleapi.PermissionSeed, 0, len(items))
 	for _, item := range items {
 		seeds = append(seeds, moduleapi.PermissionSeed{
-			Code:        item.Code,
-			Display:     item.Name,
-			Description: item.Description,
-			Category:    item.Category,
+			Code:           item.Code,
+			Display:        item.Name,
+			DisplayKey:     item.DisplayKey,
+			Description:    item.Description,
+			DescriptionKey: item.DescriptionKey,
+			Category:       item.Category,
 		})
 	}
 

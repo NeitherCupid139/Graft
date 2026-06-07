@@ -1,0 +1,85 @@
+type: object
+required:
+  - key
+  - module
+  - group
+  - type
+  - config_schema
+  - has_override
+  - sensitive
+  - masked
+  - restart_required
+properties:
+  key:
+    type: string
+    description: Stable ConfigDefinition key registered by a module.
+  module:
+    type: string
+    description: Module that owns the ConfigDefinition authority.
+  group:
+    type: string
+    description: Module-declared grouping key for the settings UI.
+  group_key:
+    type: string
+    description: Stable localization key for the group display label.
+  group_label:
+    type: string
+    description: Direct group-label fallback when the client has no translation for group_key.
+  title:
+    type: string
+    description: Direct title fallback when the client has no translation for title_key.
+  title_key:
+    type: string
+    description: Stable localization key for the config item title.
+  description:
+    type: string
+    description: Direct description fallback when the client has no translation for description_key.
+  description_key:
+    type: string
+    description: Stable localization key for the config item description.
+  tags:
+    type: array
+    items:
+      type: string
+    description: Module-declared technical tags for filtering and display.
+  type:
+    type: string
+    enum: [string, number, integer, boolean, object, array]
+  config_schema:
+    type: object
+    additionalProperties: true
+    description: JSON Schema compatible object declared by the module, including Graft x-i18n extensions.
+  default_value:
+    type: string
+    nullable: true
+    description: JSON string for the module default; null when sensitive=true.
+  effective_value:
+    type: string
+    nullable: true
+    description: JSON string after applying administrator override; null when sensitive=true.
+  override_value:
+    type: string
+    nullable: true
+    description: Administrator override JSON string; null when no override or sensitive=true.
+  has_override:
+    type: boolean
+    description: Whether system_config_values currently stores an administrator override for this key.
+  sensitive:
+    type: boolean
+    description: Whether plaintext values must not be returned to clients.
+  masked:
+    type: boolean
+    description: True when value fields are intentionally withheld from the response.
+  masked_placeholder:
+    type: string
+    nullable: true
+    description: Stable display placeholder for masked sensitive values.
+  restart_required:
+    type: boolean
+    description: Whether changing this config requires a service restart before it takes effect.
+  permission:
+    type: string
+    description: Permission code required to update this config item when the definition declares one.
+  order:
+    type: integer
+    description: Module-declared display order within the config group.
