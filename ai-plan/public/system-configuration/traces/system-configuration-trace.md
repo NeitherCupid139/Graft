@@ -46,3 +46,30 @@
   - `cd server && go build ./cmd/graft`
   - `cd server && go test ./internal/contract/openapi/...`
   - `git diff --check`
+
+## 2026-06-07 Batch 2 worker
+
+- Implemented the web System Configuration module:
+  - added `web/src/modules/system-config` with module registration, bootstrap route, route/API/permission contracts, locales, and typed API wrappers
+  - registered `/server/system-config` as a Service Management dynamic route consumer with stable route name `SystemConfigList`
+  - added a settings-style MVP page that lists module/grouped config definitions, displays effective/default/override values, shows masked sensitive values, supports override save, and supports reset to module default
+- Reused JSON Schema form capability through a shared boundary:
+  - added `web/src/shared/schema-form` with business-neutral JSON parsing, JSON Schema parsing, value preview, and `JsonSchemaValueFields`
+  - changed Scheduled Task schema/json utils into thin re-exports over the shared implementation so existing task-instance config behavior keeps using the same API
+- Refreshed frontend OpenAPI generated types:
+  - regenerated `web/src/contracts/openapi/generated/schema.ts` so the web contract boundary includes `/api/system-configs`
+  - kept OpenAPI source authority unchanged in this batch
+- Focused validation run by the worker:
+  - `cd web && bun run openapi:types:check`
+  - `cd web && bun run typecheck`
+  - `cd web && bunx vitest run src/modules/index.test.ts src/modules/system-config/bootstrap-routes.test.ts src/modules/system-config/api/system-config.test.ts`
+  - `cd web && bun run lint:i18n`
+  - `cd web && bun run lint`
+  - `cd web && bun run stylelint`
+  - `cd web && bun run format:check`
+  - `git diff --check`
+- Completion validation run by the worker:
+  - `cd web && bun run check`
+  - covered format, typecheck, OpenAPI frontend governance, i18n governance, lint, stylelint, hygiene, full vitest, and release build
+  - full vitest passed with 64 test files and 361 tests
+  - `git diff --check`

@@ -1097,6 +1097,70 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/system-configs': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List registered system configuration values
+     * @description Returns module-registered ConfigDefinitions merged with administrator overrides. Sensitive values are masked and never returned as plaintext.
+     */
+    get: operations['getSystemConfigs'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/system-configs/{key}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Read one system configuration value
+     * @description Returns one registered ConfigDefinition merged with its administrator override. Sensitive values are masked and never returned as plaintext.
+     */
+    get: operations['getSystemConfig'];
+    /**
+     * Update one system configuration override
+     * @description Stores administrator override JSON only. Sensitive responses remain masked and do not echo plaintext values.
+     */
+    put: operations['putSystemConfig'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/system-configs/{key}/reset': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Reset one system configuration override
+     * @description Deletes the administrator override and returns the module default as the effective value. Sensitive responses remain masked.
+     */
+    post: operations['postSystemConfigReset'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/access-log': {
     parameters: {
       query?: never;
@@ -1272,6 +1336,11 @@ export interface components {
     EnvelopedScheduledTaskRunItem: components['schemas']['enveloped-scheduled-task-run-item'];
     EnvelopedScheduledTaskActionResult: components['schemas']['enveloped-scheduled-task-action-result'];
     EnvelopedScheduledTaskRunListResponse: components['schemas']['enveloped-scheduled-task-run-list-response'];
+    SystemConfigItem: components['schemas']['system-config-item'];
+    SystemConfigListResponse: components['schemas']['system-config-list-response'];
+    UpdateSystemConfigRequest: components['schemas']['update-system-config-request'];
+    EnvelopedSystemConfigItem: components['schemas']['enveloped-system-config-item'];
+    EnvelopedSystemConfigListResponse: components['schemas']['enveloped-system-config-list-response'];
     AccessLogDetailResponse: components['schemas']['access-log-detail-response'];
     AccessLogListResponse: components['schemas']['access-log-list-response'];
     EnvelopedAccessLogListResponse: components['schemas']['enveloped-access-log-list-response'];
@@ -2436,6 +2505,53 @@ export interface components {
     };
     'enveloped-scheduled-task-action-result': components['schemas']['api-envelope'] & {
       data: components['schemas']['scheduled-task-action-result'];
+    };
+    'system-config-item': {
+      /** @description Stable ConfigDefinition key registered by a module. */
+      key: string;
+      /** @description Module that owns the ConfigDefinition authority. */
+      module: string;
+      /** @description Module-declared grouping key for the settings UI. */
+      group: string;
+      title?: string;
+      title_key?: string;
+      description?: string;
+      description_key?: string;
+      /** @enum {string} */
+      type: 'string' | 'number' | 'integer' | 'boolean' | 'object' | 'array';
+      /** @description JSON Schema object string declared by the module. */
+      schema_json: string;
+      /** @description JSON string for the module default; null when sensitive=true. */
+      default_value?: string | null;
+      /** @description JSON string after applying administrator override; null when sensitive=true. */
+      effective_value?: string | null;
+      /** @description Administrator override JSON string; null when no override or sensitive=true. */
+      override_value?: string | null;
+      /** @description Whether system_config_values currently stores an administrator override for this key. */
+      has_override: boolean;
+      /** @description Whether plaintext values must not be returned to clients. */
+      sensitive: boolean;
+      /** @description True when value fields are intentionally withheld from the response. */
+      masked: boolean;
+      /** @description Stable display placeholder for masked sensitive values. */
+      masked_placeholder?: string | null;
+      restart_required: boolean;
+      permission?: string;
+      order?: number;
+    };
+    'system-config-list-response': {
+      items: components['schemas']['system-config-item'][];
+      total: number;
+    };
+    'enveloped-system-config-list-response': components['schemas']['api-envelope'] & {
+      data: components['schemas']['system-config-list-response'];
+    };
+    'enveloped-system-config-item': components['schemas']['api-envelope'] & {
+      data: components['schemas']['system-config-item'];
+    };
+    'update-system-config-request': {
+      /** @description JSON value to store as the administrator override for the registered definition. */
+      value: unknown;
     };
     'access-log-detail-response': {
       /** Format: int64 */
@@ -5567,6 +5683,144 @@ export interface operations {
           'application/json': components['schemas']['error-response'];
         };
       };
+      500: components['responses']['internal-server-error'];
+    };
+  };
+  getSystemConfigs: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Explicit locale override header already supported by the runtime. */
+        'X-Graft-Locale'?: components['parameters']['locale-header'];
+        /**
+         * @description Optional caller-supplied request id. If omitted, the runtime generates one and echoes it
+         *     through the response header and envelope traceId field.
+         */
+        'X-Request-Id'?: components['parameters']['request-id-header'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description System configuration list. */
+      200: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['enveloped-system-config-list-response'];
+        };
+      };
+      401: components['responses']['unauthorized'];
+      403: components['responses']['forbidden'];
+      500: components['responses']['internal-server-error'];
+    };
+  };
+  getSystemConfig: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Explicit locale override header already supported by the runtime. */
+        'X-Graft-Locale'?: components['parameters']['locale-header'];
+        /**
+         * @description Optional caller-supplied request id. If omitted, the runtime generates one and echoes it
+         *     through the response header and envelope traceId field.
+         */
+        'X-Request-Id'?: components['parameters']['request-id-header'];
+      };
+      path: {
+        key: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description System configuration detail. */
+      200: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['enveloped-system-config-item'];
+        };
+      };
+      401: components['responses']['unauthorized'];
+      403: components['responses']['forbidden'];
+      500: components['responses']['internal-server-error'];
+    };
+  };
+  putSystemConfig: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Explicit locale override header already supported by the runtime. */
+        'X-Graft-Locale'?: components['parameters']['locale-header'];
+        /**
+         * @description Optional caller-supplied request id. If omitted, the runtime generates one and echoes it
+         *     through the response header and envelope traceId field.
+         */
+        'X-Request-Id'?: components['parameters']['request-id-header'];
+      };
+      path: {
+        key: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['update-system-config-request'];
+      };
+    };
+    responses: {
+      /** @description Updated system configuration detail. */
+      200: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['enveloped-system-config-item'];
+        };
+      };
+      401: components['responses']['unauthorized'];
+      403: components['responses']['forbidden'];
+      500: components['responses']['internal-server-error'];
+    };
+  };
+  postSystemConfigReset: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Explicit locale override header already supported by the runtime. */
+        'X-Graft-Locale'?: components['parameters']['locale-header'];
+        /**
+         * @description Optional caller-supplied request id. If omitted, the runtime generates one and echoes it
+         *     through the response header and envelope traceId field.
+         */
+        'X-Request-Id'?: components['parameters']['request-id-header'];
+      };
+      path: {
+        key: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Reset system configuration detail. */
+      200: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['enveloped-system-config-item'];
+        };
+      };
+      401: components['responses']['unauthorized'];
+      403: components['responses']['forbidden'];
       500: components['responses']['internal-server-error'];
     };
   };

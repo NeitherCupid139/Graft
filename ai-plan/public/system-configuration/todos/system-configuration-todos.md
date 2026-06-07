@@ -4,11 +4,11 @@
 
 - completed_batches:
   - Batch 1: backend authority baseline and OpenAPI source
-- pending_batches:
   - Batch 2: web module and shared schema form reuse
+- pending_batches:
   - Batch 3: initial config definitions and final cross-boundary validation
-- current_batch: Batch 2
-- next_batch: Batch 2
+- current_batch: Batch 3
+- next_batch: Batch 3
 
 ## Batch 1 - Backend Authority Baseline
 
@@ -23,10 +23,12 @@ Status: accepted by the loop owner; focused validation recorded in the trace.
 
 ## Batch 2 - Web Module
 
-- Add `web/src/modules/system-config`.
-- Add contract paths/permissions/bootstrap route for `/server/system-config`.
-- Reuse or lift Scheduled Task JSON Schema parsing/form logic into a shared, business-neutral boundary.
-- Implement a MVP settings page with group navigation, effective/default/override visibility, masked sensitive values, save, and reset.
+- [x] Add `web/src/modules/system-config`.
+- [x] Add contract paths/permissions/bootstrap route for `/server/system-config`.
+- [x] Reuse or lift Scheduled Task JSON Schema parsing/form logic into a shared, business-neutral boundary.
+- [x] Implement a MVP settings page with group navigation, effective/default/override visibility, masked sensitive values, save, and reset.
+- [x] Regenerate `web/src/contracts/openapi/generated/schema.ts` from OpenAPI source so the web API boundary consumes `/api/system-configs`.
+- [x] Add focused route/API tests for System Configuration.
 
 ## Batch 3 - Initial Definitions And Closeout
 

@@ -1,0 +1,61 @@
+{
+  "menu": {
+    "server": {
+      "system_config": {
+        "title": "System Configuration"
+      }
+    }
+  },
+  "systemConfig": {
+    "list": {
+      "eyebrow": "Service Management",
+      "title": "System Configuration",
+      "description": "Manage module-registered system defaults and administrator overrides.",
+      "refresh": "Refresh",
+      "edit": "Edit",
+      "save": "Save",
+      "cancel": "Cancel",
+      "reset": "Reset",
+      "resetConfirm": "Delete this administrator override and return to the module default?",
+      "groupCount": "{count} Items",
+      "groupDescription": "This group contains {count} configuration items.",
+      "groupLabel": "{module} / {group}",
+      "overrideCount": "{count} Overrides",
+      "loadError": "System configuration could not be loaded.",
+      "saveError": "System configuration could not be saved.",
+      "saveSuccess": "System configuration saved.",
+      "resetError": "System configuration could not be reset.",
+      "resetSuccess": "System configuration reset.",
+      "emptyTitle": "No System Configuration",
+      "emptyDescription": "Module-registered ConfigDefinitions will appear here.",
+      "noDescription": "No description.",
+      "masked": "Masked",
+      "none": "None",
+      "editorTitle": "Edit {title}",
+      "sensitiveEditHint": "This configuration is sensitive. The current value is not echoed and remains masked after saving.",
+      "previewTitle": "Submit Preview",
+      "boolean": {
+        "true": "Yes",
+        "false": "No"
+      },
+      "tags": {
+        "override": "Overridden",
+        "sensitive": "Sensitive",
+        "restartRequired": "Restart Required"
+      },
+      "values": {
+        "effective": "Effective Value",
+        "default": "Default Value",
+        "override": "Override Value"
+      },
+      "schema": {
+        "value": "Configuration Value",
+        "stringPlaceholder": "Enter configuration value",
+        "numberPlaceholder": "Enter number",
+        "selectPlaceholder": "Select",
+        "jsonPlaceholder": "Enter JSON",
+        "invalidJson": "JSON is invalid"
+      }
+    }
+  }
+}
