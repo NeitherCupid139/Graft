@@ -5,11 +5,13 @@
 - completed_batches:
   - Phase 1: backend dashboard registry, aggregate route, OpenAPI source, and core module-runtime widget
   - Phase 2: web dashboard renderer and home route integration
-- pending_batches:
+  - Phase 3: RBAC access summary widget and final cross-boundary validation
   - Phase 4: archive-readiness closeout
-- current_batch: Phase 3 completed
-- next_batch: Phase 4
-- terminal_status: in-progress
+- pending_batches:
+  - none
+- current_batch: Phase 4 completed
+- next_batch: none
+- terminal_status: archive-ready
 
 ## Phase 1 - Backend Registry And Core Widget
 
@@ -42,7 +44,7 @@
 
 ## Phase 4 - Archive Readiness
 
-- [ ] Confirm all acceptance conditions are met.
-- [ ] Confirm no dashboard persistence or user preference scope leaked into MVP.
-- [ ] Mark this topic `archive-ready` or record a precise blocker.
-- [ ] Commit final recovery material updates if needed.
+- [x] Confirm all acceptance conditions are met.
+- [x] Confirm no dashboard persistence or user preference scope leaked into MVP.
+- [x] Mark this topic `archive-ready`.
+- [x] Commit final recovery material updates if needed.

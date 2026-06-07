@@ -2,7 +2,7 @@
 
 ## Current Status
 
-- Status: `in-progress`.
+- Status: `archive-ready`.
 - Branch: `feat/dashboard-contribution`.
 - Loop mode: `topic-completion-loop` through `$graft-multi-agent-loop`.
 - Startup receipt:
@@ -81,3 +81,22 @@ Do not add uptime, version, DB/Redis health, system load, recent visits, favorit
   - `rbac.access-summary`
 - No dashboard persistence tables are introduced in MVP.
 
+## Archive Readiness
+
+- Archive-ready decision: `confirmed`.
+- Completed commits:
+  - `cf68cbb feat(dashboard): add backend contribution registry`
+  - `673dfb4 feat(dashboard): add web dashboard renderer`
+  - `587e3e2 feat(dashboard): add rbac access summary widget`
+- Final MVP scope stayed bounded to:
+  - fixed system summary
+  - backend dashboard aggregation
+  - generic web renderer
+  - `core.module-runtime-health`
+  - `rbac.access-summary`
+- Explicitly not included:
+  - dashboard persistence tables
+  - preferences, layouts, presets, favorites, or recent visits
+  - announcement or quick action widgets
+  - markdown widgets
+  - drag-and-drop layout customization
