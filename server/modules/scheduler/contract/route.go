@@ -5,8 +5,10 @@ const (
 	ScheduledTasksGroup = "/scheduled-tasks"
 	// ScheduledTaskCollectionRoute identifies the scheduled task collection route fragment.
 	ScheduledTaskCollectionRoute = ""
-	// ScheduledTaskJobsRoute identifies the creatable job definition collection route fragment.
-	ScheduledTaskJobsRoute = "/jobs"
+	// ScheduledTaskJobDefinitionsRoute identifies the creatable job definition collection route fragment.
+	ScheduledTaskJobDefinitionsRoute = "/job-definitions"
+	// ScheduledTaskJobDefinitionDetailRoute identifies one job definition route fragment.
+	ScheduledTaskJobDefinitionDetailRoute = "/job-definitions/:jobKey"
 	// ScheduledTaskDetailRoute identifies the scheduled task detail route fragment.
 	ScheduledTaskDetailRoute = "/:taskKey"
 	// ScheduledTaskEnableRoute identifies the scheduled task enable route fragment.
@@ -15,6 +17,8 @@ const (
 	ScheduledTaskDisableRoute = "/:taskKey/disable"
 	// ScheduledTaskRunRoute identifies the manual run route fragment.
 	ScheduledTaskRunRoute = "/:taskKey/run"
+	// ScheduledTaskActionRoute identifies one backend-defined task action route fragment.
+	ScheduledTaskActionRoute = "/:taskKey/actions/:actionKey"
 	// ScheduledTaskRunsRoute identifies the scheduled task run history route fragment.
 	ScheduledTaskRunsRoute = "/:taskKey/runs"
 	// ScheduledTaskRunDetailRoute identifies one run-history detail route fragment.

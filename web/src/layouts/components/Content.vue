@@ -2,10 +2,11 @@
   <div v-if="!isRefreshing">
     <router-view v-if="!isFramePage" v-slot="{ Component }">
       <transition name="fade" mode="out-in">
-        <keep-alive :include="aliveViews">
-          <component :is="Component" />
+        <keep-alive>
+          <component :is="Component" v-if="shouldKeepActiveViewAlive" :key="activeViewKey" />
         </keep-alive>
       </transition>
+      <component :is="Component" v-if="!shouldKeepActiveViewAlive" :key="activeViewKey" />
     </router-view>
     <frame-page v-else />
   </div>
@@ -15,7 +16,6 @@
 <script setup lang="ts">
 import isBoolean from 'lodash/isBoolean';
 import isUndefined from 'lodash/isUndefined';
-import type { ComputedRef } from 'vue';
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 
@@ -34,22 +34,27 @@ import { useTabsRouterStore } from '@/store';
 //   return router.currentRoute.value.fullPath;
 // });
 
-const aliveViews = computed(() => {
+const activeTabRoute = computed(() => {
   const tabsRouterStore = useTabsRouterStore();
-  const { tabRouters } = tabsRouterStore;
-  return tabRouters
-    .filter((route) => {
-      const keepAliveConfig = route.meta?.keepAlive;
-      const isRouteKeepAlive = isUndefined(keepAliveConfig) || (isBoolean(keepAliveConfig) && keepAliveConfig); // 默认开启keepalive
-      return route.isAlive && isRouteKeepAlive;
-    })
-    .map((route) => route.name);
-}) as ComputedRef<string[]>;
+  return tabsRouterStore.tabRouters.find((tabRoute) => tabRoute.tabKey === tabsRouterStore.activeTabKey);
+});
+
+const shouldKeepActiveViewAlive = computed(() => {
+  const tabRoute = activeTabRoute.value;
+  const keepAliveConfig = tabRoute?.meta?.keepAlive ?? route.meta?.keepAlive;
+  const isRouteKeepAlive = isUndefined(keepAliveConfig) || (isBoolean(keepAliveConfig) && keepAliveConfig); // 默认开启keepalive
+  return Boolean(tabRoute?.isAlive) && isRouteKeepAlive;
+});
 
 const isRefreshing = computed(() => {
   const tabsRouterStore = useTabsRouterStore();
   const { refreshing } = tabsRouterStore;
   return refreshing;
+});
+
+const activeViewKey = computed(() => {
+  const tabsRouterStore = useTabsRouterStore();
+  return tabsRouterStore.activeTabKey || route.fullPath || route.path;
 });
 
 const route = useRoute(); // 这个不能放到computed中，切换页面时会导致被缓存

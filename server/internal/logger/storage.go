@@ -200,7 +200,9 @@ type AppLogListQuery struct {
 	Keyword      string
 	OccurredFrom *time.Time
 	OccurredTo   *time.Time
-	Sorters      []AppLogSorter
+	// OccurredBefore is an internal exclusive upper bound used by retention cleanup estimates.
+	OccurredBefore *time.Time
+	Sorters        []AppLogSorter
 }
 
 // AppLogListResult carries a paginated logger-owned App Log query result.
@@ -368,6 +370,7 @@ func isAppLogTopLevelField(key string) bool {
 type AppLogRepository interface {
 	CreateAppLog(context.Context, CreateAppLogInput) (AppLogRecord, error)
 	DeleteAppLogsBefore(context.Context, time.Time) (int64, error)
+	DeleteAppLogsBeforeLimit(context.Context, time.Time, int) (int64, error)
 	ListAppLogs(context.Context, AppLogListQuery) (AppLogListResult, error)
 	GetAppLogByID(context.Context, uint64) (AppLogRecord, error)
 }

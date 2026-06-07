@@ -23,6 +23,7 @@ type Runtime interface {
 	Start(ctx context.Context) error
 	Stop(ctx context.Context) error
 	ListJobDefinitions(ctx context.Context) ([]JobDefinitionSnapshot, error)
+	GetJobDefinition(ctx context.Context, key string) (JobDefinitionSnapshot, error)
 	ListTasks(ctx context.Context, query TaskListQuery) (TaskListResult, error)
 	GetTask(ctx context.Context, key string) (TaskSnapshot, error)
 	CreateTask(ctx context.Context, command TaskMutation) (TaskSnapshot, error)
@@ -32,6 +33,7 @@ type Runtime interface {
 	ListRuns(ctx context.Context, query RunListQuery) (RunListResult, error)
 	GetRun(ctx context.Context, id uint64) (TaskRun, error)
 	RunOnce(ctx context.Context, key string) (TaskRun, error)
+	RunAction(ctx context.Context, taskKey string, actionKey string, configJSON string) (JobActionResult, error)
 }
 
 // RunStatus records the result state of one runtime job execution.
@@ -63,6 +65,8 @@ var (
 	ErrTaskNotFound = errors.New("scheduler task not found")
 	// ErrJobDefinitionNotFound is returned when a scheduled task references an unknown job definition.
 	ErrJobDefinitionNotFound = errors.New("scheduler job definition not found")
+	// ErrJobActionNotFound is returned when a job definition action is unknown.
+	ErrJobActionNotFound = errors.New("scheduler job action not found")
 	// ErrTaskAlreadyRunning is returned when a manual run is requested while the task is active.
 	ErrTaskAlreadyRunning = errors.New("scheduler task already running")
 	// ErrTaskImmutable is returned when a caller tries to change builtin or identity fields.
@@ -85,13 +89,23 @@ type JobDefinitionSnapshot struct {
 	Title          string
 	DescriptionKey string
 	Description    string
-	ParamsSchema   string
-	DefaultParams  string
+	ConfigSchema   string
+	DefaultConfig  string
 	DefaultCron    string
 	Enabled        bool
+	Actions        []JobActionSnapshot
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 	DeletedAt      *time.Time
+}
+
+// JobActionSnapshot describes one backend-defined Job Definition action.
+type JobActionSnapshot struct {
+	Key            string
+	TitleKey       string
+	Title          string
+	DescriptionKey string
+	Description    string
 }
 
 // TaskSnapshot is the internal service model for scheduled task instances.
@@ -108,7 +122,8 @@ type TaskSnapshot struct {
 	Schedule              string
 	Enabled               bool
 	Builtin               bool
-	ParamsJSON            string
+	ConfigJSON            string
+	EffectiveConfig       string
 	Running               bool
 	LastRun               *TaskRun
 	CreatedAt             time.Time
@@ -118,20 +133,38 @@ type TaskSnapshot struct {
 
 // TaskRun is the persisted run-history model for scheduler runtime jobs.
 type TaskRun struct {
-	ID          uint64
-	TaskKey     string
-	JobKey      string
-	TaskName    string
-	Owner       string
-	Module      string
-	TriggerType TriggerType
-	Status      RunStatus
-	Error       string
-	Result      string
-	StartedAt   time.Time
-	FinishedAt  *time.Time
-	DurationMS  *int64
-	CreatedAt   time.Time
+	ID              uint64
+	TaskKey         string
+	JobKey          string
+	TaskName        string
+	Owner           string
+	Module          string
+	TriggerType     TriggerType
+	Status          RunStatus
+	Error           string
+	Result          string
+	ResultJSON      string
+	EffectiveConfig string
+	StartedAt       time.Time
+	FinishedAt      *time.Time
+	DurationMS      *int64
+	CreatedAt       time.Time
+}
+
+// JobActionResult is the non-persisted result of a backend-defined Job Definition action.
+type JobActionResult struct {
+	ActionKey       string
+	TaskKey         string
+	JobKey          string
+	Result          cronx.JobRunResult
+	EffectiveConfig string
+}
+
+type actionExecution struct {
+	definition    TaskDefinition
+	jobDefinition JobDefinition
+	action        JobActionSnapshot
+	job           cronx.Job
 }
 
 // JobDefinition is the DB-backed authority for one creatable job type.
@@ -143,10 +176,11 @@ type JobDefinition struct {
 	Title          string
 	DescriptionKey string
 	Description    string
-	ParamsSchema   string
-	DefaultParams  string
+	ConfigSchema   string
+	DefaultConfig  string
 	DefaultCron    string
 	Enabled        bool
+	Actions        []JobActionSnapshot
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 	DeletedAt      *time.Time
@@ -163,7 +197,7 @@ type TaskDefinition struct {
 	CronExpression string
 	Enabled        bool
 	Builtin        bool
-	ParamsJSON     string
+	ConfigJSON     string
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 	DeletedAt      *time.Time
@@ -178,7 +212,7 @@ type TaskMutation struct {
 	CronExpression string
 	Enabled        bool
 	EnabledSet     bool
-	ParamsJSON     string
+	ConfigJSON     string
 }
 
 // TaskListQuery scopes scheduled task lookup.
@@ -209,10 +243,20 @@ type RunListResult struct {
 // RunRepository persists execution history for scheduled task runs.
 type RunRepository interface {
 	CreateRun(ctx context.Context, run TaskRun) (TaskRun, error)
-	FinishRun(ctx context.Context, id uint64, status RunStatus, finishedAt time.Time, resultSummary string, errorMessage string) (TaskRun, error)
+	FinishRun(ctx context.Context, command RunFinishCommand) (TaskRun, error)
 	ListRuns(ctx context.Context, query RunListQuery) (RunListResult, error)
 	LatestRunByTask(ctx context.Context, taskKey string) (TaskRun, bool, error)
 	GetRun(ctx context.Context, id uint64) (TaskRun, error)
+}
+
+// RunFinishCommand captures the persisted result for one completed execution.
+type RunFinishCommand struct {
+	ID            uint64
+	Status        RunStatus
+	FinishedAt    time.Time
+	ResultJSON    string
+	ResultSummary string
+	ErrorMessage  string
 }
 
 // TaskRepository persists user-created and builtin scheduled task instances.
@@ -326,7 +370,11 @@ func (r *CronRuntime) SeedBuiltinJobs(ctx context.Context, jobs []cronx.Job) err
 			}
 		}
 		definitions = append(definitions, jobDefinitionFromJob(job, r.now()))
-		tasks = append(tasks, builtinTaskDefinition(job, r.now()))
+		task, err := r.builtinTaskDefinition(ctx, job)
+		if err != nil {
+			return err
+		}
+		tasks = append(tasks, task)
 	}
 	if r.jobDefinitions != nil {
 		if err := r.jobDefinitions.SyncJobDefinitions(ctx, definitions); err != nil {
@@ -337,6 +385,29 @@ func (r *CronRuntime) SeedBuiltinJobs(ctx context.Context, jobs []cronx.Job) err
 		return r.tasks.SeedBuiltinTasks(ctx, tasks)
 	}
 	return nil
+}
+
+func (r *CronRuntime) builtinTaskDefinition(ctx context.Context, job cronx.Job) (TaskDefinition, error) {
+	task := builtinTaskDefinition(job, r.now())
+	if r.tasks == nil {
+		return task, nil
+	}
+	existing, err := r.tasks.GetTask(ctx, task.TaskKey)
+	if errors.Is(err, ErrTaskNotFound) {
+		return task, nil
+	}
+	if err != nil {
+		return TaskDefinition{}, err
+	}
+	if !existing.Builtin {
+		return task, nil
+	}
+	configJSON, err := sanitizeConfigJSON(job.RuntimeConfigSchema(), existing.ConfigJSON)
+	if err != nil {
+		return TaskDefinition{}, err
+	}
+	task.ConfigJSON = configJSON
+	return task, nil
 }
 
 // RemoveJob removes a registered in-memory job and any active cron schedule for it.
@@ -365,7 +436,7 @@ func (r *CronRuntime) ListJobDefinitions(ctx context.Context) ([]JobDefinitionSn
 		}
 		items := make([]JobDefinitionSnapshot, 0, len(definitions))
 		for _, definition := range definitions {
-			items = append(items, jobDefinitionSnapshot(definition))
+			items = append(items, jobDefinitionSnapshot(r.enrichJobDefinition(definition)))
 		}
 		return items, nil
 	}
@@ -382,6 +453,15 @@ func (r *CronRuntime) ListJobDefinitions(ctx context.Context) ([]JobDefinitionSn
 		items = append(items, jobDefinitionSnapshot(jobDefinitionFromJob(job, r.now())))
 	}
 	return items, nil
+}
+
+// GetJobDefinition returns one creatable scheduler job definition.
+func (r *CronRuntime) GetJobDefinition(ctx context.Context, key string) (JobDefinitionSnapshot, error) {
+	definition, err := r.requireKnownJob(ctx, key)
+	if err != nil {
+		return JobDefinitionSnapshot{}, err
+	}
+	return jobDefinitionSnapshot(definition), nil
 }
 
 // ListTasks returns active scheduled task instances.
@@ -449,6 +529,17 @@ func (r *CronRuntime) UpdateTask(ctx context.Context, key string, command TaskMu
 			return TaskSnapshot{}, err
 		}
 	}
+	existing, err := r.tasks.GetTask(ctx, key)
+	if err != nil {
+		return TaskSnapshot{}, err
+	}
+	if err := validateTaskPatch(key, existing, command); err != nil {
+		return TaskSnapshot{}, err
+	}
+	next := applyTaskPatch(existing, command)
+	if err := r.validateTaskConfig(ctx, next); err != nil {
+		return TaskSnapshot{}, err
+	}
 	updated, err := r.tasks.UpdateTask(ctx, key, command)
 	if err != nil {
 		return TaskSnapshot{}, err
@@ -514,6 +605,32 @@ func (r *CronRuntime) RunOnce(ctx context.Context, key string) (TaskRun, error) 
 		return TaskRun{}, err
 	}
 	return r.runDefinition(ctx, definition, TriggerTypeManual)
+}
+
+// RunAction executes one backend-defined Job Definition action without writing run history.
+func (r *CronRuntime) RunAction(ctx context.Context, taskKey string, actionKey string, configJSON string) (JobActionResult, error) {
+	execution, err := r.resolveActionExecution(ctx, taskKey, actionKey)
+	if err != nil {
+		return JobActionResult{}, err
+	}
+	if err := r.markRunning(execution.definition.TaskKey); err != nil {
+		return JobActionResult{}, err
+	}
+	defer r.markFinished(execution.definition.TaskKey)
+
+	effectiveConfig, err := actionEffectiveConfigJSON(execution.jobDefinition, execution.definition.ConfigJSON, configJSON)
+	if err != nil {
+		return JobActionResult{}, err
+	}
+	if validationErr := ValidateConfigJSON(execution.jobDefinition.ConfigSchema, effectiveConfig); validationErr != nil {
+		return JobActionResult{}, validationErr
+	}
+	result, runErr := invokeJobAction(ctx, execution.job, execution.action.Key, effectiveConfig)
+	_, _ = completeJobRunResult(&result, runErr)
+	if runErr != nil {
+		return jobActionResult(execution, result, effectiveConfig), runErr
+	}
+	return jobActionResult(execution, result, effectiveConfig), nil
 }
 
 // Start schedules persisted enabled tasks and starts the cron engine.
@@ -600,7 +717,7 @@ func (r *CronRuntime) requireKnownJob(ctx context.Context, key string) (JobDefin
 		if !definition.Enabled || definition.DeletedAt != nil {
 			return JobDefinition{}, ErrJobDefinitionNotFound
 		}
-		return definition, nil
+		return r.enrichJobDefinition(definition), nil
 	}
 	job, ok := r.findJob(key)
 	if !ok {
@@ -621,10 +738,17 @@ func (r *CronRuntime) snapshotDefinition(ctx context.Context, definition TaskDef
 		Schedule:    definition.CronExpression,
 		Enabled:     definition.Enabled,
 		Builtin:     definition.Builtin,
-		ParamsJSON:  definition.ParamsJSON,
+		ConfigJSON:  definition.ConfigJSON,
 		CreatedAt:   definition.CreatedAt,
 		UpdatedAt:   definition.UpdatedAt,
 		DeletedAt:   definition.DeletedAt,
+	}
+	if jobDefinition, err := r.requireKnownJob(ctx, definition.JobKey); err == nil {
+		effectiveConfig, mergeErr := effectiveConfigJSON(jobDefinition.DefaultConfig, definition.ConfigJSON)
+		if mergeErr != nil {
+			return TaskSnapshot{}, mergeErr
+		}
+		snapshot.EffectiveConfig = effectiveConfig
 	}
 	if job, ok := r.findJob(definition.JobKey); ok {
 		snapshot.Name = job.RuntimeKey()
@@ -666,8 +790,30 @@ func (r *CronRuntime) runDefinition(ctx context.Context, definition TaskDefiniti
 	}
 	defer r.markFinished(definition.TaskKey)
 
+	run, err := r.createStartedRun(ctx, definition, trigger)
+	if err != nil {
+		return TaskRun{}, err
+	}
+
+	effectiveConfig, err := r.effectiveConfigForRun(ctx, definition)
+	if err != nil {
+		return TaskRun{}, err
+	}
+	jobResult, runErr := job.Invoke(ctx, effectiveConfig)
+	finishedRun, finishErr := r.finishRun(ctx, run.ID, jobResult, runErr)
+	if finishErr != nil {
+		return finishedRun, finishErr
+	}
+	finishedRun.EffectiveConfig = effectiveConfig
+	if runErr != nil {
+		return finishedRun, runErr
+	}
+	return finishedRun, nil
+}
+
+func (r *CronRuntime) createStartedRun(ctx context.Context, definition TaskDefinition, trigger TriggerType) (TaskRun, error) {
 	startedAt := r.now()
-	run, err := r.runs.CreateRun(ctx, TaskRun{
+	return r.runs.CreateRun(ctx, TaskRun{
 		TaskKey:     definition.TaskKey,
 		JobKey:      definition.JobKey,
 		TaskName:    definition.Title,
@@ -678,32 +824,63 @@ func (r *CronRuntime) runDefinition(ctx context.Context, definition TaskDefiniti
 		StartedAt:   startedAt,
 		CreatedAt:   startedAt,
 	})
-	if err != nil {
-		return TaskRun{}, err
-	}
+}
 
-	runErr := job.Invoke(ctx, definition.ParamsJSON)
-	finishedAt := r.now()
-	status := RunStatusSuccess
-	errorMessage := ""
-	if runErr != nil {
-		status = RunStatusFailed
-		errorMessage = runErr.Error()
+func (r *CronRuntime) effectiveConfigForRun(ctx context.Context, definition TaskDefinition) (string, error) {
+	jobDefinition, err := r.requireKnownJob(ctx, definition.JobKey)
+	if err != nil {
+		return "", err
 	}
-	finishCtx := ctx
-	if finishCtx != nil {
-		finishCtx = context.WithoutCancel(finishCtx)
-	} else {
-		finishCtx = context.Background()
+	effectiveConfig, err := effectiveConfigJSON(jobDefinition.DefaultConfig, definition.ConfigJSON)
+	if err != nil {
+		return "", err
 	}
-	finishedRun, finishErr := r.runs.FinishRun(finishCtx, run.ID, status, finishedAt, "", errorMessage)
-	if finishErr != nil {
-		return finishedRun, finishErr
+	if validationErr := ValidateConfigJSON(jobDefinition.ConfigSchema, effectiveConfig); validationErr != nil {
+		return "", validationErr
 	}
-	if runErr != nil {
-		return finishedRun, runErr
+	return effectiveConfig, nil
+}
+
+func (r *CronRuntime) finishRun(ctx context.Context, id uint64, result cronx.JobRunResult, runErr error) (TaskRun, error) {
+	command := r.runFinishCommand(id, result, runErr)
+	return r.runs.FinishRun(finishRunContext(ctx), command)
+}
+
+func (r *CronRuntime) runFinishCommand(id uint64, result cronx.JobRunResult, runErr error) RunFinishCommand {
+	status, errorMessage := completeJobRunResult(&result, runErr)
+	resultJSON, resultSummary := encodeJobRunResult(result)
+	return RunFinishCommand{
+		ID:            id,
+		Status:        status,
+		FinishedAt:    r.now(),
+		ResultJSON:    resultJSON,
+		ResultSummary: resultSummary,
+		ErrorMessage:  errorMessage,
 	}
-	return finishedRun, nil
+}
+
+func completeJobRunResult(result *cronx.JobRunResult, runErr error) (RunStatus, string) {
+	if runErr == nil {
+		if result.Stage == "" {
+			result.Stage = "completed"
+		}
+		return RunStatusSuccess, ""
+	}
+	errorMessage := runErr.Error()
+	if result.Summary == "" {
+		result.Summary = errorMessage
+	}
+	if result.Stage == "" {
+		result.Stage = "failed"
+	}
+	return RunStatusFailed, errorMessage
+}
+
+func finishRunContext(ctx context.Context) context.Context {
+	if ctx == nil {
+		return context.Background()
+	}
+	return context.WithoutCancel(ctx)
 }
 
 func (r *CronRuntime) refreshDefinitionSchedule(definition TaskDefinition) error {
@@ -774,10 +951,11 @@ func jobDefinitionFromJob(job cronx.Job, now time.Time) JobDefinition {
 		Title:          job.RuntimeTitle(),
 		DescriptionKey: strings.TrimSpace(job.DescriptionMessageKey),
 		Description:    job.RuntimeDescription(),
-		ParamsSchema:   job.RuntimeParamsSchema(),
-		DefaultParams:  job.RuntimeDefaultParams(),
+		ConfigSchema:   job.RuntimeConfigSchema(),
+		DefaultConfig:  job.RuntimeDefaultConfig(),
 		DefaultCron:    strings.TrimSpace(job.Schedule),
 		Enabled:        true,
+		Actions:        jobActionsFromJob(job),
 		CreatedAt:      now,
 		UpdatedAt:      now,
 	}
@@ -793,16 +971,16 @@ func builtinTaskDefinition(job cronx.Job, now time.Time) TaskDefinition {
 		CronExpression: strings.TrimSpace(job.Schedule),
 		Enabled:        job.DefaultEnabled,
 		Builtin:        true,
-		ParamsJSON:     job.RuntimeDefaultParams(),
+		ConfigJSON:     job.RuntimeDefaultConfig(),
 		CreatedAt:      now,
 		UpdatedAt:      now,
 	}
 }
 
 func mutationToDefinition(command TaskMutation, job JobDefinition, now time.Time) (TaskDefinition, error) {
-	paramsJSON := strings.TrimSpace(command.ParamsJSON)
-	if paramsJSON == "" {
-		paramsJSON = job.DefaultParams
+	configJSON := strings.TrimSpace(command.ConfigJSON)
+	if configJSON == "" {
+		configJSON = "{}"
 	}
 	definition := TaskDefinition{
 		TaskKey:        strings.TrimSpace(command.TaskKey),
@@ -813,14 +991,78 @@ func mutationToDefinition(command TaskMutation, job JobDefinition, now time.Time
 		CronExpression: strings.TrimSpace(command.CronExpression),
 		Enabled:        command.Enabled,
 		Builtin:        false,
-		ParamsJSON:     paramsJSON,
+		ConfigJSON:     configJSON,
 		CreatedAt:      now,
 		UpdatedAt:      now,
 	}
 	if err := validateDefinition(definition); err != nil {
 		return TaskDefinition{}, err
 	}
+	if err := validateEffectiveConfig(job, definition.ConfigJSON); err != nil {
+		return TaskDefinition{}, err
+	}
 	return definition, nil
+}
+
+func (r *CronRuntime) validateTaskConfig(ctx context.Context, definition TaskDefinition) error {
+	job, err := r.requireKnownJob(ctx, definition.JobKey)
+	if err != nil {
+		return err
+	}
+	return validateEffectiveConfig(job, definition.ConfigJSON)
+}
+
+func validateEffectiveConfig(job JobDefinition, configJSON string) error {
+	effectiveConfig, err := effectiveConfigJSON(job.DefaultConfig, configJSON)
+	if err != nil {
+		return err
+	}
+	return ValidateConfigJSON(job.ConfigSchema, effectiveConfig)
+}
+
+func actionEffectiveConfigJSON(job JobDefinition, taskConfig string, requestConfig string) (string, error) {
+	return mergeConfigJSONObjects(job.DefaultConfig, taskConfig, requestConfig)
+}
+
+func (r *CronRuntime) resolveActionExecution(ctx context.Context, taskKey string, actionKey string) (actionExecution, error) {
+	if r.tasks == nil {
+		return actionExecution{}, errors.New("scheduler task repository is unavailable")
+	}
+	definition, err := r.tasks.GetTask(ctx, taskKey)
+	if err != nil {
+		return actionExecution{}, err
+	}
+	if err := validateDefinition(definition); err != nil {
+		return actionExecution{}, err
+	}
+	jobDefinition, err := r.requireKnownJob(ctx, definition.JobKey)
+	if err != nil {
+		return actionExecution{}, err
+	}
+	action, ok := findJobAction(jobDefinition.Actions, actionKey)
+	if !ok {
+		return actionExecution{}, ErrJobActionNotFound
+	}
+	job, ok := r.findJob(definition.JobKey)
+	if !ok {
+		return actionExecution{}, ErrJobDefinitionNotFound
+	}
+	return actionExecution{
+		definition:    definition,
+		jobDefinition: jobDefinition,
+		action:        action,
+		job:           job,
+	}, nil
+}
+
+func jobActionResult(execution actionExecution, result cronx.JobRunResult, effectiveConfig string) JobActionResult {
+	return JobActionResult{
+		ActionKey:       strings.TrimSpace(execution.action.Key),
+		TaskKey:         execution.definition.TaskKey,
+		JobKey:          execution.definition.JobKey,
+		Result:          result,
+		EffectiveConfig: effectiveConfig,
+	}
 }
 
 func validateJob(job cronx.Job) error {
@@ -830,11 +1072,19 @@ func validateJob(job cronx.Job) error {
 	if err := validateCronExpression(job.Schedule); err != nil {
 		return err
 	}
-	if !isJSONObject(job.RuntimeDefaultParams()) {
-		return fmt.Errorf("%w: invalid default params", ErrTaskValidation)
+	if !isJSONObject(job.RuntimeDefaultConfig()) {
+		return fmt.Errorf("%w: invalid default config", ErrTaskValidation)
 	}
-	if !isJSONObject(job.RuntimeParamsSchema()) {
-		return fmt.Errorf("%w: invalid params schema", ErrTaskValidation)
+	if !isJSONObject(job.RuntimeConfigSchema()) {
+		return fmt.Errorf("%w: invalid config schema", ErrTaskValidation)
+	}
+	for _, action := range job.Actions {
+		if strings.TrimSpace(action.Key) == "" {
+			return fmt.Errorf("%w: invalid job action key", ErrTaskValidation)
+		}
+		if action.Handler == nil {
+			return fmt.Errorf("%w: job action handler is required", ErrTaskValidation)
+		}
 	}
 	return nil
 }
@@ -853,8 +1103,8 @@ func validateDefinition(definition TaskDefinition) error {
 	if err := validateCronExpression(definition.CronExpression); err != nil {
 		return err
 	}
-	if !isJSONObject(definition.ParamsJSON) {
-		return fmt.Errorf("%w: invalid params json", ErrTaskValidation)
+	if !isJSONObject(definition.ConfigJSON) {
+		return fmt.Errorf("%w: invalid config json", ErrTaskValidation)
 	}
 	return nil
 }
@@ -869,8 +1119,14 @@ func validateJobDefinition(definition JobDefinition) error {
 	if err := validateCronExpression(definition.DefaultCron); err != nil {
 		return err
 	}
-	if !isJSONObject(definition.ParamsSchema) || !isJSONObject(definition.DefaultParams) {
+	if !isJSONObject(definition.ConfigSchema) || !isJSONObject(definition.DefaultConfig) {
 		return fmt.Errorf("%w: invalid job definition json", ErrTaskValidation)
+	}
+	if err := ValidateConfigSchema(definition.ConfigSchema); err != nil {
+		return err
+	}
+	if err := ValidateConfigJSON(definition.ConfigSchema, definition.DefaultConfig); err != nil {
+		return err
 	}
 	return nil
 }
@@ -888,8 +1144,92 @@ func isJSONObject(value string) bool {
 	return json.Unmarshal([]byte(strings.TrimSpace(value)), &decoded) == nil
 }
 
+func effectiveConfigJSON(defaultConfig string, taskConfig string) (string, error) {
+	return mergeConfigJSONObjects(defaultConfig, taskConfig)
+}
+
+func mergeConfigJSONObjects(items ...string) (string, error) {
+	merged := make(map[string]any)
+	for _, item := range items {
+		trimmed := strings.TrimSpace(item)
+		if trimmed == "" {
+			trimmed = "{}"
+		}
+		var decoded map[string]any
+		if err := json.Unmarshal([]byte(trimmed), &decoded); err != nil {
+			return "", fmt.Errorf("%w: invalid config json", ErrTaskValidation)
+		}
+		for key, value := range decoded {
+			merged[key] = value
+		}
+	}
+	encoded, err := json.Marshal(merged)
+	if err != nil {
+		return "", fmt.Errorf("%w: encode effective config", ErrTaskValidation)
+	}
+	return string(encoded), nil
+}
+
+func encodeJobRunResult(result cronx.JobRunResult) (string, string) {
+	if result.Summary == "" {
+		result.Summary = result.Stage
+	}
+	encoded, err := json.Marshal(result)
+	if err != nil {
+		return "{}", result.Summary
+	}
+	return string(encoded), result.Summary
+}
+
 func jobDefinitionSnapshot(definition JobDefinition) JobDefinitionSnapshot {
 	return JobDefinitionSnapshot(definition)
+}
+
+func (r *CronRuntime) enrichJobDefinition(definition JobDefinition) JobDefinition {
+	if job, ok := r.findJob(definition.JobKey); ok {
+		definition.Actions = jobActionsFromJob(job)
+	}
+	return definition
+}
+
+func jobActionsFromJob(job cronx.Job) []JobActionSnapshot {
+	actions := make([]JobActionSnapshot, 0, len(job.Actions))
+	for _, action := range job.Actions {
+		actions = append(actions, JobActionSnapshot{
+			Key:            strings.TrimSpace(action.Key),
+			TitleKey:       strings.TrimSpace(action.TitleKey),
+			Title:          strings.TrimSpace(action.Title),
+			DescriptionKey: strings.TrimSpace(action.DescriptionKey),
+			Description:    strings.TrimSpace(action.Description),
+		})
+	}
+	return actions
+}
+
+func findJobAction(actions []JobActionSnapshot, key string) (JobActionSnapshot, bool) {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return JobActionSnapshot{}, false
+	}
+	for _, action := range actions {
+		if strings.TrimSpace(action.Key) == key {
+			return action, true
+		}
+	}
+	return JobActionSnapshot{}, false
+}
+
+func invokeJobAction(ctx context.Context, job cronx.Job, actionKey string, configJSON string) (cronx.JobRunResult, error) {
+	actionKey = strings.TrimSpace(actionKey)
+	for _, action := range job.Actions {
+		if strings.TrimSpace(action.Key) == actionKey {
+			if action.Handler == nil {
+				return cronx.JobRunResult{}, fmt.Errorf("%w: job action handler is required", ErrTaskValidation)
+			}
+			return action.Handler(ctx, configJSON)
+		}
+	}
+	return job.Invoke(ctx, configJSON)
 }
 
 func (r *CronRuntime) markRunning(key string) error {

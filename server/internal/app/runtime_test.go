@@ -50,6 +50,11 @@ func (r *runtimeAccessLogRecorderRepo) DeleteAccessLogsBefore(_ context.Context,
 	return 0, nil
 }
 
+func (r *runtimeAccessLogRecorderRepo) DeleteAccessLogsBeforeLimit(_ context.Context, cutoff time.Time, _ int) (int64, error) {
+	r.deleted = append(r.deleted, cutoff)
+	return 0, nil
+}
+
 func (r *runtimeAccessLogRecorderRepo) ListAccessLogs(context.Context, httpx.AccessLogListQuery) (httpx.AccessLogListResult, error) {
 	return httpx.AccessLogListResult{}, nil
 }
@@ -72,6 +77,13 @@ func (r *runtimeAppLogRecorderRepo) CreateAppLog(_ context.Context, input logger
 }
 
 func (r *runtimeAppLogRecorderRepo) DeleteAppLogsBefore(_ context.Context, cutoff time.Time) (int64, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.deleted = append(r.deleted, cutoff)
+	return 0, nil
+}
+
+func (r *runtimeAppLogRecorderRepo) DeleteAppLogsBeforeLimit(_ context.Context, cutoff time.Time, _ int) (int64, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.deleted = append(r.deleted, cutoff)

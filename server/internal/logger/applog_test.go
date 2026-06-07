@@ -84,6 +84,10 @@ func (r *appLoggerSinkRecorder) DeleteAppLogsBefore(context.Context, time.Time) 
 	return 0, nil
 }
 
+func (r *appLoggerSinkRecorder) DeleteAppLogsBeforeLimit(context.Context, time.Time, int) (int64, error) {
+	return 0, nil
+}
+
 func (r *appLoggerSinkRecorder) ListAppLogs(context.Context, AppLogListQuery) (AppLogListResult, error) {
 	return AppLogListResult{}, nil
 }

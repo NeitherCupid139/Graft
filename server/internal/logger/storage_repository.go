@@ -14,11 +14,12 @@ import (
 type appLogSQLDialect string
 
 const (
-	appLogSQLDialectPostgres appLogSQLDialect = "postgres"
-	appLogSQLDialectSQLite   appLogSQLDialect = "sqlite"
-	appLogListClauseCapacity                  = 10
-	appLogListOffsetArgCount                  = 2
-	appLogKeywordClauseCount                  = 4
+	appLogSQLDialectPostgres  appLogSQLDialect = "postgres"
+	appLogSQLDialectSQLite    appLogSQLDialect = "sqlite"
+	appLogListClauseCapacity                   = 10
+	appLogListOffsetArgCount                   = 2
+	appLogDeleteLimitArgIndex                  = 2
+	appLogKeywordClauseCount                   = 4
 )
 
 type appLogRepository struct {
@@ -66,6 +67,33 @@ func (r *appLogRepository) DeleteAppLogsBefore(ctx context.Context, occurredBefo
 	)
 	if err != nil {
 		return 0, fmt.Errorf("delete app logs before cutoff: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("read deleted app log row count: %w", err)
+	}
+
+	return rowsAffected, nil
+}
+
+func (r *appLogRepository) DeleteAppLogsBeforeLimit(ctx context.Context, occurredBefore time.Time, limit int) (int64, error) {
+	if r == nil || r.db == nil {
+		return 0, errors.New("app log repository is unavailable")
+	}
+	if limit <= 0 {
+		return 0, errors.New("app log delete limit must be greater than zero")
+	}
+
+	//nolint:gosec // Query shape is fixed; placeholders come from the internal dialect helper and values stay parameterized.
+	query := fmt.Sprintf(
+		"DELETE FROM app_logs WHERE id IN (SELECT id FROM app_logs WHERE occurred_at < %s ORDER BY occurred_at ASC, id ASC LIMIT %s)",
+		r.placeholder(1),
+		r.placeholder(appLogDeleteLimitArgIndex),
+	)
+	result, err := r.db.ExecContext(ctx, query, occurredBefore.UTC(), limit)
+	if err != nil {
+		return 0, fmt.Errorf("delete app logs before cutoff with limit: %w", err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
@@ -301,6 +329,7 @@ func (r *appLogRepository) buildAppLogWhereClause(query AppLogListQuery) (string
 	appendAppLogKeywordFilter(&conditions, &args, r, query.Keyword)
 	appendAppLogOptionalTimeFilter(&conditions, &args, r, "occurred_at >=", query.OccurredFrom)
 	appendAppLogOptionalTimeFilter(&conditions, &args, r, "occurred_at <=", query.OccurredTo)
+	appendAppLogOptionalTimeFilter(&conditions, &args, r, "occurred_at <", query.OccurredBefore)
 
 	if len(conditions) == 0 {
 		return "", args

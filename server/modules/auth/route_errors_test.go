@@ -37,6 +37,10 @@ func (r *routeAppLogRecorder) DeleteAppLogsBefore(context.Context, time.Time) (i
 	return 0, nil
 }
 
+func (r *routeAppLogRecorder) DeleteAppLogsBeforeLimit(context.Context, time.Time, int) (int64, error) {
+	return 0, nil
+}
+
 func (r *routeAppLogRecorder) ListAppLogs(context.Context, applog.AppLogListQuery) (applog.AppLogListResult, error) {
 	return applog.AppLogListResult{}, nil
 }

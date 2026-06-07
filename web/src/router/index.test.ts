@@ -25,4 +25,14 @@ describe('router static runtime surface', () => {
       router.getRoutes().some((route) => route.path === AUTH_ROUTE_PATH.LOGIN && route.name === AUTH_ROUTE_NAME.LOGIN),
     ).toBe(true);
   });
+
+  it('keeps the root entry renderable and leaves catch-all available for dynamic route recovery', () => {
+    const rootRoute = router.getRoutes().find((route) => route.path === '/' && route.name === 'RootEntry');
+    const catchAllRoute = router.getRoutes().find((route) => route.path === '/:pathMatch(.*)*');
+
+    expect(rootRoute?.name).toBe('RootEntry');
+    expect(rootRoute?.meta.hidden).not.toBe(true);
+    expect(catchAllRoute?.name).toBe('404Page');
+    expect(catchAllRoute?.redirect).toBeUndefined();
+  });
 });

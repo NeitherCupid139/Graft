@@ -35,7 +35,13 @@ func TestSQLRunRepositoryPersistsRunLifecycle(t *testing.T) {
 	}
 
 	finishedAt := startedAt.Add(1500 * time.Millisecond)
-	finished, err := repo.FinishRun(context.Background(), run.ID, RunStatusSuccess, finishedAt, "ok", "")
+	finished, err := repo.FinishRun(context.Background(), RunFinishCommand{
+		ID:            run.ID,
+		Status:        RunStatusSuccess,
+		FinishedAt:    finishedAt,
+		ResultJSON:    `{"summary":"ok"}`,
+		ResultSummary: "ok",
+	})
 	if err != nil {
 		t.Fatalf("finish run: %v", err)
 	}
@@ -75,8 +81,8 @@ func TestSQLJobDefinitionRepositorySyncsDefinitions(t *testing.T) {
 		JobKey:        "audit.retention.cleanup",
 		ModuleKey:     "audit",
 		Title:         "Audit retention",
-		ParamsSchema:  "{}",
-		DefaultParams: "{}",
+		ConfigSchema:  "{}",
+		DefaultConfig: "{}",
 		DefaultCron:   "0 0 * * * *",
 		Enabled:       true,
 		CreatedAt:     time.Date(2026, 6, 5, 8, 0, 0, 0, time.UTC),
@@ -115,7 +121,7 @@ func TestSQLTaskRepositorySeedsBuiltinWithoutOverwritingCronOrEnabled(t *testing
 		CronExpression: "0 0 * * * *",
 		Enabled:        true,
 		Builtin:        true,
-		ParamsJSON:     "{}",
+		ConfigJSON:     "{}",
 		CreatedAt:      time.Date(2026, 6, 5, 8, 0, 0, 0, time.UTC),
 		UpdatedAt:      time.Date(2026, 6, 5, 8, 0, 0, 0, time.UTC),
 	}
@@ -126,12 +132,14 @@ func TestSQLTaskRepositorySeedsBuiltinWithoutOverwritingCronOrEnabled(t *testing
 		CronExpression: "0 */5 * * * *",
 		Enabled:        false,
 		EnabledSet:     true,
+		ConfigJSON:     `{"retentionDays":90,"batchSize":500}`,
 	}); err != nil {
-		t.Fatalf("update builtin cron/enabled: %v", err)
+		t.Fatalf("update builtin cron/enabled/config: %v", err)
 	}
 	seeded.Title = "audit.retention.updated"
 	seeded.CronExpression = "0 0 1 * * *"
 	seeded.Enabled = true
+	seeded.ConfigJSON = `{"retentionDays":30,"batchSize":1000}`
 	if err := repo.SeedBuiltinTasks(ctx, []TaskDefinition{seeded}); err != nil {
 		t.Fatalf("seed builtin task again: %v", err)
 	}
@@ -145,6 +153,9 @@ func TestSQLTaskRepositorySeedsBuiltinWithoutOverwritingCronOrEnabled(t *testing
 	}
 	if task.CronExpression != "0 */5 * * * *" || task.Enabled {
 		t.Fatalf("expected user-edited cron/enabled to survive reseed, got %#v", task)
+	}
+	if task.ConfigJSON != `{"retentionDays":90,"batchSize":500}` {
+		t.Fatalf("expected repository to preserve existing builtin config, got %#v", task)
 	}
 }
 
@@ -163,14 +174,14 @@ func TestSQLTaskRepositoryCreatesMultipleTasksForOneJobAndSoftDeletes(t *testing
 		Title:          "Ping",
 		CronExpression: "*/30 * * * * *",
 		Enabled:        true,
-		ParamsJSON:     `{"retention_days":30}`,
+		ConfigJSON:     `{"retention_days":30}`,
 		CreatedAt:      time.Date(2026, 6, 5, 8, 0, 0, 0, time.UTC),
 		UpdatedAt:      time.Date(2026, 6, 5, 8, 0, 0, 0, time.UTC),
 	})
 	if err != nil {
 		t.Fatalf("create task: %v", err)
 	}
-	if task.JobKey != "audit.retention.cleanup" || task.ParamsJSON == "" || !task.Enabled || task.Builtin {
+	if task.JobKey != "audit.retention.cleanup" || task.ConfigJSON == "" || !task.Enabled || task.Builtin {
 		t.Fatalf("unexpected task: %#v", task)
 	}
 	if _, err := repo.CreateTask(ctx, TaskDefinition{
@@ -180,7 +191,7 @@ func TestSQLTaskRepositoryCreatesMultipleTasksForOneJobAndSoftDeletes(t *testing
 		Title:          "Weekly cleanup",
 		CronExpression: "0 0 0 * * 0",
 		Enabled:        true,
-		ParamsJSON:     `{"retention_days":90}`,
+		ConfigJSON:     `{"retention_days":90}`,
 	}); err != nil {
 		t.Fatalf("create second task for same job: %v", err)
 	}
@@ -209,7 +220,7 @@ func TestSQLTaskRepositoryListTasksNormalizesPagination(t *testing.T) {
 			Title:          key,
 			CronExpression: "*/30 * * * * *",
 			Enabled:        true,
-			ParamsJSON:     "{}",
+			ConfigJSON:     "{}",
 			CreatedAt:      time.Date(2026, 6, 5, 8, i, 0, 0, time.UTC),
 			UpdatedAt:      time.Date(2026, 6, 5, 8, i, 0, 0, time.UTC),
 		}); err != nil {
@@ -273,7 +284,6 @@ func newSchedulerRepositoryTestDB(t *testing.T) *sql.DB {
 		cron_expression text NOT NULL,
 		enabled boolean NOT NULL DEFAULT true,
 		builtin boolean NOT NULL DEFAULT false,
-		params_json text NOT NULL DEFAULT '{}',
 		task_type text NOT NULL DEFAULT 'job',
 		config_json text NOT NULL DEFAULT '{}',
 		created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -288,8 +298,8 @@ func newSchedulerRepositoryTestDB(t *testing.T) *sql.DB {
 		title text NOT NULL DEFAULT '',
 		description_key text NOT NULL DEFAULT '',
 		description text NOT NULL DEFAULT '',
-		params_schema text NOT NULL DEFAULT '{}',
-		default_params text NOT NULL DEFAULT '{}',
+		config_schema text NOT NULL DEFAULT '{}',
+		default_config text NOT NULL DEFAULT '{}',
 		default_cron text NOT NULL,
 		enabled boolean NOT NULL DEFAULT true,
 		created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -308,6 +318,7 @@ func newSchedulerRepositoryTestDB(t *testing.T) *sql.DB {
 		status text NOT NULL,
 		error text NOT NULL DEFAULT '',
 		result_summary text NOT NULL DEFAULT '',
+		result_json text NOT NULL DEFAULT '{}',
 		error_message text NOT NULL DEFAULT '',
 		started_at datetime NOT NULL,
 		finished_at datetime NULL,

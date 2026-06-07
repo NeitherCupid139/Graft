@@ -3,6 +3,7 @@ package audit
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -27,7 +28,7 @@ func TestAuditLogRetentionPolicyCutoff(t *testing.T) {
 	}
 
 	now := time.Date(2026, 6, 4, 12, 0, 0, 0, time.UTC)
-	cutoff, err := policy.cutoff(now)
+	cutoff, err := auditLogRetentionCutoff(now, policy.retention)
 	if err != nil {
 		t.Fatalf("cutoff: %v", err)
 	}
@@ -56,14 +57,20 @@ func TestAuditLogRetentionCleanerInvokesServiceWithCutoff(t *testing.T) {
 		return time.Date(2026, 6, 4, 12, 0, 0, 0, time.UTC)
 	}
 
-	deleted, err := cleaner.cleanup(context.Background())
+	result, err := cleaner.cleanup(context.Background(), retentionJobConfig{RetentionDays: 14, BatchSize: 1000})
 	if err != nil {
 		t.Fatalf("cleanup: %v", err)
 	}
 
-	wantCutoff := time.Date(2026, 5, 28, 12, 0, 0, 0, time.UTC)
-	if deleted != 5 {
-		t.Fatalf("expected deleted row count 5, got %d", deleted)
+	wantCutoff := time.Date(2026, 5, 21, 12, 0, 0, 0, time.UTC)
+	if result.Metrics["deletedCount"] != int64(5) {
+		t.Fatalf("expected deleted row count 5, got %#v", result)
+	}
+	if result.Details["retentionDays"] != 14 {
+		t.Fatalf("expected configured retention days in result, got %#v", result)
+	}
+	if _, ok := result.Details["dryRun"]; ok {
+		t.Fatalf("did not expect dryRun in persistent cleanup result details: %#v", result.Details)
 	}
 	if !repo.deletedBefore.Equal(wantCutoff) {
 		t.Fatalf("expected cutoff %s, got %s", wantCutoff, repo.deletedBefore)
@@ -89,8 +96,10 @@ func TestAuditLogRetentionCleanerLogsFailure(t *testing.T) {
 		return time.Date(2026, 6, 4, 12, 0, 0, 0, time.UTC)
 	}
 
-	if _, err := cleaner.cleanup(context.Background()); err == nil {
+	if result, err := cleaner.cleanup(context.Background(), retentionJobConfig{BatchSize: 1000}); err == nil {
 		t.Fatal("expected cleanup failure")
+	} else if result.Stage != "failed" || len(result.Warnings) == 0 {
+		t.Fatalf("expected failed structured result, got %#v", result)
 	}
 
 	if logs.FilterMessage("audit log retention cleanup started").Len() != 1 {
@@ -122,15 +131,7 @@ func TestRegisterAuditLogRetentionCleanupJob(t *testing.T) {
 	if len(items) != 1 {
 		t.Fatalf("expected one registered retention job, got %d", len(items))
 	}
-	if items[0].Name != auditLogRetentionCleanupJobName {
-		t.Fatalf("expected job name %q, got %q", auditLogRetentionCleanupJobName, items[0].Name)
-	}
-	if items[0].Module != moduleID {
-		t.Fatalf("expected job module %q, got %q", moduleID, items[0].Module)
-	}
-	if items[0].Schedule != auditLogRetentionCleanupJobSchedule {
-		t.Fatalf("expected job schedule %q, got %q", auditLogRetentionCleanupJobSchedule, items[0].Schedule)
-	}
+	assertAuditLogRetentionJobMetadata(t, items[0])
 	if err := items[0].Validate(); err != nil {
 		t.Fatalf("validate registered job: %v", err)
 	}
@@ -138,10 +139,69 @@ func TestRegisterAuditLogRetentionCleanupJob(t *testing.T) {
 		t.Fatal("expected startup registration to avoid cleanup execution")
 	}
 
-	if err := items[0].Run(context.Background()); err != nil {
+	result, err := items[0].Handler(context.Background(), items[0].RuntimeDefaultConfig())
+	if err != nil {
 		t.Fatalf("run registered job: %v", err)
+	}
+	if result.AffectedResource != "audit_log" || result.Metrics["deletedCount"] != int64(2) {
+		t.Fatalf("expected structured audit cleanup result, got %#v", result)
 	}
 	if repo.deletedBefore.IsZero() {
 		t.Fatal("expected job run to invoke cleanup")
+	}
+	assertAuditLogRetentionDryRunAction(t, repo, items[0])
+}
+
+func assertAuditLogRetentionJobMetadata(t *testing.T, job cronx.Job) {
+	t.Helper()
+
+	if job.Name != auditLogRetentionCleanupJobName {
+		t.Fatalf("expected job name %q, got %q", auditLogRetentionCleanupJobName, job.Name)
+	}
+	if job.Module != moduleID {
+		t.Fatalf("expected job module %q, got %q", moduleID, job.Module)
+	}
+	if job.Schedule != auditLogRetentionCleanupJobSchedule {
+		t.Fatalf("expected job schedule %q, got %q", auditLogRetentionCleanupJobSchedule, job.Schedule)
+	}
+	if job.DefaultConfig != auditLogRetentionCleanupDefaultConfig {
+		t.Fatalf("expected default config %s, got %s", auditLogRetentionCleanupDefaultConfig, job.DefaultConfig)
+	}
+	assertAuditLogRetentionJobConfig(t, job)
+	assertAuditLogRetentionJobActions(t, job)
+}
+
+func assertAuditLogRetentionJobConfig(t *testing.T, job cronx.Job) {
+	t.Helper()
+
+	if strings.Contains(job.DefaultConfig, "dryRun") || strings.Contains(job.ConfigSchema, "dryRun") {
+		t.Fatalf("did not expect dryRun in persistent audit log job config: default=%s schema=%s", job.DefaultConfig, job.ConfigSchema)
+	}
+	if !strings.Contains(job.DefaultConfig, "retentionDays") || !strings.Contains(job.ConfigSchema, "retentionDays") {
+		t.Fatalf("expected retentionDays in audit log job config: default=%s schema=%s", job.DefaultConfig, job.ConfigSchema)
+	}
+}
+
+func assertAuditLogRetentionJobActions(t *testing.T, job cronx.Job) {
+	t.Helper()
+
+	if len(job.Actions) != 1 || job.Actions[0].Key != auditLogRetentionDryRunActionKey {
+		t.Fatalf("expected dryRun action, got %#v", job.Actions)
+	}
+}
+
+func assertAuditLogRetentionDryRunAction(t *testing.T, repo *stubAuditRepository, job cronx.Job) {
+	t.Helper()
+
+	repo.deletedBefore = time.Time{}
+	actionResult, err := job.Actions[0].Handler(context.Background(), `{"retentionDays":7,"batchSize":500}`)
+	if err != nil {
+		t.Fatalf("run dryRun action: %v", err)
+	}
+	if actionResult.Metrics["deletedCount"] != int64(0) {
+		t.Fatalf("expected dryRun action to avoid deletion, got %#v", actionResult)
+	}
+	if !repo.deletedBefore.IsZero() {
+		t.Fatalf("expected dryRun action to skip deletion, got cutoff %s", repo.deletedBefore)
 	}
 }

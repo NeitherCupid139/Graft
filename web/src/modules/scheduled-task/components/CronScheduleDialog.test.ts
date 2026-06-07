@@ -84,12 +84,14 @@ const tDesignStubs = {
   }),
   TInputNumber: defineComponent({
     name: 'TInputNumber',
+    inheritAttrs: false,
     props: ['modelValue', 'value'],
     emits: ['update:modelValue', 'update:value', 'change'],
-    setup(props, { emit }) {
+    setup(props, { attrs, emit }) {
       return () =>
         h('input', {
-          'data-testid': 'input-number',
+          ...attrs,
+          'data-testid': attrs['data-testid'] ?? 'input-number',
           type: 'number',
           value: props.modelValue ?? props.value,
           onInput: (event: Event) => {
@@ -278,6 +280,22 @@ describe('CronScheduleDialog', () => {
     await wrapper.get('[data-testid="dialog-confirm"]').trigger('click');
 
     expect(wrapper.emitted('confirm')?.at(-1)).toEqual(['0 0 17 * * *']);
+  });
+
+  it('keeps daily time inputs visually separated from the separator', () => {
+    const wrapper = mountDialog({ modelValue: '0 17 * * *' });
+    const timeFields = wrapper.get('.cron-schedule-dialog__time-fields');
+    const hourInput = wrapper.get('[data-testid="cron-time-hour-input"]');
+    const separator = wrapper.get('[data-testid="cron-time-separator"]');
+    const minuteInput = wrapper.get('[data-testid="cron-time-minute-input"]');
+
+    expect(timeFields.element.children[0]).toBe(hourInput.element);
+    expect(timeFields.element.children[1]).toBe(separator.element);
+    expect(timeFields.element.children[2]).toBe(minuteInput.element);
+    expect(hourInput.classes()).toContain('cron-schedule-dialog__time-input');
+    expect(minuteInput.classes()).toContain('cron-schedule-dialog__time-input');
+    expect(separator.classes()).toContain('cron-schedule-dialog__time-separator');
+    expect(separator.text()).toBe(':');
   });
 
   it('generates an interval expression from quick choices', async () => {

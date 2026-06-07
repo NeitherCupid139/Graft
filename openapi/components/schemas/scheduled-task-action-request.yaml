@@ -1,0 +1,6 @@
+type: object
+properties:
+  config_json:
+    type: object
+    additionalProperties: true
+    description: JSON object merged into the action effective config.

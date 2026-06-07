@@ -159,7 +159,7 @@ function cronValidationMessageText(result: CronValidationResult) {
 .scheduled-task-cron-row {
   align-items: flex-start;
   display: flex;
-  gap: var(--td-comp-margin-s);
+  gap: var(--graft-density-gap-10);
   min-width: 0;
   width: 100%;
 }
@@ -169,8 +169,14 @@ function cronValidationMessageText(result: CronValidationResult) {
   min-width: 0;
 }
 
+.scheduled-task-cron-input :deep(.t-input__wrap) {
+  min-width: 0;
+  width: 100%;
+}
+
 .scheduled-task-cron-configure {
   flex: 0 0 auto;
+  min-width: var(--td-comp-size-xxxl);
 }
 
 .scheduled-task-cron-message {

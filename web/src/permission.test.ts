@@ -152,6 +152,46 @@ describe('permission restricted session guard', () => {
     });
   });
 
+  it('replays the original deep link after dynamic bootstrap routes are mounted', async () => {
+    storeState.userStore.mustChangePassword = false;
+    storeState.permissionStore.routesInitialized = false;
+    storeState.permissionStore.asyncRoutes = [
+      {
+        path: '/access-control',
+        name: 'BootstrapGroupAccessControl',
+        children: [
+          {
+            path: 'roles',
+            name: 'RoleListIndex',
+          },
+        ],
+      },
+    ] as RouteRecordRaw[];
+    const { beforeEach } = await loadPermissionGuards();
+    const next = vi.fn();
+
+    await beforeEach(
+      {
+        path: '/access-control/roles',
+        fullPath: '/access-control/roles?type=custom',
+        name: '404Page',
+        query: { type: 'custom' },
+        hash: '',
+      },
+      { path: '/', fullPath: '/', query: {} },
+      next,
+    );
+
+    expect(storeState.permissionStore.buildAsyncRoutes).toHaveBeenCalledTimes(1);
+    expect(addRoute).toHaveBeenCalledWith(storeState.permissionStore.asyncRoutes[0]);
+    expect(next).toHaveBeenCalledWith({
+      path: '/access-control/roles',
+      replace: true,
+      query: { type: 'custom' },
+      hash: '',
+    });
+  });
+
   it('allows the restricted-session route itself without recording a new blocked target', async () => {
     const { beforeEach } = await loadPermissionGuards();
     const next = vi.fn();

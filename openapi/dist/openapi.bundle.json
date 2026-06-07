@@ -5301,13 +5301,13 @@
         }
       }
     },
-    "/api/scheduled-tasks/jobs": {
+    "/api/scheduled-tasks/job-definitions": {
       "get": {
         "tags": [
           "scheduled-tasks"
         ],
         "summary": "List scheduler job definitions",
-        "operationId": "getScheduledTaskJobs",
+        "operationId": "getScheduledTaskJobDefinitions",
         "description": "Returns registered Job Definitions that can be bound to Scheduled Tasks.",
         "parameters": [
           {
@@ -5343,6 +5343,73 @@
           },
           "403": {
             "$ref": "#/components/responses/forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/internal-server-error"
+          }
+        }
+      }
+    },
+    "/api/scheduled-tasks/job-definitions/{jobKey}": {
+      "get": {
+        "tags": [
+          "scheduled-tasks"
+        ],
+        "summary": "Read scheduler job definition detail",
+        "operationId": "getScheduledTaskJobDefinition",
+        "description": "Returns one registered Job Definition that can be bound to Scheduled Tasks.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/locale-header"
+          },
+          {
+            "$ref": "#/components/parameters/request-id-header"
+          },
+          {
+            "$ref": "#/components/parameters/scheduled-task-job-key"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scheduler Job Definition detail.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/enveloped-scheduled-task-job-definition-item"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/forbidden"
+          },
+          "404": {
+            "description": "Scheduler Job Definition was not found.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
           },
           "500": {
             "$ref": "#/components/responses/internal-server-error"
@@ -5954,6 +6021,116 @@
           },
           "404": {
             "description": "Scheduled task was not found.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Scheduled task is already running.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/internal-server-error"
+          }
+        }
+      }
+    },
+    "/api/scheduled-tasks/{taskKey}/actions/{actionKey}": {
+      "post": {
+        "tags": [
+          "scheduled-tasks"
+        ],
+        "summary": "Run scheduled task action",
+        "operationId": "postScheduledTaskAction",
+        "description": "Executes one backend-defined Scheduled Task action and returns a non-persisted JobRunResult.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/locale-header"
+          },
+          {
+            "$ref": "#/components/parameters/request-id-header"
+          },
+          {
+            "$ref": "#/components/parameters/scheduled-task-key"
+          },
+          {
+            "$ref": "#/components/parameters/scheduled-task-action-key"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/scheduled-task-action-request"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Scheduled Task action result.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/enveloped-scheduled-task-action-result"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Scheduled task action cannot run because config validation failed.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/forbidden"
+          },
+          "404": {
+            "description": "Scheduled task or action was not found.",
             "headers": {
               "X-Request-Id": {
                 "$ref": "#/components/headers/request-id"
@@ -6844,6 +7021,15 @@
       "ScheduledTaskRunItem": {
         "$ref": "#/components/schemas/scheduled-task-run-item"
       },
+      "JobRunResult": {
+        "$ref": "#/components/schemas/job-run-result"
+      },
+      "ScheduledTaskActionRequest": {
+        "$ref": "#/components/schemas/scheduled-task-action-request"
+      },
+      "ScheduledTaskActionResult": {
+        "$ref": "#/components/schemas/scheduled-task-action-result"
+      },
       "ScheduledTaskRunListResponse": {
         "$ref": "#/components/schemas/scheduled-task-run-list-response"
       },
@@ -6856,8 +7042,14 @@
       "EnvelopedScheduledTaskJobDefinitionListResponse": {
         "$ref": "#/components/schemas/enveloped-scheduled-task-job-definition-list-response"
       },
+      "EnvelopedScheduledTaskJobDefinitionItem": {
+        "$ref": "#/components/schemas/enveloped-scheduled-task-job-definition-item"
+      },
       "EnvelopedScheduledTaskRunItem": {
         "$ref": "#/components/schemas/enveloped-scheduled-task-run-item"
+      },
+      "EnvelopedScheduledTaskActionResult": {
+        "$ref": "#/components/schemas/enveloped-scheduled-task-action-result"
       },
       "EnvelopedScheduledTaskRunListResponse": {
         "$ref": "#/components/schemas/enveloped-scheduled-task-run-list-response"
@@ -9843,6 +10035,11 @@
           },
           "result_summary": {
             "type": "string"
+          },
+          "result_json": {
+            "type": "string",
+            "pattern": "^\\\\s*\\\\{[\\\\s\\\\S]*\\\\}\\\\s*$",
+            "description": "Structured JobRunResult JSON object string."
           }
         }
       },
@@ -9906,10 +10103,15 @@
             "type": "string",
             "description": "Cron expression validated by the scheduler runtime."
           },
-          "params_json": {
+          "config_json": {
             "type": "string",
             "pattern": "^\\\\s*\\\\{[\\\\s\\\\S]*\\\\}\\\\s*$",
             "description": "JSON object string validated by the scheduler runtime before it is passed to the Job Definition handler."
+          },
+          "effective_config": {
+            "type": "string",
+            "pattern": "^\\\\s*\\\\{[\\\\s\\\\S]*\\\\}\\\\s*$",
+            "description": "Effective config JSON object string computed by merging Job Definition default_config with task config_json."
           },
           "last_run": {
             "$ref": "#/components/schemas/scheduled-task-last-run"
@@ -10016,7 +10218,7 @@
           "enabled": {
             "type": "boolean"
           },
-          "params_json": {
+          "config_json": {
             "type": "string",
             "pattern": "^\\\\s*\\\\{[\\\\s\\\\S]*\\\\}\\\\s*$",
             "description": "JSON object string validated by the scheduler runtime before it is passed to the Job Definition handler."
@@ -10049,10 +10251,11 @@
           "module",
           "display_name_key",
           "description_key",
-          "params_schema_json",
-          "default_params_json",
+          "config_schema_json",
+          "default_config_json",
           "default_cron_expression",
-          "default_enabled"
+          "default_enabled",
+          "actions"
         ],
         "properties": {
           "key": {
@@ -10079,13 +10282,13 @@
             "type": "string",
             "description": "Direct display fallback when the client has no translation for description_key."
           },
-          "params_schema_json": {
+          "config_schema_json": {
             "type": "string",
-            "description": "JSON Schema string for Scheduled Task parameters accepted by this Job Definition."
+            "description": "JSON Schema string for Scheduled Task config accepted by this Job Definition."
           },
-          "default_params_json": {
+          "default_config_json": {
             "type": "string",
-            "description": "Default JSON object string for a new Scheduled Task bound to this Job Definition."
+            "description": "Default config JSON object string for a new Scheduled Task bound to this Job Definition."
           },
           "default_cron_expression": {
             "type": "string",
@@ -10094,6 +10297,64 @@
           "default_enabled": {
             "type": "boolean",
             "description": "Whether new Scheduled Tasks for this Job Definition should be enabled by default."
+          },
+          "actions": {
+            "type": "array",
+            "description": "Backend-defined one-shot actions available for this Job Definition.",
+            "items": {
+              "type": "object",
+              "required": [
+                "key"
+              ],
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "title_key": {
+                  "type": "string"
+                },
+                "description_key": {
+                  "type": "string"
+                },
+                "behavior": {
+                  "type": "string"
+                },
+                "behavior_key": {
+                  "type": "string"
+                },
+                "behavior_summary": {
+                  "type": "string"
+                },
+                "behavior_summary_key": {
+                  "type": "string"
+                },
+                "affected_resource": {
+                  "type": "string"
+                },
+                "affected_resource_key": {
+                  "type": "string"
+                },
+                "confirm_required": {
+                  "type": "boolean"
+                },
+                "theme": {
+                  "type": "string",
+                  "enum": [
+                    "default",
+                    "primary",
+                    "warning",
+                    "danger",
+                    "success"
+                  ]
+                }
+              }
+            }
           }
         }
       },
@@ -10134,6 +10395,24 @@
           }
         ]
       },
+      "enveloped-scheduled-task-job-definition-item": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/api-envelope"
+          },
+          {
+            "type": "object",
+            "required": [
+              "data"
+            ],
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/scheduled-task-job-definition-item"
+              }
+            }
+          }
+        ]
+      },
       "update-scheduled-task-request": {
         "type": "object",
         "properties": {
@@ -10151,7 +10430,7 @@
           "enabled": {
             "type": "boolean"
           },
-          "params_json": {
+          "config_json": {
             "type": "string",
             "pattern": "^\\\\s*\\\\{[\\\\s\\\\S]*\\\\}\\\\s*$",
             "description": "JSON object string validated by the scheduler runtime before it is passed to the Job Definition handler."
@@ -10214,6 +10493,16 @@
           },
           "result_summary": {
             "type": "string"
+          },
+          "result_json": {
+            "type": "string",
+            "pattern": "^\\\\s*\\\\{[\\\\s\\\\S]*\\\\}\\\\s*$",
+            "description": "Structured JobRunResult JSON object string."
+          },
+          "effective_config": {
+            "type": "string",
+            "pattern": "^\\\\s*\\\\{[\\\\s\\\\S]*\\\\}\\\\s*$",
+            "description": "Effective config JSON object string used by an immediate manual run response when available."
           },
           "started_at": {
             "type": "string",
@@ -10296,6 +10585,96 @@
             "properties": {
               "data": {
                 "$ref": "#/components/schemas/scheduled-task-run-item"
+              }
+            }
+          }
+        ]
+      },
+      "scheduled-task-action-request": {
+        "type": "object",
+        "properties": {
+          "config_json": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "JSON object merged into the action effective config."
+          }
+        }
+      },
+      "job-run-result": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "string"
+          },
+          "stage": {
+            "type": "string"
+          },
+          "affected_resource": {
+            "type": "string"
+          },
+          "metrics": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "scheduled-task-action-result": {
+        "type": "object",
+        "required": [
+          "action_key",
+          "task_key",
+          "job_key",
+          "result_json",
+          "result"
+        ],
+        "properties": {
+          "action_key": {
+            "type": "string"
+          },
+          "task_key": {
+            "type": "string"
+          },
+          "job_key": {
+            "type": "string"
+          },
+          "result_json": {
+            "type": "string",
+            "pattern": "^\\\\s*\\\\{[\\\\s\\\\S]*\\\\}\\\\s*$",
+            "description": "Structured JobRunResult JSON object string."
+          },
+          "result": {
+            "$ref": "#/components/schemas/job-run-result"
+          },
+          "effective_config": {
+            "type": "string",
+            "pattern": "^\\\\s*\\\\{[\\\\s\\\\S]*\\\\}\\\\s*$",
+            "description": "Effective config JSON object string used by the action execution."
+          }
+        }
+      },
+      "enveloped-scheduled-task-action-result": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/api-envelope"
+          },
+          {
+            "type": "object",
+            "required": [
+              "data"
+            ],
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/scheduled-task-action-result"
               }
             }
           }
@@ -10678,6 +11057,22 @@
           }
         }
       },
+      "scheduled-task-job-key": {
+        "name": "jobKey",
+        "in": "path",
+        "required": true,
+        "description": "Stable scheduler Job Definition key.",
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        },
+        "examples": {
+          "auditRetention": {
+            "summary": "Audit retention cleanup Job Definition",
+            "value": "audit.audit-log-retention-cleanup"
+          }
+        }
+      },
       "scheduled-task-key": {
         "name": "taskKey",
         "in": "path",
@@ -10740,6 +11135,22 @@
           "type": "integer",
           "format": "int64",
           "minimum": 1
+        }
+      },
+      "scheduled-task-action-key": {
+        "name": "actionKey",
+        "in": "path",
+        "required": true,
+        "description": "Backend-defined Job Definition action key.",
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        },
+        "examples": {
+          "dryRun": {
+            "summary": "Dry-run action",
+            "value": "dry-run"
+          }
         }
       }
     },

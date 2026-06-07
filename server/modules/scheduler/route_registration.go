@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -72,9 +73,14 @@ func registerSchedulerRoutesWithRuntime(
 		routeRuntime.handleCreateTask,
 	)
 	group.GET(
-		schedulercontract.ScheduledTaskJobsRoute,
+		schedulercontract.ScheduledTaskJobDefinitionsRoute,
 		httpx.RequirePermission(ctx.I18n, authService, authorizer, schedulercontract.ScheduledTaskReadPermission.String(), publisher),
 		routeRuntime.handleListJobDefinitions,
+	)
+	group.GET(
+		schedulercontract.ScheduledTaskJobDefinitionDetailRoute,
+		httpx.RequirePermission(ctx.I18n, authService, authorizer, schedulercontract.ScheduledTaskReadPermission.String(), publisher),
+		routeRuntime.handleGetJobDefinition,
 	)
 	group.GET(
 		schedulercontract.ScheduledTaskRunDetailRoute,
@@ -116,6 +122,11 @@ func registerSchedulerRoutesWithRuntime(
 		httpx.RequirePermission(ctx.I18n, authService, authorizer, schedulercontract.ScheduledTaskRunPermission.String(), publisher),
 		routeRuntime.handleRunOnce,
 	)
+	group.POST(
+		schedulercontract.ScheduledTaskActionRoute,
+		httpx.RequirePermission(ctx.I18n, authService, authorizer, schedulercontract.ScheduledTaskRunPermission.String(), publisher),
+		routeRuntime.handleRunAction,
+	)
 
 	return nil
 }
@@ -145,7 +156,7 @@ func (r schedulerRouteRuntime) handleListTasks(ginCtx *gin.Context) {
 }
 
 func (r schedulerRouteRuntime) handleListJobDefinitions(ginCtx *gin.Context) {
-	schedulerGeneratedHandler{}.GetScheduledTaskJobs(bindGeneratedTaskJobsHeaders(ginCtx))
+	schedulerGeneratedHandler{}.GetScheduledTaskJobDefinitions(bindGeneratedTaskJobDefinitionsHeaders(ginCtx))
 
 	runtime, ok := r.resolveRuntime(ginCtx)
 	if !ok {
@@ -158,6 +169,26 @@ func (r schedulerRouteRuntime) handleListJobDefinitions(ginCtx *gin.Context) {
 	}
 
 	httpx.WriteSuccess(ginCtx, http.StatusOK, toScheduledTaskJobDefinitionListResponse(definitions))
+}
+
+func (r schedulerRouteRuntime) handleGetJobDefinition(ginCtx *gin.Context) {
+	jobKey, ok := readScheduledTaskJobKey(ginCtx, r.ctx)
+	if !ok {
+		return
+	}
+	schedulerGeneratedHandler{}.GetScheduledTaskJobDefinition(jobKey, bindGeneratedTaskJobDefinitionDetailHeaders(ginCtx))
+
+	runtime, ok := r.resolveRuntime(ginCtx)
+	if !ok {
+		return
+	}
+	definition, err := runtime.GetJobDefinition(ginCtx.Request.Context(), jobKey)
+	if err != nil {
+		r.writeRouteError(ginCtx, "read scheduled task job definition failed", err, zap.String("jobKey", jobKey))
+		return
+	}
+
+	httpx.WriteSuccess(ginCtx, http.StatusOK, toScheduledTaskJobDefinitionItem(definition))
 }
 
 func (r schedulerRouteRuntime) handleGetTask(ginCtx *gin.Context) {
@@ -361,6 +392,39 @@ func (r schedulerRouteRuntime) handleRunOnce(ginCtx *gin.Context) {
 	httpx.WriteSuccess(ginCtx, http.StatusOK, toScheduledTaskRunItem(run))
 }
 
+func (r schedulerRouteRuntime) handleRunAction(ginCtx *gin.Context) {
+	key, ok := readScheduledTaskKey(ginCtx, r.ctx)
+	if !ok {
+		return
+	}
+	actionKey, ok := readScheduledTaskActionKey(ginCtx, r.ctx)
+	if !ok {
+		return
+	}
+	schedulerGeneratedHandler{}.PostScheduledTaskAction(
+		key,
+		actionKey,
+		bindGeneratedTaskActionHeaders(ginCtx),
+		scheduleropenapi.PostScheduledTaskActionJSONRequestBody{},
+	)
+	requestConfig, ok := bindScheduledTaskActionConfig(ginCtx, r.ctx)
+	if !ok {
+		return
+	}
+
+	runtime, ok := r.resolveRuntime(ginCtx)
+	if !ok {
+		return
+	}
+	result, err := runtime.RunAction(ginCtx.Request.Context(), key, actionKey, requestConfig)
+	if err != nil {
+		r.writeRouteError(ginCtx, "run scheduled task action failed", err, zap.String("taskKey", key), zap.String("actionKey", actionKey))
+		return
+	}
+
+	httpx.WriteSuccess(ginCtx, http.StatusOK, toScheduledTaskActionResult(result))
+}
+
 func (r schedulerRouteRuntime) resolveRuntime(ginCtx *gin.Context) (schedulercore.Runtime, bool) {
 	if r.runtime == nil {
 		r.writeRouteError(ginCtx, "resolve scheduler runtime failed", errors.New("scheduler runtime resolver is unavailable"))
@@ -375,11 +439,17 @@ func (r schedulerRouteRuntime) resolveRuntime(ginCtx *gin.Context) (schedulercor
 }
 
 func (r schedulerRouteRuntime) writeRouteError(ginCtx *gin.Context, message string, err error, fields ...zap.Field) {
+	var configErr schedulercore.ConfigValidationError
 	switch {
-	case errors.Is(err, schedulercore.ErrTaskNotFound):
+	case errors.Is(err, schedulercore.ErrTaskNotFound), errors.Is(err, schedulercore.ErrJobDefinitionNotFound), errors.Is(err, schedulercore.ErrJobActionNotFound):
 		httpx.AbortLocalizedError(ginCtx, r.ctx.I18n, http.StatusNotFound, schedulercontract.ScheduledTaskNotFound.String(), nil)
 	case errors.Is(err, schedulercore.ErrTaskAlreadyRunning):
 		httpx.AbortLocalizedError(ginCtx, r.ctx.I18n, http.StatusConflict, schedulercontract.ScheduledTaskAlreadyRunning.String(), nil)
+	case errors.As(err, &configErr):
+		httpx.AbortLocalizedError(ginCtx, r.ctx.I18n, http.StatusBadRequest, schedulercontract.ScheduledTaskInvalidRequest.String(), map[string]any{
+			"field":  configErr.Field,
+			"reason": configErr.Reason,
+		})
 	case errors.Is(err, schedulercore.ErrTaskImmutable), errors.Is(err, schedulercore.ErrTaskValidation):
 		httpx.AbortLocalizedError(ginCtx, r.ctx.I18n, http.StatusBadRequest, schedulercontract.ScheduledTaskInvalidRequest.String(), nil)
 	default:
@@ -402,6 +472,17 @@ func readScheduledTaskKey(ginCtx *gin.Context, ctx *module.Context) (string, boo
 	return key, true
 }
 
+func readScheduledTaskJobKey(ginCtx *gin.Context, ctx *module.Context) (string, bool) {
+	key := strings.TrimSpace(ginCtx.Param("jobKey"))
+	if key == "" {
+		httpx.AbortLocalizedError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument.String(), map[string]any{
+			"field": "jobKey",
+		})
+		return "", false
+	}
+	return key, true
+}
+
 func readScheduledTaskRunKey(ginCtx *gin.Context, ctx *module.Context) (string, bool) {
 	key := strings.TrimSpace(ginCtx.Param("taskKey"))
 	if key == "" {
@@ -411,6 +492,78 @@ func readScheduledTaskRunKey(ginCtx *gin.Context, ctx *module.Context) (string, 
 		return "", false
 	}
 	return key, true
+}
+
+func readScheduledTaskActionKey(ginCtx *gin.Context, ctx *module.Context) (string, bool) {
+	key := strings.TrimSpace(ginCtx.Param("actionKey"))
+	if key == "" {
+		httpx.AbortLocalizedError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument.String(), map[string]any{
+			"field": "actionKey",
+		})
+		return "", false
+	}
+	return key, true
+}
+
+func bindScheduledTaskActionConfig(ginCtx *gin.Context, ctx *module.Context) (string, bool) {
+	if ginCtx.Request.Body == nil || ginCtx.Request.ContentLength == 0 {
+		return "{}", true
+	}
+	var request scheduleropenapi.PostScheduledTaskActionJSONRequestBody
+	if err := ginCtx.ShouldBindJSON(&request); err != nil {
+		writeInvalidSchedulerField(ginCtx, ctx, "body")
+		return "", false
+	}
+	rawConfig, err := marshalScheduledTaskActionConfig(request.ConfigJson)
+	if err != nil {
+		httpx.AbortLocalizedError(ginCtx, ctx.I18n, http.StatusBadRequest, schedulercontract.ScheduledTaskInvalidRequest.String(), map[string]any{
+			"field": "config_json",
+		})
+		return "", false
+	}
+	configJSON, err := normalizeScheduledTaskActionConfig(rawConfig)
+	if err != nil {
+		httpx.AbortLocalizedError(ginCtx, ctx.I18n, http.StatusBadRequest, schedulercontract.ScheduledTaskInvalidRequest.String(), map[string]any{
+			"field": "config_json",
+		})
+		return "", false
+	}
+	return configJSON, true
+}
+
+func marshalScheduledTaskActionConfig(config *map[string]interface{}) (json.RawMessage, error) {
+	if config == nil {
+		return nil, nil
+	}
+	raw, err := json.Marshal(config)
+	if err != nil {
+		return nil, err
+	}
+	return raw, nil
+}
+
+func normalizeScheduledTaskActionConfig(raw json.RawMessage) (string, error) {
+	trimmed := strings.TrimSpace(string(raw))
+	if trimmed == "" || trimmed == "null" {
+		return "{}", nil
+	}
+	if !isSchedulerJSONObject(trimmed) {
+		return "", errors.New("config_json must be a JSON object")
+	}
+	var decoded map[string]any
+	if err := json.Unmarshal(raw, &decoded); err != nil {
+		return "", err
+	}
+	encoded, err := json.Marshal(decoded)
+	if err != nil {
+		return "", err
+	}
+	return string(encoded), nil
+}
+
+func isSchedulerJSONObject(value string) bool {
+	var decoded map[string]any
+	return json.Unmarshal([]byte(strings.TrimSpace(value)), &decoded) == nil
 }
 
 func readScheduledTaskRunID(ginCtx *gin.Context, ctx *module.Context) (uint64, bool) {
@@ -447,9 +600,14 @@ func bindGeneratedTaskCreateHeaders(ginCtx *gin.Context) scheduleropenapi.PostSc
 	return scheduleropenapi.PostScheduledTaskParams{XGraftLocale: locale, XRequestId: requestID}
 }
 
-func bindGeneratedTaskJobsHeaders(ginCtx *gin.Context) scheduleropenapi.GetScheduledTaskJobsParams {
+func bindGeneratedTaskJobDefinitionsHeaders(ginCtx *gin.Context) scheduleropenapi.GetScheduledTaskJobDefinitionsParams {
 	locale, requestID := bindGeneratedSchedulerHeaders(ginCtx)
-	return scheduleropenapi.GetScheduledTaskJobsParams{XGraftLocale: locale, XRequestId: requestID}
+	return scheduleropenapi.GetScheduledTaskJobDefinitionsParams{XGraftLocale: locale, XRequestId: requestID}
+}
+
+func bindGeneratedTaskJobDefinitionDetailHeaders(ginCtx *gin.Context) scheduleropenapi.GetScheduledTaskJobDefinitionParams {
+	locale, requestID := bindGeneratedSchedulerHeaders(ginCtx)
+	return scheduleropenapi.GetScheduledTaskJobDefinitionParams{XGraftLocale: locale, XRequestId: requestID}
 }
 
 func bindGeneratedTaskDetailHeaders(ginCtx *gin.Context) scheduleropenapi.GetScheduledTaskParams {
@@ -480,6 +638,11 @@ func bindGeneratedTaskDisableHeaders(ginCtx *gin.Context) scheduleropenapi.PostS
 func bindGeneratedTaskRunHeaders(ginCtx *gin.Context) scheduleropenapi.PostScheduledTaskRunParams {
 	locale, requestID := bindGeneratedSchedulerHeaders(ginCtx)
 	return scheduleropenapi.PostScheduledTaskRunParams{XGraftLocale: locale, XRequestId: requestID}
+}
+
+func bindGeneratedTaskActionHeaders(ginCtx *gin.Context) scheduleropenapi.PostScheduledTaskActionParams {
+	locale, requestID := bindGeneratedSchedulerHeaders(ginCtx)
+	return scheduleropenapi.PostScheduledTaskActionParams{XGraftLocale: locale, XRequestId: requestID}
 }
 
 func bindGeneratedTaskRunDetailHeaders(ginCtx *gin.Context) scheduleropenapi.GetScheduledTaskRunParams {
@@ -584,7 +747,7 @@ func createTaskMutation(request scheduleropenapi.PostScheduledTaskJSONRequestBod
 		CronExpression: strings.TrimSpace(request.CronExpression),
 		Enabled:        request.Enabled,
 		EnabledSet:     true,
-		ParamsJSON:     trimOptionalString(request.ParamsJson),
+		ConfigJSON:     trimOptionalString(request.ConfigJson),
 	}, true
 }
 
@@ -609,8 +772,8 @@ func updateTaskMutation(request scheduleropenapi.PutScheduledTaskJSONRequestBody
 		mutation.Enabled = *request.Enabled
 		mutation.EnabledSet = true
 	}
-	if request.ParamsJson != nil {
-		mutation.ParamsJSON = strings.TrimSpace(*request.ParamsJson)
+	if request.ConfigJson != nil {
+		mutation.ConfigJSON = strings.TrimSpace(*request.ConfigJson)
 	}
 	return mutation, nil
 }
@@ -629,7 +792,15 @@ func (schedulerGeneratedHandler) GetScheduledTasks(params scheduleropenapi.GetSc
 	_ = params
 }
 
-func (schedulerGeneratedHandler) GetScheduledTaskJobs(params scheduleropenapi.GetScheduledTaskJobsParams) {
+func (schedulerGeneratedHandler) GetScheduledTaskJobDefinitions(params scheduleropenapi.GetScheduledTaskJobDefinitionsParams) {
+	_ = params
+}
+
+func (schedulerGeneratedHandler) GetScheduledTaskJobDefinition(
+	jobKey string,
+	params scheduleropenapi.GetScheduledTaskJobDefinitionParams,
+) {
+	_ = jobKey
 	_ = params
 }
 
@@ -684,4 +855,16 @@ func (schedulerGeneratedHandler) GetScheduledTaskRun(runID uint64, params schedu
 func (schedulerGeneratedHandler) PostScheduledTaskRun(key string, params scheduleropenapi.PostScheduledTaskRunParams) {
 	_ = key
 	_ = params
+}
+
+func (schedulerGeneratedHandler) PostScheduledTaskAction(
+	taskKey string,
+	actionKey string,
+	params scheduleropenapi.PostScheduledTaskActionParams,
+	body scheduleropenapi.PostScheduledTaskActionJSONRequestBody,
+) {
+	_ = taskKey
+	_ = actionKey
+	_ = params
+	_ = body
 }
