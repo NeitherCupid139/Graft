@@ -41,6 +41,9 @@
       "name": "scheduled-tasks"
     },
     {
+      "name": "system-config"
+    },
+    {
       "name": "access-log"
     },
     {
@@ -6165,6 +6168,234 @@
         }
       }
     },
+    "/api/system-configs": {
+      "get": {
+        "tags": [
+          "system-config"
+        ],
+        "summary": "List registered system configuration values",
+        "operationId": "getSystemConfigs",
+        "description": "Returns module-registered ConfigDefinitions merged with administrator overrides. Sensitive values are masked and never returned as plaintext.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/locale-header"
+          },
+          {
+            "$ref": "#/components/parameters/request-id-header"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "System configuration list.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/enveloped-system-config-list-response"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/internal-server-error"
+          }
+        }
+      }
+    },
+    "/api/system-configs/{key}": {
+      "get": {
+        "tags": [
+          "system-config"
+        ],
+        "summary": "Read one system configuration value",
+        "operationId": "getSystemConfig",
+        "description": "Returns one registered ConfigDefinition merged with its administrator override. Sensitive values are masked and never returned as plaintext.",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/locale-header"
+          },
+          {
+            "$ref": "#/components/parameters/request-id-header"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "System configuration detail.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/enveloped-system-config-item"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/internal-server-error"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "system-config"
+        ],
+        "summary": "Update one system configuration override",
+        "operationId": "putSystemConfig",
+        "description": "Stores administrator override JSON only. Sensitive responses remain masked and do not echo plaintext values.",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/locale-header"
+          },
+          {
+            "$ref": "#/components/parameters/request-id-header"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/update-system-config-request"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated system configuration detail.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/enveloped-system-config-item"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/internal-server-error"
+          }
+        }
+      }
+    },
+    "/api/system-configs/{key}/reset": {
+      "post": {
+        "tags": [
+          "system-config"
+        ],
+        "summary": "Reset one system configuration override",
+        "operationId": "postSystemConfigReset",
+        "description": "Deletes the administrator override and returns the module default as the effective value. Sensitive responses remain masked.",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/locale-header"
+          },
+          {
+            "$ref": "#/components/parameters/request-id-header"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reset system configuration detail.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/enveloped-system-config-item"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/internal-server-error"
+          }
+        }
+      }
+    },
     "/api/access-log": {
       "get": {
         "tags": [
@@ -7053,6 +7284,21 @@
       },
       "EnvelopedScheduledTaskRunListResponse": {
         "$ref": "#/components/schemas/enveloped-scheduled-task-run-list-response"
+      },
+      "SystemConfigItem": {
+        "$ref": "#/components/schemas/system-config-item"
+      },
+      "SystemConfigListResponse": {
+        "$ref": "#/components/schemas/system-config-list-response"
+      },
+      "UpdateSystemConfigRequest": {
+        "$ref": "#/components/schemas/update-system-config-request"
+      },
+      "EnvelopedSystemConfigItem": {
+        "$ref": "#/components/schemas/enveloped-system-config-item"
+      },
+      "EnvelopedSystemConfigListResponse": {
+        "$ref": "#/components/schemas/enveloped-system-config-list-response"
       },
       "AccessLogDetailResponse": {
         "$ref": "#/components/schemas/access-log-detail-response"
@@ -10679,6 +10925,167 @@
             }
           }
         ]
+      },
+      "system-config-item": {
+        "type": "object",
+        "required": [
+          "key",
+          "module",
+          "group",
+          "type",
+          "schema_json",
+          "has_override",
+          "sensitive",
+          "masked",
+          "restart_required"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "Stable ConfigDefinition key registered by a module."
+          },
+          "module": {
+            "type": "string",
+            "description": "Module that owns the ConfigDefinition authority."
+          },
+          "group": {
+            "type": "string",
+            "description": "Module-declared grouping key for the settings UI."
+          },
+          "title": {
+            "type": "string"
+          },
+          "title_key": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "description_key": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "string",
+              "number",
+              "integer",
+              "boolean",
+              "object",
+              "array"
+            ]
+          },
+          "schema_json": {
+            "type": "string",
+            "description": "JSON Schema object string declared by the module."
+          },
+          "default_value": {
+            "type": "string",
+            "nullable": true,
+            "description": "JSON string for the module default; null when sensitive=true."
+          },
+          "effective_value": {
+            "type": "string",
+            "nullable": true,
+            "description": "JSON string after applying administrator override; null when sensitive=true."
+          },
+          "override_value": {
+            "type": "string",
+            "nullable": true,
+            "description": "Administrator override JSON string; null when no override or sensitive=true."
+          },
+          "has_override": {
+            "type": "boolean",
+            "description": "Whether system_config_values currently stores an administrator override for this key."
+          },
+          "sensitive": {
+            "type": "boolean",
+            "description": "Whether plaintext values must not be returned to clients."
+          },
+          "masked": {
+            "type": "boolean",
+            "description": "True when value fields are intentionally withheld from the response."
+          },
+          "masked_placeholder": {
+            "type": "string",
+            "nullable": true,
+            "description": "Stable display placeholder for masked sensitive values."
+          },
+          "restart_required": {
+            "type": "boolean"
+          },
+          "permission": {
+            "type": "string"
+          },
+          "order": {
+            "type": "integer"
+          }
+        }
+      },
+      "system-config-list-response": {
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/system-config-item"
+            }
+          },
+          "total": {
+            "type": "integer"
+          }
+        }
+      },
+      "enveloped-system-config-list-response": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/api-envelope"
+          },
+          {
+            "type": "object",
+            "required": [
+              "data"
+            ],
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/system-config-list-response"
+              }
+            }
+          }
+        ]
+      },
+      "enveloped-system-config-item": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/api-envelope"
+          },
+          {
+            "type": "object",
+            "required": [
+              "data"
+            ],
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/system-config-item"
+              }
+            }
+          }
+        ]
+      },
+      "update-system-config-request": {
+        "type": "object",
+        "required": [
+          "value"
+        ],
+        "properties": {
+          "value": {
+            "description": "JSON value to store as the administrator override for the registered definition."
+          }
+        }
       },
       "access-log-detail-response": {
         "type": "object",

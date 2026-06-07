@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	"graft/server/internal/config"
+	"graft/server/internal/configregistry"
 	"graft/server/internal/container"
 	"graft/server/internal/cronx"
 	"graft/server/internal/eventbus"
@@ -196,6 +197,7 @@ type Context struct {
 	MenuRegistry       *menu.Registry
 	PermissionRegistry *permission.Registry
 	CronRegistry       *cronx.Registry
+	ConfigRegistry     *configregistry.Registry
 }
 
 // Manager 负责维护模块集合并按依赖关系排序。

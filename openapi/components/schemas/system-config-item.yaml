@@ -1,0 +1,66 @@
+type: object
+required:
+  - key
+  - module
+  - group
+  - type
+  - schema_json
+  - has_override
+  - sensitive
+  - masked
+  - restart_required
+properties:
+  key:
+    type: string
+    description: Stable ConfigDefinition key registered by a module.
+  module:
+    type: string
+    description: Module that owns the ConfigDefinition authority.
+  group:
+    type: string
+    description: Module-declared grouping key for the settings UI.
+  title:
+    type: string
+  title_key:
+    type: string
+  description:
+    type: string
+  description_key:
+    type: string
+  type:
+    type: string
+    enum: [string, number, integer, boolean, object, array]
+  schema_json:
+    type: string
+    description: JSON Schema object string declared by the module.
+  default_value:
+    type: string
+    nullable: true
+    description: JSON string for the module default; null when sensitive=true.
+  effective_value:
+    type: string
+    nullable: true
+    description: JSON string after applying administrator override; null when sensitive=true.
+  override_value:
+    type: string
+    nullable: true
+    description: Administrator override JSON string; null when no override or sensitive=true.
+  has_override:
+    type: boolean
+    description: Whether system_config_values currently stores an administrator override for this key.
+  sensitive:
+    type: boolean
+    description: Whether plaintext values must not be returned to clients.
+  masked:
+    type: boolean
+    description: True when value fields are intentionally withheld from the response.
+  masked_placeholder:
+    type: string
+    nullable: true
+    description: Stable display placeholder for masked sensitive values.
+  restart_required:
+    type: boolean
+  permission:
+    type: string
+  order:
+    type: integer

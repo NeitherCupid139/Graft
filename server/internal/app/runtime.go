@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 
 	"graft/server/internal/config"
+	"graft/server/internal/configregistry"
 	"graft/server/internal/container"
 	healthopenapi "graft/server/internal/contract/openapi/health"
 	"graft/server/internal/cronx"
@@ -66,6 +67,7 @@ type Runtime struct {
 	menuRegistry       *menu.Registry
 	permissionRegistry *permission.Registry
 	cronRegistry       *cronx.Registry
+	configRegistry     *configregistry.Registry
 	moduleManager      *module.Manager
 	runtimeMetadata    module.RuntimeMetadata
 	appLogRepository   logger.AppLogRepository
@@ -216,6 +218,7 @@ func newRuntimeCoreWithDeps(cfg *config.Config, deps runtimeCoreDeps) (*Runtime,
 		menuRegistry:       menu.NewRegistry(),
 		permissionRegistry: permission.NewRegistry(),
 		cronRegistry:       cronx.NewRegistry(),
+		configRegistry:     configregistry.NewRegistry(),
 		moduleManager:      module.NewManager(),
 		appLogRepository:   appLogRepo,
 	}, nil
@@ -371,6 +374,7 @@ func (r *Runtime) newModuleContext(runCtx context.Context) *module.Context {
 		MenuRegistry:       r.menuRegistry,
 		PermissionRegistry: r.permissionRegistry,
 		CronRegistry:       r.cronRegistry,
+		ConfigRegistry:     r.configRegistry,
 	}
 }
 
@@ -586,6 +590,12 @@ func (r *Runtime) registerCoreServices() error {
 		key      any
 		provider func() (any, error)
 	}{
+		{
+			key: (*configregistry.Registry)(nil),
+			provider: func() (any, error) {
+				return r.configRegistry, nil
+			},
+		},
 		{
 			key: (*config.Config)(nil),
 			provider: func() (any, error) {

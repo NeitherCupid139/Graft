@@ -8,6 +8,7 @@ import (
 	monitormodule "graft/server/modules/monitor"
 	rbacmodule "graft/server/modules/rbac"
 	schedulermodule "graft/server/modules/scheduler"
+	systemconfigmodule "graft/server/modules/system-config"
 	usermodule "graft/server/modules/user"
 )
 
@@ -17,5 +18,6 @@ var generatedModuleSpecs = []module.Spec{
 	monitormodule.NewModuleSpec(),
 	rbacmodule.NewModuleSpec(),
 	schedulermodule.NewModuleSpec(),
+	systemconfigmodule.NewModuleSpec(),
 	usermodule.NewModuleSpec(),
 }

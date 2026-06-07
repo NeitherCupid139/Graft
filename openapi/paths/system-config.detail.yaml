@@ -1,0 +1,68 @@
+get:
+  tags: [system-config]
+  summary: Read one system configuration value
+  operationId: getSystemConfig
+  description: Returns one registered ConfigDefinition merged with its administrator override. Sensitive values are masked and never returned as plaintext.
+  parameters:
+    - name: key
+      in: path
+      required: true
+      schema:
+        type: string
+    - $ref: ../components/parameters/locale-header.yaml
+    - $ref: ../components/parameters/request-id-header.yaml
+  security:
+    - bearerAuth: []
+  responses:
+    '200':
+      description: System configuration detail.
+      headers:
+        X-Request-Id:
+          $ref: ../components/headers/request-id.yaml
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/enveloped-system-config-item.yaml
+    '401':
+      $ref: ../components/responses/unauthorized.yaml
+    '403':
+      $ref: ../components/responses/forbidden.yaml
+    '500':
+      $ref: ../components/responses/internal-server-error.yaml
+put:
+  tags: [system-config]
+  summary: Update one system configuration override
+  operationId: putSystemConfig
+  description: Stores administrator override JSON only. Sensitive responses remain masked and do not echo plaintext values.
+  parameters:
+    - name: key
+      in: path
+      required: true
+      schema:
+        type: string
+    - $ref: ../components/parameters/locale-header.yaml
+    - $ref: ../components/parameters/request-id-header.yaml
+  security:
+    - bearerAuth: []
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/update-system-config-request.yaml
+  responses:
+    '200':
+      description: Updated system configuration detail.
+      headers:
+        X-Request-Id:
+          $ref: ../components/headers/request-id.yaml
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/enveloped-system-config-item.yaml
+    '401':
+      $ref: ../components/responses/unauthorized.yaml
+    '403':
+      $ref: ../components/responses/forbidden.yaml
+    '500':
+      $ref: ../components/responses/internal-server-error.yaml

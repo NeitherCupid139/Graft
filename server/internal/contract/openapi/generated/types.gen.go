@@ -1152,6 +1152,36 @@ func (e ServerStatusTrendRange) Valid() bool {
 	}
 }
 
+// Defines values for SystemConfigItemType.
+const (
+	Array   SystemConfigItemType = "array"
+	Boolean SystemConfigItemType = "boolean"
+	Integer SystemConfigItemType = "integer"
+	Number  SystemConfigItemType = "number"
+	Object  SystemConfigItemType = "object"
+	String  SystemConfigItemType = "string"
+)
+
+// Valid indicates whether the value is a known member of the SystemConfigItemType enum.
+func (e SystemConfigItemType) Valid() bool {
+	switch e {
+	case Array:
+		return true
+	case Boolean:
+		return true
+	case Integer:
+		return true
+	case Number:
+		return true
+	case Object:
+		return true
+	case String:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for UpdateRoleStatusRequestStatus.
 const (
 	UpdateRoleStatusRequestStatusDisabled UpdateRoleStatusRequestStatus = "disabled"
@@ -2521,6 +2551,46 @@ type EnvelopedSessionListResponse struct {
 	TraceId string `json:"traceId"`
 }
 
+// EnvelopedSystemConfigItem defines model for enveloped-system-config-item.
+type EnvelopedSystemConfigItem struct {
+	// Code Existing canonical response code.
+	Code string           `json:"code"`
+	Data SystemConfigItem `json:"data"`
+
+	// Locale Present on localized error flows and omitted on normal success.
+	Locale *string `json:"locale,omitempty"`
+
+	// Message Existing runtime fallback text. Consumers should not treat this as the canonical localization contract when a key field is present.
+	Message string `json:"message"`
+
+	// MessageKey Stable localization key for key-aware error flows. When present, consumers should treat it as canonical and use message only as fallback text.
+	MessageKey *string `json:"messageKey,omitempty"`
+	Success    bool    `json:"success"`
+
+	// TraceId Mirrors the request id contract used by the current runtime.
+	TraceId string `json:"traceId"`
+}
+
+// EnvelopedSystemConfigListResponse defines model for enveloped-system-config-list-response.
+type EnvelopedSystemConfigListResponse struct {
+	// Code Existing canonical response code.
+	Code string                   `json:"code"`
+	Data SystemConfigListResponse `json:"data"`
+
+	// Locale Present on localized error flows and omitted on normal success.
+	Locale *string `json:"locale,omitempty"`
+
+	// Message Existing runtime fallback text. Consumers should not treat this as the canonical localization contract when a key field is present.
+	Message string `json:"message"`
+
+	// MessageKey Stable localization key for key-aware error flows. When present, consumers should treat it as canonical and use message only as fallback text.
+	MessageKey *string `json:"messageKey,omitempty"`
+	Success    bool    `json:"success"`
+
+	// TraceId Mirrors the request id contract used by the current runtime.
+	TraceId string `json:"traceId"`
+}
+
 // EnvelopedUserItemResponse defines model for enveloped-user-item-response.
 type EnvelopedUserItemResponse struct {
 	// Code Existing canonical response code.
@@ -3169,6 +3239,59 @@ type SessionSummary struct {
 	SessionId string    `json:"session_id"`
 }
 
+// SystemConfigItem defines model for system-config-item.
+type SystemConfigItem struct {
+	// DefaultValue JSON string for the module default; null when sensitive=true.
+	DefaultValue   *string `json:"default_value,omitempty"`
+	Description    *string `json:"description,omitempty"`
+	DescriptionKey *string `json:"description_key,omitempty"`
+
+	// EffectiveValue JSON string after applying administrator override; null when sensitive=true.
+	EffectiveValue *string `json:"effective_value,omitempty"`
+
+	// Group Module-declared grouping key for the settings UI.
+	Group string `json:"group"`
+
+	// HasOverride Whether system_config_values currently stores an administrator override for this key.
+	HasOverride bool `json:"has_override"`
+
+	// Key Stable ConfigDefinition key registered by a module.
+	Key string `json:"key"`
+
+	// Masked True when value fields are intentionally withheld from the response.
+	Masked bool `json:"masked"`
+
+	// MaskedPlaceholder Stable display placeholder for masked sensitive values.
+	MaskedPlaceholder *string `json:"masked_placeholder,omitempty"`
+
+	// Module Module that owns the ConfigDefinition authority.
+	Module string `json:"module"`
+	Order  *int   `json:"order,omitempty"`
+
+	// OverrideValue Administrator override JSON string; null when no override or sensitive=true.
+	OverrideValue   *string `json:"override_value,omitempty"`
+	Permission      *string `json:"permission,omitempty"`
+	RestartRequired bool    `json:"restart_required"`
+
+	// SchemaJson JSON Schema object string declared by the module.
+	SchemaJson string `json:"schema_json"`
+
+	// Sensitive Whether plaintext values must not be returned to clients.
+	Sensitive bool                 `json:"sensitive"`
+	Title     *string              `json:"title,omitempty"`
+	TitleKey  *string              `json:"title_key,omitempty"`
+	Type      SystemConfigItemType `json:"type"`
+}
+
+// SystemConfigItemType defines model for SystemConfigItem.Type.
+type SystemConfigItemType string
+
+// SystemConfigListResponse defines model for system-config-list-response.
+type SystemConfigListResponse struct {
+	Items []SystemConfigItem `json:"items"`
+	Total int                `json:"total"`
+}
+
 // UpdateRoleRequest defines model for update-role-request.
 type UpdateRoleRequest struct {
 	// Description Optional role description. The server trims surrounding whitespace and normalizes empty strings to null.
@@ -3197,6 +3320,12 @@ type UpdateScheduledTaskRequest struct {
 	Description    *string `json:"description,omitempty"`
 	Enabled        *bool   `json:"enabled,omitempty"`
 	Title          *string `json:"title,omitempty"`
+}
+
+// UpdateSystemConfigRequest defines model for update-system-config-request.
+type UpdateSystemConfigRequest struct {
+	// Value JSON value to store as the administrator override for the registered definition.
+	Value interface{} `json:"value"`
 }
 
 // UpdateUserRequest defines model for update-user-request.
@@ -3905,6 +4034,46 @@ type GetScheduledTaskRunsParams struct {
 	XRequestId *RequestIdHeader `json:"X-Request-Id,omitempty"`
 }
 
+// GetSystemConfigsParams defines parameters for GetSystemConfigs.
+type GetSystemConfigsParams struct {
+	// XGraftLocale Explicit locale override header already supported by the runtime.
+	XGraftLocale *LocaleHeader `json:"X-Graft-Locale,omitempty"`
+
+	// XRequestId Optional caller-supplied request id. If omitted, the runtime generates one and echoes it
+	// through the response header and envelope traceId field.
+	XRequestId *RequestIdHeader `json:"X-Request-Id,omitempty"`
+}
+
+// GetSystemConfigParams defines parameters for GetSystemConfig.
+type GetSystemConfigParams struct {
+	// XGraftLocale Explicit locale override header already supported by the runtime.
+	XGraftLocale *LocaleHeader `json:"X-Graft-Locale,omitempty"`
+
+	// XRequestId Optional caller-supplied request id. If omitted, the runtime generates one and echoes it
+	// through the response header and envelope traceId field.
+	XRequestId *RequestIdHeader `json:"X-Request-Id,omitempty"`
+}
+
+// PutSystemConfigParams defines parameters for PutSystemConfig.
+type PutSystemConfigParams struct {
+	// XGraftLocale Explicit locale override header already supported by the runtime.
+	XGraftLocale *LocaleHeader `json:"X-Graft-Locale,omitempty"`
+
+	// XRequestId Optional caller-supplied request id. If omitted, the runtime generates one and echoes it
+	// through the response header and envelope traceId field.
+	XRequestId *RequestIdHeader `json:"X-Request-Id,omitempty"`
+}
+
+// PostSystemConfigResetParams defines parameters for PostSystemConfigReset.
+type PostSystemConfigResetParams struct {
+	// XGraftLocale Explicit locale override header already supported by the runtime.
+	XGraftLocale *LocaleHeader `json:"X-Graft-Locale,omitempty"`
+
+	// XRequestId Optional caller-supplied request id. If omitted, the runtime generates one and echoes it
+	// through the response header and envelope traceId field.
+	XRequestId *RequestIdHeader `json:"X-Request-Id,omitempty"`
+}
+
 // GetUsersParams defines parameters for GetUsers.
 type GetUsersParams struct {
 	// XGraftLocale Explicit locale override header already supported by the runtime.
@@ -4113,6 +4282,9 @@ type PutScheduledTaskJSONRequestBody = UpdateScheduledTaskRequest
 
 // PostScheduledTaskActionJSONRequestBody defines body for PostScheduledTaskAction for application/json ContentType.
 type PostScheduledTaskActionJSONRequestBody = ScheduledTaskActionRequest
+
+// PutSystemConfigJSONRequestBody defines body for PutSystemConfig for application/json ContentType.
+type PutSystemConfigJSONRequestBody = UpdateSystemConfigRequest
 
 // PostUsersJSONRequestBody defines body for PostUsers for application/json ContentType.
 type PostUsersJSONRequestBody = CreateUserRequest
