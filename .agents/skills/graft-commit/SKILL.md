@@ -54,7 +54,8 @@ validation rules.
    - title defaults to English
    - `scope` is required and explicit
    - avoid noise titles such as `wip`, `update`, or `fix typo`
-   - if a body is needed, use real multiline bullet items and do not include escaped control text like `\n`
+   - ordinary non-merge and non-revert commits must include a real multiline body with at least one `- ` bullet
+   - do not create an agent-authored ordinary commit with only a title or literal escaped control text like `\n`
 6. Create one scoped commit for the current logical slice.
 7. Report:
    - the committed scope
