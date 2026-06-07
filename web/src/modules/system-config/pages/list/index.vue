@@ -31,6 +31,7 @@
             @click="activeGroupKey = group.key"
           >
             <span>{{ group.label }}</span>
+            <small>{{ group.technicalKey }}</small>
             <small>{{ t('systemConfig.list.groupCount', { count: group.items.length }) }}</small>
           </button>
         </aside>
@@ -39,7 +40,7 @@
           <div v-if="activeGroup" class="system-config-content__head">
             <div>
               <h2>{{ activeGroup.label }}</h2>
-              <p>{{ t('systemConfig.list.groupDescription', { count: activeGroup.items.length }) }}</p>
+              <p>{{ activeGroup.technicalKey }}</p>
             </div>
             <t-tag variant="light" theme="primary">
               {{ t('systemConfig.list.overrideCount', { count: activeGroupOverrideCount }) }}
@@ -68,6 +69,9 @@
                   <code>{{ item.key }}</code>
                   <span>{{ item.module }}</span>
                   <span>{{ item.group }}</span>
+                  <t-tag v-for="tag in item.tags ?? []" :key="tag" variant="light">
+                    {{ tag }}
+                  </t-tag>
                 </div>
                 <div class="system-config-values">
                   <div class="system-config-value">
@@ -150,6 +154,9 @@
             :labels="schemaLabels"
             :title-resolver="schemaFieldTitle"
             :description-resolver="schemaFieldDescription"
+            :placeholder-resolver="schemaFieldPlaceholder"
+            :unit-resolver="schemaFieldUnit"
+            :option-label-resolver="schemaOptionLabel"
           />
         </t-form>
         <section class="system-config-editor__preview">
@@ -181,6 +188,7 @@ defineOptions({
 type ConfigGroup = {
   key: string;
   label: string;
+  technicalKey: string;
   items: SystemConfigItem[];
 };
 
@@ -215,7 +223,7 @@ const groupedConfigs = computed<ConfigGroup[]>(() => {
   for (const item of sortedItems) {
     const key = `${item.module}:${item.group || 'default'}`;
     const label = groupLabel(item);
-    const group = groupMap.get(key) ?? { key, label, items: [] };
+    const group = groupMap.get(key) ?? { key, label, technicalKey: technicalGroupKey(item), items: [] };
     group.items.push(item);
     groupMap.set(key, group);
   }
@@ -227,11 +235,11 @@ const activeGroup = computed(() => groupedConfigs.value.find((group) => group.ke
 const activeGroupOverrideCount = computed(
   () => activeGroup.value?.items.filter((item) => item.has_override).length ?? 0,
 );
-const editingSchema = computed(() => parseConfigSchema(editingItem.value?.schema_json));
+const editingSchema = computed(() => parseConfigSchema(editingItem.value?.config_schema));
 const editorTitle = computed(() =>
   editingItem.value ? t('systemConfig.list.editorTitle', { title: configTitle(editingItem.value) }) : '',
 );
-const editorPreview = computed(() => formatJsonValue(editorForm.value) || t('systemConfig.list.none'));
+const editorPreview = computed(() => formatJsonValue(editorForm.value) || t('systemConfig.list.emptyValue'));
 
 onMounted(refreshConfigs);
 
@@ -311,16 +319,19 @@ function initialEditorValue(item: SystemConfigItem) {
 }
 
 function configTitle(item: SystemConfigItem) {
-  return localizeMessageKey(item.title_key) || item.title || item.key;
+  return resolveI18nText(item.title_key, item.title, item.key);
 }
 
 function configDescription(item: SystemConfigItem) {
-  return localizeMessageKey(item.description_key) || item.description || t('systemConfig.list.noDescription');
+  return resolveI18nText(item.description_key, item.description, t('systemConfig.list.noDescription'));
 }
 
 function groupLabel(item: SystemConfigItem) {
-  const group = item.group || 'default';
-  return t('systemConfig.list.groupLabel', { module: item.module, group });
+  return resolveI18nText(item.group_key, item.group_label, technicalGroupKey(item));
+}
+
+function technicalGroupKey(item: SystemConfigItem) {
+  return t('systemConfig.list.groupLabel', { module: item.module, group: item.group || 'default' });
 }
 
 function valueText(item: SystemConfigItem, field: 'default_value' | 'effective_value' | 'override_value') {
@@ -329,7 +340,8 @@ function valueText(item: SystemConfigItem, field: 'default_value' | 'effective_v
   }
 
   const value = parseJsonValue(item[field]);
-  return valuePreview(value, t('systemConfig.list.none'), booleanLabel);
+  const noneText = field === 'override_value' ? t('systemConfig.list.noOverride') : t('systemConfig.list.emptyValue');
+  return valuePreview(value, noneText, booleanLabel);
 }
 
 function booleanLabel(value: boolean) {
@@ -337,15 +349,28 @@ function booleanLabel(value: boolean) {
 }
 
 function schemaFieldTitle(field: ConfigSchemaField) {
-  return localizeMessageKey(field.schema['x-title-key']) || field.schema.title || field.key;
+  return resolveI18nText(field.schema.xI18n?.titleKey, field.schema.title, field.key);
 }
 
 function schemaFieldDescription(field: ConfigSchemaField) {
-  return localizeMessageKey(field.schema['x-description-key']) || field.schema.description || '';
+  return resolveI18nText(field.schema.xI18n?.descriptionKey, field.schema.description, '');
 }
 
-function localizeMessageKey(key?: string) {
-  return key && te(key) ? t(key) : '';
+function schemaFieldPlaceholder(field: ConfigSchemaField) {
+  return resolveI18nText(field.schema.xI18n?.placeholderKey, field.schema.placeholder, '');
+}
+
+function schemaFieldUnit(field: ConfigSchemaField) {
+  return resolveI18nText(field.schema.xI18n?.unitKey, undefined, '');
+}
+
+function schemaOptionLabel(field: ConfigSchemaField, option: string | number | boolean) {
+  const optionText = field.schema.enumLabels?.[String(option)];
+  return resolveI18nText(optionText?.labelKey, optionText?.label, String(option));
+}
+
+function resolveI18nText(key?: string, fallback?: string, rawFallback = '') {
+  return key && te(key) ? t(key) : fallback || rawFallback;
 }
 
 function readableError(error: unknown, fallback: string) {

@@ -3241,9 +3241,16 @@ type SessionSummary struct {
 
 // SystemConfigItem defines model for system-config-item.
 type SystemConfigItem struct {
+	// ConfigSchema JSON Schema compatible object declared by the module, including Graft x-i18n extensions.
+	ConfigSchema map[string]interface{} `json:"config_schema"`
+
 	// DefaultValue JSON string for the module default; null when sensitive=true.
-	DefaultValue   *string `json:"default_value,omitempty"`
-	Description    *string `json:"description,omitempty"`
+	DefaultValue *string `json:"default_value,omitempty"`
+
+	// Description Direct description fallback when the client has no translation for description_key.
+	Description *string `json:"description,omitempty"`
+
+	// DescriptionKey Stable localization key for the config item description.
 	DescriptionKey *string `json:"description_key,omitempty"`
 
 	// EffectiveValue JSON string after applying administrator override; null when sensitive=true.
@@ -3251,6 +3258,12 @@ type SystemConfigItem struct {
 
 	// Group Module-declared grouping key for the settings UI.
 	Group string `json:"group"`
+
+	// GroupKey Stable localization key for the group display label.
+	GroupKey *string `json:"group_key,omitempty"`
+
+	// GroupLabel Direct group-label fallback when the client has no translation for group_key.
+	GroupLabel *string `json:"group_label,omitempty"`
 
 	// HasOverride Whether system_config_values currently stores an administrator override for this key.
 	HasOverride bool `json:"has_override"`
@@ -3273,14 +3286,18 @@ type SystemConfigItem struct {
 	Permission      *string `json:"permission,omitempty"`
 	RestartRequired bool    `json:"restart_required"`
 
-	// SchemaJson JSON Schema object string declared by the module.
-	SchemaJson string `json:"schema_json"`
-
 	// Sensitive Whether plaintext values must not be returned to clients.
-	Sensitive bool                 `json:"sensitive"`
-	Title     *string              `json:"title,omitempty"`
-	TitleKey  *string              `json:"title_key,omitempty"`
-	Type      SystemConfigItemType `json:"type"`
+	Sensitive bool `json:"sensitive"`
+
+	// Tags Module-declared technical tags for filtering and display.
+	Tags *[]string `json:"tags,omitempty"`
+
+	// Title Direct title fallback when the client has no translation for title_key.
+	Title *string `json:"title,omitempty"`
+
+	// TitleKey Stable localization key for the config item title.
+	TitleKey *string              `json:"title_key,omitempty"`
+	Type     SystemConfigItemType `json:"type"`
 }
 
 // SystemConfigItemType defines model for SystemConfigItem.Type.

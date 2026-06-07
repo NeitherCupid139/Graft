@@ -114,6 +114,52 @@ func TestServiceRejectsMismatchedValueType(t *testing.T) {
 	}
 }
 
+func TestToItemIncludesLocalizationMetadataAndStructuredSchema(t *testing.T) {
+	item := toItem(ValueSnapshot{
+		Definition: configregistry.Definition{
+			Key:            "httpx.access-log-retention-cleanup",
+			Module:         "core.httpx",
+			Group:          "log.retention",
+			GroupKey:       "systemConfig.groups.coreHttpxLogRetention",
+			GroupLabel:     "core.httpx / log.retention",
+			Title:          "Access log retention cleanup",
+			TitleKey:       "systemConfig.items.accessLogRetentionCleanup.title",
+			Description:    "Default cleanup configuration for access-log retention jobs.",
+			DescriptionKey: "systemConfig.items.accessLogRetentionCleanup.description",
+			Tags:           []string{"httpx", "log.retention"},
+			Type:           configregistry.ValueTypeObject,
+			Schema: json.RawMessage(
+				`{"type":"object","properties":{"retentionDays":{"type":"integer","title":"Log retention days","x-i18n":{"titleKey":"systemConfig.fields.retentionDays.title","unitKey":"systemConfig.units.days"}}}}`,
+			),
+			DefaultValue: json.RawMessage(`{"retentionDays":30}`),
+		},
+		DefaultValue:   json.RawMessage(`{"retentionDays":30}`),
+		EffectiveValue: json.RawMessage(`{"retentionDays":30}`),
+	})
+
+	if item.GroupKey == nil || *item.GroupKey != "systemConfig.groups.coreHttpxLogRetention" {
+		t.Fatalf("expected group key in response, got %#v", item.GroupKey)
+	}
+	if item.TitleKey == nil || *item.TitleKey != "systemConfig.items.accessLogRetentionCleanup.title" {
+		t.Fatalf("expected title key in response, got %#v", item.TitleKey)
+	}
+	if item.Tags == nil || len(*item.Tags) != 2 || (*item.Tags)[0] != "httpx" {
+		t.Fatalf("expected tags in response, got %#v", item.Tags)
+	}
+	properties, ok := item.ConfigSchema["properties"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected structured config schema properties, got %#v", item.ConfigSchema)
+	}
+	retentionDays, ok := properties["retentionDays"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected retentionDays schema, got %#v", properties)
+	}
+	i18nExtension, ok := retentionDays["x-i18n"].(map[string]interface{})
+	if !ok || i18nExtension["unitKey"] != "systemConfig.units.days" {
+		t.Fatalf("expected x-i18n unit metadata, got %#v", retentionDays)
+	}
+}
+
 func newTestService(t *testing.T, definition configregistry.Definition) *Service {
 	t.Helper()
 	return newTestServiceWithRepo(t, newMemoryRepo(), definition)

@@ -30,10 +30,11 @@
       "emptyDescription": "模块注册的 ConfigDefinition 会显示在这里。",
       "noDescription": "暂无描述。",
       "masked": "已隐藏",
-      "none": "无",
-      "editorTitle": "编辑 {title}",
+      "emptyValue": "无数据",
+      "noOverride": "无覆盖值",
+      "editorTitle": "编辑：{title}",
       "sensitiveEditHint": "该配置为敏感项，当前值不会回显；保存后仍会以隐藏状态展示。",
-      "previewTitle": "提交预览",
+      "previewTitle": "配置预览",
       "boolean": {
         "true": "是",
         "false": "否"
@@ -56,6 +57,39 @@
         "jsonPlaceholder": "请输入 JSON",
         "invalidJson": "JSON 格式不正确"
       }
+    },
+    "groups": {
+      "coreHttpxLogRetention": "访问日志保留配置",
+      "coreLoggerLogRetention": "应用日志保留配置",
+      "auditLogRetention": "审计日志保留配置"
+    },
+    "items": {
+      "accessLogRetentionCleanup": {
+        "title": "访问日志保留清理",
+        "description": "访问日志保留清理任务的默认配置。"
+      },
+      "appLogRetentionCleanup": {
+        "title": "应用日志保留清理",
+        "description": "应用日志保留清理任务的默认配置。"
+      },
+      "auditLogRetentionCleanup": {
+        "title": "审计日志保留清理",
+        "description": "审计日志保留清理任务的默认配置。"
+      }
+    },
+    "fields": {
+      "retentionDays": {
+        "title": "日志保留时间",
+        "description": "删除早于指定天数的日志。"
+      },
+      "batchSize": {
+        "title": "批量大小",
+        "description": "单次清理最多删除的日志行数。"
+      }
+    },
+    "units": {
+      "days": "天",
+      "rows": "行"
     }
   }
 }

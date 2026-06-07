@@ -72,6 +72,9 @@ func (p *Module) Register(ctx *module.Context) error {
 	if err := registerAuditMessages(ctx.I18n); err != nil {
 		return err
 	}
+	if err := registerAuditLogRetentionConfigMessages(ctx.I18n); err != nil {
+		return err
+	}
 	registerAuditPermissions(ctx.PermissionRegistry, moduleID)
 	registerAuditMenu(ctx.MenuRegistry, moduleID)
 	if err := registerAuditService(ctx, p.recorder); err != nil {

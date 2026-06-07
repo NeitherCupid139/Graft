@@ -40,10 +40,13 @@ type Definition struct {
 	Key             string
 	Module          string
 	Group           string
+	GroupKey        string
+	GroupLabel      string
 	Title           string
 	TitleKey        string
 	Description     string
 	DescriptionKey  string
+	Tags            []string
 	Type            ValueType
 	Schema          json.RawMessage
 	DefaultValue    json.RawMessage
@@ -59,6 +62,7 @@ func (d Definition) Snapshot() Definition {
 	cloned := d
 	cloned.Schema = cloneRawMessage(d.Schema)
 	cloned.DefaultValue = cloneRawMessage(d.DefaultValue)
+	cloned.Tags = slices.Clone(d.Tags)
 	return cloned
 }
 

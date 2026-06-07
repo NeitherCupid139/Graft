@@ -273,8 +273,17 @@ func TestRegisterAccessLogRetentionConfigDefinition(t *testing.T) {
 		definition.Type != configregistry.ValueTypeObject {
 		t.Fatalf("unexpected access log config definition: %#v", definition)
 	}
+	if definition.GroupKey != accessLogRetentionConfigGroupKey ||
+		definition.TitleKey != accessLogRetentionConfigTitleKey ||
+		definition.DescriptionKey != accessLogRetentionConfigDescriptionKey {
+		t.Fatalf("expected localized access log config metadata, got %#v", definition)
+	}
 	if string(definition.DefaultValue) != accessLogRetentionCleanupDefaultConfig {
 		t.Fatalf("expected default config %s, got %s", accessLogRetentionCleanupDefaultConfig, definition.DefaultValue)
+	}
+	if !strings.Contains(string(definition.Schema), `"x-i18n"`) ||
+		!strings.Contains(string(definition.Schema), `"unitKey":"systemConfig.units.days"`) {
+		t.Fatalf("expected x-i18n schema metadata, got %s", string(definition.Schema))
 	}
 }
 

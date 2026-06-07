@@ -221,8 +221,17 @@ func TestRegisterAppLogRetentionConfigDefinition(t *testing.T) {
 		definition.Type != configregistry.ValueTypeObject {
 		t.Fatalf("unexpected app log config definition: %#v", definition)
 	}
+	if definition.GroupKey != appLogRetentionConfigGroupKey ||
+		definition.TitleKey != appLogRetentionConfigTitleKey ||
+		definition.DescriptionKey != appLogRetentionConfigDescriptionKey {
+		t.Fatalf("expected localized app log config metadata, got %#v", definition)
+	}
 	if string(definition.DefaultValue) != appLogRetentionCleanupDefaultConfig {
 		t.Fatalf("expected default config %s, got %s", appLogRetentionCleanupDefaultConfig, definition.DefaultValue)
+	}
+	if !strings.Contains(string(definition.Schema), `"x-i18n"`) ||
+		!strings.Contains(string(definition.Schema), `"unitKey":"systemConfig.units.rows"`) {
+		t.Fatalf("expected x-i18n schema metadata, got %s", string(definition.Schema))
 	}
 }
 

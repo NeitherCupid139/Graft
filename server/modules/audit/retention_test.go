@@ -170,8 +170,17 @@ func TestRegisterAuditLogRetentionConfigDefinition(t *testing.T) {
 		definition.Type != configregistry.ValueTypeObject {
 		t.Fatalf("unexpected audit log config definition: %#v", definition)
 	}
+	if definition.GroupKey != auditLogRetentionConfigGroupKey ||
+		definition.TitleKey != auditLogRetentionConfigTitleKey ||
+		definition.DescriptionKey != auditLogRetentionConfigDescriptionKey {
+		t.Fatalf("expected localized audit log config metadata, got %#v", definition)
+	}
 	if string(definition.DefaultValue) != auditLogRetentionCleanupDefaultConfig {
 		t.Fatalf("expected default config %s, got %s", auditLogRetentionCleanupDefaultConfig, definition.DefaultValue)
+	}
+	if !strings.Contains(string(definition.Schema), `"x-i18n"`) ||
+		!strings.Contains(string(definition.Schema), `"unitKey":"systemConfig.units.days"`) {
+		t.Fatalf("expected x-i18n schema metadata, got %s", string(definition.Schema))
 	}
 }
 

@@ -4,7 +4,7 @@ required:
   - module
   - group
   - type
-  - schema_json
+  - config_schema
   - has_override
   - sensitive
   - masked
@@ -19,20 +19,36 @@ properties:
   group:
     type: string
     description: Module-declared grouping key for the settings UI.
+  group_key:
+    type: string
+    description: Stable localization key for the group display label.
+  group_label:
+    type: string
+    description: Direct group-label fallback when the client has no translation for group_key.
   title:
     type: string
+    description: Direct title fallback when the client has no translation for title_key.
   title_key:
     type: string
+    description: Stable localization key for the config item title.
   description:
     type: string
+    description: Direct description fallback when the client has no translation for description_key.
   description_key:
     type: string
+    description: Stable localization key for the config item description.
+  tags:
+    type: array
+    items:
+      type: string
+    description: Module-declared technical tags for filtering and display.
   type:
     type: string
     enum: [string, number, integer, boolean, object, array]
-  schema_json:
-    type: string
-    description: JSON Schema object string declared by the module.
+  config_schema:
+    type: object
+    additionalProperties: true
+    description: JSON Schema compatible object declared by the module, including Graft x-i18n extensions.
   default_value:
     type: string
     nullable: true

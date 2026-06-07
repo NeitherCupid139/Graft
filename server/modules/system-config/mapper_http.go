@@ -24,12 +24,15 @@ func toItem(snapshot ValueSnapshot) generated.SystemConfigItem {
 		Key:               definition.Key,
 		Module:            definition.Module,
 		Group:             definition.Group,
+		GroupKey:          optionalString(definition.GroupKey),
+		GroupLabel:        optionalString(definition.GroupLabel),
 		Title:             optionalString(definition.Title),
 		TitleKey:          optionalString(definition.TitleKey),
 		Description:       optionalString(definition.Description),
 		DescriptionKey:    optionalString(definition.DescriptionKey),
+		Tags:              optionalStrings(definition.Tags),
 		Type:              generated.SystemConfigItemType(definition.Type),
-		SchemaJson:        rawJSONString(definition.Schema),
+		ConfigSchema:      rawJSONMap(definition.Schema),
 		DefaultValue:      visibleValue(snapshot.DefaultValue, definition.Sensitive),
 		EffectiveValue:    visibleValue(snapshot.EffectiveValue, definition.Sensitive),
 		OverrideValue:     visibleValue(snapshot.OverrideValue, definition.Sensitive),
@@ -43,11 +46,15 @@ func toItem(snapshot ValueSnapshot) generated.SystemConfigItem {
 	}
 }
 
-func rawJSONString(raw json.RawMessage) string {
+func rawJSONMap(raw json.RawMessage) map[string]interface{} {
+	var decoded map[string]interface{}
 	if len(raw) == 0 {
-		return "{}"
+		return map[string]interface{}{}
 	}
-	return string(raw)
+	if err := json.Unmarshal(raw, &decoded); err != nil {
+		return map[string]interface{}{}
+	}
+	return decoded
 }
 
 func visibleValue(raw json.RawMessage, sensitive bool) *string {
@@ -70,6 +77,14 @@ func optionalInt(value int) *int {
 		return nil
 	}
 	return &value
+}
+
+func optionalStrings(values []string) *[]string {
+	if len(values) == 0 {
+		return nil
+	}
+	cloned := append([]string(nil), values...)
+	return &cloned
 }
 
 func maskedPointer(definition configregistry.Definition) *string {

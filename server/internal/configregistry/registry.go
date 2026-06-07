@@ -36,11 +36,14 @@ func (r *Registry) Register(definition Definition) error {
 	normalized.Key = strings.TrimSpace(normalized.Key)
 	normalized.Module = strings.TrimSpace(normalized.Module)
 	normalized.Group = strings.TrimSpace(normalized.Group)
+	normalized.GroupKey = strings.TrimSpace(normalized.GroupKey)
+	normalized.GroupLabel = strings.TrimSpace(normalized.GroupLabel)
 	normalized.Title = strings.TrimSpace(normalized.Title)
 	normalized.TitleKey = strings.TrimSpace(normalized.TitleKey)
 	normalized.Description = strings.TrimSpace(normalized.Description)
 	normalized.DescriptionKey = strings.TrimSpace(normalized.DescriptionKey)
 	normalized.Permission = strings.TrimSpace(normalized.Permission)
+	normalized.Tags = trimNonEmptyStrings(normalized.Tags)
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -51,6 +54,19 @@ func (r *Registry) Register(definition Definition) error {
 	r.definitions[normalized.Key] = normalized
 	r.order = append(r.order, normalized.Key)
 	return nil
+}
+
+func trimNonEmptyStrings(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	trimmed := make([]string, 0, len(values))
+	for _, value := range values {
+		if item := strings.TrimSpace(value); item != "" {
+			trimmed = append(trimmed, item)
+		}
+	}
+	return trimmed
 }
 
 // Get returns one definition by key.

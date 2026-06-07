@@ -2513,14 +2513,26 @@ export interface components {
       module: string;
       /** @description Module-declared grouping key for the settings UI. */
       group: string;
+      /** @description Stable localization key for the group display label. */
+      group_key?: string;
+      /** @description Direct group-label fallback when the client has no translation for group_key. */
+      group_label?: string;
+      /** @description Direct title fallback when the client has no translation for title_key. */
       title?: string;
+      /** @description Stable localization key for the config item title. */
       title_key?: string;
+      /** @description Direct description fallback when the client has no translation for description_key. */
       description?: string;
+      /** @description Stable localization key for the config item description. */
       description_key?: string;
+      /** @description Module-declared technical tags for filtering and display. */
+      tags?: string[];
       /** @enum {string} */
       type: 'string' | 'number' | 'integer' | 'boolean' | 'object' | 'array';
-      /** @description JSON Schema object string declared by the module. */
-      schema_json: string;
+      /** @description JSON Schema compatible object declared by the module, including Graft x-i18n extensions. */
+      config_schema: {
+        [key: string]: unknown;
+      };
       /** @description JSON string for the module default; null when sensitive=true. */
       default_value?: string | null;
       /** @description JSON string after applying administrator override; null when sensitive=true. */

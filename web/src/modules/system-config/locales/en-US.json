@@ -30,10 +30,11 @@
       "emptyDescription": "Module-registered ConfigDefinitions will appear here.",
       "noDescription": "No description.",
       "masked": "Masked",
-      "none": "None",
-      "editorTitle": "Edit {title}",
+      "emptyValue": "No Data",
+      "noOverride": "No Override",
+      "editorTitle": "Edit: {title}",
       "sensitiveEditHint": "This configuration is sensitive. The current value is not echoed and remains masked after saving.",
-      "previewTitle": "Submit Preview",
+      "previewTitle": "Configuration Preview",
       "boolean": {
         "true": "Yes",
         "false": "No"
@@ -56,6 +57,39 @@
         "jsonPlaceholder": "Enter JSON",
         "invalidJson": "JSON is invalid"
       }
+    },
+    "groups": {
+      "coreHttpxLogRetention": "Access Log Retention Configuration",
+      "coreLoggerLogRetention": "App Log Retention Configuration",
+      "auditLogRetention": "Audit Log Retention Configuration"
+    },
+    "items": {
+      "accessLogRetentionCleanup": {
+        "title": "Access Log Retention Cleanup",
+        "description": "Default cleanup configuration for access-log retention jobs."
+      },
+      "appLogRetentionCleanup": {
+        "title": "App Log Retention Cleanup",
+        "description": "Default cleanup configuration for app-log retention jobs."
+      },
+      "auditLogRetentionCleanup": {
+        "title": "Audit Log Retention Cleanup",
+        "description": "Default cleanup configuration for audit-log retention jobs."
+      }
+    },
+    "fields": {
+      "retentionDays": {
+        "title": "Log Retention Days",
+        "description": "Delete logs older than this many days."
+      },
+      "batchSize": {
+        "title": "Batch Size",
+        "description": "Maximum rows deleted per cleanup batch."
+      }
+    },
+    "units": {
+      "days": "Days",
+      "rows": "Rows"
     }
   }
 }

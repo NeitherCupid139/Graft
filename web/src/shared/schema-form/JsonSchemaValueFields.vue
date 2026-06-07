@@ -11,12 +11,17 @@
       <template v-if="field.schema.enum">
         <t-select
           :model-value="selectValue(objectValue[field.key])"
-          :placeholder="labels.selectPlaceholder"
+          :placeholder="fieldPlaceholder(field, labels.selectPlaceholder)"
           :disabled="disabled"
           clearable
           @change="(value) => updateObjectField(field.key, value)"
         >
-          <t-option v-for="option in field.schema.enum" :key="String(option)" :value="option" :label="String(option)" />
+          <t-option
+            v-for="option in field.schema.enum"
+            :key="String(option)"
+            :value="option"
+            :label="optionLabel(field, option)"
+          />
         </t-select>
       </template>
       <t-input-number
@@ -25,7 +30,8 @@
         :min="field.schema.minimum"
         :max="field.schema.maximum"
         :decimal-places="field.schema.type === 'integer' ? 0 : undefined"
-        :placeholder="labels.numberPlaceholder"
+        :placeholder="fieldPlaceholder(field, labels.numberPlaceholder)"
+        :suffix="fieldUnit(field)"
         :disabled="disabled"
         @change="(value) => updateObjectField(field.key, value)"
       />
@@ -40,7 +46,7 @@
         :model-value="stringValue(objectValue[field.key])"
         :minlength="field.schema.minLength"
         :maxlength="field.schema.maxLength"
-        :placeholder="labels.stringPlaceholder"
+        :placeholder="fieldPlaceholder(field, labels.stringPlaceholder)"
         :disabled="disabled"
         clearable
         @change="(value) => updateObjectField(field.key, value)"
@@ -120,12 +126,18 @@ const props = withDefaults(
     rootSchema: ConfigSchema;
     titleResolver?: (field: ConfigSchemaField) => string;
     descriptionResolver?: (field: ConfigSchemaField) => string;
+    optionLabelResolver?: (field: ConfigSchemaField, option: string | number | boolean) => string;
+    placeholderResolver?: (field: ConfigSchemaField) => string;
+    unitResolver?: (field: ConfigSchemaField) => string;
   }>(),
   {
     disabled: false,
     fieldPrefix: 'value',
     titleResolver: undefined,
     descriptionResolver: undefined,
+    optionLabelResolver: undefined,
+    placeholderResolver: undefined,
+    unitResolver: undefined,
   },
 );
 
@@ -150,6 +162,20 @@ function fieldTitle(field: ConfigSchemaField) {
 
 function fieldDescription(field: ConfigSchemaField) {
   return props.descriptionResolver?.(field) || field.schema.description || '';
+}
+
+function fieldPlaceholder(field: ConfigSchemaField, fallback: string) {
+  return props.placeholderResolver?.(field) || field.schema.placeholder || fallback;
+}
+
+function fieldUnit(field: ConfigSchemaField) {
+  return props.unitResolver?.(field) || undefined;
+}
+
+function optionLabel(field: ConfigSchemaField, option: string | number | boolean) {
+  return (
+    props.optionLabelResolver?.(field, option) || field.schema.enumLabels?.[String(option)]?.label || String(option)
+  );
 }
 
 function updateObjectField(key: string, value: unknown) {
