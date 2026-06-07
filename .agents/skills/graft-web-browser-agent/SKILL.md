@@ -1,6 +1,6 @@
 ---
 name: graft-web-browser-agent
-description: Repository-specific Playwright browser workflow for inspecting and interacting with the local Graft web UI. Use when Codex changes or reviews frontend UI, layout, navigation, dialogs, forms, or interaction behavior and needs browser screenshots, DOM text snapshots, or simple click/fill/wait checks before normal web validation.
+description: Repository-specific Playwright browser workflow for inspecting, authenticating into, and interacting with the local Graft web UI. Use when Codex needs Graft browser screenshots, DOM text snapshots, login/auth verification with temp credentials, or simple click/fill/wait checks before normal web validation.
 ---
 
 # Graft Web Browser Agent
@@ -14,6 +14,8 @@ Follow root `AGENTS.md` startup governance before using this skill. For frontend
 ## Workflow
 
 1. Confirm the local web app is running, usually with `cd web && bun run dev`.
+   - Default local targets are backend `127.0.0.1:8080` through the Vite proxy and frontend `http://172.21.235.129:3002`.
+   - If those ports are occupied, assume the user may already have the services running; do not start duplicate servers.
 2. Bootstrap the project-local browser environment if `.ai/venv/bin/python` or Playwright is missing:
 
 ```bash
@@ -32,7 +34,23 @@ If bootstrap reports missing Chromium system dependencies, do not claim browser 
   --snapshot-text
 ```
 
-4. Use focused interactions when debugging UI behavior:
+4. For authenticated Graft admin screenshots, use the temp credential file and let the script verify login before capture:
+
+```bash
+.ai/venv/bin/python .agents/skills/graft-web-browser-agent/scripts/browser_agent.py \
+  --url http://172.21.235.129:3002 \
+  --login \
+  --credentials temp/username-passward.md \
+  --session auth-check \
+  --screenshot \
+  --snapshot-text
+```
+
+The login helper accepts `username` / `account` / `user` and `password` / `passward` / `passwd` / `pwd` fields. It
+writes only redacted auth status to `summary.json`; do not print or commit credential values, access tokens, or session
+storage dumps.
+
+5. Use focused interactions when debugging UI behavior:
 
 ```bash
 .ai/venv/bin/python .agents/skills/graft-web-browser-agent/scripts/browser_agent.py \
@@ -44,7 +62,17 @@ If bootstrap reports missing Chromium system dependencies, do not claim browser 
   --screenshot
 ```
 
-5. Use the browser evidence to guide fixes, then run the normal repository validation required by the changed scope.
+6. Use the browser evidence to guide fixes, then run the normal repository validation required by the changed scope.
+
+## Auth Failure Triage
+
+When login fails:
+
+- Verify the credential file can be parsed without printing secret values.
+- Probe `http://172.21.235.129:3002/api/auth/login` through the frontend proxy before blaming the browser.
+- Use `.ai/venv/bin/python`, not system `python3`; the system interpreter may not have Playwright installed.
+- Inspect `.ai/artifacts/browser/<session>/summary.json` for `/api/auth/login` and `/api/auth/bootstrap` statuses.
+- Treat a final `/login` URL after `--login` as an authentication failure even if a screenshot exists.
 
 ## Cleanup Rule
 
@@ -61,7 +89,7 @@ If the user chooses to keep artifacts for the current conversation, report the r
 ## Scripts
 
 - `scripts/bootstrap.sh` creates `.ai/venv`, installs `.ai/browser/requirements.txt`, and installs Chromium into `.ai/ms-playwright`.
-- `scripts/browser_agent.py` opens a URL, applies simple actions, waits, writes screenshots, and optionally writes visible page text.
+- `scripts/browser_agent.py` opens a URL, optionally authenticates with temp credentials, applies simple actions, waits, writes screenshots, and optionally writes visible page text.
 - `scripts/cleanup.sh` removes one session, all browser artifacts, or artifacts older than a given age.
 
 ## Boundaries
