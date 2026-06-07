@@ -57,6 +57,26 @@ func (_u *PermissionUpdate) SetNillableDisplay(v *string) *PermissionUpdate {
 	return _u
 }
 
+// SetDisplayKey sets the "display_key" field.
+func (_u *PermissionUpdate) SetDisplayKey(v string) *PermissionUpdate {
+	_u.mutation.SetDisplayKey(v)
+	return _u
+}
+
+// SetNillableDisplayKey sets the "display_key" field if the given value is not nil.
+func (_u *PermissionUpdate) SetNillableDisplayKey(v *string) *PermissionUpdate {
+	if v != nil {
+		_u.SetDisplayKey(*v)
+	}
+	return _u
+}
+
+// ClearDisplayKey clears the value of the "display_key" field.
+func (_u *PermissionUpdate) ClearDisplayKey() *PermissionUpdate {
+	_u.mutation.ClearDisplayKey()
+	return _u
+}
+
 // SetDescription sets the "description" field.
 func (_u *PermissionUpdate) SetDescription(v string) *PermissionUpdate {
 	_u.mutation.SetDescription(v)
@@ -74,6 +94,26 @@ func (_u *PermissionUpdate) SetNillableDescription(v *string) *PermissionUpdate 
 // ClearDescription clears the value of the "description" field.
 func (_u *PermissionUpdate) ClearDescription() *PermissionUpdate {
 	_u.mutation.ClearDescription()
+	return _u
+}
+
+// SetDescriptionKey sets the "description_key" field.
+func (_u *PermissionUpdate) SetDescriptionKey(v string) *PermissionUpdate {
+	_u.mutation.SetDescriptionKey(v)
+	return _u
+}
+
+// SetNillableDescriptionKey sets the "description_key" field if the given value is not nil.
+func (_u *PermissionUpdate) SetNillableDescriptionKey(v *string) *PermissionUpdate {
+	if v != nil {
+		_u.SetDescriptionKey(*v)
+	}
+	return _u
+}
+
+// ClearDescriptionKey clears the value of the "description_key" field.
+func (_u *PermissionUpdate) ClearDescriptionKey() *PermissionUpdate {
+	_u.mutation.ClearDescriptionKey()
 	return _u
 }
 
@@ -275,11 +315,23 @@ func (_u *PermissionUpdate) sqlSave(ctx context.Context) (_node int, err error) 
 	if value, ok := _u.mutation.Display(); ok {
 		_spec.SetField(permission.FieldDisplay, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.DisplayKey(); ok {
+		_spec.SetField(permission.FieldDisplayKey, field.TypeString, value)
+	}
+	if _u.mutation.DisplayKeyCleared() {
+		_spec.ClearField(permission.FieldDisplayKey, field.TypeString)
+	}
 	if value, ok := _u.mutation.Description(); ok {
 		_spec.SetField(permission.FieldDescription, field.TypeString, value)
 	}
 	if _u.mutation.DescriptionCleared() {
 		_spec.ClearField(permission.FieldDescription, field.TypeString)
+	}
+	if value, ok := _u.mutation.DescriptionKey(); ok {
+		_spec.SetField(permission.FieldDescriptionKey, field.TypeString, value)
+	}
+	if _u.mutation.DescriptionKeyCleared() {
+		_spec.ClearField(permission.FieldDescriptionKey, field.TypeString)
 	}
 	if value, ok := _u.mutation.Category(); ok {
 		_spec.SetField(permission.FieldCategory, field.TypeString, value)
@@ -398,6 +450,26 @@ func (_u *PermissionUpdateOne) SetNillableDisplay(v *string) *PermissionUpdateOn
 	return _u
 }
 
+// SetDisplayKey sets the "display_key" field.
+func (_u *PermissionUpdateOne) SetDisplayKey(v string) *PermissionUpdateOne {
+	_u.mutation.SetDisplayKey(v)
+	return _u
+}
+
+// SetNillableDisplayKey sets the "display_key" field if the given value is not nil.
+func (_u *PermissionUpdateOne) SetNillableDisplayKey(v *string) *PermissionUpdateOne {
+	if v != nil {
+		_u.SetDisplayKey(*v)
+	}
+	return _u
+}
+
+// ClearDisplayKey clears the value of the "display_key" field.
+func (_u *PermissionUpdateOne) ClearDisplayKey() *PermissionUpdateOne {
+	_u.mutation.ClearDisplayKey()
+	return _u
+}
+
 // SetDescription sets the "description" field.
 func (_u *PermissionUpdateOne) SetDescription(v string) *PermissionUpdateOne {
 	_u.mutation.SetDescription(v)
@@ -415,6 +487,26 @@ func (_u *PermissionUpdateOne) SetNillableDescription(v *string) *PermissionUpda
 // ClearDescription clears the value of the "description" field.
 func (_u *PermissionUpdateOne) ClearDescription() *PermissionUpdateOne {
 	_u.mutation.ClearDescription()
+	return _u
+}
+
+// SetDescriptionKey sets the "description_key" field.
+func (_u *PermissionUpdateOne) SetDescriptionKey(v string) *PermissionUpdateOne {
+	_u.mutation.SetDescriptionKey(v)
+	return _u
+}
+
+// SetNillableDescriptionKey sets the "description_key" field if the given value is not nil.
+func (_u *PermissionUpdateOne) SetNillableDescriptionKey(v *string) *PermissionUpdateOne {
+	if v != nil {
+		_u.SetDescriptionKey(*v)
+	}
+	return _u
+}
+
+// ClearDescriptionKey clears the value of the "description_key" field.
+func (_u *PermissionUpdateOne) ClearDescriptionKey() *PermissionUpdateOne {
+	_u.mutation.ClearDescriptionKey()
 	return _u
 }
 
@@ -646,11 +738,23 @@ func (_u *PermissionUpdateOne) sqlSave(ctx context.Context) (_node *Permission, 
 	if value, ok := _u.mutation.Display(); ok {
 		_spec.SetField(permission.FieldDisplay, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.DisplayKey(); ok {
+		_spec.SetField(permission.FieldDisplayKey, field.TypeString, value)
+	}
+	if _u.mutation.DisplayKeyCleared() {
+		_spec.ClearField(permission.FieldDisplayKey, field.TypeString)
+	}
 	if value, ok := _u.mutation.Description(); ok {
 		_spec.SetField(permission.FieldDescription, field.TypeString, value)
 	}
 	if _u.mutation.DescriptionCleared() {
 		_spec.ClearField(permission.FieldDescription, field.TypeString)
+	}
+	if value, ok := _u.mutation.DescriptionKey(); ok {
+		_spec.SetField(permission.FieldDescriptionKey, field.TypeString, value)
+	}
+	if _u.mutation.DescriptionKeyCleared() {
+		_spec.ClearField(permission.FieldDescriptionKey, field.TypeString)
 	}
 	if value, ok := _u.mutation.Category(); ok {
 		_spec.SetField(permission.FieldCategory, field.TypeString, value)

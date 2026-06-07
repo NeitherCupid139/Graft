@@ -19,6 +19,9 @@ var (
 	// ErrRoleBuiltinImmutable 表示 builtin 角色不允许执行禁用或删除等破坏性生命周期操作。
 	ErrRoleBuiltinImmutable = errors.New("builtin role is immutable")
 
+	// ErrRolePermissionsImmutable 表示目标角色的权限绑定不允许被修改。
+	ErrRolePermissionsImmutable = errors.New("role permissions are immutable")
+
 	// ErrRoleEnabledDeletionForbidden 表示启用中的角色不能直接删除。
 	ErrRoleEnabledDeletionForbidden = errors.New("enabled role cannot be deleted")
 
@@ -58,7 +61,9 @@ type Permission struct {
 	ID               uint64
 	Code             string
 	Display          string
+	DisplayKey       *string
 	Description      *string
+	DescriptionKey   *string
 	Category         string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
@@ -94,10 +99,12 @@ type EnsureRoleInput struct {
 
 // EnsurePermissionInput 描述一次最小权限存在性保障所需的输入。
 type EnsurePermissionInput struct {
-	Code        string
-	Display     string
-	Description *string
-	Category    string
+	Code           string
+	Display        string
+	DisplayKey     *string
+	Description    *string
+	DescriptionKey *string
+	Category       string
 }
 
 // CreateRoleInput 描述一次显式角色创建所需的输入。

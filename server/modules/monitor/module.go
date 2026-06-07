@@ -255,11 +255,13 @@ func registerMonitorPermissions(registry *permission.Registry, moduleName string
 	}
 
 	registry.Register(permission.Item{
-		Code:        monitorcontract.ServerStatusReadPermission.String(),
-		Name:        "Read Server Status",
-		Description: "Allows reading the server status overview.",
-		Category:    "api",
-		Module:      moduleName,
+		Code:           monitorcontract.ServerStatusReadPermission.String(),
+		Name:           "Read Server Status",
+		DisplayKey:     "rbac.permissionCatalog.monitorServerStatusRead.display",
+		Description:    "Allows reading the server status overview.",
+		DescriptionKey: "rbac.permissionCatalog.monitorServerStatusRead.description",
+		Category:       "api",
+		Module:         moduleName,
 	})
 }
 

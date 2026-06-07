@@ -65,6 +65,9 @@ const (
 	// RbacCannotRemoveOwnAdminRole identifies self-lockout prevention failures for builtin admin role replacement.
 	RbacCannotRemoveOwnAdminRole Key = "rbac.cannot_remove_own_admin_role"
 
+	// RbacBuiltinAdminPermissionsImmutable identifies builtin admin role permission mutation failures.
+	RbacBuiltinAdminPermissionsImmutable Key = "rbac.builtin_admin_permissions_immutable"
+
 	// UserNotFound identifies missing-user failures surfaced by auth-adjacent flows.
 	UserNotFound Key = "user.not_found"
 

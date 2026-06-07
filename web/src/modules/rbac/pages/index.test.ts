@@ -25,7 +25,7 @@ const messageMocks = vi.hoisted(() => ({
   warning: vi.fn(),
 }));
 
-const confirmMock = vi.hoisted(() => vi.fn(() => true));
+const dialogConfirmMock = vi.hoisted(() => vi.fn());
 
 const permissionState = vi.hoisted(() => ({
   grantedCodes: [] as string[],
@@ -69,6 +69,8 @@ vi.mock('@/store', () => ({
 vi.mock('vue-i18n', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-i18n')>();
   const translations: Record<string, string> = {
+    'rbac.permissionCatalog.futureRead.display': 'Future Read Localized',
+    'rbac.permissionCatalog.futureRead.description': 'Future description localized',
     'rbac.permissionCatalog.permissionRead.display': 'Read Permissions Localized',
     'rbac.permissionCatalog.permissionRead.description': 'Localized permission description',
     'rbac.permissionCatalog.roleUpdate.display': 'Update Roles Localized',
@@ -97,14 +99,15 @@ vi.mock('vue-router', () => ({
 }));
 
 vi.mock('tdesign-vue-next', () => ({
+  DialogPlugin: {
+    confirm: dialogConfirmMock,
+  },
   MessagePlugin: {
     error: messageMocks.error,
     success: messageMocks.success,
     warning: messageMocks.warning,
   },
 }));
-
-vi.stubGlobal('confirm', confirmMock);
 
 const passthroughStub = defineComponent({
   name: 'PassthroughStub',
@@ -458,6 +461,24 @@ function createRoleListResponse() {
   };
 }
 
+function createBuiltinAdminRoleListResponse() {
+  return {
+    items: [
+      {
+        id: 1,
+        name: 'admin',
+        display: 'Administrator',
+        description: 'Builtin administrator',
+        builtin: true,
+        status: 'enabled',
+        updated_at: '2026-05-18T00:00:00Z',
+        permission_count: 3,
+        user_count: 1,
+      },
+    ],
+  };
+}
+
 function createPermissionListResponse() {
   return {
     items: [
@@ -558,8 +579,7 @@ describe('RolePage', () => {
   beforeEach(() => {
     permissionState.grantedCodes = [];
     tabSnapshotState.snapshots = {};
-    confirmMock.mockReset();
-    confirmMock.mockReturnValue(true);
+    dialogConfirmMock.mockReset();
     rbacApiMocks.addRolePermissions.mockReset();
     rbacApiMocks.createRole.mockReset();
     rbacApiMocks.deleteRole.mockReset();
@@ -769,7 +789,8 @@ describe('RolePage', () => {
     rbacApiMocks.getRoles.mockResolvedValue(createRoleListResponse());
     rbacApiMocks.getPermissions.mockResolvedValue(createPermissionListResponse());
     rbacApiMocks.getRolePermissionBindings.mockResolvedValue({ permission_ids: [1] });
-    confirmMock.mockReturnValueOnce(false);
+    const dialogInstance = { destroy: vi.fn() };
+    dialogConfirmMock.mockReturnValueOnce(dialogInstance);
 
     const wrapper = mountRolePage();
     await flushPromises();
@@ -782,7 +803,13 @@ describe('RolePage', () => {
     await wrapper.get('[data-testid="permission-drawer-cancel"]').trigger('click');
     await flushPromises();
 
-    expect(confirmMock).toHaveBeenCalledWith('rbac.roleList.permissionDialog.unsavedChangesConfirm');
+    expect(dialogConfirmMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: 'rbac.roleList.permissionDialog.unsavedChangesConfirm',
+        header: 'rbac.roleList.permissionDialog.unsavedChangesTitle',
+        theme: 'warning',
+      }),
+    );
     expect(wrapper.find('[data-testid="permission-drawer"]').exists()).toBe(true);
   });
 
@@ -880,6 +907,53 @@ describe('RolePage', () => {
     expect(wrapper.text()).not.toContain('Read permissions');
     expect(wrapper.text()).not.toContain('Audit Read');
     expect(wrapper.text()).not.toContain('Read audit logs');
+  });
+
+  it('prefers backend permission locale keys when they are present', async () => {
+    permissionState.grantedCodes = [RBAC_PERMISSION_CODE.PERMISSION_READ, RBAC_PERMISSION_CODE.ROLE_PERMISSION_ASSIGN];
+    rbacApiMocks.getRoles.mockResolvedValue(createRoleListResponse());
+    rbacApiMocks.getPermissions.mockResolvedValue({
+      items: [
+        {
+          id: 9,
+          code: 'future.read',
+          display: 'Raw Permission Name',
+          display_key: 'rbac.permissionCatalog.futureRead.display',
+          description: 'Raw permission description',
+          description_key: 'rbac.permissionCatalog.futureRead.description',
+          category: 'future',
+          role_binding_count: 0,
+        },
+      ],
+    });
+    rbacApiMocks.getRolePermissionBindings.mockResolvedValue({ permission_ids: [] });
+
+    const wrapper = mountRolePage();
+    await flushPromises();
+
+    await wrapper.get('[data-testid="role-assign-permissions"]').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('Future Read Localized');
+    expect(wrapper.text()).toContain('Future description localized');
+    expect(wrapper.text()).not.toContain('Raw Permission Name');
+    expect(wrapper.text()).not.toContain('Raw permission description');
+  });
+
+  it('disables permission changes for the built-in admin role', async () => {
+    permissionState.grantedCodes = [RBAC_PERMISSION_CODE.PERMISSION_READ, RBAC_PERMISSION_CODE.ROLE_PERMISSION_ASSIGN];
+    rbacApiMocks.getRoles.mockResolvedValue(createBuiltinAdminRoleListResponse());
+    rbacApiMocks.getPermissions.mockResolvedValue(createPermissionListResponse());
+
+    const wrapper = mountRolePage();
+    await flushPromises();
+
+    expect(wrapper.get('[data-testid="role-assign-permissions"]').attributes('disabled')).toBeDefined();
+    await wrapper.get('[data-testid="role-assign-permissions"]').trigger('click');
+    await flushPromises();
+
+    expect(rbacApiMocks.getRolePermissionBindings).not.toHaveBeenCalled();
+    expect(wrapper.find('[data-testid="permission-drawer"]').exists()).toBe(false);
   });
 
   it('matches permission search against localized copy', async () => {

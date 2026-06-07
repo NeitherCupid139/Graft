@@ -36,8 +36,16 @@ func (Permission) Fields() []ent.Field {
 		field.String("display").
 			Comment("权限点显示名称").
 			NotEmpty(),
+		field.String("display_key").
+			Comment("权限点显示名称本地化 key").
+			Optional().
+			Nillable(),
 		field.String("description").
 			Comment("权限点描述").
+			Optional().
+			Nillable(),
+		field.String("description_key").
+			Comment("权限点描述本地化 key").
 			Optional().
 			Nillable(),
 		field.String("category").

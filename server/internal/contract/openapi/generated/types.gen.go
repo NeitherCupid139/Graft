@@ -2832,14 +2832,20 @@ type PermissionListItem struct {
 	Code      string `json:"code"`
 	CreatedAt string `json:"created_at"`
 
-	// Description Current server-provided fallback description text. A future key-based localization contract would be additive.
+	// Description Server-provided fallback description text. Consumers should prefer description_key when present.
 	Description *string `json:"description,omitempty"`
 
-	// Display Current server-provided fallback display text. This schema does not yet expose a canonical display_key contract.
-	Display          string `json:"display"`
-	Id               int64  `json:"id"`
-	RoleBindingCount int    `json:"role_binding_count"`
-	UpdatedAt        string `json:"updated_at"`
+	// DescriptionKey Stable localization key for the permission description text.
+	DescriptionKey *string `json:"description_key,omitempty"`
+
+	// Display Server-provided fallback display text. Consumers should prefer display_key when present.
+	Display string `json:"display"`
+
+	// DisplayKey Stable localization key for the permission display text.
+	DisplayKey       *string `json:"display_key,omitempty"`
+	Id               int64   `json:"id"`
+	RoleBindingCount int     `json:"role_binding_count"`
+	UpdatedAt        string  `json:"updated_at"`
 }
 
 // PermissionListResponse defines model for permission-list-response.

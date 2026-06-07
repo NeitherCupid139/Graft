@@ -33,6 +33,20 @@ func (_c *PermissionCreate) SetDisplay(v string) *PermissionCreate {
 	return _c
 }
 
+// SetDisplayKey sets the "display_key" field.
+func (_c *PermissionCreate) SetDisplayKey(v string) *PermissionCreate {
+	_c.mutation.SetDisplayKey(v)
+	return _c
+}
+
+// SetNillableDisplayKey sets the "display_key" field if the given value is not nil.
+func (_c *PermissionCreate) SetNillableDisplayKey(v *string) *PermissionCreate {
+	if v != nil {
+		_c.SetDisplayKey(*v)
+	}
+	return _c
+}
+
 // SetDescription sets the "description" field.
 func (_c *PermissionCreate) SetDescription(v string) *PermissionCreate {
 	_c.mutation.SetDescription(v)
@@ -43,6 +57,20 @@ func (_c *PermissionCreate) SetDescription(v string) *PermissionCreate {
 func (_c *PermissionCreate) SetNillableDescription(v *string) *PermissionCreate {
 	if v != nil {
 		_c.SetDescription(*v)
+	}
+	return _c
+}
+
+// SetDescriptionKey sets the "description_key" field.
+func (_c *PermissionCreate) SetDescriptionKey(v string) *PermissionCreate {
+	_c.mutation.SetDescriptionKey(v)
+	return _c
+}
+
+// SetNillableDescriptionKey sets the "description_key" field if the given value is not nil.
+func (_c *PermissionCreate) SetNillableDescriptionKey(v *string) *PermissionCreate {
+	if v != nil {
+		_c.SetDescriptionKey(*v)
 	}
 	return _c
 }
@@ -303,9 +331,17 @@ func (_c *PermissionCreate) createSpec() (*Permission, *sqlgraph.CreateSpec) {
 		_spec.SetField(permission.FieldDisplay, field.TypeString, value)
 		_node.Display = value
 	}
+	if value, ok := _c.mutation.DisplayKey(); ok {
+		_spec.SetField(permission.FieldDisplayKey, field.TypeString, value)
+		_node.DisplayKey = &value
+	}
 	if value, ok := _c.mutation.Description(); ok {
 		_spec.SetField(permission.FieldDescription, field.TypeString, value)
 		_node.Description = &value
+	}
+	if value, ok := _c.mutation.DescriptionKey(); ok {
+		_spec.SetField(permission.FieldDescriptionKey, field.TypeString, value)
+		_node.DescriptionKey = &value
 	}
 	if value, ok := _c.mutation.Category(); ok {
 		_spec.SetField(permission.FieldCategory, field.TypeString, value)

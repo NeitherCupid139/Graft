@@ -4,9 +4,15 @@ package permission
 // Item 表示一个由模块声明的权限点。
 type Item struct {
 	// Code 是权限点的稳定编码，路由、菜单与鉴权策略都应围绕它对齐。
-	Code        string
-	Name        string
+	Code string
+	// Name 是权限展示 fallback 文案；key-aware 消费端应优先使用 DisplayKey。
+	Name string
+	// DisplayKey 是权限展示名称的稳定本地化 key。
+	DisplayKey string
+	// Description 是权限说明 fallback 文案；key-aware 消费端应优先使用 DescriptionKey。
 	Description string
+	// DescriptionKey 是权限说明的稳定本地化 key。
+	DescriptionKey string
 	// Category 是权限点的稳定分类元数据，由权限声明侧提供 canonical 真值。
 	Category string
 	// Module 标记权限声明来源，便于定位冲突与后续按模块聚合能力。

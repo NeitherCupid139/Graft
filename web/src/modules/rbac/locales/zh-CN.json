@@ -111,7 +111,10 @@
         },
         "addSelectionCount": "本次将追加 {count} 项权限",
         "removeSelectionCount": "本次将移除 {count} 项权限",
+        "builtinAdminImmutable": "内置管理员角色不允许变更权限。",
+        "discardChanges": "放弃变更",
         "unsavedChangesConfirm": "当前权限变更尚未保存，确认取消吗？",
+        "unsavedChangesTitle": "放弃权限变更",
         "summary": {
           "assigned": "当前已拥有"
         },
@@ -231,6 +234,50 @@
       "monitorServerStatusRead": {
         "display": "读取服务器状态",
         "description": "允许读取服务器状态概览。"
+      },
+      "moduleRuntimeRead": {
+        "display": "读取模块运行时",
+        "description": "允许读取核心模块运行时快照。"
+      },
+      "accessLogRead": {
+        "display": "读取访问日志",
+        "description": "允许读取规范访问日志检索数据。"
+      },
+      "appLogRead": {
+        "display": "读取应用日志",
+        "description": "允许读取日志模块拥有的应用日志检索数据。"
+      },
+      "systemConfigRead": {
+        "display": "读取系统配置",
+        "description": "允许读取已注册的系统配置定义和生效值。"
+      },
+      "systemConfigWrite": {
+        "display": "更新系统配置",
+        "description": "允许写入和重置管理员配置覆盖值。"
+      },
+      "scheduledTaskRead": {
+        "display": "读取定时任务",
+        "description": "允许读取定时任务运行时数据和执行历史。"
+      },
+      "scheduledTaskCreate": {
+        "display": "创建定时任务",
+        "description": "允许创建用户管理的定时任务实例。"
+      },
+      "scheduledTaskUpdate": {
+        "display": "更新定时任务",
+        "description": "允许更新定时任务定义。"
+      },
+      "scheduledTaskDelete": {
+        "display": "删除定时任务",
+        "description": "允许删除用户管理的定时任务实例。"
+      },
+      "scheduledTaskRun": {
+        "display": "运行定时任务",
+        "description": "允许手动运行定时任务运行时作业。"
+      },
+      "scheduledTaskEnable": {
+        "display": "启停定时任务",
+        "description": "允许启用和停用定时任务。"
       },
       "auditRead": {
         "display": "读取审计日志",

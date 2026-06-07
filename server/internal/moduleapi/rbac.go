@@ -4,10 +4,12 @@ import "context"
 
 // PermissionSeed 描述 RBAC 初始化或对齐权限点时需要的最小稳定元数据。
 type PermissionSeed struct {
-	Code        string
-	Display     string
-	Description string
-	Category    string
+	Code           string
+	Display        string
+	DisplayKey     string
+	Description    string
+	DescriptionKey string
+	Category       string
 }
 
 // RoleSummary 描述跨模块可读的最小角色摘要。

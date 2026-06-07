@@ -62,6 +62,9 @@ const (
 	// RbacCannotRemoveOwnAdminRole identifies self-lockout prevention failures for builtin admin role replacement.
 	RbacCannotRemoveOwnAdminRole Code = "RBAC_CANNOT_REMOVE_OWN_ADMIN_ROLE"
 
+	// RbacBuiltinAdminPermissionsImmutable identifies builtin admin permission mutation failures.
+	RbacBuiltinAdminPermissionsImmutable Code = "RBAC_BUILTIN_ADMIN_PERMISSIONS_IMMUTABLE"
+
 	// OK identifies the stable success response code.
 	OK Code = "OK"
 
@@ -76,24 +79,25 @@ const (
 )
 
 var messageKeyCodes = map[messagecontract.Key]Code{
-	messagecontract.AuthCurrentPasswordInvalid:   AuthCurrentPasswordInvalid,
-	messagecontract.AuthForbidden:                AuthForbidden,
-	messagecontract.AuthInvalidCredentials:       AuthInvalidCredentials,
-	messagecontract.AuthInvalidRefreshSession:    AuthInvalidRefreshSession,
-	messagecontract.AuthMissingActor:             AuthMissingActor,
-	messagecontract.AuthMissingPermission:        AuthMissingPermission,
-	messagecontract.AuthPasswordPolicyViolation:  AuthPasswordPolicyViolation,
-	messagecontract.AuthPasswordReuseForbidden:   AuthPasswordReuseForbidden,
-	messagecontract.AuthSessionNotFound:          AuthSessionNotFound,
-	messagecontract.AuthTokenExpired:             AuthTokenExpired,
-	messagecontract.AuthTokenInvalid:             AuthTokenInvalid,
-	messagecontract.AuthTokenMissing:             AuthTokenMissing,
-	messagecontract.CommonInternalError:          CommonInternalError,
-	messagecontract.CommonInvalidArgument:        CommonInvalidArgument,
-	messagecontract.RbacCannotRemoveOwnAdminRole: RbacCannotRemoveOwnAdminRole,
-	messagecontract.PermissionNotFound:           PermissionNotFound,
-	messagecontract.RoleNotFound:                 RoleNotFound,
-	messagecontract.UserNotFound:                 UserNotFound,
+	messagecontract.AuthCurrentPasswordInvalid:           AuthCurrentPasswordInvalid,
+	messagecontract.AuthForbidden:                        AuthForbidden,
+	messagecontract.AuthInvalidCredentials:               AuthInvalidCredentials,
+	messagecontract.AuthInvalidRefreshSession:            AuthInvalidRefreshSession,
+	messagecontract.AuthMissingActor:                     AuthMissingActor,
+	messagecontract.AuthMissingPermission:                AuthMissingPermission,
+	messagecontract.AuthPasswordPolicyViolation:          AuthPasswordPolicyViolation,
+	messagecontract.AuthPasswordReuseForbidden:           AuthPasswordReuseForbidden,
+	messagecontract.AuthSessionNotFound:                  AuthSessionNotFound,
+	messagecontract.AuthTokenExpired:                     AuthTokenExpired,
+	messagecontract.AuthTokenInvalid:                     AuthTokenInvalid,
+	messagecontract.AuthTokenMissing:                     AuthTokenMissing,
+	messagecontract.CommonInternalError:                  CommonInternalError,
+	messagecontract.CommonInvalidArgument:                CommonInvalidArgument,
+	messagecontract.RbacCannotRemoveOwnAdminRole:         RbacCannotRemoveOwnAdminRole,
+	messagecontract.RbacBuiltinAdminPermissionsImmutable: RbacBuiltinAdminPermissionsImmutable,
+	messagecontract.PermissionNotFound:                   PermissionNotFound,
+	messagecontract.RoleNotFound:                         RoleNotFound,
+	messagecontract.UserNotFound:                         UserNotFound,
 }
 
 // FromMessageKey resolves the canonical response code for a stable message key.

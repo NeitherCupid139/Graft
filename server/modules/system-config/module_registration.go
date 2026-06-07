@@ -103,18 +103,22 @@ func registerSystemConfigPermissions(registry *permission.Registry, moduleName s
 	}
 
 	registry.Register(permission.Item{
-		Code:        systemconfigcontract.SystemConfigReadPermission.String(),
-		Name:        "Read System Configuration",
-		Description: "Allows reading registered system configuration definitions and effective values.",
-		Category:    "api",
-		Module:      moduleName,
+		Code:           systemconfigcontract.SystemConfigReadPermission.String(),
+		Name:           "Read System Configuration",
+		DisplayKey:     "rbac.permissionCatalog.systemConfigRead.display",
+		Description:    "Allows reading registered system configuration definitions and effective values.",
+		DescriptionKey: "rbac.permissionCatalog.systemConfigRead.description",
+		Category:       "api",
+		Module:         moduleName,
 	})
 	registry.Register(permission.Item{
-		Code:        systemconfigcontract.SystemConfigWritePermission.String(),
-		Name:        "Update System Configuration",
-		Description: "Allows writing and resetting administrator configuration overrides.",
-		Category:    "api",
-		Module:      moduleName,
+		Code:           systemconfigcontract.SystemConfigWritePermission.String(),
+		Name:           "Update System Configuration",
+		DisplayKey:     "rbac.permissionCatalog.systemConfigWrite.display",
+		Description:    "Allows writing and resetting administrator configuration overrides.",
+		DescriptionKey: "rbac.permissionCatalog.systemConfigWrite.description",
+		Category:       "api",
+		Module:         moduleName,
 	})
 	return nil
 }

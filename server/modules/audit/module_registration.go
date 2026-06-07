@@ -26,11 +26,13 @@ func registerAuditPermissions(registry *permission.Registry, moduleName string) 
 	}
 
 	registry.Register(permission.Item{
-		Code:        auditcontract.AuditReadPermission.String(),
-		Name:        "Read Audit Logs",
-		Description: "Allows reading audit-log records and filters.",
-		Category:    "api",
-		Module:      moduleName,
+		Code:           auditcontract.AuditReadPermission.String(),
+		Name:           "Read Audit Logs",
+		DisplayKey:     "rbac.permissionCatalog.auditRead.display",
+		Description:    "Allows reading audit-log records and filters.",
+		DescriptionKey: "rbac.permissionCatalog.auditRead.description",
+		Category:       "api",
+		Module:         moduleName,
 	})
 }
 

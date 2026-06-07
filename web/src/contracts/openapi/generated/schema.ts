@@ -1594,10 +1594,14 @@ export interface components {
       id: number;
       /** @description Stable permission code contract. */
       code: string;
-      /** @description Current server-provided fallback display text. This schema does not yet expose a canonical display_key contract. */
+      /** @description Server-provided fallback display text. Consumers should prefer display_key when present. */
       display: string;
-      /** @description Current server-provided fallback description text. A future key-based localization contract would be additive. */
+      /** @description Stable localization key for the permission display text. */
+      display_key?: string;
+      /** @description Server-provided fallback description text. Consumers should prefer description_key when present. */
       description?: string;
+      /** @description Stable localization key for the permission description text. */
+      description_key?: string;
       category: string;
       created_at: string;
       updated_at: string;

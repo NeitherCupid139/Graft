@@ -348,6 +348,7 @@
 </template>
 <script setup lang="ts">
 import {
+  DialogPlugin,
   type FormRule,
   type FormValidateMessage,
   MessagePlugin,
@@ -747,7 +748,7 @@ function roleRowActions(role: RoleListItem) {
 
   if (canAssignPermissions.value) {
     actions.push({
-      disabled: !canOpenPermissionDrawer.value,
+      disabled: !canOpenPermissionDrawer.value || isBuiltinAdminRole(role),
       label: t('rbac.roleList.assignPermissions'),
       testId: 'role-assign-permissions',
       value: 'assign-permissions',
@@ -996,6 +997,10 @@ function roleDeleteLifecycleHint(role: RoleStatusCompat) {
 function roleRemark(role: RoleListItem) {
   const remark = resolveRoleRemark(role).trim();
   return remark || '-';
+}
+
+function isBuiltinAdminRole(role: Pick<RoleListItem, 'builtin' | 'name'>) {
+  return role.builtin === true && role.name === 'admin';
 }
 
 function normalizeDescription(description: string) {
@@ -1282,6 +1287,11 @@ async function loadRolePermissionSelection(roleId: number, session: number) {
 }
 
 async function openPermissionDrawer(role: RoleListItem) {
+  if (isBuiltinAdminRole(role)) {
+    MessagePlugin.warning(t('rbac.roleList.permissionDialog.builtinAdminImmutable'));
+    return;
+  }
+
   if (!canOpenPermissionDrawer.value) {
     MessagePlugin.warning(permissionCatalogError.value || t('rbac.roleList.permissionUnavailable'));
     return;
@@ -1323,10 +1333,17 @@ function requestClosePermissionDrawer() {
     return;
   }
 
-  const confirmed = window.confirm(t('rbac.roleList.permissionDialog.unsavedChangesConfirm'));
-  if (confirmed) {
-    closePermissionDrawer();
-  }
+  const dialog = DialogPlugin.confirm({
+    header: t('rbac.roleList.permissionDialog.unsavedChangesTitle'),
+    body: t('rbac.roleList.permissionDialog.unsavedChangesConfirm'),
+    theme: 'warning',
+    confirmBtn: t('rbac.roleList.permissionDialog.discardChanges'),
+    cancelBtn: t('rbac.roleList.form.cancel'),
+    onConfirm: () => {
+      dialog.destroy();
+      closePermissionDrawer();
+    },
+  });
 }
 
 async function retryPermissionDrawerLoad() {
@@ -1379,6 +1396,11 @@ async function mutateRolePermissions(
 
 async function submitPermissionAssignment() {
   if (!selectedRole.value || !canSubmitPermissionAssignment.value || loadingRolePermissions.value) {
+    return;
+  }
+
+  if (isBuiltinAdminRole(selectedRole.value)) {
+    MessagePlugin.warning(t('rbac.roleList.permissionDialog.builtinAdminImmutable'));
     return;
   }
 

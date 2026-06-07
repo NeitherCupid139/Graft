@@ -663,6 +663,9 @@ func TestPermissionRoutesListPermissions(t *testing.T) {
 				ID:               1,
 				Code:             rbaccontract.PermissionReadPermission.String(),
 				Display:          "Read Permissions",
+				DisplayKey:       testStringPtr("rbac.permissionCatalog.permissionRead.display"),
+				Description:      testStringPtr("Allows reading permission management data."),
+				DescriptionKey:   testStringPtr("rbac.permissionCatalog.permissionRead.description"),
 				Category:         "api",
 				CreatedAt:        time.Date(2026, time.May, 22, 9, 0, 0, 0, time.UTC),
 				UpdatedAt:        time.Date(2026, time.May, 23, 10, 30, 0, 0, time.UTC),
@@ -694,6 +697,50 @@ func TestPermissionRoutesListPermissions(t *testing.T) {
 		item.RoleBindingCount != 2 {
 		t.Fatalf("unexpected permission payload: %#v", item)
 	}
+	if item.DisplayKey == nil || *item.DisplayKey != "rbac.permissionCatalog.permissionRead.display" ||
+		item.DescriptionKey == nil || *item.DescriptionKey != "rbac.permissionCatalog.permissionRead.description" {
+		t.Fatalf("expected permission i18n keys in payload, got %#v", item)
+	}
+}
+
+func TestRolePermissionAssignRouteRejectsBuiltinAdminPermissionChanges(t *testing.T) {
+	repo := testRBACRepository{
+		roleByID: map[uint64]store.Role{
+			1: {ID: 1, Name: builtinAdminRoleName, Display: "管理员", Builtin: true},
+		},
+		permissions: []store.Permission{
+			{ID: 2, Code: "user.read"},
+		},
+		replacePermission: func(_ context.Context, _ store.ReplacePermissionsForRoleInput) error {
+			t.Fatal("builtin admin permissions must not be replaced")
+			return nil
+		},
+		permissionsByUser: []store.Permission{{Code: rbaccontract.RolePermissionAssignPermission.String()}},
+	}
+	_, engine := newModuleTestContext(t, repo)
+
+	recorder := httptest.NewRecorder()
+	request := newAuthorizedJSONRequest(http.MethodPost, "/api/roles/1/permissions/replace", map[string]any{
+		"permission_ids": []uint64{2},
+	})
+	request.Header.Set(i18n.LocaleHeader, "en-US")
+	engine.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("expected status 403, got %d", recorder.Code)
+	}
+	var payload httpx.ErrorResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if payload.MessageKey != messagecontract.RbacBuiltinAdminPermissionsImmutable.String() ||
+		payload.Code != "RBAC_BUILTIN_ADMIN_PERMISSIONS_IMMUTABLE" {
+		t.Fatalf("unexpected builtin-admin-permission payload: %#v", payload)
+	}
+}
+
+func testStringPtr(value string) *string {
+	return &value
 }
 
 // TestPermissionDetailRouteMapsMissingPermissionToDedicatedNotFound 验证权限详情读取接口会返回稳定的 permission-not-found 语义。

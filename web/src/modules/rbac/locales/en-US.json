@@ -111,7 +111,10 @@
         },
         "addSelectionCount": "{count} permissions will be appended",
         "removeSelectionCount": "{count} permissions will be removed",
+        "builtinAdminImmutable": "The built-in administrator role does not allow permission changes.",
+        "discardChanges": "Discard Changes",
         "unsavedChangesConfirm": "Permission changes have not been saved. Discard them?",
+        "unsavedChangesTitle": "Discard Permission Changes",
         "summary": {
           "assigned": "Currently assigned"
         },
@@ -231,6 +234,50 @@
       "monitorServerStatusRead": {
         "display": "Read Server Status",
         "description": "Allows reading the server status overview."
+      },
+      "moduleRuntimeRead": {
+        "display": "Read Module Runtime",
+        "description": "Allows reading the core module runtime snapshot."
+      },
+      "accessLogRead": {
+        "display": "Read Access Logs",
+        "description": "Allows reading canonical access-log explorer data."
+      },
+      "appLogRead": {
+        "display": "Read App Logs",
+        "description": "Allows reading logger-owned app-log explorer data."
+      },
+      "systemConfigRead": {
+        "display": "Read System Configuration",
+        "description": "Allows reading registered system configuration definitions and effective values."
+      },
+      "systemConfigWrite": {
+        "display": "Update System Configuration",
+        "description": "Allows writing and resetting administrator configuration overrides."
+      },
+      "scheduledTaskRead": {
+        "display": "Read Scheduled Tasks",
+        "description": "Allows reading scheduled task runtime data and run history."
+      },
+      "scheduledTaskCreate": {
+        "display": "Create Scheduled Tasks",
+        "description": "Allows creating user-managed scheduled task instances."
+      },
+      "scheduledTaskUpdate": {
+        "display": "Update Scheduled Tasks",
+        "description": "Allows updating scheduled task definitions."
+      },
+      "scheduledTaskDelete": {
+        "display": "Delete Scheduled Tasks",
+        "description": "Allows deleting user-managed scheduled task instances."
+      },
+      "scheduledTaskRun": {
+        "display": "Run Scheduled Tasks",
+        "description": "Allows manually running scheduled task runtime jobs."
+      },
+      "scheduledTaskEnable": {
+        "display": "Enable Scheduled Tasks",
+        "description": "Allows enabling and disabling scheduled tasks."
       },
       "auditRead": {
         "display": "Read Audit Logs",
