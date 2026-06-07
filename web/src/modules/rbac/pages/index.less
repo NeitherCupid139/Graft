@@ -48,7 +48,8 @@
 
 .drawer-panel,
 .role-drawer-overview__identity,
-.role-drawer-rule-list {
+.role-drawer-stat,
+.role-protection-alert__content {
   display: flex;
   flex-direction: column;
 }
@@ -96,10 +97,42 @@
   justify-content: flex-end;
 }
 
-.role-drawer-rule-list {
+.role-drawer-overview__stats {
+  display: grid;
+  gap: var(--graft-density-gap-10);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.role-drawer-stat {
+  background: var(--td-bg-color-secondarycontainer);
+  border: 1px solid var(--td-component-stroke);
+  border-radius: var(--td-radius-medium);
   gap: var(--graft-density-gap-4);
+  min-width: 0;
+  padding: var(--graft-density-gap-10) var(--graft-density-gap-12);
+}
+
+.role-drawer-stat--wide {
+  grid-column: 1 / -1;
+}
+
+.role-drawer-stat span {
+  color: var(--td-text-color-secondary);
+  font: var(--td-font-body-small);
+}
+
+.role-drawer-stat strong {
+  color: var(--td-text-color-primary);
+  font: var(--td-font-body-medium);
+  overflow-wrap: anywhere;
+}
+
+.role-protection-alert__content {
+  gap: var(--graft-density-gap-4);
+}
+
+.role-protection-alert__content p {
   margin: 0;
-  padding-left: var(--graft-density-gap-18);
 }
 
 .drawer-actions {

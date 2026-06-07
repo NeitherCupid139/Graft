@@ -1,5 +1,40 @@
 # Web UI Lessons
 
+## LESSON-WEB-UI-PROTECTED-STATE-001：系统保护状态不应伪装成错误告警
+
+- Status: active
+- Level: L1
+- Applies to:
+  - `web` management pages with builtin/system/protected records
+  - readonly drawers, dialogs, and action menus
+  - `list-form-detail` page type
+- Source:
+  - role management system-role UX remediation
+  - user feedback that builtin roles are normal business state, not warning/error conditions
+- Problem:
+  系统内置角色、只读权限、受保护配置这类状态是平台的正常保护模型。若用橙色 warning 块、置灰可写按钮或隐藏原因来表达，
+  用户会误以为数据异常或权限系统出错，也不知道下一步能做什么。
+- Correct pattern:
+  对受保护但正常的业务状态，应使用 info、neutral 或 primary-light 语义，文案明确说明“这是正常限制，不是异常”。
+  操作模型应从可写操作切换为只读操作，例如“查看权限”替代禁用的“分配权限”；更多菜单只暴露可执行动作，例如详情、
+  查看、复制为自定义对象。只读弹窗应允许搜索、展开和查看说明，但隐藏保存按钮并保留关闭动作。
+- Anti-pattern:
+  - 用 warning/error 样式表达正常系统保护状态
+  - 保留可写按钮但简单 disabled，且没有说明原因
+  - 对系统内置对象暴露编辑、删除、分配权限等不可执行操作
+  - 只在前端隐藏危险操作，却不确认后端 authority 有拒绝路径
+- Enforcement:
+  修改带 builtin/system/protected 字段的管理页时，检查表格操作、详情抽屉、弹窗标题、提示块和 footer 是否按只读/保护态
+  切换；确认文案在模块 i18n 中；确认后端或 contract authority 已拒绝不可执行写操作。
+- Promotion:
+  - AGENTS.md: no
+  - Design doc: no
+- Related:
+  - `web/src/modules/rbac/pages/index.vue`
+  - `web/src/shared/components/assignment/AssignmentFooter.vue`
+- Updated at:
+  2026-06-07
+
 ## LESSON-WEB-UI-EMPTY-STATE-001：表格空状态不应做成小灰色卡片
 
 - Status: active

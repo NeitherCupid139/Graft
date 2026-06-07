@@ -990,20 +990,29 @@ describe('RolePage', () => {
     expect(wrapper.text()).not.toContain('Raw permission description');
   });
 
-  it('disables permission changes for the built-in admin role', async () => {
+  it('opens built-in admin permissions in readonly mode', async () => {
     permissionState.grantedCodes = [RBAC_PERMISSION_CODE.PERMISSION_READ, RBAC_PERMISSION_CODE.ROLE_PERMISSION_ASSIGN];
     rbacApiMocks.getRoles.mockResolvedValue(createBuiltinAdminRoleListResponse());
     rbacApiMocks.getPermissions.mockResolvedValue(createPermissionListResponse());
+    rbacApiMocks.getRolePermissionBindings.mockResolvedValue({ permission_ids: [1, 2] });
 
     const wrapper = mountRolePage();
     await flushPromises();
 
-    expect(wrapper.get('[data-testid="role-assign-permissions"]').attributes('disabled')).toBeDefined();
-    await wrapper.get('[data-testid="role-assign-permissions"]').trigger('click');
+    expect(wrapper.find('[data-testid="role-assign-permissions"]').exists()).toBe(false);
+    expect(wrapper.get('[data-testid="role-view-permissions"]').text()).toContain('rbac.roleList.viewPermissions');
+
+    await wrapper.get('[data-testid="role-view-permissions"]').trigger('click');
     await flushPromises();
 
-    expect(rbacApiMocks.getRolePermissionBindings).not.toHaveBeenCalled();
-    expect(wrapper.find('[data-testid="permission-drawer"]').exists()).toBe(false);
+    expect(rbacApiMocks.getRolePermissionBindings).toHaveBeenCalledWith(1);
+    expect(wrapper.find('[data-testid="permission-drawer"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="permission-readonly-protection"]').exists()).toBe(true);
+    expect(wrapper.get('[data-testid="permission-checkbox-group"]').attributes('data-disabled')).toBe('true');
+    expect(wrapper.find('[data-testid="permission-drawer-save"]').exists()).toBe(false);
+    updatePermissionSelection(wrapper, [1, 2, 3]);
+    await flushPromises();
+    expect(rbacApiMocks.replaceRolePermissions).not.toHaveBeenCalled();
   });
 
   it('matches permission search against localized copy', async () => {
@@ -1081,7 +1090,7 @@ describe('RolePage', () => {
     const wrapper = mountRolePage();
     await flushPromises();
 
-    await wrapper.get('[data-testid="role-detail"]').trigger('click');
+    wrapper.getComponent(dropdownStub).vm.$emit('click', { value: 'detail' });
     await flushPromises();
 
     expect(wrapper.get('[data-testid="role-overview"]').text()).toContain('Administrator');
@@ -1089,15 +1098,71 @@ describe('RolePage', () => {
     expect(wrapper.get('[data-testid="role-overview"]').text()).toContain('rbac.roleList.form.type.system');
     expect(wrapper.get('[data-testid="role-overview"]').text()).toContain('rbac.roleList.lifecycle.statusEnabled');
     expect(wrapper.findAll('[data-testid="role-system-rules"]')).toHaveLength(1);
-    expect(wrapper.get('[data-testid="role-system-rules"]').text()).toContain('rbac.roleList.form.systemRules.delete');
-    expect(wrapper.get('[data-testid="role-system-rules"]').text()).toContain('rbac.roleList.form.systemRules.code');
     expect(wrapper.get('[data-testid="role-system-rules"]').text()).toContain(
-      'rbac.roleList.form.systemRules.permissions',
+      'rbac.roleList.form.systemProtectionBody',
+    );
+    expect(wrapper.get('[data-testid="role-system-rules"]').text()).toContain(
+      'rbac.roleList.form.systemProtectionNormal',
+    );
+    expect(wrapper.get('[data-testid="role-system-rules"]').text()).toContain(
+      'rbac.roleList.form.systemProtectionCopyHint',
     );
     expect(wrapper.find('[data-testid="role-form"]').exists()).toBe(false);
     expect(wrapper.text()).not.toContain('rbac.roleList.form.builtinNotice');
     expect(wrapper.text()).not.toContain('rbac.roleList.moreActions.delete');
+    expect(wrapper.text()).not.toContain('rbac.roleList.edit');
     expect(wrapper.find('[data-testid="role-drawer-delete"]').exists()).toBe(false);
+  });
+
+  it('copies a built-in role as a custom role with the source permission set', async () => {
+    permissionState.grantedCodes = [
+      RBAC_PERMISSION_CODE.PERMISSION_READ,
+      RBAC_PERMISSION_CODE.ROLE_CREATE,
+      RBAC_PERMISSION_CODE.ROLE_PERMISSION_ASSIGN,
+    ];
+    rbacApiMocks.getRoles.mockResolvedValue(createBuiltinAdminRoleListResponse());
+    rbacApiMocks.getPermissions.mockResolvedValue(createPermissionListResponse());
+    rbacApiMocks.getRolePermissionBindings.mockResolvedValue({ permission_ids: [3, 1] });
+    rbacApiMocks.createRole.mockResolvedValue({
+      id: 9,
+      name: 'custom-admin',
+      display: 'Custom Admin',
+      description: 'Builtin administrator',
+      builtin: false,
+      status: 'enabled',
+      updated_at: '2026-05-19T00:00:00Z',
+      permission_count: 0,
+      user_count: 0,
+    });
+    rbacApiMocks.replaceRolePermissions.mockResolvedValue(null);
+
+    const wrapper = mountRolePage();
+    await flushPromises();
+
+    wrapper.getComponent(dropdownStub).vm.$emit('click', { value: 'copy-role' });
+    await flushPromises();
+
+    expect(rbacApiMocks.getRolePermissionBindings).toHaveBeenCalledWith(1);
+    expect(
+      (wrapper.get('input[placeholder="rbac.roleList.form.namePlaceholder"]').element as HTMLInputElement).value,
+    ).toBe('');
+    expect(
+      (wrapper.get('input[placeholder="rbac.roleList.form.displayPlaceholder"]').element as HTMLInputElement).value,
+    ).toBe('rbac.roleList.copyDisplayTemplate');
+
+    await wrapper.get('input[placeholder="rbac.roleList.form.namePlaceholder"]').setValue(' custom-admin ');
+    await wrapper.get('[data-testid="role-form"]').trigger('submit');
+    await flushPromises();
+
+    expect(rbacApiMocks.createRole).toHaveBeenCalledWith({
+      name: 'custom-admin',
+      display: 'rbac.roleList.copyDisplayTemplate',
+      description: 'Builtin administrator',
+    });
+    expect(rbacApiMocks.replaceRolePermissions).toHaveBeenCalledWith(9, {
+      permission_ids: [1, 3],
+    });
+    expect(messageMocks.success).toHaveBeenCalledWith('rbac.roleList.copySuccess');
   });
 
   it('blocks delete when the role is still enabled', async () => {

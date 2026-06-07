@@ -13,6 +13,8 @@
       "more": "More",
       "viewAudit": "View Audit",
       "assignPermissions": "Assign Permissions",
+      "viewPermissions": "View Permissions",
+      "copyAsCustom": "Copy As Custom Role",
       "columnSettings": "Columns",
       "emptyTitle": "No role data",
       "emptyDescription": "No data matches the current filters. Clear filters or create a new record.",
@@ -32,6 +34,10 @@
       "submitFailed": "Failed to submit role changes",
       "assignSuccess": "Role permissions updated",
       "assignFailed": "Failed to update role permissions",
+      "copySuccess": "Role copied as a custom role",
+      "copyUnavailable": "This role cannot be copied right now. Confirm the permission catalog is loaded and you can create roles and assign permissions.",
+      "copyLoadFailed": "Failed to load the source role permissions before copying",
+      "copyDisplayTemplate": "{display} Copy",
       "permissionActions": {
         "replace": "Overwrite Current Permissions",
         "add": "Append Selected Permissions Only",
@@ -41,7 +47,7 @@
       "builtinNo": "Custom",
       "permissionCount": "{count} permissions",
       "userCount": "{count} users",
-      "moreBuiltinHint": "Builtin roles cannot be deleted. Open details for the restrictions.",
+      "moreBuiltinHint": "System roles cannot be deleted.",
       "moreCustomHint": "Additional role actions are not available yet",
       "lifecycle": {
         "statusLabel": "Current status",
@@ -75,27 +81,24 @@
         "createTitle": "Create Role",
         "editTitle": "Edit Role",
         "detailTitle": "Role Details",
-        "systemRulesTitle": "System Role Notes",
-        "systemRules": {
-          "delete": "System roles cannot be deleted",
-          "code": "The role code cannot be changed",
-          "permissions": "Permissions are maintained by the system"
-        },
+        "systemProtectionTitle": "System Protected Role",
+        "systemProtectionBody": "This role is built into the system to keep platform baseline functions working.",
+        "systemProtectionNormal": "This is a normal protection limit, not an abnormal state. Deleting, changing the code, or adjusting permissions is not supported.",
+        "systemProtectionCopyHint": "To customize the permission set, copy it as a custom role and edit that role.",
+        "basicInfoTitle": "Basic Information",
+        "permissionOverviewTitle": "Permission Overview",
+        "permissionOverviewCount": "Permission Count",
+        "permissionOverviewAction": "View Mode",
         "editableContentTitle": "Editable Content",
-        "readonlyContentTitle": "Role Content",
         "meta": {
           "roleCode": "Role Code",
           "roleType": "Role Type",
           "status": "Status",
-          "deleteAllowed": "Delete Allowed"
+          "createdAt": "Created At"
         },
         "type": {
           "system": "System Role",
           "custom": "Custom Role"
-        },
-        "deleteAllowed": {
-          "yes": "Allowed",
-          "no": "Not Allowed"
         },
         "name": "Role Code",
         "namePlaceholder": "Enter a stable role code",
@@ -112,10 +115,18 @@
       },
       "permissionDialog": {
         "title": "Manage Role Permissions",
+        "readonlyTitle": "View Permissions",
         "headerEyebrow": "Role permissions",
+        "readonlyHeaderEyebrow": "Readonly Permissions",
         "headerDescription": "Choose the permissions this role should grant.",
         "saveStrategyLabel": "Save Strategy",
         "operationHelp": "Overwrite Current Permissions replaces the role's current permissions with the current selection. Append Selected Permissions Only adds only the permissions selected this time. Remove Selected Permissions removes only the already assigned permissions selected this time.",
+        "readonlyHelp": "System role permissions are maintained by the system. This mode only supports expanding, searching, and reading permission details.",
+        "readonlyProtectionTitle": "System Protected Role",
+        "readonlyProtectionBody": "This system role's permissions are maintained by the system and can only be viewed. To customize the permission set, copy it as a custom role and edit that role.",
+        "readonlyFooterDetail": "Readonly mode will not save permission changes.",
+        "readPermissionRequired": "Permission read access is required before viewing permission details.",
+        "close": "Close",
         "loadingSelection": "Loading the current role permissions",
         "searchPlaceholder": "Search permission code, name, or description",
         "onlySelected": "Show selected only",
@@ -133,7 +144,6 @@
         },
         "addSelectionCount": "{count} permissions will be appended",
         "removeSelectionCount": "{count} permissions will be removed",
-        "builtinAdminImmutable": "The built-in administrator role does not allow permission changes.",
         "discardChanges": "Discard Changes",
         "unsavedChangesConfirm": "Permission changes have not been saved. Discard them?",
         "unsavedChangesTitle": "Discard Permission Changes",

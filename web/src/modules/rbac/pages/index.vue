@@ -98,7 +98,7 @@
           </template>
 
           <template #builtin="{ row }">
-            <t-tag class="role-type-tag" :theme="row.builtin ? 'warning' : 'default'" variant="light">
+            <t-tag class="role-type-tag" :theme="row.builtin ? 'primary' : 'default'" variant="light">
               {{ row.builtin ? t('rbac.roleList.builtinYes') : t('rbac.roleList.builtinNo') }}
             </t-tag>
           </template>
@@ -187,7 +187,7 @@
               <span class="role-drawer-overview__code">{{ roleDrawerRole.name }}</span>
             </div>
             <div class="role-drawer-overview__tags">
-              <t-tag :theme="roleDrawerRole.builtin ? 'warning' : 'default'" variant="light">
+              <t-tag :theme="roleDrawerRole.builtin ? 'primary' : 'default'" variant="light">
                 {{ roleTypeLabel(roleDrawerRole) }}
               </t-tag>
               <t-tag :theme="roleStatusTagTheme(roleDrawerRole)" variant="light">
@@ -195,34 +195,35 @@
               </t-tag>
             </div>
           </div>
-          <t-descriptions size="small" :column="1" table-layout="auto">
-            <t-descriptions-item :label="t('rbac.roleList.form.meta.roleCode')">
-              {{ roleDrawerRole.name }}
-            </t-descriptions-item>
-            <t-descriptions-item :label="t('rbac.roleList.form.meta.roleType')">
-              {{ roleTypeLabel(roleDrawerRole) }}
-            </t-descriptions-item>
-            <t-descriptions-item :label="t('rbac.roleList.form.meta.status')">
-              {{ roleStatusLabel(roleDrawerRole) }}
-            </t-descriptions-item>
-            <t-descriptions-item :label="t('rbac.roleList.form.meta.deleteAllowed')">
-              {{ roleDeleteAllowedLabel(roleDrawerRole) }}
-            </t-descriptions-item>
-          </t-descriptions>
+          <div class="role-drawer-overview__stats">
+            <div class="role-drawer-stat">
+              <span>{{ t('rbac.roleList.columns.permissionCount') }}</span>
+              <strong>{{ countLabel(roleDrawerRole.permission_count, 'rbac.roleList.permissionCount') }}</strong>
+            </div>
+            <div class="role-drawer-stat">
+              <span>{{ t('rbac.roleList.columns.userCount') }}</span>
+              <strong>{{ countLabel(roleDrawerRole.user_count, 'rbac.roleList.userCount') }}</strong>
+            </div>
+            <div class="role-drawer-stat role-drawer-stat--wide">
+              <span>{{ t('rbac.roleList.columns.updatedAt') }}</span>
+              <strong>{{ formatTimestamp(roleDrawerRole.updated_at) }}</strong>
+            </div>
+          </div>
         </t-card>
 
         <t-alert
           v-if="roleDrawerRole?.builtin"
-          theme="warning"
-          :title="t('rbac.roleList.form.systemRulesTitle')"
+          theme="info"
+          :title="t('rbac.roleList.form.systemProtectionTitle')"
+          class="role-protection-alert"
           data-testid="role-system-rules"
         >
           <template #message>
-            <ul class="role-drawer-rule-list">
-              <li>{{ t('rbac.roleList.form.systemRules.delete') }}</li>
-              <li>{{ t('rbac.roleList.form.systemRules.code') }}</li>
-              <li>{{ t('rbac.roleList.form.systemRules.permissions') }}</li>
-            </ul>
+            <div class="role-protection-alert__content">
+              <p>{{ t('rbac.roleList.form.systemProtectionBody') }}</p>
+              <p>{{ t('rbac.roleList.form.systemProtectionNormal') }}</p>
+              <p>{{ t('rbac.roleList.form.systemProtectionCopyHint') }}</p>
+            </div>
           </template>
         </t-alert>
 
@@ -231,20 +232,54 @@
           class="role-drawer-section"
           size="small"
           :bordered="true"
-          :title="t('rbac.roleList.form.readonlyContentTitle')"
+          :title="t('rbac.roleList.form.basicInfoTitle')"
           data-testid="role-readonly-content"
         >
           <t-descriptions size="small" :column="1" table-layout="auto">
-            <t-descriptions-item :label="t('rbac.roleList.form.display')">
-              {{ roleDrawerRole.display }}
-            </t-descriptions-item>
             <t-descriptions-item :label="t('rbac.roleList.form.description')">
               {{ roleRemark(roleDrawerRole) }}
             </t-descriptions-item>
-            <t-descriptions-item :label="t('rbac.roleList.lifecycle.deleteRequirement')">
-              <span data-testid="role-lifecycle-summary">{{ roleDeleteLifecycleHint(roleDrawerRole) }}</span>
+            <t-descriptions-item :label="t('rbac.roleList.form.meta.createdAt')">
+              {{ formatTimestamp(roleDrawerRole.created_at) }}
             </t-descriptions-item>
           </t-descriptions>
+        </t-card>
+        <t-card
+          v-if="roleDrawerMode === 'detail' && roleDrawerRole"
+          class="role-drawer-section"
+          size="small"
+          :bordered="true"
+          :title="t('rbac.roleList.form.permissionOverviewTitle')"
+          data-testid="role-permission-overview"
+        >
+          <t-descriptions size="small" :column="1" table-layout="auto">
+            <t-descriptions-item :label="t('rbac.roleList.form.permissionOverviewCount')">
+              {{ countLabel(roleDrawerRole.permission_count, 'rbac.roleList.permissionCount') }}
+            </t-descriptions-item>
+            <t-descriptions-item :label="t('rbac.roleList.form.permissionOverviewAction')">
+              <t-button
+                v-if="canReadPermissions"
+                size="small"
+                theme="default"
+                variant="outline"
+                data-testid="role-drawer-view-permissions"
+                @click="openRoleDrawerPermissionDrawer"
+              >
+                {{ t('rbac.roleList.viewPermissions') }}
+              </t-button>
+              <span v-else>{{ t('rbac.roleList.permissionDialog.readPermissionRequired') }}</span>
+            </t-descriptions-item>
+          </t-descriptions>
+        </t-card>
+        <t-card
+          v-if="roleDrawerMode === 'detail' && roleDrawerRole"
+          class="role-drawer-section"
+          size="small"
+          :bordered="true"
+          :title="t('rbac.roleList.lifecycle.deleteRequirement')"
+          data-testid="role-delete-condition"
+        >
+          <span data-testid="role-lifecycle-summary">{{ roleDeleteLifecycleHint(roleDrawerRole) }}</span>
         </t-card>
         <div v-if="roleDrawerMode === 'detail'" class="drawer-actions">
           <t-button variant="outline" data-testid="role-drawer-cancel" @click="closeRoleDrawer">
@@ -303,7 +338,7 @@
 
     <assignment-drawer
       v-model:visible="permissionDrawerVisible"
-      :title="t('rbac.roleList.permissionDialog.title')"
+      :title="permissionDrawerTitle"
       size="860px"
       @close="requestClosePermissionDrawer"
     >
@@ -313,17 +348,30 @@
             :avatar-text="roleAssignmentAvatar"
             :badges="roleAssignmentBadges"
             :description="roleAssignmentDescription"
-            :eyebrow="t('rbac.roleList.permissionDialog.headerEyebrow')"
+            :eyebrow="permissionDrawerEyebrow"
             :stats="roleAssignmentStats"
             :subtitle="roleAssignmentSubtitle"
             :title="roleAssignmentTitle"
           />
 
+          <t-alert
+            v-if="permissionDrawerReadonly"
+            theme="info"
+            :title="t('rbac.roleList.permissionDialog.readonlyProtectionTitle')"
+            data-testid="permission-readonly-protection"
+          >
+            <template #message>
+              {{ t('rbac.roleList.permissionDialog.readonlyProtectionBody') }}
+            </template>
+          </t-alert>
+
           <div class="assignment-toolbar-stack">
             <assignment-toolbar
               v-model:mode-value="permissionMutationMode"
               v-model:search-value="permissionKeyword"
-              :disabled="loadingRolePermissions || submittingPermissions || !canAssignPermissions"
+              :disabled="
+                loadingRolePermissions || submittingPermissions || permissionDrawerReadonly || !canAssignPermissions
+              "
               :mode-label="t('rbac.roleList.permissionDialog.saveStrategyLabel')"
               :mode-options="permissionMutationOptions"
               :search-placeholder="t('rbac.roleList.permissionDialog.searchPlaceholder')"
@@ -336,7 +384,7 @@
           </div>
 
           <assignment-summary
-            :hint="t('rbac.roleList.permissionDialog.operationHelp')"
+            :hint="permissionDialogHelp"
             :items="roleAssignmentSummaryItems"
             :warning="permissionDialogStatusMessage"
             :warning-action-label="permissionLoadRetryable ? t('rbac.roleList.permissionDialog.retry') : ''"
@@ -353,7 +401,9 @@
         <t-checkbox-group
           v-model="selectedPermissionIds"
           class="sr-only"
-          :disabled="loadingRolePermissions || !permissionSelectionReady || !canAssignPermissions"
+          :disabled="
+            loadingRolePermissions || !permissionSelectionReady || permissionDrawerReadonly || !canAssignPermissions
+          "
           data-testid="permission-checkbox-group"
         />
         <div class="assignment-card-grid permission-card-grid">
@@ -367,6 +417,7 @@
             :disabled="
               loadingRolePermissions ||
               !permissionSelectionReady ||
+              permissionDrawerReadonly ||
               !canAssignPermissions ||
               isPermissionCardDisabled(item)
             "
@@ -382,13 +433,14 @@
 
       <template #footer>
         <assignment-footer
-          :cancel-label="t('rbac.roleList.form.cancel')"
+          :cancel-label="permissionDrawerCancelLabel"
           cancel-test-id="permission-drawer-cancel"
           :confirm-disabled="!canSubmitPermissionAssignment"
           :confirm-label="t('rbac.roleList.permissionDialog.confirm')"
           :confirm-loading="submittingPermissions"
           :details="permissionFooterDetails"
           confirm-test-id="permission-drawer-save"
+          :show-confirm="!permissionDrawerReadonly"
           :summary="permissionFooterSummary"
           @cancel="requestClosePermissionDrawer"
           @confirm="submitPermissionAssignment"
@@ -525,6 +577,7 @@ type RoleRemarkCompat = RoleListItem & {
 };
 
 type RoleStatusCompat = RoleListItem & {
+  created_at?: string | null;
   description?: string | null;
   disabled?: boolean;
   enabled?: boolean;
@@ -571,12 +624,13 @@ const listError = ref('');
 const permissionCatalogError = ref('');
 const roleDrawerVisible = ref(false);
 const roleDrawerMode = ref<RoleDrawerMode>('create');
-const roleDrawerRole = ref<RoleListItem | null>(null);
+const roleDrawerRole = ref<RoleStatusCompat | null>(null);
 const roleFormRef = ref<RoleFormInstance | null>(null);
 const roleForm = ref<RoleFormState>({ ...INITIAL_ROLE_FORM });
 const submittingRole = ref(false);
 const permissionDrawerVisible = ref(false);
 const selectedRole = ref<RoleListItem | null>(null);
+const copiedRolePermissionIds = ref<number[] | null>(null);
 const originalPermissionIds = ref<number[]>([]);
 const permissionDrawerSession = ref(0);
 const permissionSelectionReady = ref(false);
@@ -630,6 +684,9 @@ const canAssignPermissions = computed(
   () => canReadPermissions.value && permissionStore.hasPermission(permissionCodes.ROLE_PERMISSION_ASSIGN),
 );
 const canOpenPermissionDrawer = computed(() => canReadPermissions.value && permissions.value.length > 0);
+const canCopyRoles = computed(
+  () => canCreateRoles.value && canAssignPermissions.value && canOpenPermissionDrawer.value,
+);
 const canShowOperationColumn = computed(() =>
   permissionStore.hasAnyPermission([
     AUDIT_PERMISSION_CODE.READ,
@@ -640,6 +697,7 @@ const canShowOperationColumn = computed(() =>
     permissionCodes.ROLE_PERMISSION_ASSIGN,
   ]),
 );
+const permissionDrawerReadonly = computed(() => selectedRole.value?.builtin === true);
 const hasPermissionSelectionChanges = computed(() => {
   if (!permissionSelectionReady.value || selectedRole.value === null) {
     return false;
@@ -654,11 +712,29 @@ const hasPermissionSelectionChanges = computed(() => {
   }
 });
 const canSubmitPermissionAssignment = computed(() => {
-  return canAssignPermissions.value && hasPermissionSelectionChanges.value;
+  return !permissionDrawerReadonly.value && canAssignPermissions.value && hasPermissionSelectionChanges.value;
 });
 const hasActiveFilters = computed(() => Boolean(filters.value.keyword.trim()) || Boolean(filters.value.type));
 const permissionDialogStatusMessage = computed(() =>
   loadingRolePermissions.value ? t('rbac.roleList.permissionDialog.loadingSelection') : permissionLoadWarning.value,
+);
+const permissionDrawerTitle = computed(() =>
+  permissionDrawerReadonly.value
+    ? t('rbac.roleList.permissionDialog.readonlyTitle')
+    : t('rbac.roleList.permissionDialog.title'),
+);
+const permissionDrawerEyebrow = computed(() =>
+  permissionDrawerReadonly.value
+    ? t('rbac.roleList.permissionDialog.readonlyHeaderEyebrow')
+    : t('rbac.roleList.permissionDialog.headerEyebrow'),
+);
+const permissionDialogHelp = computed(() =>
+  permissionDrawerReadonly.value
+    ? t('rbac.roleList.permissionDialog.readonlyHelp')
+    : t('rbac.roleList.permissionDialog.operationHelp'),
+);
+const permissionDrawerCancelLabel = computed(() =>
+  permissionDrawerReadonly.value ? t('rbac.roleList.permissionDialog.close') : t('rbac.roleList.form.cancel'),
 );
 const permissionMutationOptions = computed(() => [
   { label: t('rbac.roleList.permissionActions.replace'), value: 'replace' as const },
@@ -700,6 +776,10 @@ const permissionFooterSummary = computed(() =>
   }),
 );
 const permissionFooterDetails = computed(() => {
+  if (permissionDrawerReadonly.value) {
+    return [t('rbac.roleList.permissionDialog.readonlyFooterDetail')];
+  }
+
   const details = [
     t('rbac.roleList.permissionDialog.modeSummary', {
       mode: t(`rbac.roleList.permissionDialog.modeValue.${permissionMutationMode.value}`),
@@ -791,6 +871,18 @@ const roleRowMoreOptions = (role: RoleStatusCompat) => {
     value: 'detail',
   });
 
+  if (canCopyRoles.value) {
+    options.push({
+      content: t('rbac.roleList.copyAsCustom'),
+      fallbackLabel: 'Copy Role',
+      value: 'copy-role',
+    });
+  }
+
+  if (role.builtin) {
+    return options;
+  }
+
   if (permissionStore.hasPermission(permissionCodes.ROLE_UPDATE)) {
     options.push({
       content: t('rbac.roleList.edit'),
@@ -821,9 +913,18 @@ const roleRowMoreOptions = (role: RoleStatusCompat) => {
 function roleRowActions(role: RoleListItem) {
   const actions: Array<{ disabled?: boolean; label: string; testId?: string; value: string }> = [];
 
-  if (canAssignPermissions.value) {
+  if (role.builtin) {
+    if (canReadPermissions.value) {
+      actions.push({
+        disabled: !canOpenPermissionDrawer.value,
+        label: t('rbac.roleList.viewPermissions'),
+        testId: 'role-view-permissions',
+        value: 'view-permissions',
+      });
+    }
+  } else if (canAssignPermissions.value) {
     actions.push({
-      disabled: !canOpenPermissionDrawer.value || isBuiltinAdminRole(role),
+      disabled: !canOpenPermissionDrawer.value,
       label: t('rbac.roleList.assignPermissions'),
       testId: 'role-assign-permissions',
       value: 'assign-permissions',
@@ -844,7 +945,14 @@ function roleRowActions(role: RoleListItem) {
       disabled: option.disabled,
       fallbackLabel: option.fallbackLabel,
       label: option.content,
-      testId: option.value === 'detail' ? 'role-detail' : option.value === 'edit' ? 'role-edit' : undefined,
+      testId:
+        option.value === 'detail'
+          ? 'role-detail'
+          : option.value === 'edit'
+            ? 'role-edit'
+            : option.value === 'copy-role'
+              ? 'role-copy'
+              : undefined,
       value: option.value,
     })),
   ];
@@ -905,7 +1013,7 @@ const roleAssignmentAvatar = computed(() => (selectedRole.value?.display || '?')
 const roleAssignmentBadges = computed(() => [
   {
     label: selectedRole.value?.builtin ? t('rbac.roleList.builtinYes') : t('rbac.roleList.builtinNo'),
-    theme: selectedRole.value?.builtin ? ('warning' as const) : ('default' as const),
+    theme: selectedRole.value?.builtin ? ('primary' as const) : ('default' as const),
   },
 ]);
 const roleAssignmentStats = computed(() => [
@@ -1064,14 +1172,6 @@ function roleHasDeleteBlockingBindings(role: RoleStatusCompat) {
   return Number(role.permission_count ?? 0) > 0 || Number(role.user_count ?? 0) > 0;
 }
 
-function roleCanBeDeleted(role: RoleStatusCompat) {
-  return !role.builtin && !isRoleEnabled(role) && !roleHasDeleteBlockingBindings(role);
-}
-
-function roleDeleteAllowedLabel(role: RoleStatusCompat) {
-  return roleCanBeDeleted(role) ? t('rbac.roleList.form.deleteAllowed.yes') : t('rbac.roleList.form.deleteAllowed.no');
-}
-
 function roleDeleteLifecycleHint(role: RoleStatusCompat) {
   if (role.builtin) {
     return t('rbac.roleList.moreBuiltinHint');
@@ -1088,10 +1188,6 @@ function roleDeleteLifecycleHint(role: RoleStatusCompat) {
 function roleRemark(role: RoleListItem) {
   const remark = resolveRoleRemark(role).trim();
   return remark || '-';
-}
-
-function isBuiltinAdminRole(role: Pick<RoleListItem, 'builtin' | 'name'>) {
-  return role.builtin === true && role.name === 'admin';
 }
 
 function normalizeDescription(description: string) {
@@ -1164,6 +1260,39 @@ function openCreateDrawer() {
   roleDrawerMode.value = 'create';
   roleDrawerRole.value = null;
   roleForm.value = { ...INITIAL_ROLE_FORM };
+  copiedRolePermissionIds.value = null;
+  roleDrawerVisible.value = true;
+}
+
+async function openCopyRoleDrawer(role: RoleListItem) {
+  if (!canCopyRoles.value) {
+    MessagePlugin.warning(permissionCatalogError.value || t('rbac.roleList.copyUnavailable'));
+    return;
+  }
+
+  let permissionIds: number[] = [];
+  try {
+    const response = await getRolePermissionBindings(role.id);
+    const normalized = normalizeRolePermissionIDs(extractPermissionIDs(response));
+    if (normalized === null) {
+      MessagePlugin.warning(t('rbac.roleList.permissionDialog.selectionUnavailable'));
+      return;
+    }
+    permissionIds = normalized;
+  } catch (error) {
+    logger.warn('failed to load source role permissions for copy', error);
+    MessagePlugin.warning(resolveLocalizedErrorMessage(t, error, t('rbac.roleList.copyLoadFailed')));
+    return;
+  }
+
+  roleDrawerMode.value = 'create';
+  roleDrawerRole.value = null;
+  roleForm.value = {
+    name: '',
+    display: t('rbac.roleList.copyDisplayTemplate', { display: role.display }),
+    description: resolveRoleRemark(role),
+  };
+  copiedRolePermissionIds.value = permissionIds;
   roleDrawerVisible.value = true;
 }
 
@@ -1208,6 +1337,11 @@ function handleRoleMoreAction(
     return;
   }
 
+  if (action === 'copy-role') {
+    void openCopyRoleDrawer(role);
+    return;
+  }
+
   if (action === 'detail') {
     void openDetailDrawer(role);
     return;
@@ -1217,7 +1351,7 @@ function handleRoleMoreAction(
 }
 
 function handleRoleRowAction(action: string, role: RoleListItem) {
-  if (action === 'assign-permissions') {
+  if (action === 'assign-permissions' || action === 'view-permissions') {
     void openPermissionDrawer(role);
     return;
   }
@@ -1255,6 +1389,7 @@ function closeRoleDrawer() {
   roleDrawerVisible.value = false;
   roleDrawerRole.value = null;
   roleForm.value = { ...INITIAL_ROLE_FORM };
+  copiedRolePermissionIds.value = null;
   roleFormRef.value?.clearValidate();
   submittingRole.value = false;
 }
@@ -1274,8 +1409,15 @@ async function handleRoleSubmit(ctx: SubmitContext) {
   try {
     if (roleDrawerMode.value === 'create') {
       const created = await createRole(toCreateRolePayload(roleForm.value));
+      if (copiedRolePermissionIds.value?.length) {
+        await replaceRolePermissions(created.id, toReplaceRolePermissionsPayload(copiedRolePermissionIds.value));
+      }
       roles.value = [...roles.value, created].sort((left, right) => left.id - right.id);
-      MessagePlugin.success(formatHintedMessage(t('rbac.roleList.createSuccess')));
+      MessagePlugin.success(
+        formatHintedMessage(
+          copiedRolePermissionIds.value ? t('rbac.roleList.copySuccess') : t('rbac.roleList.createSuccess'),
+        ),
+      );
     } else if (roleDrawerRole.value) {
       const updated = await updateRole(roleDrawerRole.value.id, toUpdateRolePayload(roleForm.value));
       roles.value = roles.value.map((item) => (item.id === updated.id ? updated : item));
@@ -1378,11 +1520,6 @@ async function loadRolePermissionSelection(roleId: number, session: number) {
 }
 
 async function openPermissionDrawer(role: RoleListItem) {
-  if (isBuiltinAdminRole(role)) {
-    MessagePlugin.warning(t('rbac.roleList.permissionDialog.builtinAdminImmutable'));
-    return;
-  }
-
   if (!canOpenPermissionDrawer.value) {
     MessagePlugin.warning(permissionCatalogError.value || t('rbac.roleList.permissionUnavailable'));
     return;
@@ -1396,6 +1533,14 @@ async function openPermissionDrawer(role: RoleListItem) {
   permissionKeyword.value = '';
   permissionOnlySelected.value = false;
   await loadRolePermissionSelection(role.id, session);
+}
+
+function openRoleDrawerPermissionDrawer() {
+  if (!roleDrawerRole.value) {
+    return;
+  }
+
+  void openPermissionDrawer(roleDrawerRole.value);
 }
 
 function closePermissionDrawer() {
@@ -1419,7 +1564,7 @@ function requestClosePermissionDrawer() {
     return;
   }
 
-  if (!hasPermissionSelectionChanges.value) {
+  if (permissionDrawerReadonly.value || !hasPermissionSelectionChanges.value) {
     closePermissionDrawer();
     return;
   }
@@ -1459,7 +1604,12 @@ function isPermissionCardDisabled(item: PermissionListItem) {
 }
 
 function toggleRolePermissionSelection(permissionId: number) {
-  if (loadingRolePermissions.value || !permissionSelectionReady.value || !canAssignPermissions.value) {
+  if (
+    loadingRolePermissions.value ||
+    !permissionSelectionReady.value ||
+    permissionDrawerReadonly.value ||
+    !canAssignPermissions.value
+  ) {
     return;
   }
 
@@ -1486,12 +1636,12 @@ async function mutateRolePermissions(
 }
 
 async function submitPermissionAssignment() {
-  if (!selectedRole.value || !canSubmitPermissionAssignment.value || loadingRolePermissions.value) {
-    return;
-  }
-
-  if (isBuiltinAdminRole(selectedRole.value)) {
-    MessagePlugin.warning(t('rbac.roleList.permissionDialog.builtinAdminImmutable'));
+  if (
+    !selectedRole.value ||
+    permissionDrawerReadonly.value ||
+    !canSubmitPermissionAssignment.value ||
+    loadingRolePermissions.value
+  ) {
     return;
   }
 
