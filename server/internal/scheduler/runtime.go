@@ -1082,6 +1082,9 @@ func validateJob(job cronx.Job) error {
 		if strings.TrimSpace(action.Key) == "" {
 			return fmt.Errorf("%w: invalid job action key", ErrTaskValidation)
 		}
+		if action.Handler == nil {
+			return fmt.Errorf("%w: job action handler is required", ErrTaskValidation)
+		}
 	}
 	return nil
 }
@@ -1219,7 +1222,10 @@ func findJobAction(actions []JobActionSnapshot, key string) (JobActionSnapshot, 
 func invokeJobAction(ctx context.Context, job cronx.Job, actionKey string, configJSON string) (cronx.JobRunResult, error) {
 	actionKey = strings.TrimSpace(actionKey)
 	for _, action := range job.Actions {
-		if strings.TrimSpace(action.Key) == actionKey && action.Handler != nil {
+		if strings.TrimSpace(action.Key) == actionKey {
+			if action.Handler == nil {
+				return cronx.JobRunResult{}, fmt.Errorf("%w: job action handler is required", ErrTaskValidation)
+			}
 			return action.Handler(ctx, configJSON)
 		}
 	}

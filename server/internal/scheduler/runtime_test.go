@@ -188,6 +188,16 @@ func TestRegisterJobRejectsInvalidDeclarations(t *testing.T) {
 	if err := runtime.RegisterJob(cronx.Job{Name: "cleanup", Schedule: "* * * * * *"}); err == nil {
 		t.Fatal("expected missing run function to fail")
 	}
+	if err := runtime.RegisterJob(cronx.Job{
+		Name:     "cleanup",
+		Schedule: "* * * * * *",
+		Actions: []cronx.JobAction{
+			{Key: "dryRun"},
+		},
+		Run: func(context.Context) error { return nil },
+	}); err == nil {
+		t.Fatal("expected missing action handler to fail")
+	}
 }
 
 // TestRegisterJobRejectsDuplicateName 验证重复任务名会在注册阶段显式失败。
@@ -575,11 +585,33 @@ func TestRunActionUsesActionHandlerAndSkipsHistory(t *testing.T) {
 	}
 }
 
-func TestRunActionWithoutHandlerUsesJobHandlerAndRequestSnapshot(t *testing.T) {
+func TestInvokeJobActionRejectsMissingActionHandler(t *testing.T) {
+	jobHandlerCalled := false
+	job := cronx.Job{
+		Name: "retention",
+		Actions: []cronx.JobAction{
+			{Key: "validate-config"},
+		},
+		Handler: func(context.Context, string) (cronx.JobRunResult, error) {
+			jobHandlerCalled = true
+			return cronx.JobRunResult{Summary: "validated"}, nil
+		},
+	}
+
+	_, err := invokeJobAction(context.Background(), job, "validate-config", `{"batchSize":25}`)
+	if !errors.Is(err, ErrTaskValidation) {
+		t.Fatalf("expected missing action handler validation error, got %v", err)
+	}
+	if jobHandlerCalled {
+		t.Fatal("expected missing action handler not to invoke the normal job handler")
+	}
+}
+
+func TestRunActionMergesRequestSnapshot(t *testing.T) {
 	runtime := New(zap.NewNop(), newRunRepositoryRecorder())
 	taskRepo := newTaskRepositoryRecorder()
 	runtime.SetTaskRepository(taskRepo)
-	var handlerConfig string
+	var actionConfig string
 
 	seedRuntimeJob(t, runtime, cronx.Job{
 		Name:          "retention",
@@ -589,11 +621,14 @@ func TestRunActionWithoutHandlerUsesJobHandlerAndRequestSnapshot(t *testing.T) {
 		Actions: []cronx.JobAction{
 			{
 				Key: "validate-config",
+				Handler: func(_ context.Context, configJSON string) (cronx.JobRunResult, error) {
+					actionConfig = configJSON
+					return cronx.JobRunResult{Summary: "validated"}, nil
+				},
 			},
 		},
 		Handler: func(_ context.Context, configJSON string) (cronx.JobRunResult, error) {
-			handlerConfig = configJSON
-			return cronx.JobRunResult{Summary: "validated"}, nil
+			return cronx.JobRunResult{Summary: configJSON}, nil
 		},
 	})
 
@@ -605,9 +640,9 @@ func TestRunActionWithoutHandlerUsesJobHandlerAndRequestSnapshot(t *testing.T) {
 	if effective["batchSize"] != float64(25) {
 		t.Fatalf("unexpected effective action config: %s", result.EffectiveConfig)
 	}
-	handlerEffective := decodeRuntimeJSONObject(t, handlerConfig)
+	handlerEffective := decodeRuntimeJSONObject(t, actionConfig)
 	if handlerEffective["batchSize"] != float64(25) {
-		t.Fatalf("unexpected handler config: %s", handlerConfig)
+		t.Fatalf("unexpected handler config: %s", actionConfig)
 	}
 }
 
@@ -618,7 +653,12 @@ func TestRunActionRejectsUnknownAction(t *testing.T) {
 		Name:     "retention",
 		Schedule: "*/1 * * * * *",
 		Actions: []cronx.JobAction{
-			{Key: "dryRun"},
+			{
+				Key: "dryRun",
+				Handler: func(context.Context, string) (cronx.JobRunResult, error) {
+					return cronx.JobRunResult{Summary: "dry run"}, nil
+				},
+			},
 		},
 		Run: func(context.Context) error { return nil },
 	})
@@ -639,7 +679,13 @@ func TestRunActionValidatesMergedConfigBeforeExecution(t *testing.T) {
 		DefaultConfig: `{"batchSize":10}`,
 		ConfigSchema:  `{"type":"object","properties":{"batchSize":{"type":"integer","minimum":1}},"additionalProperties":false}`,
 		Actions: []cronx.JobAction{
-			{Key: "dryRun"},
+			{
+				Key: "dryRun",
+				Handler: func(context.Context, string) (cronx.JobRunResult, error) {
+					called = true
+					return cronx.JobRunResult{Summary: "dry run"}, nil
+				},
+			},
 		},
 		Handler: func(context.Context, string) (cronx.JobRunResult, error) {
 			called = true
