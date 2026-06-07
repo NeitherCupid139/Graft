@@ -39,5 +39,10 @@ class FindingTests(unittest.TestCase):
         self.assertEqual(finding.format(), "AGENTS.md: example issue")
 
 
+class SkillMcpGuidanceTests(unittest.TestCase):
+    def test_skill_mcp_guidance_is_currently_satisfied(self) -> None:
+        self.assertEqual(MODULE.validate_skill_mcp_guidance(), [])
+
+
 if __name__ == "__main__":
     unittest.main()

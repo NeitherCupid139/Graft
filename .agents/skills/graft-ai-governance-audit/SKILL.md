@@ -28,6 +28,9 @@ workflow; it does not replace repository startup, validation, closeout, or commi
 5. Check live local tool state when relevant:
    - `codex mcp list`
    - `codex mcp get <name>`
+   - `codex mcp get context7`
+   - `codex mcp get github`
+   - `codex mcp get playwright`
    - `codegraph status` only when CodeGraph index health matters
 6. Run the structure audit:
 
@@ -57,6 +60,9 @@ python3 -m unittest discover -s scripts -p 'test_*.py'
 - Do not introduce `memory` MCP or another hidden recovery store; use `ai-plan/public/**`.
 - Do not use GitHub or database MCP write capabilities unless a repository skill explicitly owns the permission,
   workflow, and closeout evidence.
+- Keep Context7, GitHub MCP, and Playwright MCP in user-level Codex MCP config only; do not commit client config.
+- Use Context7 for current external library documentation, GitHub MCP for read-only PR/Actions context, and Playwright
+  MCP as browser exploration before `graft-web-browser-agent` captures reproducible evidence.
 - Keep new skills concise and prefer scripts for deterministic checks.
 
 ## Closeout Evidence

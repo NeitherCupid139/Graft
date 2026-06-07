@@ -19,6 +19,10 @@ TDESIGN_DOC = REPO_ROOT / "ai-plan" / "design" / "TDesign-MCP-辅助开发规范
 TOOLS_AI = REPO_ROOT / ".ai" / "environment" / "tools.ai.yaml"
 GITIGNORE = REPO_ROOT / ".gitignore"
 AGENTS = REPO_ROOT / "AGENTS.md"
+WEB_BROWSER_SKILL = REPO_ROOT / ".agents" / "skills" / "graft-web-browser-agent" / "SKILL.md"
+PR_REVIEW_SKILL = REPO_ROOT / ".agents" / "skills" / "graft-pr-review" / "SKILL.md"
+PR_CREATE_SKILL = REPO_ROOT / ".agents" / "skills" / "graft-pr-create" / "SKILL.md"
+AI_AUDIT_SKILL = REPO_ROOT / ".agents" / "skills" / "graft-ai-governance-audit" / "SKILL.md"
 
 FRONTMATTER_RE = re.compile(r"\A---\n(?P<body>.*?)\n---\n", re.DOTALL)
 
@@ -101,6 +105,10 @@ def validate_ai_tooling_doc() -> list[Finding]:
         "tdesign",
         "context7",
         "github",
+        "playwright",
+        "@upstash/context7-mcp",
+        "ghcr.io/github/github-mcp-server",
+        "@playwright/mcp",
         "memory",
         "postgres",
         "AI tooling evidence",
@@ -111,6 +119,48 @@ def validate_ai_tooling_doc() -> list[Finding]:
     for forbidden in ("server/go.mod`、`web/package.json`、CI", "隐藏恢复真值"):
         if forbidden not in text:
             findings.append(Finding(AI_TOOLING_DOC, f"missing guardrail phrase containing {forbidden!r}"))
+    return findings
+
+
+def validate_skill_mcp_guidance() -> list[Finding]:
+    checks = (
+        (
+            WEB_BROWSER_SKILL,
+            ("Playwright MCP", "browser_agent.py", "playwright_mcp_used"),
+        ),
+        (
+            PR_REVIEW_SKILL,
+            ("GitHub MCP", "fetch_current_pr_review.py", "deterministic fallback"),
+        ),
+        (
+            PR_CREATE_SKILL,
+            ("GitHub MCP", "ensure_pr.py", "deterministic fallback"),
+        ),
+        (
+            AI_AUDIT_SKILL,
+            ("codex mcp get context7", "codex mcp get github", "codex mcp get playwright"),
+        ),
+    )
+    findings: list[Finding] = []
+    for path, terms in checks:
+        if not path.is_file():
+            findings.append(Finding(path, "MCP-aware skill file is missing"))
+            continue
+        text = read_text(path)
+        for term in terms:
+            if term not in text:
+                findings.append(Finding(path, f"missing MCP guidance term {term!r}"))
+    return findings
+
+
+def validate_environment_inventory() -> list[Finding]:
+    if not TOOLS_AI.is_file():
+        return []
+    text = read_text(TOOLS_AI)
+    findings: list[Finding] = []
+    for term in ("mcp_servers:", "context7:", "github:", "playwright:"):
+        if term not in text:
+            findings.append(Finding(TOOLS_AI, f"missing AI environment MCP inventory term {term!r}"))
     return findings
 
 
@@ -208,7 +258,9 @@ def run_validation() -> list[Finding]:
     findings.extend(validate_gitignore())
     findings.extend(validate_ai_tooling_doc())
     findings.extend(validate_skills())
+    findings.extend(validate_skill_mcp_guidance())
     findings.extend(validate_agents_skill_list())
+    findings.extend(validate_environment_inventory())
     findings.extend(validate_no_private_config_tracked(tracked))
     return findings
 
