@@ -88,12 +88,14 @@ func TestRunValidateBackendLintStage(t *testing.T) {
 	originalGoTestRunner := backendGoTestRunner
 	originalGoBuildRunner := backendGoBuildRunner
 	originalSmokeRunner := backendSmokeRunner
+	originalMigrationVersionRunner := backendMigrationVersionRunner
 	defer func() {
 		backendLintRunner = originalLintRunner
 		backendOpenAPIRunner = originalOpenAPIRunner
 		backendGoTestRunner = originalGoTestRunner
 		backendGoBuildRunner = originalGoBuildRunner
 		backendSmokeRunner = originalSmokeRunner
+		backendMigrationVersionRunner = originalMigrationVersionRunner
 	}()
 
 	var steps []string
@@ -117,6 +119,10 @@ func TestRunValidateBackendLintStage(t *testing.T) {
 		t.Fatal("smoke runner should not be called during lint stage")
 		return nil
 	}
+	backendMigrationVersionRunner = func(_ *cobra.Command) error {
+		t.Fatal("migration version runner should not be called during lint stage")
+		return nil
+	}
 
 	err := runValidateBackend(&cobra.Command{}, backendValidateOptions{
 		stage:          "lint",
@@ -136,9 +142,11 @@ func TestRunValidateBackendLintStage(t *testing.T) {
 func TestRunValidateBackendOpenAPIStage(t *testing.T) {
 	originalOpenAPIRunner := backendOpenAPIRunner
 	originalLintRunner := backendLintRunner
+	originalMigrationVersionRunner := backendMigrationVersionRunner
 	defer func() {
 		backendOpenAPIRunner = originalOpenAPIRunner
 		backendLintRunner = originalLintRunner
+		backendMigrationVersionRunner = originalMigrationVersionRunner
 	}()
 
 	var calledWith string
@@ -148,6 +156,10 @@ func TestRunValidateBackendOpenAPIStage(t *testing.T) {
 	}
 	backendLintRunner = func(_ *cobra.Command, _, _ string) error {
 		t.Fatal("lint runner should not be called during openapi-only stage")
+		return nil
+	}
+	backendMigrationVersionRunner = func(_ *cobra.Command) error {
+		t.Fatal("migration version runner should not be called during openapi-only stage")
 		return nil
 	}
 
@@ -210,6 +222,57 @@ func TestRunValidateOpenAPIInvokesFreshnessCheck(t *testing.T) {
 	}
 	if called != 1 {
 		t.Fatalf("expected freshness check to run once, got %d", called)
+	}
+}
+
+func TestRunValidateMigrationVersionsUsesAllMode(t *testing.T) {
+	originalGetwd := backendGetwd
+	originalReadFile := backendReadFile
+	originalCommandRunner := backendCommandRunner
+	defer func() {
+		backendGetwd = originalGetwd
+		backendReadFile = originalReadFile
+		backendCommandRunner = originalCommandRunner
+	}()
+
+	repoDir := t.TempDir()
+	serverDir := filepath.Join(repoDir, "server")
+	if err := os.MkdirAll(serverDir, 0o750); err != nil {
+		t.Fatalf("mkdir server dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(repoDir, "AGENTS.md"), []byte("test\n"), 0o600); err != nil {
+		t.Fatalf("write AGENTS: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(serverDir, "go.mod"), []byte("module graft/server\n"), 0o600); err != nil {
+		t.Fatalf("write go.mod: %v", err)
+	}
+
+	backendGetwd = func() (string, error) {
+		return serverDir, nil
+	}
+	backendReadFile = os.ReadFile
+
+	var (
+		commandName string
+		commandArgs []string
+	)
+	backendCommandRunner = func(_ *cobra.Command, name string, args ...string) error {
+		commandName = name
+		commandArgs = append([]string(nil), args...)
+		return nil
+	}
+
+	if err := runValidateMigrationVersions(&cobra.Command{}); err != nil {
+		t.Fatalf("run migration version validation: %v", err)
+	}
+
+	expectedScript := filepath.Join(repoDir, "scripts", "check_migration_versions.py")
+	expectedArgs := []string{expectedScript, "--mode", "all"}
+	if commandName != "python3" {
+		t.Fatalf("expected python3 command, got %s", commandName)
+	}
+	if !reflect.DeepEqual(commandArgs, expectedArgs) {
+		t.Fatalf("expected args %v, got %v", expectedArgs, commandArgs)
 	}
 }
 
@@ -628,12 +691,14 @@ func TestRunValidateBackendLintStageDoesNotRunAudit(t *testing.T) {
 	originalGoTestRunner := backendGoTestRunner
 	originalGoBuildRunner := backendGoBuildRunner
 	originalSmokeRunner := backendSmokeRunner
+	originalMigrationVersionRunner := backendMigrationVersionRunner
 	defer func() {
 		backendLintRunner = originalLintRunner
 		backendOpenAPIRunner = originalOpenAPIRunner
 		backendGoTestRunner = originalGoTestRunner
 		backendGoBuildRunner = originalGoBuildRunner
 		backendSmokeRunner = originalSmokeRunner
+		backendMigrationVersionRunner = originalMigrationVersionRunner
 	}()
 
 	var lintCalls int
@@ -660,6 +725,10 @@ func TestRunValidateBackendLintStageDoesNotRunAudit(t *testing.T) {
 		t.Fatal("smoke runner should not be called during lint-only blocking stage")
 		return nil
 	}
+	backendMigrationVersionRunner = func(_ *cobra.Command) error {
+		t.Fatal("migration version runner should not be called during lint-only blocking stage")
+		return nil
+	}
 
 	if err := runValidateBackend(&cobra.Command{}, backendValidateOptions{
 		stage:          "lint",
@@ -680,11 +749,13 @@ func TestRunValidateBackendBuildTestStage(t *testing.T) {
 	originalOpenAPIRunner := backendOpenAPIRunner
 	originalGoTestRunner := backendGoTestRunner
 	originalGoBuildRunner := backendGoBuildRunner
+	originalMigrationVersionRunner := backendMigrationVersionRunner
 	defer func() {
 		backendLintRunner = originalLintRunner
 		backendOpenAPIRunner = originalOpenAPIRunner
 		backendGoTestRunner = originalGoTestRunner
 		backendGoBuildRunner = originalGoBuildRunner
+		backendMigrationVersionRunner = originalMigrationVersionRunner
 	}()
 
 	var steps []string
@@ -694,6 +765,10 @@ func TestRunValidateBackendBuildTestStage(t *testing.T) {
 	}
 	backendOpenAPIRunner = func(_ *cobra.Command, _ string) error {
 		t.Fatal("openapi runner should not be called during buildtest stage")
+		return nil
+	}
+	backendMigrationVersionRunner = func(_ *cobra.Command) error {
+		t.Fatal("migration version runner should not be called during buildtest stage")
 		return nil
 	}
 	backendGoTestRunner = func(_ *cobra.Command, targets []string) error {
@@ -726,15 +801,21 @@ func TestRunValidateBackendFullStageWithSmoke(t *testing.T) {
 	originalGoTestRunner := backendGoTestRunner
 	originalGoBuildRunner := backendGoBuildRunner
 	originalSmokeRunner := backendSmokeRunner
+	originalMigrationVersionRunner := backendMigrationVersionRunner
 	defer func() {
 		backendLintRunner = originalLintRunner
 		backendOpenAPIRunner = originalOpenAPIRunner
 		backendGoTestRunner = originalGoTestRunner
 		backendGoBuildRunner = originalGoBuildRunner
 		backendSmokeRunner = originalSmokeRunner
+		backendMigrationVersionRunner = originalMigrationVersionRunner
 	}()
 
 	var steps []string
+	backendMigrationVersionRunner = func(_ *cobra.Command) error {
+		steps = append(steps, "migration")
+		return nil
+	}
 	backendOpenAPIRunner = func(_ *cobra.Command, spec string) error {
 		steps = append(steps, "openapi:"+spec)
 		return nil
@@ -765,6 +846,7 @@ func TestRunValidateBackendFullStageWithSmoke(t *testing.T) {
 	}
 
 	expected := []string{
+		"migration",
 		"openapi:" + defaultOpenAPIRootSpec,
 		"lint",
 		"test:./...",
@@ -773,6 +855,56 @@ func TestRunValidateBackendFullStageWithSmoke(t *testing.T) {
 	}
 	if !reflect.DeepEqual(steps, expected) {
 		t.Fatalf("expected %v, got %v", expected, steps)
+	}
+}
+
+func TestRunValidateBackendFullStageStopsOnMigrationVersionFailure(t *testing.T) {
+	originalLintRunner := backendLintRunner
+	originalOpenAPIRunner := backendOpenAPIRunner
+	originalGoTestRunner := backendGoTestRunner
+	originalGoBuildRunner := backendGoBuildRunner
+	originalSmokeRunner := backendSmokeRunner
+	originalMigrationVersionRunner := backendMigrationVersionRunner
+	defer func() {
+		backendLintRunner = originalLintRunner
+		backendOpenAPIRunner = originalOpenAPIRunner
+		backendGoTestRunner = originalGoTestRunner
+		backendGoBuildRunner = originalGoBuildRunner
+		backendSmokeRunner = originalSmokeRunner
+		backendMigrationVersionRunner = originalMigrationVersionRunner
+	}()
+
+	expectedErr := errors.New("duplicate migration version")
+	backendMigrationVersionRunner = func(_ *cobra.Command) error {
+		return expectedErr
+	}
+	backendOpenAPIRunner = func(_ *cobra.Command, _ string) error {
+		t.Fatal("openapi runner should not be called after migration version failure")
+		return nil
+	}
+	backendLintRunner = func(_ *cobra.Command, _ string, _ string) error {
+		t.Fatal("lint runner should not be called after migration version failure")
+		return nil
+	}
+	backendGoTestRunner = func(_ *cobra.Command, _ []string) error {
+		t.Fatal("go test runner should not be called after migration version failure")
+		return nil
+	}
+	backendGoBuildRunner = func(_ *cobra.Command) error {
+		t.Fatal("go build runner should not be called after migration version failure")
+		return nil
+	}
+	backendSmokeRunner = func(_ *cobra.Command, _ smokeValidateOptions) error {
+		t.Fatal("smoke runner should not be called after migration version failure")
+		return nil
+	}
+
+	err := runValidateBackend(&cobra.Command{}, backendValidateOptions{
+		stage: "full",
+		smoke: true,
+	})
+	if !errors.Is(err, expectedErr) {
+		t.Fatalf("expected migration version failure, got %v", err)
 	}
 }
 

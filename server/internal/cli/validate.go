@@ -74,6 +74,7 @@ var backendGoBuildRunner = runBackendGoBuild
 var backendSmokeRunner = runValidateSmoke
 var backendOpenAPIRunner = runValidateOpenAPI
 var backendOpenAPIFreshnessRunner = runValidateOpenAPIFreshness
+var backendMigrationVersionRunner = runValidateMigrationVersions
 var backendCommandRunner = runBackendCommand
 var backendGitOutputRunner = runBackendGitOutput
 
@@ -117,8 +118,9 @@ func newValidateBackendCommand() *cobra.Command {
 		Use:   "backend",
 		Short: "Run the unified backend quality chain",
 		Long: "graft validate backend is the repository-local backend quality entrypoint. " +
-			"It runs OpenAPI validation first, then golangci-lint, then executes go test on the requested scope, " +
-			"then builds ./cmd/graft, and optionally appends `graft validate smoke` when the slice needs a runtime proof.",
+			"It runs the default-chain migration version gate first, then OpenAPI validation, then golangci-lint, " +
+			"then executes go test on the requested scope, builds ./cmd/graft, and optionally appends " +
+			"`graft validate smoke` when the slice needs a runtime proof.",
 		Example: "  graft validate backend\n" +
 			"  graft validate backend --stage openapi\n" +
 			"  graft validate backend --test-target ./modules/user --test-target ./internal/httpx\n" +
@@ -187,6 +189,7 @@ func newValidateSmokeCommand() *cobra.Command {
 // runValidateBackend 执行统一的后端质量链。
 //
 // 顺序语义：
+//   - `full` 阶段先执行默认迁移链版本号全局唯一校验，阻断多 agent 并行生成重复版本。
 //   - `openapi` 阶段显式验证根 OpenAPI 文档及其 fragments。
 //   - `lint` 阶段固定先跑生产代码和测试代码两套 golangci-lint 配置，显式收口
 //     不同阈值，而不是靠一份模糊配置同时兼顾两类目标。
@@ -227,6 +230,9 @@ func validateBackendStageOptions(stage string, smoke bool) error {
 }
 
 func runFullBackendValidation(cmd *cobra.Command, opts backendValidateOptions) error {
+	if err := backendMigrationVersionRunner(cmd); err != nil {
+		return err
+	}
 	if err := backendOpenAPIRunner(cmd, opts.openapiSpec); err != nil {
 		return err
 	}
@@ -245,6 +251,20 @@ func runFullBackendValidation(cmd *cobra.Command, opts backendValidateOptions) e
 		timeout:      defaultSmokeTimeout,
 	}); err != nil {
 		return fmt.Errorf("run backend smoke validation: %w", err)
+	}
+
+	return nil
+}
+
+func runValidateMigrationVersions(cmd *cobra.Command) error {
+	repoRoot, err := resolveRepositoryRoot()
+	if err != nil {
+		return fmt.Errorf("resolve repository root for migration version validation: %w", err)
+	}
+
+	scriptPath := filepath.Join(repoRoot, "scripts", "check_migration_versions.py")
+	if err := backendCommandRunner(cmd, "python3", scriptPath, "--mode", "all"); err != nil {
+		return fmt.Errorf("run migration version validation: %w", err)
 	}
 
 	return nil

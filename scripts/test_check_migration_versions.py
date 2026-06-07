@@ -10,11 +10,13 @@ from check_migration_versions import candidate_dirs, validate
 
 
 class CandidateDirsTest(unittest.TestCase):
-    def test_changed_mode_includes_all_module_migration_dirs_for_global_conflict_checks(self) -> None:
+    def test_changed_mode_includes_all_default_chain_dirs_for_global_conflict_checks(self) -> None:
         with TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
+            httpx_dir = root / "server" / "internal" / "httpx" / "migrations"
             user_dir = root / "server" / "modules" / "user" / "migrations"
             rbac_dir = root / "server" / "modules" / "rbac" / "migrations"
+            httpx_dir.mkdir(parents=True)
             user_dir.mkdir(parents=True)
             rbac_dir.mkdir(parents=True)
 
@@ -24,28 +26,42 @@ class CandidateDirsTest(unittest.TestCase):
             ):
                 dirs = candidate_dirs(root, "changed")
 
-            self.assertEqual(dirs, [rbac_dir, user_dir])
+            self.assertEqual(dirs, [httpx_dir, rbac_dir, user_dir])
+
+    def test_all_mode_excludes_historical_shared_migration_dir(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            httpx_dir = root / "server" / "internal" / "httpx" / "migrations"
+            historical_dir = root / "server" / "internal" / "ent" / "migrate" / "migrations"
+            user_dir = root / "server" / "modules" / "user" / "migrations"
+            httpx_dir.mkdir(parents=True)
+            historical_dir.mkdir(parents=True)
+            user_dir.mkdir(parents=True)
+
+            dirs = candidate_dirs(root, "all")
+
+            self.assertEqual(dirs, [httpx_dir, user_dir])
 
 
 class ValidateTest(unittest.TestCase):
     def test_validate_reports_duplicate_versions(self) -> None:
         with TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
+            httpx_dir = root / "server" / "internal" / "httpx" / "migrations"
             user_dir = root / "server" / "modules" / "user" / "migrations"
-            rbac_dir = root / "server" / "modules" / "rbac" / "migrations"
+            httpx_dir.mkdir(parents=True)
             user_dir.mkdir(parents=True)
-            rbac_dir.mkdir(parents=True)
+            (httpx_dir / "202605280001_access_log.sql").write_text("SELECT 1;\n", encoding="utf-8")
             (user_dir / "202605280001_user.sql").write_text("SELECT 1;\n", encoding="utf-8")
-            (rbac_dir / "202605280001_rbac.sql").write_text("SELECT 1;\n", encoding="utf-8")
 
-            errors = validate([user_dir, rbac_dir], root)
+            errors = validate([httpx_dir, user_dir], root)
 
             self.assertEqual(
                 errors,
                 [
                     "default migration chain version conflict: 202605280001 appears in "
-                    "server/modules/user/migrations/202605280001_user.sql, "
-                    "server/modules/rbac/migrations/202605280001_rbac.sql"
+                    "server/internal/httpx/migrations/202605280001_access_log.sql, "
+                    "server/modules/user/migrations/202605280001_user.sql"
                 ],
             )
 

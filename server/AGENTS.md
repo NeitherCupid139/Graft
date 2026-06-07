@@ -101,6 +101,7 @@ authority-first overlay：
 ### 3.5 Validation
 
 - 后端完成态统一走现有显式 CLI：
+  - 默认迁移链 migration version 全局唯一校验
   - `graft validate backend --stage lint`
   - `go test` 最小直接覆盖范围
   - `go build ./cmd/graft`
@@ -670,6 +671,7 @@ shared hotspot 处理规则如下：
 后端完成态的仓库内显式 CLI 入口是：
 
 - `cd server && go run ./cmd/graft validate backend`
+- `graft validate backend` 的 full 阶段必须先阻断默认链 live migration 目录中的全局 migration version 冲突
 - 若暂存区包含 `server/modules/*/migrations/*.sql`，`.husky/pre-commit` 必须阻断默认链中的跨模块 migration version 冲突
 
 如果已经构建出 `graft` 可执行文件，`graft validate backend` 只是同一入口的另一种调用方式；不要再发明第二套 blocking validation 命令。
@@ -681,6 +683,7 @@ shared hotspot 处理规则如下：
 - lint gate 以 changed-file scoped、`--new-from-rev=<merge-base> --whole-files` 语义执行；不要把 untouched backlog 混成当前切片阻断项
 - 新代码不能扩大 lint backlog
 - full backend completion 顺序固定为：
+  - 默认迁移链 migration version 全局唯一校验
   - `graft validate backend --stage lint`
   - `go test` 最小直接覆盖范围
   - `go build ./cmd/graft`

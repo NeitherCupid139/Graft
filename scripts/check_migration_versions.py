@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate module-owned Atlas migration filenames for the default backend chain."""
+"""Validate live Atlas migration filenames for the default backend chain."""
 
 from __future__ import annotations
 
@@ -13,6 +13,11 @@ from pathlib import Path
 
 SQL_NAME_RE = re.compile(r"^(?P<version>\d+)_(?P<name>.+)\.sql$")
 MODULE_MIGRATION_PARTS = ("server", "modules")
+LIVE_CORE_MIGRATION_DIRS = (
+    "server/internal/httpx/migrations",
+    "server/internal/logger/migrations",
+    "server/internal/drilldown/migrations",
+)
 
 
 def repo_root() -> Path:
@@ -33,9 +38,15 @@ def staged_paths(root: Path) -> list[Path]:
     return [root / line for line in output.splitlines() if line]
 
 
-def candidate_dirs(root: Path, mode: str) -> list[Path]:
+def default_migration_dirs(root: Path) -> set[Path]:
+    dirs = {root / path for path in LIVE_CORE_MIGRATION_DIRS}
     base = root / "server" / "modules"
-    all_dirs = {path for path in base.glob("*/migrations") if path.is_dir()}
+    dirs.update(path for path in base.glob("*/migrations") if path.is_dir())
+    return {path for path in dirs if path.is_dir()}
+
+
+def candidate_dirs(root: Path, mode: str) -> list[Path]:
+    all_dirs = default_migration_dirs(root)
     if mode == "all":
         return sorted(all_dirs)
 
@@ -84,21 +95,19 @@ def validate(migration_dirs: list[Path], root: Path) -> list[str]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Validate module-owned migration versions remain globally unique in the default chain."
-    )
+    parser = argparse.ArgumentParser(description="Validate migration versions remain globally unique in the default chain.")
     parser.add_argument(
         "--mode",
         choices=("changed", "all"),
         default="changed",
-        help="check only staged module migration directories or all module migration directories",
+        help="check staged migration context or all default-chain migration directories",
     )
     args = parser.parse_args()
 
     root = repo_root()
     dirs = candidate_dirs(root, args.mode)
     if not dirs:
-        print("migration version gate: skip (no matching module migration directories)")
+        print("migration version gate: skip (no matching default-chain migration directories)")
         return 0
 
     errors = validate(dirs, root)
@@ -109,8 +118,8 @@ def main() -> int:
     for error in errors:
         print(error, file=sys.stderr)
     print(
-            "migration version gate: Atlas default chain aggregates module migrations into one directory; "
-            "use globally unique numeric versions across modules.",
+        "migration version gate: Atlas default chain aggregates live migration directories into one directory; "
+        "use globally unique numeric versions across default-chain migrations.",
         file=sys.stderr,
     )
     return 1
