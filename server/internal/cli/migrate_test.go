@@ -325,6 +325,63 @@ func TestResolveMigrationDirsSkipsMissingRegistryDirs(t *testing.T) {
 	}
 }
 
+// TestDefaultMigrationRegistrySQLDirsHaveAtlasState guards against registering
+// live migration SQL that the default chain silently skips because atlas.sum is
+// missing.
+func TestDefaultMigrationRegistrySQLDirsHaveAtlasState(t *testing.T) {
+	workingDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("get working dir: %v", err)
+	}
+
+	dirs, err := moduleregistry.MigrationDirs()
+	if err != nil {
+		t.Fatalf("load migration dirs: %v", err)
+	}
+
+	for _, dir := range dirs {
+		assertSQLMigrationDirHasAtlasState(t, workingDir, dir)
+	}
+}
+
+func assertSQLMigrationDirHasAtlasState(t *testing.T, workingDir string, dir string) {
+	t.Helper()
+
+	absDir, err := resolveMigrationDir(workingDir, dir)
+	if errors.Is(err, os.ErrNotExist) {
+		return
+	}
+	if err != nil {
+		t.Fatalf("resolve migration dir %s: %v", dir, err)
+	}
+
+	hasSQL, hasAtlasState := migrationDirState(t, absDir)
+	if hasSQL && !hasAtlasState {
+		t.Fatalf("migration dir %s has SQL files but no atlas.sum", dir)
+	}
+}
+
+func migrationDirState(t *testing.T, absDir string) (bool, bool) {
+	t.Helper()
+
+	entries, err := os.ReadDir(absDir)
+	if err != nil {
+		t.Fatalf("read migration dir %s: %v", absDir, err)
+	}
+
+	hasSQL := false
+	hasAtlasState := false
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		hasSQL = hasSQL || filepath.Ext(entry.Name()) == ".sql"
+		hasAtlasState = hasAtlasState || entry.Name() == "atlas.sum"
+	}
+
+	return hasSQL, hasAtlasState
+}
+
 // TestResolveMigrationDirsRejectsRegistryWithoutAtlasState 验证默认 registry 目录
 // 若全部缺少 Atlas 状态，会显式报错而不是静默跳过迁移。
 func TestResolveMigrationDirsRejectsRegistryWithoutAtlasState(t *testing.T) {
