@@ -2,9 +2,14 @@
 
 ## Current Status
 
-- Topic created for the `cross-boundary` System Configuration capability.
+- Status: `archive-ready`.
+- Topic completed for the `cross-boundary` System Configuration capability.
 - Branch renamed to `feat/system-configuration`.
 - Loop mode: `topic-completion-loop` through `$graft-multi-agent-loop`.
+- Completed commits:
+  - `9c014fc` - backend configuration authority
+  - `8375f87` - web settings module
+  - `326835e` - initial retention defaults
 - Startup receipt:
   - governance source: root `AGENTS.md`
   - task class: `cross-boundary`
@@ -56,3 +61,10 @@ The intended model is:
   - sensitive effective/current values are not returned as plaintext
 - Menu placement is under Service Management as `/server/system-config`.
 - MVP validates both server and web because this is a shared contract/menu/permission slice.
+
+## Archive-Ready Decision
+
+- Decision: `archive-ready`.
+- Reason: all planned batches completed, server and web completion validations passed, and no remaining in-scope
+  implementation batch is required for the MVP authority baseline.
+- Non-blocking future scope: later auth/login/password-policy definitions can be added after the baseline remains stable.

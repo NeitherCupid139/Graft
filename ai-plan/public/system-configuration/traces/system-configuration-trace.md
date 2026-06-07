@@ -101,3 +101,24 @@
   - all three planned batches are complete
   - acceptance conditions are met for registry placement, override-only persistence, sensitive/masked OpenAPI response shape, menu placement, and server/web validation
   - no additional in-scope implementation batch remains; outer loop can perform terminal archive-ready handling
+
+## 2026-06-07 outer loop archive-ready closeout
+
+- Accepted Batch 3 worker closeout:
+  - scoped commit: `326835e feat(system-config): register initial retention defaults`
+  - changed scope stayed inside allowed Batch 3 server/system-config, retention-definition, and recovery-doc boundaries
+  - worker validation passed:
+    - `cd server && go test ./internal/configregistry ./modules/system-config ./internal/httpx ./internal/logger ./modules/audit ./internal/app`
+    - `cd server && go run ./cmd/graft validate backend`
+    - `cd web && bun run check`
+    - `git diff --check`
+- Ran terminal archive-readiness review:
+  - `ConfigDefinition` authority is registered through `server/internal/configregistry`
+  - `server/internal/config` remains startup/environment configuration only
+  - `server/modules/system-config` stores administrator override JSON only in `system_config_values`
+  - first low-risk defaults are registered from access-log, app-log, and audit retention cleanup authority without changing Scheduled Task instance config semantics
+  - OpenAPI and web MVP surfaces remain aligned with `/api/system-configs` and `/server/system-config`
+  - server and web completion entrypoints passed for the final cross-boundary slice
+- Topic verdict: `archive-ready`.
+- Remaining future scope is non-blocking:
+  - auth/login/password-policy definitions should be added in a later bounded slice after the baseline remains stable

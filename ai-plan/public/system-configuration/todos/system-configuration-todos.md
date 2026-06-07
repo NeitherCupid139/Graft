@@ -7,8 +7,9 @@
   - Batch 2: web module and shared schema form reuse
   - Batch 3: initial config definitions and final cross-boundary validation
 - pending_batches: []
-- current_batch: complete
+- current_batch: archive-ready
 - next_batch: none
+- terminal_status: archive-ready
 
 ## Batch 1 - Backend Authority Baseline
 
@@ -36,3 +37,10 @@ Status: accepted by the loop owner; focused validation recorded in the trace.
 - [x] Ensure definitions do not copy canonical defaults into the database.
 - [x] Run focused and completion validations for server and web.
 - [x] Update recovery trace and archive-readiness status.
+
+## Terminal Archive-Ready Closeout
+
+- [x] Outer loop accepted Batch 3 closeout and scoped commit `326835e`.
+- [x] Confirmed no pending same-session implementation batches remain.
+- [x] Confirmed topic acceptance conditions are met.
+- [x] Marked the parent topic `archive-ready`.
