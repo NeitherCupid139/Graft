@@ -27,6 +27,8 @@ type Job struct {
 	ConfigSchema string
 	// DefaultConfig is the default JSON object merged with each task's config_json.
 	DefaultConfig string
+	// DefaultConfigKey optionally points to the system-config definition whose effective value owns DefaultConfig.
+	DefaultConfigKey string
 	// Actions are backend-defined one-shot operations available for this Job Definition.
 	Actions []JobAction
 	// Schedule 保存默认 cron 表达式语义，当前阶段仅做声明透传。

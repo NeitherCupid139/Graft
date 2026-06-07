@@ -319,6 +319,7 @@ func registerAuditLogRetentionCleanupJob(
 		DescriptionMessageKey: auditLogRetentionCleanupJobDescriptionKey,
 		ConfigSchema:          auditLogRetentionCleanupConfigSchema,
 		DefaultConfig:         auditLogRetentionCleanupDefaultConfig,
+		DefaultConfigKey:      auditLogRetentionCleanupJobName,
 		Actions: []cronx.JobAction{
 			{
 				Key:            auditLogRetentionDryRunActionKey,

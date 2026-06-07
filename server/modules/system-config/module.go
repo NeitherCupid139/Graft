@@ -2,8 +2,11 @@ package systemconfig
 
 import (
 	"errors"
+	"fmt"
 
+	"graft/server/internal/container"
 	"graft/server/internal/module"
+	schedulercore "graft/server/internal/scheduler"
 )
 
 const moduleID = "system-config"
@@ -34,6 +37,11 @@ func (m *Module) Register(ctx *module.Context) error {
 	}
 	if err := registerSystemConfigMenu(ctx.MenuRegistry, moduleID); err != nil {
 		return err
+	}
+	if err := ctx.Services.RegisterSingleton((*schedulercore.DefaultConfigResolver)(nil), func(_ container.Resolver) (any, error) {
+		return m.service, nil
+	}); err != nil {
+		return fmt.Errorf("register system-config default resolver: %w", err)
 	}
 	return registerSystemConfigRoutes(ctx, moduleID, m.service)
 }

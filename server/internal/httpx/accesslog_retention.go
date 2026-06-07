@@ -365,6 +365,7 @@ func RegisterAccessLogRetentionCleanupJob(
 		DescriptionMessageKey: accessLogRetentionCleanupJobDescriptionKey,
 		ConfigSchema:          accessLogRetentionCleanupConfigSchema,
 		DefaultConfig:         accessLogRetentionCleanupDefaultConfig,
+		DefaultConfigKey:      accessLogRetentionCleanupJobName,
 		Actions: []cronx.JobAction{
 			{
 				Key:            accessLogRetentionDryRunActionKey,

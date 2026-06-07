@@ -66,6 +66,15 @@ func (s *Service) Get(ctx context.Context, key string) (ValueSnapshot, error) {
 	return s.snapshot(ctx, definition)
 }
 
+// ResolveDefaultConfig exposes effective object values for scheduler job definitions.
+func (s *Service) ResolveDefaultConfig(ctx context.Context, key string) (string, error) {
+	item, err := s.Get(ctx, key)
+	if err != nil {
+		return "", err
+	}
+	return string(item.EffectiveValue), nil
+}
+
 // Update stores an administrator override for one registered definition key.
 func (s *Service) Update(ctx context.Context, key string, value json.RawMessage) (ValueSnapshot, error) {
 	definition, ok := s.registry.Get(key)

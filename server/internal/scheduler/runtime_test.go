@@ -83,6 +83,22 @@ type taskRepositoryRecorder struct {
 	tasks map[string]TaskDefinition
 }
 
+type defaultConfigResolverRecorder struct {
+	values map[string]string
+	err    error
+}
+
+func (r defaultConfigResolverRecorder) ResolveDefaultConfig(_ context.Context, key string) (string, error) {
+	if r.err != nil {
+		return "", r.err
+	}
+	value, ok := r.values[key]
+	if !ok {
+		return "", errors.New("default config not found")
+	}
+	return value, nil
+}
+
 func newTaskRepositoryRecorder() *taskRepositoryRecorder {
 	return &taskRepositoryRecorder{tasks: make(map[string]TaskDefinition)}
 }
@@ -334,6 +350,123 @@ func TestCreateTaskReturnsEffectiveConfig(t *testing.T) {
 	effective := decodeRuntimeJSONObject(t, task.EffectiveConfig)
 	if effective["batchSize"] != float64(25) || effective["retentionDays"] != float64(30) {
 		t.Fatalf("unexpected effective config: %s", task.EffectiveConfig)
+	}
+}
+
+func TestSeedBuiltinJobsUsesEffectiveDefaultConfig(t *testing.T) {
+	runtime := New(zap.NewNop(), newRunRepositoryRecorder())
+	taskRepo := newTaskRepositoryRecorder()
+	runtime.SetTaskRepository(taskRepo)
+	runtime.SetDefaultConfigResolver(defaultConfigResolverRecorder{
+		values: map[string]string{
+			"logger.app-log-retention-cleanup": `{"retentionDays":45,"batchSize":2000}`,
+		},
+	})
+
+	seedRuntimeJob(t, runtime, cronx.Job{
+		Name:             "logger.app-log-retention-cleanup",
+		Schedule:         "*/1 * * * * *",
+		DefaultConfig:    `{"retentionDays":30,"batchSize":1000}`,
+		DefaultConfigKey: "logger.app-log-retention-cleanup",
+		ConfigSchema:     `{"type":"object","properties":{"retentionDays":{"type":"integer","minimum":1,"maximum":3650},"batchSize":{"type":"integer","minimum":1,"maximum":10000}},"additionalProperties":false}`,
+		Handler: func(context.Context, string) (cronx.JobRunResult, error) {
+			return cronx.JobRunResult{Summary: "ok"}, nil
+		},
+	})
+
+	definitions, err := runtime.ListJobDefinitions(context.Background())
+	if err != nil {
+		t.Fatalf("list job definitions: %v", err)
+	}
+	if len(definitions) != 1 || definitions[0].DefaultConfig != `{"retentionDays":45,"batchSize":2000}` {
+		t.Fatalf("expected effective job default config, got %#v", definitions)
+	}
+	if taskRepo.tasks["logger.app-log-retention-cleanup"].ConfigJSON != `{"retentionDays":45,"batchSize":2000}` {
+		t.Fatalf("expected builtin task to seed effective default, got %s", taskRepo.tasks["logger.app-log-retention-cleanup"].ConfigJSON)
+	}
+	task, err := runtime.GetTask(context.Background(), "logger.app-log-retention-cleanup")
+	if err != nil {
+		t.Fatalf("get task: %v", err)
+	}
+	effective := decodeRuntimeJSONObject(t, task.EffectiveConfig)
+	if effective["retentionDays"] != float64(45) || effective["batchSize"] != float64(2000) {
+		t.Fatalf("unexpected effective config: %s", task.EffectiveConfig)
+	}
+}
+
+func TestSeedBuiltinJobsReplacesStaticDefaultSnapshotWithEffectiveDefault(t *testing.T) {
+	runtime := New(zap.NewNop(), newRunRepositoryRecorder())
+	taskRepo := newTaskRepositoryRecorder()
+	runtime.SetTaskRepository(taskRepo)
+	runtime.SetDefaultConfigResolver(defaultConfigResolverRecorder{
+		values: map[string]string{
+			"audit.audit-log-retention-cleanup": `{"retentionDays":60,"batchSize":3000}`,
+		},
+	})
+
+	job := cronx.Job{
+		Name:             "audit.audit-log-retention-cleanup",
+		Schedule:         "*/1 * * * * *",
+		DefaultConfig:    `{"retentionDays":30,"batchSize":1000}`,
+		DefaultConfigKey: "audit.audit-log-retention-cleanup",
+		ConfigSchema:     `{"type":"object","properties":{"retentionDays":{"type":"integer","minimum":1,"maximum":3650},"batchSize":{"type":"integer","minimum":1,"maximum":10000}},"additionalProperties":false}`,
+		Handler: func(context.Context, string) (cronx.JobRunResult, error) {
+			return cronx.JobRunResult{Summary: "ok"}, nil
+		},
+	}
+	taskRepo.tasks["audit.audit-log-retention-cleanup"] = TaskDefinition{
+		TaskKey:        "audit.audit-log-retention-cleanup",
+		JobKey:         "audit.audit-log-retention-cleanup",
+		ModuleKey:      "audit",
+		Title:          "Audit cleanup",
+		CronExpression: "*/1 * * * * *",
+		Enabled:        true,
+		Builtin:        true,
+		ConfigJSON:     `{"retentionDays":30,"batchSize":1000}`,
+	}
+
+	if err := runtime.SeedBuiltinJobs(context.Background(), []cronx.Job{job}); err != nil {
+		t.Fatalf("seed builtin job: %v", err)
+	}
+	if taskRepo.tasks["audit.audit-log-retention-cleanup"].ConfigJSON != `{"retentionDays":60,"batchSize":3000}` {
+		t.Fatalf("expected static default snapshot to be replaced, got %s", taskRepo.tasks["audit.audit-log-retention-cleanup"].ConfigJSON)
+	}
+}
+
+func TestBuiltinExplicitTaskConfigTakesPrecedenceOverEffectiveDefault(t *testing.T) {
+	repo := newRunRepositoryRecorder()
+	runtime := New(zap.NewNop(), repo)
+	taskRepo := newTaskRepositoryRecorder()
+	runtime.SetTaskRepository(taskRepo)
+	runtime.SetDefaultConfigResolver(defaultConfigResolverRecorder{
+		values: map[string]string{
+			"httpx.access-log-retention-cleanup": `{"retentionDays":45,"batchSize":2000}`,
+		},
+	})
+
+	seedRuntimeJob(t, runtime, cronx.Job{
+		Name:             "httpx.access-log-retention-cleanup",
+		Schedule:         "*/1 * * * * *",
+		DefaultConfig:    `{"retentionDays":30,"batchSize":1000}`,
+		DefaultConfigKey: "httpx.access-log-retention-cleanup",
+		ConfigSchema:     `{"type":"object","properties":{"retentionDays":{"type":"integer","minimum":1,"maximum":3650},"batchSize":{"type":"integer","minimum":1,"maximum":10000}},"additionalProperties":false}`,
+		Handler: func(context.Context, string) (cronx.JobRunResult, error) {
+			return cronx.JobRunResult{Summary: "ok"}, nil
+		},
+	})
+	if _, err := runtime.UpdateTask(context.Background(), "httpx.access-log-retention-cleanup", TaskMutation{
+		ConfigJSON: `{"retentionDays":90}`,
+	}); err != nil {
+		t.Fatalf("update builtin task config: %v", err)
+	}
+
+	task, err := runtime.GetTask(context.Background(), "httpx.access-log-retention-cleanup")
+	if err != nil {
+		t.Fatalf("get task: %v", err)
+	}
+	effective := decodeRuntimeJSONObject(t, task.EffectiveConfig)
+	if effective["retentionDays"] != float64(90) || effective["batchSize"] != float64(2000) {
+		t.Fatalf("expected explicit task config to override effective default, got %s", task.EffectiveConfig)
 	}
 }
 

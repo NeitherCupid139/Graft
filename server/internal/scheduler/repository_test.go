@@ -104,7 +104,7 @@ func TestSQLJobDefinitionRepositorySyncsDefinitions(t *testing.T) {
 	}
 }
 
-func TestSQLTaskRepositorySeedsBuiltinWithoutOverwritingCronOrEnabled(t *testing.T) {
+func TestSQLTaskRepositorySeedsBuiltinPreservesCronAndEnabledWhileRefreshingConfig(t *testing.T) {
 	db := newSchedulerRepositoryTestDB(t)
 	repo, err := NewSQLTaskRepository(db)
 	if err != nil {
@@ -154,8 +154,8 @@ func TestSQLTaskRepositorySeedsBuiltinWithoutOverwritingCronOrEnabled(t *testing
 	if task.CronExpression != "0 */5 * * * *" || task.Enabled {
 		t.Fatalf("expected user-edited cron/enabled to survive reseed, got %#v", task)
 	}
-	if task.ConfigJSON != `{"retentionDays":90,"batchSize":500}` {
-		t.Fatalf("expected repository to preserve existing builtin config, got %#v", task)
+	if task.ConfigJSON != `{"retentionDays":30,"batchSize":1000}` {
+		t.Fatalf("expected repository to accept runtime-selected builtin config, got %#v", task)
 	}
 }
 

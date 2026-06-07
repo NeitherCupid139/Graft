@@ -848,6 +848,28 @@ describe('ScheduledTaskListPage', () => {
     expect(wrapper.text()).toContain('"batchSize": 1000');
   });
 
+  it('does not persist Job Definition defaults when task config is unchanged', async () => {
+    const wrapper = mountPage();
+    await flushPromises();
+
+    await openTaskEditDrawerByRow(wrapper, 2);
+    await findButtonByText(wrapper, '保存')!.trigger('click');
+    await flushPromises();
+
+    expect(apiMocks.updateScheduledTask).toHaveBeenCalledWith(
+      'logger.app-log-retention-cleanup',
+      expect.not.objectContaining({
+        config_json: '{"retentionDays":30,"batchSize":1000}',
+      }),
+    );
+    expect(apiMocks.updateScheduledTask).toHaveBeenCalledWith(
+      'logger.app-log-retention-cleanup',
+      expect.not.objectContaining({
+        config_json: expect.any(String),
+      }),
+    );
+  });
+
   it('renders schema config labels from x-title-key in the form surface', async () => {
     const wrapper = mountPage();
     await flushPromises();

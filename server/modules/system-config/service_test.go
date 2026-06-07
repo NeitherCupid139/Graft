@@ -46,6 +46,33 @@ func TestServiceListsDefaultsAndStoresOverridesOnly(t *testing.T) {
 	assertResetDeletesOverride(t, service, repo)
 }
 
+func TestServiceResolveDefaultConfigReturnsEffectiveOverride(t *testing.T) {
+	repo := newMemoryRepo()
+	service := newTestServiceWithRepo(t, repo, configregistry.Definition{
+		Key:          "httpx.access-log-retention-cleanup",
+		Module:       "core.httpx",
+		Group:        "log.retention",
+		Title:        "Access log retention cleanup",
+		Type:         configregistry.ValueTypeObject,
+		DefaultValue: json.RawMessage(`{"retentionDays":30,"batchSize":1000}`),
+	})
+	if _, err := service.Update(
+		context.Background(),
+		"httpx.access-log-retention-cleanup",
+		json.RawMessage(`{"retentionDays":45,"batchSize":2000}`),
+	); err != nil {
+		t.Fatalf("update override: %v", err)
+	}
+
+	value, err := service.ResolveDefaultConfig(context.Background(), "httpx.access-log-retention-cleanup")
+	if err != nil {
+		t.Fatalf("resolve default config: %v", err)
+	}
+	if value != `{"retentionDays":45,"batchSize":2000}` {
+		t.Fatalf("expected effective override, got %s", value)
+	}
+}
+
 func assertDefaultVisibleWithoutOverride(t *testing.T, service *Service, repo *memoryRepo) {
 	t.Helper()
 
