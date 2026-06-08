@@ -1,16 +1,27 @@
 <template>
   <section class="system-config-page" data-page-type="settings">
-    <header class="system-config-page__header">
-      <div>
-        <span class="system-config-page__eyebrow">{{ t('systemConfig.list.eyebrow') }}</span>
-        <h1>{{ t('systemConfig.list.title') }}</h1>
-        <p>{{ t('systemConfig.list.description') }}</p>
-      </div>
-      <t-button theme="primary" :loading="loading" @click="refreshConfigs">
-        <template #icon><refresh-icon /></template>
-        {{ t('systemConfig.list.refresh') }}
-      </t-button>
-    </header>
+    <page-header
+      :breadcrumb="[
+        { labelKey: 'menu.server.title', fallback: t('systemConfig.list.eyebrow') },
+        { labelKey: 'systemConfig.list.title', fallback: t('systemConfig.list.title') },
+      ]"
+      :source="{
+        labelKey: 'menu.server.title',
+        fallback: t('systemConfig.list.eyebrow'),
+        color: 'var(--td-brand-color-6)',
+      }"
+      title-key="systemConfig.list.title"
+      :title-fallback="t('systemConfig.list.title')"
+      description-key="systemConfig.list.description"
+      :description-fallback="t('systemConfig.list.description')"
+    >
+      <template #actions>
+        <t-button theme="primary" :loading="loading" @click="refreshConfigs">
+          <template #icon><refresh-icon /></template>
+          {{ t('systemConfig.list.refresh') }}
+        </t-button>
+      </template>
+    </page-header>
 
     <t-alert
       v-if="errorMessage"
@@ -208,6 +219,7 @@ import { MessagePlugin } from 'tdesign-vue-next';
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
+import { PageHeader } from '@/shared/components/page';
 import {
   type ConfigSchemaField,
   getConfigSchemaFields,
@@ -526,29 +538,11 @@ function readableError(error: unknown, fallback: string) {
   min-width: 0;
 }
 
-.system-config-page__header {
-  align-items: flex-start;
-  display: flex;
-  gap: var(--graft-density-gap-16);
-  justify-content: space-between;
-}
-
-.system-config-page__eyebrow {
-  color: var(--td-brand-color);
-  font: var(--td-font-body-small);
-}
-
-.system-config-page__header h1,
 .system-config-content__head h2,
 .system-config-item h3 {
   margin: 0;
 }
 
-.system-config-page__header h1 {
-  font: var(--td-font-headline-medium);
-}
-
-.system-config-page__header p,
 .system-config-content__head p,
 .system-config-item p {
   color: var(--td-text-color-secondary);
@@ -754,7 +748,6 @@ function readableError(error: unknown, fallback: string) {
 }
 
 @media (width <= 900px) {
-  .system-config-page__header,
   .system-config-layout,
   .system-config-summary,
   .system-config-values {

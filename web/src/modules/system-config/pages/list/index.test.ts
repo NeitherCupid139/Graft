@@ -12,6 +12,7 @@ const apiMocks = vi.hoisted(() => ({
 
 const translations = vi.hoisted(
   (): Record<string, string> => ({
+    'menu.server.title': '服务管理',
     'systemConfig.fields.batchSize.description': '单次清理最多删除的日志行数。',
     'systemConfig.fields.batchSize.title': '批量大小',
     'systemConfig.fields.retentionDays.description': '删除早于指定天数的日志。',
@@ -109,6 +110,9 @@ describe('system config list page', () => {
     const wrapper = mountPage();
     await flushPromises();
 
+    expect(wrapper.find('.page-header').exists()).toBe(true);
+    expect(wrapper.find('.page-header').text()).toContain('服务管理');
+    expect(wrapper.find('.page-header').text()).toContain('系统配置');
     expect(wrapper.text()).toContain('访问日志保留配置');
     expect(wrapper.text()).toContain('core.httpx / log.retention');
     expect(wrapper.text()).toContain('访问日志保留清理');

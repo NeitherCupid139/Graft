@@ -3,7 +3,9 @@
     <governance-dashboard-shell
       domain="audit"
       :eyebrow="t('menu.audit.title')"
+      title-key="audit.overview.title"
       :title="t('audit.overview.title')"
+      description-key="audit.overview.description"
       :description="t('audit.overview.description')"
     >
       <template #actions>

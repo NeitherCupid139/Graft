@@ -2,16 +2,18 @@
   <advanced-query-list-page
     root-class="scheduled-task-page"
     page-type="list-form-detail"
+    title-key="scheduledTask.list.title"
     :title="t('scheduledTask.list.title')"
+    description-key="scheduledTask.list.description"
     :description="t('scheduledTask.list.description')"
     :error-message="errorMessage"
     :error-title="t('scheduledTask.list.loadError')"
     :loading="loading"
     :reload-label="t('scheduledTask.list.refresh')"
     :retry-label="t('scheduledTask.list.refresh')"
+    :source="{ labelKey: 'scheduledTask.list.eyebrow', fallback: t('scheduledTask.list.eyebrow') }"
     @reload="refreshTasks"
   >
-    <template #eyebrow>{{ t('scheduledTask.list.eyebrow') }}</template>
     <template #actions>
       <t-button theme="default" variant="outline" @click="columnDrawerVisible = true">
         {{ t('scheduledTask.list.columnSettings') }}
