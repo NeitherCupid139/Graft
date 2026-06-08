@@ -8,7 +8,7 @@
     role="meter"
     :aria-label="label || titleText"
     aria-valuemin="0"
-    :aria-valuemax="String(max)"
+    aria-valuemax="100"
     :aria-valuenow="ariaValueNow"
   >
     <div class="metric-usage-bar__track">

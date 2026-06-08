@@ -157,6 +157,36 @@ describe('setting store theme authority', () => {
     expect(store.resolvedThemeTokensForDisplayMode['--td-brand-color']).toBe('#000000');
   });
 
+  it('refreshes chart colors when the brand theme changes directly', () => {
+    const store = useSettingStore();
+
+    store.themeTokenOverrides = {
+      light: {
+        '--graft-chart-text-color': '#123456',
+      },
+      dark: {},
+    };
+    store.chartColors = {
+      textColor: '#stale',
+      placeholderColor: '#stale',
+      borderColor: '#stale',
+      containerColor: '#stale',
+    };
+
+    store.changeBrandTheme('#2BA471');
+
+    expect(store.brandTheme).toBe('#2BA471');
+    expect(store.chartColors.textColor).toBe('#123456');
+    expect(store.chartColors.placeholderColor).toBe('#8a94a6');
+    expect(insertThemeStylesheet).toHaveBeenCalledWith(
+      '#2BA471',
+      expect.objectContaining({
+        '--graft-chart-text-color': '#123456',
+      }),
+      'light',
+    );
+  });
+
   it('refreshes theme runtime only once when applying draft preview and final draft', () => {
     const store = useSettingStore();
     insertThemeStylesheetMock.mockClear();

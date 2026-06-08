@@ -3,9 +3,7 @@
     <management-page-content>
       <management-page-header
         title-key="rbac.roleList.listTitle"
-        :title="t('rbac.roleList.listTitle')"
         description-key="rbac.roleList.hint"
-        :description="t('rbac.roleList.hint')"
         :source="{ labelKey: 'menu.access_control.title', fallback: t('menu.access_control.title') }"
       >
         <template #actions>

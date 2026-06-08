@@ -117,6 +117,31 @@ func TestCurrentUserIDReadsRequestAuthContext(t *testing.T) {
 	}
 }
 
+func TestModuleRegisterRequiresUserService(t *testing.T) {
+	service := newTestService(t, configregistry.Definition{
+		Key:          "scheduler.timeout",
+		Module:       "scheduler",
+		Group:        "runtime",
+		Title:        "Timeout",
+		Type:         configregistry.ValueTypeString,
+		DefaultValue: json.RawMessage(`"30s"`),
+	})
+	moduleInstance, err := NewModule(service)
+	if err != nil {
+		t.Fatalf("create module: %v", err)
+	}
+
+	err = moduleInstance.Register(&module.Context{
+		Services: container.New(),
+	})
+	if err == nil {
+		t.Fatalf("expected missing user service error")
+	}
+	if !errors.Is(err, container.ErrServiceNotRegistered) {
+		t.Fatalf("expected service not registered error, got %v", err)
+	}
+}
+
 func TestModuleRegisterBindsUserServiceForUpdatedByUsername(t *testing.T) {
 	repo := newMemoryRepo()
 	service := newTestServiceWithRepoAndUsers(t, repo, nil, configregistry.Definition{

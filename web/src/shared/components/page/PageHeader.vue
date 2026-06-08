@@ -18,7 +18,7 @@
 
     <div class="page-header__main">
       <div class="page-header__copy">
-        <h1 class="page-header__title">{{ resolveText(titleKey, titleFallback) }}</h1>
+        <h1 class="page-header__title">{{ resolvedTitle }}</h1>
         <p v-if="resolvedDescription" class="page-header__description">
           {{ resolvedDescription }}
         </p>
@@ -46,7 +46,7 @@ const props = withDefaults(
     breadcrumb?: PageHeaderBreadcrumbItem[];
     source?: PageHeaderSource;
     titleKey?: string;
-    titleFallback: string;
+    titleFallback?: string;
     descriptionKey?: string;
     descriptionFallback?: string;
     compact?: boolean;
@@ -57,6 +57,7 @@ const props = withDefaults(
     descriptionFallback: '',
     descriptionKey: '',
     source: undefined,
+    titleFallback: '',
     titleKey: '',
   },
 );
@@ -71,7 +72,7 @@ const translate = (() => {
   }
 })();
 
-function resolveText(key: string | undefined, fallback: string) {
+function resolveText(key: string | undefined, fallback = '') {
   if (!key) {
     return fallback;
   }
@@ -82,6 +83,7 @@ function resolveText(key: string | undefined, fallback: string) {
 
 const resolvedBreadcrumb = computed(() => props.breadcrumb ?? []);
 const resolvedSource = computed(() => props.source);
+const resolvedTitle = computed(() => resolveText(props.titleKey, props.titleFallback));
 const resolvedDescription = computed(() => {
   if (!props.descriptionKey && !props.descriptionFallback) {
     return '';

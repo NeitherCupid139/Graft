@@ -49,7 +49,7 @@ import { PageHeader, type PageHeaderBreadcrumbItem, type PageHeaderSource } from
 
 const props = withDefaults(
   defineProps<{
-    title: string;
+    title?: string;
     description?: string;
     eyebrow?: string;
     titleKey?: string;
@@ -69,6 +69,7 @@ const props = withDefaults(
     compactHeader: false,
     descriptionKey: '',
     source: undefined,
+    title: '',
     titleKey: '',
   },
 );

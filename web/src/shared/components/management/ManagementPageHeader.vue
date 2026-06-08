@@ -23,7 +23,7 @@ import { computed } from 'vue';
 import { PageHeader, type PageHeaderBreadcrumbItem, type PageHeaderSource } from '@/shared/components/page';
 
 const props = defineProps<{
-  title: string;
+  title?: string;
   description?: string;
   titleKey?: string;
   descriptionKey?: string;
@@ -36,8 +36,8 @@ const resolvedBreadcrumb = computed<PageHeaderBreadcrumbItem[]>(() => {
     return props.breadcrumb;
   }
 
-  const titleKey = props.titleKey || props.title;
-  const titleFallback = props.title;
+  const titleKey = props.titleKey || props.title || '';
+  const titleFallback = props.title || '';
   if (!props.source) {
     return [{ labelKey: titleKey, fallback: titleFallback }];
   }

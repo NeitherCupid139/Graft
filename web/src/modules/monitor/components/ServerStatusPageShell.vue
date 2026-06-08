@@ -31,8 +31,8 @@ import type { PageHeaderSource } from '@/shared/components/page';
 
 defineProps<{
   eyebrow: string;
-  title: string;
-  description: string;
+  title?: string;
+  description?: string;
   titleKey?: string;
   descriptionKey?: string;
   source?: PageHeaderSource;

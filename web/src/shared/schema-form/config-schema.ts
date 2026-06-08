@@ -224,6 +224,16 @@ function validateConfigValue(
         return typeIssue(field, key, property, 'boolean', value);
       }
       break;
+    case 'object':
+      if (!isJsonRecord(value)) {
+        return typeIssue(field, key, property, 'object', value);
+      }
+      break;
+    case 'array':
+      if (!Array.isArray(value)) {
+        return typeIssue(field, key, property, 'array', value);
+      }
+      break;
     default:
       break;
   }

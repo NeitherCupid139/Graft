@@ -6,6 +6,7 @@ import (
 
 	"graft/server/internal/container"
 	"graft/server/internal/module"
+	"graft/server/internal/moduleapi"
 	schedulercore "graft/server/internal/scheduler"
 )
 
@@ -29,7 +30,7 @@ func (m *Module) Register(ctx *module.Context) error {
 	if m == nil || m.service == nil {
 		return errors.New("system config module service is unavailable")
 	}
-	userService, err := optionalUserService(ctx.Services)
+	userService, err := requiredUserService(ctx.Services)
 	if err != nil {
 		return fmt.Errorf("resolve user service: %w", err)
 	}
@@ -49,6 +50,10 @@ func (m *Module) Register(ctx *module.Context) error {
 		return fmt.Errorf("register system-config default resolver: %w", err)
 	}
 	return registerSystemConfigRoutes(ctx, moduleID, m.service)
+}
+
+func requiredUserService(resolver container.Resolver) (moduleapi.UserService, error) {
+	return module.ResolveService[moduleapi.UserService](resolver, (*moduleapi.UserService)(nil))
 }
 
 // Boot currently has no runtime work; definitions are registered by owner modules.

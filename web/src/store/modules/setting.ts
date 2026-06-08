@@ -682,6 +682,7 @@ export const useSettingStore = defineStore('setting', {
       const displayMode = this.getDisplayModeByInput(nextMode);
       this.buildResolvedThemeTokens();
       this.applyResolvedThemeTokens(displayMode);
+      this.chartColors = buildChartColorsFromTokens(resolveModeTokens(this.themeResolvedTokens, displayMode));
     },
     async changeMode(mode: ModeType | 'auto') {
       const theme = this.getDisplayModeByInput(mode);
@@ -690,7 +691,6 @@ export const useSettingStore = defineStore('setting', {
       document.documentElement.setAttribute('theme-mode', isDarkMode ? 'dark' : '');
 
       this.refreshThemeWorkbenchRuntime(theme);
-      this.chartColors = buildChartColorsFromTokens(resolveModeTokens(this.themeResolvedTokens, theme));
     },
     async changeModeWithTransition(mode: ModeType | 'auto', event?: MouseEvent) {
       await runThemeTransition(() => {
@@ -711,6 +711,7 @@ export const useSettingStore = defineStore('setting', {
       return 'light';
     },
     changeBrandTheme(brandTheme: string) {
+      this.brandTheme = brandTheme;
       const mode = this.displayMode;
       this.getCachedBrandTokens(brandTheme, 'light');
       this.getCachedBrandTokens(brandTheme, 'dark');

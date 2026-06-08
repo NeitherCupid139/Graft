@@ -3,9 +3,7 @@
     class="monitor-dashboard"
     :eyebrow="t('monitor.sectionTitle')"
     title-key="monitor.serverStatus.overviewTitle"
-    :title="t('monitor.serverStatus.overviewTitle')"
     description-key="monitor.serverStatus.overviewHint"
-    :description="t('monitor.serverStatus.overviewHint')"
   >
     <template #toolbar>
       <monitor-toolbar

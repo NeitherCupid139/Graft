@@ -2,9 +2,7 @@
   <server-status-page-shell
     :eyebrow="t('monitor.sectionTitle')"
     title-key="monitor.moduleRuntime.title"
-    :title="t('monitor.moduleRuntime.title')"
     description-key="monitor.moduleRuntime.subtitle"
-    :description="t('monitor.moduleRuntime.subtitle')"
     compact-header
   >
     <template #toolbar>

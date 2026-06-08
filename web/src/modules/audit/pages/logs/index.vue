@@ -2,9 +2,7 @@
   <advanced-query-list-page
     root-class="audit-page"
     title-key="audit.logList.title"
-    :title="t('audit.logList.title')"
     description-key="audit.logList.description"
-    :description="t('audit.logList.description')"
     :error-message="listError"
     :error-title="t('audit.logList.errorTitle')"
     :loading="loading"

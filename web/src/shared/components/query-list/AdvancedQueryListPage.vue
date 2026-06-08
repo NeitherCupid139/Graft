@@ -46,7 +46,7 @@ import type { PageHeaderBreadcrumbItem, PageHeaderSource } from '@/shared/compon
 
 withDefaults(
   defineProps<{
-    description: string;
+    description?: string;
     descriptionKey?: string;
     breadcrumb?: PageHeaderBreadcrumbItem[];
     errorMessage?: string;
@@ -57,17 +57,19 @@ withDefaults(
     retryLabel: string;
     rootClass?: string;
     source?: PageHeaderSource;
-    title: string;
+    title?: string;
     titleKey?: string;
   }>(),
   {
     breadcrumb: undefined,
+    description: '',
     descriptionKey: '',
     errorMessage: '',
     loading: false,
     pageType: 'query-builder-list-detail',
     rootClass: '',
     source: undefined,
+    title: '',
     titleKey: '',
   },
 );

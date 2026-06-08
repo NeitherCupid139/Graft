@@ -53,7 +53,7 @@ func (r *repository) SetOverride(ctx context.Context, key string, value json.Raw
 	}
 	userIDValue, err := nullableInt64(userID)
 	if err != nil {
-		return systemconfigstore.Override{}, err
+		return systemconfigstore.Override{}, fmt.Errorf("set system config override: %w", err)
 	}
 
 	row := r.db.QueryRowContext(
