@@ -50,10 +50,14 @@ func NewService(options ServiceOptions) *Service {
 	if appLogger == nil {
 		appLogger = logger.NewAppLogger(zap.NewNop())
 	}
+	registry := options.Registry
+	if registry == nil {
+		registry = NewRegistry()
+	}
 
 	return &Service{
 		config:               options.Config,
-		registry:             options.Registry,
+		registry:             registry,
 		authorizer:           options.Authorizer,
 		logger:               appLogger.Named("internal.dashboard"),
 		moduleRuntimeSummary: options.ModuleRuntimeSummary,
@@ -170,14 +174,17 @@ func (s *Service) safeLoad(
 	resultCh := make(chan loadResult, 1)
 	go func() {
 		payload, err := invokeLoader(ctx, requestAuth, definition)
-		resultCh <- loadResult{payload: payload, err: err}
+		select {
+		case resultCh <- loadResult{payload: payload, err: err}:
+		case <-ctx.Done():
+		}
 	}()
 
 	select {
 	case result := <-resultCh:
 		return result.payload, result.err
 	case <-ctx.Done():
-		return nil, widgetLoadError{code: errorCodeTimeout, message: context.DeadlineExceeded.Error(), timeout: true}
+		return nil, widgetLoadContextError(ctx.Err())
 	}
 }
 
@@ -359,6 +366,16 @@ func widgetErrorFromError(err error) *generated.DashboardWidgetError {
 		Code:    errorCodeLoadFailed,
 		Message: ptr(err.Error()),
 	}
+}
+
+func widgetLoadContextError(err error) widgetLoadError {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return widgetLoadError{code: errorCodeTimeout, message: context.DeadlineExceeded.Error(), timeout: true}
+	}
+	if err != nil {
+		return widgetLoadError{code: errorCodeLoadFailed, message: err.Error()}
+	}
+	return widgetLoadError{code: errorCodeLoadFailed, message: context.Canceled.Error()}
 }
 
 func (s *Service) logLoadSuccess(ctx context.Context, definition WidgetDefinition, duration time.Duration) {

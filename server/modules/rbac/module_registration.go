@@ -127,29 +127,38 @@ func registerMessages(localizer *i18n.Service) error {
 		return errors.New("i18n service is unavailable")
 	}
 
-	for _, registration := range []i18n.Registration{
+	for _, registration := range []struct {
+		locale i18n.LocaleTag
+		texts  []string
+	}{
 		{
-			Namespace: "rbac",
-			Locale:    i18n.LocaleZHCN,
-			Messages: rbacMessageResources([]string{
+			locale: i18n.LocaleZHCN,
+			texts: []string{
 				"访问控制",
 				"角色管理",
 				"权限管理",
 				"访问控制概览",
-			}),
+			},
 		},
 		{
-			Namespace: "rbac",
-			Locale:    i18n.LocaleENUS,
-			Messages: rbacMessageResources([]string{
+			locale: i18n.LocaleENUS,
+			texts: []string{
 				"Access Control",
 				"Role Management",
 				"Permission Management",
 				"Access Control Overview",
-			}),
+			},
 		},
 	} {
-		if err := localizer.RegisterMessages(registration); err != nil {
+		messages, err := rbacMessageResources(registration.texts)
+		if err != nil {
+			return fmt.Errorf("build rbac module messages for %s: %w", registration.locale, err)
+		}
+		if err := localizer.RegisterMessages(i18n.Registration{
+			Namespace: "rbac",
+			Locale:    registration.locale,
+			Messages:  messages,
+		}); err != nil {
 			return fmt.Errorf("register rbac module messages: %w", err)
 		}
 	}
@@ -157,12 +166,15 @@ func registerMessages(localizer *i18n.Service) error {
 	return nil
 }
 
-func rbacMessageResources(texts []string) []i18n.MessageResource {
+func rbacMessageResources(texts []string) ([]i18n.MessageResource, error) {
 	keys := []rbaccontract.MenuMessageKey{
 		rbaccontract.AccessControlMenuTitle,
 		rbaccontract.RoleListMenuTitle,
 		rbaccontract.PermissionListMenuTitle,
 		rbaccontract.AccessControlOverviewMenuTitle,
+	}
+	if len(texts) != len(keys) {
+		return nil, fmt.Errorf("expected %d texts for %d rbac message keys, got %d", len(keys), len(keys), len(texts))
 	}
 
 	messages := make([]i18n.MessageResource, 0, len(keys))
@@ -172,7 +184,7 @@ func rbacMessageResources(texts []string) []i18n.MessageResource {
 			Text: texts[index],
 		})
 	}
-	return messages
+	return messages, nil
 }
 
 // Boot 当前没有额外运行时行为需要启动。

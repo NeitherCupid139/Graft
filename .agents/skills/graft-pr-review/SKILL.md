@@ -109,7 +109,7 @@ Fail-closed rule for this skill:
     - do not wait in the same run for the AI reviewer to auto-close the thread
     - in later `$graft-pr-review` runs, if the thread is still open and the latest follow-up is from the AI reviewer, classify it as `contested` and either reply once more with the newer fixing commit or request human review
 17. When a verified finding needs human judgment before deciding whether to fix or reject it, do not reply on the PR thread in the same `$graft-pr-review` run:
-    - report it as `blocked` or `needs-human-review`
+    - report it as `blocked`; if earlier notes used `needs-human-review`, map that state to the canonical `blocked` disposition at closeout
     - include the concrete local verification reason and the tradeoff
     - leave the AI thread unreplied until the user explicitly decides whether to fix it or manually reply
 18. At task closeout, list every verified finding and its disposition:
@@ -151,7 +151,7 @@ Fail-closed rule for this skill:
 - Preview a reply payload without sending it:
   - `python3 .agents/skills/graft-pr-review/scripts/fetch_current_pr_review.py --pr 1 --reply-comment-id 1234567890 --reply-body-file /tmp/reply.txt --reply-dry-run`
 - Reply after fixing a finding in a commit:
-  - `python3 .agents/skills/graft-pr-review/scripts/fetch_current_pr_review.py --pr 1 --reply-comment-id 1234567890 --reply-fixed-commit abc1234 --reply-fixed-path server/plugins/auth/route_errors.go`
+  - `python3 .agents/skills/graft-pr-review/scripts/fetch_current_pr_review.py --pr 1 --reply-comment-id 1234567890 --reply-fixed-commit abc1234 --reply-fixed-path server/modules/auth/route_errors.go`
 - Inspect only a high-signal section:
   - `python3 .agents/skills/graft-pr-review/scripts/fetch_current_pr_review.py --pr 1 --section open-threads`
 - Inspect grouped CodeRabbit severity comments from the latest review body:
@@ -200,7 +200,7 @@ The script should produce:
 - Treat GitHub Actions comments with `Success with warnings` as actionable when they include concrete linter diagnostics such as MegaLinter detailed issues.
 - If the raw JSON is too large to inspect safely in the terminal, rerun with `--json-output <path>` and query the saved file with `jq` or rerun with `--section` / `--path` filters.
 - If a verified finding still matters but needs a larger repair slice, do not downgrade it to optional; route it through
-  `$graft-multi-agent-batch`, `$graft-multi-agent-loop`, or an explicit blocked/next-slice handoff.
+  `$graft-multi-agent-batch`, `$graft-multi-agent-loop`, or an explicit `blocked` state with a next safe startup prompt.
 - The only acceptable reasons to leave a verified finding unfixed in the final report are `stale`, `noise`, or a
   clearly stated execution blocker with a next safe step.
 - “Only high-priority findings were handled”, “open threads were handled”, or “nitpicks were skipped” are invalid final

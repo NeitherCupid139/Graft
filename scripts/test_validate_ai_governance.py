@@ -44,5 +44,10 @@ class SkillMcpGuidanceTests(unittest.TestCase):
         self.assertEqual(MODULE.validate_skill_mcp_guidance(), [])
 
 
+class EnvironmentInventoryTests(unittest.TestCase):
+    def test_environment_inventory_covers_adopted_and_pilot_mcp_servers(self) -> None:
+        self.assertEqual(MODULE.validate_environment_inventory(), [])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -41,8 +42,11 @@ class Finding:
 
 
 def tracked_files() -> set[str]:
+    git_path = shutil.which("git")
+    if git_path is None:
+        raise RuntimeError("git executable was not found on PATH; cannot inspect tracked governance files")
     completed = subprocess.run(
-        ["git", "-c", "core.quotePath=false", "ls-files"],
+        [git_path, "-c", "core.quotePath=false", "ls-files"],
         cwd=REPO_ROOT,
         check=True,
         stdout=subprocess.PIPE,
@@ -158,7 +162,7 @@ def validate_environment_inventory() -> list[Finding]:
         return []
     text = read_text(TOOLS_AI)
     findings: list[Finding] = []
-    for term in ("mcp_servers:", "context7:", "github:", "playwright:"):
+    for term in ("mcp_servers:", "codegraph:", "tdesign:", "context7:", "github:", "playwright:"):
         if term not in text:
             findings.append(Finding(TOOLS_AI, f"missing AI environment MCP inventory term {term!r}"))
     return findings

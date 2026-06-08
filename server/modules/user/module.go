@@ -210,11 +210,7 @@ func (s userService) CountUsers(ctx context.Context) (int, error) {
 		return 0, errors.New("user repository is unavailable")
 	}
 
-	users, err := s.users.List(ctx)
-	if err != nil {
-		return 0, err
-	}
-	return len(users), nil
+	return s.users.Count(ctx)
 }
 
 // GetUser keeps route handlers on the public service boundary while preserving

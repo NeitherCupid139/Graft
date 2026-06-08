@@ -28,6 +28,7 @@ import (
 	"graft/server/internal/menu"
 	"graft/server/internal/module"
 	"graft/server/internal/moduleregistry"
+	"graft/server/internal/moduleruntime"
 	"graft/server/internal/permission"
 	testent "graft/server/internal/testent"
 )
@@ -507,7 +508,7 @@ func TestRegisterCoreDashboardWidgetsIncludesAccessLogSystemCapability(t *testin
 	if !ok {
 		t.Fatalf("expected module runtime health widget to be registered")
 	}
-	if len(moduleRuntimeWidget.RequiredPermissions) != 1 || moduleRuntimeWidget.RequiredPermissions[0] != "modules.runtime.read" {
+	if len(moduleRuntimeWidget.RequiredPermissions) != 1 || moduleRuntimeWidget.RequiredPermissions[0] != moduleruntime.PermissionRead {
 		t.Fatalf("unexpected module runtime permissions: %#v", moduleRuntimeWidget.RequiredPermissions)
 	}
 

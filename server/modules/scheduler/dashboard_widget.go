@@ -49,23 +49,34 @@ func registerSchedulerDashboardWidget(ctx *module.Context, instance *Module) err
 }
 
 func loadSchedulerTaskAttentionWidget(ctx context.Context, runtime schedulercore.Runtime) (dashboard.WidgetPayload, error) {
-	tasks, err := runtime.ListTasks(ctx, schedulercore.TaskListQuery{Limit: schedulerTaskAttentionListLimit})
-	if err != nil {
-		return nil, err
-	}
-
 	failed := 0
 	running := 0
 	disabled := 0
-	for _, task := range tasks.Items {
-		if !task.Enabled {
-			disabled++
+	offset := 0
+	for {
+		tasks, err := runtime.ListTasks(ctx, schedulercore.TaskListQuery{
+			Limit:  schedulerTaskAttentionListLimit,
+			Offset: offset,
+		})
+		if err != nil {
+			return nil, err
 		}
-		if task.Running {
-			running++
+
+		for _, task := range tasks.Items {
+			if !task.Enabled {
+				disabled++
+			}
+			if task.Running {
+				running++
+			}
+			if task.LastRun != nil && task.LastRun.Status == schedulercore.RunStatusFailed {
+				failed++
+			}
 		}
-		if task.LastRun != nil && task.LastRun.Status == schedulercore.RunStatusFailed {
-			failed++
+
+		offset += len(tasks.Items)
+		if len(tasks.Items) == 0 || offset >= tasks.Total {
+			break
 		}
 	}
 

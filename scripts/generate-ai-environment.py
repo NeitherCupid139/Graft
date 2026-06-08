@@ -253,7 +253,8 @@ def build_ai_inventory(raw: dict[str, Any]) -> dict[str, Any]:
             },
             "github": {
                 "configured": has_mcp_github,
-                "risk_level": "L1-readonly-default",
+                "risk_level": "L1",
+                "access_policy": "read-only default; write actions require repository skill ownership.",
                 "use_for": "GitHub PR, Actions, and repository context lookup for review workflows.",
             },
             "playwright": {

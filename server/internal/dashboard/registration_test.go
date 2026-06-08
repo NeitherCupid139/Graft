@@ -101,6 +101,21 @@ func TestRegisterWidgetRouteHidesUnauthorizedWidget(t *testing.T) {
 	}
 }
 
+func TestRegisterRequiresAuthorizer(t *testing.T) {
+	t.Parallel()
+
+	gin.SetMode(gin.TestMode)
+	err := Register(
+		Registration{Registry: NewRegistry()},
+		gin.New().Group("/api"),
+		routeAuthService{},
+		nil,
+	)
+	if err == nil {
+		t.Fatal("expected missing authorizer to fail registration")
+	}
+}
+
 type routeAuthService struct{}
 
 func (routeAuthService) CurrentUser(context.Context) (*moduleapi.CurrentUser, error) {

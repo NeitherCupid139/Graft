@@ -117,8 +117,10 @@ describe('DashboardRenderer', () => {
       }),
     ]);
 
+    const titles = wrapper.findAll('.dashboard-renderer__heading span').map((element) => element.text());
+    expect(titles).toEqual(['Module Health', 'Audit Events']);
+    expect(titles).not.toContain('');
     const text = wrapper.text();
-    expect(text.indexOf('Module Health')).toBeLessThan(text.indexOf('Audit Events'));
     expect(text).toContain('No events');
   });
 

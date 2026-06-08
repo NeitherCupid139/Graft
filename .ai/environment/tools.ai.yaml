@@ -1,5 +1,5 @@
 schema_version: 1
-generated_at_utc: "2026-06-07T16:03:49Z"
+generated_at_utc: "2026-06-08T01:19:21Z"
 generated_from: ".ai/environment/tools.raw.yaml"
 generator: "scripts/generate-ai-environment.py"
 platform:
@@ -81,7 +81,8 @@ mcp_servers:
     use_for: "Current third-party library documentation lookup."
   github:
     configured: true
-    risk_level: "L1-readonly-default"
+    risk_level: "L1"
+    access_policy: "read-only default; write actions require repository skill ownership."
     use_for: "GitHub PR, Actions, and repository context lookup for review workflows."
   playwright:
     configured: true

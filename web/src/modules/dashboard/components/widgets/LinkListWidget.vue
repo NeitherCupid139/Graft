@@ -12,6 +12,7 @@
           {{ resolveDashboardText(item.badge_key, item.badge) }}
         </t-tag>
         <t-button
+          v-if="hasRouteLocation(item.route_location)"
           variant="text"
           theme="primary"
           size="small"
@@ -44,8 +45,17 @@ const props = defineProps<{
 const router = useRouter();
 const payload = computed(() => asLinkListPayload(props.widget.payload));
 
-function go(location: string) {
-  openDashboardRoute(router, location);
+function hasRouteLocation(location: string | undefined) {
+  return Boolean(location?.trim());
+}
+
+function go(location: string | undefined) {
+  const target = location?.trim();
+  if (!target) {
+    return;
+  }
+
+  openDashboardRoute(router, target);
 }
 </script>
 <style lang="less" scoped>

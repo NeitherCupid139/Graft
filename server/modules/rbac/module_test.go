@@ -63,6 +63,12 @@ type testUserService struct {
 	users map[uint64]moduleapi.UserSummary
 }
 
+func TestRBACMessageResourcesRejectsMismatchedTexts(t *testing.T) {
+	if _, err := rbacMessageResources([]string{"Access Control"}); err == nil {
+		t.Fatalf("expected mismatched rbac message resources to return an error")
+	}
+}
+
 func (s testUserService) GetUserByID(_ context.Context, id uint64) (moduleapi.UserSummary, error) {
 	user, ok := s.users[id]
 	if !ok {

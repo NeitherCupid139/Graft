@@ -262,7 +262,11 @@ describe('DashboardHomePage', () => {
     await flushPromises();
 
     expect(dashboardApiMocks.getDashboardWidget).toHaveBeenCalledWith('core.module-runtime-health');
-    expect(wrapper.text()).toContain('core.module-runtime-health');
+    const renderer = wrapper.findComponent(rendererStub);
+    const renderedWidgets = renderer.props('widgets') as DashboardWidget[];
+    expect(renderedWidgets.find((widget) => widget.id === 'core.module-runtime-health')?.title).toBe(
+      'Updated Module Health',
+    );
   });
 
   it('shows a page error when summary loading fails', async () => {

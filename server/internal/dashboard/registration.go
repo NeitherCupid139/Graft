@@ -42,6 +42,9 @@ func Register(
 	if authService == nil {
 		return errors.New("dashboard auth service is unavailable")
 	}
+	if authorizer == nil {
+		return errors.New("dashboard authorizer is unavailable")
+	}
 	if registration.Registry == nil {
 		return errors.New("dashboard registry is unavailable")
 	}

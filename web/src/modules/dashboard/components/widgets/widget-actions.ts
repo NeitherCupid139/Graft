@@ -5,8 +5,13 @@ export function openDashboardRoute(router: Router, location: string) {
 }
 
 export function formatDashboardDateTime(value: string) {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) {
+    return value;
+  }
+
   return new Intl.DateTimeFormat(undefined, {
     dateStyle: 'medium',
     timeStyle: 'short',
-  }).format(new Date(value));
+  }).format(date);
 }

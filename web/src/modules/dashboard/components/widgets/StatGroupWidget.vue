@@ -1,5 +1,5 @@
 <template>
-  <div v-if="payload" class="dashboard-stat-group">
+  <div v-if="payload && payload.items.length" class="dashboard-stat-group">
     <div v-for="item in payload.items" :key="item.key" class="dashboard-stat-group__item">
       <span class="dashboard-stat-group__label">{{ resolveDashboardText(item.label_key, item.label) }}</span>
       <strong class="dashboard-stat-group__value">
@@ -14,6 +14,7 @@
       </t-button>
     </div>
   </div>
+  <t-empty v-else-if="payload" size="small" :description="t('dashboard.widget.empty')" />
   <t-empty v-else size="small" :description="t('dashboard.widget.invalidPayload')" />
 </template>
 <script setup lang="ts">

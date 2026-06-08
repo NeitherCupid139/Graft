@@ -123,6 +123,15 @@ func TestServiceReturnsOrderedQuickLinksAndWidgets(t *testing.T) {
 	}
 }
 
+func TestServiceUsesEmptyRegistryWhenRegistryIsNil(t *testing.T) {
+	t.Parallel()
+
+	summary := NewService(ServiceOptions{}).Summary(context.Background(), testRequestAuth())
+	if len(summary.QuickLinks) != 0 || len(summary.Widgets) != 0 {
+		t.Fatalf("expected empty dashboard contributions, got links=%#v widgets=%#v", summary.QuickLinks, summary.Widgets)
+	}
+}
+
 func TestServiceReturnsErrorWidgetWhenLoaderFails(t *testing.T) {
 	t.Parallel()
 
@@ -185,6 +194,33 @@ func TestServiceTimesOutSlowLoader(t *testing.T) {
 	widget := NewService(ServiceOptions{Registry: registry}).Summary(context.Background(), testRequestAuth()).Widgets[0]
 	if widget.Error == nil || widget.Error.Code != errorCodeTimeout {
 		t.Fatalf("expected timeout error, got %#v", widget.Error)
+	}
+}
+
+func TestServiceReportsCanceledLoaderContextWithoutTimeout(t *testing.T) {
+	t.Parallel()
+
+	registry := NewRegistry()
+	mustRegisterWidget(t, registry, WidgetDefinition{
+		ID:        "core.canceled",
+		ModuleKey: "core",
+		Type:      WidgetTypeHealth,
+		Size:      WidgetSizeSmall,
+		Loader: WidgetLoaderFunc(func(ctx context.Context, _ WidgetRequest) (WidgetPayload, error) {
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}),
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	widget := NewService(ServiceOptions{Registry: registry}).Summary(ctx, testRequestAuth()).Widgets[0]
+	if widget.Error == nil || widget.Error.Code != errorCodeLoadFailed {
+		t.Fatalf("expected canceled context to be reported as load failure, got %#v", widget.Error)
+	}
+	if widget.Error.Message == nil || *widget.Error.Message != context.Canceled.Error() {
+		t.Fatalf("expected canceled context message, got %#v", widget.Error)
 	}
 }
 
