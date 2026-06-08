@@ -547,8 +547,20 @@
       </div>
 
       <footer class="theme-workbench-panel__footer">
-        <t-button variant="outline" :loading="settingStore.themeResetting" @click="handleResetDefaultTheme">
-          {{ t('layout.setting.workbench.actions.reset') }}
+        <t-button
+          class="theme-workbench-reset-button"
+          :class="{ 'theme-workbench-reset-button--loading': settingStore.themeResetting }"
+          variant="outline"
+          :aria-busy="settingStore.themeResetting"
+          :aria-label="t('layout.setting.workbench.actions.reset')"
+          :disabled="settingStore.themeResetting"
+          :style="resetButtonWidthStyle"
+          @click="handleResetDefaultTheme"
+        >
+          <span v-if="settingStore.themeResetting" class="theme-workbench-reset-button__spinner" aria-hidden="true" />
+          <span class="theme-workbench-reset-button__label" :aria-hidden="settingStore.themeResetting">
+            {{ t('layout.setting.workbench.actions.reset') }}
+          </span>
         </t-button>
         <div class="theme-workbench-panel__footer-actions">
           <t-button variant="outline" @click="settingStore.cancelThemeDraft()">
@@ -591,6 +603,7 @@ const { locale } = useLocale();
 const panelShellRef = ref<HTMLElement>();
 const advancedVisible = ref(false);
 const expandedAdvancedGroups = ref<Array<string | number>>(['brand']);
+const resetButtonLockedWidth = ref<number>();
 
 const groupIconMap: Record<ThemeWorkbenchGroupKey, string> = {
   overview: 'palette',
@@ -861,6 +874,9 @@ const resetFeedbackClass = computed(() => {
 
   return key % 2 === 0 ? 'theme-reset-feedback--even' : 'theme-reset-feedback--odd';
 });
+const resetButtonWidthStyle = computed(() =>
+  resetButtonLockedWidth.value === undefined ? undefined : { width: `${resetButtonLockedWidth.value}px` },
+);
 
 const drawerVisible = computed({
   get: () => settingStore.showThemeWorkbench,
@@ -941,22 +957,38 @@ const handleModeSelect = (mode: ModeType | 'auto', event: MouseEvent) => {
   void settingStore.updateThemeDraftModeWithTransition(mode, event);
 };
 
-const handleResetDefaultTheme = async () => {
+const lockResetButtonWidth = (event: MouseEvent) => {
+  const buttonElement = event.currentTarget;
+
+  if (!(buttonElement instanceof HTMLElement)) {
+    return;
+  }
+
+  resetButtonLockedWidth.value = Math.ceil(buttonElement.getBoundingClientRect().width);
+};
+
+const handleResetDefaultTheme = async (event: MouseEvent) => {
   if (settingStore.themeResetting) {
     return;
   }
 
-  await settingStore.resetDefaultThemeWithFeedback();
-  if (!settingStore.showThemeWorkbench) {
-    return;
-  }
+  lockResetButtonWidth(event);
 
-  void MessagePlugin.success({
-    attach: () => panelShellRef.value ?? document.body,
-    content: t('layout.setting.workbench.actions.resetSuccess'),
-    duration: 1800,
-    placement: 'top-right',
-  });
+  try {
+    await settingStore.resetDefaultThemeWithFeedback();
+    if (!settingStore.showThemeWorkbench) {
+      return;
+    }
+
+    void MessagePlugin.success({
+      attach: () => panelShellRef.value ?? document.body,
+      content: t('layout.setting.workbench.actions.resetSuccess'),
+      duration: 1800,
+      placement: 'top-right',
+    });
+  } finally {
+    resetButtonLockedWidth.value = undefined;
+  }
 };
 </script>
 <style lang="less" scoped>
@@ -2365,6 +2397,47 @@ const handleResetDefaultTheme = async () => {
 .theme-workbench-panel__footer :deep(.t-button) {
   flex: 0 0 auto;
   white-space: nowrap;
+}
+
+.theme-workbench-reset-button {
+  position: relative;
+}
+
+.theme-workbench-reset-button__spinner {
+  animation: theme-workbench-reset-spin 760ms linear infinite;
+  border: 2px solid color-mix(in srgb, currentcolor 22%, transparent);
+  border-radius: 50%;
+  border-top-color: currentcolor;
+  display: inline-flex;
+  height: 16px;
+  left: 50%;
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  translate: -50% -50%;
+  width: 16px;
+}
+
+.theme-workbench-reset-button__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.theme-workbench-reset-button--loading .theme-workbench-reset-button__label {
+  opacity: 0;
+}
+
+@keyframes theme-workbench-reset-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-workbench-reset-button__spinner {
+    animation-duration: 1ms;
+  }
 }
 
 @media (width <= 768px) {
