@@ -1,5 +1,6 @@
 import { createPinia, setActivePinia } from 'pinia';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { nextTick } from 'vue';
 
 vi.mock('@/utils/color', () => ({
   composeThemeTokenMap: (tokens: Record<string, string>) => tokens,
@@ -238,6 +239,18 @@ describe('setting store theme authority', () => {
     expect(store.hasThemeDraftPendingChanges).toBe(false);
   });
 
+  it('clears stale reset feedback state when reset-to-default is called directly', () => {
+    const store = useSettingStore();
+
+    store.themeResetting = true;
+    store.beginThemeDraft();
+
+    store.resetThemeDraftToDefault();
+
+    expect(store.themeResetting).toBe(false);
+    expect(store.fontSizePreset).toBe('standard');
+  });
+
   it('tracks reset-to-default feedback while keeping the draft semantics', async () => {
     const store = useSettingStore();
     let finishResetFeedback: (() => void) | undefined;
@@ -263,6 +276,9 @@ describe('setting store theme authority', () => {
     expect(store.themeResetFeedbackKey).toBe(1);
     expect(store.fontSizePreset).toBe('standard');
     expect(store.hasThemeDraftPendingChanges).toBe(true);
+
+    await nextTick();
+    expect(store.themeResetting).toBe(true);
 
     finishResetFeedback?.();
     await resetPromise;

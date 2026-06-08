@@ -805,7 +805,7 @@ export const useSettingStore = defineStore('setting', {
     cancelThemeDraft() {
       this.closeThemeWorkbench();
     },
-    resetThemeDraftToDefault() {
+    resetThemeDraftToDefault(options: { preserveResettingFeedback?: boolean } = {}) {
       if (!this.themeDraftBaseline) {
         this.themeDraftBaseline = this.createThemeAuthoritySnapshot();
       }
@@ -824,13 +824,16 @@ export const useSettingStore = defineStore('setting', {
       };
       this.themeDraft = defaultSnapshot;
       this.applyThemeDraftPreview();
+      if (!options.preserveResettingFeedback) {
+        this.themeResetting = false;
+      }
     },
     async resetDefaultThemeWithFeedback() {
       const feedbackKey = this.themeResetFeedbackKey + 1;
 
       this.themeResetting = true;
       this.themeResetFeedbackKey = feedbackKey;
-      this.resetThemeDraftToDefault();
+      this.resetThemeDraftToDefault({ preserveResettingFeedback: true });
 
       await new Promise((resolve) => {
         window.setTimeout(resolve, THEME_RESET_FEEDBACK_DURATION_MS);
