@@ -18,10 +18,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
+	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/disk"
 	"github.com/shirou/gopsutil/v4/load"
 	"github.com/shirou/gopsutil/v4/mem"
-	"github.com/shirou/gopsutil/v4/process"
 	"go.uber.org/zap"
 
 	"graft/server/internal/config"
@@ -49,7 +49,6 @@ const (
 	millisecondsPerSecond          = 1000
 	latencyPrecisionScale          = 100
 	trendStorageKeyPrefix          = "graft:monitor:server-status:trend"
-	maxProcessIDInt32              = int64(1<<31 - 1)
 	statusHealthy                  = "healthy"
 	statusDegraded                 = "degraded"
 	statusDisabled                 = "disabled"
@@ -1103,24 +1102,9 @@ func (p *Module) stopTrendSampler(ctx *module.Context) error {
 }
 
 func (p *Module) runTrendSampler(ctx context.Context, redisClient *redis.Client, storageKey string) {
-	var processHandle *process.Process
-	processID, err := currentProcessID()
-	if err != nil {
-		logTrendWarning(p, nil, "resolve monitor cpu sampler pid failed", err)
-	} else {
-		processHandle, err = process.NewProcessWithContext(ctx, processID)
-		if err != nil {
-			logTrendWarning(p, nil, "initialize monitor cpu sampler failed", err)
-			processHandle = nil
-		}
-	}
+	var previousCPUTimes *cpu.TimesStat
 
-	// Prime the CPU sampler before the first stored sample.
-	if processHandle != nil {
-		_, _ = processHandle.CPUPercentWithContext(ctx)
-	}
-
-	p.recordTrendSample(ctx, redisClient, storageKey, processHandle)
+	p.recordTrendSample(ctx, redisClient, storageKey, &previousCPUTimes)
 
 	ticker := time.NewTicker(trendSampleInterval)
 	defer ticker.Stop()
@@ -1130,7 +1114,7 @@ func (p *Module) runTrendSampler(ctx context.Context, redisClient *redis.Client,
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			p.recordTrendSample(ctx, redisClient, storageKey, processHandle)
+			p.recordTrendSample(ctx, redisClient, storageKey, &previousCPUTimes)
 		}
 	}
 }
@@ -1139,7 +1123,7 @@ func (p *Module) recordTrendSample(
 	ctx context.Context,
 	redisClient *redis.Client,
 	storageKey string,
-	processHandle *process.Process,
+	previousCPUTimes **cpu.TimesStat,
 ) {
 	if redisClient == nil {
 		return
@@ -1150,7 +1134,7 @@ func (p *Module) recordTrendSample(
 		logTrendWarning(p, nil, "collect monitor runtime snapshot failed", err)
 		return
 	}
-	cpuPercent, err := toGeneratedFloat32(collectCPUPercent(ctx, processHandle), "cpu percent")
+	cpuPercent, err := toGeneratedFloat32(collectCPUPercent(ctx, previousCPUTimes, p, storageKey), "cpu percent")
 	if err != nil {
 		logTrendWarning(p, nil, "convert monitor cpu sample failed", err)
 		return
@@ -1174,15 +1158,29 @@ func (p *Module) recordTrendSample(
 	}
 }
 
-func collectCPUPercent(ctx context.Context, processHandle *process.Process) float64 {
-	if processHandle == nil {
+func collectCPUPercent(ctx context.Context, previousCPUTimes **cpu.TimesStat, instance *Module, storageKey string) float64 {
+	if ctx == nil || previousCPUTimes == nil {
 		return 0
 	}
 
-	percent, err := processHandle.CPUPercentWithContext(ctx)
-	if err != nil {
+	samples, err := cpu.TimesWithContext(ctx, false)
+	if err != nil || len(samples) == 0 {
 		return 0
 	}
+
+	current := samples[0]
+	percent := calculateHostCPUUsagePercent(*previousCPUTimes, &current, func(raw float64) {
+		logTrendWarning(
+			instance,
+			nil,
+			"normalize monitor host cpu sample",
+			nil,
+			zap.Float64("rawPercent", raw),
+			zap.String("sampleContext", "server-status trend sample"),
+			zap.String("storageKey", storageKey),
+		)
+	})
+	*previousCPUTimes = &current
 
 	return roundCPUPercent(percent)
 }
@@ -1281,15 +1279,6 @@ func resolveHostName() string {
 		return ""
 	}
 	return strings.TrimSpace(hostName)
-}
-
-func currentProcessID() (int32, error) {
-	pid := os.Getpid()
-	if pid < 0 || int64(pid) > maxProcessIDInt32 {
-		return 0, fmt.Errorf("current pid %d overflows int32", pid)
-	}
-
-	return int32(pid), nil
 }
 
 func collectRuntimeSnapshot(ctx context.Context) (generated.ServerStatusRuntime, error) {
@@ -1440,6 +1429,59 @@ func roundCPUPercent(value float64) float64 {
 	return math.Round(value*latencyPrecisionScale) / latencyPrecisionScale
 }
 
+func calculateHostCPUUsagePercent(previous *cpu.TimesStat, current *cpu.TimesStat, onOutOfRange func(raw float64)) float64 {
+	if previous == nil || current == nil {
+		return 0
+	}
+
+	previousTotal, previousBusy := hostCPUTotalAndBusy(*previous)
+	currentTotal, currentBusy := hostCPUTotalAndBusy(*current)
+	totalDelta := currentTotal - previousTotal
+	if totalDelta <= 0 {
+		return 0
+	}
+
+	busyDelta := currentBusy - previousBusy
+	raw := (busyDelta / totalDelta) * percentageScale
+	return normalizeCPUPercent(raw, onOutOfRange)
+}
+
+func hostCPUTotalAndBusy(sample cpu.TimesStat) (float64, float64) {
+	total := sample.User +
+		sample.System +
+		sample.Idle +
+		sample.Nice +
+		sample.Iowait +
+		sample.Irq +
+		sample.Softirq +
+		sample.Steal +
+		sample.Guest +
+		sample.GuestNice
+	busy := total - sample.Idle - sample.Iowait
+
+	return total, busy
+}
+
+func normalizeCPUPercent(raw float64, onOutOfRange func(raw float64)) float64 {
+	if math.IsNaN(raw) || math.IsInf(raw, 0) {
+		return 0
+	}
+	if raw < 0 {
+		if onOutOfRange != nil {
+			onOutOfRange(raw)
+		}
+		return 0
+	}
+	if raw > percentageScale {
+		if onOutOfRange != nil {
+			onOutOfRange(raw)
+		}
+		return percentageScale
+	}
+
+	return raw
+}
+
 func roundUsagePercent(value float64) float64 {
 	return math.Round(value*latencyPrecisionScale) / latencyPrecisionScale
 }
@@ -1509,12 +1551,15 @@ func parseGeneratedTrendRange(raw *monitoropenapi.GetMonitorServerStatusParamsTr
 	return parseTrendRange(string(*raw))
 }
 
-func logTrendWarning(instance *Module, moduleCtx *module.Context, message string, err error) {
+func logTrendWarning(instance *Module, moduleCtx *module.Context, message string, err error, fields ...zap.Field) {
+	if err != nil {
+		fields = append(fields, zap.Error(err))
+	}
 	switch {
 	case instance != nil && instance.logger != nil:
-		instance.logger.Warn(message, zap.Error(err))
+		instance.logger.Warn(message, fields...)
 	case moduleCtx != nil && moduleCtx.Logger != nil:
-		moduleCtx.Logger.Warn(message, zap.Error(err))
+		moduleCtx.Logger.Warn(message, fields...)
 	}
 }
 

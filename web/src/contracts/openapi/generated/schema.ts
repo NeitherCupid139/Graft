@@ -2210,6 +2210,7 @@ export interface components {
     'server-status-trend-point': {
       /** Format: date-time */
       observed_at: string;
+      /** @description Host total CPU utilization percent. */
       cpu_percent: number;
       host_memory_used_percent: number;
       load_average_one_minute: number;

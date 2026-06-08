@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math"
 	"runtime"
 	"strings"
 	"testing"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
+	"github.com/shirou/gopsutil/v4/cpu"
 
 	_ "github.com/mattn/go-sqlite3"
 
@@ -247,6 +249,100 @@ func TestStopTrendSamplerRequiresLifecycleContext(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "missing lifecycle context") {
 		t.Fatalf("expected missing lifecycle context error, got %v", err)
+	}
+}
+
+func TestCalculateHostCPUUsagePercentFromAggregatedTimes(t *testing.T) {
+	t.Parallel()
+
+	previous := cpu.TimesStat{
+		User:   100,
+		System: 50,
+		Idle:   800,
+		Iowait: 50,
+	}
+	current := cpu.TimesStat{
+		User:   130,
+		System: 70,
+		Idle:   850,
+		Iowait: 60,
+	}
+
+	got := calculateHostCPUUsagePercent(&previous, &current, nil)
+	if math.Abs(got-45.4545) > 0.0001 {
+		t.Fatalf("expected host cpu percent from busy/total delta, got %.4f", got)
+	}
+}
+
+func TestCalculateHostCPUUsagePercentHandlesInvalidDeltas(t *testing.T) {
+	t.Parallel()
+
+	sample := cpu.TimesStat{
+		User:   100,
+		System: 50,
+		Idle:   800,
+		Iowait: 50,
+	}
+
+	if got := calculateHostCPUUsagePercent(nil, &sample, nil); got != 0 {
+		t.Fatalf("expected first sample without previous times to be safe zero, got %.2f", got)
+	}
+	if got := calculateHostCPUUsagePercent(&sample, &sample, nil); got != 0 {
+		t.Fatalf("expected zero total delta to be safe zero, got %.2f", got)
+	}
+	if got := normalizeCPUPercent(math.NaN(), nil); got != 0 {
+		t.Fatalf("expected NaN cpu percent to normalize to zero, got %.2f", got)
+	}
+	if got := normalizeCPUPercent(math.Inf(1), nil); got != 0 {
+		t.Fatalf("expected Inf cpu percent to normalize to zero, got %.2f", got)
+	}
+}
+
+func TestCalculateHostCPUUsagePercentDoesNotSumPerCorePercent(t *testing.T) {
+	t.Parallel()
+
+	previous := cpu.TimesStat{}
+	current := cpu.TimesStat{
+		User:   700,
+		Nice:   0,
+		System: 700,
+		Idle:   1400,
+	}
+
+	got := calculateHostCPUUsagePercent(&previous, &current, nil)
+	if got != 50 {
+		t.Fatalf("expected aggregated host cpu percent, got %.2f", got)
+	}
+}
+
+func TestNormalizeCPUPercentClampsOutOfRangeAndReportsWarning(t *testing.T) {
+	t.Parallel()
+
+	warnings := 0
+	got := normalizeCPUPercent(104.6, func(raw float64) {
+		warnings++
+		if raw != 104.6 {
+			t.Fatalf("expected raw warning value 104.6, got %.2f", raw)
+		}
+	})
+	if got != 100 {
+		t.Fatalf("expected 104.6 to clamp to 100, got %.2f", got)
+	}
+	if warnings != 1 {
+		t.Fatalf("expected one warning callback, got %d", warnings)
+	}
+
+	got = normalizeCPUPercent(-4.2, func(raw float64) {
+		warnings++
+		if raw != -4.2 {
+			t.Fatalf("expected raw warning value -4.2, got %.2f", raw)
+		}
+	})
+	if got != 0 {
+		t.Fatalf("expected -4.2 to clamp to 0, got %.2f", got)
+	}
+	if warnings != 2 {
+		t.Fatalf("expected two warning callbacks, got %d", warnings)
 	}
 }
 

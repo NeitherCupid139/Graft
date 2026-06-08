@@ -1014,6 +1014,53 @@ describe('MonitorPage', () => {
     expect(cpuUsageBar.find('.metric-usage-bar__fill').attributes('style')).toContain('width: 0%');
   });
 
+  it('renders adapter-normalized CPU percent without leaking out-of-range raw values into charts', async () => {
+    const response = createServerStatusResponse();
+    response.anomalies = [];
+    response.trend.points = response.trend.points.map((point, index) => ({
+      ...point,
+      cpu_percent: index === 0 ? 97.3 : 100,
+    }));
+    monitorApiMocks.getServerStatus.mockResolvedValue(response);
+
+    const wrapper = mountMonitorPage();
+    await flushPromises();
+    await nextTick();
+
+    const cpuUsageBar = metricUsageBar(wrapper, 'cpu');
+    expect(cpuUsageBar.attributes('data-usage-percent')).toBe('100.00');
+    expect(cpuUsageBar.attributes('title')).toContain('CPU current usage 100.0%');
+    expect(cpuUsageBar.attributes('title')).not.toContain('104.6%');
+    expect(wrapper.text()).not.toContain('104.6%');
+
+    const overviewOptions = chartMocks.setOption.mock.calls.map((call) => call[0]) as Array<{
+      series?: Array<{ name: string; data: number[] }>;
+      yAxis?: Array<{ name?: string; max?: number }>;
+      tooltip?: {
+        formatter?: (
+          params: Array<{ axisValueLabel: string; seriesName: string; color: string; data: number }>,
+        ) => string;
+      };
+    }>;
+
+    const usageOption = overviewOptions.find((item) => item.series?.some((series) => series.name === 'CPU usage'));
+    expect(usageOption?.series?.find((series) => series.name === 'CPU usage')?.data).toEqual([97.3, 100]);
+    expect(usageOption?.yAxis?.[0]?.name).toBe('%');
+    expect(usageOption?.yAxis?.[0]?.max).toBe(100);
+
+    const usageTooltip = usageOption?.tooltip?.formatter?.([
+      { axisValueLabel: '09:00', seriesName: 'CPU usage', color: '#2F6BFF', data: 100 },
+    ]);
+    expect(usageTooltip).toContain('100.0%');
+    expect(usageTooltip).not.toContain('104.6%');
+
+    const loadOption = overviewOptions.find((item) => item.series?.some((series) => series.name === '1m load average'));
+    expect(loadOption?.series).toHaveLength(1);
+    expect(loadOption?.series?.[0]?.data).toEqual([0.39, 0.42]);
+    expect(loadOption?.yAxis?.[0]?.name).toBe('Load');
+    expect(loadOption?.series?.some((series) => series.name === 'CPU usage')).toBe(false);
+  });
+
   it('supports focus and multi trend modes with grouped metrics and dedicated legends', async () => {
     monitorApiMocks.getServerStatus.mockResolvedValue(createServerStatusResponse());
 

@@ -9901,7 +9901,10 @@
             "format": "date-time"
           },
           "cpu_percent": {
-            "type": "number"
+            "type": "number",
+            "description": "Host total CPU utilization percent.",
+            "minimum": 0,
+            "maximum": 100
           },
           "host_memory_used_percent": {
             "type": "number"

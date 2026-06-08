@@ -3442,6 +3442,7 @@ type ServerStatusTrendRange string
 
 // ServerStatusTrendPoint defines model for server-status-trend-point.
 type ServerStatusTrendPoint struct {
+	// CpuPercent Host total CPU utilization percent.
 	CpuPercent                float32   `json:"cpu_percent"`
 	Goroutines                int       `json:"goroutines"`
 	HostMemoryUsedPercent     float32   `json:"host_memory_used_percent"`
