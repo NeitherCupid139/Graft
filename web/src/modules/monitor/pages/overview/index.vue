@@ -364,7 +364,10 @@
                     <p class="dependency-item__detail">{{ dependency.detail }}</p>
                   </div>
                 </div>
-                <span class="dependency-item__latency">{{ dependency.latency }}</span>
+                <div class="dependency-item__metrics">
+                  <span class="dependency-item__latency">{{ dependency.latency }}</span>
+                  <span v-if="dependency.poolUsage" class="dependency-item__pool">{{ dependency.poolUsage }}</span>
+                </div>
               </article>
             </div>
           </section>
@@ -1204,8 +1207,17 @@ function buildDependencyItem(key: string, label: string, dependency: ServerStatu
     detail: dependency.detail,
     status: normalizeStatus(dependency.status),
     latency: formatLatency(dependency.latency_ms),
+    poolUsage: dependency.pool
+      ? t('monitor.serverStatus.dependencyPoolUsage', {
+          value: formatDependencyPoolUsage(dependency.pool),
+        })
+      : '',
     icon,
   };
+}
+
+function formatDependencyPoolUsage(pool: NonNullable<ServerStatusDependency['pool']>) {
+  return `${pool.in_use_connections} / ${pool.capacity} (${formatPercentPrecise(pool.usage_percent)})`;
 }
 
 function resolveAnomalyByKey(anomalyKey: string) {

@@ -125,6 +125,7 @@ const translations = vi.hoisted(
     'monitor.serverStatus.openAuditEvidence': 'Open audit evidence',
     'monitor.serverStatus.auditEvidenceUnavailable': 'Audit evidence is unavailable for this anomaly.',
     'monitor.serverStatus.runtimeStatusDependenciesTitle': 'Dependencies',
+    'monitor.serverStatus.dependencyPoolUsage': 'Pool {value}',
     'monitor.serverStatus.runtimeStatusProcessTitle': 'Process summary',
     'monitor.serverStatus.runtimeStatusSamplingTitle': 'Sampling status',
     'monitor.serverStatus.runtimeStatusUptimeLabel': 'Uptime',
@@ -520,11 +521,24 @@ function createServerStatusResponse() {
         status: 'healthy',
         detail: 'Database ping succeeded',
         latency_ms: 2.15,
+        pool: {
+          capacity: 25,
+          max_active_connections: 25,
+          open_connections: 8,
+          in_use_connections: 3,
+          idle_connections: 5,
+          usage_percent: 12,
+          wait_count: 0,
+          wait_duration_ms: 0,
+          timeout_count: 0,
+          stale_count: 1,
+        },
       },
       redis: {
         status: 'disabled',
         detail: 'Redis client is not configured',
         latency_ms: null,
+        pool: undefined,
       },
     },
     summary: {
@@ -821,6 +835,7 @@ describe('MonitorPage', () => {
     expect(sidebarGroupText(wrapper, 'dependencies')).toContain('PostgreSQL');
     expect(sidebarGroupText(wrapper, 'dependencies')).toContain('Healthy');
     expect(sidebarGroupText(wrapper, 'dependencies')).toContain('2.15 ms');
+    expect(sidebarGroupText(wrapper, 'dependencies')).toContain('Pool 3 / 25 (12.0%)');
     expect(sidebarGroupText(wrapper, 'dependencies')).toContain('Redis');
     expect(sidebarGroupText(wrapper, 'dependencies')).toContain('Disabled');
     expect(sidebarGroupText(wrapper, 'dependencies')).toContain('No latency sample');

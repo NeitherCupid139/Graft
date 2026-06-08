@@ -3337,6 +3337,39 @@ type ServerStatusAnomalySeverity string
 // ServerStatusAnomalyStatus defines model for ServerStatusAnomaly.Status.
 type ServerStatusAnomalyStatus string
 
+// ServerStatusConnectionPool defines model for server-status-connection-pool.
+type ServerStatusConnectionPool struct {
+	// Capacity Configured pool capacity used for utilization display.
+	Capacity int64 `json:"capacity"`
+
+	// IdleConnections Current idle connections available for reuse.
+	IdleConnections int64 `json:"idle_connections"`
+
+	// InUseConnections Current connections checked out by requests.
+	InUseConnections int64 `json:"in_use_connections"`
+
+	// MaxActiveConnections Configured hard active-connection limit when the client exposes one.
+	MaxActiveConnections int64 `json:"max_active_connections"`
+
+	// OpenConnections Current established connections tracked by the pool.
+	OpenConnections int64 `json:"open_connections"`
+
+	// StaleCount Cumulative number of stale or lifetime-expired connections closed by the pool.
+	StaleCount int64 `json:"stale_count"`
+
+	// TimeoutCount Cumulative number of pool wait timeouts.
+	TimeoutCount int64 `json:"timeout_count"`
+
+	// UsagePercent Current pool utilization percentage based on in-use connections over display capacity.
+	UsagePercent float32 `json:"usage_percent"`
+
+	// WaitCount Cumulative number of waits for a pooled connection.
+	WaitCount int64 `json:"wait_count"`
+
+	// WaitDurationMs Cumulative wait duration in milliseconds.
+	WaitDurationMs float32 `json:"wait_duration_ms"`
+}
+
 // ServerStatusDependencies defines model for server-status-dependencies.
 type ServerStatusDependencies struct {
 	Database ServerStatusDependency `json:"database"`
@@ -3345,9 +3378,10 @@ type ServerStatusDependencies struct {
 
 // ServerStatusDependency defines model for server-status-dependency.
 type ServerStatusDependency struct {
-	Detail    string   `json:"detail"`
-	LatencyMs *float32 `json:"latency_ms"`
-	Status    string   `json:"status"`
+	Detail    string                      `json:"detail"`
+	LatencyMs *float32                    `json:"latency_ms"`
+	Pool      *ServerStatusConnectionPool `json:"pool,omitempty"`
+	Status    string                      `json:"status"`
 }
 
 // ServerStatusDiskUsage defines model for server-status-disk-usage.

@@ -264,6 +264,8 @@ components:
       $ref: ./components/schemas/audit-incident-monitor-evidence.yaml
     EnvelopedAuditIncidentResponse:
       $ref: ./components/schemas/enveloped-audit-incident-response.yaml
+    ServerStatusConnectionPool:
+      $ref: ./components/schemas/server-status-connection-pool.yaml
     ServerStatusDependency:
       $ref: ./components/schemas/server-status-dependency.yaml
     ServerStatusModule:

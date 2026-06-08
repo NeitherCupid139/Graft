@@ -84,12 +84,16 @@
       },
       "fields": {
         "latency": "Response latency",
+        "poolUsage": "Pool usage",
+        "poolWait": "Pool waits",
         "checkedAt": "Last checked",
         "errorInfo": "Error info",
         "detail": "Probe detail"
       },
       "fieldDescriptions": {
         "latency": "Most recent probe response duration.",
+        "poolUsage": "Connections currently checked out over the configured display capacity.",
+        "poolWait": "Cumulative wait count and wait duration for pooled connections.",
         "checkedAt": "Currently follows the latest server-status snapshot time.",
         "errorInfo": "Shows the latest error only when the dependency is abnormal or unknown.",
         "detail": "Raw probe detail returned by the current backend snapshot."

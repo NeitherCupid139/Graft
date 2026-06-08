@@ -84,12 +84,16 @@
       },
       "fields": {
         "latency": "响应耗时",
+        "poolUsage": "连接池占用",
+        "poolWait": "连接池等待",
         "checkedAt": "最近检测时间",
         "errorInfo": "错误信息",
         "detail": "探测详情"
       },
       "fieldDescriptions": {
         "latency": "最近一次探测的响应耗时。",
+        "poolUsage": "当前借出的连接数与展示容量对比。",
+        "poolWait": "连接池等待次数与累计等待耗时。",
         "checkedAt": "当前暂沿用最新 server-status 聚合快照时间。",
         "errorInfo": "仅在依赖异常或未知时展示最近错误。",
         "detail": "当前后端快照返回的原始探测说明。"

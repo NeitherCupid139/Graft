@@ -1335,6 +1335,7 @@ export interface components {
     AuditIncidentResponse: components['schemas']['audit-incident-response'];
     AuditIncidentMonitorEvidence: components['schemas']['audit-incident-monitor-evidence'];
     EnvelopedAuditIncidentResponse: components['schemas']['enveloped-audit-incident-response'];
+    ServerStatusConnectionPool: components['schemas']['server-status-connection-pool'];
     ServerStatusDependency: components['schemas']['server-status-dependency'];
     ServerStatusModule: components['schemas']['server-status-module'];
     ServerStatusServer: components['schemas']['server-status-server'];
@@ -2145,15 +2146,88 @@ export interface components {
     };
     /**
      * @example {
+     *       "capacity": 25,
+     *       "max_active_connections": 25,
+     *       "open_connections": 8,
+     *       "in_use_connections": 3,
+     *       "idle_connections": 5,
+     *       "usage_percent": 12,
+     *       "wait_count": 0,
+     *       "wait_duration_ms": 0,
+     *       "timeout_count": 0,
+     *       "stale_count": 1
+     *     }
+     */
+    'server-status-connection-pool': {
+      /**
+       * Format: int64
+       * @description Configured pool capacity used for utilization display.
+       */
+      capacity: number;
+      /**
+       * Format: int64
+       * @description Configured hard active-connection limit when the client exposes one.
+       */
+      max_active_connections: number;
+      /**
+       * Format: int64
+       * @description Current established connections tracked by the pool.
+       */
+      open_connections: number;
+      /**
+       * Format: int64
+       * @description Current connections checked out by requests.
+       */
+      in_use_connections: number;
+      /**
+       * Format: int64
+       * @description Current idle connections available for reuse.
+       */
+      idle_connections: number;
+      /** @description Current pool utilization percentage based on in-use connections over display capacity. */
+      usage_percent: number;
+      /**
+       * Format: int64
+       * @description Cumulative number of waits for a pooled connection.
+       */
+      wait_count: number;
+      /** @description Cumulative wait duration in milliseconds. */
+      wait_duration_ms: number;
+      /**
+       * Format: int64
+       * @description Cumulative number of pool wait timeouts.
+       */
+      timeout_count: number;
+      /**
+       * Format: int64
+       * @description Cumulative number of stale or lifetime-expired connections closed by the pool.
+       */
+      stale_count: number;
+    };
+    /**
+     * @example {
      *       "status": "healthy",
      *       "detail": "Database ping succeeded",
-     *       "latency_ms": 2.37
+     *       "latency_ms": 2.37,
+     *       "pool": {
+     *         "capacity": 25,
+     *         "max_active_connections": 25,
+     *         "open_connections": 8,
+     *         "in_use_connections": 3,
+     *         "idle_connections": 5,
+     *         "usage_percent": 12,
+     *         "wait_count": 0,
+     *         "wait_duration_ms": 0,
+     *         "timeout_count": 0,
+     *         "stale_count": 1
+     *       }
      *     }
      */
     'server-status-dependency': {
       status: string;
       detail: string;
       latency_ms: number | null;
+      pool?: components['schemas']['server-status-connection-pool'];
     };
     /**
      * @example {

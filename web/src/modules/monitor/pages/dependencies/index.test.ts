@@ -196,7 +196,23 @@ function createResponse() {
       runtime_gc_cycles: 12,
     },
     dependencies: {
-      database: { status: 'healthy', detail: 'Database ping succeeded', latency_ms: 2.1 },
+      database: {
+        status: 'healthy',
+        detail: 'Database ping succeeded',
+        latency_ms: 2.1,
+        pool: {
+          capacity: 25,
+          max_active_connections: 25,
+          open_connections: 8,
+          in_use_connections: 3,
+          idle_connections: 5,
+          usage_percent: 12,
+          wait_count: 2,
+          wait_duration_ms: 4.25,
+          timeout_count: 0,
+          stale_count: 1,
+        },
+      },
       redis: { status: 'disabled', detail: 'Redis client is not configured', latency_ms: null },
     },
     summary: {
@@ -243,6 +259,8 @@ describe('monitor dependencies page', () => {
     expect(wrapper.text()).toContain('Redis');
     expect(wrapper.text()).toContain('Healthy');
     expect(wrapper.text()).toContain('Not configured');
+    expect(wrapper.text()).toContain('3 / 25 (12.00%)');
+    expect(wrapper.text()).toContain('2 · 4.25 ms');
     expect(wrapper.text()).toContain('Refresh cadence');
     expect(wrapper.text()).toContain('Every 5 sec');
     expect(wrapper.text()).toContain('Pause auto refresh');

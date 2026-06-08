@@ -106,6 +106,7 @@
       "diskRootPath": "/",
       "postgresqlLabel": "PostgreSQL",
       "redisLabel": "Redis",
+      "dependencyPoolUsage": "Pool {value}",
       "noLatency": "No latency sample",
       "latencyValue": "{value} ms",
       "chartCpu": "CPU usage",

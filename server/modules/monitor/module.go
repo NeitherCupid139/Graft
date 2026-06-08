@@ -75,6 +75,7 @@ const (
 	runtimeHeapWarningBytes        = 512 * 1024 * 1024
 	runtimeHeapCriticalBytes       = 1024 * 1024 * 1024
 	serverDependencyCount          = 2
+	redisDefaultPoolSizePerCPU     = 10
 )
 
 func defaultDiskUsagePath() string {
@@ -835,6 +836,7 @@ func databaseHealth(ctx context.Context, instance *Module) (generated.ServerStat
 		return generated.ServerStatusDependency{
 			Status: statusUnknown,
 			Detail: "Database handle is unavailable",
+			Pool:   nil,
 		}, nil
 	}
 
@@ -847,6 +849,7 @@ func databaseHealth(ctx context.Context, instance *Module) (generated.ServerStat
 		return generated.ServerStatusDependency{
 			Status: statusDegraded,
 			Detail: "Database ping failed",
+			Pool:   databasePoolStats(instance.db),
 		}, nil
 	}
 
@@ -858,6 +861,7 @@ func databaseHealth(ctx context.Context, instance *Module) (generated.ServerStat
 		Status:    statusHealthy,
 		Detail:    "Database ping succeeded",
 		LatencyMs: &latencyMs,
+		Pool:      databasePoolStats(instance.db),
 	}, nil
 }
 
@@ -866,6 +870,7 @@ func redisHealth(ctx context.Context, moduleCtx *module.Context) (generated.Serv
 		return generated.ServerStatusDependency{
 			Status: statusDisabled,
 			Detail: "Redis client is not configured",
+			Pool:   nil,
 		}, nil
 	}
 
@@ -878,6 +883,7 @@ func redisHealth(ctx context.Context, moduleCtx *module.Context) (generated.Serv
 		return generated.ServerStatusDependency{
 			Status: statusDegraded,
 			Detail: "Redis ping failed",
+			Pool:   redisPoolStats(moduleCtx.Redis),
 		}, nil
 	}
 
@@ -889,7 +895,67 @@ func redisHealth(ctx context.Context, moduleCtx *module.Context) (generated.Serv
 		Status:    statusHealthy,
 		Detail:    "Redis ping succeeded",
 		LatencyMs: &latencyMs,
+		Pool:      redisPoolStats(moduleCtx.Redis),
 	}, nil
+}
+
+func databasePoolStats(db *sql.DB) *generated.ServerStatusConnectionPool {
+	if db == nil {
+		return nil
+	}
+
+	stats := db.Stats()
+	capacity := stats.MaxOpenConnections
+	if capacity <= 0 {
+		capacity = stats.OpenConnections
+	}
+
+	return &generated.ServerStatusConnectionPool{
+		Capacity:             int64(capacity),
+		MaxActiveConnections: int64(stats.MaxOpenConnections),
+		OpenConnections:      int64(stats.OpenConnections),
+		InUseConnections:     int64(stats.InUse),
+		IdleConnections:      int64(stats.Idle),
+		UsagePercent:         poolUsagePercent(stats.InUse, capacity),
+		WaitCount:            stats.WaitCount,
+		WaitDurationMs:       float32(roundLatencyMilliseconds(stats.WaitDuration)),
+		TimeoutCount:         0,
+		StaleCount:           stats.MaxIdleClosed + stats.MaxIdleTimeClosed + stats.MaxLifetimeClosed,
+	}
+}
+
+func redisPoolStats(client *redis.Client) *generated.ServerStatusConnectionPool {
+	if client == nil {
+		return nil
+	}
+
+	options := client.Options()
+	stats := client.PoolStats()
+	capacity := options.PoolSize
+	if capacity <= 0 {
+		capacity = redisDefaultPoolSizePerCPU * runtime.GOMAXPROCS(0)
+	}
+
+	return &generated.ServerStatusConnectionPool{
+		Capacity:             int64(capacity),
+		MaxActiveConnections: int64(options.MaxActiveConns),
+		OpenConnections:      int64(stats.TotalConns),
+		InUseConnections:     int64(stats.TotalConns - stats.IdleConns),
+		IdleConnections:      int64(stats.IdleConns),
+		UsagePercent:         poolUsagePercent(int(stats.TotalConns-stats.IdleConns), capacity),
+		WaitCount:            int64(stats.WaitCount),
+		WaitDurationMs:       float32(roundLatencyMilliseconds(time.Duration(stats.WaitDurationNs))),
+		TimeoutCount:         int64(stats.Timeouts),
+		StaleCount:           int64(stats.StaleConns),
+	}
+}
+
+func poolUsagePercent(inUse int, capacity int) float32 {
+	if capacity <= 0 || inUse <= 0 {
+		return 0
+	}
+	percent := float64(inUse) / float64(capacity) * percentageScale
+	return float32(roundUsagePercent(percent))
 }
 
 func runtimeModuleSummaries(

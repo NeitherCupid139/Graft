@@ -106,6 +106,7 @@
       "diskRootPath": "/",
       "postgresqlLabel": "PostgreSQL",
       "redisLabel": "Redis",
+      "dependencyPoolUsage": "连接池 {value}",
       "noLatency": "暂无延迟采样",
       "latencyValue": "{value} 毫秒",
       "chartCpu": "CPU 占用",

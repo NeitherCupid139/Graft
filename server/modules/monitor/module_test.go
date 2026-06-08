@@ -491,6 +491,13 @@ func TestBuildServerStatusResponseLoadsRedisTrendPoints(t *testing.T) {
 	}
 
 	assertEqual(t, "redis trend range", string(response.Trend.Range), monitorcontract.TrendRange30Minutes.String())
+	if response.Dependencies.Redis.Pool == nil {
+		t.Fatalf("expected redis pool stats to be recorded")
+	}
+	assertEqual(t, "redis pool capacity", response.Dependencies.Redis.Pool.Capacity, int64(redisDefaultPoolSizePerCPU*runtime.GOMAXPROCS(0)))
+	if response.Dependencies.Redis.Pool.OpenConnections < 1 {
+		t.Fatalf("expected redis pool open connections to be positive, got %d", response.Dependencies.Redis.Pool.OpenConnections)
+	}
 	if len(response.Trend.Points) != 2 {
 		t.Fatalf("expected 2 redis-backed trend points, got %d", len(response.Trend.Points))
 	}
@@ -633,8 +640,17 @@ func assertCurrentSliceResponseStatus(t *testing.T, response generated.ServerSta
 	if response.Dependencies.Database.LatencyMs == nil {
 		t.Fatalf("expected database latency to be recorded")
 	}
+	if response.Dependencies.Database.Pool == nil {
+		t.Fatalf("expected database pool stats to be recorded")
+	}
+	if response.Dependencies.Database.Pool.Capacity < 0 {
+		t.Fatalf("expected database pool capacity to be non-negative, got %d", response.Dependencies.Database.Pool.Capacity)
+	}
 	assertEqual(t, "redis status", response.Dependencies.Redis.Status, "disabled")
 	assertEqual(t, "redis detail", response.Dependencies.Redis.Detail, "Redis client is not configured")
+	if response.Dependencies.Redis.Pool != nil {
+		t.Fatalf("expected disabled redis dependency to omit pool stats")
+	}
 	assertEqual(t, "server version", response.Server.Version, fallbackServerVersion)
 	assertEqual(t, "started_at", response.Server.StartedAt, startedAt)
 	assertEqual(t, "go version", response.Server.GoVersion, runtime.Version())

@@ -60,11 +60,14 @@ import { buildStandardMonitorStatusFrameProps } from '../../shared/frame-props';
 import {
   displayText,
   formatLatency,
+  formatPoolUsage,
+  formatPoolWait,
   formatTimestamp,
   normalizeDependencyStatus,
   useServerStatusSnapshot,
 } from '../../shared/server-status-snapshot';
 import { formatDateOnly, formatTimeOnly } from '../../shared/time-display';
+import type { ServerStatusDependency } from '../../types/server-status';
 
 type DependencyCard = {
   key: string;
@@ -186,6 +189,7 @@ const serviceCards = computed<DependencyCard[]>(() => {
       subtitle: t('monitor.dependenciesPage.postgresqlSubtitle'),
       status: toServerStatusTone(normalizeDependencyStatus(database?.status)),
       latency: database?.latency_ms,
+      pool: database?.pool,
       checkedAt: observedLabel,
       detail: database?.detail,
     }),
@@ -195,6 +199,7 @@ const serviceCards = computed<DependencyCard[]>(() => {
       subtitle: t('monitor.dependenciesPage.redisSubtitle'),
       status: toServerStatusTone(normalizeDependencyStatus(redis?.status)),
       latency: redis?.latency_ms,
+      pool: redis?.pool,
       checkedAt: observedLabel,
       detail: redis?.detail,
     }),
@@ -229,6 +234,7 @@ function buildServiceCard(options: {
   subtitle: string;
   status: ServerStatusTone;
   latency?: number | null;
+  pool?: ServerStatusDependency['pool'] | null;
   checkedAt: string;
   detail?: string;
 }): DependencyCard {
@@ -244,6 +250,18 @@ function buildServiceCard(options: {
         label: t('monitor.dependenciesPage.fields.latency'),
         value: formatLatency(options.latency),
         description: t('monitor.dependenciesPage.fieldDescriptions.latency'),
+      },
+      {
+        key: 'poolUsage',
+        label: t('monitor.dependenciesPage.fields.poolUsage'),
+        value: formatPoolUsage(options.pool),
+        description: t('monitor.dependenciesPage.fieldDescriptions.poolUsage'),
+      },
+      {
+        key: 'poolWait',
+        label: t('monitor.dependenciesPage.fields.poolWait'),
+        value: formatPoolWait(options.pool),
+        description: t('monitor.dependenciesPage.fieldDescriptions.poolWait'),
       },
       {
         key: 'checkedAt',
