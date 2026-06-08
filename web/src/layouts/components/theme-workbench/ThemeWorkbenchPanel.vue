@@ -9,7 +9,7 @@
     :footer="false"
     :header="false"
   >
-    <div class="theme-workbench-panel__shell">
+    <div ref="panelShellRef" class="theme-workbench-panel__shell">
       <header class="theme-workbench-panel__header">
         <div>
           <div class="panel-title">{{ t('layout.setting.workbench.title') }}</div>
@@ -42,7 +42,7 @@
             <div class="section overview-layout__summary">
               <div class="section-title">{{ t('layout.setting.workbench.overview.currentConfig') }}</div>
               <div class="section-desc">{{ t('layout.setting.workbench.overview.description') }}</div>
-              <div class="config-summary-card">
+              <div class="config-summary-card" :class="resetFeedbackClass">
                 <div v-for="item in overviewSummaryItems" :key="item.key" class="config-summary-row">
                   <span class="config-summary-row__label">{{ item.label }}</span>
                   <span v-if="item.key !== 'brandTheme'" class="config-summary-row__value">{{ item.value }}</span>
@@ -56,6 +56,7 @@
 
             <theme-workbench-preset-section
               class="overview-layout__presets"
+              :class="resetFeedbackClass"
               :title="t('layout.setting.workbench.presets.title')"
               :presets="presetDefinitions"
               :active-preset-id="effectivePresetId"
@@ -69,7 +70,7 @@
                 <div class="section-title">{{ t('layout.setting.theme.mode') }}</div>
                 <div class="section-desc">{{ t('layout.setting.workbench.appearance.description') }}</div>
               </div>
-              <div class="choice-grid choice-grid--mode">
+              <div class="choice-grid choice-grid--mode" :class="resetFeedbackClass">
                 <button
                   v-for="item in modeOptions"
                   :key="item.type"
@@ -195,6 +196,7 @@
 
             <theme-workbench-preset-section
               class="settings-layout__presets"
+              :class="resetFeedbackClass"
               :title="t('layout.setting.workbench.presets.title')"
               :presets="presetDefinitions"
               :active-preset-id="effectivePresetId"
@@ -206,7 +208,7 @@
             <div class="section settings-layout__section settings-layout__section--layout-choices">
               <div class="section-title">{{ t('layout.setting.navigationLayout') }}</div>
               <div class="section-desc">{{ t('layout.setting.workbench.layout.tip') }}</div>
-              <div class="choice-grid">
+              <div class="choice-grid" :class="resetFeedbackClass">
                 <button
                   v-for="item in layoutOptions"
                   :key="item.value"
@@ -394,7 +396,7 @@
                   </span>
                 </div>
               </div>
-              <div class="font-size-preview" :style="fontSizePreviewStyle">
+              <div class="font-size-preview" :class="resetFeedbackClass" :style="fontSizePreviewStyle">
                 <span class="font-size-preview__sample">{{
                   t('layout.setting.workbench.typography.previewLine')
                 }}</span>
@@ -408,7 +410,7 @@
                 <div class="section-title">{{ t('layout.setting.workbench.style.radius') }}</div>
                 <div class="section-desc">{{ t('layout.setting.workbench.style.description') }}</div>
               </div>
-              <div class="style-preview-grid">
+              <div class="style-preview-grid" :class="resetFeedbackClass">
                 <button
                   v-for="item in radiusOptions"
                   :key="item.value"
@@ -434,7 +436,7 @@
               <div class="section-heading">
                 <div class="section-title">{{ t('layout.setting.workbench.style.shadow') }}</div>
               </div>
-              <div class="style-preview-grid">
+              <div class="style-preview-grid" :class="resetFeedbackClass">
                 <button
                   v-for="item in shadowOptions"
                   :key="item.value"
@@ -460,7 +462,7 @@
               <div class="section-heading">
                 <div class="section-title">{{ t('layout.setting.workbench.style.density') }}</div>
               </div>
-              <div class="style-preview-grid">
+              <div class="style-preview-grid" :class="resetFeedbackClass">
                 <button
                   v-for="item in densityOptions"
                   :key="item.value"
@@ -545,7 +547,7 @@
       </div>
 
       <footer class="theme-workbench-panel__footer">
-        <t-button variant="outline" @click="settingStore.resetThemeDraftToDefault()">
+        <t-button variant="outline" :loading="settingStore.themeResetting" @click="handleResetDefaultTheme">
           {{ t('layout.setting.workbench.actions.reset') }}
         </t-button>
         <div class="theme-workbench-panel__footer-actions">
@@ -565,6 +567,7 @@
   </t-drawer>
 </template>
 <script setup lang="ts">
+import { MessagePlugin } from 'tdesign-vue-next';
 import { computed, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
@@ -585,6 +588,7 @@ import ThemeWorkbenchPresetSection from './ThemeWorkbenchPresetSection.vue';
 const settingStore = useSettingStore();
 const route = useRoute();
 const { locale } = useLocale();
+const panelShellRef = ref<HTMLElement>();
 const advancedVisible = ref(false);
 const expandedAdvancedGroups = ref<Array<string | number>>(['brand']);
 
@@ -848,6 +852,15 @@ const fixedSidebarHint = computed(() =>
 );
 const footerOptionVisible = computed(() => route.meta.footer !== false);
 const activeTokenEditorMode = ref<ModeType>(settingStore.displayMode);
+const resetFeedbackClass = computed(() => {
+  const key = settingStore.themeResetFeedbackKey;
+
+  if (!settingStore.themeResetting || key === 0) {
+    return undefined;
+  }
+
+  return key % 2 === 0 ? 'theme-reset-feedback--even' : 'theme-reset-feedback--odd';
+});
 
 const drawerVisible = computed({
   get: () => settingStore.showThemeWorkbench,
@@ -926,6 +939,24 @@ const toggleAdvancedVisible = (value: boolean) => {
 
 const handleModeSelect = (mode: ModeType | 'auto', event: MouseEvent) => {
   void settingStore.updateThemeDraftModeWithTransition(mode, event);
+};
+
+const handleResetDefaultTheme = async () => {
+  if (settingStore.themeResetting) {
+    return;
+  }
+
+  await settingStore.resetDefaultThemeWithFeedback();
+  if (!settingStore.showThemeWorkbench) {
+    return;
+  }
+
+  void MessagePlugin.success({
+    attach: () => panelShellRef.value ?? document.body,
+    content: t('layout.setting.workbench.actions.resetSuccess'),
+    duration: 1800,
+    placement: 'top-right',
+  });
 };
 </script>
 <style lang="less" scoped>
@@ -1129,6 +1160,81 @@ const handleModeSelect = (mode: ModeType | 'auto', event: MouseEvent) => {
 
 .overview-layout .section {
   padding: var(--graft-density-gap-14);
+}
+
+.theme-reset-feedback--odd,
+.theme-reset-feedback--even {
+  isolation: isolate;
+  overflow: hidden;
+  position: relative;
+}
+
+.theme-reset-feedback--odd::after,
+.theme-reset-feedback--even::after {
+  animation-duration: 640ms;
+  animation-fill-mode: both;
+  animation-timing-function: cubic-bezier(0.22, 0.72, 0.2, 1);
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    color-mix(in srgb, var(--td-brand-color) 5%, var(--td-bg-color-container) 12%) 42%,
+    color-mix(in srgb, var(--td-brand-color) 8%, var(--td-bg-color-container) 16%) 50%,
+    transparent 72%
+  );
+  content: '';
+  inset: -1px;
+  pointer-events: none;
+  position: absolute;
+  transform: translateX(-112%);
+  z-index: 3;
+}
+
+.theme-reset-feedback--odd::after {
+  animation-name: theme-reset-shimmer-odd;
+}
+
+.theme-reset-feedback--even::after {
+  animation-name: theme-reset-shimmer-even;
+}
+
+@keyframes theme-reset-shimmer-odd {
+  0% {
+    opacity: 0;
+    transform: translateX(-112%);
+  }
+
+  22% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(112%);
+  }
+}
+
+@keyframes theme-reset-shimmer-even {
+  0% {
+    opacity: 0;
+    transform: translateX(-112%);
+  }
+
+  22% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(112%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-reset-feedback--odd::after,
+  .theme-reset-feedback--even::after {
+    animation: none;
+    content: none;
+  }
 }
 
 .config-summary-card {

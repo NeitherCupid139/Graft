@@ -37,6 +37,7 @@ const THEME_TRANSITION_DURATION_MS = 420;
 const THEME_TRANSITION_EASING = 'cubic-bezier(0.4, 0, 0.2, 1)';
 const THEME_VIEW_TRANSITION_CLASS = 'graft-theme-view-transition';
 const THEME_CSS_TRANSITION_CLASS = 'graft-theme-css-transition';
+const THEME_RESET_FEEDBACK_DURATION_MS = 640;
 
 type ThemeViewTransition = {
   ready: Promise<void>;
@@ -447,6 +448,8 @@ export type SettingState = typeof STYLE_CONFIG & {
   themeDraftBaseline: ThemeAuthorityState | null;
   themeDraft: ThemeAuthorityState | null;
   themeDraftApplied: boolean;
+  themeResetting: boolean;
+  themeResetFeedbackKey: number;
   selectedThemePresetId: string | null;
   themeSource: ThemeSourceType;
   fontFamilyPreset: ThemeAuthorityState['fontFamilyPreset'];
@@ -482,6 +485,8 @@ function createInitialSettingState(): SettingState {
     themeDraftBaseline: null,
     themeDraft: null,
     themeDraftApplied: false,
+    themeResetting: false,
+    themeResetFeedbackKey: 0,
     selectedThemePresetId: DEFAULT_THEME_PRESET_ID,
     themeSource: 'preset',
     fontFamilyPreset: 'system',
@@ -749,6 +754,7 @@ export const useSettingStore = defineStore('setting', {
       this.themeDraftBaseline = null;
       this.themeDraft = null;
       this.themeDraftApplied = false;
+      this.themeResetting = false;
     },
     setActiveThemeWorkbenchGroup(group: ThemeWorkbenchGroupKey) {
       this.activeThemeWorkbenchGroup = group;
@@ -817,6 +823,21 @@ export const useSettingStore = defineStore('setting', {
       };
       this.themeDraft = defaultSnapshot;
       this.applyThemeDraftPreview();
+    },
+    async resetDefaultThemeWithFeedback() {
+      const feedbackKey = this.themeResetFeedbackKey + 1;
+
+      this.themeResetting = true;
+      this.themeResetFeedbackKey = feedbackKey;
+      this.resetThemeDraftToDefault();
+
+      await new Promise((resolve) => {
+        window.setTimeout(resolve, THEME_RESET_FEEDBACK_DURATION_MS);
+      });
+
+      if (this.themeResetFeedbackKey === feedbackKey) {
+        this.themeResetting = false;
+      }
     },
     selectThemePreset(presetId: string | null) {
       const resolvedPresetId = resolvePresetId(presetId);

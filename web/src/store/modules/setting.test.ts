@@ -208,6 +208,59 @@ describe('setting store theme authority', () => {
     expect(store.hasThemeDraftPendingChanges).toBe(false);
   });
 
+  it('tracks reset-to-default feedback while keeping the draft semantics', async () => {
+    const store = useSettingStore();
+    let finishResetFeedback: (() => void) | undefined;
+
+    Object.defineProperty(window, 'setTimeout', {
+      configurable: true,
+      value: vi.fn((callback: () => void) => {
+        finishResetFeedback = callback;
+        return 0;
+      }),
+    });
+
+    store.assignThemeAuthorityState({
+      ...store.createThemeAuthoritySnapshot(),
+      fontSizePreset: 'large',
+      themeSource: 'customized',
+    });
+    store.beginThemeDraft();
+
+    const resetPromise = store.resetDefaultThemeWithFeedback();
+
+    expect(store.themeResetting).toBe(true);
+    expect(store.themeResetFeedbackKey).toBe(1);
+    expect(store.fontSizePreset).toBe('standard');
+    expect(store.hasThemeDraftPendingChanges).toBe(true);
+
+    finishResetFeedback?.();
+    await resetPromise;
+
+    expect(store.themeResetting).toBe(false);
+    expect(store.themeResetFeedbackKey).toBe(1);
+  });
+
+  it('does not use full-page theme transitions for reset-to-default feedback', async () => {
+    const store = useSettingStore();
+    const startViewTransition = vi.fn((callback: () => void) => {
+      callback();
+      return { finished: Promise.resolve(), ready: Promise.resolve() };
+    });
+
+    Object.defineProperty(document, 'startViewTransition', {
+      configurable: true,
+      value: startViewTransition,
+    });
+
+    await store.resetDefaultThemeWithFeedback();
+
+    expect(startViewTransition).not.toHaveBeenCalled();
+    expect(document.documentElement.animate).not.toHaveBeenCalled();
+    expect(document.documentElement.classList.add).not.toHaveBeenCalledWith('graft-theme-view-transition');
+    expect(document.documentElement.classList.add).not.toHaveBeenCalledWith('graft-theme-css-transition');
+  });
+
   it('persists reset-to-default drafts and closes the workbench after apply', () => {
     const store = useSettingStore();
 
