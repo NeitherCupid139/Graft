@@ -3,7 +3,7 @@
 
 import { flushPromises, mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { defineComponent, h } from 'vue';
+import { defineComponent, h, type VNode } from 'vue';
 
 import { formatCompactDateTime } from '@/shared/components/management';
 
@@ -22,9 +22,26 @@ const translations = vi.hoisted(
     'systemConfig.fields.batchSize.title': '批量大小',
     'systemConfig.fields.retentionDays.description': '删除早于指定天数的日志。',
     'systemConfig.fields.retentionDays.title': '日志保留时间',
+    'systemConfig.domains.dashboard': '工作台配置',
+    'systemConfig.domains.logs': '日志配置',
+    'systemConfig.groupDescriptions.dashboardQuickActions': '管理首页快捷入口的显示与排序策略。',
+    'systemConfig.groupDescriptions.coreLoggerLogRetention': '管理应用日志清理的保留周期与批量策略。',
+    'systemConfig.groupDescriptions.coreHttpxLogRetention': '管理访问日志清理的保留周期与批量策略。',
+    'systemConfig.groups.coreLoggerLogRetention': '应用日志保留',
     'systemConfig.groups.coreHttpxLogRetention': '访问日志保留配置',
+    'systemConfig.groups.dashboardQuickActions': 'Dashboard 快捷入口',
+    'systemConfig.items.appLogRetentionCleanup.description': '应用日志保留清理任务的默认配置。',
+    'systemConfig.items.appLogRetentionCleanup.title': '应用日志保留清理',
     'systemConfig.items.accessLogRetentionCleanup.description': '访问日志保留清理任务的默认配置。',
     'systemConfig.items.accessLogRetentionCleanup.title': '访问日志保留清理',
+    'systemConfig.items.dashboardQuickActionsEnabled.description': '控制工作台首页是否展示个性化快捷入口。',
+    'systemConfig.items.dashboardQuickActionsEnabled.title': '是否启用',
+    'systemConfig.items.dashboardQuickActionsMaxItems.description': '工作台首页默认展示的个性化入口数量。',
+    'systemConfig.items.dashboardQuickActionsMaxItems.title': '最大数量',
+    'systemConfig.items.dashboardQuickActionsStrategy.description': '个性化快捷入口的推荐排序策略。',
+    'systemConfig.items.dashboardQuickActionsStrategy.title': '排序策略',
+    'systemConfig.list.boolean.disabled': '已禁用',
+    'systemConfig.list.boolean.enabled': '已启用',
     'systemConfig.list.boolean.false': '否',
     'systemConfig.list.boolean.true': '是',
     'systemConfig.list.cancel': '取消',
@@ -35,6 +52,7 @@ const translations = vi.hoisted(
     'systemConfig.list.emptyTitle': '暂无系统配置',
     'systemConfig.list.emptyValue': '无数据',
     'systemConfig.list.eyebrow': '服务管理',
+    'systemConfig.list.defaultGroup': '默认分组',
     'systemConfig.list.groupConfigCount': '{count} 个配置项',
     'systemConfig.list.groupLabel': '{module} / {group}',
     'systemConfig.list.loadError': '系统配置加载失败。',
@@ -69,9 +87,13 @@ const translations = vi.hoisted(
     'systemConfig.list.tags.sensitive': '敏感',
     'systemConfig.list.technicalId': '技术标识',
     'systemConfig.list.title': '系统配置',
+    'systemConfig.list.values.current': '当前值',
     'systemConfig.list.values.default': '默认值',
     'systemConfig.list.values.effective': '生效值',
     'systemConfig.list.viewJson': '查看 JSON',
+    'systemConfig.options.dashboardQuickActionStrategy.hybrid': '综合推荐',
+    'systemConfig.options.dashboardQuickActionStrategy.mostUsed': '最常使用',
+    'systemConfig.options.dashboardQuickActionStrategy.recent': '最近访问',
     'systemConfig.units.days': '天',
     'systemConfig.units.rows': '行',
   }),
@@ -108,8 +130,8 @@ describe('system config list page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     apiMocks.getSystemConfigs.mockResolvedValue({
-      items: [systemConfigItem()],
-      total: 1,
+      items: dashboardQuickActionItems(),
+      total: 3,
     });
   });
 
@@ -120,37 +142,32 @@ describe('system config list page', () => {
     expect(wrapper.find('.page-header').exists()).toBe(true);
     expect(wrapper.find('.page-header').text()).toContain('服务管理');
     expect(wrapper.find('.page-header').text()).toContain('系统配置');
-    expect(wrapper.text()).toContain('访问日志保留配置');
-    expect(wrapper.text()).toContain('core.httpx / log.retention');
-    expect(wrapper.text()).toContain('访问日志保留清理');
-    expect(wrapper.text()).toContain('访问日志保留清理任务的默认配置。');
-    expect(wrapper.text()).toContain('配置状态');
+    expect(wrapper.text()).toContain('工作台配置');
+    expect(wrapper.text()).toContain('Dashboard 快捷入口');
+    expect(wrapper.text()).toContain('管理首页快捷入口的显示与排序策略。');
+    expect(wrapper.text()).toContain('3 个配置项');
+    expect(wrapper.text()).toContain('0 个覆盖值');
+    expect(wrapper.text()).toContain('是否启用');
+    expect(wrapper.text()).toContain('最大数量');
+    expect(wrapper.text()).toContain('排序策略');
+    expect(wrapper.text()).toContain('当前值');
+    expect(wrapper.text()).toContain('已启用');
+    expect(wrapper.text()).toContain('综合推荐');
     expect(wrapper.text()).toContain('默认');
-    expect(wrapper.text()).toContain('使用默认配置');
     expect(wrapper.text()).toContain('最后修改');
     expect(wrapper.text()).toContain('暂无修改记录');
-    expect(wrapper.text()).toContain('默认值');
-    expect(wrapper.text()).toContain('日志保留时间');
-    expect(wrapper.text()).toContain('30 天');
-    expect(wrapper.text()).toContain('批量大小');
-    expect(wrapper.text()).toContain('1000 行');
-    expect(wrapper.text()).toContain('查看 JSON');
     expect(wrapper.text()).toContain('技术标识');
-    expect(wrapper.text()).toContain('httpx.access-log-retention-cleanup');
+    expect(wrapper.text()).toContain('dashboard.quick_actions.enabled');
+    expect(wrapper.text()).not.toContain('默认值');
+    expect(wrapper.text()).not.toContain('生效值');
+    expect(wrapper.text()).not.toContain('Dashboard Quick Actions');
     expect(wrapper.text()).not.toContain('1 项');
-    expect(wrapper.text()).not.toContain('无覆盖值');
-    expect(wrapper.text()).not.toContain('httpxlog.retention');
-    expect(wrapper.text()).not.toContain('Access log retention cleanup');
-    expect(wrapper.text()).not.toContain('Default cleanup configuration for access-log retention jobs.');
+    expect(wrapper.text()).not.toContain('core / dashboard.quick_actions');
 
     await wrapper.find('button[data-test-id="edit-button"]').trigger('click');
     await flushPromises();
 
-    expect(wrapper.text()).toContain('编辑：访问日志保留清理');
-    expect(wrapper.text()).toContain('日志保留时间');
-    expect(wrapper.text()).toContain('删除早于指定天数的日志。');
-    expect(wrapper.text()).toContain('批量大小');
-    expect(wrapper.text()).toContain('单次清理最多删除的日志行数。');
+    expect(wrapper.text()).toContain('编辑：是否启用');
     expect(wrapper.text()).toContain('配置预览');
   });
 
@@ -173,8 +190,42 @@ describe('system config list page', () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain('已修改');
-    expect(wrapper.text()).toContain('存在用户覆盖');
+    expect(wrapper.text()).toContain('默认值');
+    expect(wrapper.text()).toContain('当前值');
     expect(wrapper.text()).toContain(`alice / ${formatCompactDateTime('2026-05-24T10:00:00Z')}`);
+  });
+
+  it('groups access-log and app-log retention under one logs domain', async () => {
+    apiMocks.getSystemConfigs.mockResolvedValue({
+      items: [
+        systemConfigItem(),
+        {
+          ...systemConfigItem(),
+          key: 'logger.app-log-retention-cleanup',
+          module: 'core.logger',
+          group_key: 'systemConfig.groups.coreLoggerLogRetention',
+          group_label: 'App log retention',
+          group_description_key: 'systemConfig.groupDescriptions.coreLoggerLogRetention',
+          group_description: 'Manage application log cleanup retention and batch policy.',
+          title_key: 'systemConfig.items.appLogRetentionCleanup.title',
+          title: 'App log retention cleanup',
+          description_key: 'systemConfig.items.appLogRetentionCleanup.description',
+          description: 'Default cleanup configuration for app-log retention jobs.',
+          tags: ['logger', 'log.retention'],
+          order: 220,
+        },
+      ],
+      total: 2,
+    });
+
+    const wrapper = mountPage();
+    await flushPromises();
+
+    expect(
+      wrapper.findAll('[data-tree-node="domain"]').filter((node) => node.text().includes('日志配置')),
+    ).toHaveLength(1);
+    expect(wrapper.text()).toContain('访问日志保留配置');
+    expect(wrapper.text()).toContain('应用日志保留');
   });
 
   it('falls back to user id when modified config has no username', async () => {
@@ -342,6 +393,27 @@ function mountPage() {
         TSwitch: textStub('span'),
         TTag: textStub('span'),
         TTextarea: textStub('textarea'),
+        TTree: defineComponent({
+          name: 'TTree',
+          props: ['data'],
+          setup(props, { slots }) {
+            const renderNode = (node: Record<string, unknown>): VNode =>
+              h('li', { 'data-tree-node': node.children ? 'domain' : 'group' }, [
+                slots.label?.({
+                  node: {
+                    data: node,
+                  },
+                }) ?? String(node.label ?? ''),
+                Array.isArray(node.children)
+                  ? h(
+                      'ul',
+                      node.children.map((child) => renderNode(child)),
+                    )
+                  : null,
+              ]);
+            return () => h('ul', Array.isArray(props.data) ? props.data.map((node) => renderNode(node)) : []);
+          },
+        }),
       },
     },
   });
@@ -359,9 +431,14 @@ function systemConfigItem() {
   return {
     key: 'httpx.access-log-retention-cleanup',
     module: 'core.httpx',
+    domain: 'logs',
+    domain_key: 'systemConfig.domains.logs',
+    domain_label: 'Logs',
     group: 'log.retention',
     group_key: 'systemConfig.groups.coreHttpxLogRetention',
-    group_label: 'core.httpx / log.retention',
+    group_label: 'Access log retention',
+    group_description_key: 'systemConfig.groupDescriptions.coreHttpxLogRetention',
+    group_description: 'Manage access log cleanup retention and batch policy.',
     title_key: 'systemConfig.items.accessLogRetentionCleanup.title',
     title: 'Access log retention cleanup',
     description_key: 'systemConfig.items.accessLogRetentionCleanup.description',
@@ -407,5 +484,99 @@ function systemConfigItem() {
     masked: false,
     restart_required: false,
     order: 210,
+  };
+}
+
+function dashboardQuickActionItems() {
+  return [
+    dashboardQuickActionItem({
+      key: 'dashboard.quick_actions.enabled',
+      titleKey: 'systemConfig.items.dashboardQuickActionsEnabled.title',
+      title: 'Dashboard quick actions enabled',
+      descriptionKey: 'systemConfig.items.dashboardQuickActionsEnabled.description',
+      description: 'Controls whether personalized dashboard quick actions are shown.',
+      type: 'boolean',
+      configSchema: { type: 'boolean' },
+      defaultValue: 'true',
+      effectiveValue: 'true',
+      order: 120,
+    }),
+    dashboardQuickActionItem({
+      key: 'dashboard.quick_actions.max_items',
+      titleKey: 'systemConfig.items.dashboardQuickActionsMaxItems.title',
+      title: 'Dashboard quick actions maximum items',
+      descriptionKey: 'systemConfig.items.dashboardQuickActionsMaxItems.description',
+      description: 'Maximum personalized entries shown on the dashboard home page.',
+      type: 'integer',
+      configSchema: { type: 'integer', minimum: 1, maximum: 24, default: 8 },
+      defaultValue: '8',
+      effectiveValue: '8',
+      order: 121,
+    }),
+    dashboardQuickActionItem({
+      key: 'dashboard.quick_actions.strategy',
+      titleKey: 'systemConfig.items.dashboardQuickActionsStrategy.title',
+      title: 'Dashboard quick actions ranking strategy',
+      descriptionKey: 'systemConfig.items.dashboardQuickActionsStrategy.description',
+      description: 'Personalized quick action ranking strategy.',
+      type: 'string',
+      configSchema: {
+        type: 'string',
+        enum: ['most_used', 'recent', 'hybrid'],
+        default: 'hybrid',
+        'x-i18n': {
+          enumLabels: {
+            most_used: 'systemConfig.options.dashboardQuickActionStrategy.mostUsed',
+            recent: 'systemConfig.options.dashboardQuickActionStrategy.recent',
+            hybrid: 'systemConfig.options.dashboardQuickActionStrategy.hybrid',
+          },
+        },
+      },
+      defaultValue: '"hybrid"',
+      effectiveValue: '"hybrid"',
+      order: 122,
+    }),
+  ];
+}
+
+function dashboardQuickActionItem(input: {
+  key: string;
+  titleKey: string;
+  title: string;
+  descriptionKey: string;
+  description: string;
+  type: string;
+  configSchema: Record<string, unknown>;
+  defaultValue: string;
+  effectiveValue: string;
+  order: number;
+}) {
+  return {
+    key: input.key,
+    module: 'core',
+    domain: 'dashboard',
+    domain_key: 'systemConfig.domains.dashboard',
+    domain_label: 'Dashboard',
+    group: 'quick_actions',
+    group_key: 'systemConfig.groups.dashboardQuickActions',
+    group_label: 'Quick actions',
+    group_description_key: 'systemConfig.groupDescriptions.dashboardQuickActions',
+    group_description: 'Manage dashboard home quick-action visibility and ranking.',
+    title_key: input.titleKey,
+    title: input.title,
+    description_key: input.descriptionKey,
+    description: input.description,
+    tags: ['dashboard', 'quick_actions'],
+    type: input.type,
+    config_schema: input.configSchema,
+    default_value: input.defaultValue,
+    effective_value: input.effectiveValue,
+    override_value: null,
+    has_override: false,
+    sensitive: false,
+    masked: false,
+    restart_required: false,
+    status: 'default',
+    order: input.order,
   };
 }

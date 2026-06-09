@@ -2653,12 +2653,22 @@ export interface components {
       key: string;
       /** @description Module that owns the ConfigDefinition authority. */
       module: string;
+      /** @description Configuration domain key used for domain-first settings navigation. */
+      domain?: string;
+      /** @description Stable localization key for the domain display label. */
+      domain_key?: string;
+      /** @description Direct domain-label fallback when the client has no translation for domain_key. */
+      domain_label?: string;
       /** @description Module-declared grouping key for the settings UI. */
       group: string;
       /** @description Stable localization key for the group display label. */
       group_key?: string;
       /** @description Direct group-label fallback when the client has no translation for group_key. */
       group_label?: string;
+      /** @description Direct group-description fallback when the client has no translation for group_description_key. */
+      group_description?: string;
+      /** @description Stable localization key for the group description. */
+      group_description_key?: string;
       /** @description Direct title fallback when the client has no translation for title_key. */
       title?: string;
       /** @description Stable localization key for the config item title. */

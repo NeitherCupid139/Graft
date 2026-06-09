@@ -39,30 +39,40 @@
     <t-loading :loading="loading">
       <div class="system-config-layout">
         <aside class="system-config-groups">
-          <button
-            v-for="group in groupedConfigs"
-            :key="group.key"
-            type="button"
-            :class="['system-config-group', { 'system-config-group--active': group.key === activeGroupKey }]"
-            @click="activeGroupKey = group.key"
+          <t-tree
+            :data="domainTree"
+            :actived="activeTreeValue"
+            :expanded="expandedDomainKeys"
+            activable
+            hover
+            expand-on-click-node
+            @active="handleTreeActive"
           >
-            <span>{{ group.label }}</span>
-            <small>{{ group.technicalKey }}</small>
-            <small v-if="group.items.length > 1">
-              {{ t('systemConfig.list.groupConfigCount', { count: group.items.length }) }}
-            </small>
-          </button>
+            <template #label="{ node }">
+              <span class="system-config-tree-node">
+                <span>{{ node.data.label }}</span>
+                <small v-if="node.data.count">
+                  {{ t('systemConfig.list.groupConfigCount', { count: node.data.count }) }}
+                </small>
+              </span>
+            </template>
+          </t-tree>
         </aside>
 
         <main class="system-config-content">
           <div v-if="activeGroup" class="system-config-content__head">
             <div>
               <h2>{{ activeGroup.label }}</h2>
-              <p>{{ activeGroup.technicalKey }}</p>
+              <p>{{ activeGroup.description }}</p>
             </div>
-            <t-tag v-if="activeGroupOverrideCount > 0" variant="light" theme="primary">
-              {{ t('systemConfig.list.overrideCount', { count: activeGroupOverrideCount }) }}
-            </t-tag>
+            <t-space size="small" break-line>
+              <t-tag variant="light">
+                {{ t('systemConfig.list.groupConfigCount', { count: activeGroup.items.length }) }}
+              </t-tag>
+              <t-tag :theme="activeGroupOverrideCount > 0 ? 'primary' : 'default'" variant="light">
+                {{ t('systemConfig.list.overrideCount', { count: activeGroupOverrideCount }) }}
+              </t-tag>
+            </t-space>
           </div>
 
           <div v-if="activeGroup?.items.length" class="system-config-list">
@@ -84,22 +94,6 @@
                       {{ t('systemConfig.list.tags.restartRequired') }}
                     </t-tag>
                   </t-space>
-                </div>
-
-                <div class="system-config-summary">
-                  <section class="system-config-summary__cell">
-                    <span>{{ t('systemConfig.list.status.title') }}</span>
-                    <div>
-                      <t-tag :theme="configStatus(item).theme" variant="light">
-                        {{ configStatus(item).label }}
-                      </t-tag>
-                      <strong>{{ configStatus(item).description }}</strong>
-                    </div>
-                  </section>
-                  <section class="system-config-summary__cell">
-                    <span>{{ t('systemConfig.list.lastModified.title') }}</span>
-                    <strong>{{ configLastModifiedLabel(item) }}</strong>
-                  </section>
                 </div>
 
                 <div class="system-config-values">
@@ -130,6 +124,13 @@
                         <pre>{{ valueSection.json }}</pre>
                       </t-collapse-panel>
                     </t-collapse>
+                  </section>
+                </div>
+
+                <div class="system-config-summary">
+                  <section class="system-config-summary__cell">
+                    <span>{{ t('systemConfig.list.lastModified.title') }}</span>
+                    <strong>{{ configLastModifiedLabel(item) }}</strong>
                   </section>
                 </div>
 
@@ -220,6 +221,7 @@
 </template>
 <script setup lang="ts">
 import { EditIcon, RefreshIcon, RollbackIcon } from 'tdesign-icons-vue-next';
+import type { TreeNodeValue, TreeProps } from 'tdesign-vue-next';
 import { MessagePlugin } from 'tdesign-vue-next';
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -245,9 +247,16 @@ defineOptions({
 
 type ConfigGroup = {
   key: string;
+  domainKey: string;
   label: string;
-  technicalKey: string;
+  description: string;
   items: SystemConfigItem[];
+};
+
+type ConfigDomain = {
+  key: string;
+  label: string;
+  groups: ConfigGroup[];
 };
 
 type ConfigValueField = 'effective_value' | 'default_value';
@@ -274,6 +283,7 @@ const saving = ref(false);
 const resettingKey = ref('');
 const errorMessage = ref('');
 const activeGroupKey = ref('');
+const expandedDomainKeys = ref<TreeNodeValue[]>([]);
 const editorVisible = ref(false);
 const editingItem = ref<SystemConfigItem | null>(null);
 const editorForm = reactive<{ value: unknown }>({ value: undefined });
@@ -287,24 +297,52 @@ const schemaLabels = computed(() => ({
   value: t('systemConfig.list.schema.value'),
 }));
 
-const groupedConfigs = computed<ConfigGroup[]>(() => {
-  const groupMap = new Map<string, ConfigGroup>();
+const domains = computed<ConfigDomain[]>(() => {
+  const domainMap = new Map<string, ConfigDomain>();
   const sortedItems = [...items.value].sort((left, right) => {
     const orderDelta = (left.order ?? 0) - (right.order ?? 0);
     return orderDelta || configTitle(left).localeCompare(configTitle(right));
   });
 
   for (const item of sortedItems) {
-    const key = `${item.module}:${item.group || 'default'}`;
-    const label = groupLabel(item);
-    const group = groupMap.get(key) ?? { key, label, technicalKey: technicalGroupKey(item), items: [] };
+    const domainKey = configDomainKey(item);
+    const domain = domainMap.get(domainKey) ?? {
+      key: domainKey,
+      label: domainLabel(item),
+      groups: [],
+    };
+    const groupKey = `${domainKey}:${item.module}:${item.group || 'default'}`;
+    let group = domain.groups.find((candidate) => candidate.key === groupKey);
+    if (!group) {
+      group = {
+        key: groupKey,
+        domainKey,
+        label: groupLabel(item),
+        description: groupDescription(item),
+        items: [],
+      };
+      domain.groups.push(group);
+    }
     group.items.push(item);
-    groupMap.set(key, group);
+    domainMap.set(domainKey, domain);
   }
 
-  return [...groupMap.values()];
+  return [...domainMap.values()];
 });
 
+const groupedConfigs = computed(() => domains.value.flatMap((domain) => domain.groups));
+const domainTree = computed<TreeProps['data']>(() =>
+  domains.value.map((domain) => ({
+    value: domain.key,
+    label: domain.label,
+    children: domain.groups.map((group) => ({
+      value: group.key,
+      label: group.label,
+      count: group.items.length,
+    })),
+  })),
+);
+const activeTreeValue = computed(() => (activeGroupKey.value ? [activeGroupKey.value] : []));
 const activeGroup = computed(() => groupedConfigs.value.find((group) => group.key === activeGroupKey.value) ?? null);
 const activeGroupOverrideCount = computed(
   () => activeGroup.value?.items.filter((item) => item.has_override).length ?? 0,
@@ -326,10 +364,18 @@ async function refreshConfigs() {
     if (!activeGroupKey.value || !groupedConfigs.value.some((group) => group.key === activeGroupKey.value)) {
       activeGroupKey.value = groupedConfigs.value[0]?.key ?? '';
     }
+    expandedDomainKeys.value = domains.value.map((domain) => domain.key);
   } catch (error) {
     errorMessage.value = readableError(error, t('systemConfig.list.loadError'));
   } finally {
     loading.value = false;
+  }
+}
+
+function handleTreeActive(value: TreeNodeValue[]) {
+  const selected = String(value[0] ?? '');
+  if (groupedConfigs.value.some((group) => group.key === selected)) {
+    activeGroupKey.value = selected;
   }
 }
 
@@ -420,8 +466,24 @@ function groupLabel(item: SystemConfigItem) {
   return resolveI18nText(item.group_key, item.group_label, technicalGroupKey(item));
 }
 
+function groupDescription(item: SystemConfigItem) {
+  return resolveI18nText(item.group_description_key, item.group_description, t('systemConfig.list.noDescription'));
+}
+
+function domainLabel(item: SystemConfigItem) {
+  return resolveI18nText(item.domain_key, item.domain_label, technicalDomainKey(item));
+}
+
+function configDomainKey(item: SystemConfigItem) {
+  return item.domain?.trim() || item.module || 'uncategorized';
+}
+
+function technicalDomainKey(item: SystemConfigItem) {
+  return item.domain?.trim() || t('systemConfig.domains.uncategorized');
+}
+
 function technicalGroupKey(item: SystemConfigItem) {
-  return t('systemConfig.list.groupLabel', { module: item.module, group: item.group || 'default' });
+  return item.group || t('systemConfig.list.defaultGroup');
 }
 
 function configStatus(item: SystemConfigItem) {
@@ -468,10 +530,11 @@ function configUpdatedByLabel(item: SystemConfigItem) {
 }
 
 function valueSections(item: SystemConfigItem): ConfigValueSection[] {
-  return [
-    buildValueSection(item, 'effective_value', t('systemConfig.list.values.effective')),
-    buildValueSection(item, 'default_value', t('systemConfig.list.values.default')),
-  ];
+  const sections = [buildValueSection(item, 'effective_value', t('systemConfig.list.values.current'))];
+  if (item.has_override) {
+    sections.push(buildValueSection(item, 'default_value', t('systemConfig.list.values.default')));
+  }
+  return sections;
 }
 
 function buildValueSection(item: SystemConfigItem, field: ConfigValueField, title: string): ConfigValueSection {
@@ -495,9 +558,11 @@ function buildValueSection(item: SystemConfigItem, field: ConfigValueField, titl
       : [
           {
             key: field,
-            label: schema.title ? resolveI18nText(schema.xI18n?.titleKey, schema.title, title) : title,
+            label: schema.title
+              ? resolveI18nText(schema.xI18n?.titleKey, schema.title, configTitle(item))
+              : configTitle(item),
             description: resolveI18nText(schema.xI18n?.descriptionKey, schema.description, ''),
-            value: valuePreview(parsed, t('systemConfig.list.emptyValue'), booleanLabel),
+            value: configValuePreview(parsed, schema),
           },
         ];
 
@@ -505,14 +570,14 @@ function buildValueSection(item: SystemConfigItem, field: ConfigValueField, titl
     field,
     title,
     rows: fallbackRows,
-    json: formatJsonValue(parsed),
+    json: shouldShowJsonValue(parsed) ? formatJsonValue(parsed) : '',
   };
 }
 
 function structuredValueRows(value: Record<string, unknown>, fields: ConfigSchemaField[]): ConfigValueRow[] {
   return fields.map((field) => {
     const unit = schemaFieldUnit(field);
-    const displayValue = valuePreview(value[field.key], t('systemConfig.list.emptyValue'), booleanLabel);
+    const displayValue = valuePreview(value[field.key], t('systemConfig.list.emptyValue'), booleanStateLabel);
     return {
       key: field.key,
       label: schemaFieldTitle(field),
@@ -522,8 +587,20 @@ function structuredValueRows(value: Record<string, unknown>, fields: ConfigSchem
   });
 }
 
-function booleanLabel(value: boolean) {
-  return value ? t('systemConfig.list.boolean.true') : t('systemConfig.list.boolean.false');
+function booleanStateLabel(value: boolean) {
+  return value ? t('systemConfig.list.boolean.enabled') : t('systemConfig.list.boolean.disabled');
+}
+
+function shouldShowJsonValue(value: unknown) {
+  return Array.isArray(value) || isJsonRecord(value);
+}
+
+function configValuePreview(value: unknown, schema = parseConfigSchema()) {
+  const optionText = schema.enumLabels?.[String(value)];
+  if (optionText) {
+    return resolveI18nText(optionText.labelKey, optionText.label, String(value));
+  }
+  return valuePreview(value, t('systemConfig.list.emptyValue'), booleanStateLabel);
 }
 
 function schemaFieldTitle(field: ConfigSchemaField) {
@@ -595,27 +672,19 @@ function readableError(error: unknown, fallback: string) {
   top: var(--graft-density-gap-16);
 }
 
-.system-config-group {
+.system-config-groups :deep(.t-tree) {
   background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--td-radius-small);
-  color: var(--td-text-color-primary);
-  cursor: pointer;
+}
+
+.system-config-tree-node {
   display: flex;
   flex-direction: column;
   gap: var(--graft-density-gap-4);
-  min-height: 56px;
-  padding: var(--graft-density-gap-8);
-  text-align: left;
+  line-height: 1.4;
+  min-width: 0;
 }
 
-.system-config-group:hover,
-.system-config-group--active {
-  background: var(--td-brand-color-light);
-  border-color: var(--td-brand-color);
-}
-
-.system-config-group small {
+.system-config-tree-node small {
   color: var(--td-text-color-secondary);
 }
 

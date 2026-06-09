@@ -11243,6 +11243,18 @@
             "type": "string",
             "description": "Module that owns the ConfigDefinition authority."
           },
+          "domain": {
+            "type": "string",
+            "description": "Configuration domain key used for domain-first settings navigation."
+          },
+          "domain_key": {
+            "type": "string",
+            "description": "Stable localization key for the domain display label."
+          },
+          "domain_label": {
+            "type": "string",
+            "description": "Direct domain-label fallback when the client has no translation for domain_key."
+          },
           "group": {
             "type": "string",
             "description": "Module-declared grouping key for the settings UI."
@@ -11254,6 +11266,14 @@
           "group_label": {
             "type": "string",
             "description": "Direct group-label fallback when the client has no translation for group_key."
+          },
+          "group_description": {
+            "type": "string",
+            "description": "Direct group-description fallback when the client has no translation for group_description_key."
+          },
+          "group_description_key": {
+            "type": "string",
+            "description": "Stable localization key for the group description."
           },
           "title": {
             "type": "string",

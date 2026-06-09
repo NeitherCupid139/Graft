@@ -19,6 +19,7 @@
       "resetConfirm": "Delete this user override and return to the module default?",
       "groupConfigCount": "{count} Configuration Items",
       "groupDescription": "This group contains {count} configuration items.",
+      "defaultGroup": "Default Group",
       "groupLabel": "{module} / {group}",
       "overrideCount": "{count} Overrides",
       "loadError": "System configuration could not be loaded.",
@@ -37,6 +38,8 @@
       "viewJson": "View JSON",
       "technicalId": "Technical ID",
       "boolean": {
+        "enabled": "Enabled",
+        "disabled": "Disabled",
         "true": "Yes",
         "false": "No"
       },
@@ -60,6 +63,7 @@
         "restartRequired": "Restart Required"
       },
       "values": {
+        "current": "Current Value",
         "effective": "Effective Value",
         "default": "Default Value"
       },
@@ -72,23 +76,35 @@
         "invalidJson": "JSON is invalid"
       }
     },
+    "domains": {
+      "dashboard": "Dashboard Configuration",
+      "logs": "Logs",
+      "audit": "Security Audit",
+      "uncategorized": "Uncategorized"
+    },
     "groups": {
       "dashboardQuickActions": "Dashboard Quick Actions",
-      "coreHttpxLogRetention": "Access Log Retention Configuration",
-      "coreLoggerLogRetention": "App Log Retention Configuration",
-      "auditLogRetention": "Audit Log Retention Configuration"
+      "coreHttpxLogRetention": "Access Log Retention",
+      "coreLoggerLogRetention": "App Log Retention",
+      "auditLogRetention": "Audit Log Retention"
+    },
+    "groupDescriptions": {
+      "dashboardQuickActions": "Manage dashboard home quick-action visibility and ranking.",
+      "coreHttpxLogRetention": "Manage access log cleanup retention and batch policy.",
+      "coreLoggerLogRetention": "Manage application log cleanup retention and batch policy.",
+      "auditLogRetention": "Manage audit log cleanup retention and batch policy."
     },
     "items": {
       "dashboardQuickActionsEnabled": {
-        "title": "Dashboard Quick Actions",
+        "title": "Enabled",
         "description": "Controls whether personalized dashboard quick actions are shown."
       },
       "dashboardQuickActionsMaxItems": {
-        "title": "Quick Action Maximum Items",
+        "title": "Maximum Items",
         "description": "Maximum personalized entries shown on the dashboard home page."
       },
       "dashboardQuickActionsStrategy": {
-        "title": "Quick Action Ranking Strategy",
+        "title": "Ranking Strategy",
         "description": "Personalized quick action ranking strategy."
       },
       "accessLogRetentionCleanup": {

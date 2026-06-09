@@ -361,18 +361,24 @@ function parseI18n(raw: JsonRecord): ConfigSchemaI18n | undefined {
 }
 
 function parseEnumLabels(raw: JsonRecord): Record<string, ConfigSchemaOptionLabel> | undefined {
+  const i18nExtension = isJsonRecord(raw['x-i18n']) ? raw['x-i18n'] : {};
+  const i18nEnumLabels = isJsonRecord(i18nExtension.enumLabels) ? i18nExtension.enumLabels : undefined;
   const rawOptions = isJsonRecord(raw.options)
     ? raw.options
     : isJsonRecord(raw.enumLabels)
       ? raw.enumLabels
-      : undefined;
+      : i18nEnumLabels;
   if (!rawOptions) {
     return undefined;
   }
 
   const entries = Object.entries(rawOptions).flatMap(([value, option]) => {
     if (typeof option === 'string') {
-      return [[value, { label: option } satisfies ConfigSchemaOptionLabel]];
+      const label =
+        i18nEnumLabels === rawOptions
+          ? ({ labelKey: option } satisfies ConfigSchemaOptionLabel)
+          : ({ label: option } satisfies ConfigSchemaOptionLabel);
+      return [[value, label]];
     }
     if (!isJsonRecord(option)) {
       return [];

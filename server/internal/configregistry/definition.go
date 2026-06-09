@@ -40,24 +40,29 @@ const (
 // Definitions are registered by modules during Register. They are canonical
 // metadata and must not be copied into system_config_values as database truth.
 type Definition struct {
-	Key             string
-	Module          string
-	Group           string
-	GroupKey        string
-	GroupLabel      string
-	Title           string
-	TitleKey        string
-	Description     string
-	DescriptionKey  string
-	Tags            []string
-	Type            ValueType
-	Schema          json.RawMessage
-	DefaultValue    json.RawMessage
-	Sensitive       bool
-	Required        bool
-	RestartRequired bool
-	Permission      string
-	Order           int
+	Key                 string
+	Module              string
+	Domain              string
+	DomainKey           string
+	DomainLabel         string
+	Group               string
+	GroupKey            string
+	GroupLabel          string
+	GroupDescription    string
+	GroupDescriptionKey string
+	Title               string
+	TitleKey            string
+	Description         string
+	DescriptionKey      string
+	Tags                []string
+	Type                ValueType
+	Schema              json.RawMessage
+	DefaultValue        json.RawMessage
+	Sensitive           bool
+	Required            bool
+	RestartRequired     bool
+	Permission          string
+	Order               int
 }
 
 // Snapshot returns an immutable copy safe for callers to retain.

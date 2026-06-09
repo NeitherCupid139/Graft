@@ -3607,11 +3607,26 @@ type SystemConfigItem struct {
 	// DescriptionKey Stable localization key for the config item description.
 	DescriptionKey *string `json:"description_key,omitempty"`
 
+	// Domain Configuration domain key used for domain-first settings navigation.
+	Domain *string `json:"domain,omitempty"`
+
+	// DomainKey Stable localization key for the domain display label.
+	DomainKey *string `json:"domain_key,omitempty"`
+
+	// DomainLabel Direct domain-label fallback when the client has no translation for domain_key.
+	DomainLabel *string `json:"domain_label,omitempty"`
+
 	// EffectiveValue JSON string after applying a user override; null when sensitive=true.
 	EffectiveValue *string `json:"effective_value,omitempty"`
 
 	// Group Module-declared grouping key for the settings UI.
 	Group string `json:"group"`
+
+	// GroupDescription Direct group-description fallback when the client has no translation for group_description_key.
+	GroupDescription *string `json:"group_description,omitempty"`
+
+	// GroupDescriptionKey Stable localization key for the group description.
+	GroupDescriptionKey *string `json:"group_description_key,omitempty"`
 
 	// GroupKey Stable localization key for the group display label.
 	GroupKey *string `json:"group_key,omitempty"`
