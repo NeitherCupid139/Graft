@@ -27,14 +27,10 @@ func NewModule(service *Service, publisher *Publisher) *Module {
 
 // Register declares notification permissions and the cross-module publisher capability.
 func (m *Module) Register(ctx *module.Context) error {
-	if m == nil || m.service == nil || m.publisher == nil {
-		return errors.New("notification module dependencies are unavailable")
+	if err := m.validateRegisterContext(ctx); err != nil {
+		return err
 	}
-	if ctx == nil || ctx.Services == nil {
-		return errors.New("notification register context is required")
-	}
-
-	if err := registerNotificationPermissions(ctx.PermissionRegistry, moduleID); err != nil {
+	if err := registerNotificationMetadata(ctx); err != nil {
 		return err
 	}
 	if err := m.bindRBACAccessService(ctx); err != nil {
@@ -48,6 +44,16 @@ func (m *Module) Register(ctx *module.Context) error {
 	return ctx.Services.RegisterSingleton((*moduleapi.NotificationPublisher)(nil), func(_ container.Resolver) (any, error) {
 		return m.publisher, nil
 	})
+}
+
+func (m *Module) validateRegisterContext(ctx *module.Context) error {
+	if m == nil || m.service == nil || m.publisher == nil {
+		return errors.New("notification module dependencies are unavailable")
+	}
+	if ctx == nil || ctx.Services == nil {
+		return errors.New("notification register context is required")
+	}
+	return nil
 }
 
 func (m *Module) bindRBACAccessService(ctx *module.Context) error {
