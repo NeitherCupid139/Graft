@@ -1,6 +1,9 @@
 // Copyright (c) 2025-2026 GeWuYou
 // SPDX-License-Identifier: Apache-2.0
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { flushPromises, mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineComponent, h, type VNode } from 'vue';
@@ -8,6 +11,8 @@ import { defineComponent, h, type VNode } from 'vue';
 import { formatCompactDateTime } from '@/shared/components/management';
 
 import SystemConfigListPage from './index.vue';
+
+const sourceText = readFileSync(join(process.cwd(), 'src/modules/system-config/pages/list/index.vue'), 'utf8');
 
 const apiMocks = vi.hoisted(() => ({
   getSystemConfigs: vi.fn(),
@@ -29,7 +34,7 @@ const translations = vi.hoisted(
     'systemConfig.groupDescriptions.coreHttpxLogRetention': '管理访问日志清理的保留周期与批量策略。',
     'systemConfig.groups.coreLoggerLogRetention': '应用日志保留',
     'systemConfig.groups.coreHttpxLogRetention': '访问日志保留配置',
-    'systemConfig.groups.dashboardQuickActions': 'Dashboard 快捷入口',
+    'systemConfig.groups.dashboardQuickActions': '工作台快捷入口',
     'systemConfig.items.appLogRetentionCleanup.description': '应用日志保留清理任务的默认配置。',
     'systemConfig.items.appLogRetentionCleanup.title': '应用日志保留清理',
     'systemConfig.items.accessLogRetentionCleanup.description': '访问日志保留清理任务的默认配置。',
@@ -66,6 +71,8 @@ const translations = vi.hoisted(
     'systemConfig.list.save': '保存',
     'systemConfig.list.saveError': '系统配置保存失败。',
     'systemConfig.list.saveSuccess': '系统配置已保存。',
+    'systemConfig.list.searchEmpty': '未找到匹配的配置组',
+    'systemConfig.list.searchPlaceholder': '搜索配置组、配置项或技术标识',
     'systemConfig.list.schema.invalidJson': 'JSON 格式不正确',
     'systemConfig.list.schema.jsonPlaceholder': '请输入 JSON',
     'systemConfig.list.schema.numberPlaceholder': '请输入数字',
@@ -87,6 +94,7 @@ const translations = vi.hoisted(
     'systemConfig.list.tags.sensitive': '敏感',
     'systemConfig.list.technicalId': '技术标识',
     'systemConfig.list.title': '系统配置',
+    'systemConfig.list.valueDescription': '配置值说明',
     'systemConfig.list.values.current': '当前值',
     'systemConfig.list.values.default': '默认值',
     'systemConfig.list.values.effective': '生效值',
@@ -94,6 +102,10 @@ const translations = vi.hoisted(
     'systemConfig.options.dashboardQuickActionStrategy.hybrid': '综合推荐',
     'systemConfig.options.dashboardQuickActionStrategy.mostUsed': '最常使用',
     'systemConfig.options.dashboardQuickActionStrategy.recent': '最近访问',
+    'systemConfig.options.dashboardQuickActionStrategyDescriptions.hybrid':
+      '根据最近访问、使用频率和系统推荐结果综合排序。',
+    'systemConfig.options.dashboardQuickActionStrategyDescriptions.mostUsed': '优先展示使用频率最高的快捷入口。',
+    'systemConfig.options.dashboardQuickActionStrategyDescriptions.recent': '优先展示最近访问过的快捷入口。',
     'systemConfig.units.days': '天',
     'systemConfig.units.rows': '行',
   }),
@@ -114,8 +126,10 @@ vi.mock('tdesign-vue-next', () => ({
 
 vi.mock('tdesign-icons-vue-next', () => ({
   EditIcon: defineComponent({ name: 'EditIcon', setup: () => () => h('span') }),
+  InfoCircleIcon: defineComponent({ name: 'InfoCircleIcon', setup: () => () => h('span', 'i') }),
   RefreshIcon: defineComponent({ name: 'RefreshIcon', setup: () => () => h('span') }),
   RollbackIcon: defineComponent({ name: 'RollbackIcon', setup: () => () => h('span') }),
+  SearchIcon: defineComponent({ name: 'SearchIcon', setup: () => () => h('span') }),
 }));
 
 vi.mock('vue-i18n', () => ({
@@ -143,7 +157,7 @@ describe('system config list page', () => {
     expect(wrapper.find('.page-header').text()).toContain('服务管理');
     expect(wrapper.find('.page-header').text()).toContain('系统配置');
     expect(wrapper.text()).toContain('工作台配置');
-    expect(wrapper.text()).toContain('Dashboard 快捷入口');
+    expect(wrapper.text()).toContain('工作台快捷入口');
     expect(wrapper.text()).toContain('管理首页快捷入口的显示与排序策略。');
     expect(wrapper.text()).toContain('3 个配置项');
     expect(wrapper.text()).toContain('0 个覆盖值');
@@ -153,6 +167,14 @@ describe('system config list page', () => {
     expect(wrapper.text()).toContain('当前值');
     expect(wrapper.text()).toContain('已启用');
     expect(wrapper.text()).toContain('综合推荐');
+    expect(wrapper.text()).not.toContain('Personalized quick action ranking strategy.');
+    expect(wrapper.text()).not.toContain('Maximum quick actions');
+    expect(wrapper.find('[data-tooltip-content="根据最近访问、使用频率和系统推荐结果综合排序。"]').exists()).toBe(true);
+    expect(
+      wrapper
+        .findAll('.system-config-value__rows small')
+        .some((node) => node.text() === '根据最近访问、使用频率和系统推荐结果综合排序。'),
+    ).toBe(false);
     expect(wrapper.text()).toContain('默认');
     expect(wrapper.text()).toContain('最后修改');
     expect(wrapper.text()).toContain('暂无修改记录');
@@ -226,6 +248,71 @@ describe('system config list page', () => {
     ).toHaveLength(1);
     expect(wrapper.text()).toContain('访问日志保留配置');
     expect(wrapper.text()).toContain('应用日志保留');
+  });
+
+  it('filters the group tree by localized labels and technical keys', async () => {
+    apiMocks.getSystemConfigs.mockResolvedValue({
+      items: [systemConfigItem(), ...dashboardQuickActionItems()],
+      total: 4,
+    });
+
+    const wrapper = mountPage();
+    await flushPromises();
+
+    await wrapper.find('[data-test-id="group-search"]').setValue('retention');
+    await flushPromises();
+
+    expect(wrapper.findAll('[data-tree-node="group"]').map((node) => node.text())).toEqual([
+      '访问日志保留配置1 个配置项',
+    ]);
+    expect(wrapper.find('.system-config-content__head').text()).toContain('访问日志保留配置');
+
+    await wrapper.find('[data-test-id="group-search"]').setValue('快捷');
+    await flushPromises();
+
+    expect(wrapper.findAll('[data-tree-node="group"]').map((node) => node.text())).toEqual([
+      '工作台快捷入口3 个配置项',
+    ]);
+    expect(wrapper.find('.system-config-content__head').text()).toContain('工作台快捷入口');
+  });
+
+  it('keeps settings navigation and content as independent scroll panes', async () => {
+    const wrapper = mountPage();
+    await flushPromises();
+
+    expect(wrapper.find('.system-config-page').exists()).toBe(true);
+    expect(wrapper.find('.system-config-workspace').exists()).toBe(true);
+    expect(wrapper.find('.system-config-layout').exists()).toBe(true);
+    expect(wrapper.find('.system-config-groups__search').exists()).toBe(true);
+    expect(wrapper.find('.system-config-groups.system-config-scrollbar').exists()).toBe(true);
+    expect(wrapper.find('.system-config-content.system-config-scrollbar').exists()).toBe(true);
+    expect(wrapper.find('.system-config-list').exists()).toBe(true);
+    expect(wrapper.find('.system-config-content__head').exists()).toBe(true);
+    expect(wrapper.find('.system-config-content__head').text()).toContain('工作台快捷入口');
+  });
+
+  it('declares the full left and right scroll container height chain', () => {
+    expect(cssBlock('.system-config-page')).toContain('overflow: hidden;');
+    expect(cssBlock('.system-config-workspace,')).toContain('height: 100%;');
+    expect(cssBlock('.system-config-workspace,')).toContain('min-height: 0;');
+    expect(cssBlock('.system-config-layout')).toContain('height: 100%;');
+    expect(cssBlock('.system-config-layout')).toContain('min-height: 0;');
+    expect(cssBlock('.system-config-layout')).toContain('overflow: hidden;');
+    expect(cssBlock('.system-config-layout')).toContain('align-items: stretch;');
+    expect(cssBlock('.system-config-groups')).toContain('align-self: stretch;');
+    expect(cssBlock('.system-config-groups')).toContain('height: 100%;');
+    expect(cssBlock('.system-config-groups')).toContain('min-height: 0;');
+    expect(cssBlock('.system-config-groups')).toContain('overflow-y: auto;');
+    expect(cssBlock('.system-config-content')).toContain('align-self: stretch;');
+    expect(cssBlock('.system-config-content')).toContain('height: 100%;');
+    expect(cssBlock('.system-config-content')).toContain('min-height: 0;');
+    expect(cssBlock('.system-config-content')).toContain('overflow-y: auto;');
+    expect(cssBlock('.system-config-content__head')).toContain('position: sticky;');
+    expect(cssBlock('.system-config-list')).toContain('padding-bottom: var(--graft-density-gap-24);');
+    expect(cssBlock('.system-config-scrollbar')).toContain('scrollbar-color: var(--td-scrollbar-color) transparent;');
+    expect(cssBlock('.system-config-scrollbar::-webkit-scrollbar-thumb')).toContain(
+      'background-color: var(--td-scrollbar-color);',
+    );
   });
 
   it('falls back to user id when modified config has no username', async () => {
@@ -377,7 +464,20 @@ function mountPage() {
               h('label', [props.label, props.help ? h('small', props.help as string) : null, slots.default?.()]);
           },
         }),
-        TInput: textStub('input'),
+        TInput: defineComponent({
+          name: 'TInput',
+          props: ['modelValue', 'placeholder'],
+          emits: ['update:modelValue'],
+          setup(props, { emit }) {
+            return () =>
+              h('input', {
+                'data-test-id': 'group-search',
+                placeholder: props.placeholder as string,
+                value: props.modelValue as string,
+                onInput: (event: Event) => emit('update:modelValue', (event.target as HTMLInputElement).value),
+              });
+          },
+        }),
         TInputNumber: defineComponent({
           name: 'TInputNumber',
           props: ['suffix'],
@@ -393,6 +493,13 @@ function mountPage() {
         TSwitch: textStub('span'),
         TTag: textStub('span'),
         TTextarea: textStub('textarea'),
+        TTooltip: defineComponent({
+          name: 'TTooltip',
+          props: ['content'],
+          setup(props, { slots }) {
+            return () => h('span', { 'data-tooltip-content': props.content as string }, slots.default?.());
+          },
+        }),
         TTree: defineComponent({
           name: 'TTree',
           props: ['data'],
@@ -425,6 +532,17 @@ function textStub(tag: string) {
       return () => h(tag, slots.default?.());
     },
   });
+}
+
+function cssBlock(selector: string) {
+  const selectorStart = selector.endsWith(',') ? selector : `${selector} {`;
+  const start = sourceText.indexOf(selectorStart);
+  if (start < 0) {
+    return '';
+  }
+  const openBrace = sourceText.indexOf('{', start);
+  const closeBrace = sourceText.indexOf('}', openBrace);
+  return sourceText.slice(openBrace + 1, closeBrace);
 }
 
 function systemConfigItem() {
@@ -496,7 +614,13 @@ function dashboardQuickActionItems() {
       descriptionKey: 'systemConfig.items.dashboardQuickActionsEnabled.description',
       description: 'Controls whether personalized dashboard quick actions are shown.',
       type: 'boolean',
-      configSchema: { type: 'boolean' },
+      configSchema: {
+        type: 'boolean',
+        'x-i18n': {
+          titleKey: 'systemConfig.items.dashboardQuickActionsEnabled.title',
+          descriptionKey: 'systemConfig.items.dashboardQuickActionsEnabled.description',
+        },
+      },
       defaultValue: 'true',
       effectiveValue: 'true',
       order: 120,
@@ -508,7 +632,18 @@ function dashboardQuickActionItems() {
       descriptionKey: 'systemConfig.items.dashboardQuickActionsMaxItems.description',
       description: 'Maximum personalized entries shown on the dashboard home page.',
       type: 'integer',
-      configSchema: { type: 'integer', minimum: 1, maximum: 24, default: 8 },
+      configSchema: {
+        type: 'integer',
+        minimum: 1,
+        maximum: 24,
+        default: 8,
+        title: 'Maximum quick actions',
+        description: 'Maximum personalized entries shown on the dashboard home page.',
+        'x-i18n': {
+          titleKey: 'systemConfig.items.dashboardQuickActionsMaxItems.title',
+          descriptionKey: 'systemConfig.items.dashboardQuickActionsMaxItems.description',
+        },
+      },
       defaultValue: '8',
       effectiveValue: '8',
       order: 121,
@@ -524,11 +659,24 @@ function dashboardQuickActionItems() {
         type: 'string',
         enum: ['most_used', 'recent', 'hybrid'],
         default: 'hybrid',
+        title: 'Quick action strategy',
+        description: 'Personalized quick action ranking strategy.',
         'x-i18n': {
+          titleKey: 'systemConfig.items.dashboardQuickActionsStrategy.title',
+          descriptionKey: 'systemConfig.items.dashboardQuickActionsStrategy.description',
           enumLabels: {
-            most_used: 'systemConfig.options.dashboardQuickActionStrategy.mostUsed',
-            recent: 'systemConfig.options.dashboardQuickActionStrategy.recent',
-            hybrid: 'systemConfig.options.dashboardQuickActionStrategy.hybrid',
+            most_used: {
+              labelKey: 'systemConfig.options.dashboardQuickActionStrategy.mostUsed',
+              descriptionKey: 'systemConfig.options.dashboardQuickActionStrategyDescriptions.mostUsed',
+            },
+            recent: {
+              labelKey: 'systemConfig.options.dashboardQuickActionStrategy.recent',
+              descriptionKey: 'systemConfig.options.dashboardQuickActionStrategyDescriptions.recent',
+            },
+            hybrid: {
+              labelKey: 'systemConfig.options.dashboardQuickActionStrategy.hybrid',
+              descriptionKey: 'systemConfig.options.dashboardQuickActionStrategyDescriptions.hybrid',
+            },
           },
         },
       },

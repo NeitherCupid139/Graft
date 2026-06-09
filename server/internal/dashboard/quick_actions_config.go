@@ -32,16 +32,19 @@ const (
 	quickActionsStrategyTitleKey     = "systemConfig.items.dashboardQuickActionsStrategy.title"
 	quickActionsStrategyDescKey      = "systemConfig.items.dashboardQuickActionsStrategy.description"
 	quickActionsStrategyMostUsedKey  = "systemConfig.options.dashboardQuickActionStrategy.mostUsed"
+	quickActionsStrategyMostUsedDesc = "systemConfig.options.dashboardQuickActionStrategyDescriptions.mostUsed"
 	quickActionsStrategyRecentKey    = "systemConfig.options.dashboardQuickActionStrategy.recent"
+	quickActionsStrategyRecentDesc   = "systemConfig.options.dashboardQuickActionStrategyDescriptions.recent"
 	quickActionsStrategyHybridKey    = "systemConfig.options.dashboardQuickActionStrategy.hybrid"
+	quickActionsStrategyHybridDesc   = "systemConfig.options.dashboardQuickActionStrategyDescriptions.hybrid"
 	quickActionsConfigDefinitionBase = 120
 	quickActionsStrategyConfigOrder  = quickActionsConfigDefinitionBase + 2
 )
 
 const (
-	quickActionsEnabledSchema  = `{"type":"boolean"}`
-	quickActionsMaxItemsSchema = `{"type":"integer","minimum":1,"maximum":24,"default":8,"title":"Maximum quick actions","description":"Maximum personalized entries shown on the dashboard home page."}`
-	quickActionsStrategySchema = `{"type":"string","enum":["most_used","recent","hybrid"],"default":"hybrid","title":"Quick action strategy","description":"Personalized quick action ranking strategy.","x-i18n":{"enumLabels":{"most_used":"systemConfig.options.dashboardQuickActionStrategy.mostUsed","recent":"systemConfig.options.dashboardQuickActionStrategy.recent","hybrid":"systemConfig.options.dashboardQuickActionStrategy.hybrid"}}}`
+	quickActionsEnabledSchema  = `{"type":"boolean","x-i18n":{"titleKey":"systemConfig.items.dashboardQuickActionsEnabled.title","descriptionKey":"systemConfig.items.dashboardQuickActionsEnabled.description"}}`
+	quickActionsMaxItemsSchema = `{"type":"integer","minimum":1,"maximum":24,"default":8,"title":"Maximum quick actions","description":"Maximum personalized entries shown on the dashboard home page.","x-i18n":{"titleKey":"systemConfig.items.dashboardQuickActionsMaxItems.title","descriptionKey":"systemConfig.items.dashboardQuickActionsMaxItems.description"}}`
+	quickActionsStrategySchema = `{"type":"string","enum":["most_used","recent","hybrid"],"default":"hybrid","title":"Quick action strategy","description":"Personalized quick action ranking strategy.","x-i18n":{"titleKey":"systemConfig.items.dashboardQuickActionsStrategy.title","descriptionKey":"systemConfig.items.dashboardQuickActionsStrategy.description","enumLabels":{"most_used":{"labelKey":"systemConfig.options.dashboardQuickActionStrategy.mostUsed","descriptionKey":"systemConfig.options.dashboardQuickActionStrategyDescriptions.mostUsed"},"recent":{"labelKey":"systemConfig.options.dashboardQuickActionStrategy.recent","descriptionKey":"systemConfig.options.dashboardQuickActionStrategyDescriptions.recent"},"hybrid":{"labelKey":"systemConfig.options.dashboardQuickActionStrategy.hybrid","descriptionKey":"systemConfig.options.dashboardQuickActionStrategyDescriptions.hybrid"}}}}`
 )
 
 // RegisterQuickActionsConfigDefinitions exposes dashboard quick-action defaults as config-center authority.
@@ -132,32 +135,38 @@ func RegisterQuickActionsConfigMessages(localizer *i18n.Service) error {
 
 	for _, registration := range []i18n.Registration{
 		quickActionsConfigRegistration(i18n.LocaleZHCN, quickActionsConfigTexts{
-			domainLabel:    "工作台配置",
-			groupLabel:     "Dashboard 快捷入口",
-			groupDesc:      "管理首页快捷入口的显示与排序策略。",
-			enabledTitle:   "是否启用",
-			enabledDesc:    "控制工作台首页是否展示个性化快捷入口。",
-			maxItemsTitle:  "最大数量",
-			maxItemsDesc:   "工作台首页默认展示的个性化入口数量。",
-			strategyTitle:  "排序策略",
-			strategyDesc:   "个性化快捷入口的推荐排序策略。",
-			mostUsedOption: "最常使用",
-			recentOption:   "最近访问",
-			hybridOption:   "综合推荐",
+			domainLabel:        "工作台配置",
+			groupLabel:         "工作台快捷入口",
+			groupDesc:          "管理首页快捷入口的显示与排序策略。",
+			enabledTitle:       "是否启用",
+			enabledDesc:        "控制工作台首页是否展示个性化快捷入口。",
+			maxItemsTitle:      "最大数量",
+			maxItemsDesc:       "工作台首页默认展示的个性化入口数量。",
+			strategyTitle:      "排序策略",
+			strategyDesc:       "个性化快捷入口的推荐排序策略。",
+			mostUsedOption:     "最常使用",
+			mostUsedOptionDesc: "优先展示使用频率最高的快捷入口。",
+			recentOption:       "最近访问",
+			recentOptionDesc:   "优先展示最近访问过的快捷入口。",
+			hybridOption:       "综合推荐",
+			hybridOptionDesc:   "根据最近访问、使用频率和系统推荐结果综合排序。",
 		}),
 		quickActionsConfigRegistration(i18n.LocaleENUS, quickActionsConfigTexts{
-			domainLabel:    "Dashboard Configuration",
-			groupLabel:     "Dashboard Quick Actions",
-			groupDesc:      "Manage dashboard home quick-action visibility and ranking.",
-			enabledTitle:   "Enabled",
-			enabledDesc:    "Controls whether personalized dashboard quick actions are shown.",
-			maxItemsTitle:  "Maximum Items",
-			maxItemsDesc:   "Maximum personalized entries shown on the dashboard home page.",
-			strategyTitle:  "Ranking Strategy",
-			strategyDesc:   "Personalized quick action ranking strategy.",
-			mostUsedOption: "Most Used",
-			recentOption:   "Recent",
-			hybridOption:   "Hybrid",
+			domainLabel:        "Dashboard Configuration",
+			groupLabel:         "Dashboard Quick Actions",
+			groupDesc:          "Manage dashboard home quick-action visibility and ranking.",
+			enabledTitle:       "Enabled",
+			enabledDesc:        "Controls whether personalized dashboard quick actions are shown.",
+			maxItemsTitle:      "Maximum Items",
+			maxItemsDesc:       "Maximum personalized entries shown on the dashboard home page.",
+			strategyTitle:      "Ranking Strategy",
+			strategyDesc:       "Personalized quick action ranking strategy.",
+			mostUsedOption:     "Most Used",
+			mostUsedOptionDesc: "Prioritize the quick actions used most often.",
+			recentOption:       "Recent",
+			recentOptionDesc:   "Prioritize quick actions visited most recently.",
+			hybridOption:       "Hybrid",
+			hybridOptionDesc:   "Rank by recent visits, usage frequency, and system recommendations.",
 		}),
 	} {
 		if err := localizer.RegisterMessages(registration); err != nil {
@@ -168,18 +177,21 @@ func RegisterQuickActionsConfigMessages(localizer *i18n.Service) error {
 }
 
 type quickActionsConfigTexts struct {
-	domainLabel    string
-	groupLabel     string
-	groupDesc      string
-	enabledTitle   string
-	enabledDesc    string
-	maxItemsTitle  string
-	maxItemsDesc   string
-	strategyTitle  string
-	strategyDesc   string
-	mostUsedOption string
-	recentOption   string
-	hybridOption   string
+	domainLabel        string
+	groupLabel         string
+	groupDesc          string
+	enabledTitle       string
+	enabledDesc        string
+	maxItemsTitle      string
+	maxItemsDesc       string
+	strategyTitle      string
+	strategyDesc       string
+	mostUsedOption     string
+	mostUsedOptionDesc string
+	recentOption       string
+	recentOptionDesc   string
+	hybridOption       string
+	hybridOptionDesc   string
 }
 
 func quickActionsConfigRegistration(locale i18n.LocaleTag, texts quickActionsConfigTexts) i18n.Registration {
@@ -194,8 +206,11 @@ func quickActionsConfigRegistration(locale i18n.LocaleTag, texts quickActionsCon
 		{Key: i18n.MessageKey(quickActionsStrategyTitleKey), Text: texts.strategyTitle},
 		{Key: i18n.MessageKey(quickActionsStrategyDescKey), Text: texts.strategyDesc},
 		{Key: i18n.MessageKey(quickActionsStrategyMostUsedKey), Text: texts.mostUsedOption},
+		{Key: i18n.MessageKey(quickActionsStrategyMostUsedDesc), Text: texts.mostUsedOptionDesc},
 		{Key: i18n.MessageKey(quickActionsStrategyRecentKey), Text: texts.recentOption},
+		{Key: i18n.MessageKey(quickActionsStrategyRecentDesc), Text: texts.recentOptionDesc},
 		{Key: i18n.MessageKey(quickActionsStrategyHybridKey), Text: texts.hybridOption},
+		{Key: i18n.MessageKey(quickActionsStrategyHybridDesc), Text: texts.hybridOptionDesc},
 	}
 	return i18n.Registration{
 		Namespace: "system-config",

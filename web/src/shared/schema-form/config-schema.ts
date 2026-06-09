@@ -57,6 +57,8 @@ export type ConfigValidationResult = {
 };
 
 export type ConfigSchemaOptionLabel = {
+  description?: string;
+  descriptionKey?: string;
   label?: string;
   labelKey?: string;
 };
@@ -372,22 +374,28 @@ function parseEnumLabels(raw: JsonRecord): Record<string, ConfigSchemaOptionLabe
     return undefined;
   }
 
-  const entries = Object.entries(rawOptions).flatMap(([value, option]) => {
+  const entries: Array<[string, ConfigSchemaOptionLabel]> = [];
+  for (const [value, option] of Object.entries(rawOptions)) {
     if (typeof option === 'string') {
       const label =
         i18nEnumLabels === rawOptions
           ? ({ labelKey: option } satisfies ConfigSchemaOptionLabel)
           : ({ label: option } satisfies ConfigSchemaOptionLabel);
-      return [[value, label]];
+      entries.push([value, label]);
+      continue;
     }
     if (!isJsonRecord(option)) {
-      return [];
+      continue;
     }
     const label: ConfigSchemaOptionLabel = {};
+    assignOptionLabelString(option, label, 'description');
+    assignOptionLabelString(option, label, 'descriptionKey');
     assignOptionLabelString(option, label, 'label');
     assignOptionLabelString(option, label, 'labelKey');
-    return Object.keys(label).length > 0 ? [[value, label]] : [];
-  });
+    if (Object.keys(label).length > 0) {
+      entries.push([value, label]);
+    }
+  }
   return entries.length > 0 ? Object.fromEntries(entries) : undefined;
 }
 

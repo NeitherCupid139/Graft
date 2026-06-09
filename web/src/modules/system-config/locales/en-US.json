@@ -13,6 +13,8 @@
       "description": "Manage module-registered system defaults and user overrides.",
       "refresh": "Refresh",
       "edit": "Edit",
+      "searchPlaceholder": "Search groups, items, or technical keys",
+      "searchEmpty": "No matching configuration groups",
       "save": "Save",
       "cancel": "Cancel",
       "reset": "Reset",
@@ -37,6 +39,7 @@
       "previewTitle": "Configuration Preview",
       "viewJson": "View JSON",
       "technicalId": "Technical ID",
+      "valueDescription": "Configuration value description",
       "boolean": {
         "enabled": "Enabled",
         "disabled": "Disabled",
@@ -139,6 +142,11 @@
         "mostUsed": "Most Used",
         "recent": "Recent",
         "hybrid": "Hybrid"
+      },
+      "dashboardQuickActionStrategyDescriptions": {
+        "mostUsed": "Prioritize the quick actions used most often.",
+        "recent": "Prioritize quick actions visited most recently.",
+        "hybrid": "Rank by recent visits, usage frequency, and system recommendations."
       }
     }
   }
