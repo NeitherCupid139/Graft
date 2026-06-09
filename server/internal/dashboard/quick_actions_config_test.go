@@ -24,6 +24,7 @@ func TestRegisterQuickActionsConfigDefinitionsUsesDomainGroupItemMetadata(t *tes
 	for _, item := range items {
 		assertQuickActionsHierarchyMetadata(t, item)
 		assertQuickActionsSchemaI18nMetadata(t, item)
+		assertQuickActionsDefaultValue(t, item)
 	}
 }
 
@@ -46,6 +47,7 @@ func assertQuickActionsSchemaI18nMetadata(t *testing.T, item configregistry.Defi
 	t.Helper()
 
 	var schema struct {
+		Default json.RawMessage `json:"default"`
 		XI18n struct {
 			TitleKey       string `json:"titleKey"`
 			DescriptionKey string `json:"descriptionKey"`
@@ -62,6 +64,9 @@ func assertQuickActionsSchemaI18nMetadata(t *testing.T, item configregistry.Defi
 		schema.XI18n.DescriptionKey != expectedQuickActionsDescriptionKey(item.Key) {
 		t.Fatalf("expected schema key-first metadata for %s, got %#v", item.Key, schema.XI18n)
 	}
+	if item.Key == QuickActionsMaxItemsConfigKey && string(schema.Default) != "4" {
+		t.Fatalf("expected max-items schema default 4, got %s", schema.Default)
+	}
 	if item.Key != QuickActionsStrategyConfigKey {
 		return
 	}
@@ -72,6 +77,14 @@ func assertQuickActionsSchemaI18nMetadata(t *testing.T, item configregistry.Defi
 	hybrid := schema.XI18n.EnumLabels["hybrid"]
 	if hybrid.LabelKey != quickActionsStrategyHybridKey || hybrid.DescriptionKey != quickActionsStrategyHybridDesc {
 		t.Fatalf("expected hybrid option key-first metadata, got %#v", hybrid)
+	}
+}
+
+func assertQuickActionsDefaultValue(t *testing.T, item configregistry.Definition) {
+	t.Helper()
+
+	if item.Key == QuickActionsMaxItemsConfigKey && string(item.DefaultValue) != "4" {
+		t.Fatalf("expected max-items default value 4, got %s", item.DefaultValue)
 	}
 }
 

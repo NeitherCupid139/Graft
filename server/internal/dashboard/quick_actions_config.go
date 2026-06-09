@@ -43,7 +43,7 @@ const (
 
 const (
 	quickActionsEnabledSchema  = `{"type":"boolean","x-i18n":{"titleKey":"systemConfig.items.dashboardQuickActionsEnabled.title","descriptionKey":"systemConfig.items.dashboardQuickActionsEnabled.description"}}`
-	quickActionsMaxItemsSchema = `{"type":"integer","minimum":1,"maximum":24,"default":8,"title":"Maximum quick actions","description":"Maximum personalized entries shown on the dashboard home page.","x-i18n":{"titleKey":"systemConfig.items.dashboardQuickActionsMaxItems.title","descriptionKey":"systemConfig.items.dashboardQuickActionsMaxItems.description"}}`
+	quickActionsMaxItemsSchema = `{"type":"integer","minimum":1,"maximum":24,"default":4,"title":"Maximum quick actions","description":"Maximum personalized entries shown on the dashboard home page.","x-i18n":{"titleKey":"systemConfig.items.dashboardQuickActionsMaxItems.title","descriptionKey":"systemConfig.items.dashboardQuickActionsMaxItems.description"}}`
 	quickActionsStrategySchema = `{"type":"string","enum":["most_used","recent","hybrid"],"default":"hybrid","title":"Quick action strategy","description":"Personalized quick action ranking strategy.","x-i18n":{"titleKey":"systemConfig.items.dashboardQuickActionsStrategy.title","descriptionKey":"systemConfig.items.dashboardQuickActionsStrategy.description","enumLabels":{"most_used":{"labelKey":"systemConfig.options.dashboardQuickActionStrategy.mostUsed","descriptionKey":"systemConfig.options.dashboardQuickActionStrategyDescriptions.mostUsed"},"recent":{"labelKey":"systemConfig.options.dashboardQuickActionStrategy.recent","descriptionKey":"systemConfig.options.dashboardQuickActionStrategyDescriptions.recent"},"hybrid":{"labelKey":"systemConfig.options.dashboardQuickActionStrategy.hybrid","descriptionKey":"systemConfig.options.dashboardQuickActionStrategyDescriptions.hybrid"}}}}`
 )
 
@@ -93,7 +93,7 @@ func RegisterQuickActionsConfigDefinitions(registry *configregistry.Registry) er
 			Tags:                []string{"dashboard", "quick_actions"},
 			Type:                configregistry.ValueTypeInteger,
 			Schema:              json.RawMessage(quickActionsMaxItemsSchema),
-			DefaultValue:        json.RawMessage("8"),
+			DefaultValue:        json.RawMessage("4"),
 			Order:               quickActionsConfigDefinitionBase + 1,
 		},
 		{

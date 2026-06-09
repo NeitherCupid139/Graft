@@ -254,7 +254,7 @@ function go(location: string) {
 .dashboard-quick-actions__grid {
   display: grid;
   gap: var(--td-comp-margin-s);
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .dashboard-quick-actions__item {
@@ -336,13 +336,13 @@ function go(location: string) {
 
 @media (width >= 1600px) {
   .dashboard-quick-actions__grid {
-    grid-template-columns: repeat(8, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
 @media (width <= 1280px) {
   .dashboard-quick-actions__grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 

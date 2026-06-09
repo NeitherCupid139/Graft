@@ -190,15 +190,15 @@ describe('DashboardQuickActions', () => {
   it('shows configured links by default and exposes a drawer affordance without expanding the home grid', async () => {
     const wrapper = mountQuickActions(Array.from({ length: 10 }, (_, index) => quickLink(index + 1)));
 
-    expect(wrapper.findAll('.dashboard-quick-actions__item')).toHaveLength(8);
+    expect(wrapper.findAll('.dashboard-quick-actions__item')).toHaveLength(4);
     expect(wrapper.text()).toContain('查看全部 10 个');
     expect(wrapper.text()).toContain('审计');
     expect(wrapper.text()).toContain('核心');
-    expect(wrapper.text()).not.toContain('Link 10');
+    expect(wrapper.text()).not.toContain('Link 5');
 
     await wrapper.findAll('button').at(-1)?.trigger('click');
 
-    expect(wrapper.findAll('.dashboard-quick-actions__item')).toHaveLength(18);
+    expect(wrapper.findAll('.dashboard-quick-actions__item')).toHaveLength(14);
     expect(wrapper.text()).toContain('全部快捷入口');
     expect(wrapper.text()).toContain('Link 10');
   });
