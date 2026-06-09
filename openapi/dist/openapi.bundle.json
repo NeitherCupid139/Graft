@@ -7464,6 +7464,18 @@
       "DashboardWidgetSize": {
         "$ref": "#/components/schemas/dashboard-widget-size"
       },
+      "DashboardWidgetCategory": {
+        "$ref": "#/components/schemas/dashboard-widget-category"
+      },
+      "DashboardWidgetPriority": {
+        "$ref": "#/components/schemas/dashboard-widget-priority"
+      },
+      "DashboardWidgetState": {
+        "$ref": "#/components/schemas/dashboard-widget-state"
+      },
+      "DashboardWidgetAction": {
+        "$ref": "#/components/schemas/dashboard-widget-action"
+      },
       "DashboardWidgetStatus": {
         "$ref": "#/components/schemas/dashboard-widget-status"
       },
@@ -11734,7 +11746,10 @@
           "app_env",
           "locale",
           "modules",
-          "visible_widgets"
+          "visible_widgets",
+          "failed_tasks",
+          "high_risk_events",
+          "abnormal_services"
         ],
         "properties": {
           "current_user": {
@@ -11750,6 +11765,18 @@
             "$ref": "#/components/schemas/dashboard-module-summary"
           },
           "visible_widgets": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "failed_tasks": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "high_risk_events": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "abnormal_services": {
             "type": "integer",
             "minimum": 0
           }
@@ -11815,9 +11842,50 @@
         "enum": [
           "small",
           "medium",
-          "large",
-          "full"
+          "large"
         ]
+      },
+      "dashboard-widget-category": {
+        "type": "string",
+        "enum": [
+          "system",
+          "security",
+          "operation",
+          "business"
+        ]
+      },
+      "dashboard-widget-priority": {
+        "type": "string",
+        "enum": [
+          "critical",
+          "warning",
+          "normal",
+          "info"
+        ]
+      },
+      "dashboard-widget-state": {
+        "type": "string",
+        "enum": [
+          "hidden",
+          "normal",
+          "warning",
+          "critical"
+        ]
+      },
+      "dashboard-widget-action": {
+        "type": "object",
+        "required": [
+          "label",
+          "route"
+        ],
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "route": {
+            "type": "string"
+          }
+        }
       },
       "dashboard-widget-status": {
         "type": "string",
@@ -11852,6 +11920,10 @@
           "module_key",
           "type",
           "size",
+          "category",
+          "priority",
+          "visible",
+          "state",
           "order",
           "payload"
         ],
@@ -11880,6 +11952,18 @@
           "size": {
             "$ref": "#/components/schemas/dashboard-widget-size"
           },
+          "category": {
+            "$ref": "#/components/schemas/dashboard-widget-category"
+          },
+          "priority": {
+            "$ref": "#/components/schemas/dashboard-widget-priority"
+          },
+          "visible": {
+            "type": "boolean"
+          },
+          "state": {
+            "$ref": "#/components/schemas/dashboard-widget-state"
+          },
           "order": {
             "type": "integer"
           },
@@ -11889,6 +11973,9 @@
           },
           "route_location": {
             "type": "string"
+          },
+          "action": {
+            "$ref": "#/components/schemas/dashboard-widget-action"
           },
           "required_permissions": {
             "type": "array",

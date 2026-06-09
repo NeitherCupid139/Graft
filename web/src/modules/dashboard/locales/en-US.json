@@ -1,6 +1,7 @@
 {
   "dashboard": {
     "actions": {
+      "details": "View Details",
       "open": "Open",
       "refresh": "Refresh",
       "retry": "Retry"
@@ -11,6 +12,13 @@
         "info": "Info",
         "warning": "Warning"
       }
+    },
+    "category": {
+      "business": "Business",
+      "count": "{count} Widgets",
+      "operation": "Operations",
+      "security": "Security",
+      "system": "System"
     },
     "empty": "No Dashboard data",
     "error": {
@@ -35,6 +43,11 @@
       "title": "Quick Actions"
     },
     "systemSummary": {
+      "abnormalServices": {
+        "description": "Services that currently need attention",
+        "label": "Abnormal Services",
+        "value": "{count}"
+      },
       "currentUser": {
         "label": "Current User"
       },
@@ -42,15 +55,27 @@
         "description": "Current runtime environment",
         "label": "Environment"
       },
+      "eyebrow": "Today Overview",
+      "failedTasks": {
+        "description": "Tasks whose latest run failed",
+        "label": "Failed Tasks",
+        "value": "{count}"
+      },
+      "highRiskEvents": {
+        "description": "High-risk events in the last 24 hours",
+        "label": "High-risk Events",
+        "value": "{count}"
+      },
       "locale": {
         "description": "Fallback locale {fallback}",
         "label": "Locale"
       },
       "modules": {
         "description": "{total} total modules, {degraded} need attention",
-        "label": "Enabled Modules"
+        "label": "Module Runtime",
+        "value": "{count} Running"
       },
-      "title": "System Summary",
+      "title": "Today Overview",
       "widgets": {
         "description": "Widgets visible to current permissions",
         "label": "Visible Widgets"
@@ -103,6 +128,12 @@
         "error": "Error",
         "normal": "Normal",
         "warning": "Warning"
+      },
+      "state": {
+        "critical": "Critical",
+        "hidden": "Hidden",
+        "normal": "Normal",
+        "warning": "Attention"
       }
     }
   }

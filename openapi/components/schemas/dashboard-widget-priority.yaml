@@ -1,0 +1,2 @@
+type: string
+enum: [critical, warning, normal, info]

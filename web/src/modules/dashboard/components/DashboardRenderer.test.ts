@@ -6,13 +6,20 @@ import type { DashboardWidget } from '../types/dashboard';
 import DashboardRenderer from './DashboardRenderer.vue';
 
 vi.mock('@/locales', () => ({
-  t: (key: string) => {
+  t: (key: string, params?: Record<string, unknown>) => {
     const translations: Record<string, string> = {
+      'dashboard.actions.details': 'View details',
       'dashboard.actions.retry': 'Retry',
+      'dashboard.category.count': `${params?.count ?? 0} widgets`,
+      'dashboard.category.operation': 'Operations',
+      'dashboard.category.security': 'Security',
+      'dashboard.category.system': 'System',
       'dashboard.widget.disabledDescription': 'Disabled widget',
       'dashboard.widget.empty': 'No widgets',
       'dashboard.widget.errorFallback': 'Failed',
       'dashboard.widget.errorTitle': 'Widget failed',
+      'dashboard.widget.state.critical': 'Critical',
+      'dashboard.widget.state.warning': 'Attention',
       'dashboard.widget.status.disabled': 'Disabled',
       'dashboard.widget.status.error': 'Error',
       'dashboard.widget.status.normal': 'Normal',
@@ -22,10 +29,12 @@ vi.mock('@/locales', () => ({
   },
 }));
 
+const routerMocks = vi.hoisted(() => ({
+  push: vi.fn(),
+}));
+
 vi.mock('vue-router', () => ({
-  useRouter: () => ({
-    push: vi.fn(),
-  }),
+  useRouter: () => routerMocks,
 }));
 
 const passthroughStub = defineComponent({
@@ -62,6 +71,7 @@ function baseWidget(partial: Partial<DashboardWidget>): DashboardWidget {
   return {
     id: 'core.module-runtime-health',
     module_key: 'core',
+    category: 'system',
     order: 10,
     payload: {
       summary: {
@@ -69,9 +79,12 @@ function baseWidget(partial: Partial<DashboardWidget>): DashboardWidget {
       },
       items: [],
     },
+    priority: 'normal',
     size: 'medium',
+    state: 'normal',
     title: 'Module Health',
     type: 'health',
+    visible: true,
     ...partial,
   };
 }
@@ -89,9 +102,11 @@ function mountRenderer(widgets: DashboardWidget[]) {
         TEmpty: passthroughStub,
         TList: passthroughStub,
         TListItem: passthroughStub,
+        TSkeleton: passthroughStub,
         TTag: passthroughStub,
         TTimeline: passthroughStub,
         TTimelineItem: passthroughStub,
+        't-skeleton': passthroughStub,
       },
     },
   });
@@ -101,11 +116,10 @@ describe('DashboardRenderer', () => {
   it('sorts widgets by order and renders by widget type only', () => {
     const wrapper = mountRenderer([
       baseWidget({
-        id: 'audit.recent-events',
-        module_key: 'audit',
+        id: 'core.recent-events',
         order: 20,
         payload: { items: [], empty: 'No events' },
-        title: 'Audit Events',
+        title: 'Recent Events',
         type: 'timeline',
       }),
       baseWidget({
@@ -118,10 +132,45 @@ describe('DashboardRenderer', () => {
     ]);
 
     const titles = wrapper.findAll('.dashboard-renderer__heading span').map((element) => element.text());
-    expect(titles).toEqual(['Module Health', 'Audit Events']);
+    expect(titles).toEqual(['Module Health', 'Recent Events']);
     expect(titles).not.toContain('');
     const text = wrapper.text();
     expect(text).toContain('No events');
+  });
+
+  it('groups visible widgets and moves critical priority groups first', () => {
+    const wrapper = mountRenderer([
+      baseWidget({
+        id: 'monitor.system-health',
+        order: 1,
+        title: 'System Health',
+        priority: 'info',
+      }),
+      baseWidget({
+        id: 'audit.risk-events',
+        module_key: 'audit',
+        category: 'security',
+        order: 100,
+        payload: { items: [], empty: 'No events' },
+        priority: 'critical',
+        state: 'critical',
+        title: 'Audit Risk Events',
+        type: 'timeline',
+      }),
+      baseWidget({
+        id: 'scheduler.empty',
+        category: 'operation',
+        priority: 'warning',
+        state: 'hidden',
+        title: 'Hidden Scheduler',
+        visible: false,
+      }),
+    ]);
+
+    const headings = wrapper.findAll('.dashboard-renderer__category-header h2').map((element) => element.text());
+    expect(headings).toEqual(['Security', 'System']);
+    expect(wrapper.text()).toContain('Critical');
+    expect(wrapper.text()).not.toContain('Hidden Scheduler');
   });
 
   it('keeps an error widget visible and emits a focused refresh request', async () => {
@@ -147,5 +196,20 @@ describe('DashboardRenderer', () => {
     const wrapper = mountRenderer([]);
 
     expect(wrapper.text()).toContain('No widgets');
+  });
+
+  it('renders framework-level action buttons with consistent route handling', async () => {
+    const wrapper = mountRenderer([
+      baseWidget({
+        action: {
+          label: 'View details',
+          route: '/server/modules',
+        },
+      }),
+    ]);
+
+    await wrapper.find('button').trigger('click');
+
+    expect(routerMocks.push).toHaveBeenCalledWith('/server/modules');
   });
 });

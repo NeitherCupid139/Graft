@@ -1,6 +1,7 @@
 {
   "dashboard": {
     "actions": {
+      "details": "查看详情",
       "open": "打开",
       "refresh": "刷新",
       "retry": "重试"
@@ -11,6 +12,13 @@
         "info": "提示",
         "warning": "警告"
       }
+    },
+    "category": {
+      "business": "业务",
+      "count": "{count} 个组件",
+      "operation": "运维关注",
+      "security": "安全",
+      "system": "系统"
     },
     "empty": "暂无 Dashboard 数据",
     "error": {
@@ -35,6 +43,11 @@
       "title": "快捷操作"
     },
     "systemSummary": {
+      "abnormalServices": {
+        "description": "当前需要处理的服务异常",
+        "label": "异常服务",
+        "value": "{count} 个"
+      },
       "currentUser": {
         "label": "当前用户"
       },
@@ -42,15 +55,27 @@
         "description": "当前运行环境",
         "label": "环境"
       },
+      "eyebrow": "今日概况",
+      "failedTasks": {
+        "description": "最近一次执行失败的任务",
+        "label": "失败任务",
+        "value": "{count} 个"
+      },
+      "highRiskEvents": {
+        "description": "过去 24 小时高风险事件",
+        "label": "高风险事件",
+        "value": "{count} 个"
+      },
       "locale": {
         "description": "回退语言 {fallback}",
         "label": "语言"
       },
       "modules": {
         "description": "共 {total} 个模块，{degraded} 个需关注",
-        "label": "启用模块"
+        "label": "模块运行",
+        "value": "{count} 个正常运行"
       },
-      "title": "系统摘要",
+      "title": "今日概况",
       "widgets": {
         "description": "当前权限可见的组件",
         "label": "可见组件"
@@ -103,6 +128,12 @@
         "error": "错误",
         "normal": "正常",
         "warning": "警告"
+      },
+      "state": {
+        "critical": "严重",
+        "hidden": "隐藏",
+        "normal": "正常",
+        "warning": "关注"
       }
     }
   }

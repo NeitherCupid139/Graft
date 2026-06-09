@@ -56,10 +56,27 @@ func LoadAccessLogRequestAttentionPayload(ctx context.Context, repo AccessLogRep
 		items = append(items, accessLogAlertItem("slow", record, "Slow HTTP request", "warning"))
 	}
 
+	visible := len(items) > 0
+	state := "hidden"
+	priority := "warning"
+	if visible {
+		state = "warning"
+	}
+	for _, item := range items {
+		if item["level"] == "error" {
+			state = "critical"
+			priority = "critical"
+			break
+		}
+	}
+
 	return map[string]any{
 		"items":     items,
 		"empty_key": "dashboard.widget.accessLogRequestAttention.empty",
 		"empty":     "No recent error or slow requests.",
+		"visible":   visible,
+		"state":     state,
+		"priority":  priority,
 	}, nil
 }
 

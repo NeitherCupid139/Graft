@@ -1,0 +1,2 @@
+type: string
+enum: [system, security, operation, business]

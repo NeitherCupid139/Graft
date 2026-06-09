@@ -38,14 +38,25 @@ vi.mock('@/locales', () => ({
       'dashboard.quickActions.description': 'Permission entries',
       'dashboard.quickActions.empty': 'No quick actions',
       'dashboard.quickActions.title': 'Quick Actions',
+      'dashboard.systemSummary.abnormalServices.description': 'Services that need attention',
+      'dashboard.systemSummary.abnormalServices.label': 'Abnormal services',
+      'dashboard.systemSummary.abnormalServices.value': `${params?.count ?? 0}`,
       'dashboard.systemSummary.currentUser.label': 'Current user',
       'dashboard.systemSummary.environment.description': 'Runtime environment',
       'dashboard.systemSummary.environment.label': 'Environment',
+      'dashboard.systemSummary.eyebrow': 'Today overview',
+      'dashboard.systemSummary.failedTasks.description': 'Latest failed tasks',
+      'dashboard.systemSummary.failedTasks.label': 'Failed tasks',
+      'dashboard.systemSummary.failedTasks.value': `${params?.count ?? 0}`,
+      'dashboard.systemSummary.highRiskEvents.description': 'High-risk events',
+      'dashboard.systemSummary.highRiskEvents.label': 'High-risk events',
+      'dashboard.systemSummary.highRiskEvents.value': `${params?.count ?? 0}`,
       'dashboard.systemSummary.locale.description': `Fallback locale ${params?.fallback ?? ''}`,
       'dashboard.systemSummary.locale.label': 'Locale',
       'dashboard.systemSummary.modules.description': `${params?.total ?? 0} total, ${params?.degraded ?? 0} degraded`,
-      'dashboard.systemSummary.modules.label': 'Enabled modules',
-      'dashboard.systemSummary.title': 'System summary',
+      'dashboard.systemSummary.modules.label': 'Module runtime',
+      'dashboard.systemSummary.modules.value': `${params?.count ?? 0} running`,
+      'dashboard.systemSummary.title': 'Today overview',
       'dashboard.systemSummary.widgets.description': 'Visible widgets',
       'dashboard.systemSummary.widgets.label': 'Widgets',
       'dashboard.widget.errorFallback': 'Widget failed',
@@ -125,11 +136,14 @@ const buttonStub = defineComponent({
 function summaryResponse(): DashboardSummaryResponse {
   return {
     system_summary: {
+      abnormal_services: 0,
       app_env: 'development',
       current_user: {
         display_name: 'Admin',
         username: 'admin',
       },
+      failed_tasks: 0,
+      high_risk_events: 0,
       locale: {
         default_locale: 'zh-CN',
         fallback_locale: 'zh-CN',
@@ -160,6 +174,7 @@ function summaryResponse(): DashboardSummaryResponse {
     ],
     widgets: [
       {
+        category: 'system',
         id: 'core.module-runtime-health',
         module_key: 'core',
         order: 1,
@@ -169,11 +184,15 @@ function summaryResponse(): DashboardSummaryResponse {
           },
           items: [],
         },
+        priority: 'info',
         size: 'medium',
+        state: 'normal',
         title: 'Module Health',
         type: 'health',
+        visible: true,
       },
       {
+        category: 'system',
         id: 'monitor.system-health',
         module_key: 'monitor',
         order: 2,
@@ -183,9 +202,12 @@ function summaryResponse(): DashboardSummaryResponse {
           },
           items: [],
         },
+        priority: 'normal',
         size: 'medium',
+        state: 'normal',
         title: 'System Health',
         type: 'health',
+        visible: true,
       },
     ],
   };
@@ -202,11 +224,13 @@ function mountPage() {
         TEmpty: passthroughStub,
         TIcon: passthroughStub,
         TLoading: passthroughStub,
+        TSkeleton: passthroughStub,
         't-button': buttonStub,
         't-card': passthroughStub,
         't-empty': passthroughStub,
         't-icon': passthroughStub,
         't-loading': passthroughStub,
+        't-skeleton': passthroughStub,
       },
     },
   });
@@ -224,10 +248,11 @@ describe('DashboardHomePage', () => {
     await flushPromises();
 
     expect(dashboardApiMocks.getDashboardSummary).toHaveBeenCalledTimes(1);
-    expect(wrapper.text()).toContain('Admin');
-    expect(wrapper.text()).toContain('development');
-    expect(wrapper.text()).toContain('zh-CN');
-    expect(wrapper.text()).toContain('4');
+    expect(wrapper.text()).toContain('Today overview');
+    expect(wrapper.text()).toContain('4 running');
+    expect(wrapper.text()).toContain('Abnormal services');
+    expect(wrapper.text()).toContain('Failed tasks');
+    expect(wrapper.text()).toContain('High-risk events');
     expect(wrapper.text()).toContain('Audit Logs');
     expect(wrapper.text()).toContain('Review events');
     expect(wrapper.text()).toContain('Roles');

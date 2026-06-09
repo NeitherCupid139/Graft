@@ -23,16 +23,22 @@ func registerAuditDashboardWidget(ctx *module.Context, reader *Service) error {
 	}
 
 	if err := ctx.DashboardRegistry.Register(dashboard.WidgetDefinition{
-		ID:                  auditRiskEventsWidgetID,
-		ModuleKey:           moduleID,
-		TitleKey:            "dashboard.widget.auditRiskEvents.title",
-		Title:               "Audit Risk Events",
-		DescriptionKey:      "dashboard.widget.auditRiskEvents.description",
-		Description:         "Recent high-risk audit and security events.",
-		Type:                dashboard.WidgetTypeAlertList,
-		Size:                dashboard.WidgetSizeMedium,
-		Order:               auditRiskEventsWidgetOrder,
-		RouteLocation:       auditcontract.AuditOverviewMenuPath,
+		ID:             auditRiskEventsWidgetID,
+		ModuleKey:      moduleID,
+		TitleKey:       "dashboard.widget.auditRiskEvents.title",
+		Title:          "Audit Risk Events",
+		DescriptionKey: "dashboard.widget.auditRiskEvents.description",
+		Description:    "Recent high-risk audit and security events.",
+		Type:           dashboard.WidgetTypeAlertList,
+		Size:           dashboard.WidgetSizeMedium,
+		Category:       dashboard.WidgetCategorySecurity,
+		Priority:       dashboard.WidgetPriorityWarning,
+		Order:          auditRiskEventsWidgetOrder,
+		RouteLocation:  auditcontract.AuditOverviewMenuPath,
+		Action: dashboard.WidgetAction{
+			Label: "View details",
+			Route: auditcontract.AuditOverviewMenuPath,
+		},
 		RequiredPermissions: []string{auditcontract.AuditReadPermission.String()},
 		Loader: dashboard.WidgetLoaderFunc(func(ctx context.Context, _ dashboard.WidgetRequest) (dashboard.WidgetPayload, error) {
 			return loadAuditRiskEventsWidget(ctx, reader)
@@ -74,10 +80,25 @@ func loadAuditRiskEventsWidget(ctx context.Context, reader *Service) (dashboard.
 	items = appendAuditOverviewItems(items, "audit.failed-auth", "Failed authentication", overview.FailedAuth)
 	items = appendAuditOverviewItems(items, "audit.permission-denied", "Permission denied", overview.PermissionDenied)
 
+	highRiskEvents := overview.Summary.HighRiskEvents
+	state := dashboard.WidgetStateHidden
+	priority := dashboard.WidgetPriorityWarning
+	if len(items) > 0 {
+		state = dashboard.WidgetStateWarning
+	}
+	if highRiskEvents > 0 {
+		state = dashboard.WidgetStateCritical
+		priority = dashboard.WidgetPriorityCritical
+	}
+
 	return dashboard.WidgetPayload{
-		"items":     items,
-		"empty_key": "dashboard.widget.auditRiskEvents.empty",
-		"empty":     "No audit risk events in the last 24 hours.",
+		"items":            items,
+		"empty_key":        "dashboard.widget.auditRiskEvents.empty",
+		"empty":            "No audit risk events in the last 24 hours.",
+		"visible":          len(items) > 0,
+		"state":            string(state),
+		"priority":         string(priority),
+		"high_risk_events": highRiskEvents,
 	}, nil
 }
 

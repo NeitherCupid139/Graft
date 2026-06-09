@@ -386,6 +386,14 @@ components:
       $ref: ./components/schemas/dashboard-widget-type.yaml
     DashboardWidgetSize:
       $ref: ./components/schemas/dashboard-widget-size.yaml
+    DashboardWidgetCategory:
+      $ref: ./components/schemas/dashboard-widget-category.yaml
+    DashboardWidgetPriority:
+      $ref: ./components/schemas/dashboard-widget-priority.yaml
+    DashboardWidgetState:
+      $ref: ./components/schemas/dashboard-widget-state.yaml
+    DashboardWidgetAction:
+      $ref: ./components/schemas/dashboard-widget-action.yaml
     DashboardWidgetStatus:
       $ref: ./components/schemas/dashboard-widget-status.yaml
     DashboardWidgetError:

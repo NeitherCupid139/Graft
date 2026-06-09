@@ -21,16 +21,22 @@ func registerMonitorDashboardWidget(moduleCtx *module.Context, instance *Module)
 	}
 
 	if err := moduleCtx.DashboardRegistry.Register(dashboard.WidgetDefinition{
-		ID:                  monitorSystemHealthWidgetID,
-		ModuleKey:           moduleID,
-		TitleKey:            "dashboard.widget.monitorSystemHealth.title",
-		Title:               "System Health",
-		DescriptionKey:      "dashboard.widget.monitorSystemHealth.description",
-		Description:         "Current service health, dependency state, and active anomalies.",
-		Type:                dashboard.WidgetTypeHealth,
-		Size:                dashboard.WidgetSizeMedium,
-		Order:               monitorSystemHealthWidgetOrder,
-		RouteLocation:       monitorcontract.ServerStatusOverviewMenuPath,
+		ID:             monitorSystemHealthWidgetID,
+		ModuleKey:      moduleID,
+		TitleKey:       "dashboard.widget.monitorSystemHealth.title",
+		Title:          "System Health",
+		DescriptionKey: "dashboard.widget.monitorSystemHealth.description",
+		Description:    "Current service health, dependency state, and active anomalies.",
+		Type:           dashboard.WidgetTypeHealth,
+		Size:           dashboard.WidgetSizeMedium,
+		Category:       dashboard.WidgetCategorySystem,
+		Priority:       dashboard.WidgetPriorityNormal,
+		Order:          monitorSystemHealthWidgetOrder,
+		RouteLocation:  monitorcontract.ServerStatusOverviewMenuPath,
+		Action: dashboard.WidgetAction{
+			Label: "View details",
+			Route: monitorcontract.ServerStatusOverviewMenuPath,
+		},
 		RequiredPermissions: []string{monitorcontract.ServerStatusReadPermission.String()},
 		Loader: dashboard.WidgetLoaderFunc(func(loadCtx context.Context, _ dashboard.WidgetRequest) (dashboard.WidgetPayload, error) {
 			return loadMonitorSystemHealthWidget(loadCtx, moduleCtx, instance)
@@ -75,13 +81,23 @@ func loadMonitorSystemHealthWidget(ctx context.Context, moduleCtx *module.Contex
 		},
 	}
 
+	state := dashboard.WidgetStateNormal
+	priority := dashboard.WidgetPriorityNormal
+	if response.Status != "healthy" || len(response.Anomalies) > 0 {
+		state = dashboard.WidgetStateWarning
+		priority = dashboard.WidgetPriorityWarning
+	}
+
 	return dashboard.WidgetPayload{
 		"summary": dashboard.HealthSummaryItem{
 			Status:   dashboard.HealthStatus(response.Status),
 			LabelKey: "dashboard.widget.monitorSystemHealth.summary",
 			Label:    "System health",
 		},
-		"items": items,
+		"items":             items,
+		"abnormal_services": len(response.Anomalies),
+		"state":             string(state),
+		"priority":          string(priority),
 	}, nil
 }
 

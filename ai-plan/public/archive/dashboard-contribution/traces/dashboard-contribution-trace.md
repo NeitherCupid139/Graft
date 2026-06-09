@@ -119,6 +119,29 @@
   - The lint failure was fixed by extracting RBAC service registration and shared message resource construction without changing widget behavior.
 - Commit: Phase 3 scope committed through `$graft-commit`; see loop closeout for short SHA.
 
+## 2026-06-09 - Framework Hardening Follow-up
+
+- Hardened the dashboard widget contract without adding a new business widget:
+  - added framework-owned widget `size`, `category`, `priority`, `state`, `visible`, and shared `action` fields
+  - kept payloads as plain objects and avoided OpenAPI `oneOf` typed-slot expansion
+  - limited sizes to `small`, `medium`, and `large` so modules declare intent while the renderer owns grid spans
+  - limited categories to `system`, `security`, `operation`, and `business` so the renderer owns grouping headers
+  - sorted visible widgets by `critical`, `warning`, `normal`, `info`, then registration order and id
+  - filtered `state=hidden` and `visible=false` widgets in the aggregator and focused widget endpoint
+- Updated existing dashboard contributors to use the framework metadata:
+  - module runtime now stays compact when all modules are healthy and expands only abnormal module details
+  - audit, scheduler, access-log, and monitor widgets raise priority/state when risk, failure, or anomaly signals exist
+  - empty risk/failure/anomaly widgets hide by default instead of consuming home page space
+- Updated the fixed dashboard summary:
+  - aggregator now calculates failed tasks, high-risk events, and abnormal services in addition to module health
+  - the summary remains dashboard framework-owned, not business module-owned
+- Updated the web dashboard renderer:
+  - category grouping, size-to-grid mapping, priority ordering, loading skeletons, and action buttons are framework-owned
+  - the home page summary header renders the fixed administrator overview before module-contributed widgets
+- Validation passed:
+  - `cd server && go run ./cmd/graft validate backend`
+  - `cd web && bun run check`
+
 ## 2026-06-07 - Phase 4 Archive Readiness
 
 - Inspected final worktree and recent commits:

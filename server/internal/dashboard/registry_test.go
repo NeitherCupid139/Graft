@@ -102,6 +102,38 @@ func TestRegistryOrdersByOrderThenID(t *testing.T) {
 	assertIDsInOrder(t, []string{items[0].ID, items[1].ID, items[2].ID}, []string{"c.widget", "a.widget", "b.widget"})
 }
 
+func TestRegistryNormalizesWidgetFrameworkFields(t *testing.T) {
+	t.Parallel()
+
+	registry := NewRegistry()
+	if err := registry.Register(WidgetDefinition{
+		ID:            "core.normalized",
+		ModuleKey:     "core",
+		Type:          WidgetTypeHealth,
+		Size:          WidgetSizeSmall,
+		Category:      WidgetCategoryOperation,
+		Priority:      WidgetPriorityWarning,
+		RouteLocation: "/runtime",
+		Action: WidgetAction{
+			Label: " View details ",
+		},
+		Loader: noopLoader(),
+	}); err != nil {
+		t.Fatalf("register widget: %v", err)
+	}
+
+	widget, ok := registry.Get("core.normalized")
+	if !ok {
+		t.Fatalf("expected widget to be registered")
+	}
+	if widget.Category != WidgetCategoryOperation || widget.Priority != WidgetPriorityWarning {
+		t.Fatalf("unexpected framework fields: %#v", widget)
+	}
+	if widget.Action.Label != "View details" || widget.Action.Route != "/runtime" {
+		t.Fatalf("expected action to default to route location, got %#v", widget.Action)
+	}
+}
+
 func TestRegistryOrdersQuickLinksByOrderThenID(t *testing.T) {
 	t.Parallel()
 

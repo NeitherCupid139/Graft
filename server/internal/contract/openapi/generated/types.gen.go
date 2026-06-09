@@ -618,9 +618,56 @@ func (e AuditTargetKind) Valid() bool {
 	}
 }
 
+// Defines values for DashboardWidgetCategory.
+const (
+	Business  DashboardWidgetCategory = "business"
+	Operation DashboardWidgetCategory = "operation"
+	Security  DashboardWidgetCategory = "security"
+	System    DashboardWidgetCategory = "system"
+)
+
+// Valid indicates whether the value is a known member of the DashboardWidgetCategory enum.
+func (e DashboardWidgetCategory) Valid() bool {
+	switch e {
+	case Business:
+		return true
+	case Operation:
+		return true
+	case Security:
+		return true
+	case System:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DashboardWidgetPriority.
+const (
+	DashboardWidgetPriorityCritical DashboardWidgetPriority = "critical"
+	DashboardWidgetPriorityInfo     DashboardWidgetPriority = "info"
+	DashboardWidgetPriorityNormal   DashboardWidgetPriority = "normal"
+	DashboardWidgetPriorityWarning  DashboardWidgetPriority = "warning"
+)
+
+// Valid indicates whether the value is a known member of the DashboardWidgetPriority enum.
+func (e DashboardWidgetPriority) Valid() bool {
+	switch e {
+	case DashboardWidgetPriorityCritical:
+		return true
+	case DashboardWidgetPriorityInfo:
+		return true
+	case DashboardWidgetPriorityNormal:
+		return true
+	case DashboardWidgetPriorityWarning:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DashboardWidgetSize.
 const (
-	Full   DashboardWidgetSize = "full"
 	Large  DashboardWidgetSize = "large"
 	Medium DashboardWidgetSize = "medium"
 	Small  DashboardWidgetSize = "small"
@@ -629,13 +676,35 @@ const (
 // Valid indicates whether the value is a known member of the DashboardWidgetSize enum.
 func (e DashboardWidgetSize) Valid() bool {
 	switch e {
-	case Full:
-		return true
 	case Large:
 		return true
 	case Medium:
 		return true
 	case Small:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DashboardWidgetState.
+const (
+	DashboardWidgetStateCritical DashboardWidgetState = "critical"
+	DashboardWidgetStateHidden   DashboardWidgetState = "hidden"
+	DashboardWidgetStateNormal   DashboardWidgetState = "normal"
+	DashboardWidgetStateWarning  DashboardWidgetState = "warning"
+)
+
+// Valid indicates whether the value is a known member of the DashboardWidgetState enum.
+func (e DashboardWidgetState) Valid() bool {
+	switch e {
+	case DashboardWidgetStateCritical:
+		return true
+	case DashboardWidgetStateHidden:
+		return true
+	case DashboardWidgetStateNormal:
+		return true
+	case DashboardWidgetStateWarning:
 		return true
 	default:
 		return false
@@ -2141,31 +2210,48 @@ type DashboardSummaryResponse struct {
 
 // DashboardSystemSummary defines model for dashboard-system-summary.
 type DashboardSystemSummary struct {
-	AppEnv         string                      `json:"app_env"`
-	CurrentUser    DashboardCurrentUserSummary `json:"current_user"`
-	Locale         DashboardLocaleSummary      `json:"locale"`
-	Modules        DashboardModuleSummary      `json:"modules"`
-	VisibleWidgets int                         `json:"visible_widgets"`
+	AbnormalServices int                         `json:"abnormal_services"`
+	AppEnv           string                      `json:"app_env"`
+	CurrentUser      DashboardCurrentUserSummary `json:"current_user"`
+	FailedTasks      int                         `json:"failed_tasks"`
+	HighRiskEvents   int                         `json:"high_risk_events"`
+	Locale           DashboardLocaleSummary      `json:"locale"`
+	Modules          DashboardModuleSummary      `json:"modules"`
+	VisibleWidgets   int                         `json:"visible_widgets"`
 }
 
 // DashboardWidget defines model for dashboard-widget.
 type DashboardWidget struct {
-	Description            *string                `json:"description,omitempty"`
-	DescriptionKey         *string                `json:"description_key,omitempty"`
-	Error                  *DashboardWidgetError  `json:"error,omitempty"`
-	Id                     string                 `json:"id"`
-	ModuleKey              string                 `json:"module_key"`
-	Order                  int                    `json:"order"`
-	Payload                map[string]interface{} `json:"payload"`
-	RefreshIntervalSeconds *int                   `json:"refresh_interval_seconds,omitempty"`
-	RequiredPermissions    *[]string              `json:"required_permissions,omitempty"`
-	RouteLocation          *string                `json:"route_location,omitempty"`
-	Size                   DashboardWidgetSize    `json:"size"`
-	Status                 *DashboardWidgetStatus `json:"status,omitempty"`
-	Title                  *string                `json:"title,omitempty"`
-	TitleKey               *string                `json:"title_key,omitempty"`
-	Type                   DashboardWidgetType    `json:"type"`
+	Action                 *DashboardWidgetAction  `json:"action,omitempty"`
+	Category               DashboardWidgetCategory `json:"category"`
+	Description            *string                 `json:"description,omitempty"`
+	DescriptionKey         *string                 `json:"description_key,omitempty"`
+	Error                  *DashboardWidgetError   `json:"error,omitempty"`
+	Id                     string                  `json:"id"`
+	ModuleKey              string                  `json:"module_key"`
+	Order                  int                     `json:"order"`
+	Payload                map[string]interface{}  `json:"payload"`
+	Priority               DashboardWidgetPriority `json:"priority"`
+	RefreshIntervalSeconds *int                    `json:"refresh_interval_seconds,omitempty"`
+	RequiredPermissions    *[]string               `json:"required_permissions,omitempty"`
+	RouteLocation          *string                 `json:"route_location,omitempty"`
+	Size                   DashboardWidgetSize     `json:"size"`
+	State                  DashboardWidgetState    `json:"state"`
+	Status                 *DashboardWidgetStatus  `json:"status,omitempty"`
+	Title                  *string                 `json:"title,omitempty"`
+	TitleKey               *string                 `json:"title_key,omitempty"`
+	Type                   DashboardWidgetType     `json:"type"`
+	Visible                bool                    `json:"visible"`
 }
+
+// DashboardWidgetAction defines model for dashboard-widget-action.
+type DashboardWidgetAction struct {
+	Label string `json:"label"`
+	Route string `json:"route"`
+}
+
+// DashboardWidgetCategory defines model for dashboard-widget-category.
+type DashboardWidgetCategory string
 
 // DashboardWidgetError defines model for dashboard-widget-error.
 type DashboardWidgetError struct {
@@ -2174,8 +2260,14 @@ type DashboardWidgetError struct {
 	MessageKey *string `json:"message_key,omitempty"`
 }
 
+// DashboardWidgetPriority defines model for dashboard-widget-priority.
+type DashboardWidgetPriority string
+
 // DashboardWidgetSize defines model for dashboard-widget-size.
 type DashboardWidgetSize string
+
+// DashboardWidgetState defines model for dashboard-widget-state.
+type DashboardWidgetState string
 
 // DashboardWidgetStatus defines model for dashboard-widget-status.
 type DashboardWidgetStatus string

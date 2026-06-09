@@ -1396,6 +1396,10 @@ export interface components {
     DashboardSystemSummary: components['schemas']['dashboard-system-summary'];
     DashboardWidgetType: components['schemas']['dashboard-widget-type'];
     DashboardWidgetSize: components['schemas']['dashboard-widget-size'];
+    DashboardWidgetCategory: components['schemas']['dashboard-widget-category'];
+    DashboardWidgetPriority: components['schemas']['dashboard-widget-priority'];
+    DashboardWidgetState: components['schemas']['dashboard-widget-state'];
+    DashboardWidgetAction: components['schemas']['dashboard-widget-action'];
     DashboardWidgetStatus: components['schemas']['dashboard-widget-status'];
     DashboardWidgetError: components['schemas']['dashboard-widget-error'];
     DashboardWidget: components['schemas']['dashboard-widget'];
@@ -2810,6 +2814,9 @@ export interface components {
       locale: components['schemas']['dashboard-locale-summary'];
       modules: components['schemas']['dashboard-module-summary'];
       visible_widgets: number;
+      failed_tasks: number;
+      high_risk_events: number;
+      abnormal_services: number;
     };
     'dashboard-quick-link': {
       id: string;
@@ -2826,7 +2833,17 @@ export interface components {
     /** @enum {string} */
     'dashboard-widget-type': 'stat-group' | 'alert-list' | 'link-list' | 'timeline' | 'health';
     /** @enum {string} */
-    'dashboard-widget-size': 'small' | 'medium' | 'large' | 'full';
+    'dashboard-widget-size': 'small' | 'medium' | 'large';
+    /** @enum {string} */
+    'dashboard-widget-category': 'system' | 'security' | 'operation' | 'business';
+    /** @enum {string} */
+    'dashboard-widget-priority': 'critical' | 'warning' | 'normal' | 'info';
+    /** @enum {string} */
+    'dashboard-widget-state': 'hidden' | 'normal' | 'warning' | 'critical';
+    'dashboard-widget-action': {
+      label: string;
+      route: string;
+    };
     /** @enum {string} */
     'dashboard-widget-status': 'normal' | 'warning' | 'error' | 'disabled';
     'dashboard-widget-error': {
@@ -2843,9 +2860,14 @@ export interface components {
       description?: string;
       type: components['schemas']['dashboard-widget-type'];
       size: components['schemas']['dashboard-widget-size'];
+      category: components['schemas']['dashboard-widget-category'];
+      priority: components['schemas']['dashboard-widget-priority'];
+      visible: boolean;
+      state: components['schemas']['dashboard-widget-state'];
       order: number;
       refresh_interval_seconds?: number;
       route_location?: string;
+      action?: components['schemas']['dashboard-widget-action'];
       required_permissions?: string[];
       status?: components['schemas']['dashboard-widget-status'];
       error?: components['schemas']['dashboard-widget-error'];
