@@ -32,7 +32,7 @@ type notificationRouteRuntime struct {
 
 func registerNotificationRoutes(ctx *module.Context, service *Service, guards notificationGuards) {
 	runtime := notificationRouteRuntime{ctx: ctx, service: service}
-	group := ctx.Router.Group("/api/notifications")
+	group := ctx.Router.Group("/notifications")
 	group.Use(httpx.RequestIDMiddleware())
 	group.GET("", guards.view, runtime.handleList)
 	group.GET("/unread-count", guards.view, runtime.handleUnreadCount)
@@ -75,7 +75,7 @@ func (r notificationRouteRuntime) handleUnreadCount(ginCtx *gin.Context) {
 		r.writeServiceError(ginCtx, err)
 		return
 	}
-	httpx.WriteSuccess(ginCtx, http.StatusOK, map[string]int{"unread_count": count})
+	httpx.WriteSuccess(ginCtx, http.StatusOK, toNotificationUnreadCountResponse(count))
 }
 
 func (r notificationRouteRuntime) handleRead(ginCtx *gin.Context) {

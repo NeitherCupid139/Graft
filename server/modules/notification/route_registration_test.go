@@ -86,6 +86,44 @@ func TestNotificationRoutesRejectWrongUserDeliveryMutation(t *testing.T) {
 	}
 }
 
+func TestNotificationUnreadCountUsesCanonicalCountField(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	now := time.Date(2026, 6, 9, 8, 0, 0, 0, time.UTC)
+	repo := &routeTestNotificationRepository{
+		items: []notificationstore.Notification{
+			routeTestNotification(100, 42, "Unread item", now, nil),
+			routeTestNotification(101, 42, "Read item", now, &now),
+			routeTestNotification(102, 7, "Wrong user", now, nil),
+		},
+	}
+	service, err := NewService(repo)
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	fixture := newNotificationRouteTestContext()
+	registerNotificationRoutes(fixture.ctx, service, notificationGuards{view: routeTestAuth(42), read: routeTestAuth(42)})
+
+	request := httptest.NewRequest(http.MethodGet, "/api/notifications/unread-count", nil)
+	recorder := httptest.NewRecorder()
+	fixture.engine.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	var response struct {
+		Data map[string]any `json:"data"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if response.Data["count"] != float64(1) {
+		t.Fatalf("expected canonical count=1, got %#v", response.Data)
+	}
+	if _, ok := response.Data["unread_count"]; ok {
+		t.Fatalf("unexpected legacy unread_count field in %#v", response.Data)
+	}
+}
+
 type routeTestNotificationRepository struct {
 	items     []notificationstore.Notification
 	listQuery notificationstore.ListQuery
@@ -171,7 +209,7 @@ func newNotificationRouteTestContext() notificationRouteTestContext {
 		engine: engine,
 		ctx: &module.Context{
 			Config:             &config.Config{},
-			Router:             engine,
+			Router:             engine.Group("/api"),
 			I18n:               localizer,
 			Services:           container.New(),
 			MenuRegistry:       menu.NewRegistry(),
