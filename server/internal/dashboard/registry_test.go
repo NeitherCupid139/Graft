@@ -60,6 +60,55 @@ func TestRegistryValidatesRequiredFields(t *testing.T) {
 	}
 }
 
+func TestRegistryRejectsInvalidFrameworkFields(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name       string
+		definition WidgetDefinition
+		want       string
+	}{
+		{
+			name: "invalid size",
+			definition: func() WidgetDefinition {
+				definition := testWidgetDefinition("core.invalid-size")
+				definition.Size = WidgetSize("wide")
+				return definition
+			}(),
+			want: "unsupported size",
+		},
+		{
+			name: "invalid category",
+			definition: func() WidgetDefinition {
+				definition := testWidgetDefinition("core.invalid-category")
+				definition.Category = WidgetCategory("operations")
+				return definition
+			}(),
+			want: "unsupported category",
+		},
+		{
+			name: "invalid priority",
+			definition: func() WidgetDefinition {
+				definition := testWidgetDefinition("core.invalid-priority")
+				definition.Priority = WidgetPriority("urgent")
+				return definition
+			}(),
+			want: "unsupported priority",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := NewRegistry().Register(testCase.definition)
+			if err == nil || !strings.Contains(err.Error(), testCase.want) {
+				t.Fatalf("expected %q validation error, got %v", testCase.want, err)
+			}
+		})
+	}
+}
+
 func TestRegistryValidatesQuickLinkRequiredFields(t *testing.T) {
 	t.Parallel()
 

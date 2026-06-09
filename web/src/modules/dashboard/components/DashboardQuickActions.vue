@@ -118,6 +118,13 @@ const { rankedLinks: sortedLinks, recordAccess } = useDashboardQuickActions(
 const visibleLinks = computed(() => sortedLinks.value.slice(0, config.value.maxItems));
 const hasMoreLinks = computed(() => sortedLinks.value.length > config.value.maxItems);
 
+const MODULE_COLOR_PREFIXES = [
+  { prefixes: ['audit'], color: 'var(--td-error-color-6)' },
+  { prefixes: ['monitor'], color: 'var(--td-warning-color-6)' },
+  { prefixes: ['rbac', 'user'], color: 'var(--td-brand-color-6)' },
+  { prefixes: ['system-config'], color: 'var(--td-success-color-6)' },
+] as const;
+
 function linkTitle(link: DashboardQuickLink) {
   return resolveDashboardText(link.title_key, link.title || link.id);
 }
@@ -132,10 +139,12 @@ function moduleLabel(moduleKey: string) {
 }
 
 function moduleColor(moduleKey: string) {
-  if (moduleKey.includes('audit')) return 'var(--td-error-color-6)';
-  if (moduleKey.includes('monitor')) return 'var(--td-warning-color-6)';
-  if (moduleKey.includes('rbac') || moduleKey.includes('user')) return 'var(--td-brand-color-6)';
-  if (moduleKey.includes('system-config')) return 'var(--td-success-color-6)';
+  for (const { prefixes, color } of MODULE_COLOR_PREFIXES) {
+    if (prefixes.some((prefix) => moduleKey === prefix || moduleKey.startsWith(`${prefix}.`))) {
+      return color;
+    }
+  }
+
   return 'var(--td-text-color-secondary)';
 }
 

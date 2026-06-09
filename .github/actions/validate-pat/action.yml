@@ -39,6 +39,8 @@ runs:
 
         status_code="$(
           curl -sS -o "${response_file}" -w "%{http_code}" \
+            --connect-timeout 10 \
+            --max-time 30 \
             -H "Authorization: Bearer ${PAT_TOKEN}" \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \

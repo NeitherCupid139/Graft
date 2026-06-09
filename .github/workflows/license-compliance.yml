@@ -28,9 +28,6 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
       - name: Resolve release tag
         id: release
         env:
@@ -60,11 +57,18 @@ jobs:
           fi
 
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "checkout_ref=refs/tags/$tag" >> "$GITHUB_OUTPUT"
           echo "asset_prefix=graft-${asset_tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout release source
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          ref: ${{ steps.release.outputs.checkout_ref }}
+          fetch-depth: 0
 
       - name: Install Syft
         id: syft
-        uses: anchore/sbom-action/download-syft@v0
+        uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610
 
       - name: Generate SBOMs
         shell: bash
@@ -247,7 +251,7 @@ jobs:
           sha256sum "${{ steps.release.outputs.asset_prefix }}"-* > "${{ steps.release.outputs.asset_prefix }}-SHA256SUMS.txt"
 
       - name: Upload workflow artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: ${{ steps.release.outputs.asset_prefix }}-security-bundle
           path: dist/security/*
@@ -276,7 +280,7 @@ jobs:
           exit 1
 
       - name: Attach bundle to GitHub Release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda
         with:
           tag_name: ${{ steps.release.outputs.tag }}
           files: dist/security/*

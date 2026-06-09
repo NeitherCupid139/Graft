@@ -3445,7 +3445,7 @@ type ServerStatusConnectionPool struct {
 	InUseConnections int64 `json:"in_use_connections"`
 
 	// MaxActiveConnections Configured hard active-connection limit when the client exposes one.
-	MaxActiveConnections int64 `json:"max_active_connections"`
+	MaxActiveConnections *int64 `json:"max_active_connections,omitempty"`
 
 	// OpenConnections Current established connections tracked by the pool.
 	OpenConnections int64 `json:"open_connections"`

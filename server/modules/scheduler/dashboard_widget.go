@@ -143,9 +143,10 @@ func countSchedulerAttentionTask(counts *schedulerAttentionCounters, task schedu
 
 func schedulerAttentionState(counts schedulerAttentionCounters) (dashboard.WidgetState, dashboard.WidgetPriority) {
 	state := dashboard.WidgetStateHidden
-	priority := dashboard.WidgetPriorityWarning
+	priority := dashboard.WidgetPriorityNormal
 	if counts.failed > 0 || counts.running > 0 || counts.disabled > 0 {
 		state = dashboard.WidgetStateWarning
+		priority = dashboard.WidgetPriorityWarning
 	}
 	if counts.failed > 0 {
 		state = dashboard.WidgetStateCritical

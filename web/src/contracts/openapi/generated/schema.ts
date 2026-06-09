@@ -2172,7 +2172,7 @@ export interface components {
        * Format: int64
        * @description Configured hard active-connection limit when the client exposes one.
        */
-      max_active_connections: number;
+      max_active_connections?: number;
       /**
        * Format: int64
        * @description Current established connections tracked by the pool.

@@ -36,18 +36,18 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
 
       - name: Set up Go
         if: matrix.language == 'go'
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c
         with:
           go-version-file: server/go.mod
           cache-dependency-path: server/go.sum
 
       - name: Initialize CodeQL for Go
         if: matrix.language == 'go'
-        uses: github/codeql-action/init@v4
+        uses: github/codeql-action/init@411bbbe57033eedfc1a82d68c01345aa96c737d7
         with:
           languages: ${{ matrix.language }}
           queries: security-extended,security-and-quality
@@ -55,7 +55,7 @@ jobs:
 
       - name: Initialize CodeQL for JavaScript and TypeScript
         if: matrix.language == 'javascript-typescript'
-        uses: github/codeql-action/init@v4
+        uses: github/codeql-action/init@411bbbe57033eedfc1a82d68c01345aa96c737d7
         with:
           languages: ${{ matrix.language }}
           queries: security-extended,security-and-quality
@@ -66,6 +66,6 @@ jobs:
         run: go build ./...
 
       - name: Perform CodeQL analysis
-        uses: github/codeql-action/analyze@v4
+        uses: github/codeql-action/analyze@411bbbe57033eedfc1a82d68c01345aa96c737d7
         with:
           category: "/language:${{ matrix.language }}"

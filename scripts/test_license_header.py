@@ -35,14 +35,23 @@ class LicenseHeaderTests(unittest.TestCase):
                 path.read_text(encoding="utf-8"),
             )
 
-    def test_existing_apache_header_is_compliant(self) -> None:
+    def test_existing_spdx_apache_header_is_compliant(self) -> None:
+        text = (
+            "// Copyright (c) 2026 GeWuYou\n"
+            "// SPDX-License-Identifier: Apache-2.0\n"
+            "package demo\n"
+        )
+
+        self.assertTrue(license_header.has_license_header(text))
+
+    def test_long_form_apache_wording_is_not_compliant(self) -> None:
         text = (
             "// Copyright (c) 2026 GeWuYou\n"
             "// Licensed under the Apache License, Version 2.0 (the \"License\");\n"
             "package demo\n"
         )
 
-        self.assertTrue(license_header.has_license_header(text))
+        self.assertFalse(license_header.has_license_header(text))
 
     def test_inserts_after_shebang(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

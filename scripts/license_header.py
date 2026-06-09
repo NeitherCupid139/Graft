@@ -95,10 +95,7 @@ EXCLUDED_SUFFIXES = (
     ".pyc",
 )
 
-HEADER_MARKERS = (
-    SPDX_LINE,
-    "Licensed under the Apache License",
-)
+HEADER_MARKERS = (SPDX_LINE,)
 
 
 @dataclass(frozen=True)

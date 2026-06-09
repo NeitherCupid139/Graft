@@ -66,13 +66,18 @@ import DependencyHealthCard, {
   type DependencyHealthMetric,
   type DependencyHealthPool,
 } from '../../components/DependencyHealthCard.vue';
-import type { MetricUsageStatus } from '../../components/MetricUsageBar.vue';
 import MonitorStatusPageFrame from '../../components/MonitorStatusPageFrame.vue';
 import SectionCard from '../../components/SectionCard.vue';
 import { type ServerStatusTone } from '../../components/server-status-ui';
 import StatusTag from '../../components/StatusTag.vue';
 import type { MonitorRefreshInterval } from '../../contract/refresh';
 import { buildStandardMonitorStatusFrameProps } from '../../shared/frame-props';
+import {
+  formatDependencyPoolUsage,
+  formatPoolCount,
+  poolUsagePercent,
+  poolUsageStatus,
+} from '../../shared/pool-metrics';
 import {
   displayText,
   formatLatency,
@@ -282,7 +287,7 @@ function buildServiceCard(options: {
 
 function buildPoolView(label: string, pool?: ServerStatusConnectionPool | null): DependencyHealthPool {
   const usagePercent = pool ? poolUsagePercent(pool) : null;
-  const usageText = pool ? formatDependencyPoolUsage(pool) : emptyMetricText();
+  const usageText = pool ? formatDependencyPoolUsage(pool, emptyMetricText()) : emptyMetricText();
   const usagePercentText = formatPoolPercent(usagePercent);
 
   return {
@@ -304,22 +309,22 @@ function buildPoolView(label: string, pool?: ServerStatusConnectionPool | null):
       {
         key: 'inUse',
         label: t('monitor.dependenciesPage.pool.inUse'),
-        value: formatPoolCount(pool?.in_use_connections),
+        value: formatPoolCount(pool?.in_use_connections, emptyMetricText()),
       },
       {
         key: 'idle',
         label: t('monitor.dependenciesPage.pool.idle'),
-        value: formatPoolCount(pool?.idle_connections),
+        value: formatPoolCount(pool?.idle_connections, emptyMetricText()),
       },
       {
         key: 'open',
         label: t('monitor.dependenciesPage.pool.open'),
-        value: formatPoolCount(pool?.open_connections),
+        value: formatPoolCount(pool?.open_connections, emptyMetricText()),
       },
       {
         key: 'capacity',
         label: t('monitor.dependenciesPage.pool.capacity'),
-        value: formatPoolCount(pool?.capacity),
+        value: formatPoolCount(pool?.capacity, emptyMetricText()),
       },
     ],
   };
@@ -342,12 +347,12 @@ function buildDiagnosticsView(
       {
         key: 'timeoutCount',
         label: t('monitor.dependenciesPage.fields.timeoutCount'),
-        value: formatPoolCount(pool?.timeout_count),
+        value: formatPoolCount(pool?.timeout_count, emptyMetricText()),
       },
       {
         key: 'staleCount',
         label: t('monitor.dependenciesPage.fields.staleCount'),
-        value: formatPoolCount(pool?.stale_count),
+        value: formatPoolCount(pool?.stale_count, emptyMetricText()),
       },
       {
         key: 'checkedAt',
@@ -368,34 +373,6 @@ function buildDiagnosticsView(
   };
 }
 
-function formatDependencyPoolUsage(pool: ServerStatusConnectionPool) {
-  return `${formatPoolCount(pool.in_use_connections)} / ${formatPoolCount(pool.capacity)}`;
-}
-
-function poolUsagePercent(pool: ServerStatusConnectionPool) {
-  const inUse = Number(pool.in_use_connections);
-  const capacity = Number(pool.capacity);
-  if (!Number.isFinite(inUse) || !Number.isFinite(capacity) || capacity <= 0) {
-    return null;
-  }
-
-  return Math.min(Math.max((Math.max(inUse, 0) / capacity) * 100, 0), 100);
-}
-
-function poolUsageStatus(percent: number | null): MetricUsageStatus {
-  if (percent === null || Number.isNaN(percent)) {
-    return 'unknown';
-  }
-  if (percent >= 90) {
-    return 'danger';
-  }
-  if (percent >= 70) {
-    return 'warning';
-  }
-
-  return 'healthy';
-}
-
 function poolUsageSummary(percent: number | null) {
   switch (poolUsageStatus(percent)) {
     case 'danger':
@@ -407,14 +384,6 @@ function poolUsageSummary(percent: number | null) {
     default:
       return t('monitor.dependenciesPage.pool.riskUnknown');
   }
-}
-
-function formatPoolCount(value?: number | null) {
-  if (value === null || value === undefined || !Number.isFinite(value)) {
-    return emptyMetricText();
-  }
-
-  return String(Math.max(0, Math.round(value)));
 }
 
 function formatPoolPercent(percent: number | null) {

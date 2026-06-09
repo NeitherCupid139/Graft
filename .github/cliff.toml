@@ -42,9 +42,9 @@ https://github.com/{{ remote.github.owner }}/{{ remote.github.repo }}
 ## Unreleased
 {% endif %}
 
-{% set highlights = commits | filter(attribute="breaking", value=true) %}
+{% set highlights = [] %}
 {% for commit in commits -%}
-  {% if self::has_release_highlight(commit=commit) == "true" -%}
+  {% if commit.breaking or self::has_release_highlight(commit=commit) == "true" -%}
     {% set_global highlights = highlights | concat(with=commit) -%}
   {% endif -%}
 {% endfor -%}

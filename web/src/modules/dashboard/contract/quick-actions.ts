@@ -45,6 +45,15 @@ export type DashboardQuickActionViewModel = DashboardQuickLink & {
   pinned: boolean;
 };
 
+export type DashboardQuickActionConfigParseDiagnostic = {
+  key: string;
+  error: unknown;
+};
+
+export type ResolveDashboardQuickActionConfigOptions = {
+  onInvalidConfigValue?: (diagnostic: DashboardQuickActionConfigParseDiagnostic) => void;
+};
+
 export const DEFAULT_DASHBOARD_QUICK_ACTION_CONFIG: DashboardQuickActionConfig = {
   enabled: true,
   maxItems: 8,
@@ -57,11 +66,14 @@ function isDashboardQuickActionStrategy(value: unknown): value is DashboardQuick
   return typeof value === 'string' && strategyValues.has(value);
 }
 
-export function resolveDashboardQuickActionConfig(items: SystemConfigItem[]) {
+export function resolveDashboardQuickActionConfig(
+  items: SystemConfigItem[],
+  options: ResolveDashboardQuickActionConfigOptions = {},
+) {
   const config = { ...DEFAULT_DASHBOARD_QUICK_ACTION_CONFIG };
 
   for (const item of items) {
-    const value = parseSystemConfigValue(item.effective_value);
+    const value = parseSystemConfigValue(item.key, item.effective_value, options);
     switch (item.key) {
       case DASHBOARD_QUICK_ACTION_CONFIG_KEY.ENABLED:
         if (typeof value === 'boolean') {
@@ -86,14 +98,19 @@ export function resolveDashboardQuickActionConfig(items: SystemConfigItem[]) {
   return config;
 }
 
-function parseSystemConfigValue(value: string | null | undefined) {
+function parseSystemConfigValue(
+  key: string,
+  value: string | null | undefined,
+  options: ResolveDashboardQuickActionConfigOptions,
+) {
   if (!value?.trim()) {
     return undefined;
   }
 
   try {
     return JSON.parse(value) as unknown;
-  } catch {
+  } catch (error) {
+    options.onInvalidConfigValue?.({ key, error });
     return undefined;
   }
 }

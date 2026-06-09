@@ -563,6 +563,17 @@ func TestSchedulerTaskAttentionDashboardWidgetPaginatesAllTasks(t *testing.T) {
 	}
 }
 
+func TestSchedulerTaskAttentionStateUsesNormalPriorityWhenHidden(t *testing.T) {
+	state, priority := schedulerAttentionState(schedulerAttentionCounters{})
+
+	if state != dashboard.WidgetStateHidden {
+		t.Fatalf("expected hidden state for empty attention counters, got %q", state)
+	}
+	if priority != dashboard.WidgetPriorityNormal {
+		t.Fatalf("expected hidden attention widget to use normal priority, got %q", priority)
+	}
+}
+
 func TestScheduledTaskListRouteReturnsRuntimeTasks(t *testing.T) {
 	ctx, engine := newModuleTestContextWithEngine()
 	moduleInstance := NewModule()

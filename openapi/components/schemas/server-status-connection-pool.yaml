@@ -1,7 +1,9 @@
+# Copyright (c) 2025-2026 GeWuYou
+# SPDX-License-Identifier: Apache-2.0
+
 type: object
 required:
   - capacity
-  - max_active_connections
   - open_connections
   - in_use_connections
   - idle_connections

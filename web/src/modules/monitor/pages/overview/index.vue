@@ -457,6 +457,12 @@ import { normalizeMonitorOriginContext } from '../../contract/navigation';
 import type { MonitorRefreshInterval } from '../../contract/refresh';
 import type { MonitorTrendRange } from '../../contract/trend';
 import { MONITOR_TREND_RANGE } from '../../contract/trend';
+import {
+  formatDependencyPoolUsage,
+  formatPoolCount,
+  poolUsagePercent,
+  poolUsageStatus,
+} from '../../shared/pool-metrics';
 import type {
   EvidenceLink,
   ServerStatusAnomaly,
@@ -474,7 +480,7 @@ const router = useRouter();
 
 type MonitorStatus = 'healthy' | 'degraded' | 'disabled' | 'unknown';
 type MetricCardTone = 'healthy' | 'warning' | 'critical' | 'unknown';
-type MetricUsageStatus = 'healthy' | 'warning' | 'danger' | 'unknown';
+type MetricUsageStatus = ReturnType<typeof poolUsageStatus>;
 type MetricUsageKind = 'percent' | 'loadPressure';
 type TrendRange = MonitorTrendRange;
 type TrendMode = 'overview' | 'multi' | 'focus';
@@ -1236,15 +1242,15 @@ function buildDependencyItem(key: string, label: string, dependency: ServerStatu
 }
 
 function buildDependencyPoolView(label: string, pool: NonNullable<ServerStatusDependency['pool']>): DependencyPoolView {
-  const value = formatDependencyPoolUsage(pool);
+  const value = formatDependencyPoolUsage(pool, emptyRuntimeStatusText());
   const percent = poolUsagePercent(pool);
   return {
     value,
     detail: t('monitor.serverStatus.dependencyPoolDetail', {
-      inUse: formatPoolCount(pool.in_use_connections),
-      idle: formatPoolCount(pool.idle_connections),
-      open: formatPoolCount(pool.open_connections),
-      capacity: formatPoolCount(pool.capacity),
+      inUse: formatPoolCount(pool.in_use_connections, emptyRuntimeStatusText()),
+      idle: formatPoolCount(pool.idle_connections, emptyRuntimeStatusText()),
+      open: formatPoolCount(pool.open_connections, emptyRuntimeStatusText()),
+      capacity: formatPoolCount(pool.capacity, emptyRuntimeStatusText()),
     }),
     usage: {
       kind: 'percent',
@@ -1261,40 +1267,8 @@ function buildDependencyPoolView(label: string, pool: NonNullable<ServerStatusDe
   };
 }
 
-function formatDependencyPoolUsage(pool: NonNullable<ServerStatusDependency['pool']>) {
-  return `${formatPoolCount(pool.in_use_connections)} / ${formatPoolCount(pool.capacity)}`;
-}
-
-function formatPoolCount(value?: number | null) {
-  if (value === null || value === undefined || !Number.isFinite(value)) {
-    return t('monitor.serverStatus.runtimeStatusNotAvailable');
-  }
-
-  return String(Math.max(0, Math.round(value)));
-}
-
-function poolUsagePercent(pool: NonNullable<ServerStatusDependency['pool']>) {
-  const inUse = Number(pool.in_use_connections);
-  const capacity = Number(pool.capacity);
-  if (!Number.isFinite(inUse) || !Number.isFinite(capacity) || capacity <= 0) {
-    return null;
-  }
-
-  return Math.min(Math.max((Math.max(inUse, 0) / capacity) * 100, 0), 100);
-}
-
-function poolUsageStatus(percent: number | null): MetricUsageStatus {
-  if (percent === null || Number.isNaN(percent)) {
-    return 'unknown';
-  }
-  if (percent >= 90) {
-    return 'danger';
-  }
-  if (percent >= 70) {
-    return 'warning';
-  }
-
-  return 'healthy';
+function emptyRuntimeStatusText() {
+  return t('monitor.serverStatus.runtimeStatusNotAvailable');
 }
 
 function resolveAnomalyByKey(anomalyKey: string) {

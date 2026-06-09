@@ -296,6 +296,27 @@ func TestCalculateHostCPUUsagePercentFromAggregatedTimes(t *testing.T) {
 	}
 }
 
+func TestHostCPUTotalAndBusySubtractsLinuxGuestTimes(t *testing.T) {
+	t.Parallel()
+
+	total, busy := hostCPUTotalAndBusy(cpu.TimesStat{
+		User:      100,
+		Nice:      20,
+		System:    30,
+		Idle:      50,
+		Iowait:    10,
+		Guest:     40,
+		GuestNice: 5,
+	})
+
+	if total != 165 {
+		t.Fatalf("expected guest-adjusted total cpu time, got %.2f", total)
+	}
+	if busy != 105 {
+		t.Fatalf("expected guest-adjusted busy cpu time, got %.2f", busy)
+	}
+}
+
 func TestCalculateHostCPUUsagePercentHandlesInvalidDeltas(t *testing.T) {
 	t.Parallel()
 

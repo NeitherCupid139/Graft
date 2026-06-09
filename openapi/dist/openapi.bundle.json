@@ -9804,7 +9804,6 @@
         "type": "object",
         "required": [
           "capacity",
-          "max_active_connections",
           "open_connections",
           "in_use_connections",
           "idle_connections",
@@ -12354,11 +12353,13 @@
           },
           "healthy_modules": {
             "type": "integer",
+            "minimum": 0,
             "description": "Optional count of healthy modules for module-runtime health summaries.",
             "example": 7
           },
           "abnormal_services": {
             "type": "integer",
+            "minimum": 0,
             "description": "Optional count of module or service entries that need attention.",
             "example": 0
           }

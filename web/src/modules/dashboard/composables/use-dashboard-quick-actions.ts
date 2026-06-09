@@ -3,6 +3,8 @@
 
 import { computed, ref } from 'vue';
 
+import { createLogger } from '@/utils/logger';
+
 import {
   DASHBOARD_QUICK_ACTION_STORAGE_KEY,
   DASHBOARD_QUICK_ACTION_STRATEGY,
@@ -12,6 +14,9 @@ import {
   type DashboardQuickActionViewModel,
 } from '../contract/quick-actions';
 import type { DashboardQuickLink } from '../types/dashboard';
+
+const INVALID_LAST_ACCESS_TIME = 0;
+const logger = createLogger('dashboard.quickActions');
 
 function canUseLocalStorage() {
   return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
@@ -27,6 +32,9 @@ function readUsageMap(): DashboardQuickActionUsageMap {
       window.localStorage.getItem(DASHBOARD_QUICK_ACTION_STORAGE_KEY.ROUTE_USAGE) || '{}',
     ) as unknown;
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      logger.warn('dashboard quick-action usage storage payload invalid', {
+        storageKey: DASHBOARD_QUICK_ACTION_STORAGE_KEY.ROUTE_USAGE,
+      });
       return {};
     }
 
@@ -36,7 +44,11 @@ function readUsageMap(): DashboardQuickActionUsageMap {
         return record ? [[route, record]] : [];
       }),
     );
-  } catch {
+  } catch (error) {
+    logger.warn('dashboard quick-action usage storage parse failed', {
+      storageKey: DASHBOARD_QUICK_ACTION_STORAGE_KEY.ROUTE_USAGE,
+      error,
+    });
     return {};
   }
 }
@@ -48,7 +60,7 @@ function normalizeUsageRecord(value: unknown): DashboardQuickActionUsageRecord |
 
   const record = value as Partial<DashboardQuickActionUsageRecord>;
   const accessCount = Number(record.accessCount);
-  const lastAccessAt = typeof record.lastAccessAt === 'string' ? record.lastAccessAt : '';
+  const lastAccessAt = normalizeLastAccessAt(record.lastAccessAt);
   if (!Number.isFinite(accessCount) || accessCount < 0) {
     return null;
   }
@@ -57,6 +69,15 @@ function normalizeUsageRecord(value: unknown): DashboardQuickActionUsageRecord |
     accessCount,
     lastAccessAt,
   };
+}
+
+function normalizeLastAccessAt(value: unknown) {
+  if (typeof value !== 'string' || !value.trim()) {
+    return '';
+  }
+
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? value : '';
 }
 
 function writeUsageMap(value: DashboardQuickActionUsageMap) {
@@ -68,8 +89,12 @@ function writeUsageMap(value: DashboardQuickActionUsageMap) {
 }
 
 function lastAccessTime(value: string) {
-  const timestamp = new Date(value).getTime();
-  return Number.isFinite(timestamp) ? timestamp : 0;
+  if (!value.trim()) {
+    return INVALID_LAST_ACCESS_TIME;
+  }
+
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? timestamp : INVALID_LAST_ACCESS_TIME;
 }
 
 function score(
@@ -89,7 +114,7 @@ function score(
     return normalizedAccess;
   }
   if (config.strategy === DASHBOARD_QUICK_ACTION_STRATEGY.RECENT) {
-    return recentTime;
+    return normalizedRecent;
   }
 
   return normalizedAccess * 0.7 + normalizedRecent * 0.3;

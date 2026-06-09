@@ -119,6 +119,27 @@
   - The lint failure was fixed by extracting RBAC service registration and shared message resource construction without changing widget behavior.
 - Commit: Phase 3 scope committed through `$graft-commit`; see loop closeout for short SHA.
 
+## 2026-06-07 - Phase 4 Archive Readiness
+
+- Inspected final worktree and recent commits:
+  - `cf68cbb feat(dashboard): add backend contribution registry`
+  - `673dfb4 feat(dashboard): add web dashboard renderer`
+  - `587e3e2 feat(dashboard): add rbac access summary widget`
+- Acceptance checks passed:
+  - home dashboard has fixed system summary plus module-contributed widgets
+  - dashboard page does not import audit, scheduler, rbac, user, monitor, or system-config business components
+  - renderer dispatch remains based on stable `DashboardWidgetType`
+  - widget data is loaded through backend aggregation, not frontend N-interface composition
+  - server-side permission filtering, loader timeout, error handling, and panic recovery are present
+  - Phase 1 required widgets stayed limited to `core.module-runtime-health` and `rbac.access-summary`
+  - no dashboard persistence tables were introduced
+- Scope leak scan confirmed no MVP support for dashboard preferences, layouts, presets, favorites, recent visits, announcements, quick actions, markdown widgets, or drag-and-drop layout customization.
+- Final validation for archive-readiness:
+  - `git status --short --branch`
+  - `git diff --check`
+  - targeted `rg` scans for dashboard imports, renderer branching, registry permissions, loader safety, and forbidden MVP scope terms
+- Topic status set to `archive-ready`; this conclusion was rechecked after the 2026-06-09 framework hardening follow-up below.
+
 ## 2026-06-09 - Framework Hardening Follow-up
 
 - Hardened the dashboard widget contract without adding a new business widget:
@@ -141,24 +162,3 @@
 - Validation passed:
   - `cd server && go run ./cmd/graft validate backend`
   - `cd web && bun run check`
-
-## 2026-06-07 - Phase 4 Archive Readiness
-
-- Inspected final worktree and recent commits:
-  - `cf68cbb feat(dashboard): add backend contribution registry`
-  - `673dfb4 feat(dashboard): add web dashboard renderer`
-  - `587e3e2 feat(dashboard): add rbac access summary widget`
-- Acceptance checks passed:
-  - home dashboard has fixed system summary plus module-contributed widgets
-  - dashboard page does not import audit, scheduler, rbac, user, monitor, or system-config business components
-  - renderer dispatch remains based on stable `DashboardWidgetType`
-  - widget data is loaded through backend aggregation, not frontend N-interface composition
-  - server-side permission filtering, loader timeout, error handling, and panic recovery are present
-  - Phase 1 required widgets stayed limited to `core.module-runtime-health` and `rbac.access-summary`
-  - no dashboard persistence tables were introduced
-- Scope leak scan confirmed no MVP support for dashboard preferences, layouts, presets, favorites, recent visits, announcements, quick actions, markdown widgets, or drag-and-drop layout customization.
-- Final validation for archive-readiness:
-  - `git status --short --branch`
-  - `git diff --check`
-  - targeted `rg` scans for dashboard imports, renderer branching, registry permissions, loader safety, and forbidden MVP scope terms
-- Topic status set to `archive-ready`.

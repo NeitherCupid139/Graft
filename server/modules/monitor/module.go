@@ -909,10 +909,11 @@ func databasePoolStats(db *sql.DB) *generated.ServerStatusConnectionPool {
 	if capacity <= 0 {
 		capacity = stats.OpenConnections
 	}
+	maxActiveConnections := optionalPositiveInt64(stats.MaxOpenConnections)
 
 	return &generated.ServerStatusConnectionPool{
 		Capacity:             int64(capacity),
-		MaxActiveConnections: int64(stats.MaxOpenConnections),
+		MaxActiveConnections: maxActiveConnections,
 		OpenConnections:      int64(stats.OpenConnections),
 		InUseConnections:     int64(stats.InUse),
 		IdleConnections:      int64(stats.Idle),
@@ -935,10 +936,11 @@ func redisPoolStats(client *redis.Client) *generated.ServerStatusConnectionPool 
 	if capacity <= 0 {
 		capacity = redisDefaultPoolSizePerCPU * runtime.GOMAXPROCS(0)
 	}
+	maxActiveConnections := optionalPositiveInt64(options.MaxActiveConns)
 
 	return &generated.ServerStatusConnectionPool{
 		Capacity:             int64(capacity),
-		MaxActiveConnections: int64(options.MaxActiveConns),
+		MaxActiveConnections: maxActiveConnections,
 		OpenConnections:      int64(stats.TotalConns),
 		InUseConnections:     int64(stats.TotalConns - stats.IdleConns),
 		IdleConnections:      int64(stats.IdleConns),
@@ -948,6 +950,14 @@ func redisPoolStats(client *redis.Client) *generated.ServerStatusConnectionPool 
 		TimeoutCount:         int64(stats.Timeouts),
 		StaleCount:           int64(stats.StaleConns),
 	}
+}
+
+func optionalPositiveInt64(value int) *int64 {
+	if value <= 0 {
+		return nil
+	}
+	converted := int64(value)
+	return &converted
 }
 
 func poolUsagePercent(inUse int, capacity int) float32 {
@@ -1513,16 +1523,16 @@ func calculateHostCPUUsagePercent(previous *cpu.TimesStat, current *cpu.TimesSta
 }
 
 func hostCPUTotalAndBusy(sample cpu.TimesStat) (float64, float64) {
-	total := sample.User +
+	user := sample.User - sample.Guest
+	nice := sample.Nice - sample.GuestNice
+	total := user +
 		sample.System +
 		sample.Idle +
-		sample.Nice +
+		nice +
 		sample.Iowait +
 		sample.Irq +
 		sample.Softirq +
-		sample.Steal +
-		sample.Guest +
-		sample.GuestNice
+		sample.Steal
 	busy := total - sample.Idle - sample.Iowait
 
 	return total, busy

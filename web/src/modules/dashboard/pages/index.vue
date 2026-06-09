@@ -183,7 +183,11 @@ async function loadSummary() {
 async function loadQuickActionConfig() {
   try {
     const response = await getDashboardSystemConfigs();
-    quickActionConfig.value = resolveDashboardQuickActionConfig(response.items ?? []);
+    quickActionConfig.value = resolveDashboardQuickActionConfig(response.items ?? [], {
+      onInvalidConfigValue: ({ key, error }) => {
+        logger.warn('dashboard quick-action config value parse failed', { key, error });
+      },
+    });
   } catch (error) {
     logger.error('dashboard quick-action config request failed', error);
     quickActionConfig.value = { ...DEFAULT_DASHBOARD_QUICK_ACTION_CONFIG };

@@ -1,3 +1,6 @@
+// Copyright (c) 2025-2026 GeWuYou
+// SPDX-License-Identifier: Apache-2.0
+
 import { mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineComponent, h } from 'vue';
@@ -31,6 +34,10 @@ vi.mock('vue-router', () => ({
 const passthroughStub = defineComponent({
   name: 'PassthroughStub',
   props: {
+    color: {
+      type: String,
+      default: '',
+    },
     content: {
       type: String,
       default: '',
@@ -42,7 +49,7 @@ const passthroughStub = defineComponent({
   },
   setup(props, { slots }) {
     return () =>
-      h('div', [
+      h('div', { 'data-color': props.color }, [
         props.content,
         props.description,
         slots.title?.(),
@@ -167,5 +174,17 @@ describe('DashboardQuickActions', () => {
     await wrapper.find('.dashboard-quick-actions__item').trigger('click');
 
     expect(routerMocks.push).toHaveBeenCalledWith('/audit/events');
+  });
+
+  it('colors only canonical module keys and dotted descendants', () => {
+    const wrapper = mountQuickActions([
+      quickLink(1, { module_key: 'audit' }),
+      quickLink(2, { module_key: 'audit.events' }),
+      quickLink(3, { module_key: 'not-audit' }),
+    ]);
+
+    const colors = wrapper.findAll('.dashboard-quick-actions__badge').map((badge) => badge.attributes('data-color'));
+
+    expect(colors).toEqual(['var(--td-error-color-6)', 'var(--td-error-color-6)', 'var(--td-text-color-secondary)']);
   });
 });

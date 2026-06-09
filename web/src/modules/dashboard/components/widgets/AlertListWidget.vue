@@ -46,6 +46,9 @@ const props = defineProps<{
 }>();
 
 type AlertLevel = DashboardAlertListPayload['items'][number]['level'];
+const KNOWN_ALERT_TITLE_KEYS = {
+  token_expired: 'dashboard.alert.known.tokenExpired',
+} as const;
 
 const router = useRouter();
 const payload = computed(() => asAlertListPayload(props.widget.payload));
@@ -91,7 +94,7 @@ const groupedItems = computed(() => {
   });
 });
 
-type AlertGroup = {
+interface AlertGroup {
   id: string;
   level: AlertLevel;
   title: string;
@@ -99,7 +102,7 @@ type AlertGroup = {
   latestAt: string;
   route_location?: string;
   count: number;
-};
+}
 
 function levelTheme(level: AlertLevel) {
   if (level === 'error') return 'danger';
@@ -123,8 +126,9 @@ function alertGroupKey(item: DashboardAlertListPayload['items'][number], title: 
 }
 
 function normalizedTitle(value: string) {
-  if (value === 'token_expired') {
-    return t('dashboard.alert.known.tokenExpired');
+  const knownAlertTitleKey = KNOWN_ALERT_TITLE_KEYS[value as keyof typeof KNOWN_ALERT_TITLE_KEYS];
+  if (knownAlertTitleKey) {
+    return resolveDashboardText(knownAlertTitleKey, value);
   }
 
   return value.replaceAll('_', ' ').replace(/\b\w/g, (match) => match.toUpperCase());

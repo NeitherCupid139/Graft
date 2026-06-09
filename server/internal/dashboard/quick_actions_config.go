@@ -12,10 +12,12 @@ import (
 	"graft/server/internal/i18n"
 )
 
-// Dashboard quick-action config keys are the config-center authority consumed by the web dashboard.
 const (
-	QuickActionsEnabledConfigKey  = "dashboard.quick_actions.enabled"
+	// QuickActionsEnabledConfigKey controls whether personalized dashboard quick actions are shown.
+	QuickActionsEnabledConfigKey = "dashboard.quick_actions.enabled"
+	// QuickActionsMaxItemsConfigKey limits the personalized dashboard quick-action count.
 	QuickActionsMaxItemsConfigKey = "dashboard.quick_actions.max_items"
+	// QuickActionsStrategyConfigKey selects the personalized dashboard quick-action ranking strategy.
 	QuickActionsStrategyConfigKey = "dashboard.quick_actions.strategy"
 
 	quickActionsConfigGroupKey       = "systemConfig.groups.dashboardQuickActions"
@@ -110,27 +112,27 @@ func RegisterQuickActionsConfigMessages(localizer *i18n.Service) error {
 	}
 
 	for _, registration := range []i18n.Registration{
-		quickActionsConfigRegistration(i18n.LocaleZHCN, []string{
-			"Dashboard 快捷入口",
-			"控制工作台首页是否展示个性化快捷入口。",
-			"快捷入口最大数量",
-			"工作台首页默认展示的个性化入口数量。",
-			"快捷入口排序策略",
-			"个性化快捷入口的推荐排序策略。",
-			"最常使用",
-			"最近访问",
-			"综合推荐",
+		quickActionsConfigRegistration(i18n.LocaleZHCN, quickActionsConfigTexts{
+			enabledTitle:   "Dashboard 快捷入口",
+			enabledDesc:    "控制工作台首页是否展示个性化快捷入口。",
+			maxItemsTitle:  "快捷入口最大数量",
+			maxItemsDesc:   "工作台首页默认展示的个性化入口数量。",
+			strategyTitle:  "快捷入口排序策略",
+			strategyDesc:   "个性化快捷入口的推荐排序策略。",
+			mostUsedOption: "最常使用",
+			recentOption:   "最近访问",
+			hybridOption:   "综合推荐",
 		}),
-		quickActionsConfigRegistration(i18n.LocaleENUS, []string{
-			"Dashboard Quick Actions",
-			"Controls whether personalized dashboard quick actions are shown.",
-			"Quick Action Maximum Items",
-			"Maximum personalized entries shown on the dashboard home page.",
-			"Quick Action Ranking Strategy",
-			"Personalized quick action ranking strategy.",
-			"Most Used",
-			"Recent",
-			"Hybrid",
+		quickActionsConfigRegistration(i18n.LocaleENUS, quickActionsConfigTexts{
+			enabledTitle:   "Dashboard Quick Actions",
+			enabledDesc:    "Controls whether personalized dashboard quick actions are shown.",
+			maxItemsTitle:  "Quick Action Maximum Items",
+			maxItemsDesc:   "Maximum personalized entries shown on the dashboard home page.",
+			strategyTitle:  "Quick Action Ranking Strategy",
+			strategyDesc:   "Personalized quick action ranking strategy.",
+			mostUsedOption: "Most Used",
+			recentOption:   "Recent",
+			hybridOption:   "Hybrid",
 		}),
 	} {
 		if err := localizer.RegisterMessages(registration); err != nil {
@@ -140,23 +142,30 @@ func RegisterQuickActionsConfigMessages(localizer *i18n.Service) error {
 	return nil
 }
 
-func quickActionsConfigRegistration(locale i18n.LocaleTag, texts []string) i18n.Registration {
-	keys := []string{
-		quickActionsEnabledTitleKey,
-		quickActionsEnabledDescKey,
-		quickActionsMaxItemsTitleKey,
-		quickActionsMaxItemsDescKey,
-		quickActionsStrategyTitleKey,
-		quickActionsStrategyDescKey,
-		quickActionsStrategyMostUsedKey,
-		quickActionsStrategyRecentKey,
-		quickActionsStrategyHybridKey,
-	}
+type quickActionsConfigTexts struct {
+	enabledTitle   string
+	enabledDesc    string
+	maxItemsTitle  string
+	maxItemsDesc   string
+	strategyTitle  string
+	strategyDesc   string
+	mostUsedOption string
+	recentOption   string
+	hybridOption   string
+}
+
+func quickActionsConfigRegistration(locale i18n.LocaleTag, texts quickActionsConfigTexts) i18n.Registration {
 	messages := []i18n.MessageResource{
 		{Key: i18n.MessageKey(quickActionsConfigGroupKey), Text: "core / dashboard.quick_actions"},
-	}
-	for index, key := range keys {
-		messages = append(messages, i18n.MessageResource{Key: i18n.MessageKey(key), Text: texts[index]})
+		{Key: i18n.MessageKey(quickActionsEnabledTitleKey), Text: texts.enabledTitle},
+		{Key: i18n.MessageKey(quickActionsEnabledDescKey), Text: texts.enabledDesc},
+		{Key: i18n.MessageKey(quickActionsMaxItemsTitleKey), Text: texts.maxItemsTitle},
+		{Key: i18n.MessageKey(quickActionsMaxItemsDescKey), Text: texts.maxItemsDesc},
+		{Key: i18n.MessageKey(quickActionsStrategyTitleKey), Text: texts.strategyTitle},
+		{Key: i18n.MessageKey(quickActionsStrategyDescKey), Text: texts.strategyDesc},
+		{Key: i18n.MessageKey(quickActionsStrategyMostUsedKey), Text: texts.mostUsedOption},
+		{Key: i18n.MessageKey(quickActionsStrategyRecentKey), Text: texts.recentOption},
+		{Key: i18n.MessageKey(quickActionsStrategyHybridKey), Text: texts.hybridOption},
 	}
 	return i18n.Registration{
 		Namespace: "system-config",
