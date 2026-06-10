@@ -224,6 +224,7 @@ const demoConfigSchema = \`{"type":"object","properties":{"maxQuickActions":{"ty
     );
 
     expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain('no-system-config-schema-fallback');
     expect(result.stdout).toContain(
       'system config schema schema.properties.maxQuickActions.title has visible fallback "Maximum quick actions" without x-i18n.titleKey',
     );
@@ -263,6 +264,11 @@ const demoConfigSchema = \`{"type":"object","properties":{"maxQuickActions":{"ty
 
 describe('check-i18n-governance fixture rules', () => {
   const invalidFixtures = [
+    {
+      fixture: 'invalid-hardcoded-template-text',
+      expectation: 'blocks raw visible template text',
+      expectedSnippets: ['no-hardcoded-template-text', 'Create report'],
+    },
     {
       fixture: 'invalid-fallback-label-cjk',
       expectation: 'blocks fallbackLabel with Chinese literal copy',
@@ -378,6 +384,12 @@ describe('check-i18n-governance split legacy rules', () => {
       ruleId: 'no-unsafe-locale-value',
       snippet: 'locale key demo.self.title resolves to itself',
       valid: 'valid-unsafe-locale-value',
+    },
+    {
+      invalid: 'invalid-hardcoded-template-text',
+      ruleId: 'no-hardcoded-template-text',
+      snippet: 'Create report',
+      valid: 'valid-i18n-keyed-copy',
     },
   ];
 
