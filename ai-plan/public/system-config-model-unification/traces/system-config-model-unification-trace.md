@@ -78,3 +78,27 @@
 - Focused validation:
   - `cd server && go test ./internal/scheduler ./internal/configregistry ./modules/system-config`
   - `cd server && go run ./cmd/graft validate backend --stage lint`
+
+## 2026-06-10 Phase 4 typical config migration implementation
+
+- Ran a loop-orchestrated worker round for Phase 4 with a cross-boundary owned scope.
+- Used `$graft-system-config-field-renderer` for schema/i18n authority:
+  - `ConfigDefinition.Schema` remains the field-rendering and runtime-validation authority.
+  - TDesign MCP was not applicable because no TDesign component usage changed.
+- Kept log retention object baseline unchanged.
+- Migrated dashboard quick actions from three flat scalar keys to canonical object key `dashboard.quick_actions`:
+  - fields: `enabled`, `maxItems`, `strategy`
+  - strict object schema with required fields, `additionalProperties=false`, defaults, range constraints, and enum labels.
+  - web dashboard runtime resolver now reads only the canonical object key.
+- Migrated notification display from two flat scalar keys to canonical object key `notification.display`:
+  - fields: `showReadDays`, `popupLimit`
+  - strict object schema with required fields, `additionalProperties=false`, defaults, range constraints, and field i18n keys.
+- Did not migrate `notification.general.defaults`; Phase 4 evaluated it as out of scope/low urgency per design guidance.
+- Removed stale system-config locale/test fixture references to the old flat dashboard and notification display keys, except
+  tests that explicitly assert removed keys are ignored or not registered.
+- OpenAPI source and generated artifacts were not changed because the list/detail item wire shape did not change.
+- Focused validation:
+  - `cd server && go test ./internal/dashboard ./modules/notification ./internal/configregistry ./modules/system-config`
+  - `cd server && go run ./cmd/graft validate backend --stage lint`
+  - `cd web && bun run test:run src/modules/dashboard/contract/quick-actions.test.ts src/modules/dashboard/pages/index.test.ts src/modules/system-config/pages/list/index.test.ts src/shared/schema-form/config-schema.test.ts scripts/check-i18n-governance.test.ts`
+  - `cd web && bun run check`

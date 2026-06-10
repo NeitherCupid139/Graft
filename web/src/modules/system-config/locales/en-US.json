@@ -122,17 +122,9 @@
       "auditLogRetention": "Manage Audit Log Cleanup Retention and Batch Policy."
     },
     "items": {
-      "dashboardQuickActionsEnabled": {
-        "title": "Enabled",
-        "description": "Controls Whether Personalized Dashboard Quick Actions Are Shown."
-      },
-      "dashboardQuickActionsMaxItems": {
-        "title": "Maximum Items",
-        "description": "Maximum Personalized Entries Shown on the Dashboard Home Page."
-      },
-      "dashboardQuickActionsStrategy": {
-        "title": "Ranking Strategy",
-        "description": "Personalized Quick Action Ranking Strategy."
+      "dashboardQuickActions": {
+        "title": "Dashboard Quick Actions",
+        "description": "Dashboard Home Quick-Action Visibility and Ranking Defaults."
       },
       "accessLogRetentionCleanup": {
         "title": "Access Log Retention Cleanup",
@@ -216,11 +208,13 @@
           }
         },
         "display": {
-          "show_read_days": {
+          "title": "Notification Display",
+          "description": "Notification Center Display Defaults.",
+          "showReadDays": {
             "title": "Show Read Days",
             "description": "Default time window for showing read notifications."
           },
-          "popup_limit": {
+          "popupLimit": {
             "title": "Popup Limit",
             "description": "Maximum notifications displayed by the notification bell popup."
           }
@@ -235,6 +229,20 @@
       "batchSize": {
         "title": "Batch Size",
         "description": "Maximum Rows Deleted per Cleanup Batch."
+      },
+      "dashboardQuickActions": {
+        "enabled": {
+          "title": "Enabled",
+          "description": "Controls Whether Personalized Dashboard Quick Actions Are Shown."
+        },
+        "maxItems": {
+          "title": "Maximum Items",
+          "description": "Maximum Personalized Entries Shown on the Dashboard Home Page."
+        },
+        "strategy": {
+          "title": "Ranking Strategy",
+          "description": "Personalized Quick Action Ranking Strategy."
+        }
       }
     },
     "units": {

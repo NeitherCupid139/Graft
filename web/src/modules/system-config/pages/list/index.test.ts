@@ -42,12 +42,14 @@ const translations = vi.hoisted(
     'systemConfig.items.appLogRetentionCleanup.title': '应用日志保留清理',
     'systemConfig.items.accessLogRetentionCleanup.description': '访问日志保留清理任务的默认配置。',
     'systemConfig.items.accessLogRetentionCleanup.title': '访问日志保留清理',
-    'systemConfig.items.dashboardQuickActionsEnabled.description': '控制工作台首页是否展示个性化快捷入口。',
-    'systemConfig.items.dashboardQuickActionsEnabled.title': '是否启用',
-    'systemConfig.items.dashboardQuickActionsMaxItems.description': '工作台首页默认展示的个性化入口数量。',
-    'systemConfig.items.dashboardQuickActionsMaxItems.title': '最大数量',
-    'systemConfig.items.dashboardQuickActionsStrategy.description': '个性化快捷入口的推荐排序策略。',
-    'systemConfig.items.dashboardQuickActionsStrategy.title': '排序策略',
+    'systemConfig.items.dashboardQuickActions.description': '工作台首页快捷入口的显示与排序默认配置。',
+    'systemConfig.items.dashboardQuickActions.title': '工作台快捷入口',
+    'systemConfig.fields.dashboardQuickActions.enabled.description': '控制工作台首页是否展示个性化快捷入口。',
+    'systemConfig.fields.dashboardQuickActions.enabled.title': '是否启用',
+    'systemConfig.fields.dashboardQuickActions.maxItems.description': '工作台首页默认展示的个性化入口数量。',
+    'systemConfig.fields.dashboardQuickActions.maxItems.title': '最大数量',
+    'systemConfig.fields.dashboardQuickActions.strategy.description': '个性化快捷入口的推荐排序策略。',
+    'systemConfig.fields.dashboardQuickActions.strategy.title': '排序策略',
     'systemConfig.notification.notification.enabled.description': '是否启用站内通知功能。',
     'systemConfig.notification.notification.enabled.title': '启用通知',
     'systemConfig.notification.notification.retention_days.description': '通知记录的默认保留天数。',
@@ -182,7 +184,7 @@ describe('system config list page', () => {
     expect(wrapper.text()).toContain('工作台配置');
     expect(wrapper.text()).toContain('工作台快捷入口');
     expect(wrapper.text()).toContain('管理首页快捷入口的显示与排序策略。');
-    expect(wrapper.text()).toContain('3 个配置项');
+    expect(wrapper.text()).toContain('1 个配置项');
     expect(wrapper.text()).toContain('0 个覆盖值');
     expect(wrapper.text()).toContain('是否启用');
     expect(wrapper.text()).toContain('最大数量');
@@ -204,16 +206,15 @@ describe('system config list page', () => {
     expect(wrapper.text()).toContain('无覆盖值');
     expect(wrapper.text()).toContain('高级信息');
     expect(wrapper.text()).not.toContain('技术标识');
-    expect(wrapper.text()).not.toContain('dashboard.quick_actions.enabled');
+    expect(wrapper.text()).not.toContain('dashboard.quick_actions');
     expect(wrapper.findAll('button').some((button) => button.text() === '重置')).toBe(false);
     expect(wrapper.text()).not.toContain('生效值');
     expect(wrapper.text()).not.toContain('Dashboard Quick Actions');
-    expect(wrapper.text()).not.toContain('1 项');
     expect(wrapper.text()).not.toContain('core / dashboard.quick_actions');
 
     await toggleFirstCollapsePanel(wrapper, '高级信息');
     expect(wrapper.text()).toContain('技术标识');
-    expect(wrapper.text()).toContain('dashboard.quick_actions.enabled');
+    expect(wrapper.text()).toContain('dashboard.quick_actions');
     expect(wrapper.text()).toContain('当前 JSON');
     expect(wrapper.text()).toContain('默认 JSON');
     expect(wrapper.text()).toContain('Schema 摘要');
@@ -221,7 +222,8 @@ describe('system config list page', () => {
     await wrapper.find('button[data-test-id="edit-button"]').trigger('click');
     await flushPromises();
 
-    expect(wrapper.text()).toContain('编辑：是否启用');
+    expect(wrapper.text()).toContain('编辑：工作台快捷入口');
+    expect(wrapper.text()).toContain('是否启用');
     expect(wrapper.text()).toContain('配置预览 JSON');
   });
 
@@ -411,13 +413,13 @@ describe('system config list page', () => {
     const wrapper = mountPage();
     await flushPromises();
 
-    await wrapper.findAll('button[data-test-id="edit-button"]')[1].trigger('click');
+    await wrapper.find('button[data-test-id="edit-button"]').trigger('click');
     await flushPromises();
 
     expect(wrapper.find('[data-testid="config-editor-dialog"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="config-editor-drawer"]').exists()).toBe(false);
     expect(wrapper.find('[data-test-id="schema-number"]').exists()).toBe(true);
-    expect(wrapper.text()).toContain('编辑：最大数量');
+    expect(wrapper.text()).toContain('编辑：工作台快捷入口');
     expect(wrapper.text()).toContain('最大数量');
     expect(wrapper.text()).toContain('工作台首页默认展示的个性化入口数量。');
     expect(wrapper.text()).not.toContain('Maximum quick actions');
@@ -445,7 +447,7 @@ describe('system config list page', () => {
     await flushPromises();
 
     expect(wrapper.findAll('[data-tree-node="group"]').map((node) => node.text())).toEqual([
-      '工作台快捷入口3 个配置项',
+      '工作台快捷入口1 个配置项',
     ]);
     expect(wrapper.find('.system-config-content__head').text()).toContain('工作台快捷入口');
   });
@@ -970,81 +972,75 @@ function systemConfigItem() {
 function dashboardQuickActionItems() {
   return [
     dashboardQuickActionItem({
-      key: 'dashboard.quick_actions.enabled',
-      titleKey: 'systemConfig.items.dashboardQuickActionsEnabled.title',
-      title: 'Dashboard quick actions enabled',
-      descriptionKey: 'systemConfig.items.dashboardQuickActionsEnabled.description',
-      description: 'Controls whether personalized dashboard quick actions are shown.',
-      type: 'boolean',
+      key: 'dashboard.quick_actions',
+      titleKey: 'systemConfig.items.dashboardQuickActions.title',
+      title: 'Dashboard quick actions',
+      descriptionKey: 'systemConfig.items.dashboardQuickActions.description',
+      description: 'Dashboard home quick-action visibility and ranking defaults.',
+      type: 'object',
       configSchema: {
-        type: 'boolean',
-        'x-i18n': {
-          titleKey: 'systemConfig.items.dashboardQuickActionsEnabled.title',
-          descriptionKey: 'systemConfig.items.dashboardQuickActionsEnabled.description',
-        },
-      },
-      defaultValue: 'true',
-      effectiveValue: 'true',
-      order: 120,
-    }),
-    dashboardQuickActionItem({
-      key: 'dashboard.quick_actions.max_items',
-      titleKey: 'systemConfig.items.dashboardQuickActionsMaxItems.title',
-      title: 'Dashboard quick actions maximum items',
-      descriptionKey: 'systemConfig.items.dashboardQuickActionsMaxItems.description',
-      description: 'Maximum personalized entries shown on the dashboard home page.',
-      type: 'integer',
-      configSchema: {
-        type: 'integer',
-        minimum: 1,
-        maximum: 24,
-        default: 8,
-        title: 'Maximum quick actions',
-        description: 'Maximum personalized entries shown on the dashboard home page.',
-        'x-i18n': {
-          titleKey: 'systemConfig.items.dashboardQuickActionsMaxItems.title',
-          descriptionKey: 'systemConfig.items.dashboardQuickActionsMaxItems.description',
-        },
-      },
-      defaultValue: '8',
-      effectiveValue: '8',
-      order: 121,
-    }),
-    dashboardQuickActionItem({
-      key: 'dashboard.quick_actions.strategy',
-      titleKey: 'systemConfig.items.dashboardQuickActionsStrategy.title',
-      title: 'Dashboard quick actions ranking strategy',
-      descriptionKey: 'systemConfig.items.dashboardQuickActionsStrategy.description',
-      description: 'Personalized quick action ranking strategy.',
-      type: 'string',
-      configSchema: {
-        type: 'string',
-        enum: ['most_used', 'recent', 'hybrid'],
-        default: 'hybrid',
-        title: 'Quick action strategy',
-        description: 'Personalized quick action ranking strategy.',
-        'x-i18n': {
-          titleKey: 'systemConfig.items.dashboardQuickActionsStrategy.title',
-          descriptionKey: 'systemConfig.items.dashboardQuickActionsStrategy.description',
-          enumLabels: {
-            most_used: {
-              labelKey: 'systemConfig.options.dashboardQuickActionStrategy.mostUsed',
-              descriptionKey: 'systemConfig.options.dashboardQuickActionStrategyDescriptions.mostUsed',
+        type: 'object',
+        title: 'Dashboard quick actions',
+        description: 'Dashboard home quick-action visibility and ranking defaults.',
+        properties: {
+          enabled: {
+            type: 'boolean',
+            default: true,
+            title: 'Enabled',
+            description: 'Controls whether personalized dashboard quick actions are shown.',
+            'x-i18n': {
+              titleKey: 'systemConfig.fields.dashboardQuickActions.enabled.title',
+              descriptionKey: 'systemConfig.fields.dashboardQuickActions.enabled.description',
             },
-            recent: {
-              labelKey: 'systemConfig.options.dashboardQuickActionStrategy.recent',
-              descriptionKey: 'systemConfig.options.dashboardQuickActionStrategyDescriptions.recent',
+          },
+          maxItems: {
+            type: 'integer',
+            minimum: 1,
+            maximum: 24,
+            default: 4,
+            title: 'Maximum quick actions',
+            description: 'Maximum personalized entries shown on the dashboard home page.',
+            'x-i18n': {
+              titleKey: 'systemConfig.fields.dashboardQuickActions.maxItems.title',
+              descriptionKey: 'systemConfig.fields.dashboardQuickActions.maxItems.description',
             },
-            hybrid: {
-              labelKey: 'systemConfig.options.dashboardQuickActionStrategy.hybrid',
-              descriptionKey: 'systemConfig.options.dashboardQuickActionStrategyDescriptions.hybrid',
+          },
+          strategy: {
+            type: 'string',
+            enum: ['most_used', 'recent', 'hybrid'],
+            default: 'hybrid',
+            title: 'Quick action strategy',
+            description: 'Personalized quick action ranking strategy.',
+            'x-i18n': {
+              titleKey: 'systemConfig.fields.dashboardQuickActions.strategy.title',
+              descriptionKey: 'systemConfig.fields.dashboardQuickActions.strategy.description',
+              enumLabels: {
+                most_used: {
+                  labelKey: 'systemConfig.options.dashboardQuickActionStrategy.mostUsed',
+                  descriptionKey: 'systemConfig.options.dashboardQuickActionStrategyDescriptions.mostUsed',
+                },
+                recent: {
+                  labelKey: 'systemConfig.options.dashboardQuickActionStrategy.recent',
+                  descriptionKey: 'systemConfig.options.dashboardQuickActionStrategyDescriptions.recent',
+                },
+                hybrid: {
+                  labelKey: 'systemConfig.options.dashboardQuickActionStrategy.hybrid',
+                  descriptionKey: 'systemConfig.options.dashboardQuickActionStrategyDescriptions.hybrid',
+                },
+              },
             },
           },
         },
+        required: ['enabled', 'maxItems', 'strategy'],
+        additionalProperties: false,
+        'x-i18n': {
+          titleKey: 'systemConfig.items.dashboardQuickActions.title',
+          descriptionKey: 'systemConfig.items.dashboardQuickActions.description',
+        },
       },
-      defaultValue: '"hybrid"',
-      effectiveValue: '"hybrid"',
-      order: 122,
+      defaultValue: '{"enabled":true,"maxItems":4,"strategy":"hybrid"}',
+      effectiveValue: '{"enabled":true,"maxItems":4,"strategy":"hybrid"}',
+      order: 120,
     }),
   ];
 }

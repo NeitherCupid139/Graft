@@ -12,7 +12,7 @@ Convert the System Config exploration and planning discussion into durable repos
 - [x] Phase 1 implementation slice: UI consistency without backend model changes.
 - [x] Phase 2 implementation slice: front-end renderer extraction.
 - [x] Phase 3 backend registry/OpenAPI enhancement.
-- [ ] Later implementation slice: Phase 4 typical config migration.
+- [x] Phase 4 typical config migration.
 - [ ] Later implementation slice: Phase 5 validation and screenshot acceptance.
 
 ## Authority Discovery
@@ -32,14 +32,15 @@ Convert the System Config exploration and planning discussion into durable repos
 
 ## Latest Validation
 
-- Phase 3 backend registry/OpenAPI enhancement slice.
+- Phase 4 typical config migration slice.
 - Ran validation:
-  - `cd server && go test ./internal/scheduler ./internal/configregistry ./modules/system-config`
+  - `cd server && go test ./internal/dashboard ./modules/notification ./internal/configregistry ./modules/system-config`
   - `cd server && go run ./cmd/graft validate backend --stage lint`
-- OpenAPI source and generated artifacts were not changed because Phase 3 did not add the optional derived `fields`
-  response view.
+  - `cd web && bun run test:run src/modules/dashboard/contract/quick-actions.test.ts src/modules/dashboard/pages/index.test.ts src/modules/system-config/pages/list/index.test.ts src/shared/schema-form/config-schema.test.ts scripts/check-i18n-governance.test.ts`
+  - `cd web && bun run check`
+- OpenAPI source and generated artifacts were not changed because Phase 4 changed registered key/schema values, not the
+  System Config wire-contract shape.
 
 ## Next Step
 
-Start Phase 4 typical config migration as the next separate slice after Phase 3 backend validation and
-outer-orchestrator commit acceptance.
+Start Phase 5 validation and archive-readiness after Phase 4 outer-orchestrator commit acceptance.
