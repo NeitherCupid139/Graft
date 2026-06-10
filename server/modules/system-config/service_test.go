@@ -107,7 +107,7 @@ func TestServiceResolveDefaultConfigRejectsSensitiveDefinitions(t *testing.T) {
 	}
 }
 
-func TestServiceResolveBooleanConfigUsesEffectiveValueAndFallback(t *testing.T) {
+func TestServiceIsBooleanConfigEnabledUsesEffectiveValueAndFallback(t *testing.T) {
 	service := newTestService(t, configregistry.Definition{
 		Key:          "notification.enabled",
 		Module:       "notification",
@@ -118,16 +118,16 @@ func TestServiceResolveBooleanConfigUsesEffectiveValueAndFallback(t *testing.T) 
 		DefaultValue: json.RawMessage(`true`),
 	})
 
-	if got := service.ResolveBooleanConfig(context.Background(), "notification.enabled", false); !got {
+	if got := service.IsBooleanConfigEnabled(context.Background(), "notification.enabled", false); !got {
 		t.Fatalf("expected boolean default true")
 	}
 	if _, err := service.Update(context.Background(), "notification.enabled", json.RawMessage(`false`), nil); err != nil {
 		t.Fatalf("update boolean config: %v", err)
 	}
-	if got := service.ResolveBooleanConfig(context.Background(), "notification.enabled", true); got {
+	if got := service.IsBooleanConfigEnabled(context.Background(), "notification.enabled", true); got {
 		t.Fatalf("expected boolean override false")
 	}
-	if got := service.ResolveBooleanConfig(context.Background(), "missing.key", true); !got {
+	if got := service.IsBooleanConfigEnabled(context.Background(), "missing.key", true); !got {
 		t.Fatalf("expected missing boolean config to use fallback")
 	}
 }

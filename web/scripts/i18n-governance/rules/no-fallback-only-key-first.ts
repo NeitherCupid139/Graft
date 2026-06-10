@@ -33,8 +33,22 @@ function shouldScanServerKeyFirstFile(filePath: string) {
 
 function hasKeyNearby(source: string, start: number, pair: Pair) {
   const window = source.slice(Math.max(0, start - 500), Math.min(source.length, start + 500));
-  const keyPattern = new RegExp(`\\b${pair.key}\\s*:\\s*(?:"[^"]+"|[A-Za-z_][\\w.()]*)`);
+  const keyPattern = new RegExp(`(?:"${pair.key}"|\\b${pair.key})\\s*:\\s*(?:"[^"]+"|[A-Za-z_][\\w.()]*)`);
   return keyPattern.test(window);
+}
+
+function pairForLowercaseFallback(field: string): Pair {
+  return {
+    fallback: field,
+    key:
+      field === 'title'
+        ? 'title_key'
+        : field === 'description'
+          ? 'description_key'
+          : field === 'message'
+            ? 'message_key'
+            : 'display_key',
+  };
 }
 
 function addFallbackOnlyViolation(
@@ -79,15 +93,10 @@ function collectGoFallbackOnly(file: SourceFile, strict: boolean): RuleViolation
     const quoteIndex = (match.index ?? 0) + match[0].length - 1;
     const parsed = parseStringLiteral(source, quoteIndex);
     if (!parsed) continue;
-    addFallbackOnlyViolation(
-      violations,
-      file,
-      quoteIndex,
-      match[0].split(':')[0]?.trim() ?? 'fallback',
-      'matching key field',
-      parsed.value,
-      strict,
-    );
+    const field = match[0].split(':')[0]?.trim() ?? 'fallback';
+    const pair = pairForLowercaseFallback(field);
+    if (hasKeyNearby(source, quoteIndex, pair)) continue;
+    addFallbackOnlyViolation(violations, file, quoteIndex, pair.fallback, pair.key, parsed.value, strict);
   }
 
   return violations;

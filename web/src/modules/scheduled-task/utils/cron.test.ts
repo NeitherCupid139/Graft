@@ -169,4 +169,8 @@ describe('scheduled-task cron utility', () => {
     expect(getCronDescription('0 30 17 * * *', 'zh-CN')).toContain('17:30');
     expect(getCronDescription('0 0 17 * * *', 'en-US', { translate })).toBe('scheduledTask.cronDescription.daily:17:');
   });
+
+  it('preserves zh-CN daily wording and normalizes commas after polishing cron descriptions', () => {
+    expect(getCronDescription('0 15 17 * * *', 'zh-CN')).toBe('在17:15，每天');
+  });
 });

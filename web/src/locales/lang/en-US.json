@@ -8,7 +8,8 @@
   "components": {
     "commonTable": {
       "operation": "Operation",
-      "detail": "Detail"
+      "detail": "Detail",
+      "more": "More"
     }
   },
   "layout": {

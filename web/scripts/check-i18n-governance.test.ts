@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -12,7 +12,7 @@ const tempRoots: string[] = [];
 const FIXTURE_DIR = join(process.cwd(), 'scripts/i18n-governance/fixtures');
 
 function createTempWebRoot(source: string) {
-  const repoRoot = join(tmpdir(), `graft-i18n-governance-${process.pid}-${tempRoots.length}`);
+  const repoRoot = mkdtempSync(join(tmpdir(), 'graft-i18n-governance-'));
   const root = join(repoRoot, 'web');
   tempRoots.push(repoRoot);
 
@@ -55,7 +55,7 @@ async function runGovernanceScript(source: string) {
 }
 
 async function runGovernanceScriptWithFixture(fixtureName: string, env: Record<string, string> = {}) {
-  const repoRoot = join(tmpdir(), `graft-i18n-governance-fixture-${process.pid}-${tempRoots.length}`);
+  const repoRoot = mkdtempSync(join(tmpdir(), 'graft-i18n-governance-fixture-'));
   const root = join(repoRoot, 'web');
   tempRoots.push(repoRoot);
 

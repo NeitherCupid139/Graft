@@ -11,10 +11,13 @@ export type ParsedString = {
 
 export function normalizeText(value: string): string {
   return value
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
+    .replace(/&(nbsp|lt|gt|amp);/gi, (_, entity: string) => {
+      const normalizedEntity = entity.toLowerCase();
+      if (normalizedEntity === 'nbsp') return ' ';
+      if (normalizedEntity === 'lt') return '<';
+      if (normalizedEntity === 'gt') return '>';
+      return '&';
+    })
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -28,7 +31,44 @@ export function hasCjk(value: string): boolean {
 }
 
 export function isLikelyI18nKey(value: string): boolean {
-  return /^[a-z][a-zA-Z0-9]*(?:[.-][a-zA-Z0-9][\w-]*)+$/.test(value);
+  if (!value || !isAsciiLowercase(value[0])) return false;
+
+  let segmentStart = 0;
+  let hasSeparator = false;
+
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index];
+
+    if (char === '.' || char === '-') {
+      if (index === 0 || index === value.length - 1 || !isAsciiAlphanumeric(value[index + 1])) return false;
+      hasSeparator = true;
+      segmentStart = index + 1;
+      continue;
+    }
+
+    if (index === segmentStart) {
+      if (segmentStart === 0 ? !isAsciiAlphanumeric(char) : !isAsciiAlphanumeric(char)) return false;
+      continue;
+    }
+
+    if (segmentStart === 0 ? !isAsciiAlphanumeric(char) : !isAsciiWord(char)) return false;
+  }
+
+  return hasSeparator;
+}
+
+function isAsciiLowercase(char: string): boolean {
+  const code = char.charCodeAt(0);
+  return code >= 97 && code <= 122;
+}
+
+function isAsciiAlphanumeric(char: string): boolean {
+  const code = char.charCodeAt(0);
+  return (code >= 48 && code <= 57) || (code >= 65 && code <= 90) || (code >= 97 && code <= 122);
+}
+
+function isAsciiWord(char: string): boolean {
+  return isAsciiAlphanumeric(char) || char === '_';
 }
 
 export function isTechnicalString(value: string): boolean {

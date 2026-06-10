@@ -63,15 +63,6 @@ type ConfigResolver interface {
 	Boolean(ctx context.Context, key string, fallback bool) bool
 }
 
-type configResolverFunc func(context.Context, string, bool) bool
-
-func (f configResolverFunc) Boolean(ctx context.Context, key string, fallback bool) bool {
-	if f == nil {
-		return fallback
-	}
-	return f(ctx, key, fallback)
-}
-
 func registerNotificationConfig(localizer *i18n.Service, registry *configregistry.Registry) error {
 	if err := registerNotificationConfigMessages(localizer); err != nil {
 		return err

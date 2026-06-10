@@ -541,7 +541,9 @@ function polishCronDescription(description: string, expression: string, locale: 
 
   const dailyTime = parseSimpleDailyCronTime(expression);
   if (dailyTime && /每天/.test(description) && /在\s*\d{1,2}:\d{2}/.test(description)) {
-    return description.replace(/在\s*\d{1,2}:\d{2}/, formatCronClockTime(dailyTime.hour, dailyTime.minute));
+    return description
+      .replace(/\d{1,2}:\d{2}/, formatCronClockTime(dailyTime.hour, dailyTime.minute))
+      .replace(/,\s*/g, '，');
   }
 
   return description.replace(/,\s*/g, '，');

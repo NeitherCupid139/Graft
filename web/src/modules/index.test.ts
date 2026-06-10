@@ -115,6 +115,40 @@ describe('module registration aggregation', () => {
     );
   });
 
+  it('rejects stable route name collisions across bootstrap and global registrations', () => {
+    const duplicateCrossRegistryRegistrations: WebModuleRegistration[] = [
+      {
+        moduleId: 'notification',
+        bootstrapRoutes: [],
+        globalRoutes: [
+          {
+            path: '/notifications',
+            routeName: 'NotificationList',
+            loadPage: async () => ({}),
+            meta: {},
+          },
+        ],
+      },
+      {
+        moduleId: 'audit',
+        bootstrapRoutes: [
+          {
+            menuPath: '/audit/overview',
+            routeName: 'NotificationList',
+            loadPage: async () => ({}),
+          },
+        ],
+      },
+    ];
+
+    expect(() => buildBootstrapRouteRegistrationMap(duplicateCrossRegistryRegistrations)).toThrow(
+      /duplicate bootstrap route name \(parent\)/,
+    );
+    expect(() => buildGlobalRouteRegistrations(duplicateCrossRegistryRegistrations)).toThrow(
+      /duplicate bootstrap route name \(parent\)/,
+    );
+  });
+
   it('only treats directories with bootstrap route declarations as web modules', () => {
     expect(
       resolveModuleRegistrationModulePaths(
@@ -242,5 +276,14 @@ describe('module registration aggregation', () => {
     expect(() => buildGlobalRouteRegistrations(duplicateGlobalChildNameRegistrations)).toThrow(
       /duplicate bootstrap route name \(child\)/,
     );
+  });
+
+  it('returns defensive copies of global route registrations', () => {
+    const firstRoutes = getGlobalRouteRegistrations();
+    const originalLength = firstRoutes.length;
+
+    firstRoutes.pop();
+
+    expect(getGlobalRouteRegistrations()).toHaveLength(originalLength);
   });
 });

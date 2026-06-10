@@ -8,7 +8,8 @@
   "components": {
     "commonTable": {
       "operation": "操作",
-      "detail": "详情"
+      "detail": "详情",
+      "more": "更多"
     }
   },
   "layout": {

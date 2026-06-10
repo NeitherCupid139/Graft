@@ -48,11 +48,16 @@ func (p *Publisher) setRBACAccessService(rbac moduleapi.RBACAccessService) error
 	return nil
 }
 
-func (p *Publisher) setConfigResolver(resolver ConfigResolver) {
-	if p == nil || resolver == nil {
-		return
+func (p *Publisher) setConfigResolver(resolver ConfigResolver) error {
+	if p == nil {
+		return errors.New("notification publisher is unavailable")
 	}
+	if resolver == nil {
+		return errors.New("notification config resolver is required")
+	}
+
 	p.config = resolver
+	return nil
 }
 
 // Publish validates, persists, and fans out one notification event.

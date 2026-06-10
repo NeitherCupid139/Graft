@@ -11,6 +11,8 @@ type WebModuleBootstrapRoutesModule = {
   [key: string]: unknown;
 };
 
+type StableRouteNameRegistry = Map<string, string>;
+
 const moduleRegistrationModules = import.meta.glob<WebModuleRegistrationModule>('./*/index.ts', {
   eager: true,
 });
@@ -56,13 +58,17 @@ function isWebModuleRegistration(value: unknown): value is WebModuleRegistration
 }
 
 function isGlobalRouteRegistration(value: unknown): value is GlobalRouteRegistration {
+  const meta = (value as Partial<GlobalRouteRegistration> | null)?.meta;
+
   return Boolean(
     value &&
     typeof value === 'object' &&
     typeof (value as Partial<GlobalRouteRegistration>).path === 'string' &&
     typeof (value as Partial<GlobalRouteRegistration>).routeName === 'string' &&
     typeof (value as Partial<GlobalRouteRegistration>).loadPage === 'function' &&
-    Boolean((value as Partial<GlobalRouteRegistration>).meta),
+    meta &&
+    typeof meta === 'object' &&
+    !Array.isArray(meta),
   );
 }
 
@@ -90,7 +96,7 @@ function loadModuleRegistrations() {
 }
 
 function registerStableRouteName(
-  routeNameRegistry: Map<string, string>,
+  routeNameRegistry: StableRouteNameRegistry,
   routeName: string,
   owner: string,
   source: 'parent' | 'child',
@@ -103,13 +109,13 @@ function registerStableRouteName(
   routeNameRegistry.set(routeName, owner);
 }
 
-function registerStableRouteNamePair(routeNameRegistry: Map<string, string>, routeName: string, owner: string) {
+function registerStableRouteNamePair(routeNameRegistry: StableRouteNameRegistry, routeName: string, owner: string) {
   registerStableRouteName(routeNameRegistry, routeName, owner, 'parent');
   registerStableRouteName(routeNameRegistry, `${routeName}Index`, owner, 'child');
 }
 
 function registerModuleStableRouteNames(
-  routeNameRegistry: Map<string, string>,
+  routeNameRegistry: StableRouteNameRegistry,
   moduleRegistration: WebModuleRegistration,
 ) {
   for (const routeRegistration of moduleRegistration.bootstrapRoutes) {
@@ -129,13 +135,20 @@ function registerModuleStableRouteNames(
   }
 }
 
-export function buildBootstrapRouteRegistrationMap(registrations: WebModuleRegistration[]) {
-  const bootstrapRouteRegistrationMap = new Map<string, BootstrapRouteRegistration>();
+function buildStableRouteNameRegistry(registrations: WebModuleRegistration[]) {
   const stableRouteNameRegistry = new Map<string, string>();
 
   for (const moduleRegistration of registrations) {
     registerModuleStableRouteNames(stableRouteNameRegistry, moduleRegistration);
+  }
 
+  return stableRouteNameRegistry;
+}
+
+function collectBootstrapRouteRegistrationMap(registrations: WebModuleRegistration[]) {
+  const bootstrapRouteRegistrationMap = new Map<string, BootstrapRouteRegistration>();
+
+  for (const moduleRegistration of registrations) {
     for (const routeRegistration of moduleRegistration.bootstrapRoutes) {
       if (bootstrapRouteRegistrationMap.has(routeRegistration.menuPath)) {
         throw new Error(`duplicate bootstrap route registration: ${routeRegistration.menuPath}`);
@@ -148,14 +161,16 @@ export function buildBootstrapRouteRegistrationMap(registrations: WebModuleRegis
   return bootstrapRouteRegistrationMap;
 }
 
-export function buildGlobalRouteRegistrations(registrations: WebModuleRegistration[]) {
+export function buildBootstrapRouteRegistrationMap(registrations: WebModuleRegistration[]) {
+  buildStableRouteNameRegistry(registrations);
+  return collectBootstrapRouteRegistrationMap(registrations);
+}
+
+function collectGlobalRouteRegistrations(registrations: WebModuleRegistration[]) {
   const globalRouteRegistrations: GlobalRouteRegistration[] = [];
-  const stableRouteNameRegistry = new Map<string, string>();
   const stablePathRegistry = new Map<string, string>();
 
   for (const moduleRegistration of registrations) {
-    registerModuleStableRouteNames(stableRouteNameRegistry, moduleRegistration);
-
     for (const routeRegistration of moduleRegistration.globalRoutes ?? []) {
       const owner = `${moduleRegistration.moduleId}:${routeRegistration.path}`;
       const existingOwner = stablePathRegistry.get(routeRegistration.path);
@@ -171,14 +186,27 @@ export function buildGlobalRouteRegistrations(registrations: WebModuleRegistrati
   return globalRouteRegistrations;
 }
 
+export function buildGlobalRouteRegistrations(registrations: WebModuleRegistration[]) {
+  buildStableRouteNameRegistry(registrations);
+  return collectGlobalRouteRegistrations(registrations);
+}
+
+function buildModuleRouteRegistries(registrations: WebModuleRegistration[]) {
+  buildStableRouteNameRegistry(registrations);
+
+  return {
+    bootstrapRouteRegistrationMap: collectBootstrapRouteRegistrationMap(registrations),
+    globalRouteRegistrations: collectGlobalRouteRegistrations(registrations),
+  };
+}
+
 const moduleRegistrations = loadModuleRegistrations();
-const bootstrapRouteRegistrationMap = buildBootstrapRouteRegistrationMap(moduleRegistrations);
-const globalRouteRegistrations = buildGlobalRouteRegistrations(moduleRegistrations);
+const { bootstrapRouteRegistrationMap, globalRouteRegistrations } = buildModuleRouteRegistries(moduleRegistrations);
 
 export function getBootstrapRouteRegistration(menuPath: string) {
   return bootstrapRouteRegistrationMap.get(menuPath);
 }
 
 export function getGlobalRouteRegistrations() {
-  return globalRouteRegistrations;
+  return [...globalRouteRegistrations];
 }

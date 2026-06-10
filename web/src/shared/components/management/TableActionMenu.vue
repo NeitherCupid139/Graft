@@ -25,6 +25,7 @@
 </template>
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 
 type ActionOption = {
   disabled?: boolean;
@@ -42,7 +43,7 @@ const props = withDefaults(
   }>(),
   {
     moreLabel: '',
-    moreLabelFallback: '',
+    moreLabelFallback: 'components.commonTable.more',
   },
 );
 
@@ -51,10 +52,16 @@ const emit = defineEmits<{
 }>();
 
 const I18N_KEY_PATTERN = /^[a-z][\w-]*(\.[A-Za-z0-9_-]+)+$/;
+const { t } = useI18n();
 
 function resolveLabel(label: string, fallbackLabel?: string) {
   if (!label || I18N_KEY_PATTERN.test(label)) {
-    return fallbackLabel ?? label;
+    const fallback = fallbackLabel ?? label;
+    if (I18N_KEY_PATTERN.test(fallback)) {
+      return t(fallback);
+    }
+
+    return fallback;
   }
 
   return label;

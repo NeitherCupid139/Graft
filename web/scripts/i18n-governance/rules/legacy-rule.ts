@@ -3,17 +3,19 @@
 
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
+import {
+  EXCLUDED_DIRS,
+  KNOWN_NON_I18N_NAMES,
+  REPOSITORY_DIR,
+  ROOT_DIR,
+  SCANNED_EXTENSIONS,
+  SERVER_KEY_DIRS,
+  SRC_DIR,
+  TECHNICAL_UNITS,
+} from '../config';
 import type { RuleViolation } from '../types';
 
-const ROOT_DIR = fileURLToPath(new URL('../../..', import.meta.url));
-const REPOSITORY_DIR = fileURLToPath(new URL('../../../..', import.meta.url));
-const SRC_DIR = join(ROOT_DIR, 'src');
-const SERVER_TITLE_KEY_DIRS = [join(REPOSITORY_DIR, 'server/internal'), join(REPOSITORY_DIR, 'server/modules')];
-
-const SCANNED_EXTENSIONS = new Set(['.vue', '.ts', '.tsx']);
-const EXCLUDED_DIRS = new Set(['node_modules', 'dist', 'coverage', 'mock', '__mocks__', 'ai-libs']);
 const UI_COPY_FIELDS = new Set([
   'label',
   'title',
@@ -25,31 +27,6 @@ const UI_COPY_FIELDS = new Set([
   'text',
   'message',
 ]);
-const KNOWN_NON_I18N_NAMES = new Set([
-  'Axios',
-  'Bun',
-  'Casbin',
-  'Ent',
-  'Gin',
-  'Go',
-  'Graft',
-  'HarmonyOS Sans',
-  'Inter',
-  'Pinia',
-  'PostgreSQL',
-  'Redis',
-  'Source Han Sans',
-  'TDesign',
-  'TDesign Original',
-  'Tencent Cloud',
-  'TypeScript',
-  'UnoCSS',
-  'Vite',
-  'Vue',
-  'Zap',
-]);
-
-const TECHNICAL_UNITS = new Set(['ms', 'px', 'em', 'rem', 'vh', 'vw']);
 
 type Finding = {
   file: string;
@@ -73,8 +50,10 @@ type LocaleCatalog = {
 type RuntimeReferenceSet = {
   exactKeys: Set<string>;
   requiredKeys: Set<string>;
-  dynamicPatterns: RegExp[];
+  dynamicPatterns: TemplateKeyMatcher[];
 };
+
+type TemplateKeyMatcher = (key: string) => boolean;
 
 type ParsedString = {
   value: string;
@@ -139,10 +118,19 @@ function shouldScanFile(file: string): boolean {
 
 function normalizeText(value: string): string {
   return value
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
+    .replace(/&(nbsp|lt|gt|amp);/gi, (_, entity: string) => {
+      const normalizedEntity = entity.toLowerCase();
+      if (normalizedEntity === 'nbsp') {
+        return ' ';
+      }
+      if (normalizedEntity === 'lt') {
+        return '<';
+      }
+      if (normalizedEntity === 'gt') {
+        return '>';
+      }
+      return '&';
+    })
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -152,7 +140,52 @@ function hasVisibleLetters(value: string): boolean {
 }
 
 function isLikelyI18nKey(value: string): boolean {
-  return /^[a-z][a-zA-Z0-9]*(?:[.-][a-zA-Z0-9][\w-]*)+$/.test(value);
+  if (!value || !isAsciiLowercase(value[0])) {
+    return false;
+  }
+
+  let segmentStart = 0;
+  let hasSeparator = false;
+
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index];
+
+    if (char === '.' || char === '-') {
+      if (index === 0 || index === value.length - 1 || !isAsciiAlphanumeric(value[index + 1])) {
+        return false;
+      }
+      hasSeparator = true;
+      segmentStart = index + 1;
+      continue;
+    }
+
+    if (index === segmentStart) {
+      if (segmentStart === 0 ? !isAsciiAlphanumeric(char) : !isAsciiAlphanumeric(char)) {
+        return false;
+      }
+      continue;
+    }
+
+    if (segmentStart === 0 ? !isAsciiAlphanumeric(char) : !isAsciiWord(char)) {
+      return false;
+    }
+  }
+
+  return hasSeparator;
+}
+
+function isAsciiLowercase(char: string): boolean {
+  const code = char.charCodeAt(0);
+  return code >= 97 && code <= 122;
+}
+
+function isAsciiAlphanumeric(char: string): boolean {
+  const code = char.charCodeAt(0);
+  return (code >= 48 && code <= 57) || (code >= 65 && code <= 90) || (code >= 97 && code <= 122);
+}
+
+function isAsciiWord(char: string): boolean {
+  return isAsciiAlphanumeric(char) || char === '_';
 }
 
 function isTechnicalString(value: string): boolean {
@@ -877,11 +910,7 @@ function isAllowedUnusedLocaleKey(key: string): boolean {
   return EXTERNAL_BOOTSTRAP_KEY_ALLOWLIST.some((pattern) => pattern.test(key));
 }
 
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function buildTemplateKeyPattern(template: string): RegExp | null {
+function buildTemplateKeyMatcher(template: string): TemplateKeyMatcher | null {
   if (!template.includes('${')) {
     return null;
   }
@@ -892,16 +921,74 @@ function buildTemplateKeyPattern(template: string): RegExp | null {
     return null;
   }
 
-  return new RegExp(`^${staticParts.map((part) => escapeRegExp(part)).join('.+')}$`);
+  return (key: string) => matchesTemplateStaticParts(key, staticParts);
+}
+
+function matchesTemplateStaticParts(key: string, staticParts: string[]): boolean {
+  const firstPart = staticParts[0] ?? '';
+  const lastPart = staticParts[staticParts.length - 1] ?? '';
+
+  let lowerBound = 0;
+  if (firstPart) {
+    if (!key.startsWith(firstPart)) {
+      return false;
+    }
+    lowerBound = firstPart.length;
+  }
+
+  const finalStart = lastPart ? key.lastIndexOf(lastPart) : key.length;
+  if (lastPart && finalStart + lastPart.length !== key.length) {
+    return false;
+  }
+
+  for (let index = 1; index < staticParts.length - 1; index += 1) {
+    lowerBound += 1;
+    const part = staticParts[index];
+    if (!part) {
+      continue;
+    }
+    const partIndex = key.indexOf(part, lowerBound);
+    if (partIndex < 0 || partIndex + part.length > finalStart) {
+      return false;
+    }
+    lowerBound = partIndex + part.length;
+  }
+
+  lowerBound += 1;
+  return lastPart ? finalStart >= lowerBound : key.length >= lowerBound;
+}
+
+function collectStaticStringLiterals(source: string): string[] {
+  const literals: string[] = [];
+  let index = 0;
+
+  while (index < source.length) {
+    const char = source[index];
+    if (char !== '"' && char !== "'" && char !== '`') {
+      index += 1;
+      continue;
+    }
+
+    const parsed = parseStringLiteral(source, index);
+    if (!parsed) {
+      index += 1;
+      continue;
+    }
+    if (!parsed.hasInterpolation) {
+      literals.push(parsed.value);
+    }
+    index = parsed.endIndex;
+  }
+
+  return literals;
 }
 
 function collectRuntimeReferenceSet(): RuntimeReferenceSet {
   const referenced = new Set<string>();
   const required = new Set<string>();
-  const dynamicPatterns: RegExp[] = [];
+  const dynamicPatterns: TemplateKeyMatcher[] = [];
   const messagePrefixes = new Set<string>();
   const messagePrefixSuffixes = new Set<string>();
-  const literalPattern = /(['"`])([a-z][a-z0-9]*(?:[.-][a-zA-Z0-9][\w-]*)+)\1/g;
   const templateLiteralPattern = /`([^`]*\$\{[^`]+}[^`]*)`/g;
   const directTranslatePattern = /\b(?:t|i18n\.global\.t)\(\s*(['"`])([^'"`$]+)\1/g;
   const dynamicTranslatePattern = /\b(?:t|i18n\.global\.t)\(\s*`([^`]+)`/g;
@@ -921,16 +1008,16 @@ function collectRuntimeReferenceSet(): RuntimeReferenceSet {
     }
 
     for (const match of source.matchAll(dynamicTranslatePattern)) {
-      const pattern = buildTemplateKeyPattern(match[1]);
-      if (pattern) {
-        dynamicPatterns.push(pattern);
+      const matcher = buildTemplateKeyMatcher(match[1]);
+      if (matcher) {
+        dynamicPatterns.push(matcher);
       }
     }
 
     for (const match of source.matchAll(templateLiteralPattern)) {
-      const pattern = buildTemplateKeyPattern(match[1]);
-      if (pattern) {
-        dynamicPatterns.push(pattern);
+      const matcher = buildTemplateKeyMatcher(match[1]);
+      if (matcher) {
+        dynamicPatterns.push(matcher);
       }
     }
 
@@ -947,8 +1034,7 @@ function collectRuntimeReferenceSet(): RuntimeReferenceSet {
       messagePrefixSuffixes.add(match[1]);
     }
 
-    for (const match of source.matchAll(literalPattern)) {
-      const value = match[2];
+    for (const value of collectStaticStringLiterals(source)) {
       if (isLikelyI18nKey(value)) {
         referenced.add(value);
       }
@@ -1013,7 +1099,7 @@ function collectServerI18nKeys(): Set<string> {
   const serverSQLAliasKeyPattern =
     /['"]([^'"$]+)['"]\s+(?:AS\s+)?(?:title_key|display_key|description_key|label_key|empty_key|message_key)\b/gi;
 
-  for (const dir of SERVER_TITLE_KEY_DIRS) {
+  for (const dir of SERVER_KEY_DIRS) {
     for (const filePath of walkServerI18nKeyFiles(dir)) {
       const source = preserveLineStructure(readFileSync(filePath, 'utf8'));
       const stringConstants = new Map<string, string>();
@@ -1076,7 +1162,7 @@ function collectServerI18nKeys(): Set<string> {
 function collectServerSystemConfigSchemaFallbackFindings(): LocaleFinding[] {
   const findings: LocaleFinding[] = [];
 
-  for (const dir of SERVER_TITLE_KEY_DIRS) {
+  for (const dir of SERVER_KEY_DIRS) {
     for (const filePath of walkServerI18nKeyFiles(dir)) {
       const source = preserveLineStructure(readFileSync(filePath, 'utf8'));
       const lineIndex = buildLineIndex(source);
@@ -1212,7 +1298,7 @@ function addServerI18nKey(keys: Set<string>, rawKey: string | undefined) {
 }
 
 function isRuntimeReferenced(key: string, referenceSet: RuntimeReferenceSet): boolean {
-  return referenceSet.exactKeys.has(key) || referenceSet.dynamicPatterns.some((pattern) => pattern.test(key));
+  return referenceSet.exactKeys.has(key) || referenceSet.dynamicPatterns.some((matches) => matches(key));
 }
 
 function collectUnusedKeyFindings(catalogs: LocaleCatalog[]): LocaleFinding[] {

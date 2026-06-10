@@ -5,6 +5,7 @@ package httpx
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"strconv"
 	"time"
@@ -50,7 +51,7 @@ func LoadAccessLogRequestAttentionPayload(ctx context.Context, repo AccessLogRep
 		Sorts:        []AccessLogSort{{Field: AccessLogSortOccurredAt, Order: AccessLogSortOrderDesc}},
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("load access log dashboard 4xx requests: %w", err)
 	}
 
 	serverErrorsResult, err := repo.ListAccessLogs(ctx, AccessLogListQuery{
@@ -60,7 +61,7 @@ func LoadAccessLogRequestAttentionPayload(ctx context.Context, repo AccessLogRep
 		Sorts:        []AccessLogSort{{Field: AccessLogSortOccurredAt, Order: AccessLogSortOrderDesc}},
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("load access log dashboard 5xx requests: %w", err)
 	}
 
 	slowResult, err := repo.ListAccessLogs(ctx, AccessLogListQuery{
@@ -70,7 +71,7 @@ func LoadAccessLogRequestAttentionPayload(ctx context.Context, repo AccessLogRep
 		Sorts:         []AccessLogSort{{Field: AccessLogSortDurationMS, Order: AccessLogSortOrderDesc}},
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("load access log dashboard slow requests: %w", err)
 	}
 
 	items := make([]map[string]any, 0, accessLogWidgetRecentLimit*accessLogWidgetSourceCount)

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { DropdownOption } from 'tdesign-vue-next';
-import { computed } from 'vue';
+import { computed, readonly } from 'vue';
 import type { I18nOptions } from 'vue-i18n';
 import { createI18n } from 'vue-i18n';
 
@@ -106,6 +106,6 @@ export const i18n = createI18n({
 persistCanonicalLocale(initialLocale);
 
 export const languageList = computed(() => langList);
-export const currentLocale = i18n.global.locale;
+export const currentLocale = readonly(computed(() => i18n.global.locale.value));
 export const { t } = i18n.global;
 export default i18n;
