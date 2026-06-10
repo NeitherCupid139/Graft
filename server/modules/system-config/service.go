@@ -109,6 +109,19 @@ func (s *Service) ResolveDefaultConfig(ctx context.Context, key string) (string,
 	return string(item.EffectiveValue), nil
 }
 
+// ResolveBooleanConfig returns the effective boolean value for cross-module feature gates.
+func (s *Service) ResolveBooleanConfig(ctx context.Context, key string, fallback bool) bool {
+	item, err := s.Get(ctx, key)
+	if err != nil || item.Definition.Type != configregistry.ValueTypeBoolean {
+		return fallback
+	}
+	var value bool
+	if err := json.Unmarshal(item.EffectiveValue, &value); err != nil {
+		return fallback
+	}
+	return value
+}
+
 // Update stores a user override for one registered definition key.
 func (s *Service) Update(ctx context.Context, key string, value json.RawMessage, userID *uint64) (ValueSnapshot, error) {
 	definition, ok := s.registry.Get(key)

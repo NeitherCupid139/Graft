@@ -21,6 +21,7 @@ import (
 type Publisher struct {
 	repository notificationstore.Repository
 	rbac       moduleapi.RBACAccessService
+	config     ConfigResolver
 }
 
 // NewPublisher creates a moduleapi.NotificationPublisher implementation.
@@ -47,14 +48,21 @@ func (p *Publisher) setRBACAccessService(rbac moduleapi.RBACAccessService) error
 	return nil
 }
 
+func (p *Publisher) setConfigResolver(resolver ConfigResolver) {
+	if p == nil || resolver == nil {
+		return
+	}
+	p.config = resolver
+}
+
 // Publish validates, persists, and fans out one notification event.
 func (p *Publisher) Publish(ctx context.Context, input moduleapi.PublishNotificationInput) (moduleapi.PublishNotificationResult, error) {
-	if p == nil || p.repository == nil {
-		return moduleapi.PublishNotificationResult{}, errors.New("notification publisher is unavailable")
-	}
-	normalized, err := normalizePublishInput(input)
+	normalized, enabled, err := p.preparePublish(ctx, input)
 	if err != nil {
 		return moduleapi.PublishNotificationResult{}, err
+	}
+	if !enabled {
+		return moduleapi.PublishNotificationResult{Skipped: true}, nil
 	}
 
 	recipients, err := p.resolveRecipients(ctx, normalized.Target)
@@ -112,6 +120,34 @@ func (p *Publisher) Publish(ctx context.Context, input moduleapi.PublishNotifica
 		RecipientCount: len(deliveryIDs),
 		Deduplicated:   deduplicated,
 	}, nil
+}
+
+func (p *Publisher) preparePublish(
+	ctx context.Context,
+	input moduleapi.PublishNotificationInput,
+) (moduleapi.PublishNotificationInput, bool, error) {
+	if p == nil || p.repository == nil {
+		return moduleapi.PublishNotificationInput{}, false, errors.New("notification publisher is unavailable")
+	}
+	normalized, err := normalizePublishInput(input)
+	if err != nil {
+		return moduleapi.PublishNotificationInput{}, false, err
+	}
+	return normalized, p.notificationEnabled(ctx, normalized), nil
+}
+
+func (p *Publisher) notificationEnabled(ctx context.Context, input moduleapi.PublishNotificationInput) bool {
+	if p == nil || p.config == nil {
+		return true
+	}
+	if !p.config.Boolean(ctx, notificationEnabledKey, true) {
+		return false
+	}
+	if !p.config.Boolean(ctx, notificationDeliveryInAppEnabledKey, true) {
+		return false
+	}
+	sourceKey := notificationSourceEnabledKey(input.SourceModule, input.EventType)
+	return sourceKey == "" || p.config.Boolean(ctx, sourceKey, true)
 }
 
 func normalizePublishInput(input moduleapi.PublishNotificationInput) (moduleapi.PublishNotificationInput, error) {

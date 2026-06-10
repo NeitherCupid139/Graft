@@ -4,6 +4,7 @@
 package notification
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -36,6 +37,7 @@ func (m *Module) Register(ctx *module.Context) error {
 	if err := m.bindRBACAccessService(ctx); err != nil {
 		return err
 	}
+	m.bindSystemConfigResolver(ctx)
 	if ctx.Router != nil {
 		if err := m.registerRoutes(ctx); err != nil {
 			return err
@@ -65,6 +67,23 @@ func (m *Module) bindRBACAccessService(ctx *module.Context) error {
 		return fmt.Errorf("bind rbac access service: %w", err)
 	}
 	return nil
+}
+
+func (m *Module) bindSystemConfigResolver(ctx *module.Context) {
+	if m == nil || m.publisher == nil || ctx == nil || ctx.Services == nil {
+		return
+	}
+	m.publisher.setConfigResolver(configResolverFunc(func(callCtx context.Context, key string, fallback bool) bool {
+		resolved, err := ctx.Services.Resolve((*moduleapi.SystemConfigResolver)(nil))
+		if err != nil {
+			return fallback
+		}
+		resolver, ok := resolved.(moduleapi.SystemConfigResolver)
+		if !ok || resolver == nil {
+			return fallback
+		}
+		return resolver.ResolveBooleanConfig(callCtx, key, fallback)
+	}))
 }
 
 func (m *Module) registerRoutes(ctx *module.Context) error {

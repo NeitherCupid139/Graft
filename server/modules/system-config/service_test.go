@@ -107,6 +107,31 @@ func TestServiceResolveDefaultConfigRejectsSensitiveDefinitions(t *testing.T) {
 	}
 }
 
+func TestServiceResolveBooleanConfigUsesEffectiveValueAndFallback(t *testing.T) {
+	service := newTestService(t, configregistry.Definition{
+		Key:          "notification.enabled",
+		Module:       "notification",
+		Domain:       "notification",
+		Group:        "notification.general",
+		Title:        "Notification enabled",
+		Type:         configregistry.ValueTypeBoolean,
+		DefaultValue: json.RawMessage(`true`),
+	})
+
+	if got := service.ResolveBooleanConfig(context.Background(), "notification.enabled", false); !got {
+		t.Fatalf("expected boolean default true")
+	}
+	if _, err := service.Update(context.Background(), "notification.enabled", json.RawMessage(`false`), nil); err != nil {
+		t.Fatalf("update boolean config: %v", err)
+	}
+	if got := service.ResolveBooleanConfig(context.Background(), "notification.enabled", true); got {
+		t.Fatalf("expected boolean override false")
+	}
+	if got := service.ResolveBooleanConfig(context.Background(), "missing.key", true); !got {
+		t.Fatalf("expected missing boolean config to use fallback")
+	}
+}
+
 func TestCurrentUserIDReadsRequestAuthContext(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	userID := uint64(42)

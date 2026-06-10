@@ -17,6 +17,8 @@ var (
 	ErrNotificationTargetUnsupported = errors.New("notification target unsupported")
 	// ErrNotificationDeliveryNotFound 表示当前用户范围内找不到目标投递记录。
 	ErrNotificationDeliveryNotFound = errors.New("notification delivery not found")
+	// ErrNotificationDisabled 表示通知总开关、来源开关或站内投递开关当前关闭。
+	ErrNotificationDisabled = errors.New("notification disabled")
 )
 
 // NotificationSeverity identifies the stable notification severity contract.
@@ -73,9 +75,15 @@ type PublishNotificationResult struct {
 	DeliveryIDs    []uint64
 	RecipientCount int
 	Deduplicated   bool
+	Skipped        bool
 }
 
 // NotificationPublisher exposes the stable cross-module capability for in-app notifications.
 type NotificationPublisher interface {
 	Publish(ctx context.Context, input PublishNotificationInput) (PublishNotificationResult, error)
+}
+
+// SystemConfigResolver exposes narrow effective-value lookup for cross-module feature gates.
+type SystemConfigResolver interface {
+	ResolveBooleanConfig(ctx context.Context, key string, fallback bool) bool
 }

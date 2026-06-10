@@ -17,6 +17,7 @@ import (
 	"go.uber.org/zap"
 
 	"graft/server/internal/config"
+	"graft/server/internal/configregistry"
 	"graft/server/internal/container"
 	"graft/server/internal/cronx"
 	"graft/server/internal/dashboard"
@@ -52,6 +53,7 @@ func TestModuleRegistersPermissionsAndPublisher(t *testing.T) {
 		Services:           services,
 		MenuRegistry:       menu.NewRegistry(),
 		PermissionRegistry: permission.NewRegistry(),
+		ConfigRegistry:     configregistry.NewRegistry(),
 	}
 	if err := NewModule(service, publisher).Register(ctx); err != nil {
 		t.Fatalf("register module: %v", err)
@@ -62,6 +64,7 @@ func TestModuleRegistersPermissionsAndPublisher(t *testing.T) {
 	assertNotificationMenuNotRegistered(t, ctx.MenuRegistry)
 	assertNotificationMenuTitleMessage(t, ctx.I18n, i18n.LocaleZHCN, "通知中心")
 	assertNotificationMenuTitleMessage(t, ctx.I18n, i18n.LocaleENUS, "Notification Center")
+	assertNotificationConfigRegistered(t, ctx.ConfigRegistry)
 }
 
 func assertNotificationPermissionsRegistered(t *testing.T, registry *permission.Registry) {
@@ -133,6 +136,7 @@ func TestModuleRegisterMountsNotificationRoutesUnderInjectedAPIRoot(t *testing.T
 		MenuRegistry:       menu.NewRegistry(),
 		PermissionRegistry: permission.NewRegistry(),
 		CronRegistry:       cronx.NewRegistry(),
+		ConfigRegistry:     configregistry.NewRegistry(),
 		DashboardRegistry:  dashboard.NewRegistry(),
 	}
 
@@ -158,6 +162,22 @@ func TestModuleRegisterMountsNotificationRoutesUnderInjectedAPIRoot(t *testing.T
 	}
 	if len(response.Data.Items) != 1 {
 		t.Fatalf("expected one notification item, got %d", len(response.Data.Items))
+	}
+}
+
+func assertNotificationConfigRegistered(t *testing.T, registry *configregistry.Registry) {
+	t.Helper()
+
+	for _, key := range []string{
+		notificationEnabledKey,
+		notificationSourceScheduledTaskFailureEnabledKey,
+		notificationSourceAuditIncidentEnabledKey,
+		notificationDeliveryInAppEnabledKey,
+		notificationDisplayPopupLimitKey,
+	} {
+		if _, ok := registry.Get(key); !ok {
+			t.Fatalf("expected notification config %s to be registered", key)
+		}
 	}
 }
 

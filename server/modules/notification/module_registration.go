@@ -17,7 +17,10 @@ func registerNotificationMetadata(ctx *module.Context) error {
 	if err := registerNotificationMessages(ctx.I18n); err != nil {
 		return err
 	}
-	return registerNotificationPermissions(ctx.PermissionRegistry, moduleID)
+	if err := registerNotificationPermissions(ctx.PermissionRegistry, moduleID); err != nil {
+		return err
+	}
+	return registerNotificationConfig(ctx.I18n, ctx.ConfigRegistry)
 }
 
 func registerNotificationMessages(localizer *i18n.Service) error {

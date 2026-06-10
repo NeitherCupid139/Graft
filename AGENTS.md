@@ -48,6 +48,8 @@ Authoritative repository documents:
 - [ai-plan/roadmap/MVP实施计划.md](ai-plan/roadmap/MVP实施计划.md)
 - [ai-plan/design/AI任务追踪与恢复设计.md](ai-plan/design/AI任务追踪与恢复设计.md) when the task changes
   tracking, recovery, or documentation-governance rules
+- [ai-plan/design/通知中心设计.md](ai-plan/design/通知中心设计.md) when the task changes Notification Center
+  sources, delivery semantics, notification configuration, notification routes, or shell notification UI behavior
 
 Subdomain governance documents:
 

@@ -5,6 +5,14 @@ import type { ComposerTranslation } from 'vue-i18n';
 
 import type { NotificationItem } from '../types/notification';
 
+export const NOTIFICATION_MVP_SOURCE_MODULES = [
+  'notification',
+  'scheduler',
+  'audit',
+  'system-config',
+  'access-log',
+] as const;
+
 export function notificationSeverityTheme(severity: NotificationItem['severity']) {
   switch (severity) {
     case 'critical':
