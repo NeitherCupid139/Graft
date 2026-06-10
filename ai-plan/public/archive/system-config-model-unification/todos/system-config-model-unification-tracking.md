@@ -13,7 +13,7 @@ Convert the System Config exploration and planning discussion into durable repos
 - [x] Phase 2 implementation slice: front-end renderer extraction.
 - [x] Phase 3 backend registry/OpenAPI enhancement.
 - [x] Phase 4 typical config migration.
-- [ ] Later implementation slice: Phase 5 validation and screenshot acceptance.
+- [x] Phase 5 validation and archive-readiness.
 
 ## Authority Discovery
 
@@ -32,15 +32,24 @@ Convert the System Config exploration and planning discussion into durable repos
 
 ## Latest Validation
 
-- Phase 4 typical config migration slice.
+- Phase 5 archive-readiness slice.
 - Ran validation:
-  - `cd server && go test ./internal/dashboard ./modules/notification ./internal/configregistry ./modules/system-config`
+  - `cd server && go test ./internal/scheduler ./internal/configregistry ./internal/dashboard ./modules/system-config ./modules/notification`
   - `cd server && go run ./cmd/graft validate backend --stage lint`
-  - `cd web && bun run test:run src/modules/dashboard/contract/quick-actions.test.ts src/modules/dashboard/pages/index.test.ts src/modules/system-config/pages/list/index.test.ts src/shared/schema-form/config-schema.test.ts scripts/check-i18n-governance.test.ts`
   - `cd web && bun run check`
-- OpenAPI source and generated artifacts were not changed because Phase 4 changed registered key/schema values, not the
-  System Config wire-contract shape.
+- Browser validation was skipped by explicit user constraint.
+- Verified no old flat-key runtime/web consumers remain. Old keys remain only in design migration-before notes and tests
+  that assert removed keys are ignored or not registered.
 
-## Next Step
+## Terminal Archive-Ready Closeout
 
-Start Phase 5 validation and archive-readiness after Phase 4 outer-orchestrator commit acceptance.
+- completed_batches:
+  - Phase1 UI consistency
+  - Phase2 renderer extraction
+  - Phase3 backend registry/OpenAPI enhancement
+  - Phase4 typical config migration
+  - Phase5 validation/archive readiness
+- pending_batches: []
+- current_batch: archive-ready
+- next_batch: none
+- terminal_status: archive-ready

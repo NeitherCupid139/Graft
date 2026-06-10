@@ -102,3 +102,27 @@
   - `cd server && go run ./cmd/graft validate backend --stage lint`
   - `cd web && bun run test:run src/modules/dashboard/contract/quick-actions.test.ts src/modules/dashboard/pages/index.test.ts src/modules/system-config/pages/list/index.test.ts src/shared/schema-form/config-schema.test.ts scripts/check-i18n-governance.test.ts`
   - `cd web && bun run check`
+
+## 2026-06-11 Phase 5 validation/archive readiness
+
+- Ran a final loop-orchestrated worker round for Phase 5 with docs/archive scope only.
+- Confirmed working tree started clean before Phase 5 docs/archive changes.
+- Confirmed Phase 2, Phase 3, and Phase 4 implementation commits were present:
+  - `cdd5bb4c`
+  - `de1979a5`
+  - `494e561d`
+- Verified no old flat-key runtime or web consumers remain:
+  - old dashboard keys such as `dashboard.quick_actions.enabled`, `dashboard.quick_actions.max_items`, and
+    `dashboard.quick_actions.strategy` remain only in design migration-before notes and tests that assert removed keys
+    are ignored or not registered.
+  - old notification keys such as `notification.display.show_read_days` and `notification.display.popup_limit` remain
+    only in design migration-before notes and tests that assert removed keys are not registered.
+- Final non-browser validation:
+  - `cd server && go test ./internal/scheduler ./internal/configregistry ./internal/dashboard ./modules/system-config ./modules/notification`
+  - `cd server && go run ./cmd/graft validate backend --stage lint`
+  - `cd web && bun run check`
+- Browser validation was skipped because the Phase 5 worker was explicitly prohibited from browser validation by user
+  constraint.
+- Archived the topic under `ai-plan/public/archive/system-config-model-unification/` and removed it from active topics
+  in `ai-plan/public/README.md`.
+- Terminal status: `archive-ready`.
