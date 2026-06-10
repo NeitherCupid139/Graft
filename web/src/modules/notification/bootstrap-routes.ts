@@ -2,14 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { BootstrapRouteRegistration, GlobalRouteRegistration } from '@/modules/types';
+import { localizeRouteTitleKey } from '@/utils/route/title';
 
 import { NOTIFICATION_BOOTSTRAP_ROUTE } from './contract/bootstrap';
 import { NOTIFICATION_ROUTE_PATH } from './contract/paths';
 
-const notificationRouteTitle = {
-  'en-US': 'Notification Center',
-  'zh-CN': '通知中心',
-};
+const notificationRouteTitle = localizeRouteTitleKey('menu.notification.title');
 
 export const notificationBootstrapRouteRegistrations: BootstrapRouteRegistration[] = [];
 

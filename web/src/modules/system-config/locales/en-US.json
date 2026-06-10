@@ -7,6 +7,12 @@
     }
   },
   "systemConfig": {
+    "route": {
+      "list": {
+        "title": "Service Management - System Configuration",
+        "breadcrumb": "System Configuration"
+      }
+    },
     "list": {
       "eyebrow": "Service Management",
       "title": "System Configuration",

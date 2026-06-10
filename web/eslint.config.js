@@ -22,6 +22,7 @@ export default tseslint.config(
       '_site/**',
       'temp*/**',
       '*.timestamp-*',
+      'scripts/i18n-governance/fixtures/**',
     ],
   },
   js.configs.recommended,

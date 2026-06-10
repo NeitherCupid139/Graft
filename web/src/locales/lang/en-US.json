@@ -296,6 +296,9 @@
     }
   },
   "app": {
+    "request": {
+      "failed": "Request Failed"
+    },
     "auth": {
       "login": {
         "title": "Log in",

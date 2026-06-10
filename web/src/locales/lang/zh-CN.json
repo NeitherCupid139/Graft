@@ -296,6 +296,9 @@
     }
   },
   "app": {
+    "request": {
+      "failed": "请求失败"
+    },
     "auth": {
       "login": {
         "title": "登录到",

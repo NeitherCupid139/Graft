@@ -7,6 +7,12 @@
     }
   },
   "scheduledTask": {
+    "route": {
+      "list": {
+        "title": "Service Management - Scheduled Tasks",
+        "breadcrumb": "Scheduled Tasks"
+      }
+    },
     "accessLogRetention": {
       "title": "Access Log Retention Cleanup",
       "description": "Deletes retained access logs beyond the configured retention window.",
@@ -70,6 +76,7 @@
       "daily": "Runs every day at {hour}:00.",
       "weekly": "Runs weekly on day {dayOfWeek} at {hour}:00.",
       "monthly": "Runs monthly on day {dayOfMonth} at {hour}:00.",
+      "advanced": "Advanced Cron expression",
       "custom": "Current expression: {expression}",
       "invalid": "Cron expression is invalid."
     },
@@ -170,6 +177,7 @@
       "columnSettings": "Columns",
       "tableTitle": "Task List",
       "tableHint": "{count} tasks match the current filters.",
+      "metricsAriaLabel": "Scheduled Task Metrics",
       "emptyTitle": "No Scheduled Tasks",
       "emptyDescription": "Scheduled tasks bound to registered Job Definitions will appear here.",
       "loadError": "Scheduled task data could not be loaded.",

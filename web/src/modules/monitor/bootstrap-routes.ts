@@ -2,8 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { BootstrapRouteRegistration } from '@/modules/types';
+import { localizeRouteTitleKey } from '@/utils/route/title';
 
 import { MONITOR_ROUTE_PATH } from './contract/paths';
+
+const overviewRouteTitle = localizeRouteTitleKey('monitor.route.overview.title');
+const overviewBreadcrumbTitle = localizeRouteTitleKey('monitor.route.overview.breadcrumb');
+const runtimeRouteTitle = localizeRouteTitleKey('monitor.route.runtime.title');
+const runtimeBreadcrumbTitle = localizeRouteTitleKey('monitor.route.runtime.breadcrumb');
+const dependenciesRouteTitle = localizeRouteTitleKey('monitor.route.dependencies.title');
+const dependenciesBreadcrumbTitle = localizeRouteTitleKey('monitor.route.dependencies.breadcrumb');
+const moduleRuntimeRouteTitle = localizeRouteTitleKey('monitor.route.moduleRuntime.title');
+const moduleRuntimeBreadcrumbTitle = localizeRouteTitleKey('monitor.route.moduleRuntime.breadcrumb');
 
 export const monitorBootstrapRouteRegistrations: BootstrapRouteRegistration[] = [
   {
@@ -15,18 +25,9 @@ export const monitorBootstrapRouteRegistrations: BootstrapRouteRegistration[] = 
       tabGroup: 'monitor',
       dashboard: true,
       pageKind: 'overview',
-      semanticTitle: {
-        'zh-CN': '服务管理 - 概览',
-        'en-US': 'Service Management - Overview',
-      },
-      breadcrumbTitle: {
-        'zh-CN': '概览',
-        'en-US': 'Overview',
-      },
-      tabTitle: {
-        'zh-CN': '服务管理 - 概览',
-        'en-US': 'Service Management - Overview',
-      },
+      semanticTitle: overviewRouteTitle,
+      breadcrumbTitle: overviewBreadcrumbTitle,
+      tabTitle: overviewRouteTitle,
     },
   },
   {
@@ -38,18 +39,9 @@ export const monitorBootstrapRouteRegistrations: BootstrapRouteRegistration[] = 
       tabGroup: 'monitor',
       dashboard: true,
       pageKind: 'runtime',
-      semanticTitle: {
-        'zh-CN': '服务管理 - 运行时',
-        'en-US': 'Service Management - Runtime',
-      },
-      breadcrumbTitle: {
-        'zh-CN': '运行时',
-        'en-US': 'Runtime',
-      },
-      tabTitle: {
-        'zh-CN': '服务管理 - 运行时',
-        'en-US': 'Service Management - Runtime',
-      },
+      semanticTitle: runtimeRouteTitle,
+      breadcrumbTitle: runtimeBreadcrumbTitle,
+      tabTitle: runtimeRouteTitle,
     },
   },
   {
@@ -61,18 +53,9 @@ export const monitorBootstrapRouteRegistrations: BootstrapRouteRegistration[] = 
       tabGroup: 'monitor',
       dashboard: true,
       pageKind: 'overview',
-      semanticTitle: {
-        'zh-CN': '服务管理 - 依赖服务',
-        'en-US': 'Service Management - Dependencies',
-      },
-      breadcrumbTitle: {
-        'zh-CN': '依赖服务',
-        'en-US': 'Dependencies',
-      },
-      tabTitle: {
-        'zh-CN': '服务管理 - 依赖服务',
-        'en-US': 'Service Management - Dependencies',
-      },
+      semanticTitle: dependenciesRouteTitle,
+      breadcrumbTitle: dependenciesBreadcrumbTitle,
+      tabTitle: dependenciesRouteTitle,
     },
   },
   {
@@ -84,18 +67,9 @@ export const monitorBootstrapRouteRegistrations: BootstrapRouteRegistration[] = 
       tabGroup: 'monitor',
       dashboard: true,
       pageKind: 'overview',
-      semanticTitle: {
-        'zh-CN': '服务管理 - 模块运行时',
-        'en-US': 'Service Management - Module Runtime',
-      },
-      breadcrumbTitle: {
-        'zh-CN': '模块运行时',
-        'en-US': 'Module Runtime',
-      },
-      tabTitle: {
-        'zh-CN': '服务管理 - 模块运行时',
-        'en-US': 'Service Management - Module Runtime',
-      },
+      semanticTitle: moduleRuntimeRouteTitle,
+      breadcrumbTitle: moduleRuntimeBreadcrumbTitle,
+      tabTitle: moduleRuntimeRouteTitle,
     },
   },
 ];

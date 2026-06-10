@@ -1,0 +1,9 @@
+{
+  "demo": {
+    "title": "Demo",
+    "actions": {
+      "edit": "Edit",
+      "toggleUser": "Toggle user"
+    }
+  }
+}

@@ -2,8 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { BootstrapRouteRegistration } from '@/modules/types';
+import { localizeRouteTitleKey } from '@/utils/route/title';
 
 import { RBAC_BOOTSTRAP_ROUTE } from './contract/bootstrap';
+
+const roleListRouteTitle = localizeRouteTitleKey('rbac.route.roleList.title');
+const roleListBreadcrumbTitle = localizeRouteTitleKey('rbac.route.roleList.breadcrumb');
+const permissionListRouteTitle = localizeRouteTitleKey('rbac.route.permissionList.title');
+const permissionListBreadcrumbTitle = localizeRouteTitleKey('rbac.route.permissionList.breadcrumb');
 
 export const rbacBootstrapRouteRegistrations: BootstrapRouteRegistration[] = [
   {
@@ -13,18 +19,9 @@ export const rbacBootstrapRouteRegistrations: BootstrapRouteRegistration[] = [
       domain: 'rbac',
       tabGroup: 'rbac',
       pageKind: 'list',
-      semanticTitle: {
-        'zh-CN': '访问控制 - 角色管理',
-        'en-US': 'Access Control - Role Management',
-      },
-      breadcrumbTitle: {
-        'zh-CN': '角色管理',
-        'en-US': 'Role Management',
-      },
-      tabTitle: {
-        'zh-CN': '访问控制 - 角色管理',
-        'en-US': 'Access Control - Role Management',
-      },
+      semanticTitle: roleListRouteTitle,
+      breadcrumbTitle: roleListBreadcrumbTitle,
+      tabTitle: roleListRouteTitle,
     },
   },
   {
@@ -34,18 +31,9 @@ export const rbacBootstrapRouteRegistrations: BootstrapRouteRegistration[] = [
       domain: 'rbac',
       tabGroup: 'rbac',
       pageKind: 'list',
-      semanticTitle: {
-        'zh-CN': '访问控制 - 权限管理',
-        'en-US': 'Access Control - Permission Management',
-      },
-      breadcrumbTitle: {
-        'zh-CN': '权限管理',
-        'en-US': 'Permission Management',
-      },
-      tabTitle: {
-        'zh-CN': '访问控制 - 权限管理',
-        'en-US': 'Access Control - Permission Management',
-      },
+      semanticTitle: permissionListRouteTitle,
+      breadcrumbTitle: permissionListBreadcrumbTitle,
+      tabTitle: permissionListRouteTitle,
     },
   },
 ];

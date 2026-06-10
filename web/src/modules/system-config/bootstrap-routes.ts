@@ -2,8 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { BootstrapRouteRegistration } from '@/modules/types';
+import { localizeRouteTitleKey } from '@/utils/route/title';
 
 import { SYSTEM_CONFIG_BOOTSTRAP_ROUTE } from './contract/bootstrap';
+
+const listRouteTitle = localizeRouteTitleKey('systemConfig.route.list.title');
+const listBreadcrumbTitle = localizeRouteTitleKey('systemConfig.route.list.breadcrumb');
 
 export const systemConfigBootstrapRouteRegistrations: BootstrapRouteRegistration[] = [
   {
@@ -12,18 +16,9 @@ export const systemConfigBootstrapRouteRegistrations: BootstrapRouteRegistration
     meta: {
       tabGroup: 'server',
       pageKind: 'list',
-      semanticTitle: {
-        'zh-CN': '服务管理 - 系统配置',
-        'en-US': 'Service Management - System Configuration',
-      },
-      breadcrumbTitle: {
-        'zh-CN': '系统配置',
-        'en-US': 'System Configuration',
-      },
-      tabTitle: {
-        'zh-CN': '服务管理 - 系统配置',
-        'en-US': 'Service Management - System Configuration',
-      },
+      semanticTitle: listRouteTitle,
+      breadcrumbTitle: listBreadcrumbTitle,
+      tabTitle: listRouteTitle,
     },
   },
 ];

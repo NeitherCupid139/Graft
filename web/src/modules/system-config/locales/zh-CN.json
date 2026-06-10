@@ -7,6 +7,12 @@
     }
   },
   "systemConfig": {
+    "route": {
+      "list": {
+        "title": "服务管理 - 系统配置",
+        "breadcrumb": "系统配置"
+      }
+    },
     "list": {
       "eyebrow": "服务管理",
       "title": "系统配置",

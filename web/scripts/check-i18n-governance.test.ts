@@ -2,13 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { spawnSync } from 'node:child_process';
-import { cpSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
 const tempRoots: string[] = [];
+const FIXTURE_DIR = join(process.cwd(), 'scripts/i18n-governance/fixtures');
 
 function createTempWebRoot(source: string) {
   const repoRoot = join(tmpdir(), `graft-i18n-governance-${process.pid}-${tempRoots.length}`);
@@ -20,6 +21,7 @@ function createTempWebRoot(source: string) {
   mkdirSync(join(repoRoot, 'server/internal'), { recursive: true });
   mkdirSync(join(repoRoot, 'server/modules'), { recursive: true });
   cpSync(join(process.cwd(), 'scripts/check-i18n-governance.ts'), join(root, 'scripts/check-i18n-governance.ts'));
+  cpSync(join(process.cwd(), 'scripts/i18n-governance'), join(root, 'scripts/i18n-governance'), { recursive: true });
   writeFileSync(join(root, 'src/modules/demo/UnsafeTime.vue'), source);
   writeFileSync(join(root, 'src/modules/demo/locales/en-US.json'), '{}');
   writeFileSync(join(root, 'src/modules/demo/locales/zh-CN.json'), '{}');
@@ -40,15 +42,46 @@ function writeServerModule(root: string, file: string, source: string) {
 
 async function runGovernanceScript(source: string) {
   const root = createTempWebRoot(source);
-  const process = spawnSync('bun', ['run', 'scripts/check-i18n-governance.ts'], {
+  const result = spawnSync('bun', ['run', 'scripts/check-i18n-governance.ts'], {
     cwd: root,
     encoding: 'utf8',
   });
 
   return {
-    stdout: process.stdout,
-    stderr: process.stderr,
-    exitCode: process.status,
+    stdout: result.stdout,
+    stderr: result.stderr,
+    exitCode: result.status,
+  };
+}
+
+async function runGovernanceScriptWithFixture(fixtureName: string, env: Record<string, string> = {}) {
+  const repoRoot = join(tmpdir(), `graft-i18n-governance-fixture-${process.pid}-${tempRoots.length}`);
+  const root = join(repoRoot, 'web');
+  tempRoots.push(repoRoot);
+
+  mkdirSync(join(root, 'scripts'), { recursive: true });
+  mkdirSync(join(repoRoot, 'server/internal'), { recursive: true });
+  mkdirSync(join(repoRoot, 'server/modules'), { recursive: true });
+  cpSync(join(process.cwd(), 'scripts/check-i18n-governance.ts'), join(root, 'scripts/check-i18n-governance.ts'));
+  cpSync(join(process.cwd(), 'scripts/i18n-governance'), join(root, 'scripts/i18n-governance'), { recursive: true });
+  const fixtureRoot = join(FIXTURE_DIR, fixtureName);
+  if (existsSync(join(fixtureRoot, 'src'))) {
+    cpSync(join(fixtureRoot, 'src'), join(root, 'src'), { recursive: true });
+  }
+  if (existsSync(join(fixtureRoot, 'server'))) {
+    cpSync(join(fixtureRoot, 'server'), join(repoRoot, 'server'), { recursive: true });
+  }
+
+  const result = spawnSync('bun', ['run', 'scripts/check-i18n-governance.ts'], {
+    cwd: root,
+    encoding: 'utf8',
+    env: { ...process.env, ...env },
+  });
+
+  return {
+    stdout: result.stdout,
+    stderr: result.stderr,
+    exitCode: result.status,
   };
 }
 
@@ -217,6 +250,86 @@ const demoConfigSchema = \`{"type":"object","properties":{"maxQuickActions":{"ty
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('No hard-coded UI text or locale governance issues found.');
+    expect(result.stderr).toBe('');
+  });
+});
+
+describe('check-i18n-governance fixture rules', () => {
+  const invalidFixtures = [
+    {
+      fixture: 'invalid-fallback-label-cjk',
+      expectation: 'blocks fallbackLabel with Chinese literal copy',
+      expectedSnippets: ['fallbackLabel', '编辑'],
+    },
+    {
+      fixture: 'invalid-fallback-label-conditional-cjk',
+      expectation: 'blocks conditional fallbackLabel with Chinese literal copy',
+      expectedSnippets: ['fallbackLabel', '启用用户', '禁用用户'],
+    },
+    {
+      fixture: 'invalid-more-label-fallback-cjk',
+      expectation: 'blocks more-label-fallback with Chinese literal copy',
+      expectedSnippets: ['more-label-fallback', '更多'],
+    },
+    {
+      fixture: 'invalid-semantic-title-locale-object',
+      expectation: 'blocks semanticTitle locale literal objects',
+      expectedSnippets: ['semanticTitle', 'zh-CN', 'en-US'],
+    },
+    {
+      fixture: 'invalid-cron-english-fallback',
+      expectation: 'blocks cron-like English fallback copy',
+      expectedSnippets: ['Advanced Cron expression'],
+    },
+    {
+      fixture: 'invalid-template-literal-cjk',
+      expectation: 'blocks template literals containing Chinese UI copy',
+      expectedSnippets: ['每天', '执行'],
+    },
+    {
+      fixture: 'invalid-fallback-message-english',
+      expectation: 'blocks English fallbackMessage string fallback',
+      expectedSnippets: ['fallbackMessage', 'Request failed'],
+    },
+  ];
+
+  it.each(invalidFixtures)('$fixture: $expectation', async ({ expectedSnippets, fixture }) => {
+    const result = await runGovernanceScriptWithFixture(fixture);
+
+    expect(result.exitCode).toBe(1);
+    for (const snippet of expectedSnippets) {
+      expect(result.stdout).toContain(snippet);
+    }
+    expect(result.stderr).toBe('');
+  });
+
+  it('valid-i18n-keyed-copy: allows keyed UI copy without hardcoded fallback text', async () => {
+    const result = await runGovernanceScriptWithFixture('valid-i18n-keyed-copy');
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('No hard-coded UI text or locale governance issues found.');
+    expect(result.stderr).toBe('');
+  });
+
+  it('warns on server fallback-only key-first copy by default', async () => {
+    const result = await runGovernanceScriptWithFixture('fallback-only-key-first-warning');
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('[warning]');
+    expect(result.stdout).toContain('no-fallback-only-key-first');
+    expect(result.stdout).toContain('Dashboard title');
+    expect(result.stderr).toBe('');
+  });
+
+  it('blocks server fallback-only key-first copy in strict mode', async () => {
+    const result = await runGovernanceScriptWithFixture('fallback-only-key-first-warning', {
+      STRICT_I18N_KEY_FIRST: 'true',
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain('[error]');
+    expect(result.stdout).toContain('no-fallback-only-key-first');
+    expect(result.stdout).toContain('Dashboard title');
     expect(result.stderr).toBe('');
   });
 });

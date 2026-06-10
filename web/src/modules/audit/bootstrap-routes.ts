@@ -2,8 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { BootstrapRouteRegistration } from '@/modules/types';
+import { localizeRouteTitleKey } from '@/utils/route/title';
 
 import { AUDIT_BOOTSTRAP_ROUTE } from './contract/bootstrap';
+
+const overviewRouteTitle = localizeRouteTitleKey('audit.route.overview.title');
+const overviewBreadcrumbTitle = localizeRouteTitleKey('audit.route.overview.breadcrumb');
+const logListRouteTitle = localizeRouteTitleKey('audit.route.logList.title');
+const logListBreadcrumbTitle = localizeRouteTitleKey('audit.route.logList.breadcrumb');
+const incidentDetailRouteTitle = localizeRouteTitleKey('audit.route.incidentDetail.title');
+const incidentDetailBreadcrumbTitle = localizeRouteTitleKey('audit.route.incidentDetail.breadcrumb');
 
 export const auditBootstrapRouteRegistrations: BootstrapRouteRegistration[] = [
   {
@@ -14,18 +22,9 @@ export const auditBootstrapRouteRegistrations: BootstrapRouteRegistration[] = [
       tabGroup: 'audit-overview',
       dashboard: true,
       pageKind: 'overview',
-      semanticTitle: {
-        'zh-CN': '安全审计 - 概览',
-        'en-US': 'Security Audit - Overview',
-      },
-      breadcrumbTitle: {
-        'zh-CN': '概览',
-        'en-US': 'Overview',
-      },
-      tabTitle: {
-        'zh-CN': '安全审计 - 概览',
-        'en-US': 'Security Audit - Overview',
-      },
+      semanticTitle: overviewRouteTitle,
+      breadcrumbTitle: overviewBreadcrumbTitle,
+      tabTitle: overviewRouteTitle,
     },
   },
   {
@@ -35,18 +34,9 @@ export const auditBootstrapRouteRegistrations: BootstrapRouteRegistration[] = [
       domain: 'audit',
       tabGroup: 'audit-logs',
       pageKind: 'list',
-      semanticTitle: {
-        'zh-CN': '安全审计 - 审计日志',
-        'en-US': 'Security Audit - Audit Logs',
-      },
-      breadcrumbTitle: {
-        'zh-CN': '审计日志',
-        'en-US': 'Audit Logs',
-      },
-      tabTitle: {
-        'zh-CN': '安全审计 - 审计日志',
-        'en-US': 'Security Audit - Audit Logs',
-      },
+      semanticTitle: logListRouteTitle,
+      breadcrumbTitle: logListBreadcrumbTitle,
+      tabTitle: logListRouteTitle,
     },
   },
   {
@@ -56,18 +46,9 @@ export const auditBootstrapRouteRegistrations: BootstrapRouteRegistration[] = [
       domain: 'audit',
       tabGroup: 'audit-incident',
       pageKind: 'detail',
-      semanticTitle: {
-        'zh-CN': '安全审计 - 事件钻取',
-        'en-US': 'Security Audit - Incident Drilldown',
-      },
-      breadcrumbTitle: {
-        'zh-CN': '事件钻取',
-        'en-US': 'Incident Drilldown',
-      },
-      tabTitle: {
-        'zh-CN': '安全审计 - 事件钻取',
-        'en-US': 'Security Audit - Incident Drilldown',
-      },
+      semanticTitle: incidentDetailRouteTitle,
+      breadcrumbTitle: incidentDetailBreadcrumbTitle,
+      tabTitle: incidentDetailRouteTitle,
     },
   },
 ];

@@ -41,8 +41,8 @@ const props = withDefaults(
     moreLabelFallback?: string;
   }>(),
   {
-    moreLabel: 'More',
-    moreLabelFallback: 'More',
+    moreLabel: '',
+    moreLabelFallback: '',
   },
 );
 

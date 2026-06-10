@@ -2,8 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { BootstrapRouteRegistration } from '@/modules/types';
+import { localizeRouteTitleKey } from '@/utils/route/title';
 
 import { SCHEDULED_TASK_BOOTSTRAP_ROUTE } from './contract/bootstrap';
+
+const listRouteTitle = localizeRouteTitleKey('scheduledTask.route.list.title');
+const listBreadcrumbTitle = localizeRouteTitleKey('scheduledTask.route.list.breadcrumb');
 
 export const scheduledTaskBootstrapRouteRegistrations: BootstrapRouteRegistration[] = [
   {
@@ -12,18 +16,9 @@ export const scheduledTaskBootstrapRouteRegistrations: BootstrapRouteRegistratio
     meta: {
       tabGroup: 'server',
       pageKind: 'list',
-      semanticTitle: {
-        'zh-CN': '服务管理 - 定时任务',
-        'en-US': 'Service Management - Scheduled Tasks',
-      },
-      breadcrumbTitle: {
-        'zh-CN': '定时任务',
-        'en-US': 'Scheduled Tasks',
-      },
-      tabTitle: {
-        'zh-CN': '服务管理 - 定时任务',
-        'en-US': 'Service Management - Scheduled Tasks',
-      },
+      semanticTitle: listRouteTitle,
+      breadcrumbTitle: listBreadcrumbTitle,
+      tabTitle: listRouteTitle,
     },
   },
 ];

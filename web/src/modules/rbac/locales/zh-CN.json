@@ -1,5 +1,15 @@
 {
   "rbac": {
+    "route": {
+      "roleList": {
+        "title": "访问控制 - 角色管理",
+        "breadcrumb": "角色管理"
+      },
+      "permissionList": {
+        "title": "访问控制 - 权限管理",
+        "breadcrumb": "权限管理"
+      }
+    },
     "roleList": {
       "listTitle": "角色管理",
       "hint": "维护角色定义、权限范围与用户绑定关系。",
@@ -127,6 +137,7 @@
         "readonlyProtectionBody": "该系统角色的权限由系统维护，仅支持查看；如需自定义权限组合，请复制为自定义角色后再编辑。",
         "readonlyFooterDetail": "只读模式不会保存权限变更。",
         "readPermissionRequired": "需要权限读取权限后才能查看权限明细。",
+        "defaultCategory": "通用",
         "close": "关闭",
         "loadingSelection": "正在加载当前角色权限",
         "searchPlaceholder": "搜索权限 code、名称、描述",
