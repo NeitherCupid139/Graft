@@ -20,4 +20,13 @@ describe('dashboard widget actions', () => {
     expect(formatDashboardDateTime('not-a-date')).toBe('not-a-date');
     expect(() => formatDashboardDateTime('not-a-date')).not.toThrow();
   });
+
+  it('formats dashboard dates with the provided locale', () => {
+    expect(formatDashboardDateTime('2026-06-10T02:38:00Z', 'en-US')).toBe(
+      new Intl.DateTimeFormat('en-US', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      }).format(new Date('2026-06-10T02:38:00Z')),
+    );
+  });
 });

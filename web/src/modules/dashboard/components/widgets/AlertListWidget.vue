@@ -17,7 +17,7 @@
           </div>
           <p v-if="itemDescription(item)">{{ itemDescription(item) }}</p>
           <time v-if="item.occurred_at">
-            {{ t('dashboard.alert.latestAt', { time: formatDashboardDateTime(item.occurred_at) }) }}
+            {{ t('dashboard.alert.latestAt', { time: formatDashboardDateTime(item.occurred_at, currentLocale) }) }}
           </time>
         </div>
       </div>
@@ -39,7 +39,7 @@
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { t } from '@/locales';
+import { currentLocale, t } from '@/locales';
 
 import type { DashboardAlertListPayload, DashboardWidget } from '../../types/dashboard';
 import { asAlertListPayload } from './payload';

@@ -9,7 +9,7 @@
       v-for="item in payload.items"
       :key="item.id"
       :dot-color="timelineDotColor(item.status)"
-      :label="formatDashboardDateTime(item.occurred_at)"
+      :label="formatDashboardDateTime(item.occurred_at, currentLocale)"
     >
       <div class="dashboard-timeline__item">
         <strong>{{ resolveDashboardText(item.title_key, item.title) }}</strong>
@@ -39,7 +39,7 @@
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { t } from '@/locales';
+import { currentLocale, t } from '@/locales';
 
 import type { DashboardTimelinePayload, DashboardWidget } from '../../types/dashboard';
 import { asTimelinePayload } from './payload';

@@ -9,6 +9,7 @@ import type { DashboardWidget } from '../../types/dashboard';
 import AlertListWidget from './AlertListWidget.vue';
 
 vi.mock('@/locales', () => ({
+  currentLocale: 'en-US',
   t: (key: string, params?: Record<string, unknown>) => {
     const translations: Record<string, string> = {
       'dashboard.actions.open': '打开',
@@ -104,6 +105,7 @@ describe('AlertListWidget', () => {
               route_location: '/audit/logs?preset=last_24h&scope=auth_failures',
               description: 'auth.token_expired',
               description_key: 'dashboard.widget.auditRiskEvents.authFailures.description',
+              occurred_at: '2026-06-10T02:38:00Z',
               title: 'Authentication failures',
               title_key: 'audit.overview.riskGroups.authFailures',
             },
@@ -134,6 +136,12 @@ describe('AlertListWidget', () => {
     expect(wrapper.text()).toContain('4次');
     expect(wrapper.text()).toContain('2次');
     expect(wrapper.text()).toContain('认证失败');
+    expect(wrapper.text()).toContain(
+      new Intl.DateTimeFormat('en-US', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      }).format(new Date('2026-06-10T02:38:00Z')),
+    );
     expect(wrapper.text()).toContain('权限拒绝');
     expect(wrapper.text()).toContain('过去 24 小时存在认证失败事件');
     expect(wrapper.text()).toContain('过去 24 小时存在权限拒绝事件');

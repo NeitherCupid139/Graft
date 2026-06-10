@@ -1,10 +1,12 @@
 // Copyright (c) 2025-2026 GeWuYou
 // SPDX-License-Identifier: Apache-2.0
 
+import type { Ref } from 'vue';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import { resolveLocalizedErrorMessage } from '@/modules/shared/localized-api-error';
+import { formatLocaleDateTime } from '@/shared/observability';
 
 import { getServerStatus } from '../api/server-status';
 import { useMonitorRefreshPreferences } from '../composables/use-monitor-refresh-preferences';
@@ -207,17 +209,9 @@ export function formatBytes(bytes?: number | null) {
   return `${value.toFixed(digits)} ${units[unitIndex]}`;
 }
 
-export function formatTimestamp(value?: string | null) {
-  if (!value) {
-    return '--';
-  }
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return '--';
-  }
-
-  return parsed.toLocaleString();
+export function formatTimestamp(value?: string | null, locale?: string | Ref<string | undefined> | null) {
+  const formatted = formatLocaleDateTime(value, locale);
+  return formatted === '-' ? '--' : formatted;
 }
 
 export function formatUptime(totalSeconds?: number | null) {

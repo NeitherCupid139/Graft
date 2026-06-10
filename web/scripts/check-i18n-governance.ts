@@ -606,6 +606,31 @@ function collectPluginStringFindings(source: string, file: string, lineIndex: nu
   return findings;
 }
 
+function collectLocaleDateTimeFindings(source: string, file: string, lineIndex: number[]): Finding[] {
+  const findings: Finding[] = [];
+  const strippedSource = preserveLineStructure(source);
+  const unsafeIntlPattern = /\bnew\s+Intl\.DateTimeFormat\s*\(\s*undefined\b/g;
+  const unsafeToLocalePattern = /\.(toLocale(?:Date|Time)?String)\s*\(\s*\)/g;
+
+  for (const match of strippedSource.matchAll(unsafeIntlPattern)) {
+    findings.push({
+      file,
+      line: lineForIndex(lineIndex, match.index ?? 0),
+      text: 'visible datetime formatting must pass the active locale instead of undefined',
+    });
+  }
+
+  for (const match of strippedSource.matchAll(unsafeToLocalePattern)) {
+    findings.push({
+      file,
+      line: lineForIndex(lineIndex, match.index ?? 0),
+      text: `${match[1]} must pass the active locale or use a locale-aware shared formatter`,
+    });
+  }
+
+  return findings;
+}
+
 function collectFindings(): Finding[] {
   const findings: Finding[] = [];
 
@@ -621,6 +646,7 @@ function collectFindings(): Finding[] {
 
     findings.push(...collectUiFieldFindings(source, file, lineIndex));
     findings.push(...collectPluginStringFindings(source, file, lineIndex));
+    findings.push(...collectLocaleDateTimeFindings(source, file, lineIndex));
   }
 
   return dedupeFindings(findings).sort((left, right) => {

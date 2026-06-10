@@ -106,5 +106,6 @@ export const i18n = createI18n({
 persistCanonicalLocale(initialLocale);
 
 export const languageList = computed(() => langList);
+export const currentLocale = i18n.global.locale;
 export const { t } = i18n.global;
 export default i18n;

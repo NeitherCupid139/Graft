@@ -76,8 +76,9 @@
 import { computed, onMounted, ref } from 'vue';
 
 import { API_CODE } from '@/contracts/api/codes';
-import { t } from '@/locales';
+import { currentLocale, t } from '@/locales';
 import { PageHeader } from '@/shared/components/page';
+import { formatLocaleDateTime, MEDIUM_DATE_TIME_WITH_SECONDS_FORMAT_OPTIONS } from '@/shared/observability';
 import type { ApiRequestError } from '@/types/axios';
 import { createLogger } from '@/utils/logger';
 
@@ -161,7 +162,9 @@ const systemSummaryItems = computed(() => {
   ];
 });
 
-const lastUpdatedLabel = computed(() => formatDashboardUpdatedAt(lastUpdatedAt.value));
+const lastUpdatedLabel = computed(() =>
+  formatLocaleDateTime(lastUpdatedAt.value, currentLocale, MEDIUM_DATE_TIME_WITH_SECONDS_FORMAT_OPTIONS),
+);
 
 onMounted(() => {
   void loadSummary();
@@ -253,18 +256,6 @@ function requestErrorMessageKey(error: unknown) {
 
 function requestErrorCode(error: unknown) {
   return isApiRequestError(error) ? error.code : API_CODE.COMMON_INTERNAL_ERROR;
-}
-
-function formatDashboardUpdatedAt(value: string) {
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'medium',
-  }).format(date);
 }
 </script>
 <style lang="less" scoped>

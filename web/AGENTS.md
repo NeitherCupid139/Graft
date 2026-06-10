@@ -445,7 +445,11 @@ dead-code / duplicate-code 治理规则：
   - `bun run check` 必须包含 `lint:i18n`，CI 继续复用 `bun run check`，不得为同一规则新增第二个 CI 真值
   - `.husky/pre-commit` 在 staged changes 命中 `web/src/**`、`web/scripts/check-i18n-governance.ts` 或 `web/package.json` 时必须执行 `cd web && bun run lint:i18n`
   - `.husky/pre-push` 在当前分支相对 base ref 命中上述 i18n 相关路径时必须执行 `cd web && bun run lint:i18n`
-  - `lint:i18n` 负责阻断 root catalog 与 module catalog 的重复 exact key、未使用 key、聚合漂移和第二套消息真值；重复 value 只要语义边界不同，不作为违规
+  - `lint:i18n` 负责阻断 root catalog 与 module catalog 的重复 exact key、未使用 key、聚合漂移、第二套消息真值，以及可见时间格式化未显式绑定当前 locale 的问题；重复 value 只要语义边界不同，不作为违规
+- 可见时间格式化规则：
+  - 页面、组件和模块共享展示层不得使用 `new Intl.DateTimeFormat(undefined, ...)` 或无参数 `toLocaleString()` / `toLocaleDateString()` / `toLocaleTimeString()` 渲染用户可见时间
+  - 可见时间默认通过 `web/src/shared/observability` 的 locale-aware formatter，并从 `vue-i18n` 当前 `locale` 传入
+  - API、URL query 和持久化状态继续使用 canonical UTC 或页面本地输入语义，不得为了展示本地化把 wire contract 改成本地化字符串
 - 人工验证 `pre-push` 时，可在有 `web/**` 改动的分支上执行：
   - `GRAFT_LINT_BASE_REF=origin/main .husky/pre-push`
   - 预期：命中 `web/**` 时先跑 `cd web && bun run hygiene:check`，无 `web/**` 改动时输出跳过提示，再继续后端 lint gate

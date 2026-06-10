@@ -9,6 +9,7 @@ import type { DashboardWidget } from '../types/dashboard';
 import DashboardRenderer from './DashboardRenderer.vue';
 
 vi.mock('@/locales', () => ({
+  currentLocale: 'en-US',
   t: (key: string, params?: Record<string, unknown>) => {
     const translations: Record<string, string> = {
       'dashboard.actions.details': '查看详情',

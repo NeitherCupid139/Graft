@@ -98,6 +98,7 @@ vi.mock('../../api/server-status', () => ({
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
+    locale: 'en-US',
     t: (key: string) => translations[key] ?? key,
   }),
 }));
@@ -309,13 +310,13 @@ describe('monitor dependencies page', () => {
     const wrapper = mountDependenciesPage();
     await flushPromises();
     const observedAt = new Date('2026-05-21T10:30:00Z');
-    const expectedTime = new Intl.DateTimeFormat(undefined, {
+    const expectedTime = new Intl.DateTimeFormat('en-US', {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
       hour12: false,
     }).format(observedAt);
-    const expectedDate = new Intl.DateTimeFormat(undefined, {
+    const expectedDate = new Intl.DateTimeFormat('en-US', {
       year: 'numeric',
       month: 'numeric',
       day: 'numeric',
