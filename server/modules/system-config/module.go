@@ -55,6 +55,11 @@ func (m *Module) Register(ctx *module.Context) error {
 	}); err != nil {
 		return fmt.Errorf("register system-config default resolver: %w", err)
 	}
+	if err := ctx.Services.RegisterSingleton((*moduleapi.SystemConfigResolver)(nil), func(_ container.Resolver) (any, error) {
+		return m.service, nil
+	}); err != nil {
+		return fmt.Errorf("register system-config resolver: %w", err)
+	}
 	return registerSystemConfigRoutes(ctx, moduleID, m.service)
 }
 

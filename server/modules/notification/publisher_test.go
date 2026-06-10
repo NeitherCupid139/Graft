@@ -114,6 +114,70 @@ func TestPublisherFansOutPermissionTarget(t *testing.T) {
 	}
 }
 
+func TestPublisherSkipsPersistenceWhenNotificationDisabled(t *testing.T) {
+	repository := &publisherSpyRepository{}
+	publisher, err := NewPublisher(repository, permissionFanoutRBAC{userIDs: []uint64{42}})
+	if err != nil {
+		t.Fatalf("new publisher: %v", err)
+	}
+	if err := publisher.setConfigResolver(staticNotificationConfigResolver{values: map[string]bool{
+		notificationEnabledKey: false,
+	}}); err != nil {
+		t.Fatalf("set config resolver: %v", err)
+	}
+
+	result, err := publisher.Publish(context.Background(), validPublishInput())
+	if err != nil {
+		t.Fatalf("publish disabled notification: %v", err)
+	}
+	if !result.Skipped || result.RecipientCount != 0 || result.EventID != 0 || len(result.DeliveryIDs) != 0 {
+		t.Fatalf("expected skipped empty result, got %#v", result)
+	}
+	if repository.createEventCalls != 0 || repository.createDeliveriesCalls != 0 {
+		t.Fatalf("expected no persistence calls, got events=%d deliveries=%d", repository.createEventCalls, repository.createDeliveriesCalls)
+	}
+}
+
+func TestPublisherSkipsPersistenceWhenSourceDisabled(t *testing.T) {
+	repository := &publisherSpyRepository{}
+	publisher, err := NewPublisher(repository, permissionFanoutRBAC{userIDs: []uint64{42}})
+	if err != nil {
+		t.Fatalf("new publisher: %v", err)
+	}
+	if err := publisher.setConfigResolver(staticNotificationConfigResolver{values: map[string]bool{
+		notificationSourceAuditIncidentEnabledKey: false,
+	}}); err != nil {
+		t.Fatalf("set config resolver: %v", err)
+	}
+
+	result, err := publisher.Publish(context.Background(), validPublishInput())
+	if err != nil {
+		t.Fatalf("publish source-disabled notification: %v", err)
+	}
+	if !result.Skipped {
+		t.Fatalf("expected source-disabled publish to be skipped, got %#v", result)
+	}
+	if repository.createEventCalls != 0 || repository.createDeliveriesCalls != 0 {
+		t.Fatalf("expected no persistence calls, got events=%d deliveries=%d", repository.createEventCalls, repository.createDeliveriesCalls)
+	}
+}
+
+func TestPublisherSetConfigResolverRejectsInvalidInputs(t *testing.T) {
+	repository := &publisherSpyRepository{}
+	publisher, err := NewPublisher(repository)
+	if err != nil {
+		t.Fatalf("new publisher: %v", err)
+	}
+	if err := publisher.setConfigResolver(nil); err == nil {
+		t.Fatalf("expected nil config resolver error")
+	}
+
+	var missingPublisher *Publisher
+	if err := missingPublisher.setConfigResolver(staticNotificationConfigResolver{}); err == nil {
+		t.Fatalf("expected nil publisher error")
+	}
+}
+
 func TestPublisherRejectsEmptyPermissionFanoutBeforePersistingEvent(t *testing.T) {
 	repository := &publisherSpyRepository{}
 	publisher, err := NewPublisher(repository, permissionFanoutRBAC{userIDs: []uint64{0, 0}})
@@ -297,6 +361,18 @@ func requireUnreadDeliveryForUser(t *testing.T, db *sql.DB, deliveryID uint64, u
 type publisherSpyRepository struct {
 	createEventCalls      int
 	createDeliveriesCalls int
+}
+
+type staticNotificationConfigResolver struct {
+	values map[string]bool
+}
+
+func (r staticNotificationConfigResolver) Boolean(_ context.Context, key string, fallback bool) bool {
+	value, ok := r.values[key]
+	if !ok {
+		return fallback
+	}
+	return value
 }
 
 func (r *publisherSpyRepository) CreateEvent(context.Context, notificationstore.CreateEventInput) (notificationstore.Event, bool, error) {

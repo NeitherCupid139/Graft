@@ -1,7 +1,7 @@
 // Copyright (c) 2025-2026 GeWuYou
 // SPDX-License-Identifier: Apache-2.0
 
-import type { BootstrapRouteRegistration, WebModuleRegistration } from './types';
+import type { BootstrapRouteRegistration, GlobalRouteRegistration, WebModuleRegistration } from './types';
 
 type WebModuleRegistrationModule = {
   default: WebModuleRegistration;
@@ -10,6 +10,8 @@ type WebModuleRegistrationModule = {
 type WebModuleBootstrapRoutesModule = {
   [key: string]: unknown;
 };
+
+type StableRouteNameRegistry = Map<string, string>;
 
 const moduleRegistrationModules = import.meta.glob<WebModuleRegistrationModule>('./*/index.ts', {
   eager: true,
@@ -40,12 +42,33 @@ function isBootstrapRouteRegistration(value: unknown): value is BootstrapRouteRe
 }
 
 function isWebModuleRegistration(value: unknown): value is WebModuleRegistration {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const registration = value as Partial<WebModuleRegistration>;
+  const globalRoutes = registration.globalRoutes;
+
+  return Boolean(
+    typeof registration.moduleId === 'string' &&
+    Array.isArray(registration.bootstrapRoutes) &&
+    registration.bootstrapRoutes.every(isBootstrapRouteRegistration) &&
+    (globalRoutes === undefined || (Array.isArray(globalRoutes) && globalRoutes.every(isGlobalRouteRegistration))),
+  );
+}
+
+function isGlobalRouteRegistration(value: unknown): value is GlobalRouteRegistration {
+  const meta = (value as Partial<GlobalRouteRegistration> | null)?.meta;
+
   return Boolean(
     value &&
     typeof value === 'object' &&
-    typeof (value as Partial<WebModuleRegistration>).moduleId === 'string' &&
-    Array.isArray((value as Partial<WebModuleRegistration>).bootstrapRoutes) &&
-    (value as Partial<WebModuleRegistration>).bootstrapRoutes?.every(isBootstrapRouteRegistration),
+    typeof (value as Partial<GlobalRouteRegistration>).path === 'string' &&
+    typeof (value as Partial<GlobalRouteRegistration>).routeName === 'string' &&
+    typeof (value as Partial<GlobalRouteRegistration>).loadPage === 'function' &&
+    meta &&
+    typeof meta === 'object' &&
+    !Array.isArray(meta),
   );
 }
 
@@ -73,7 +96,7 @@ function loadModuleRegistrations() {
 }
 
 function registerStableRouteName(
-  routeNameRegistry: Map<string, string>,
+  routeNameRegistry: StableRouteNameRegistry,
   routeName: string,
   owner: string,
   source: 'parent' | 'child',
@@ -86,9 +109,44 @@ function registerStableRouteName(
   routeNameRegistry.set(routeName, owner);
 }
 
-export function buildBootstrapRouteRegistrationMap(registrations: WebModuleRegistration[]) {
-  const bootstrapRouteRegistrationMap = new Map<string, BootstrapRouteRegistration>();
+function registerStableRouteNamePair(routeNameRegistry: StableRouteNameRegistry, routeName: string, owner: string) {
+  registerStableRouteName(routeNameRegistry, routeName, owner, 'parent');
+  registerStableRouteName(routeNameRegistry, `${routeName}Index`, owner, 'child');
+}
+
+function registerModuleStableRouteNames(
+  routeNameRegistry: StableRouteNameRegistry,
+  moduleRegistration: WebModuleRegistration,
+) {
+  for (const routeRegistration of moduleRegistration.bootstrapRoutes) {
+    registerStableRouteNamePair(
+      routeNameRegistry,
+      routeRegistration.routeName,
+      `${moduleRegistration.moduleId}:${routeRegistration.menuPath}`,
+    );
+  }
+
+  for (const routeRegistration of moduleRegistration.globalRoutes ?? []) {
+    registerStableRouteNamePair(
+      routeNameRegistry,
+      routeRegistration.routeName,
+      `${moduleRegistration.moduleId}:${routeRegistration.path}`,
+    );
+  }
+}
+
+function buildStableRouteNameRegistry(registrations: WebModuleRegistration[]) {
   const stableRouteNameRegistry = new Map<string, string>();
+
+  for (const moduleRegistration of registrations) {
+    registerModuleStableRouteNames(stableRouteNameRegistry, moduleRegistration);
+  }
+
+  return stableRouteNameRegistry;
+}
+
+function collectBootstrapRouteRegistrationMap(registrations: WebModuleRegistration[]) {
+  const bootstrapRouteRegistrationMap = new Map<string, BootstrapRouteRegistration>();
 
   for (const moduleRegistration of registrations) {
     for (const routeRegistration of moduleRegistration.bootstrapRoutes) {
@@ -96,9 +154,6 @@ export function buildBootstrapRouteRegistrationMap(registrations: WebModuleRegis
         throw new Error(`duplicate bootstrap route registration: ${routeRegistration.menuPath}`);
       }
 
-      const owner = `${moduleRegistration.moduleId}:${routeRegistration.menuPath}`;
-      registerStableRouteName(stableRouteNameRegistry, routeRegistration.routeName, owner, 'parent');
-      registerStableRouteName(stableRouteNameRegistry, `${routeRegistration.routeName}Index`, owner, 'child');
       bootstrapRouteRegistrationMap.set(routeRegistration.menuPath, routeRegistration);
     }
   }
@@ -106,8 +161,52 @@ export function buildBootstrapRouteRegistrationMap(registrations: WebModuleRegis
   return bootstrapRouteRegistrationMap;
 }
 
-const bootstrapRouteRegistrationMap = buildBootstrapRouteRegistrationMap(loadModuleRegistrations());
+export function buildBootstrapRouteRegistrationMap(registrations: WebModuleRegistration[]) {
+  buildStableRouteNameRegistry(registrations);
+  return collectBootstrapRouteRegistrationMap(registrations);
+}
+
+function collectGlobalRouteRegistrations(registrations: WebModuleRegistration[]) {
+  const globalRouteRegistrations: GlobalRouteRegistration[] = [];
+  const stablePathRegistry = new Map<string, string>();
+
+  for (const moduleRegistration of registrations) {
+    for (const routeRegistration of moduleRegistration.globalRoutes ?? []) {
+      const owner = `${moduleRegistration.moduleId}:${routeRegistration.path}`;
+      const existingOwner = stablePathRegistry.get(routeRegistration.path);
+      if (existingOwner) {
+        throw new Error(`duplicate global route path: ${routeRegistration.path} already owned by ${existingOwner}`);
+      }
+
+      stablePathRegistry.set(routeRegistration.path, owner);
+      globalRouteRegistrations.push(routeRegistration);
+    }
+  }
+
+  return globalRouteRegistrations;
+}
+
+export function buildGlobalRouteRegistrations(registrations: WebModuleRegistration[]) {
+  buildStableRouteNameRegistry(registrations);
+  return collectGlobalRouteRegistrations(registrations);
+}
+
+function buildModuleRouteRegistries(registrations: WebModuleRegistration[]) {
+  buildStableRouteNameRegistry(registrations);
+
+  return {
+    bootstrapRouteRegistrationMap: collectBootstrapRouteRegistrationMap(registrations),
+    globalRouteRegistrations: collectGlobalRouteRegistrations(registrations),
+  };
+}
+
+const moduleRegistrations = loadModuleRegistrations();
+const { bootstrapRouteRegistrationMap, globalRouteRegistrations } = buildModuleRouteRegistries(moduleRegistrations);
 
 export function getBootstrapRouteRegistration(menuPath: string) {
   return bootstrapRouteRegistrationMap.get(menuPath);
+}
+
+export function getGlobalRouteRegistrations() {
+  return [...globalRouteRegistrations];
 }

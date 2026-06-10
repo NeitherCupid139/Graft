@@ -4,6 +4,7 @@
 package notification
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -67,6 +68,17 @@ func (m *Module) bindRBACAccessService(ctx *module.Context) error {
 	return nil
 }
 
+func (m *Module) bindSystemConfigResolver(ctx *module.Context) error {
+	resolver, err := resolveSystemConfigResolver(ctx)
+	if err != nil {
+		return fmt.Errorf("resolve system config resolver: %w", err)
+	}
+	if err := m.publisher.setConfigResolver(systemConfigNotificationResolver{resolver: resolver}); err != nil {
+		return fmt.Errorf("bind system config resolver: %w", err)
+	}
+	return nil
+}
+
 func (m *Module) registerRoutes(ctx *module.Context) error {
 	authService, err := resolveAuthService(ctx)
 	if err != nil {
@@ -97,9 +109,9 @@ func (m *Module) registerRoutes(ctx *module.Context) error {
 	return nil
 }
 
-// Boot currently has no background behavior to start.
-func (m *Module) Boot(_ *module.Context) error {
-	return nil
+// Boot resolves cross-module capabilities that are registered after all modules finish Register.
+func (m *Module) Boot(ctx *module.Context) error {
+	return m.bindSystemConfigResolver(ctx)
 }
 
 // Shutdown currently has no runtime resources to release.
@@ -141,4 +153,30 @@ func resolveRBACAccessService(ctx *module.Context) (moduleapi.RBACAccessService,
 		return nil, errors.New("notification rbac access service has unexpected type")
 	}
 	return rbacAccess, nil
+}
+
+func resolveSystemConfigResolver(ctx *module.Context) (moduleapi.SystemConfigResolver, error) {
+	if ctx == nil || ctx.Services == nil {
+		return nil, errors.New("notification services are required")
+	}
+	resolved, err := ctx.Services.Resolve((*moduleapi.SystemConfigResolver)(nil))
+	if err != nil {
+		return nil, err
+	}
+	resolver, ok := resolved.(moduleapi.SystemConfigResolver)
+	if !ok || resolver == nil {
+		return nil, fmt.Errorf("notification system config resolver has unexpected type %T", resolved)
+	}
+	return resolver, nil
+}
+
+type systemConfigNotificationResolver struct {
+	resolver moduleapi.SystemConfigResolver
+}
+
+func (r systemConfigNotificationResolver) Boolean(ctx context.Context, key string, fallback bool) bool {
+	if r.resolver == nil {
+		return fallback
+	}
+	return r.resolver.IsBooleanConfigEnabled(ctx, key, fallback)
 }

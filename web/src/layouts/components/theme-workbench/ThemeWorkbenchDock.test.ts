@@ -11,6 +11,11 @@ import { useSettingStore } from '@/store';
 import ThemeWorkbenchDock from './ThemeWorkbenchDock.vue';
 
 vi.mock('@/locales', () => ({
+  i18n: {
+    global: {
+      getLocaleMessage: () => ({}),
+    },
+  },
   t: (key: string) => key,
 }));
 

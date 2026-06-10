@@ -820,7 +820,7 @@ describe('ScheduledTaskListPage', () => {
     expect(firstScheduleCell.text()).toContain('下次执行：2026-06-06 08:05');
     expect(firstScheduleCell.find('.scheduled-task-schedule').text()).not.toContain('规则说明');
     expect(firstScheduleCell.text()).toContain('规则说明');
-    expect(firstScheduleCell.text()).toContain('每隔 5 分钟');
+    expect(firstScheduleCell.text()).toContain('每 5 分钟执行一次');
     expect(firstScheduleCell.text()).toContain('时区');
 
     const customScheduleCell = wrapper.find('tbody tr:nth-child(4) td[data-col="schedule"]');

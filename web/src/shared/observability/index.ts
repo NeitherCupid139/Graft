@@ -21,7 +21,13 @@ export {
   withSorterDirectionFromInput,
   withSorterFieldFromInput,
 } from './sorters';
-export { formatLocaleDateTime } from './time';
+export {
+  formatLocaleDateOnly,
+  formatLocaleDateTime,
+  formatLocaleTimeOnly,
+  MEDIUM_DATE_TIME_FORMAT_OPTIONS,
+  MEDIUM_DATE_TIME_WITH_SECONDS_FORMAT_OPTIONS,
+} from './time';
 export {
   buildRecentHoursLocalRange,
   buildTodayLocalRange,

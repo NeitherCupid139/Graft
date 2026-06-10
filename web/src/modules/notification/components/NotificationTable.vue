@@ -83,7 +83,7 @@
       </template>
 
       <template #empty>
-        <t-empty :title="t('notification.empty.title')" :description="t('notification.empty.description')" />
+        <t-empty :title="emptyTitle" :description="emptyDescription" />
       </template>
     </t-table>
   </t-card>
@@ -111,6 +111,8 @@ import type { NotificationItem } from '../types/notification';
 
 const props = defineProps<{
   current: number;
+  emptyDescription: string;
+  emptyTitle: string;
   items: NotificationItem[];
   loading?: boolean;
   pageSize: number;

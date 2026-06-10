@@ -175,7 +175,7 @@
             <table-action-menu
               :actions="userRowActions(row)"
               :more-label="t('user.userList.more')"
-              more-label-fallback="更多"
+              :more-label-fallback="t('user.userList.more')"
               @action="(action) => handleUserRowAction(action, row)"
             />
           </template>
@@ -888,7 +888,7 @@ const userRowMoreOptions = (user: UserRow) => {
   if (permissionStore.hasPermission(userPermissionCodes.UPDATE)) {
     options.push({
       content: t('user.userList.edit'),
-      fallbackLabel: '编辑',
+      fallbackLabel: t('user.userList.edit'),
       value: 'edit',
     });
   }
@@ -899,7 +899,10 @@ const userRowMoreOptions = (user: UserRow) => {
         normalizeUserStatus(user.status) === USER_STATUS.DISABLED
           ? t('user.userList.moreActions.enable')
           : t('user.userList.moreActions.disable'),
-      fallbackLabel: normalizeUserStatus(user.status) === USER_STATUS.DISABLED ? '启用用户' : '禁用用户',
+      fallbackLabel:
+        normalizeUserStatus(user.status) === USER_STATUS.DISABLED
+          ? t('user.userList.moreActions.enable')
+          : t('user.userList.moreActions.disable'),
       value: 'toggle-status',
     });
   }
@@ -907,7 +910,7 @@ const userRowMoreOptions = (user: UserRow) => {
   if (permissionStore.hasPermission(userPermissionCodes.UPDATE)) {
     options.push({
       content: t('user.userList.moreActions.resetPassword'),
-      fallbackLabel: '重置密码',
+      fallbackLabel: t('user.userList.moreActions.resetPassword'),
       value: 'reset-password',
     });
   }
@@ -915,7 +918,7 @@ const userRowMoreOptions = (user: UserRow) => {
   if (permissionStore.hasPermission(userPermissionCodes.DISABLE)) {
     options.push({
       content: t('user.userList.moreActions.delete'),
-      fallbackLabel: '删除用户',
+      fallbackLabel: t('user.userList.moreActions.delete'),
       value: 'delete',
     });
   }
@@ -1094,7 +1097,7 @@ function userRowActions(user: UserRow) {
   }
 
   actions.push({
-    fallbackLabel: '详情',
+    fallbackLabel: t('components.commonTable.detail'),
     label: t('components.commonTable.detail'),
     testId: 'user-detail',
     value: 'detail',
@@ -1102,7 +1105,7 @@ function userRowActions(user: UserRow) {
 
   if (permissionStore.hasPermission(auditPermissionCodes.READ)) {
     actions.push({
-      fallbackLabel: '查看审计',
+      fallbackLabel: t('user.userList.viewAudit'),
       label: t('user.userList.viewAudit'),
       testId: 'user-view-audit',
       value: 'view-audit',

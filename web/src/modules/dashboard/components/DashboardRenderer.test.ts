@@ -2,13 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { mount } from '@vue/test-utils';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineComponent, h } from 'vue';
 
 import type { DashboardWidget } from '../types/dashboard';
 import DashboardRenderer from './DashboardRenderer.vue';
 
 vi.mock('@/locales', () => ({
+  currentLocale: 'en-US',
   t: (key: string, params?: Record<string, unknown>) => {
     const translations: Record<string, string> = {
       'dashboard.actions.details': '查看详情',
@@ -51,6 +52,10 @@ const routerMocks = vi.hoisted(() => ({
 vi.mock('vue-router', () => ({
   useRouter: () => routerMocks,
 }));
+
+beforeEach(() => {
+  routerMocks.push.mockClear();
+});
 
 const passthroughStub = defineComponent({
   name: 'PassthroughStub',
@@ -230,6 +235,22 @@ describe('DashboardRenderer', () => {
     expect(routerMocks.push).toHaveBeenCalledWith('/server/modules');
     expect(wrapper.text()).toContain('查看详情');
     expect(wrapper.text()).not.toContain('View details');
+  });
+
+  it('keeps dashboard action query strings intact for drilldown routes', async () => {
+    const wrapper = mountRenderer([
+      baseWidget({
+        action: {
+          label: 'View details',
+          label_key: 'dashboard.actions.details',
+          route: '/audit/logs?preset=last_24h&scope=high_risk_operations',
+        },
+      }),
+    ]);
+
+    await wrapper.find('button').trigger('click');
+
+    expect(routerMocks.push).toHaveBeenCalledWith('/audit/logs?preset=last_24h&scope=high_risk_operations');
   });
 
   it('renders healthy summary text instead of an empty state when health payload has no items', () => {

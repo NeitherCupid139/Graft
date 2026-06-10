@@ -1,5 +1,23 @@
 {
   "monitor": {
+    "route": {
+      "overview": {
+        "title": "Service Management - Overview",
+        "breadcrumb": "Overview"
+      },
+      "runtime": {
+        "title": "Service Management - Runtime",
+        "breadcrumb": "Runtime"
+      },
+      "dependencies": {
+        "title": "Service Management - Dependencies",
+        "breadcrumb": "Dependencies"
+      },
+      "moduleRuntime": {
+        "title": "Service Management - Module Runtime",
+        "breadcrumb": "Module Runtime"
+      }
+    },
     "sectionTitle": "Service Management",
     "serverStatus": {
       "overviewTitle": "Server Status Overview",

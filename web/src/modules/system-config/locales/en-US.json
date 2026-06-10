@@ -7,6 +7,12 @@
     }
   },
   "systemConfig": {
+    "route": {
+      "list": {
+        "title": "Service Management - System Configuration",
+        "breadcrumb": "System Configuration"
+      }
+    },
     "list": {
       "eyebrow": "Service Management",
       "title": "System Configuration",
@@ -82,6 +88,7 @@
     "domains": {
       "dashboard": "Dashboard Configuration",
       "logs": "Logs",
+      "notification": "Notification",
       "audit": "Security Audit",
       "uncategorized": "Uncategorized"
     },
@@ -123,6 +130,86 @@
         "description": "Default Cleanup Configuration for Audit-Log Retention Jobs."
       }
     },
+    "notification": {
+      "notification": {
+        "enabled": {
+          "title": "Notification Enabled",
+          "description": "Whether in-app notifications are enabled."
+        },
+        "retention_days": {
+          "title": "Notification Retention Days",
+          "description": "Number of days notification records should be retained."
+        },
+        "default_page_size": {
+          "title": "Default Page Size",
+          "description": "Default page size used by Notification Center."
+        },
+        "source": {
+          "system_announcement": {
+            "enabled": {
+              "title": "System Announcement Notifications",
+              "description": "Enables notifications created from published system announcements."
+            }
+          },
+          "scheduled_task_failure": {
+            "enabled": {
+              "title": "Scheduled Task Failure Notifications",
+              "description": "Enables notifications for failed scheduled task runs."
+            }
+          },
+          "scheduled_task_success": {
+            "enabled": {
+              "title": "Scheduled Task Success Notifications",
+              "description": "Enables notifications for successful manual scheduled task runs."
+            }
+          },
+          "audit_incident": {
+            "enabled": {
+              "title": "Audit Incident Notifications",
+              "description": "Enables notifications for audit events that require security review."
+            }
+          },
+          "system_config_change": {
+            "enabled": {
+              "title": "System Config Change Notifications",
+              "description": "Enables notifications for system configuration changes, resets, and validation failures."
+            }
+          },
+          "access_log_retention_failure": {
+            "enabled": {
+              "title": "Access Log Retention Failure Notifications",
+              "description": "Enables notifications for access-log retention cleanup failures."
+            }
+          }
+        },
+        "delivery": {
+          "in_app": {
+            "enabled": {
+              "title": "In-App Delivery Enabled",
+              "description": "Whether Notification Center should create in-app delivery records."
+            }
+          },
+          "dedupe_window_seconds": {
+            "title": "Dedupe Window Seconds",
+            "description": "Dedupe window for same source, target, and business object notifications."
+          },
+          "max_batch_recipients": {
+            "title": "Max Batch Recipients",
+            "description": "Maximum recipients in one notification delivery batch."
+          }
+        },
+        "display": {
+          "show_read_days": {
+            "title": "Show Read Days",
+            "description": "Default time window for showing read notifications."
+          },
+          "popup_limit": {
+            "title": "Popup Limit",
+            "description": "Maximum notifications displayed by the notification bell popup."
+          }
+        }
+      }
+    },
     "fields": {
       "retentionDays": {
         "title": "Log Retention Days",
@@ -149,5 +236,13 @@
         "hybrid": "Rank by Recent Visits, Usage Frequency, and System Recommendations."
       }
     }
-  }
+  },
+  "systemConfig.groups.notification.general": "General",
+  "systemConfig.groups.notification.general.description": "Control the Notification Center baseline behavior.",
+  "systemConfig.groups.notification.sources": "Sources",
+  "systemConfig.groups.notification.sources.description": "Control which platform events create notifications.",
+  "systemConfig.groups.notification.delivery": "Delivery",
+  "systemConfig.groups.notification.delivery.description": "Control in-app delivery and fan-out limits.",
+  "systemConfig.groups.notification.display": "Display",
+  "systemConfig.groups.notification.display.description": "Control Notification Center display defaults."
 }

@@ -8,13 +8,10 @@ import (
 	"fmt"
 
 	"graft/server/internal/i18n"
-	"graft/server/internal/menu"
 	"graft/server/internal/module"
 	"graft/server/internal/permission"
 	notificationcontract "graft/server/modules/notification/contract"
 )
-
-const notificationMenuOrder = 300
 
 func registerNotificationMetadata(ctx *module.Context) error {
 	if err := registerNotificationMessages(ctx.I18n); err != nil {
@@ -23,7 +20,7 @@ func registerNotificationMetadata(ctx *module.Context) error {
 	if err := registerNotificationPermissions(ctx.PermissionRegistry, moduleID); err != nil {
 		return err
 	}
-	return registerNotificationMenu(ctx.MenuRegistry, moduleID)
+	return registerNotificationConfig(ctx.I18n, ctx.ConfigRegistry)
 }
 
 func registerNotificationMessages(localizer *i18n.Service) error {
@@ -86,24 +83,6 @@ func registerNotificationPermissions(registry *permission.Registry, moduleName s
 		DescriptionKey: "rbac.permissionCatalog.notificationManage.description",
 		Category:       "api",
 		Module:         moduleName,
-	})
-	return nil
-}
-
-func registerNotificationMenu(registry *menu.Registry, moduleName string) error {
-	if registry == nil {
-		return errors.New("menu registry is unavailable")
-	}
-
-	registry.Register(menu.Item{
-		Code:       "notification.list",
-		Title:      "通知中心",
-		TitleKey:   notificationcontract.NotificationMenuTitle.String(),
-		Path:       "/notifications",
-		Icon:       "mail",
-		Order:      notificationMenuOrder,
-		Permission: notificationcontract.NotificationViewPermission.String(),
-		Module:     moduleName,
 	})
 	return nil
 }

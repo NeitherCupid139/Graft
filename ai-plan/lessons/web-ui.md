@@ -1,5 +1,43 @@
 # Web UI Lessons
 
+## LESSON-WEB-UI-LOCALE-TIME-001：可见时间不能依赖宿主默认语言环境
+
+- Status: active
+- Level: L3
+- Applies to:
+  - `web` dashboard, monitor, audit, log, notification, and future time-display surfaces
+  - shared visible time formatters
+  - i18n governance scripts
+- Source:
+  - dashboard screenshot showing English host-locale timestamp fragments in a localized Chinese UI
+  - remediation of the i18n governance gate gap that allowed host-locale datetime formatting
+- Problem:
+  用户可见时间若使用 `new Intl.DateTimeFormat(undefined, ...)` 或无参数 `toLocaleString()` 等 API，会从浏览器或运行环境继承默认
+  locale。这样即使页面文案和菜单已经切到 `zh-CN`，时间仍可能显示英文月份、英文 AM/PM 或其他宿主格式，形成局部未本地化。
+- Correct pattern:
+  可见时间格式化必须显式绑定应用当前 `vue-i18n` locale，并默认收口到 `web/src/shared/observability` 的 locale-aware
+  formatter。API payload、URL query 和持久化状态继续保持 canonical timestamp 或页面本地输入语义，不为了展示效果把
+  wire contract 改成本地化字符串。
+- Anti-pattern:
+  - 在页面、组件或模块共享展示 helper 中使用 `new Intl.DateTimeFormat(undefined, ...)`
+  - 用无参数 `toLocaleString()` / `toLocaleDateString()` / `toLocaleTimeString()` 渲染可见时间
+  - 在 server 或 API response 中预渲染常规 UI 展示时间来绕过前端 locale 绑定
+  - 每个模块各自维护一套时间 formatter，导致日期、时间、秒级精度和空值回退不一致
+- Enforcement:
+  `bun run lint:i18n` 必须阻断生产源码中的 host-locale 可见时间格式化；修改时间展示时运行 `bun run lint:i18n`、
+  相关 formatter/page 测试和 `bun run check`。新增例外必须证明不是用户可见时间路径。
+- Promotion:
+  - AGENTS.md: yes
+  - Design doc: yes
+- Related:
+  - `web/AGENTS.md`
+  - `ai-plan/design/前端架构设计.md`
+  - `ai-plan/design/契约治理与魔法值治理规范.md`
+  - `web/scripts/check-i18n-governance.ts`
+  - `web/src/shared/observability/time.ts`
+- Updated at:
+  2026-06-10
+
 ## LESSON-WEB-UI-PROTECTED-STATE-001：系统保护状态不应伪装成错误告警
 
 - Status: active

@@ -29,7 +29,7 @@
       </t-button>
     </template>
     <template #feedback-extra>
-      <section class="scheduled-task-metrics" aria-label="scheduled task metrics">
+      <section class="scheduled-task-metrics" :aria-label="t('scheduledTask.list.metricsAriaLabel')">
         <t-card
           v-for="metric in overviewMetrics"
           :key="metric.key"
@@ -2201,6 +2201,7 @@ function cronNextRunLine(expression: string) {
 function cronScheduleDescription(expression: string) {
   return getCronDescription(expression || DEFAULT_CRON_EXPRESSION, locale.value, {
     advancedExpressionText: t('scheduledTask.cron.advancedExpression'),
+    translate: (key, params) => t(key, params ?? {}),
   });
 }
 

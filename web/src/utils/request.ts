@@ -167,7 +167,7 @@ function normalizeAxiosError(error: AxiosError<ApiErrorEnvelope>): ApiRequestErr
     return buildApiRequestError(status, payload);
   }
 
-  const fallbackMessage = error.message || 'Request failed';
+  const fallbackMessage = error.message || i18n.global.t('app.request.failed');
   return buildApiRequestError(status, {
     success: false,
     code: API_CODE.COMMON_INTERNAL_ERROR,

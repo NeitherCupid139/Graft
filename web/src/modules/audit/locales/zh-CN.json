@@ -14,6 +14,20 @@
     }
   },
   "audit": {
+    "route": {
+      "overview": {
+        "title": "安全审计 - 概览",
+        "breadcrumb": "概览"
+      },
+      "logList": {
+        "title": "安全审计 - 审计日志",
+        "breadcrumb": "审计日志"
+      },
+      "incidentDetail": {
+        "title": "安全审计 - 事件钻取",
+        "breadcrumb": "事件钻取"
+      }
+    },
     "common": {
       "unknownActor": "匿名用户",
       "unknownResource": "未知资源",
@@ -77,6 +91,10 @@
         "riskWatch": "最近风险"
       },
       "riskGroups": {
+        "authFailures": "认证失败",
+        "criticalSecurity": "关键安全事件",
+        "highRiskOperations": "高风险操作",
+        "permissionDenials": "权限拒绝",
         "meta": "当前窗口共 {count} 条",
         "action": "查看相关事件"
       },

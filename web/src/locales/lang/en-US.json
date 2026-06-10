@@ -8,7 +8,8 @@
   "components": {
     "commonTable": {
       "operation": "Operation",
-      "detail": "Detail"
+      "detail": "Detail",
+      "more": "More"
     }
   },
   "layout": {
@@ -296,6 +297,9 @@
     }
   },
   "app": {
+    "request": {
+      "failed": "Request Failed"
+    },
     "auth": {
       "login": {
         "title": "Log in",

@@ -14,6 +14,20 @@
     }
   },
   "audit": {
+    "route": {
+      "overview": {
+        "title": "Security Audit - Overview",
+        "breadcrumb": "Overview"
+      },
+      "logList": {
+        "title": "Security Audit - Audit Logs",
+        "breadcrumb": "Audit Logs"
+      },
+      "incidentDetail": {
+        "title": "Security Audit - Incident Drilldown",
+        "breadcrumb": "Incident Drilldown"
+      }
+    },
     "common": {
       "unknownActor": "Anonymous",
       "unknownResource": "Unknown resource",
@@ -77,6 +91,10 @@
         "riskWatch": "Recent Risk"
       },
       "riskGroups": {
+        "authFailures": "Authentication Failures",
+        "criticalSecurity": "Critical Security",
+        "highRiskOperations": "High-risk Operations",
+        "permissionDenials": "Permission Denials",
         "meta": "{count} events in the current window",
         "action": "View related events"
       },

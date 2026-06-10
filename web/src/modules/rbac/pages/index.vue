@@ -131,7 +131,7 @@
             <table-action-menu
               :actions="roleRowActions(row)"
               :more-label="t('rbac.roleList.more')"
-              more-label-fallback="更多"
+              :more-label-fallback="t('rbac.roleList.more')"
               @action="(action) => handleRoleRowAction(action, row)"
             />
           </template>
@@ -431,7 +431,11 @@
             "
             :selected="selectedPermissionIds.includes(item.id)"
             :tags="[
-              { label: t('rbac.roleList.permissionDialog.categoryBadge', { category: item.category || 'general' }) },
+              {
+                label: t('rbac.roleList.permissionDialog.categoryBadge', {
+                  category: item.category || t('rbac.roleList.permissionDialog.defaultCategory'),
+                }),
+              },
             ]"
             :title="localizedPermissionDisplay(item)"
             @toggle="toggleRolePermissionSelection(item.id)"
@@ -893,14 +897,14 @@ const roleRowMoreOptions = (role: RoleStatusCompat) => {
 
   options.push({
     content: t('rbac.roleList.detail'),
-    fallbackLabel: '详情',
+    fallbackLabel: t('rbac.roleList.detail'),
     value: 'detail',
   });
 
   if (canCopyRoles.value) {
     options.push({
       content: t('rbac.roleList.copyAsCustom'),
-      fallbackLabel: 'Copy Role',
+      fallbackLabel: t('rbac.roleList.copyAsCustom'),
       value: 'copy-role',
     });
   }
@@ -912,7 +916,7 @@ const roleRowMoreOptions = (role: RoleStatusCompat) => {
   if (permissionStore.hasPermission(permissionCodes.ROLE_UPDATE)) {
     options.push({
       content: t('rbac.roleList.edit'),
-      fallbackLabel: '编辑',
+      fallbackLabel: t('rbac.roleList.edit'),
       value: 'edit',
     });
   }
@@ -920,7 +924,9 @@ const roleRowMoreOptions = (role: RoleStatusCompat) => {
   if (canToggleRoleStatus.value && !role.builtin) {
     options.push({
       content: isRoleEnabled(role) ? t('rbac.roleList.moreActions.disable') : t('rbac.roleList.moreActions.enable'),
-      fallbackLabel: isRoleEnabled(role) ? '停用角色' : '启用角色',
+      fallbackLabel: isRoleEnabled(role)
+        ? t('rbac.roleList.moreActions.disable')
+        : t('rbac.roleList.moreActions.enable'),
       value: 'toggle-status',
     });
   }
@@ -928,7 +934,7 @@ const roleRowMoreOptions = (role: RoleStatusCompat) => {
   if (canDeleteRoles.value && !role.builtin) {
     options.push({
       content: t('rbac.roleList.moreActions.delete'),
-      fallbackLabel: '删除角色',
+      fallbackLabel: t('rbac.roleList.moreActions.delete'),
       value: 'delete',
     });
   }

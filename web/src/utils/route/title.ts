@@ -35,3 +35,7 @@ export function localizeRouteTitle(fallbackTitle: string, titleKey?: string): Lo
     return titles;
   }, {} as LocalizedTitle);
 }
+
+export function localizeRouteTitleKey(titleKey: string): LocalizedTitle {
+  return localizeRouteTitle(titleKey, titleKey);
+}

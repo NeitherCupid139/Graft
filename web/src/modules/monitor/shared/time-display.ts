@@ -1,37 +1,23 @@
 // Copyright (c) 2025-2026 GeWuYou
 // SPDX-License-Identifier: Apache-2.0
 
-export function formatTimeOnly(value?: string | null) {
-  if (!value) {
+import type { Ref } from 'vue';
+
+import { formatLocaleDateOnly, formatLocaleTimeOnly } from '@/shared/observability';
+
+export function formatTimeOnly(value?: string | null, locale?: string | Ref<string | undefined> | null) {
+  if (!value || Number.isNaN(new Date(value).getTime())) {
     return '--';
   }
 
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return '--';
-  }
-
-  return new Intl.DateTimeFormat(undefined, {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  }).format(parsed);
+  const formatted = formatLocaleTimeOnly(value, locale);
+  return formatted === '-' ? '--' : formatted;
 }
 
-export function formatDateOnly(value?: string | null) {
-  if (!value) {
+export function formatDateOnly(value?: string | null, locale?: string | Ref<string | undefined> | null) {
+  if (!value || Number.isNaN(new Date(value).getTime())) {
     return '';
   }
 
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return '';
-  }
-
-  return new Intl.DateTimeFormat(undefined, {
-    year: 'numeric',
-    month: 'numeric',
-    day: 'numeric',
-  }).format(parsed);
+  return formatLocaleDateOnly(value, locale);
 }

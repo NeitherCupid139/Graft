@@ -151,14 +151,26 @@ describe('scheduled-task cron utility', () => {
 
   it('returns empty next run text and advanced descriptions for invalid cron expressions', () => {
     expect(getNextRunText('not a cron', 'Asia/Shanghai', { locale: 'zh-CN' })).toBe('');
-    expect(getCronDescription('not a cron', 'zh-CN')).toBe('高级 Cron 表达式');
-    expect(getCronDescription('not a cron', 'en-US')).toBe('Advanced Cron expression');
+    expect(getCronDescription('not a cron', 'zh-CN')).toBe('scheduledTask.cronDescription.advanced');
+    expect(
+      getCronDescription('not a cron', 'zh-CN', {
+        translate: () => '高级 Cron 表达式',
+      }),
+    ).toBe('高级 Cron 表达式');
   });
 
   it('describes cron expressions with zh-CN and en-US locale support', () => {
-    expect(getCronDescription('0 0 17 * * *', 'zh-CN')).toBe('每天 17:00 执行');
-    expect(getCronDescription('0 15 17 * * *', 'zh-CN')).toBe('每天 17:15 执行');
-    expect(getCronDescription('0 30 17 * * *', 'zh-CN')).toBe('每天 17:30 执行');
-    expect(getCronDescription('0 0 17 * * *', 'en-US')).toContain('every day');
+    const translate = (key: string, params?: Record<string, string | number>) =>
+      `${key}:${String(params?.hour ?? '')}:${String(params?.minute ?? '')}`;
+
+    expect(getCronDescription('0 0 17 * * *', 'zh-CN')).toBe('scheduledTask.cronDescription.daily');
+    expect(getCronDescription('0 0 17 * * *', 'zh-CN', { translate })).toBe('scheduledTask.cronDescription.daily:17:');
+    expect(getCronDescription('0 15 17 * * *', 'zh-CN')).toContain('17:15');
+    expect(getCronDescription('0 30 17 * * *', 'zh-CN')).toContain('17:30');
+    expect(getCronDescription('0 0 17 * * *', 'en-US', { translate })).toBe('scheduledTask.cronDescription.daily:17:');
+  });
+
+  it('preserves zh-CN daily wording and normalizes commas after polishing cron descriptions', () => {
+    expect(getCronDescription('0 15 17 * * *', 'zh-CN')).toBe('在17:15，每天');
   });
 });

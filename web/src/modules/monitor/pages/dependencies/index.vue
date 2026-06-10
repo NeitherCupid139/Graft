@@ -105,7 +105,7 @@ type DependencyCard = {
   diagnostics: DependencyHealthDiagnostics;
 };
 
-const { t } = useI18n();
+const { locale, t } = useI18n();
 const diagnosticDrawerVisible = ref(false);
 const selectedDependencyKey = ref<string | null>(null);
 /* jscpd:ignore-start */
@@ -165,8 +165,9 @@ const summaryMetrics = computed(() => {
     {
       key: 'lastCheck',
       label: t('monitor.dependenciesPage.summary.lastCheck'),
-      value: formatTimeOnly(observedAt.value),
-      description: formatDateOnly(observedAt.value) || t('monitor.dependenciesPage.summary.lastCheckDescription'),
+      value: formatTimeOnly(observedAt.value, locale),
+      description:
+        formatDateOnly(observedAt.value, locale) || t('monitor.dependenciesPage.summary.lastCheckDescription'),
     },
   ];
 });
@@ -202,7 +203,7 @@ const frameProps = computed(() =>
 
 const serviceCards = computed<DependencyCard[]>(() => {
   const response = serverStatus.value;
-  const observedLabel = formatTimestamp(response?.observed_at);
+  const observedLabel = formatTimestamp(response?.observed_at, locale);
   const database = response?.dependencies.database;
   const redis = response?.dependencies.redis;
 

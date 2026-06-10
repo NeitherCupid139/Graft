@@ -14,9 +14,12 @@
       "refresh": "Refresh",
       "reset": "Reset",
       "search": "Search",
-      "viewAll": "View All"
+      "viewAll": "Open Notification Center →"
     },
     "bell": {
+      "emptyDescription": "There are no unread notifications. Notifications are created by system announcements, task failures, security events, and configuration changes.",
+      "emptyTitle": "No Unread Notifications",
+      "errorTitle": "Failed to Read Notifications",
       "loading": "Loading Notifications",
       "loadingDescription": "Reading the Latest Notifications.",
       "open": "Open Notifications",
@@ -54,7 +57,9 @@
       "unsupportedNavigation": "This Notification Target Is Not Available."
     },
     "empty": {
-      "description": "No notifications match the current filters.",
+      "description": "Notifications are created by system announcements, administrator messages, task failures, security events, and configuration changes. Routine access logs, routine audit logs, and operations alerts are not included in Notification Center.",
+      "filteredDescription": "No notifications match the current filters. Adjust status, category, source module, or time range and try again.",
+      "filteredTitle": "No Notifications Match the Filters",
       "title": "No Notifications"
     },
     "filters": {
@@ -95,7 +100,10 @@
       "warning": "Warning"
     },
     "source": {
+      "access-log": "Access Log",
       "audit": "Security Audit",
+      "notification": "Notification Center",
+      "system-config": "System Configuration",
       "scheduler": "Scheduled Tasks"
     },
     "status": {

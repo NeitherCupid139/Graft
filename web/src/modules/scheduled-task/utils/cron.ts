@@ -25,6 +25,7 @@ export type CronDescriptionKey =
   | 'scheduledTask.cronDescription.daily'
   | 'scheduledTask.cronDescription.weekly'
   | 'scheduledTask.cronDescription.monthly'
+  | 'scheduledTask.cronDescription.advanced'
   | 'scheduledTask.cronDescription.custom'
   | 'scheduledTask.cronDescription.invalid';
 
@@ -62,10 +63,6 @@ export type ParsedCronExpression = {
 
 const FIELD_COUNT_UNIX = 5;
 const FIELD_COUNT_SECONDS = 6;
-const ADVANCED_CRON_DESCRIPTION: Record<string, string> = {
-  en: 'Advanced Cron expression',
-  zh_CN: '高级 Cron 表达式',
-};
 
 export type CronNextRunFormatOptions = {
   locale?: string;
@@ -74,6 +71,7 @@ export type CronNextRunFormatOptions = {
 
 export type CronDescriptionFormatOptions = {
   advancedExpressionText?: string;
+  translate?: CronDescriptionTranslate;
 };
 
 type SimpleDailyCronTime = {
@@ -138,10 +136,19 @@ export function getCronDescription(
   const normalizedExpression = formatCronExpression(expression);
   const cronstrueLocale = toCronstrueLocale(locale);
   if (!isSupportedCronFieldCount(normalizedExpression)) {
-    return options.advancedExpressionText || advancedCronDescription(cronstrueLocale);
+    return (
+      options.advancedExpressionText ||
+      options.translate?.('scheduledTask.cronDescription.advanced') ||
+      'scheduledTask.cronDescription.advanced'
+    );
   }
 
   try {
+    const simpleDescription = describeNormalizedCronExpression(normalizeCronExpression(normalizedExpression));
+    if (simpleDescription.valid && simpleDescription.key !== 'scheduledTask.cronDescription.custom') {
+      return options.translate?.(simpleDescription.key, simpleDescription.params) ?? simpleDescription.key;
+    }
+
     const description = cronstrue.toString(normalizedExpression, {
       locale: cronstrueLocale,
       throwExceptionOnParseError: true,
@@ -150,7 +157,11 @@ export function getCronDescription(
     });
     return polishCronDescription(description, normalizedExpression, cronstrueLocale);
   } catch {
-    return options.advancedExpressionText || advancedCronDescription(cronstrueLocale);
+    return (
+      options.advancedExpressionText ||
+      options.translate?.('scheduledTask.cronDescription.advanced') ||
+      'scheduledTask.cronDescription.advanced'
+    );
   }
 }
 
@@ -523,10 +534,6 @@ function toCronstrueLocale(locale?: string): string {
   return 'en';
 }
 
-function advancedCronDescription(locale: string): string {
-  return ADVANCED_CRON_DESCRIPTION[locale] ?? ADVANCED_CRON_DESCRIPTION.en;
-}
-
 function polishCronDescription(description: string, expression: string, locale: string): string {
   if (locale !== 'zh_CN') {
     return description;
@@ -534,7 +541,9 @@ function polishCronDescription(description: string, expression: string, locale: 
 
   const dailyTime = parseSimpleDailyCronTime(expression);
   if (dailyTime && /每天/.test(description) && /在\s*\d{1,2}:\d{2}/.test(description)) {
-    return `每天 ${formatCronClockTime(dailyTime.hour, dailyTime.minute)} 执行`;
+    return description
+      .replace(/\d{1,2}:\d{2}/, formatCronClockTime(dailyTime.hour, dailyTime.minute))
+      .replace(/,\s*/g, '，');
   }
 
   return description.replace(/,\s*/g, '，');

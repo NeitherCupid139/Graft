@@ -93,7 +93,7 @@ import {
   useServerStatusSnapshot,
 } from '../../shared/server-status-snapshot';
 
-const { t } = useI18n();
+const { locale, t } = useI18n();
 /* jscpd:ignore-start */
 // 这里保留页面本地 snapshot 解构，避免为压低重复率再抽一层“万能页面上下文”。
 // 若未来删除或改造该代码，必须同步移除对应 jscpd ignore，重新评估是否仍需保留本地解构。
@@ -317,7 +317,7 @@ function formatSnapshotBytes(value?: number | null) {
 }
 
 function formatSnapshotTimestamp(value?: string | null) {
-  const formatted = formatTimestamp(value);
+  const formatted = formatTimestamp(value, locale);
   return formatted === '--' ? notReportedLabel.value : formatted;
 }
 

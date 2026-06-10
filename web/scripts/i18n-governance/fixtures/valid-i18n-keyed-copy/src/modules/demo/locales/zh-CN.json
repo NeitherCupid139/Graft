@@ -1,0 +1,9 @@
+{
+  "demo": {
+    "title": "演示",
+    "actions": {
+      "edit": "编辑",
+      "toggleUser": "切换用户"
+    }
+  }
+}

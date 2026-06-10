@@ -179,6 +179,8 @@ web/src/
 - 模块接入壳层的唯一新功能入口是 `modules/<name>/index.ts`
 - 模块对外声明 bootstrap 动态路由的唯一入口是 `modules/<name>/bootstrap-routes.ts`
 - `bootstrap-routes.ts` 只声明模块可接入壳层所需的最小注册信息，不扩散页面实现细节到壳层
+- 不属于左侧业务菜单但仍属于后台壳的模块页面，应通过模块注册面的 `globalRoutes` 声明为菜单外全局路由，
+  不得依赖后端 hidden menu 撑路由，也不得在壳层写死模块页面组件
 - 壳层只消费模块注册结果，不直接维护“页面 path -> 模块页面组件”的第二套长期白名单
 - 新增模块时，默认按 `pages`、`components`、`api`、`contract`、`types`、`locales` 组织
 - 模块存在稳定子菜单或同级子页面时，`pages/<subpage>/index.vue` 是默认页面真值；测试与页面私有样式跟随该目录放在 `pages/<subpage>/index.test.ts`、`pages/<subpage>/index.less`
@@ -186,6 +188,8 @@ web/src/
 - 新增模块时，至少补齐模块目录、`index.ts` 与 `bootstrap-routes.ts`
 - 如果某个默认目录在当前切片暂时不存在，必须保证对应真值仍留在模块边界内，不得回退到根级平台目录
 - 路由名必须稳定且唯一；不得为同一语义并行维护多套 route name 或 path 常量
+- `hiddenMenu` 只表示不参与菜单渲染，仍可生成 Tab、breadcrumb、keep-alive key；`hidden` 表示壳层隐藏页面，
+  不得用 `hidden` 代替菜单隐藏
 
 i18n 与标题规则：
 
@@ -441,7 +445,11 @@ dead-code / duplicate-code 治理规则：
   - `bun run check` 必须包含 `lint:i18n`，CI 继续复用 `bun run check`，不得为同一规则新增第二个 CI 真值
   - `.husky/pre-commit` 在 staged changes 命中 `web/src/**`、`web/scripts/check-i18n-governance.ts` 或 `web/package.json` 时必须执行 `cd web && bun run lint:i18n`
   - `.husky/pre-push` 在当前分支相对 base ref 命中上述 i18n 相关路径时必须执行 `cd web && bun run lint:i18n`
-  - `lint:i18n` 负责阻断 root catalog 与 module catalog 的重复 exact key、未使用 key、聚合漂移和第二套消息真值；重复 value 只要语义边界不同，不作为违规
+  - `lint:i18n` 负责阻断 root catalog 与 module catalog 的重复 exact key、未使用 key、聚合漂移、第二套消息真值，以及可见时间格式化未显式绑定当前 locale 的问题；重复 value 只要语义边界不同，不作为违规
+- 可见时间格式化规则：
+  - 页面、组件和模块共享展示层不得使用 `new Intl.DateTimeFormat(undefined, ...)` 或无参数 `toLocaleString()` / `toLocaleDateString()` / `toLocaleTimeString()` 渲染用户可见时间
+  - 可见时间默认通过 `web/src/shared/observability` 的 locale-aware formatter，并从 `vue-i18n` 当前 `locale` 传入
+  - API、URL query 和持久化状态继续使用 canonical UTC 或页面本地输入语义，不得为了展示本地化把 wire contract 改成本地化字符串
 - 人工验证 `pre-push` 时，可在有 `web/**` 改动的分支上执行：
   - `GRAFT_LINT_BASE_REF=origin/main .husky/pre-push`
   - 预期：命中 `web/**` 时先跑 `cd web && bun run hygiene:check`，无 `web/**` 改动时输出跳过提示，再继续后端 lint gate

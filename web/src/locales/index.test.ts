@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { isReadonly } from 'vue';
 
 import { STORAGE_KEY } from '@/contracts/storage/keys';
 
@@ -67,5 +68,17 @@ describe('locales bootstrap', () => {
         },
       },
     });
+  });
+
+  it('exports currentLocale as a readonly view of the active i18n locale', async () => {
+    const { currentLocale, i18n } = await import('./index');
+
+    expect(currentLocale.value).toBe(i18n.global.locale.value);
+    expect(isReadonly(currentLocale)).toBe(true);
+    expect(i18n.global.locale.value).toBe('zh-CN');
+
+    i18n.global.locale.value = 'en-US';
+
+    expect(currentLocale.value).toBe('en-US');
   });
 });

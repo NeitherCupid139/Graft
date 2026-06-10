@@ -1,5 +1,11 @@
 {
   "accessControl": {
+    "route": {
+      "overview": {
+        "title": "Access Control - Overview",
+        "breadcrumb": "Overview"
+      }
+    },
     "overview": {
       "title": "Access Control Overview",
       "description": "Review the overall state of system accounts, roles, permissions, and assignments.",

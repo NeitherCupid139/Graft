@@ -36,6 +36,12 @@ vi.mock('../api/quick-actions-config', () => ({
 }));
 
 vi.mock('@/locales', () => ({
+  currentLocale: 'en-US',
+  i18n: {
+    global: {
+      getLocaleMessage: () => ({}),
+    },
+  },
   t: (key: string, params?: Record<string, unknown>) => {
     const translations: Record<string, string> = {
       'dashboard.actions.refresh': 'Refresh',

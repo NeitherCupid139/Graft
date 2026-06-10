@@ -55,10 +55,16 @@
           </t-list-item>
         </t-list>
 
-        <t-empty v-else class="notification-bell-panel__empty" :title="emptyTitle" :description="emptyDescription" />
+        <t-empty
+          v-else
+          class="notification-bell-panel__empty"
+          :type="previewError ? 'fail' : 'empty'"
+          :title="emptyTitle"
+          :description="emptyDescription"
+        />
 
-        <div class="notification-bell-panel__foot">
-          <t-button block variant="text" @click="openAll">
+        <div class="notification-bell-panel__foot" @click="openAll">
+          <t-button class="notification-bell-panel__open-center" block variant="text">
             {{ t('notification.actions.viewAll') }}
           </t-button>
         </div>
@@ -85,6 +91,7 @@ import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 
+import { resolveLocalizedErrorMessage } from '@/modules/shared/localized-api-error';
 import { formatCompactDateTime } from '@/shared/components/management';
 
 import {
@@ -107,13 +114,20 @@ const router = useRouter();
 
 const visible = ref(false);
 const loading = ref(false);
+const previewError = ref('');
 const unreadCount = ref(0);
 const items = ref<NotificationItem[]>([]);
 
-const emptyTitle = computed(() => (loading.value ? t('notification.bell.loading') : t('notification.empty.title')));
-const emptyDescription = computed(() =>
-  loading.value ? t('notification.bell.loadingDescription') : t('notification.empty.description'),
-);
+const emptyTitle = computed(() => {
+  if (loading.value) return t('notification.bell.loading');
+  if (previewError.value) return t('notification.bell.errorTitle');
+  return t('notification.bell.emptyTitle');
+});
+const emptyDescription = computed(() => {
+  if (loading.value) return t('notification.bell.loadingDescription');
+  if (previewError.value) return previewError.value;
+  return t('notification.bell.emptyDescription');
+});
 
 onMounted(() => {
   void refreshUnreadCount();
@@ -130,6 +144,7 @@ async function refreshUnreadCount() {
 
 async function refreshPreview() {
   loading.value = true;
+  previewError.value = '';
   try {
     const [listResponse, countResponse] = await Promise.all([
       getNotifications({ page: 1, page_size: 5, status: 'unread' }),
@@ -137,8 +152,10 @@ async function refreshPreview() {
     ]);
     items.value = listResponse.items;
     unreadCount.value = countResponse.count;
-  } catch {
-    MessagePlugin.error(t('notification.messages.loadFailed'));
+  } catch (error) {
+    previewError.value = resolveLocalizedErrorMessage(t, error, t('notification.messages.loadFailed'));
+    items.value = [];
+    MessagePlugin.error(previewError.value);
   } finally {
     loading.value = false;
   }
@@ -261,6 +278,18 @@ function openAll() {
 
 .notification-bell-panel__foot {
   border-top: 1px solid var(--td-component-stroke);
+  cursor: pointer;
   padding: var(--td-comp-paddingTB-s) var(--td-comp-paddingLR-s);
+  transition: background-color 0.2s ease;
+}
+
+.notification-bell-panel__foot:hover {
+  background: var(--td-bg-color-container-hover);
+}
+
+.notification-bell-panel__open-center {
+  color: var(--td-text-color-primary);
+  font-weight: 500;
+  justify-content: flex-start;
 }
 </style>

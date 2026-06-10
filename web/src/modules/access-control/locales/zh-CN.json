@@ -1,5 +1,11 @@
 {
   "accessControl": {
+    "route": {
+      "overview": {
+        "title": "访问控制 - 概览",
+        "breadcrumb": "概览"
+      }
+    },
     "overview": {
       "title": "访问控制概览",
       "description": "查看系统账号、角色、权限与授权关系的整体状态。",

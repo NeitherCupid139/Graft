@@ -109,6 +109,22 @@ func (s *Service) ResolveDefaultConfig(ctx context.Context, key string) (string,
 	return string(item.EffectiveValue), nil
 }
 
+// IsBooleanConfigEnabled 返回跨模块布尔配置开关的有效值。
+//
+// 调用方负责传入已注册的布尔配置 key 与显式 fallback；当配置不存在、类型不是布尔值、读取失败或有效值不是合法
+// JSON boolean 时，System Config 按 moduleapi.SystemConfigResolver 约定返回 fallback。
+func (s *Service) IsBooleanConfigEnabled(ctx context.Context, key string, fallback bool) bool {
+	item, err := s.Get(ctx, key)
+	if err != nil || item.Definition.Type != configregistry.ValueTypeBoolean {
+		return fallback
+	}
+	var value bool
+	if err := json.Unmarshal(item.EffectiveValue, &value); err != nil {
+		return fallback
+	}
+	return value
+}
+
 // Update stores a user override for one registered definition key.
 func (s *Service) Update(ctx context.Context, key string, value json.RawMessage, userID *uint64) (ValueSnapshot, error) {
 	definition, ok := s.registry.Get(key)

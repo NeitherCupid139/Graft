@@ -1,5 +1,15 @@
 {
   "rbac": {
+    "route": {
+      "roleList": {
+        "title": "Access Control - Role Management",
+        "breadcrumb": "Role Management"
+      },
+      "permissionList": {
+        "title": "Access Control - Permission Management",
+        "breadcrumb": "Permission Management"
+      }
+    },
     "roleList": {
       "listTitle": "Role Management",
       "hint": "Manage roles, permission scope, and user assignments.",
@@ -127,6 +137,7 @@
         "readonlyProtectionBody": "This system role's permissions are maintained by the system and can only be viewed. To customize the permission set, copy it as a custom role and edit that role.",
         "readonlyFooterDetail": "Readonly mode will not save permission changes.",
         "readPermissionRequired": "Permission read access is required before viewing permission details.",
+        "defaultCategory": "General",
         "close": "Close",
         "loadingSelection": "Loading the current role permissions",
         "searchPlaceholder": "Search permission code, name, or description",

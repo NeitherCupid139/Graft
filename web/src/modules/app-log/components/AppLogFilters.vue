@@ -57,7 +57,10 @@ const sortByOptions = computed(() =>
   ].map(([labelKey, value]) => ({ label: t(labelKey), value: value as AppLogSortBy })),
 );
 const sortOrderOptions = computed(() =>
-  ['desc', 'asc'].map((value) => ({ label: t(`appLog.filters.sort${value === 'desc' ? 'Desc' : 'Asc'}`), value })),
+  [
+    ['appLog.filters.sortDesc', 'desc'],
+    ['appLog.filters.sortAsc', 'asc'],
+  ].map(([labelKey, value]) => ({ label: t(labelKey), value })),
 );
 const sorterControls = BuilderHelpers.useAdvancedQuerySorterControlsForModel<AppLogSortBy, AppLogFilterState>(
   currentFilters,

@@ -45,6 +45,8 @@
 
     <template #table>
       <notification-table
+        :empty-description="emptyDescription"
+        :empty-title="emptyTitle"
         :current="pagination.current"
         :items="rows"
         :loading="loading"
@@ -88,6 +90,7 @@ import NotificationDetailDrawer from '../../components/NotificationDetailDrawer.
 import NotificationFilters from '../../components/NotificationFilters.vue';
 import NotificationTable from '../../components/NotificationTable.vue';
 import { resolveNotificationNavigationLocation } from '../../contract/navigation';
+import { NOTIFICATION_MVP_SOURCE_MODULES } from '../../shared/presentation';
 import type {
   NotificationFilterState,
   NotificationItem,
@@ -118,11 +121,23 @@ const pagination = ref({
 });
 
 const sourceModules = computed(() =>
-  Array.from(new Set(['audit', 'scheduler', ...rows.value.map((item) => item.source_module).filter(Boolean)])).sort(
-    (left, right) => left.localeCompare(right),
-  ),
+  Array.from(
+    new Set([...NOTIFICATION_MVP_SOURCE_MODULES, ...rows.value.map((item) => item.source_module).filter(Boolean)]),
+  ).sort((left, right) => left.localeCompare(right)),
 );
 const canMarkAllRead = computed(() => rows.value.some((item) => item.status === 'unread'));
+const hasActiveFilters = computed(
+  () =>
+    filters.value.status !== 'all' ||
+    Boolean(filters.value.severity || filters.value.category || filters.value.sourceModule) ||
+    filters.value.occurredRange.some(Boolean),
+);
+const emptyTitle = computed(() =>
+  hasActiveFilters.value ? t('notification.empty.filteredTitle') : t('notification.empty.title'),
+);
+const emptyDescription = computed(() =>
+  hasActiveFilters.value ? t('notification.empty.filteredDescription') : t('notification.empty.description'),
+);
 
 onMounted(() => {
   hydrateFromRoute();
@@ -133,6 +148,13 @@ watch(
   () => route.query.delivery_id,
   () => {
     openRouteDelivery();
+  },
+);
+
+watch(
+  () => route.query,
+  () => {
+    hydrateFromRoute();
   },
 );
 
@@ -150,6 +172,9 @@ function hydrateFromRoute() {
   const status = parseStatus(route.query.status);
   filters.value = {
     ...filters.value,
+    category: parseCategory(route.query.category),
+    severity: parseSeverity(route.query.severity),
+    sourceModule: firstRouteQueryString(route.query.source_module),
     status,
     occurredRange: normalizeRouteRangeForPageState([
       firstRouteQueryValue(route.query.occurred_from),
@@ -162,9 +187,26 @@ function firstRouteQueryValue(value: unknown) {
   return Array.isArray(value) ? value[0] : value;
 }
 
+function firstRouteQueryString(value: unknown) {
+  const raw = firstRouteQueryValue(value);
+  return typeof raw === 'string' ? raw : '';
+}
+
 function parseStatus(value: unknown): NotificationStatusFilter {
   const raw = firstRouteQueryValue(value);
   return raw === 'unread' || raw === 'read' ? raw : 'all';
+}
+
+function parseSeverity(value: unknown): NotificationFilterState['severity'] {
+  const raw = firstRouteQueryValue(value);
+  return raw === 'critical' || raw === 'error' || raw === 'info' || raw === 'warning' ? raw : '';
+}
+
+function parseCategory(value: unknown): NotificationFilterState['category'] {
+  const raw = firstRouteQueryValue(value);
+  return raw === 'CONFIG' || raw === 'OPERATIONS' || raw === 'SECURITY' || raw === 'SYSTEM' || raw === 'TASK'
+    ? raw
+    : '';
 }
 
 function buildQuery(): NotificationListQuery {
@@ -220,6 +262,9 @@ function syncRouteQuery() {
     query: {
       ...route.query,
       status: filters.value.status === 'all' ? undefined : filters.value.status,
+      severity: filters.value.severity || undefined,
+      category: filters.value.category || undefined,
+      source_module: filters.value.sourceModule || undefined,
       occurred_from: occurredFrom || undefined,
       occurred_to: occurredTo || undefined,
       delivery_id: undefined,
