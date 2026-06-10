@@ -280,6 +280,11 @@ describe('check-i18n-governance fixture rules', () => {
       expectedSnippets: ['fallbackLabel', '启用用户', '禁用用户'],
     },
     {
+      fixture: 'invalid-bound-ui-prop-expression',
+      expectation: 'blocks bound Vue UI props with conditional and template literal fallback copy',
+      expectedSnippets: ['fallback-label', '启用用户', '禁用用户', '还有 ${count} 条任务'],
+    },
+    {
       fixture: 'invalid-more-label-fallback-cjk',
       expectation: 'blocks more-label-fallback with Chinese literal copy',
       expectedSnippets: ['more-label-fallback', '更多'],
