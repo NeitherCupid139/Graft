@@ -148,6 +148,16 @@ MESSAGE_KEY_LITERAL_RE = re.compile(r"""["'](?P<key>(?:auth|common|validation|us
 ERROR_CODE_LITERAL_RE = re.compile(r"""["'](?P<code>(?:AUTH|COMMON|USER|RBAC|AUDIT|SCHEDULER)_[A-Z0-9_]+)["']""")
 EVENT_NAME_LITERAL_RE = re.compile(r"""["'](?P<event>[a-z][a-z0-9]*(?:\.[a-z][a-z0-9]*)+)["']""")
 PERMISSION_LITERAL_RE = re.compile(r"""["'](?P<permission>[a-z][a-z0-9]*(?:\.[a-z][a-z0-9]*)+)["']""")
+PERMISSION_REGISTRATION_CONTEXT_RE = re.compile(
+    r"""\b(?:\[\]permission\.Item|permission\.Item|(?:\[\])?moduleapi\.PermissionSeed)\s*\{"""
+)
+PERMISSION_CODE_FIELD_RE = re.compile(r"""\bCode\s*:\s*["'][a-z][a-z0-9]*(?:\.[a-z][a-z0-9]*)+["']""")
+PERMISSION_METADATA_FIELD_RE = re.compile(
+    r"""\b(?:Permission|RequiredPermissions)\s*:\s*(?:\[\]string\s*)?\{?\s*["'][a-z][a-z0-9]*(?:\.[a-z][a-z0-9]*)+["']"""
+)
+PERMISSION_GUARD_LITERAL_CONTEXT_RE = re.compile(
+    r"""\b(?:RequirePermission|hasPermission|hasAnyPermission|hasAllPermissions)\s*\("""
+)
 API_PATH_LITERAL_RE = re.compile(r"""["'](?P<path>/api/[A-Za-z0-9/_:-]+)["']""")
 GO_TEST_FILE_RE = re.compile(r"_test\.go$")
 TS_TEST_FILE_RE = re.compile(r"\.(?:test|spec)\.(?:ts|tsx)$")
@@ -487,6 +497,16 @@ def is_test_fixture_context(path: str, line_text: str, rule: str) -> bool:
     return False
 
 
+def is_permission_governance_context(line_text: str, in_permission_registration: bool) -> bool:
+    if in_permission_registration and PERMISSION_CODE_FIELD_RE.search(line_text):
+        return True
+    if PERMISSION_METADATA_FIELD_RE.search(line_text):
+        return True
+    if PERMISSION_GUARD_LITERAL_CONTEXT_RE.search(line_text):
+        return True
+    return False
+
+
 def adjust_severity(path: str, severity: str) -> str:
     if is_test_file(path):
         if severity in {"P0", "P1"}:
@@ -500,14 +520,24 @@ def adjust_severity(path: str, severity: str) -> str:
 def scan_file(path: str, text: str) -> list[Finding]:
     findings: list[Finding] = []
     lines = text.splitlines()
+    permission_registration_depth = 0
     for line_no, line in enumerate(lines, start=1):
+        starts_permission_registration = bool(PERMISSION_REGISTRATION_CONTEXT_RE.search(line))
+        in_permission_registration = permission_registration_depth > 0 or starts_permission_registration
+
         if not line.strip():
+            if permission_registration_depth > 0:
+                permission_registration_depth = max(0, permission_registration_depth + line.count("{") - line.count("}"))
             continue
 
         if path.endswith(".md"):
+            if permission_registration_depth > 0:
+                permission_registration_depth = max(0, permission_registration_depth + line.count("{") - line.count("}"))
             continue
 
         if path.endswith(".json") and "web/src/locales/lang/" in path:
+            if permission_registration_depth > 0:
+                permission_registration_depth = max(0, permission_registration_depth + line.count("{") - line.count("}"))
             continue
 
         for match in LOCAL_STORAGE_CALL_RE.finditer(line):
@@ -627,7 +657,8 @@ def scan_file(path: str, text: str) -> list[Finding]:
 
         for match in PERMISSION_LITERAL_RE.finditer(line):
             permission = match.group("permission")
-            if permission not in KNOWN_PERMISSION_CODES:
+            permission_domain_context = is_permission_governance_context(line, in_permission_registration)
+            if permission not in KNOWN_PERMISSION_CODES and not permission_domain_context:
                 continue
             if is_definition_context(path, line, permission):
                 continue
@@ -663,6 +694,12 @@ def scan_file(path: str, text: str) -> list[Finding]:
                     message=f"hard-coded event name '{event_name}'",
                     action="use the canonical event contract",
                 )
+            )
+
+        if in_permission_registration:
+            permission_registration_depth = max(
+                0,
+                permission_registration_depth + line.count("{") - line.count("}"),
             )
 
     return findings
