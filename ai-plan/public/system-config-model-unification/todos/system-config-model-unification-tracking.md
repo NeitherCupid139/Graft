@@ -11,7 +11,7 @@ Convert the System Config exploration and planning discussion into durable repos
 - [x] Add topic recovery entrypoint, tracking file, and trace file.
 - [x] Phase 1 implementation slice: UI consistency without backend model changes.
 - [x] Phase 2 implementation slice: front-end renderer extraction.
-- [ ] Later implementation slice: Phase 3 backend registry/OpenAPI enhancement.
+- [x] Phase 3 backend registry/OpenAPI enhancement.
 - [ ] Later implementation slice: Phase 4 typical config migration.
 - [ ] Later implementation slice: Phase 5 validation and screenshot acceptance.
 
@@ -32,15 +32,14 @@ Convert the System Config exploration and planning discussion into durable repos
 
 ## Latest Validation
 
-- Phase 2 renderer extraction slice.
+- Phase 3 backend registry/OpenAPI enhancement slice.
 - Ran validation:
-  - `cd web && bun run test:run src/shared/schema-form/config-schema.test.ts src/modules/system-config/pages/list/index.test.ts`
-  - `cd web && bun run typecheck`
-  - `cd web && bun run check`
-- Backend runtime validation is not required for this slice because no `server/**`, OpenAPI source, generated artifacts,
-  menu contract, permission contract, or persistence behavior changed.
+  - `cd server && go test ./internal/scheduler ./internal/configregistry ./modules/system-config`
+  - `cd server && go run ./cmd/graft validate backend --stage lint`
+- OpenAPI source and generated artifacts were not changed because Phase 3 did not add the optional derived `fields`
+  response view.
 
 ## Next Step
 
-Start Phase 3 backend registry/OpenAPI enhancement as the next separate slice after Phase 2 frontend validation and
+Start Phase 4 typical config migration as the next separate slice after Phase 3 backend validation and
 outer-orchestrator commit acceptance.

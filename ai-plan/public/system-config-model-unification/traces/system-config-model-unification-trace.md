@@ -58,3 +58,23 @@
   - `cd web && bun run typecheck`
 - Completion validation:
   - `cd web && bun run check`
+
+## 2026-06-10 Phase 3 backend registry/OpenAPI enhancement implementation
+
+- Ran a loop-orchestrated worker round for Phase 3 with a backend-focused owned scope.
+- Reused the scheduler-owned JSON Schema subset as the validation authority instead of adding a second parser:
+  - added scalar root validation for `enum`, `minimum`, `maximum`, `minLength`, and `maxLength`
+  - preserved the existing flat object validation subset for object config values
+  - used the registered `ConfigDefinition.Type` when scalar `config_schema.type` is omitted
+- Updated config registry validation so module-owned scalar defaults must also satisfy their declared schema.
+- Updated System Config override validation so scalar updates reject values outside schema constraints.
+- Deferred the optional derived `fields` response view; `config_schema` remains the only field-rendering authority and
+  OpenAPI/generated artifacts were not changed in this slice.
+- Added focused backend tests for scalar schema validation in:
+  - `server/internal/scheduler`
+  - `server/internal/configregistry`
+  - `server/modules/system-config`
+- TDesign MCP was not applicable because no TDesign component usage or frontend rendering code changed.
+- Focused validation:
+  - `cd server && go test ./internal/scheduler ./internal/configregistry ./modules/system-config`
+  - `cd server && go run ./cmd/graft validate backend --stage lint`
