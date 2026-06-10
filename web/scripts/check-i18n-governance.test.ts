@@ -27,8 +27,29 @@ function createTempWebRoot(source: string) {
   return root;
 }
 
+function writeServerModule(root: string, file: string, source: string) {
+  const filePath = join(root, '..', 'server/modules/demo', file);
+  mkdirSync(join(root, '..', 'server/modules/demo'), { recursive: true });
+  writeFileSync(filePath, source);
+}
+
 async function runGovernanceScript(source: string) {
   const root = createTempWebRoot(source);
+  const process = spawnSync('bun', ['run', 'scripts/check-i18n-governance.ts'], {
+    cwd: root,
+    encoding: 'utf8',
+  });
+
+  return {
+    stdout: process.stdout,
+    stderr: process.stderr,
+    exitCode: process.status,
+  };
+}
+
+async function runGovernanceScriptWithServerSource(source: string, serverSource: string) {
+  const root = createTempWebRoot(source);
+  writeServerModule(root, 'config.go', serverSource);
   const process = spawnSync('bun', ['run', 'scripts/check-i18n-governance.ts'], {
     cwd: root,
     encoding: 'utf8',
@@ -74,6 +95,54 @@ const label = formatLocaleDateTime('2026-06-10T02:38:00Z', 'en-US');
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('No hard-coded UI text or locale governance issues found.');
+    expect(result.stderr).toBe('');
+  });
+});
+
+describe('check-i18n-governance server system config scan', () => {
+  it('requires web locale catalogs for backend system config dynamic display keys', async () => {
+    const result = await runGovernanceScriptWithServerSource(
+      `
+<template><span /></template>
+`,
+      `
+package demo
+
+const demoEnabledKey = "demo.enabled"
+
+func demoConfigTitleKey(key string) string {
+  return "systemConfig.demo." + key + ".title"
+}
+
+func demoConfigDescriptionKey(key string) string {
+  return "systemConfig.demo." + key + ".description"
+}
+
+func demoConfigDefinitions() []configregistry.Definition {
+  return []configregistry.Definition{
+    booleanDemoDefinition(demoEnabledKey, "Demo enabled", "Whether demo is enabled."),
+  }
+}
+
+func booleanDemoDefinition(key string, title string, description string) configregistry.Definition {
+  return configregistry.Definition{
+    Key: key,
+    DomainKey: "systemConfig.domains.demo",
+    GroupKey: "systemConfig.groups.demo.general",
+    GroupDescriptionKey: "systemConfig.groups.demo.general.description",
+    TitleKey: demoConfigTitleKey(key),
+    DescriptionKey: demoConfigDescriptionKey(key),
+    Schema: []byte("{\\"type\\":\\"boolean\\",\\"x-i18n\\":{\\"titleKey\\":\\"systemConfig.demo.demo.enabled.title\\",\\"descriptionKey\\":\\"systemConfig.demo.demo.enabled.description\\"}}"),
+  }
+}
+`,
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain('referenced locale key systemConfig.demo.demo.enabled.title is missing');
+    expect(result.stdout).toContain('referenced locale key systemConfig.demo.demo.enabled.description is missing');
+    expect(result.stdout).toContain('referenced locale key systemConfig.domains.demo is missing');
+    expect(result.stdout).toContain('referenced locale key systemConfig.groups.demo.general is missing');
     expect(result.stderr).toBe('');
   });
 });

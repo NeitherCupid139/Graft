@@ -713,7 +713,14 @@ function schemaOptionLabel(field: ConfigSchemaField, option: string | number | b
 }
 
 function resolveI18nText(key?: string, fallback?: string, rawFallback = '') {
-  return key && te(key) ? t(key) : fallback || rawFallback;
+  if (key) {
+    const resolved = t(key);
+    if (resolved && (te(key) || resolved !== key)) {
+      return resolved;
+    }
+  }
+
+  return fallback || rawFallback;
 }
 
 function readableError(error: unknown, fallback: string) {

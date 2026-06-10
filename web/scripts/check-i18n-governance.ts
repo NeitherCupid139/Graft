@@ -150,7 +150,7 @@ function hasVisibleLetters(value: string): boolean {
 }
 
 function isLikelyI18nKey(value: string): boolean {
-  return /^[a-z][a-z0-9]*(?:[.-][a-zA-Z0-9][\w-]*)+$/.test(value);
+  return /^[a-z][a-zA-Z0-9]*(?:[.-][a-zA-Z0-9][\w-]*)+$/.test(value);
 }
 
 function isTechnicalString(value: string): boolean {
@@ -998,11 +998,16 @@ function walkServerI18nKeyFiles(dir: string): string[] {
 
 function collectServerI18nKeys(): Set<string> {
   const keys = new Set<string>();
-  const stringConstantPattern = /\b([A-Za-z_]\w*)(?:\s+[A-Za-z_]\w*)?\s*=\s*"([^"$]+)"/g;
+  const stringConstantPattern = /^\s*(?:const|var)?\s*([A-Za-z_]\w*)(?:\s+[A-Za-z_]\w*)?\s*=\s*"([^"$]+)"/gm;
+  const dynamicKeyFunctionPattern =
+    /func\s+([A-Za-z_]\w*)\(\s*[A-Za-z_]\w*\s+string\s*\)\s+string\s*{\s*return\s*"([^"$]*)"\s*\+\s*[A-Za-z_]\w*\s*\+\s*"([^"$]*)"\s*}/g;
+  const configDefinitionCallPattern = /\b[A-Za-z_]\w*Definition\(\s*(?:"([^"$]+)"|([A-Za-z_]\w*))/g;
   const serverKeyFieldPattern =
-    /\b(?:TitleKey|DisplayKey|DescriptionKey|LabelKey|EmptyKey|MessageKey|DisplayMessageKey|DescriptionMessageKey|titleKey|displayKey|descriptionKey|labelKey|emptyKey|messageKey|title_key|display_key|description_key|label_key|empty_key|message_key)\s*:\s*(?:"([^"$]+)"|(?:(?:[A-Za-z_]\w*)\.)?([A-Za-z_]\w*)(?:\.String\(\))?)/g;
+    /\b(?:DomainKey|GroupKey|GroupDescriptionKey|TitleKey|DisplayKey|DescriptionKey|LabelKey|EmptyKey|MessageKey|DisplayMessageKey|DescriptionMessageKey|domainKey|groupKey|groupDescriptionKey|titleKey|displayKey|descriptionKey|labelKey|emptyKey|messageKey|domain_key|group_key|group_description_key|title_key|display_key|description_key|label_key|empty_key|message_key)\s*:\s*(?:"([^"$]+)"|(?:(?:[A-Za-z_]\w*)\.)?([A-Za-z_]\w*)(?:\.String\(\))?)/g;
   const serverQuotedKeyFieldPattern =
-    /["'](?:title_key|display_key|description_key|label_key|empty_key|message_key)["']\s*:\s*(?:"([^"$]+)"|(?:(?:[A-Za-z_]\w*)\.)?([A-Za-z_]\w*)(?:\.String\(\))?)/g;
+    /["'](?:domainKey|groupKey|groupDescriptionKey|titleKey|displayKey|descriptionKey|labelKey|emptyKey|messageKey|unitKey|placeholderKey|domain_key|group_key|group_description_key|title_key|display_key|description_key|label_key|empty_key|message_key|unit_key|placeholder_key)["']\s*:\s*(?:"([^"$]+)"|(?:(?:[A-Za-z_]\w*)\.)?([A-Za-z_]\w*)(?:\.String\(\))?)/g;
+  const serverEscapedQuotedKeyFieldPattern =
+    /\\"(?:domainKey|groupKey|groupDescriptionKey|titleKey|displayKey|descriptionKey|labelKey|emptyKey|messageKey|unitKey|placeholderKey|domain_key|group_key|group_description_key|title_key|display_key|description_key|label_key|empty_key|message_key|unit_key|placeholder_key)\\"\s*:\s*\\"([^"\\$]+)\\"/g;
   const serverSQLAliasKeyPattern =
     /['"]([^'"$]+)['"]\s+(?:AS\s+)?(?:title_key|display_key|description_key|label_key|empty_key|message_key)\b/gi;
 
@@ -1010,9 +1015,29 @@ function collectServerI18nKeys(): Set<string> {
     for (const filePath of walkServerI18nKeyFiles(dir)) {
       const source = preserveLineStructure(readFileSync(filePath, 'utf8'));
       const stringConstants = new Map<string, string>();
+      const dynamicKeyFunctions = new Map<string, { prefix: string; suffix: string }>();
+      const configDefinitionKeys = new Set<string>();
 
       for (const match of source.matchAll(stringConstantPattern)) {
         stringConstants.set(match[1], match[2]);
+        if (isLikelyServerI18nConstant(match[1], match[2])) {
+          addServerI18nKey(keys, match[2]);
+        }
+      }
+
+      for (const match of source.matchAll(dynamicKeyFunctionPattern)) {
+        if (match[2].startsWith('systemConfig.') && isSystemConfigDynamicKeyFunction(match[1], match[2], match[3])) {
+          dynamicKeyFunctions.set(match[1], { prefix: match[2], suffix: match[3] });
+        }
+      }
+
+      for (const match of source.matchAll(configDefinitionCallPattern)) {
+        const literalKey = match[1];
+        const constantKey = match[2] ? stringConstants.get(match[2]) : undefined;
+        const configKey = literalKey ?? constantKey;
+        if (configKey && isLikelyConfigDefinitionKey(configKey)) {
+          configDefinitionKeys.add(configKey);
+        }
       }
 
       for (const match of source.matchAll(serverKeyFieldPattern)) {
@@ -1027,13 +1052,44 @@ function collectServerI18nKeys(): Set<string> {
         addServerI18nKey(keys, literalKey ?? constantKey);
       }
 
+      for (const match of source.matchAll(serverEscapedQuotedKeyFieldPattern)) {
+        addServerI18nKey(keys, match[1]);
+      }
+
       for (const match of source.matchAll(serverSQLAliasKeyPattern)) {
         addServerI18nKey(keys, match[1]);
+      }
+
+      for (const configKey of configDefinitionKeys) {
+        for (const template of dynamicKeyFunctions.values()) {
+          addServerI18nKey(keys, `${template.prefix}${configKey}${template.suffix}`);
+        }
       }
     }
   }
 
   return keys;
+}
+
+function isSystemConfigDynamicKeyFunction(functionName: string, prefix: string, suffix: string) {
+  if (!prefix.startsWith('systemConfig.') || !suffix.startsWith('.')) {
+    return false;
+  }
+
+  return /(?:Config)?(?:Title|Description)Key$/.test(functionName);
+}
+
+function isLikelyConfigDefinitionKey(value: string) {
+  return /^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)+$/.test(value) && !value.startsWith('systemConfig.');
+}
+
+function isLikelyServerI18nConstant(name: string, value: string) {
+  return (
+    value.startsWith('systemConfig.') &&
+    /(?:DomainKey|GroupKey|GroupDescKey|GroupDescriptionKey|TitleKey|DisplayKey|DescriptionKey|DescKey|LabelKey|EmptyKey|MessageKey|UnitKey|PlaceholderKey)$/.test(
+      name,
+    )
+  );
 }
 
 function addServerI18nKey(keys: Set<string>, rawKey: string | undefined) {

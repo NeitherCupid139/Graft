@@ -29,12 +29,15 @@ const translations = vi.hoisted(
     'systemConfig.fields.retentionDays.title': '日志保留时间',
     'systemConfig.domains.dashboard': '工作台配置',
     'systemConfig.domains.logs': '日志配置',
+    'systemConfig.domains.notification': '站内通知',
     'systemConfig.groupDescriptions.dashboardQuickActions': '管理首页快捷入口的显示与排序策略。',
     'systemConfig.groupDescriptions.coreLoggerLogRetention': '管理应用日志清理的保留周期与批量策略。',
     'systemConfig.groupDescriptions.coreHttpxLogRetention': '管理访问日志清理的保留周期与批量策略。',
     'systemConfig.groups.coreLoggerLogRetention': '应用日志保留',
     'systemConfig.groups.coreHttpxLogRetention': '访问日志保留配置',
     'systemConfig.groups.dashboardQuickActions': '工作台快捷入口',
+    'systemConfig.groups.notification.general': '通用',
+    'systemConfig.groups.notification.general.description': '控制通知中心的基础行为。',
     'systemConfig.items.appLogRetentionCleanup.description': '应用日志保留清理任务的默认配置。',
     'systemConfig.items.appLogRetentionCleanup.title': '应用日志保留清理',
     'systemConfig.items.accessLogRetentionCleanup.description': '访问日志保留清理任务的默认配置。',
@@ -45,6 +48,10 @@ const translations = vi.hoisted(
     'systemConfig.items.dashboardQuickActionsMaxItems.title': '最大数量',
     'systemConfig.items.dashboardQuickActionsStrategy.description': '个性化快捷入口的推荐排序策略。',
     'systemConfig.items.dashboardQuickActionsStrategy.title': '排序策略',
+    'systemConfig.notification.notification.enabled.description': '是否启用站内通知功能。',
+    'systemConfig.notification.notification.enabled.title': '启用通知',
+    'systemConfig.notification.notification.retention_days.description': '通知记录的默认保留天数。',
+    'systemConfig.notification.notification.retention_days.title': '通知保留天数',
     'systemConfig.list.boolean.disabled': '已禁用',
     'systemConfig.list.boolean.enabled': '已启用',
     'systemConfig.list.boolean.false': '否',
@@ -248,6 +255,66 @@ describe('system config list page', () => {
     ).toHaveLength(1);
     expect(wrapper.text()).toContain('访问日志保留配置');
     expect(wrapper.text()).toContain('应用日志保留');
+  });
+
+  it('renders notification config metadata from web catalog entries instead of backend fallback English', async () => {
+    apiMocks.getSystemConfigs.mockResolvedValue({
+      items: [
+        notificationConfigItem({
+          key: 'notification.enabled',
+          titleKey: 'systemConfig.notification.notification.enabled.title',
+          title: 'Notification enabled',
+          descriptionKey: 'systemConfig.notification.notification.enabled.description',
+          description: 'Whether in-app notifications are enabled.',
+          type: 'boolean',
+          configSchema: {
+            type: 'boolean',
+            'x-i18n': {
+              titleKey: 'systemConfig.notification.notification.enabled.title',
+              descriptionKey: 'systemConfig.notification.notification.enabled.description',
+            },
+          },
+          defaultValue: 'true',
+          effectiveValue: 'true',
+          order: 5100,
+        }),
+        notificationConfigItem({
+          key: 'notification.retention_days',
+          titleKey: 'systemConfig.notification.notification.retention_days.title',
+          title: 'Notification retention days',
+          descriptionKey: 'systemConfig.notification.notification.retention_days.description',
+          description: 'Number of days notification records should be retained.',
+          type: 'integer',
+          configSchema: {
+            type: 'integer',
+            minimum: 1,
+            default: 30,
+            title: 'Notification retention days',
+            description: 'Number of days notification records should be retained.',
+            'x-i18n': {
+              titleKey: 'systemConfig.notification.notification.retention_days.title',
+              descriptionKey: 'systemConfig.notification.notification.retention_days.description',
+            },
+          },
+          defaultValue: '30',
+          effectiveValue: '30',
+          order: 5101,
+        }),
+      ],
+      total: 2,
+    });
+
+    const wrapper = mountPage();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('站内通知');
+    expect(wrapper.text()).toContain('通用');
+    expect(wrapper.text()).toContain('控制通知中心的基础行为。');
+    expect(wrapper.text()).toContain('启用通知');
+    expect(wrapper.text()).toContain('是否启用站内通知功能。');
+    expect(wrapper.text()).toContain('通知保留天数');
+    expect(wrapper.text()).not.toContain('Notification enabled');
+    expect(wrapper.text()).not.toContain('Number of days notification records should be retained.');
   });
 
   it('filters the group tree by localized labels and technical keys', async () => {
@@ -758,6 +825,48 @@ function dashboardQuickActionItem(input: {
     description_key: input.descriptionKey,
     description: input.description,
     tags: ['dashboard', 'quick_actions'],
+    type: input.type,
+    config_schema: input.configSchema,
+    default_value: input.defaultValue,
+    effective_value: input.effectiveValue,
+    override_value: null,
+    has_override: false,
+    sensitive: false,
+    masked: false,
+    restart_required: false,
+    status: 'default',
+    order: input.order,
+  };
+}
+
+function notificationConfigItem(input: {
+  key: string;
+  titleKey: string;
+  title: string;
+  descriptionKey: string;
+  description: string;
+  type: string;
+  configSchema: Record<string, unknown>;
+  defaultValue: string;
+  effectiveValue: string;
+  order: number;
+}) {
+  return {
+    key: input.key,
+    module: 'notification',
+    domain: 'notification',
+    domain_key: 'systemConfig.domains.notification',
+    domain_label: 'Notification',
+    group: 'notification.general',
+    group_key: 'systemConfig.groups.notification.general',
+    group_label: 'Notification general',
+    group_description_key: 'systemConfig.groups.notification.general.description',
+    group_description: 'Control the Notification Center baseline behavior.',
+    title_key: input.titleKey,
+    title: input.title,
+    description_key: input.descriptionKey,
+    description: input.description,
+    tags: ['notification', 'notification.general'],
     type: input.type,
     config_schema: input.configSchema,
     default_value: input.defaultValue,

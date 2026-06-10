@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -178,6 +179,95 @@ func assertNotificationConfigRegistered(t *testing.T, registry *configregistry.R
 		if _, ok := registry.Get(key); !ok {
 			t.Fatalf("expected notification config %s to be registered", key)
 		}
+	}
+}
+
+func TestModuleRegistersNotificationConfigI18nMetadata(t *testing.T) {
+	repository := &moduleTestRepository{}
+	service, err := NewService(repository)
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	publisher, err := NewPublisher(repository)
+	if err != nil {
+		t.Fatalf("new publisher: %v", err)
+	}
+
+	services := container.New()
+	if err := services.RegisterSingleton((*moduleapi.RBACAccessService)(nil), func(container.Resolver) (any, error) {
+		return permissionFanoutRBAC{userIDs: []uint64{42}}, nil
+	}); err != nil {
+		t.Fatalf("register rbac access service: %v", err)
+	}
+	ctx := &module.Context{
+		I18n:               i18n.MustNew(config.I18nConfig{DefaultLocale: "zh-CN", FallbackLocale: "zh-CN", SupportedLocales: []string{"zh-CN", "en-US"}}),
+		Services:           services,
+		MenuRegistry:       menu.NewRegistry(),
+		PermissionRegistry: permission.NewRegistry(),
+		ConfigRegistry:     configregistry.NewRegistry(),
+	}
+	if err := NewModule(service, publisher).Register(ctx); err != nil {
+		t.Fatalf("register module: %v", err)
+	}
+
+	definitions := ctx.ConfigRegistry.Items()
+	if len(definitions) != len(notificationConfigDefinitions()) {
+		t.Fatalf("expected %d notification config definitions, got %d", len(notificationConfigDefinitions()), len(definitions))
+	}
+	for _, definition := range definitions {
+		assertNotificationConfigDefinitionI18nKeys(t, definition)
+		assertNotificationConfigDefinitionMessages(t, ctx.I18n, definition)
+	}
+}
+
+func assertNotificationConfigDefinitionI18nKeys(t *testing.T, definition configregistry.Definition) {
+	t.Helper()
+
+	required := map[string]string{
+		"DomainKey":           definition.DomainKey,
+		"GroupKey":            definition.GroupKey,
+		"GroupDescriptionKey": definition.GroupDescriptionKey,
+		"TitleKey":            definition.TitleKey,
+		"DescriptionKey":      definition.DescriptionKey,
+	}
+	for field, value := range required {
+		if strings.TrimSpace(value) == "" {
+			t.Fatalf("expected notification config %s to have %s", definition.Key, field)
+		}
+	}
+	if definition.TitleKey != notificationConfigTitleKey(definition.Key) {
+		t.Fatalf("expected notification config %s title key %q, got %q", definition.Key, notificationConfigTitleKey(definition.Key), definition.TitleKey)
+	}
+	if definition.DescriptionKey != notificationConfigDescriptionKey(definition.Key) {
+		t.Fatalf("expected notification config %s description key %q, got %q", definition.Key, notificationConfigDescriptionKey(definition.Key), definition.DescriptionKey)
+	}
+}
+
+func assertNotificationConfigDefinitionMessages(t *testing.T, localizer *i18n.Service, definition configregistry.Definition) {
+	t.Helper()
+
+	for _, locale := range []i18n.LocaleTag{i18n.LocaleZHCN, i18n.LocaleENUS} {
+		for field, key := range map[string]string{
+			"DomainKey":           definition.DomainKey,
+			"GroupKey":            definition.GroupKey,
+			"GroupDescriptionKey": definition.GroupDescriptionKey,
+			"TitleKey":            definition.TitleKey,
+			"DescriptionKey":      definition.DescriptionKey,
+		} {
+			assertSingleNotificationConfigMessage(t, localizer, locale, definition.Key, field, key)
+		}
+	}
+}
+
+func assertSingleNotificationConfigMessage(t *testing.T, localizer *i18n.Service, locale i18n.LocaleTag, configKey string, field string, key string) {
+	t.Helper()
+
+	matches := localizer.RegisteredMessageResources(locale, i18n.MessageKey(key))
+	if len(matches) != 1 {
+		t.Fatalf("expected one %s message for notification config %s locale %s key %q, got %#v", field, configKey, locale, key, matches)
+	}
+	if strings.TrimSpace(matches[0].Text) == "" {
+		t.Fatalf("expected non-empty %s message for notification config %s locale %s key %q", field, configKey, locale, key)
 	}
 }
 
