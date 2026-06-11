@@ -3,24 +3,25 @@
 ## Topic
 
 - Topic: `scheduled-task-job-definition-model-closure`
-- Status: `implemented pending archive review`
+- Status: `archived`
 - Goal: converge Scheduled Task, Job Definition, and Task Run concepts across database, server registration/API, and web presenter/view-model boundaries.
 - Recovery source: read-only exploration from 2026-06-11; destructive model-closure implementation completed on
   2026-06-11
+- Archive date: `2026-06-12`
 - Current worktree: `/home/gewuyou/project/go/Graft-wt/feat/wt-audit-plugin-mvp`
 
 ## Recovery Entry
 
 - Tracking:
-  `ai-plan/public/scheduled-task-job-definition-model-closure/todos/scheduled-task-job-definition-model-closure-tracking.md`
+  `ai-plan/public/archive/scheduled-task-job-definition-model-closure/todos/scheduled-task-job-definition-model-closure-tracking.md`
 - Trace:
-  `ai-plan/public/scheduled-task-job-definition-model-closure/traces/scheduled-task-job-definition-model-closure-trace.md`
+  `ai-plan/public/archive/scheduled-task-job-definition-model-closure/traces/scheduled-task-job-definition-model-closure-trace.md`
 
 ## Startup Package For Future Sessions
 
 - governance source: root `AGENTS.md`
 - task class: `cross-boundary` for implementation slices touching server, OpenAPI, and web
-- recovery source: parent topic `scheduled-task-job-definition-model-closure`
+- recovery source: archived topic `scheduled-task-job-definition-model-closure`
 - owned scope:
   - `server/internal/scheduler/**`
   - `server/internal/cronx/**`
@@ -29,7 +30,7 @@
   - `openapi/paths/scheduled-tasks*`
   - `web/src/modules/scheduled-task/**`
 - docs recovery scope:
-  - `ai-plan/public/scheduled-task-job-definition-model-closure/**`
+  - `ai-plan/public/archive/scheduled-task-job-definition-model-closure/**`
   - `ai-plan/public/README.md`
 
 ## Current Conclusion
@@ -50,6 +51,11 @@ instance, job definition, configuration, and run information sections.
 - `cd web && bun run vitest run src/modules/scheduled-task/pages/list/index.test.ts`
 - `cd web && bun run check`
 
-## Remaining Follow-Up
+## Final Archive Record
 
-- Archive or close this recovery topic after the implementation commit lands.
+- Archive reason: the Scheduled Task / Job Definition / Task Run concept model closure has been implemented and
+  validated, and this topic no longer belongs in the active recovery index.
+- Implementation evidence:
+  - `8bff6b65 feat(scheduler): close scheduled task job model`
+  - `cbd732b7 fix(scheduled-task): refine task list presentation`
+- Final status: `archived`.

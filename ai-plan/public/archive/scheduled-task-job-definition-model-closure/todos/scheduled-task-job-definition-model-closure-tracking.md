@@ -3,10 +3,11 @@
 ## Topic
 
 - Topic: `scheduled-task-job-definition-model-closure`
-- Status: `implemented pending archive review`
+- Status: `archived`
 - Goal: close the concept and data-model boundary between Scheduled Task instances, code-registered Job Definitions,
   and Task Run execution records.
 - Recovery source: read-only exploration completed on 2026-06-11.
+- Archive date: `2026-06-12`
 - Current worktree: `/home/gewuyou/project/go/Graft-wt/feat/wt-audit-plugin-mvp`
 
 ## Repository Truth
@@ -25,7 +26,8 @@
   mapping, OpenAPI schemas/generated contracts, and the scheduled-task frontend page.
 - Scheduled Task and Job Definition are now separated across storage, execution, API response shape, and UI presenter
   semantics.
-- The recovery topic should now be archived or closed after the implementation commit lands.
+- The recovery topic has been archived under `ai-plan/public/archive/scheduled-task-job-definition-model-closure/` and
+  removed from the active public recovery index.
 
 ## Current Evidence
 
@@ -161,6 +163,11 @@
   `display_name_key`, `config_schema_json`, `default_config_json`, `default_cron_expression`, `schedule_type`, or
   `error_summary`.
 
-## Recommended Next Step
+## Final Archive Record
 
-Archive or close this recovery topic after the implementation commit lands.
+- Archive reason: implementation and validation evidence exists for the Scheduled Task / Job Definition model closure,
+  and no remaining in-scope work requires an active recovery topic.
+- Implementation evidence:
+  - `8bff6b65 feat(scheduler): close scheduled task job model`
+  - `cbd732b7 fix(scheduled-task): refine task list presentation`
+- Final status: `archived`.

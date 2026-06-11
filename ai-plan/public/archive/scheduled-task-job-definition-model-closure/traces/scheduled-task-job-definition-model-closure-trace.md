@@ -76,27 +76,29 @@
 - The implementation slice is complete and ready for a scoped commit.
 - After commit, the remaining administrative follow-up is to archive or close this public recovery topic.
 
+## 2026-06-12 Topic Archived
+
+- Archived the topic under `ai-plan/public/archive/scheduled-task-job-definition-model-closure/`.
+- Removed `scheduled-task-job-definition-model-closure` from `ai-plan/public/README.md` Active Topics.
+- Final status: `archived`.
+
 ## Future Session Reference
 
 Use the reference below at the start of a new session, then append the new task prompt after it:
 
 ```text
-【恢复引用：ai-plan/public/scheduled-task-job-definition-model-closure】
+【归档引用：ai-plan/public/archive/scheduled-task-job-definition-model-closure】
 请先按 root AGENTS.md 完成 startup preflight，然后读取：
 - ai-plan/public/README.md
-- ai-plan/public/scheduled-task-job-definition-model-closure/README.md
-- ai-plan/public/scheduled-task-job-definition-model-closure/todos/scheduled-task-job-definition-model-closure-tracking.md
-- ai-plan/public/scheduled-task-job-definition-model-closure/traces/scheduled-task-job-definition-model-closure-trace.md
+- ai-plan/public/archive/scheduled-task-job-definition-model-closure/README.md
+- ai-plan/public/archive/scheduled-task-job-definition-model-closure/todos/scheduled-task-job-definition-model-closure-tracking.md
+- ai-plan/public/archive/scheduled-task-job-definition-model-closure/traces/scheduled-task-job-definition-model-closure-trace.md
 
-task class: cross-boundary
-recovery source: parent topic scheduled-task-job-definition-model-closure
+task class: docs/automation for archive review, or cross-boundary for any new implementation follow-up
+recovery source: archived topic scheduled-task-job-definition-model-closure
 owned scope:
-- server/internal/scheduler/**
-- server/internal/cronx/**
-- server/modules/scheduler/**
-- openapi/components/schemas/scheduled-task*
-- openapi/paths/scheduled-tasks*
-- web/src/modules/scheduled-task/**
+- ai-plan/public/archive/scheduled-task-job-definition-model-closure/**
+- ai-plan/public/README.md
 
-请基于该主题继续推进 Scheduled Task / Job Definition 概念模型收口。
+请基于该归档主题读取历史证据；如需新的 Scheduled Task / Job Definition 实现工作，应建立新的恢复入口或挂到合适的 active topic。
 ```
