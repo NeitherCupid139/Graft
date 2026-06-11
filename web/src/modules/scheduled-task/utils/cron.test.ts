@@ -81,26 +81,32 @@ describe('scheduled-task cron utility', () => {
     });
     expect(describeCronExpression('0 0 * * *')).toMatchObject({
       key: 'scheduledTask.cronDescription.daily',
-      params: { hour: 0 },
+      params: { hour: 0, minute: 0, time: '00:00' },
     });
     expect(describeCronExpression('0 17 * * *')).toMatchObject({
       key: 'scheduledTask.cronDescription.daily',
       normalizedExpression: '0 0 17 * * *',
-      params: { hour: 17 },
+      params: { hour: 17, minute: 0, time: '17:00' },
       valid: true,
     });
     expect(describeCronExpression('0 0 17 * * *')).toMatchObject({
       key: 'scheduledTask.cronDescription.daily',
       normalizedExpression: '0 0 17 * * *',
-      params: { hour: 17 },
+      params: { hour: 17, minute: 0, time: '17:00' },
+      valid: true,
+    });
+    expect(describeCronExpression('15 17 * * *')).toMatchObject({
+      key: 'scheduledTask.cronDescription.daily',
+      normalizedExpression: '0 15 17 * * *',
+      params: { hour: 17, minute: 15, time: '17:15' },
       valid: true,
     });
   });
 
   it('uses custom fallback for valid but unrecognized simple schedules', () => {
-    expect(describeCronExpression('15 30 8 * * *')).toMatchObject({
+    expect(describeCronExpression('15 30 8 1 * *')).toMatchObject({
       key: 'scheduledTask.cronDescription.custom',
-      params: { expression: '15 30 8 * * *' },
+      params: { expression: '15 30 8 1 * *' },
       valid: true,
     });
   });
@@ -160,17 +166,27 @@ describe('scheduled-task cron utility', () => {
   });
 
   it('describes cron expressions with zh-CN and en-US locale support', () => {
-    const translate = (key: string, params?: Record<string, string | number>) =>
-      `${key}:${String(params?.hour ?? '')}:${String(params?.minute ?? '')}`;
+    const translate = (key: string, params?: Record<string, string | number>) => `${key}:${String(params?.time ?? '')}`;
 
     expect(getCronDescription('0 0 17 * * *', 'zh-CN')).toBe('scheduledTask.cronDescription.daily');
-    expect(getCronDescription('0 0 17 * * *', 'zh-CN', { translate })).toBe('scheduledTask.cronDescription.daily:17:');
-    expect(getCronDescription('0 15 17 * * *', 'zh-CN')).toContain('17:15');
-    expect(getCronDescription('0 30 17 * * *', 'zh-CN')).toContain('17:30');
-    expect(getCronDescription('0 0 17 * * *', 'en-US', { translate })).toBe('scheduledTask.cronDescription.daily:17:');
+    expect(getCronDescription('0 0 17 * * *', 'zh-CN', { translate })).toBe(
+      'scheduledTask.cronDescription.daily:17:00',
+    );
+    expect(getCronDescription('0 15 17 * * *', 'zh-CN', { translate })).toBe(
+      'scheduledTask.cronDescription.daily:17:15',
+    );
+    expect(getCronDescription('0 30 17 * * *', 'zh-CN', { translate })).toBe(
+      'scheduledTask.cronDescription.daily:17:30',
+    );
+    expect(getCronDescription('0 0 17 * * *', 'en-US', { translate })).toBe(
+      'scheduledTask.cronDescription.daily:17:00',
+    );
   });
 
-  it('preserves zh-CN daily wording and normalizes commas after polishing cron descriptions', () => {
-    expect(getCronDescription('0 15 17 * * *', 'zh-CN')).toBe('在17:15，每天');
+  it('keeps minute-level daily schedules on the same translation key', () => {
+    const translate = (key: string, params?: Record<string, string | number>) =>
+      key === 'scheduledTask.cronDescription.daily' ? `每天 ${String(params?.time)} 执行一次。` : key;
+
+    expect(getCronDescription('0 15 17 * * *', 'zh-CN', { translate })).toBe('每天 17:15 执行一次。');
   });
 });

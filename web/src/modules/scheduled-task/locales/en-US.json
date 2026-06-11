@@ -100,7 +100,7 @@
       "everyMinute": "Runs once every minute.",
       "everyNMinutes": "Runs once every {interval} minutes.",
       "hourly": "Runs at the top of every hour.",
-      "daily": "Runs every day at {hour}:00.",
+      "daily": "Runs every day at {time}.",
       "weekly": "Runs weekly on day {dayOfWeek} at {hour}:00.",
       "monthly": "Runs monthly on day {dayOfMonth} at {hour}:00.",
       "advanced": "Advanced Cron expression",

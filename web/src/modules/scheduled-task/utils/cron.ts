@@ -458,11 +458,21 @@ function describeNormalizedCronExpression(normalizedExpression: string): CronDes
     };
   }
 
-  if (second === '0' && minute === '0' && isCronNumberInRange(hour, 0, 23) && dayOfMonth === '*' && month === '*') {
+  if (
+    second === '0' &&
+    isCronNumberInRange(minute, 0, 59) &&
+    isCronNumberInRange(hour, 0, 23) &&
+    dayOfMonth === '*' &&
+    month === '*'
+  ) {
     if (dayOfWeek === '*') {
       return {
         key: 'scheduledTask.cronDescription.daily',
-        params: { hour: Number(hour) },
+        params: {
+          hour: Number(hour),
+          minute: Number(minute),
+          time: formatCronClockTime(Number(hour), Number(minute)),
+        },
         normalizedExpression,
         valid: true,
       };
