@@ -17,11 +17,11 @@
       <section class="notification-detail__section">
         <div class="notification-detail__title-row">
           <div>
-            <h3>{{ notificationTitle(item, t) }}</h3>
-            <p>{{ notificationMessage(item, t) }}</p>
+            <h3>{{ resolveNotificationTitle(item, t) }}</h3>
+            <p>{{ resolveNotificationMessage(item, t) }}</p>
           </div>
           <t-tag :theme="notificationSeverityTheme(item.severity)" variant="light-outline">
-            {{ t(`notification.severity.${item.severity}`) }}
+            {{ resolveNotificationLevel(item, t) }}
           </t-tag>
         </div>
       </section>
@@ -32,15 +32,15 @@
           <dt>{{ t('notification.columns.status') }}</dt>
           <dd>
             <t-tag :theme="notificationStatusTheme(item.status)" variant="light" size="small">
-              {{ t(`notification.status.${item.status}`) }}
+              {{ resolveNotificationStatus(item, t) }}
             </t-tag>
           </dd>
+          <dt>{{ t('notification.columns.severity') }}</dt>
+          <dd>{{ resolveNotificationLevel(item, t) }}</dd>
           <dt>{{ t('notification.columns.category') }}</dt>
-          <dd>{{ t(`notification.category.${item.category}`) }}</dd>
+          <dd>{{ resolveNotificationCategory(item, t) }}</dd>
           <dt>{{ t('notification.columns.sourceModule') }}</dt>
-          <dd>{{ notificationSourceLabel(item.source_module, t) }}</dd>
-          <dt>{{ t('notification.detail.eventType') }}</dt>
-          <dd>{{ item.event_type }}</dd>
+          <dd>{{ resolveNotificationSource(item, t) }}</dd>
           <dt>{{ t('notification.columns.occurredAt') }}</dt>
           <dd>{{ formatCompactDateTime(item.occurred_at, locale) }}</dd>
           <dt>{{ t('notification.detail.readAt') }}</dt>
@@ -51,16 +51,14 @@
       <section class="notification-detail__section">
         <h4>{{ t('notification.detail.resource') }}</h4>
         <dl class="notification-detail__grid">
-          <dt>{{ t('notification.detail.resourceType') }}</dt>
-          <dd>{{ item.resource_type || t('notification.values.emptyField') }}</dd>
-          <dt>{{ t('notification.detail.resourceId') }}</dt>
-          <dd>{{ item.resource_id || t('notification.values.emptyField') }}</dd>
           <dt>{{ t('notification.detail.resourceName') }}</dt>
           <dd>{{ item.resource_name || t('notification.values.emptyField') }}</dd>
-          <dt>{{ t('notification.detail.targetType') }}</dt>
-          <dd>{{ item.target_type }}</dd>
-          <dt>{{ t('notification.detail.targetRef') }}</dt>
-          <dd>{{ item.target_ref || t('notification.values.emptyField') }}</dd>
+          <dt>{{ t('notification.detail.resourceType') }}</dt>
+          <dd>{{ resolveNotificationResourceType(item, t) }}</dd>
+          <dt>{{ t('notification.detail.resourceId') }}</dt>
+          <dd>{{ item.resource_id || t('notification.values.emptyField') }}</dd>
+          <dt>{{ t('notification.detail.resultSummary') }}</dt>
+          <dd>{{ resolveNotificationResultSummary(item, t) }}</dd>
         </dl>
       </section>
 
@@ -69,10 +67,31 @@
         <div class="notification-detail__navigation">
           <t-tag variant="light">{{ navigationKindLabel }}</t-tag>
           <t-button v-if="canNavigate" theme="primary" @click="$emit('navigate', item)">
-            {{ t('notification.actions.openTarget') }}
+            {{ resolveNotificationActionLabel(item, t) }}
           </t-button>
           <span v-else>{{ t('notification.detail.unsupportedNavigation') }}</span>
         </div>
+      </section>
+
+      <section class="notification-detail__section">
+        <t-collapse>
+          <t-collapse-panel value="diagnostics" :header="t('notification.detail.diagnostics')">
+            <dl class="notification-detail__grid">
+              <dt>{{ t('notification.detail.eventType') }}</dt>
+              <dd>{{ resolveNotificationEventType(item, t) }}</dd>
+              <dt>{{ t('notification.detail.eventTypeRaw') }}</dt>
+              <dd>{{ formatNotificationDiagnosticValue(item.event_type, t) }}</dd>
+              <dt>{{ t('notification.detail.resourceTypeRaw') }}</dt>
+              <dd>{{ formatNotificationDiagnosticValue(item.resource_type, t) }}</dd>
+              <dt>{{ t('notification.detail.deliveryType') }}</dt>
+              <dd>{{ resolveNotificationDeliveryType(item, t) }}</dd>
+              <dt>{{ t('notification.detail.deliveryTypeRaw') }}</dt>
+              <dd>{{ formatNotificationDiagnosticValue(item.target_type, t) }}</dd>
+              <dt>{{ t('notification.detail.deliveryTarget') }}</dt>
+              <dd>{{ formatNotificationDiagnosticValue(item.target_ref, t) }}</dd>
+            </dl>
+          </t-collapse-panel>
+        </t-collapse>
       </section>
     </div>
   </t-drawer>
@@ -85,11 +104,20 @@ import { formatCompactDateTime } from '@/shared/components/management';
 
 import { NOTIFICATION_NAVIGATION_KIND, resolveNotificationNavigationLocation } from '../contract/navigation';
 import {
-  notificationMessage,
+  formatNotificationDiagnosticValue,
   notificationSeverityTheme,
-  notificationSourceLabel,
   notificationStatusTheme,
-  notificationTitle,
+  resolveNotificationActionLabel,
+  resolveNotificationCategory,
+  resolveNotificationDeliveryType,
+  resolveNotificationEventType,
+  resolveNotificationLevel,
+  resolveNotificationMessage,
+  resolveNotificationResourceType,
+  resolveNotificationResultSummary,
+  resolveNotificationSource,
+  resolveNotificationStatus,
+  resolveNotificationTitle,
 } from '../shared/presentation';
 import type { NotificationItem } from '../types/notification';
 

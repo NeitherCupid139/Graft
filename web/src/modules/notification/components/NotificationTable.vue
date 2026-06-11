@@ -31,30 +31,30 @@
           class="notification-title-cell"
           :class="{ 'notification-title-cell--unread': notificationRow(row).status === 'unread' }"
         >
-          <strong>{{ notificationTitle(notificationRow(row), t) }}</strong>
-          <span>{{ notificationMessage(notificationRow(row), t) }}</span>
+          <strong>{{ resolveNotificationTitle(notificationRow(row), t) }}</strong>
+          <span>{{ resolveNotificationMessage(notificationRow(row), t) }}</span>
         </div>
       </template>
 
       <template #severity="{ row }">
         <t-tag :theme="notificationSeverityTheme(notificationRow(row).severity)" variant="light-outline" size="small">
-          {{ t(`notification.severity.${notificationRow(row).severity}`) }}
+          {{ resolveNotificationLevel(notificationRow(row), t) }}
         </t-tag>
       </template>
 
       <template #category="{ row }">
         <t-tag variant="light" size="small">
-          {{ t(`notification.category.${notificationRow(row).category}`) }}
+          {{ resolveNotificationCategory(notificationRow(row), t) }}
         </t-tag>
       </template>
 
       <template #source_module="{ row }">
-        {{ notificationSourceLabel(notificationRow(row).source_module, t) }}
+        {{ resolveNotificationSource(notificationRow(row), t) }}
       </template>
 
       <template #status="{ row }">
         <t-tag :theme="notificationStatusTheme(notificationRow(row).status)" variant="light" size="small">
-          {{ t(`notification.status.${notificationRow(row).status}`) }}
+          {{ resolveNotificationStatus(notificationRow(row), t) }}
         </t-tag>
       </template>
 
@@ -65,7 +65,7 @@
       <template #operation="{ row }">
         <t-space size="small">
           <t-button size="small" theme="primary" variant="text" @click="$emit('detail', notificationRow(row))">
-            {{ t('notification.actions.detail') }}
+            {{ t('notification.action.detail') }}
           </t-button>
           <t-button
             v-if="notificationRow(row).status === 'unread'"
@@ -74,10 +74,10 @@
             variant="outline"
             @click="$emit('mark-read', notificationRow(row))"
           >
-            {{ t('notification.actions.markRead') }}
+            {{ t('notification.action.markRead') }}
           </t-button>
           <t-button size="small" theme="danger" variant="text" @click="$emit('delete', notificationRow(row))">
-            {{ t('notification.actions.delete') }}
+            {{ t('notification.action.delete') }}
           </t-button>
         </t-space>
       </template>
@@ -101,11 +101,14 @@ import {
 } from '@/shared/components/management';
 
 import {
-  notificationMessage,
   notificationSeverityTheme,
-  notificationSourceLabel,
   notificationStatusTheme,
-  notificationTitle,
+  resolveNotificationCategory,
+  resolveNotificationLevel,
+  resolveNotificationMessage,
+  resolveNotificationSource,
+  resolveNotificationStatus,
+  resolveNotificationTitle,
 } from '../shared/presentation';
 import type { NotificationItem } from '../types/notification';
 

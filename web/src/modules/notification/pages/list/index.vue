@@ -12,17 +12,14 @@
     :error-message="listError"
     :error-title="t('notification.page.errorTitle')"
     :loading="loading"
-    :reload-label="t('notification.actions.refresh')"
-    :retry-label="t('notification.actions.refresh')"
+    :reload-label="t('notification.action.refresh')"
+    :retry-label="t('notification.action.refresh')"
     :source="{ labelKey: 'notification.page.eyebrow', fallback: t('notification.page.eyebrow') }"
     @reload="fetchNotifications"
   >
     <template #actions>
-      <t-button theme="default" variant="outline" :loading="loading" @click="fetchNotifications">
-        {{ t('notification.actions.refresh') }}
-      </t-button>
       <t-button theme="primary" :disabled="!canMarkAllRead" :loading="markingAll" @click="markAllRead">
-        {{ t('notification.actions.markAllRead') }}
+        {{ t('notification.action.markAllRead') }}
       </t-button>
     </template>
 

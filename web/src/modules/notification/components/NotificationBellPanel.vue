@@ -19,7 +19,7 @@
             <p>{{ t('notification.bell.unreadSummary', { count: unreadCount }) }}</p>
           </div>
           <t-button v-if="items.length" theme="primary" variant="text" size="small" @click="markAllRead">
-            {{ t('notification.actions.markAllRead') }}
+            {{ t('notification.action.markAllRead') }}
           </t-button>
         </div>
 
@@ -30,15 +30,15 @@
               :class="{ 'notification-bell-panel__item--unread': item.status === 'unread' }"
             >
               <div class="notification-bell-panel__item-main">
-                <strong>{{ notificationTitle(item, t) }}</strong>
-                <span>{{ notificationMessage(item, t) }}</span>
+                <strong>{{ resolveNotificationTitle(item, t) }}</strong>
+                <span>{{ resolveNotificationMessage(item, t) }}</span>
                 <small
-                  >{{ notificationSourceLabel(item.source_module, t) }} ·
+                  >{{ resolveNotificationCategory(item, t) }} / {{ resolveNotificationSource(item, t) }} ·
                   {{ formatCompactDateTime(item.occurred_at, locale) }}</small
                 >
               </div>
               <t-tag :theme="notificationSeverityTheme(item.severity)" variant="light-outline" size="small">
-                {{ t(`notification.severity.${item.severity}`) }}
+                {{ resolveNotificationLevel(item, t) }}
               </t-tag>
             </div>
             <template #action>
@@ -49,7 +49,7 @@
                 variant="outline"
                 @click.stop="markOneRead(item)"
               >
-                {{ t('notification.actions.markRead') }}
+                {{ t('notification.action.markRead') }}
               </t-button>
             </template>
           </t-list-item>
@@ -65,7 +65,7 @@
 
         <div class="notification-bell-panel__foot" @click="openAll">
           <t-button class="notification-bell-panel__open-center" block variant="text">
-            {{ t('notification.actions.viewAll') }}
+            {{ t('notification.action.viewAll') }}
           </t-button>
         </div>
       </div>
@@ -103,10 +103,12 @@ import {
 import { NOTIFICATION_ROUTE_PATH } from '../contract/paths';
 import { NOTIFICATION_HEADER_REFRESH_EVENT } from '../contract/refresh';
 import {
-  notificationMessage,
   notificationSeverityTheme,
-  notificationSourceLabel,
-  notificationTitle,
+  resolveNotificationCategory,
+  resolveNotificationLevel,
+  resolveNotificationMessage,
+  resolveNotificationSource,
+  resolveNotificationTitle,
 } from '../shared/presentation';
 import type { NotificationItem } from '../types/notification';
 
