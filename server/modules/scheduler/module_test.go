@@ -512,11 +512,45 @@ func TestSchedulerRunSuccessNotifierPublishesManualSuccessToTriggerUser(t *testi
 	assertSchedulerRunPayload(t, input.Navigation.Payload, uint64(99), "webhook.health", "scheduler.webhook-health")
 	assertSchedulerRunSuccessMetadata(t, input.Metadata, expectedSchedulerRunSuccessMetadata{
 		runID:         99,
-		taskNameKey:   "scheduler.job.webhookHealth.title",
 		taskName:      "Webhook Health",
 		jobKey:        "scheduler.webhook-health",
+		jobTitleKey:   "scheduler.job.webhookHealth.title",
 		triggerType:   "manual",
 		resultSummary: "deleted 3 rows",
+	})
+}
+
+func TestSchedulerRunSuccessNotifierPublishesBuiltinTaskInstanceMetadata(t *testing.T) {
+	publisher := &schedulerNotificationPublisherRecorder{}
+	notifier := schedulerRunSuccessNotifier{publisher: publisher, logger: zap.NewNop()}
+	finishedAt := time.Date(2026, 6, 11, 9, 30, 0, 0, time.UTC)
+
+	notifier.NotifyRunSucceeded(context.Background(), schedulercore.TaskRun{
+		ID:          99,
+		TaskKey:     "httpx.access-log-retention-cleanup",
+		JobKey:      "httpx.access-log-retention-cleanup",
+		TaskName:    "Access log retention cleanup",
+		TaskNameKey: "scheduler.job.accessLogRetentionCleanup.title",
+		TaskBuiltin: true,
+		Status:      schedulercore.RunStatusSuccess,
+		Result:      "deleted 0 rows",
+		FinishedAt:  &finishedAt,
+		CreatedAt:   finishedAt.Add(-time.Second),
+	}, schedulercore.RunTrigger{Type: schedulercore.TriggerTypeManual, TriggerUserID: 42})
+
+	if len(publisher.inputs) != 1 {
+		t.Fatalf("expected one builtin success notification, got %d", len(publisher.inputs))
+	}
+	assertSchedulerRunSuccessMetadata(t, publisher.inputs[0].Metadata, expectedSchedulerRunSuccessMetadata{
+		runID:         99,
+		taskNameKey:   "scheduler.job.accessLogRetentionCleanup.title",
+		taskTitleKey:  "scheduler.job.accessLogRetentionCleanup.title",
+		taskName:      "Access log retention cleanup",
+		taskBuiltin:   true,
+		jobKey:        "httpx.access-log-retention-cleanup",
+		jobTitleKey:   "scheduler.job.accessLogRetentionCleanup.title",
+		triggerType:   "manual",
+		resultSummary: "deleted 0 rows",
 	})
 }
 
@@ -698,9 +732,11 @@ func assertSchedulerRunPayload(t *testing.T, payload json.RawMessage, runID uint
 type expectedSchedulerRunSuccessMetadata struct {
 	runID         uint64
 	taskNameKey   string
+	taskTitleKey  string
 	taskName      string
 	taskBuiltin   bool
 	jobKey        string
+	jobTitleKey   string
 	triggerType   string
 	resultSummary string
 }
@@ -710,6 +746,7 @@ func assertSchedulerRunSuccessMetadata(t *testing.T, payload json.RawMessage, ex
 	var decoded struct {
 		RunID         uint64 `json:"runId"`
 		TaskNameKey   string `json:"taskNameKey"`
+		TaskTitleKey  string `json:"taskTitleKey"`
 		TaskName      string `json:"taskName"`
 		TaskTitle     string `json:"taskTitle"`
 		TaskBuiltin   bool   `json:"taskBuiltin"`
@@ -723,18 +760,13 @@ func assertSchedulerRunSuccessMetadata(t *testing.T, payload json.RawMessage, ex
 	}
 	if decoded.RunID != expected.runID ||
 		decoded.TaskNameKey != expected.taskNameKey ||
+		decoded.TaskTitleKey != expected.taskTitleKey ||
 		decoded.TaskBuiltin != expected.taskBuiltin ||
 		decoded.JobType != expected.jobKey ||
-		decoded.JobTitleKey != expected.taskNameKey ||
+		decoded.JobTitleKey != expected.jobTitleKey ||
 		decoded.TriggerType != expected.triggerType ||
 		decoded.ResultSummary != expected.resultSummary {
 		t.Fatalf("unexpected scheduler success metadata: %#v", decoded)
-	}
-	if expected.taskBuiltin {
-		if decoded.TaskName != "" || decoded.TaskTitle != "" {
-			t.Fatalf("expected builtin scheduler metadata to omit literal task title, got %#v", decoded)
-		}
-		return
 	}
 	if decoded.TaskName != expected.taskName || decoded.TaskTitle != expected.taskName {
 		t.Fatalf("unexpected scheduler success task title metadata: %#v", decoded)

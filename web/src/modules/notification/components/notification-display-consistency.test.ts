@@ -146,6 +146,8 @@ function notification(): NotificationItem {
     category_key: 'notification.category.task',
     context: {
       taskBuiltin: true,
+      taskTitle: 'Access log retention cleanup',
+      taskTitleKey: 'scheduler.job.accessLogRetentionCleanup.title',
       taskNameKey: 'scheduler.job.accessLogRetentionCleanup.title',
     },
     delivery_created_at: '2026-06-11T10:47:21Z',

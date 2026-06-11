@@ -97,34 +97,42 @@ export function notificationStatusTheme(status: NotificationItem['status']) {
 
 function resolveNotificationTitle(item: NotificationItem, t: ComposerTranslation, context: NotificationContext) {
   if (isSchedulerTaskRun(item)) {
-    const taskDisplayTitle = resolveSchedulerTaskDisplayTitle(t, context);
-    if (taskDisplayTitle) return taskDisplayTitle;
-
-    const fallbackTitle = fallbackLabel(item.title);
-    if (fallbackTitle) {
-      return fallbackTitle;
-    }
+    return resolveSchedulerTaskRunTitle(item, t, context) || unknown(t);
   }
   return resolveKeyFirst(t, item.title_key, context, item.title);
 }
 
 function resolveNotificationResourceName(item: NotificationItem, t: ComposerTranslation, context: NotificationContext) {
   if (isSchedulerTaskRun(item)) {
-    const taskDisplayTitle = resolveSchedulerTaskDisplayTitle(t, context);
+    const taskDisplayTitle = resolveSchedulerTaskDisplayTitle(t, context, item.resource_name);
     if (taskDisplayTitle) return taskDisplayTitle;
   }
   return valueOrEmpty(item.resource_name, t);
 }
 
-function resolveSchedulerTaskDisplayTitle(t: ComposerTranslation, context: NotificationContext) {
-  const taskTitle = stringValue(context.taskTitle) || stringValue(context.taskName);
-  if (taskTitle) {
-    return taskTitle;
+function resolveSchedulerTaskRunTitle(item: NotificationItem, t: ComposerTranslation, context: NotificationContext) {
+  const taskDisplayTitle = resolveSchedulerTaskDisplayTitle(t, context, item.title);
+  if (taskDisplayTitle) {
+    return taskDisplayTitle;
   }
-  if (context.taskBuiltin !== true) {
-    return '';
+  return translateKey(t, item.title_key, context);
+}
+
+function resolveSchedulerTaskDisplayTitle(
+  t: ComposerTranslation,
+  context: NotificationContext,
+  storedFallback?: unknown,
+) {
+  const localizedTaskTitle =
+    translateKey(t, stringValue(context.taskTitleKey)) || translateKey(t, stringValue(context.taskNameKey));
+  const literalTaskTitle = stringValue(context.taskTitle) || stringValue(context.taskName);
+  const storedTitle = fallbackLabel(storedFallback);
+
+  if (context.taskBuiltin === true || context.builtin === true) {
+    return localizedTaskTitle || literalTaskTitle || storedTitle;
   }
-  return translateKey(t, stringValue(context.taskTitleKey) || stringValue(context.taskNameKey));
+
+  return literalTaskTitle || storedTitle;
 }
 
 function resolveNotificationMessage(item: NotificationItem, t: ComposerTranslation, context: NotificationContext) {

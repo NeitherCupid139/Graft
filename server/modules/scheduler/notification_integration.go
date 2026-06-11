@@ -165,22 +165,10 @@ func (n schedulerRunSuccessNotifier) NotifyRunSucceeded(ctx context.Context, run
 }
 
 func schedulerRunSuccessMetadata(run schedulercore.TaskRun, trigger schedulercore.RunTrigger, logger *zap.Logger) json.RawMessage {
-	metadata := map[string]any{
-		"taskNameKey":   strings.TrimSpace(run.TaskNameKey),
-		"taskBuiltin":   run.TaskBuiltin,
-		"taskKey":       run.TaskKey,
-		"jobKey":        run.JobKey,
-		"jobType":       run.JobKey,
-		"jobTitleKey":   strings.TrimSpace(run.TaskNameKey),
-		"runId":         run.ID,
-		"triggerType":   string(trigger.Type),
-		"resultSummary": firstNonEmptyTrimmed(run.Result, "success"),
-	}
-	if !run.TaskBuiltin {
-		taskTitle := firstNonEmptyTrimmed(run.TaskName, run.TaskKey)
-		metadata["taskName"] = taskTitle
-		metadata["taskTitle"] = taskTitle
-	}
+	metadata := schedulerRunTaskMetadata(run)
+	metadata["runId"] = run.ID
+	metadata["triggerType"] = string(trigger.Type)
+	metadata["resultSummary"] = firstNonEmptyTrimmed(run.Result, "success")
 	payload, err := json.Marshal(metadata)
 	if err != nil {
 		if logger != nil {
@@ -197,17 +185,17 @@ func schedulerRunSuccessMetadata(run schedulercore.TaskRun, trigger schedulercor
 }
 
 func schedulerRunFailureMetadata(run schedulercore.TaskRun, logger *zap.Logger) json.RawMessage {
-	payload, err := json.Marshal(map[string]any{
-		"task_key":     run.TaskKey,
-		"job_key":      run.JobKey,
-		"trigger_type": string(run.TriggerType),
-		"error":        run.Error,
-		"result":       run.Result,
-		"result_json":  run.ResultJSON,
-		"duration_ms":  run.DurationMS,
-		"started_at":   run.StartedAt,
-		"finished_at":  run.FinishedAt,
-	})
+	metadata := schedulerRunTaskMetadata(run)
+	metadata["task_key"] = run.TaskKey
+	metadata["job_key"] = run.JobKey
+	metadata["trigger_type"] = string(run.TriggerType)
+	metadata["error"] = run.Error
+	metadata["result"] = run.Result
+	metadata["result_json"] = run.ResultJSON
+	metadata["duration_ms"] = run.DurationMS
+	metadata["started_at"] = run.StartedAt
+	metadata["finished_at"] = run.FinishedAt
+	payload, err := json.Marshal(metadata)
 	if err != nil {
 		if logger != nil {
 			logger.Warn("marshal scheduler notification metadata failed",
@@ -220,6 +208,27 @@ func schedulerRunFailureMetadata(run schedulercore.TaskRun, logger *zap.Logger) 
 		return json.RawMessage(`{"serialization_error":true}`)
 	}
 	return payload
+}
+
+func schedulerRunTaskMetadata(run schedulercore.TaskRun) map[string]any {
+	taskTitle := firstNonEmptyTrimmed(run.TaskName, run.TaskKey)
+	jobTitleKey := strings.TrimSpace(run.TaskNameKey)
+	metadata := map[string]any{
+		"taskBuiltin": run.TaskBuiltin,
+		"taskKey":     run.TaskKey,
+		"taskName":    taskTitle,
+		"taskTitle":   taskTitle,
+		"task_key":    run.TaskKey,
+		"jobKey":      run.JobKey,
+		"job_key":     run.JobKey,
+		"jobType":     run.JobKey,
+		"jobTitleKey": jobTitleKey,
+	}
+	if run.TaskBuiltin && jobTitleKey != "" {
+		metadata["taskNameKey"] = jobTitleKey
+		metadata["taskTitleKey"] = jobTitleKey
+	}
+	return metadata
 }
 
 func schedulerRunNavigationPayload(run schedulercore.TaskRun, logger *zap.Logger) json.RawMessage {

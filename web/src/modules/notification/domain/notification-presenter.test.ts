@@ -21,7 +21,23 @@ const messages: Record<string, string> = {
   'notification.unknownLabel': '未知',
 };
 
-const t = ((key: string, context?: Record<string, unknown>) => {
+function createTranslation(catalog: Record<string, string>) {
+  return ((key: string, context?: Record<string, unknown>) => {
+    const template = catalog[key];
+    if (!template) return key;
+    return template.replaceAll(/\{(\w+)\}/g, (_, name: string) => String(context?.[name] ?? ''));
+  }) as ComposerTranslation;
+}
+
+const t = createTranslation(messages);
+
+const enT = createTranslation({
+  ...messages,
+  'scheduler.job.accessLogRetentionCleanup.title': 'Access log retention cleanup',
+});
+
+const missingTaskKeyT = ((key: string, context?: Record<string, unknown>) => {
+  if (key === 'scheduler.job.accessLogRetentionCleanup.title') return key;
   const template = messages[key];
   if (!template) return key;
   return template.replaceAll(/\{(\w+)\}/g, (_, name: string) => String(context?.[name] ?? ''));
@@ -55,6 +71,8 @@ describe('notification presenter', () => {
         category_key: 'notification.category.task',
         context: {
           taskBuiltin: true,
+          taskTitle: 'Access log retention cleanup',
+          taskTitleKey: 'scheduler.job.accessLogRetentionCleanup.title',
           taskNameKey: 'scheduler.job.accessLogRetentionCleanup.title',
         },
         level_key: 'notification.level.info',
@@ -83,6 +101,27 @@ describe('notification presenter', () => {
     expect(view.resourceId).toBe('25');
   });
 
+  it('uses localized builtin scheduler task titles in en-US', () => {
+    const view = presentNotification(
+      notification({
+        context: {
+          taskBuiltin: true,
+          taskTitle: 'Access log retention cleanup',
+          taskTitleKey: 'scheduler.job.accessLogRetentionCleanup.title',
+        },
+        message_key: 'notification.message.scheduler.runSucceeded',
+        resource_name: 'Access log retention cleanup',
+        resource_type: 'scheduled_task_run',
+        title_key: 'notification.title.scheduler.runSucceeded',
+      }),
+      enT,
+      'en-US',
+    );
+
+    expect(view.title).toBe('Access log retention cleanup');
+    expect(view.resourceName).toBe('Access log retention cleanup');
+  });
+
   it('keeps a user-created scheduled task title when it uses a built-in job definition', () => {
     const view = presentNotification(
       notification({
@@ -104,6 +143,27 @@ describe('notification presenter', () => {
     expect(view.title).toBe('审计日志保留清理1');
     expect(view.resourceName).toBe('审计日志保留清理1');
     expect(view.message).toBe('已成功完成。');
+  });
+
+  it('falls back to the stored title for a user-created task without a literal task title', () => {
+    const view = presentNotification(
+      notification({
+        context: {
+          taskBuiltin: false,
+          jobTitleKey: 'scheduler.job.accessLogRetentionCleanup.title',
+        },
+        message_key: 'notification.message.scheduler.runSucceeded',
+        resource_name: 'Stored scheduler task',
+        resource_type: 'scheduled_task_run',
+        title: 'Stored scheduler task',
+        title_key: 'notification.title.scheduler.runSucceeded',
+      }),
+      t,
+      'zh-CN',
+    );
+
+    expect(view.title).toBe('Stored scheduler task');
+    expect(view.resourceName).toBe('Stored scheduler task');
   });
 
   it('uses fallback copy when a display key is missing', () => {
@@ -137,6 +197,7 @@ describe('notification presenter', () => {
       notification({
         context: {
           taskBuiltin: true,
+          taskTitle: 'Access log retention cleanup',
           taskNameKey: 'scheduler.job.missing.title',
         },
         message_key: 'notification.message.scheduler.runSucceeded',
@@ -147,7 +208,28 @@ describe('notification presenter', () => {
       'zh-CN',
     );
 
-    expect(view.title).toBe('Nightly audit cleanup');
+    expect(view.title).toBe('Access log retention cleanup');
+    expect(view.resourceName).toBe('Access log retention cleanup');
+    expect(view.message).toBe('已成功完成。');
+  });
+
+  it('falls back to literal task title when a builtin task i18n key is missing', () => {
+    const view = presentNotification(
+      notification({
+        context: {
+          taskBuiltin: true,
+          taskTitle: 'Access log retention cleanup',
+          taskTitleKey: 'scheduler.job.accessLogRetentionCleanup.title',
+        },
+        message_key: 'notification.message.scheduler.runSucceeded',
+        resource_type: 'scheduled_task_run',
+        title_key: 'notification.title.scheduler.runSucceeded',
+      }),
+      missingTaskKeyT,
+      'zh-CN',
+    );
+
+    expect(view.title).toBe('Access log retention cleanup');
     expect(view.message).toBe('已成功完成。');
   });
 
