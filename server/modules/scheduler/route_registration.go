@@ -386,9 +386,10 @@ func (r schedulerRouteRuntime) handleRunOnce(ginCtx *gin.Context) {
 	if !ok {
 		return
 	}
+	triggerUserID := schedulerManualTriggerUserID(ginCtx)
 	run, err := runtime.RunOnceWithTrigger(ginCtx.Request.Context(), key, schedulercore.RunTrigger{
 		Type:          schedulercore.TriggerTypeManual,
-		TriggerUserID: schedulerManualTriggerUserID(ginCtx),
+		TriggerUserID: triggerUserID,
 	})
 	if err != nil {
 		r.writeRouteError(ginCtx, "run scheduled task once failed", err, zap.String("taskKey", key))
@@ -396,10 +397,9 @@ func (r schedulerRouteRuntime) handleRunOnce(ginCtx *gin.Context) {
 	}
 	r.ctx.Logger.Debug("scheduled task manual run completed",
 		zap.String("module", r.moduleName),
-		zap.String("taskKey", key),
 		zap.Uint64("runID", run.ID),
 		zap.String("status", string(run.Status)),
-		zap.Uint64("triggerUserID", schedulerManualTriggerUserID(ginCtx)),
+		zap.Uint64("triggerUserID", triggerUserID),
 	)
 
 	httpx.WriteSuccess(ginCtx, http.StatusOK, toScheduledTaskRunItem(run))

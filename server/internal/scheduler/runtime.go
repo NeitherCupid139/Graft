@@ -809,6 +809,9 @@ func (r *CronRuntime) Start(ctx context.Context) error {
 			}
 		}
 	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	r.lifecycleCtx, r.lifecycleCancel = context.WithCancel(ctx)
 	r.cron.Start()
 	r.started = true
@@ -1051,12 +1054,7 @@ func completeJobRunResult(result *cronx.JobRunResult, runErr error) (RunStatus, 
 }
 
 func normalizeManualRunTrigger(trigger RunTrigger) RunTrigger {
-	if trigger.Type == "" {
-		trigger.Type = TriggerTypeManual
-	}
-	if trigger.Type != TriggerTypeManual {
-		trigger.Type = TriggerTypeManual
-	}
+	trigger.Type = TriggerTypeManual
 	return trigger
 }
 

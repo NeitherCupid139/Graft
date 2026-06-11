@@ -117,12 +117,29 @@ def contains_project_rtk_prefix_rule(text: str) -> bool:
     return "always prefix with `rtk`" in text or "always prefix with rtk" in text
 
 
+def missing_exact_terms(text: str, path: Path, label: str, terms: tuple[str, ...]) -> list[Finding]:
+    return [Finding(path, f"missing {label} term {term!r}") for term in terms if term not in text]
+
+
+def missing_concepts(
+    text: str,
+    path: Path,
+    label: str,
+    concepts: tuple[tuple[str, tuple[str, ...]], ...],
+) -> list[Finding]:
+    findings: list[Finding] = []
+    for concept, patterns in concepts:
+        if not all(re.search(pattern, text, re.IGNORECASE | re.DOTALL) for pattern in patterns):
+            findings.append(Finding(path, f"missing {label} concept {concept!r}"))
+    return findings
+
+
 def validate_ai_tooling_doc() -> list[Finding]:
     if not AI_TOOLING_DOC.is_file():
         return []
     text = read_text(AI_TOOLING_DOC)
     findings: list[Finding] = []
-    required_terms = (
+    exact_terms = (
         "codegraph",
         "tdesign",
         "context7",
@@ -138,7 +155,6 @@ def validate_ai_tooling_doc() -> list[Finding]:
         "headroom_compress",
         "headroom_retrieve",
         "headroom_stats",
-        "always prefix with rtk",
         "headroom learn",
         ".ai/headroom/memory",
         ".ai/headroom/learn",
@@ -146,19 +162,37 @@ def validate_ai_tooling_doc() -> list[Finding]:
         "Codex `instructions.md`",
         "CLAUDE.md",
         "GEMINI.md",
-        "raw output",
         "AGENTS.md",
-        "人工确认",
         "memory",
         "postgres",
         "AI tooling evidence",
     )
-    for term in required_terms:
-        if term not in text:
-            findings.append(Finding(AI_TOOLING_DOC, f"missing AI tooling governance term {term!r}"))
-    for forbidden in ("server/go.mod`、`web/package.json`、CI", "隐藏恢复真值"):
-        if forbidden not in text:
-            findings.append(Finding(AI_TOOLING_DOC, f"missing guardrail phrase containing {forbidden!r}"))
+    findings.extend(missing_exact_terms(text, AI_TOOLING_DOC, "AI tooling governance", exact_terms))
+    findings.extend(
+        missing_concepts(
+            text,
+            AI_TOOLING_DOC,
+            "AI tooling governance",
+            (
+                (
+                    "headroom optional local user-level context compression",
+                    (
+                        r"headroom",
+                        r"optional|可选",
+                        r"local|本地",
+                        r"user-level|用户级",
+                        r"MCP",
+                        r"context compression|上下文.*压缩",
+                    ),
+                ),
+                ("RTK prefix rule is forbidden", (r"不得|must not", r"always prefix with\s+`?rtk`?")),
+                ("raw output retained for precise validation", (r"raw output|原始命令输出", r"验证|validation|调试|debug")),
+                ("manual confirmation boundary", (r"人工确认|manual confirmation|manual review|人工 review",)),
+                ("runtime dependency guardrail", (r"server/go\.mod", r"web/package\.json", r"CI", r"runtime|运行时")),
+                ("hidden recovery truth guardrail", (r"隐藏恢复真值|hidden recovery",)),
+            ),
+        )
+    )
     for disallowed in ("headroom wrap codex", "headroom proxy"):
         if disallowed in text:
             findings.append(Finding(AI_TOOLING_DOC, f"Headroom governance should keep only MCP entry content, found {disallowed!r}"))
@@ -206,32 +240,31 @@ def validate_environment_inventory() -> list[Finding]:
         return []
     text = read_text(TOOLS_AI)
     findings: list[Finding] = []
-    for term in (
-        "ai_headroom:",
-        "ai_headroom_mcp:",
-        "context_compression:",
+    exact_terms = (
         "preferred: \"headroom mcp\"",
-        "allowed_controlled_local:",
-        "controlled_local_dirs:",
         ".ai/headroom/memory",
         ".ai/headroom/learn",
-        "disallowed_by_default:",
         "rtk instruction injection",
         "automatic instructions write",
-        "ai_tools:",
-        "headroom:",
         "default_command:",
         "instructions_auto_write: \"disabled\"",
-        "mcp_servers:",
-        "mcp_headroom:",
-        "codegraph:",
-        "tdesign:",
-        "context7:",
-        "github:",
-        "playwright:",
-    ):
-        if term not in text:
-            findings.append(Finding(TOOLS_AI, f"missing AI environment inventory term {term!r}"))
+    )
+    findings.extend(missing_exact_terms(text, TOOLS_AI, "AI environment inventory", exact_terms))
+    findings.extend(
+        missing_concepts(
+            text,
+            TOOLS_AI,
+            "AI environment inventory",
+            (
+                ("Headroom CLI and MCP capabilities", (r"ai_headroom:\s*true", r"ai_headroom_mcp:\s*true")),
+                ("context compression tool selection", (r"context_compression:", r"preferred:\s+\"headroom mcp\"")),
+                ("controlled local Headroom directories", (r"controlled_local_dirs:", r"\.ai/headroom/memory", r"\.ai/headroom/learn")),
+                ("disallowed Headroom automation", (r"disallowed_by_default:", r"rtk instruction injection", r"automatic instructions write")),
+                ("Headroom AI tool record", (r"ai_tools:", r"headroom:", r"instructions_auto_write:\s+\"disabled\"")),
+                ("adopted and pilot MCP server records", (r"mcp_servers:", r"codegraph:", r"tdesign:", r"context7:", r"github:", r"playwright:", r"headroom:")),
+            ),
+        )
+    )
     for disallowed in ("headroom wrap codex", "headroom proxy", "wrapper_available:", "proxy_available:"):
         if disallowed in text:
             findings.append(Finding(TOOLS_AI, f"AI environment inventory should keep only MCP entry content, found {disallowed!r}"))

@@ -86,9 +86,11 @@ func (r *runRepositoryRecorder) GetRun(_ context.Context, id uint64) (TaskRun, e
 }
 
 type taskRepositoryRecorder struct {
-	tasks     map[string]TaskDefinition
-	listCalls int
-	listErr   error
+	tasks        map[string]TaskDefinition
+	listCalls    int
+	listErr      error
+	afterList    func()
+	afterListErr error
 }
 
 type defaultConfigResolverRecorder struct {
@@ -180,6 +182,12 @@ func (r *taskRepositoryRecorder) ListTasks(_ context.Context, query TaskListQuer
 	r.listCalls++
 	if r.listErr != nil {
 		return nil, 0, r.listErr
+	}
+	if r.afterList != nil {
+		r.afterList()
+	}
+	if r.afterListErr != nil {
+		return nil, 0, r.afterListErr
 	}
 	items := make([]TaskDefinition, 0, len(r.tasks))
 	for _, task := range r.tasks {
@@ -1339,6 +1347,27 @@ func TestStartRejectsCanceledContextBeforeRepositoryLoad(t *testing.T) {
 	}
 	if taskRepo.listCalls != 0 {
 		t.Fatalf("expected canceled start to skip repository load, got %d calls", taskRepo.listCalls)
+	}
+	if runtime.started || runtime.lifecycleCtx != nil || runtime.lifecycleCancel != nil {
+		t.Fatal("expected canceled start to leave runtime unstarted")
+	}
+}
+
+// TestStartRejectsCanceledContextAfterRepositoryLoad 验证持久化任务刷新期间发生取消时，
+// Start 不会继续创建生命周期上下文或启动 cron。
+func TestStartRejectsCanceledContextAfterRepositoryLoad(t *testing.T) {
+	runtime := New(zap.NewNop(), newRunRepositoryRecorder())
+	taskRepo := newTaskRepositoryRecorder()
+	runCtx, cancel := context.WithCancel(context.Background())
+	taskRepo.afterList = cancel
+	runtime.SetTaskRepository(taskRepo)
+
+	err := runtime.Start(runCtx)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context cancellation, got %v", err)
+	}
+	if taskRepo.listCalls != 1 {
+		t.Fatalf("expected one repository load before cancellation, got %d", taskRepo.listCalls)
 	}
 	if runtime.started || runtime.lifecycleCtx != nil || runtime.lifecycleCancel != nil {
 		t.Fatal("expected canceled start to leave runtime unstarted")

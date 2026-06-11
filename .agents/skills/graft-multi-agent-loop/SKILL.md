@@ -51,6 +51,10 @@ Typical triggers:
    - if the caller omitted `loop_mode`, set `loop_mode=topic-completion-loop`
    - only use `checkpoint-loop` when the caller explicitly requested it
 3. Confirm the owned scope, reference metrics, and any user-defined hard limits before starting the loop:
+   - reference metrics are health signals used for checkpoints and acceptance review, not stop conditions by default
+   - hard limits are explicit stop boundaries from the user, inherited prompt, or this skill's defaults
+   - examples of hard limits: `max_rounds=3`, `max_commits=1`, `allowed_scopes=server/modules/scheduler`
+   - examples of reference metrics: files changed, runtime, validation failures, soft timeout, and grace windows
    - `max_rounds`
    - `max_files_changed`
    - `max_commits`
@@ -66,8 +70,8 @@ Typical triggers:
      - default to `20` for deep implementation rounds unless the caller explicitly sets a smaller bound
    - `max_grace_window`
      - default to `30` for deep implementation rounds unless the caller explicitly sets a larger bound
-   - these metrics are health indicators by default; they become blocking limits only when the user explicitly defines
-     them as hard limits
+   - treat `checkpoint_budget` as a hard limit by default; treat timeouts and grace windows as health metrics unless
+     the caller explicitly defines them as hard limits
 4. Establish the loop batch state in the outer main agent before dispatching Batch 1:
    - `completed_batches`
    - `pending_batches`

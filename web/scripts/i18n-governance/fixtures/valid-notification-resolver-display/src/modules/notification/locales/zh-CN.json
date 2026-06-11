@@ -1,1 +1,3 @@
-{}
+{
+  "notification.resourceType.scheduledTaskRun": "定时任务运行"
+}

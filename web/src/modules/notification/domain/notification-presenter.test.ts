@@ -1,7 +1,7 @@
 // Copyright (c) 2025-2026 GeWuYou
 // SPDX-License-Identifier: Apache-2.0
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { ComposerTranslation } from 'vue-i18n';
 
 import type { NotificationItem } from '../types/notification';
@@ -174,6 +174,11 @@ describe('notification presenter', () => {
   });
 
   it('keeps the literal scheduler task title when taskNameKey is present without builtin status', () => {
+    const translation = vi.fn((key: string, context?: Record<string, unknown>) => {
+      const template = messages[key];
+      if (!template) return key;
+      return template.replaceAll(/\{(\w+)\}/g, (_, name: string) => String(context?.[name] ?? ''));
+    }) as unknown as ComposerTranslation;
     const view = presentNotification(
       notification({
         context: {
@@ -184,12 +189,13 @@ describe('notification presenter', () => {
         resource_type: 'scheduled_task_run',
         title_key: 'notification.title.scheduler.runSucceeded',
       }),
-      t,
+      translation,
       'zh-CN',
     );
 
     expect(view.title).toBe('审计日志保留清理1');
     expect(view.message).toBe('已成功完成。');
+    expect(translation).not.toHaveBeenCalledWith('scheduler.job.accessLogRetentionCleanup.title');
   });
 
   it('falls back to the stored title when builtin localization key is missing', () => {

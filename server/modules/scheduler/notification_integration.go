@@ -186,8 +186,6 @@ func schedulerRunSuccessMetadata(run schedulercore.TaskRun, trigger schedulercor
 
 func schedulerRunFailureMetadata(run schedulercore.TaskRun, logger *zap.Logger) json.RawMessage {
 	metadata := schedulerRunTaskMetadata(run)
-	metadata["task_key"] = run.TaskKey
-	metadata["job_key"] = run.JobKey
 	metadata["trigger_type"] = string(run.TriggerType)
 	metadata["error"] = run.Error
 	metadata["result"] = run.Result
@@ -210,6 +208,8 @@ func schedulerRunFailureMetadata(run schedulercore.TaskRun, logger *zap.Logger) 
 	return payload
 }
 
+// schedulerRunTaskMetadata 保留 camelCase 与 snake_case 双字段，兼容当前通知展示消费层；
+// 相关消费者统一迁移到 camelCase 后，应删除 snake_case 字段。
 func schedulerRunTaskMetadata(run schedulercore.TaskRun) map[string]any {
 	taskTitle := firstNonEmptyTrimmed(run.TaskName, run.TaskKey)
 	jobTitleKey := strings.TrimSpace(run.TaskNameKey)

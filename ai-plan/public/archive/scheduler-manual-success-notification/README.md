@@ -30,7 +30,7 @@ The target behavior is:
 - Runtime boundary implemented in `87e197c5`.
 - Scheduler module publisher adapter implemented in `ed331a70`.
 - Notification publisher source-switch proof committed in `35430d26`.
-- Required backend focused tests and lint passed.
+- Required backend-focused tests and lint passed.
 - Dependency graph confirmed:
   - `server/internal/scheduler` imports no Gin, `httpx`, auth module, notification module, or notification DTO.
   - `server/modules/scheduler` uses `moduleapi.NotificationPublisher` as its notification publishing boundary and does not import notification internals.

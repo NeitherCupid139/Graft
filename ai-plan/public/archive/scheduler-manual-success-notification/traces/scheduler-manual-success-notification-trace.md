@@ -68,4 +68,4 @@ notification module internals.
 Remaining risks:
 
 - None requiring another implementation batch.
-- Broader full backend validation beyond the required focused tests and backend lint was not run for this topic.
+- Broader full backend validation beyond the required focused-scope tests and backend lint was not run for this topic.

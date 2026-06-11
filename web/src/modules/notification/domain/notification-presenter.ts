@@ -123,12 +123,12 @@ function resolveSchedulerTaskDisplayTitle(
   context: NotificationContext,
   storedFallback?: unknown,
 ) {
-  const localizedTaskTitle =
-    translateKey(t, stringValue(context.taskTitleKey)) || translateKey(t, stringValue(context.taskNameKey));
   const literalTaskTitle = stringValue(context.taskTitle) || stringValue(context.taskName);
   const storedTitle = fallbackLabel(storedFallback);
 
   if (context.taskBuiltin === true || context.builtin === true) {
+    const localizedTaskTitle =
+      translateKey(t, stringValue(context.taskTitleKey)) || translateKey(t, stringValue(context.taskNameKey));
     return localizedTaskTitle || literalTaskTitle || storedTitle;
   }
 

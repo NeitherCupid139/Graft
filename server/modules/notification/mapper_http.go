@@ -113,6 +113,7 @@ func rawJSONMap(raw json.RawMessage) map[string]interface{} {
 	return payload
 }
 
+// optionalRawJSONMap 将空对象或无效 JSON 映射为 nil，避免 HTTP 响应暴露无意义的空 context。
 func optionalRawJSONMap(raw json.RawMessage) *map[string]interface{} {
 	payload := rawJSONMap(raw)
 	if len(payload) == 0 {

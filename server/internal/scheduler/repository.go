@@ -968,13 +968,22 @@ func mapScheduledTaskWriteError(err error) error {
 			return ErrTaskTitleConflict
 		}
 	}
-	if strings.Contains(err.Error(), "scheduled_tasks_task_key_key") {
+	message := err.Error()
+	if !isUniqueConstraintErrorText(message) {
+		return err
+	}
+	if strings.Contains(message, "scheduled_tasks_task_key_key") {
 		return ErrTaskKeyConflict
 	}
-	if strings.Contains(err.Error(), "scheduled_tasks_title_active_key") {
+	if strings.Contains(message, "scheduled_tasks_title_active_key") {
 		return ErrTaskTitleConflict
 	}
 	return err
+}
+
+func isUniqueConstraintErrorText(message string) bool {
+	return strings.Contains(message, "duplicate key") ||
+		strings.Contains(message, "violates unique constraint")
 }
 
 func scanJobDefinition(scanner rowScanner) (JobDefinition, error) {

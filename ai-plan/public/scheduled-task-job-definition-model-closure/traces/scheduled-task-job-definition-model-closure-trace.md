@@ -9,18 +9,18 @@
 
 ## 2026-06-11 Read-Only Exploration Summary
 
-- Confirmed the scheduler model currently spans:
+- Verified the scheduler model currently spans:
   - `scheduled_tasks`
   - `scheduler_job_definitions`
   - `scheduler_task_runs`
-- Confirmed local data already separates task instances from Job Definitions:
+- Observed local data already separates task instances from Job Definitions:
   - builtin retention tasks commonly use identical `task_key` and `job_key`
   - custom task `wq111` points to builtin Job Definition `audit.audit-log-retention-cleanup`
-- Confirmed sampled scheduled task and task run JSON did not expose sensitive data.
-- Confirmed current list UI label `Job 类型 / Job Type` is misleading because the rendered value is a Job Definition
+- Checked that sampled scheduled task and task run JSON did not expose sensitive data.
+- Identified current list UI label `Job 类型 / Job Type` as misleading because the rendered value is a Job Definition
   title resolved from `job_key`.
-- Confirmed server mapper semantics currently overlap `owner` and `module`.
-- Confirmed frontend scheduled-task list page lacks a separate presenter/view-model boundary and mixes DTO consumption,
+- Noted server mapper semantics currently overlap `owner` and `module`.
+- Found that the frontend scheduled-task list page lacks a separate presenter/view-model boundary and mixes DTO consumption,
   fallback display, i18n, config merge, and detail model assembly.
 
 ## Key Decision For Next Slice

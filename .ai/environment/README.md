@@ -61,7 +61,7 @@ Recommended MCP entry:
 
 ```bash
 .ai/venv/bin/python -m pip install "headroom-ai[proxy]"
-codex mcp add headroom -- /home/gewuyou/project/go/Graft-wt/feat/wt-audit-plugin-mvp/.ai/venv/bin/headroom mcp serve
+codex mcp add headroom -- <repo>/.ai/venv/bin/headroom mcp serve
 ```
 
 Use Headroom MCP for local compression, retrieval, and stats only by default.
