@@ -33,6 +33,31 @@ properties:
     description: Stable localization key for the notification body when supplied by the source module.
   message:
     type: string
+  category_key:
+    type: string
+    description: Stable localization key for the notification category display label.
+  source_key:
+    type: string
+    description: Stable localization key for the notification source display label.
+  level_key:
+    type: string
+    description: Stable localization key for the notification level display label.
+  event_type_key:
+    type: string
+    description: Stable localization key for the notification event type display label.
+  resource_type_key:
+    type: string
+    description: Stable localization key for the notification resource type display label.
+  action_label_key:
+    type: string
+    description: Stable localization key for the primary business action label.
+  action_label:
+    type: string
+    description: Fallback business action label when action_label_key is missing or unresolved.
+  context:
+    type: object
+    additionalProperties: true
+    description: Source-provided interpolation context for key-first notification rendering.
   severity:
     $ref: ./notification-severity.yaml
   category:

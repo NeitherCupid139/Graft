@@ -1,5 +1,5 @@
 schema_version: 1
-generated_at_utc: "2026-06-08T01:19:21Z"
+generated_at_utc: "2026-06-11T04:49:28Z"
 generated_from: ".ai/environment/tools.raw.yaml"
 generator: "scripts/generate-ai-environment.py"
 platform:
@@ -20,17 +20,20 @@ capabilities:
   docker: true
   gh: true
   gh_authenticated: true
+  ai_headroom: true
   mcp_codegraph: true
   mcp_tdesign: true
   mcp_context7: true
   mcp_github: true
   mcp_playwright: true
+  mcp_headroom: true
   fast_search: true
   json_cli: true
-  ai_browser: true
+  ai_browser: false
+  ai_headroom_mcp: true
   playwright_python: true
   playwright_browsers: true
-  playwright_system_deps: true
+  playwright_system_deps: false
   server_scaffolded: true
   web_scaffolded: true
 tool_selection:
@@ -55,9 +58,23 @@ tool_selection:
     fallback: "bash"
     use_for: "Non-trivial local automation and helper scripts."
   ai_browser:
-    preferred: "graft-web-browser-agent"
+    preferred: "unavailable"
     fallback: "unavailable"
     use_for: "AI-assisted local web UI screenshots and simple browser interactions."
+  context_compression:
+    preferred: "headroom mcp"
+    fallback: "unavailable"
+    use_for: "Optional local MCP compression, retrieval, and stats for AI-assisted context management."
+    mcp_command: ".ai/venv/bin/headroom mcp serve"
+    allowed_controlled_local:
+      - "headroom memory"
+      - "headroom learn"
+    controlled_local_dirs:
+      - ".ai/headroom/memory"
+      - ".ai/headroom/learn"
+    disallowed_by_default:
+      - "rtk instruction injection"
+      - "automatic instructions write"
   web_package_manager:
     preferred: "bun"
     fallback: "unavailable"
@@ -66,6 +83,18 @@ tool_selection:
     preferred: "go"
     fallback: "unavailable"
     use_for: "Server build and test workflows once server/go.mod exists."
+ai_tools:
+  headroom:
+    installed: true
+    risk_level: "L1"
+    use_for: "Optional local user-level MCP-based AI context compression tool."
+    default_command: ".ai/venv/bin/headroom mcp serve"
+    memory_status: "controlled-local-only"
+    memory_dir: ".ai/headroom/memory"
+    learn_status: "controlled-local-only"
+    learn_dir: ".ai/headroom/learn"
+    instructions_auto_write: "disabled"
+    guardrail: "Use Headroom through Codex MCP by default; RTK injection and automatic instructions writes are disallowed by default."
 mcp_servers:
   codegraph:
     configured: true
@@ -88,12 +117,17 @@ mcp_servers:
     configured: true
     risk_level: "L1"
     use_for: "Exploratory browser interaction before graft-web-browser-agent evidence capture."
+  headroom:
+    configured: true
+    risk_level: "L1"
+    use_for: "On-demand local compression, retrieval, and stats for AI-assisted context management."
+    access_policy: "Compression, retrieval, and stats only by default; memory and learn are controlled-local-only under .ai/headroom/**, and automatic instructions writes are disabled."
 python:
   available: true
   venv_available: true
   project_venv_present: true
   playwright_browsers_present: true
-  playwright_system_deps_available: true
+  playwright_system_deps_available: false
   helper_packages:
     requests: true
     rich: true

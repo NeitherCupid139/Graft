@@ -6,6 +6,19 @@
       }
     }
   },
+  "scheduler": {
+    "job": {
+      "accessLogRetentionCleanup": {
+        "title": "Access log retention cleanup"
+      },
+      "appLogRetentionCleanup": {
+        "title": "Application log retention cleanup"
+      },
+      "auditLogRetentionCleanup": {
+        "title": "Audit log retention cleanup"
+      }
+    }
+  },
   "scheduledTask": {
     "route": {
       "list": {
@@ -350,6 +363,7 @@
         "latestResult": "Recent Result",
         "recentRuns": "Run History",
         "key": "Task Key",
+        "taskName": "Task Name",
         "description": "Description",
         "owner": "Owner",
         "module": "Module",

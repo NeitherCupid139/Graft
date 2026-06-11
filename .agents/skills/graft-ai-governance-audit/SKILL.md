@@ -31,6 +31,7 @@ workflow; it does not replace repository startup, validation, closeout, or commi
    - `codex mcp get context7`
    - `codex mcp get github`
    - `codex mcp get playwright`
+   - `codex mcp get headroom` when Headroom context compression or MCP tooling is involved
    - `codegraph status` only when CodeGraph index health matters
 6. Run the structure audit:
 

@@ -54,7 +54,7 @@ func TestPublisherCompensatesMissingDeliveryOnDedupeRetry(t *testing.T) {
 	stack := newNotificationTestStack(t)
 	input := validPublishInput()
 
-	event, deduplicated, err := stack.repository.CreateEvent(context.Background(), eventStoreInput(input))
+	event, deduplicated, err := stack.repository.CreateEvent(context.Background(), createEventInputFromPublishInput(input))
 	if err != nil {
 		t.Fatalf("create event without deliveries: %v", err)
 	}
@@ -162,6 +162,45 @@ func TestPublisherSkipsPersistenceWhenSourceDisabled(t *testing.T) {
 	}
 }
 
+func TestPublisherUsesSchedulerSuccessSourceSwitch(t *testing.T) {
+	repository := &publisherSpyRepository{}
+	publisher, err := NewPublisher(repository, permissionFanoutRBAC{userIDs: []uint64{42}})
+	if err != nil {
+		t.Fatalf("new publisher: %v", err)
+	}
+	resolver := &recordingNotificationConfigResolver{values: map[string]bool{
+		notificationSourceScheduledTaskSuccessEnabledKey: false,
+	}}
+	if err := publisher.setConfigResolver(resolver); err != nil {
+		t.Fatalf("set config resolver: %v", err)
+	}
+
+	input := validPublishInput()
+	input.SourceModule = "scheduler"
+	input.EventType = "task_succeeded"
+	input.DedupeKey = "scheduler:run_succeeded:99"
+	result, err := publisher.Publish(context.Background(), input)
+	if err != nil {
+		t.Fatalf("publish scheduler success source-disabled notification: %v", err)
+	}
+	if !result.Skipped {
+		t.Fatalf("expected scheduler success publish to be skipped, got %#v", result)
+	}
+	if repository.createEventCalls != 0 || repository.createDeliveriesCalls != 0 {
+		t.Fatalf("expected no persistence calls, got events=%d deliveries=%d", repository.createEventCalls, repository.createDeliveriesCalls)
+	}
+	requireConfigKeyLookup(t, resolver, notificationSourceScheduledTaskSuccessEnabledKey)
+
+	resolver.values[notificationSourceScheduledTaskSuccessEnabledKey] = true
+	result, err = publisher.Publish(context.Background(), input)
+	if err != nil {
+		t.Fatalf("publish scheduler success source-enabled notification: %v", err)
+	}
+	if result.Skipped || repository.createEventCalls != 1 || repository.createDeliveriesCalls != 1 {
+		t.Fatalf("expected scheduler success publish to persist once, result=%#v events=%d deliveries=%d", result, repository.createEventCalls, repository.createDeliveriesCalls)
+	}
+}
+
 func TestPublisherSetConfigResolverRejectsInvalidInputs(t *testing.T) {
 	repository := &publisherSpyRepository{}
 	publisher, err := NewPublisher(repository)
@@ -201,7 +240,7 @@ func TestPublisherRejectsEmptyPermissionFanoutBeforePersistingEvent(t *testing.T
 
 func TestRepositoryCreateDeliveriesRejectsInvalidBatchWithoutPartialInsert(t *testing.T) {
 	stack := newNotificationTestStack(t)
-	event, _, err := stack.repository.CreateEvent(context.Background(), eventStoreInput(validPublishInput()))
+	event, _, err := stack.repository.CreateEvent(context.Background(), createEventInputFromPublishInput(validPublishInput()))
 	if err != nil {
 		t.Fatalf("create event: %v", err)
 	}
@@ -375,6 +414,30 @@ func (r staticNotificationConfigResolver) Boolean(_ context.Context, key string,
 	return value
 }
 
+type recordingNotificationConfigResolver struct {
+	values map[string]bool
+	keys   []string
+}
+
+func (r *recordingNotificationConfigResolver) Boolean(_ context.Context, key string, fallback bool) bool {
+	r.keys = append(r.keys, key)
+	value, ok := r.values[key]
+	if !ok {
+		return fallback
+	}
+	return value
+}
+
+func requireConfigKeyLookup(t *testing.T, resolver *recordingNotificationConfigResolver, key string) {
+	t.Helper()
+	for _, observed := range resolver.keys {
+		if observed == key {
+			return
+		}
+	}
+	t.Fatalf("expected config key %q to be looked up, got %#v", key, resolver.keys)
+}
+
 func (r *publisherSpyRepository) CreateEvent(context.Context, notificationstore.CreateEventInput) (notificationstore.Event, bool, error) {
 	r.createEventCalls++
 	return notificationstore.Event{ID: 1001}, false, nil
@@ -442,28 +505,6 @@ func validPublishInputWithDedupe(dedupeKey string) moduleapi.PublishNotification
 	}
 }
 
-func eventStoreInput(input moduleapi.PublishNotificationInput) notificationstore.CreateEventInput {
-	return notificationstore.CreateEventInput{
-		TitleKey:          input.TitleKey,
-		Title:             input.Title,
-		MessageKey:        input.MessageKey,
-		Message:           input.Message,
-		Severity:          string(input.Severity),
-		Category:          string(input.Category),
-		SourceModule:      input.SourceModule,
-		EventType:         input.EventType,
-		ResourceType:      input.ResourceType,
-		ResourceID:        input.ResourceID,
-		ResourceName:      input.ResourceName,
-		NavigationKind:    string(input.Navigation.Kind),
-		NavigationPayload: input.Navigation.Payload,
-		Metadata:          input.Metadata,
-		DedupeKey:         input.DedupeKey,
-		OccurredAt:        input.OccurredAt,
-		ExpiresAt:         input.ExpiresAt,
-	}
-}
-
 type permissionFanoutRBAC struct {
 	userIDs []uint64
 }
@@ -504,6 +545,13 @@ func newNotificationTestDB(t *testing.T) *sql.DB {
 		title TEXT NOT NULL,
 		message_key TEXT NOT NULL DEFAULT '',
 		message TEXT NOT NULL,
+		category_key TEXT NOT NULL DEFAULT '',
+		source_key TEXT NOT NULL DEFAULT '',
+		level_key TEXT NOT NULL DEFAULT '',
+		event_type_key TEXT NOT NULL DEFAULT '',
+		resource_type_key TEXT NOT NULL DEFAULT '',
+		action_label_key TEXT NOT NULL DEFAULT '',
+		action_label TEXT NOT NULL DEFAULT '',
 		severity TEXT NOT NULL,
 		category TEXT NOT NULL,
 		source_module TEXT NOT NULL,

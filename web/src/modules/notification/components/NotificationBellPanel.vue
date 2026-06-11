@@ -19,7 +19,7 @@
             <p>{{ t('notification.bell.unreadSummary', { count: unreadCount }) }}</p>
           </div>
           <t-button v-if="items.length" theme="primary" variant="text" size="small" @click="markAllRead">
-            {{ t('notification.actions.markAllRead') }}
+            {{ t('notification.action.markAllRead') }}
           </t-button>
         </div>
 
@@ -27,31 +27,22 @@
           <t-list-item v-for="item in items" :key="item.delivery_id" @click="openDetail(item)">
             <div
               class="notification-bell-panel__item"
-              :class="{ 'notification-bell-panel__item--unread': item.status === 'unread' }"
+              :class="{ 'notification-bell-panel__item--unread': notificationView(item).status === 'unread' }"
             >
+              <span
+                v-if="notificationView(item).status === 'unread'"
+                class="notification-bell-panel__unread-dot"
+                aria-hidden="true"
+              />
               <div class="notification-bell-panel__item-main">
-                <strong>{{ notificationTitle(item, t) }}</strong>
-                <span>{{ notificationMessage(item, t) }}</span>
-                <small
-                  >{{ notificationSourceLabel(item.source_module, t) }} ·
-                  {{ formatCompactDateTime(item.occurred_at, locale) }}</small
-                >
+                <strong>{{ notificationView(item).title }}</strong>
+                <span>{{ notificationView(item).message }}</span>
+                <small>{{ notificationView(item).compactMeta }}</small>
               </div>
               <t-tag :theme="notificationSeverityTheme(item.severity)" variant="light-outline" size="small">
-                {{ t(`notification.severity.${item.severity}`) }}
+                {{ notificationView(item).levelLabel }}
               </t-tag>
             </div>
-            <template #action>
-              <t-button
-                v-if="item.status === 'unread'"
-                size="small"
-                theme="default"
-                variant="outline"
-                @click.stop="markOneRead(item)"
-              >
-                {{ t('notification.actions.markRead') }}
-              </t-button>
-            </template>
           </t-list-item>
         </t-list>
 
@@ -65,7 +56,7 @@
 
         <div class="notification-bell-panel__foot" @click="openAll">
           <t-button class="notification-bell-panel__open-center" block variant="text">
-            {{ t('notification.actions.viewAll') }}
+            {{ t('notification.action.viewAll') }}
           </t-button>
         </div>
       </div>
@@ -87,26 +78,16 @@
 </template>
 <script setup lang="ts">
 import { MessagePlugin } from 'tdesign-vue-next';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 
 import { resolveLocalizedErrorMessage } from '@/modules/shared/localized-api-error';
-import { formatCompactDateTime } from '@/shared/components/management';
 
-import {
-  getNotifications,
-  getNotificationUnreadCount,
-  markNotificationRead,
-  markNotificationsReadAll,
-} from '../api/notification';
+import { getNotifications, getNotificationUnreadCount, markNotificationsReadAll } from '../api/notification';
 import { NOTIFICATION_ROUTE_PATH } from '../contract/paths';
-import {
-  notificationMessage,
-  notificationSeverityTheme,
-  notificationSourceLabel,
-  notificationTitle,
-} from '../shared/presentation';
+import { NOTIFICATION_HEADER_REFRESH_EVENT } from '../contract/refresh';
+import { notificationSeverityTheme, presentNotification } from '../shared/presentation';
 import type { NotificationItem } from '../types/notification';
 
 const { t, locale } = useI18n();
@@ -131,7 +112,20 @@ const emptyDescription = computed(() => {
 
 onMounted(() => {
   void refreshUnreadCount();
+  window.addEventListener(NOTIFICATION_HEADER_REFRESH_EVENT, refreshHeader);
 });
+
+onBeforeUnmount(() => {
+  window.removeEventListener(NOTIFICATION_HEADER_REFRESH_EVENT, refreshHeader);
+});
+
+function refreshHeader() {
+  if (visible.value) {
+    void refreshPreview();
+    return;
+  }
+  void refreshUnreadCount();
+}
 
 async function refreshUnreadCount() {
   try {
@@ -167,15 +161,6 @@ function handleVisibleChange(nextVisible: boolean) {
   }
 }
 
-async function markOneRead(item: NotificationItem) {
-  try {
-    await markNotificationRead(item.delivery_id);
-    await refreshPreview();
-  } catch {
-    MessagePlugin.error(t('notification.messages.markReadFailed'));
-  }
-}
-
 async function markAllRead() {
   try {
     await markNotificationsReadAll();
@@ -198,10 +183,15 @@ function openAll() {
   visible.value = false;
   void router.push(NOTIFICATION_ROUTE_PATH.LIST);
 }
+
+function notificationView(item: NotificationItem) {
+  return presentNotification(item, t, locale.value);
+}
 </script>
 <style scoped lang="less">
 .notification-bell-panel {
   margin: calc(0px - var(--td-comp-paddingTB-xs)) calc(0px - var(--td-comp-paddingLR-s));
+  max-width: calc(100vw - 32px);
   width: 420px;
 }
 
@@ -239,28 +229,50 @@ function openAll() {
   align-items: flex-start;
   cursor: pointer;
   display: flex;
-  gap: var(--graft-density-gap-12);
+  gap: var(--graft-density-gap-8);
   justify-content: space-between;
   width: 100%;
 }
 
+.notification-bell-panel__unread-dot {
+  background: var(--td-brand-color);
+  border-radius: 50%;
+  flex: 0 0 auto;
+  height: 6px;
+  margin-top: var(--graft-density-gap-8);
+  width: 6px;
+}
+
 .notification-bell-panel__item-main {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: var(--graft-density-gap-4);
   min-width: 0;
 }
 
-.notification-bell-panel__item-main strong,
-.notification-bell-panel__item-main span,
-.notification-bell-panel__item-main small {
+.notification-bell-panel__item :deep(.t-tag) {
+  flex-shrink: 0;
+}
+
+.notification-bell-panel__item-main strong {
+  color: var(--td-text-color-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.notification-bell-panel__item-main strong {
-  color: var(--td-text-color-primary);
+.notification-bell-panel__item-main span {
+  -webkit-box-orient: vertical;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.notification-bell-panel__item-main small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .notification-bell-panel__item-main span,

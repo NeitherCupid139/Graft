@@ -29,55 +29,46 @@
       <template #notification="{ row }">
         <div
           class="notification-title-cell"
-          :class="{ 'notification-title-cell--unread': notificationRow(row).status === 'unread' }"
+          :class="{ 'notification-title-cell--unread': notificationView(row).status === 'unread' }"
         >
-          <strong>{{ notificationTitle(notificationRow(row), t) }}</strong>
-          <span>{{ notificationMessage(notificationRow(row), t) }}</span>
+          <strong>{{ notificationView(row).title }}</strong>
+          <span>{{ notificationView(row).message }}</span>
         </div>
       </template>
 
       <template #severity="{ row }">
         <t-tag :theme="notificationSeverityTheme(notificationRow(row).severity)" variant="light-outline" size="small">
-          {{ t(`notification.severity.${notificationRow(row).severity}`) }}
+          {{ notificationView(row).levelLabel }}
         </t-tag>
       </template>
 
       <template #category="{ row }">
         <t-tag variant="light" size="small">
-          {{ t(`notification.category.${notificationRow(row).category}`) }}
+          {{ notificationView(row).categoryLabel }}
         </t-tag>
       </template>
 
       <template #source_module="{ row }">
-        {{ notificationSourceLabel(notificationRow(row).source_module, t) }}
+        {{ notificationView(row).sourceLabel }}
       </template>
 
       <template #status="{ row }">
         <t-tag :theme="notificationStatusTheme(notificationRow(row).status)" variant="light" size="small">
-          {{ t(`notification.status.${notificationRow(row).status}`) }}
+          {{ notificationView(row).statusLabel }}
         </t-tag>
       </template>
 
       <template #occurred_at="{ row }">
-        {{ formatCompactDateTime(notificationRow(row).occurred_at, locale) }}
+        {{ notificationView(row).occurredAtLabel }}
       </template>
 
       <template #operation="{ row }">
         <t-space size="small">
           <t-button size="small" theme="primary" variant="text" @click="$emit('detail', notificationRow(row))">
-            {{ t('notification.actions.detail') }}
-          </t-button>
-          <t-button
-            v-if="notificationRow(row).status === 'unread'"
-            size="small"
-            theme="default"
-            variant="outline"
-            @click="$emit('mark-read', notificationRow(row))"
-          >
-            {{ t('notification.actions.markRead') }}
+            {{ t('notification.action.detail') }}
           </t-button>
           <t-button size="small" theme="danger" variant="text" @click="$emit('delete', notificationRow(row))">
-            {{ t('notification.actions.delete') }}
+            {{ t('notification.action.delete') }}
           </t-button>
         </t-space>
       </template>
@@ -97,16 +88,9 @@ import {
   calculateTableContentWidth,
   createActionColumn,
   createConfiguredColumns,
-  formatCompactDateTime,
 } from '@/shared/components/management';
 
-import {
-  notificationMessage,
-  notificationSeverityTheme,
-  notificationSourceLabel,
-  notificationStatusTheme,
-  notificationTitle,
-} from '../shared/presentation';
+import { notificationSeverityTheme, notificationStatusTheme, presentNotification } from '../shared/presentation';
 import type { NotificationItem } from '../types/notification';
 
 const props = defineProps<{
@@ -122,7 +106,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'delete', row: NotificationItem): void;
   (e: 'detail', row: NotificationItem): void;
-  (e: 'mark-read', row: NotificationItem): void;
   (e: 'page-change', page: { current: number; pageSize: number }): void;
 }>();
 
@@ -149,7 +132,7 @@ const columns = computed<TdBaseTableProps['columns']>(() => [
     },
     { kind: 'time', key: 'occurred_at', title: t('notification.columns.occurredAt'), width: 184 },
   ]),
-  createActionColumn(t('notification.columns.actions'), 224),
+  createActionColumn(t('notification.columns.actions'), 160),
 ]);
 
 const tableContentWidth = computed(() => calculateTableContentWidth(columns.value));
@@ -163,6 +146,10 @@ const paginationConfig = computed(() => ({
 
 function notificationRow(row: unknown) {
   return row as NotificationItem;
+}
+
+function notificationView(row: unknown) {
+  return presentNotification(notificationRow(row), t, locale.value);
 }
 
 function handlePageChange(pageInfo: PageInfo) {

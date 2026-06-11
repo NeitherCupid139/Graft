@@ -3365,15 +3365,33 @@ type NotificationCategory string
 
 // NotificationItem defines model for notification-item.
 type NotificationItem struct {
+	// ActionLabel Fallback business action label when action_label_key is missing or unresolved.
+	ActionLabel *string `json:"action_label,omitempty"`
+
+	// ActionLabelKey Stable localization key for the primary business action label.
+	ActionLabelKey *string `json:"action_label_key,omitempty"`
+
 	// Category Notification Center category typed contract.
-	Category          NotificationCategory `json:"category"`
-	DeliveryCreatedAt time.Time            `json:"delivery_created_at"`
-	DeliveryId        int64                `json:"delivery_id"`
-	EventCreatedAt    *time.Time           `json:"event_created_at,omitempty"`
-	EventId           int64                `json:"event_id"`
-	EventType         string               `json:"event_type"`
-	ExpiresAt         *time.Time           `json:"expires_at,omitempty"`
-	Message           string               `json:"message"`
+	Category NotificationCategory `json:"category"`
+
+	// CategoryKey Stable localization key for the notification category display label.
+	CategoryKey *string `json:"category_key,omitempty"`
+
+	// Context Source-provided interpolation context for key-first notification rendering.
+	Context           *map[string]interface{} `json:"context,omitempty"`
+	DeliveryCreatedAt time.Time               `json:"delivery_created_at"`
+	DeliveryId        int64                   `json:"delivery_id"`
+	EventCreatedAt    *time.Time              `json:"event_created_at,omitempty"`
+	EventId           int64                   `json:"event_id"`
+	EventType         string                  `json:"event_type"`
+
+	// EventTypeKey Stable localization key for the notification event type display label.
+	EventTypeKey *string    `json:"event_type_key,omitempty"`
+	ExpiresAt    *time.Time `json:"expires_at,omitempty"`
+
+	// LevelKey Stable localization key for the notification level display label.
+	LevelKey *string `json:"level_key,omitempty"`
+	Message  string  `json:"message"`
 
 	// MessageKey Stable localization key for the notification body when supplied by the source module.
 	MessageKey   *string                `json:"message_key,omitempty"`
@@ -3384,9 +3402,15 @@ type NotificationItem struct {
 	ResourceName *string                `json:"resource_name,omitempty"`
 	ResourceType *string                `json:"resource_type,omitempty"`
 
+	// ResourceTypeKey Stable localization key for the notification resource type display label.
+	ResourceTypeKey *string `json:"resource_type_key,omitempty"`
+
 	// Severity Notification Center severity typed contract.
-	Severity     NotificationSeverity `json:"severity"`
-	SourceModule string               `json:"source_module"`
+	Severity NotificationSeverity `json:"severity"`
+
+	// SourceKey Stable localization key for the notification source display label.
+	SourceKey    *string `json:"source_key,omitempty"`
+	SourceModule string  `json:"source_module"`
 
 	// Status Current-user notification read-state filter and read model value.
 	Status    NotificationStatus `json:"status"`

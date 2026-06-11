@@ -386,13 +386,34 @@ func (r schedulerRouteRuntime) handleRunOnce(ginCtx *gin.Context) {
 	if !ok {
 		return
 	}
-	run, err := runtime.RunOnce(ginCtx.Request.Context(), key)
+	triggerUserID := schedulerManualTriggerUserID(ginCtx)
+	run, err := runtime.RunOnceWithTrigger(ginCtx.Request.Context(), key, schedulercore.RunTrigger{
+		Type:          schedulercore.TriggerTypeManual,
+		TriggerUserID: triggerUserID,
+	})
 	if err != nil {
 		r.writeRouteError(ginCtx, "run scheduled task once failed", err, zap.String("taskKey", key))
 		return
 	}
+	r.ctx.Logger.Debug("scheduled task manual run completed",
+		zap.String("module", r.moduleName),
+		zap.Uint64("runID", run.ID),
+		zap.String("status", string(run.Status)),
+		zap.Uint64("triggerUserID", triggerUserID),
+	)
 
 	httpx.WriteSuccess(ginCtx, http.StatusOK, toScheduledTaskRunItem(run))
+}
+
+func schedulerManualTriggerUserID(ginCtx *gin.Context) uint64 {
+	if ginCtx == nil || ginCtx.Request == nil {
+		return 0
+	}
+	requestAuth, ok := moduleapi.RequestAuthContextFromContext(ginCtx.Request.Context())
+	if !ok || requestAuth.User == nil {
+		return 0
+	}
+	return requestAuth.User.ID
 }
 
 func (r schedulerRouteRuntime) handleRunAction(ginCtx *gin.Context) {
@@ -450,6 +471,14 @@ func (r schedulerRouteRuntime) writeRouteError(ginCtx *gin.Context, message stri
 		httpx.AbortLocalizedError(ginCtx, r.ctx.I18n, http.StatusConflict, schedulercontract.ScheduledTaskAlreadyRunning.String(), nil)
 	case errors.As(err, &configErr):
 		httpx.AbortLocalizedError(ginCtx, r.ctx.I18n, http.StatusBadRequest, schedulercontract.ScheduledTaskInvalidRequest.String(), configErr.Details())
+	case errors.Is(err, schedulercore.ErrTaskKeyConflict):
+		httpx.AbortLocalizedError(ginCtx, r.ctx.I18n, http.StatusBadRequest, schedulercontract.ScheduledTaskInvalidRequest.String(), map[string]any{
+			"field": "task_key",
+		})
+	case errors.Is(err, schedulercore.ErrTaskTitleConflict):
+		httpx.AbortLocalizedError(ginCtx, r.ctx.I18n, http.StatusBadRequest, schedulercontract.ScheduledTaskInvalidRequest.String(), map[string]any{
+			"field": "title",
+		})
 	case errors.Is(err, schedulercore.ErrTaskImmutable), errors.Is(err, schedulercore.ErrTaskValidation):
 		httpx.AbortLocalizedError(ginCtx, r.ctx.I18n, http.StatusBadRequest, schedulercontract.ScheduledTaskInvalidRequest.String(), nil)
 	default:

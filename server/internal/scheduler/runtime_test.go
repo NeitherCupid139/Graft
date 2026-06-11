@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -85,7 +86,11 @@ func (r *runRepositoryRecorder) GetRun(_ context.Context, id uint64) (TaskRun, e
 }
 
 type taskRepositoryRecorder struct {
-	tasks map[string]TaskDefinition
+	tasks        map[string]TaskDefinition
+	listCalls    int
+	listErr      error
+	afterList    func()
+	afterListErr error
 }
 
 type defaultConfigResolverRecorder struct {
@@ -135,6 +140,12 @@ func (r *taskRepositoryRecorder) UpdateTask(_ context.Context, key string, patch
 	if !ok {
 		return TaskDefinition{}, ErrTaskNotFound
 	}
+	if patch.Title != "" {
+		task.Title = patch.Title
+	}
+	if patch.Description != "" {
+		task.Description = patch.Description
+	}
 	if patch.CronExpression != "" {
 		task.CronExpression = patch.CronExpression
 	}
@@ -168,6 +179,16 @@ func (r *taskRepositoryRecorder) SetTaskEnabled(_ context.Context, key string, e
 }
 
 func (r *taskRepositoryRecorder) ListTasks(_ context.Context, query TaskListQuery) ([]TaskDefinition, int, error) {
+	r.listCalls++
+	if r.listErr != nil {
+		return nil, 0, r.listErr
+	}
+	if r.afterList != nil {
+		r.afterList()
+	}
+	if r.afterListErr != nil {
+		return nil, 0, r.afterListErr
+	}
 	items := make([]TaskDefinition, 0, len(r.tasks))
 	for _, task := range r.tasks {
 		items = append(items, task)
@@ -187,6 +208,15 @@ func (r *taskRepositoryRecorder) GetTask(_ context.Context, key string) (TaskDef
 		return TaskDefinition{}, ErrTaskNotFound
 	}
 	return task, nil
+}
+
+func (r *taskRepositoryRecorder) GetTaskByTitle(_ context.Context, title string) (TaskDefinition, error) {
+	for _, task := range r.tasks {
+		if task.Title == title {
+			return task, nil
+		}
+	}
+	return TaskDefinition{}, ErrTaskNotFound
 }
 
 func seedRuntimeJob(t *testing.T, runtime *CronRuntime, job cronx.Job) {
@@ -359,6 +389,52 @@ func TestCreateTaskReturnsEffectiveConfig(t *testing.T) {
 	effective := decodeRuntimeJSONObject(t, task.EffectiveConfig)
 	if effective["batchSize"] != float64(25) || effective["retentionDays"] != float64(30) {
 		t.Fatalf("unexpected effective config: %s", task.EffectiveConfig)
+	}
+}
+
+func TestCreateTaskRejectsDuplicateKeyAndTitle(t *testing.T) {
+	runtime := New(zap.NewNop(), newRunRepositoryRecorder())
+	runtime.SetTaskRepository(newTaskRepositoryRecorder())
+
+	seedRuntimeJob(t, runtime, cronx.Job{
+		Name:     "schema-job",
+		Schedule: "*/1 * * * * *",
+		Handler: func(context.Context, string) (cronx.JobRunResult, error) {
+			return cronx.JobRunResult{Summary: "ok"}, nil
+		},
+	})
+	if _, err := runtime.CreateTask(context.Background(), TaskMutation{
+		TaskKey:        "custom",
+		JobKey:         "schema-job",
+		Title:          "Custom",
+		CronExpression: "*/5 * * * * *",
+		Enabled:        true,
+		EnabledSet:     true,
+		ConfigJSON:     `{}`,
+	}); err != nil {
+		t.Fatalf("create first task: %v", err)
+	}
+	if _, err := runtime.CreateTask(context.Background(), TaskMutation{
+		TaskKey:        "custom",
+		JobKey:         "schema-job",
+		Title:          "Another",
+		CronExpression: "*/10 * * * * *",
+		Enabled:        true,
+		EnabledSet:     true,
+		ConfigJSON:     `{}`,
+	}); !errors.Is(err, ErrTaskKeyConflict) {
+		t.Fatalf("expected duplicate key conflict, got %v", err)
+	}
+	if _, err := runtime.CreateTask(context.Background(), TaskMutation{
+		TaskKey:        "custom-two",
+		JobKey:         "schema-job",
+		Title:          "Custom",
+		CronExpression: "*/10 * * * * *",
+		Enabled:        true,
+		EnabledSet:     true,
+		ConfigJSON:     `{}`,
+	}); !errors.Is(err, ErrTaskTitleConflict) {
+		t.Fatalf("expected duplicate title conflict, got %v", err)
 	}
 }
 
@@ -556,6 +632,38 @@ func TestUpdateTaskRejectsUnknownConfigBeforePersistence(t *testing.T) {
 	}
 }
 
+func TestUpdateTaskRejectsDuplicateTitle(t *testing.T) {
+	runtime := New(zap.NewNop(), newRunRepositoryRecorder())
+	taskRepo := newTaskRepositoryRecorder()
+	runtime.SetTaskRepository(taskRepo)
+
+	seedRuntimeJob(t, runtime, cronx.Job{
+		Name:     "schema-job",
+		Schedule: "*/1 * * * * *",
+		Handler: func(context.Context, string) (cronx.JobRunResult, error) {
+			return cronx.JobRunResult{Summary: "ok"}, nil
+		},
+	})
+	for _, mutation := range []TaskMutation{
+		{TaskKey: "custom-one", JobKey: "schema-job", Title: "Custom One", CronExpression: "*/5 * * * * *", Enabled: true, EnabledSet: true, ConfigJSON: `{}`},
+		{TaskKey: "custom-two", JobKey: "schema-job", Title: "Custom Two", CronExpression: "*/10 * * * * *", Enabled: true, EnabledSet: true, ConfigJSON: `{}`},
+	} {
+		if _, err := runtime.CreateTask(context.Background(), mutation); err != nil {
+			t.Fatalf("create task %s: %v", mutation.TaskKey, err)
+		}
+	}
+	if _, err := runtime.UpdateTask(context.Background(), "custom-one", TaskMutation{
+		Title: "Custom Two",
+	}); !errors.Is(err, ErrTaskTitleConflict) {
+		t.Fatalf("expected duplicate title conflict, got %v", err)
+	}
+	if _, err := runtime.UpdateTask(context.Background(), "custom-one", TaskMutation{
+		Title: "Custom One",
+	}); err != nil {
+		t.Fatalf("expected same task title to remain valid, got %v", err)
+	}
+}
+
 func TestUpdateBuiltinTaskAllowsSchemaBackedConfig(t *testing.T) {
 	runtime := New(zap.NewNop(), newRunRepositoryRecorder())
 	taskRepo := newTaskRepositoryRecorder()
@@ -744,6 +852,106 @@ func TestRunOnceNotifiesAfterPersistedFailure(t *testing.T) {
 	}
 }
 
+func TestRunOnceWithTriggerNotifiesManualSuccess(t *testing.T) {
+	repo := newRunRepositoryRecorder()
+	runtime := New(zap.NewNop(), repo)
+	runtime.SetTaskRepository(newTaskRepositoryRecorder())
+	notifier := newRunSuccessNotifierRecorder()
+	runtime.SetRunSuccessNotifier(notifier)
+
+	seedRuntimeJob(t, runtime, cronx.Job{
+		Name:     "manual-success",
+		TitleKey: "scheduler.job.manualSuccess.title",
+		Schedule: "*/1 * * * * *",
+		Handler: func(context.Context, string) (cronx.JobRunResult, error) {
+			return cronx.JobRunResult{Summary: "ok"}, nil
+		},
+	})
+
+	run, err := runtime.RunOnceWithTrigger(context.Background(), "manual-success", RunTrigger{
+		Type:          TriggerTypeManual,
+		TriggerUserID: 42,
+	})
+	if err != nil {
+		t.Fatalf("run once with trigger: %v", err)
+	}
+	if run.Status != RunStatusSuccess {
+		t.Fatalf("expected successful run, got %#v", run)
+	}
+
+	notifiedRun, trigger := notifier.wait(t)
+	if notifiedRun.ID != repo.updated[0].ID {
+		t.Fatalf("expected successful-run notification after persistence, got %#v", notifiedRun)
+	}
+	if notifiedRun.TaskNameKey != "scheduler.job.manualSuccess.title" {
+		t.Fatalf("expected task name key to be preserved, got %#v", notifiedRun)
+	}
+	if !notifiedRun.TaskBuiltin {
+		t.Fatalf("expected task builtin flag to be preserved, got %#v", notifiedRun)
+	}
+	if trigger.Type != TriggerTypeManual || trigger.TriggerUserID != 42 {
+		t.Fatalf("expected manual trigger user to be preserved, got %#v", trigger)
+	}
+}
+
+func TestCronSuccessDoesNotNotifyRunSuccess(t *testing.T) {
+	repo := newRunRepositoryRecorder()
+	runtime := New(zap.NewNop(), repo)
+	runtime.SetTaskRepository(newTaskRepositoryRecorder())
+	notifier := newRunSuccessNotifierRecorder()
+	runtime.SetRunSuccessNotifier(notifier)
+
+	seedRuntimeJob(t, runtime, cronx.Job{
+		Name:     "cron-success",
+		Schedule: "*/1 * * * * *",
+		Handler: func(context.Context, string) (cronx.JobRunResult, error) {
+			return cronx.JobRunResult{Summary: "ok"}, nil
+		},
+	})
+
+	run, err := runtime.runDefinition(context.Background(), TaskDefinition{
+		TaskKey:        "cron-success",
+		JobKey:         "cron-success",
+		ModuleKey:      "test",
+		Title:          "cron-success",
+		CronExpression: "*/1 * * * * *",
+		Enabled:        true,
+		ConfigJSON:     "{}",
+	}, RunTrigger{Type: TriggerTypeCron})
+	if err != nil {
+		t.Fatalf("run cron definition: %v", err)
+	}
+	if run.TriggerType != TriggerTypeCron || run.Status != RunStatusSuccess {
+		t.Fatalf("expected successful cron run, got %#v", run)
+	}
+	notifier.assertNoNotification(t)
+}
+
+func TestManualSuccessWithEmptyUserDoesNotImplyBroadcast(t *testing.T) {
+	repo := newRunRepositoryRecorder()
+	runtime := New(zap.NewNop(), repo)
+	runtime.SetTaskRepository(newTaskRepositoryRecorder())
+	notifier := newRunSuccessNotifierRecorder()
+	runtime.SetRunSuccessNotifier(notifier)
+
+	seedRuntimeJob(t, runtime, cronx.Job{
+		Name:     "manual-empty-user",
+		Schedule: "*/1 * * * * *",
+		Handler: func(context.Context, string) (cronx.JobRunResult, error) {
+			return cronx.JobRunResult{Summary: "ok"}, nil
+		},
+	})
+
+	if _, err := runtime.RunOnceWithTrigger(context.Background(), "manual-empty-user", RunTrigger{Type: TriggerTypeManual}); err != nil {
+		t.Fatalf("run once with empty user trigger: %v", err)
+	}
+
+	_, trigger := notifier.wait(t)
+	if trigger.Type != TriggerTypeManual || trigger.TriggerUserID != 0 {
+		t.Fatalf("expected empty manual trigger to stay userless, got %#v", trigger)
+	}
+}
+
 type runFailureNotifierRecorder struct {
 	done chan TaskRun
 	once sync.Once
@@ -768,6 +976,48 @@ func (r *runFailureNotifierRecorder) wait(t *testing.T) TaskRun {
 	case <-time.After(time.Second):
 		t.Fatal("expected failed-run notification")
 		return TaskRun{}
+	}
+}
+
+type runSuccessNotification struct {
+	run     TaskRun
+	trigger RunTrigger
+}
+
+type runSuccessNotifierRecorder struct {
+	done chan runSuccessNotification
+	once sync.Once
+}
+
+func newRunSuccessNotifierRecorder() *runSuccessNotifierRecorder {
+	return &runSuccessNotifierRecorder{done: make(chan runSuccessNotification, 1)}
+}
+
+func (r *runSuccessNotifierRecorder) NotifyRunSucceeded(_ context.Context, run TaskRun, trigger RunTrigger) {
+	r.once.Do(func() {
+		r.done <- runSuccessNotification{run: run, trigger: trigger}
+	})
+}
+
+func (r *runSuccessNotifierRecorder) wait(t *testing.T) (TaskRun, RunTrigger) {
+	t.Helper()
+
+	select {
+	case notification := <-r.done:
+		return notification.run, notification.trigger
+	case <-time.After(time.Second):
+		t.Fatal("expected successful-run notification")
+		return TaskRun{}, RunTrigger{}
+	}
+}
+
+func (r *runSuccessNotifierRecorder) assertNoNotification(t *testing.T) {
+	t.Helper()
+
+	select {
+	case notification := <-r.done:
+		t.Fatalf("expected no successful-run notification, got %#v", notification)
+	case <-time.After(100 * time.Millisecond):
 	}
 }
 
@@ -1078,6 +1328,69 @@ func TestStartAndStopRunsRegisteredJob(t *testing.T) {
 
 	if err := runtime.Stop(context.Background()); err != nil {
 		t.Fatalf("stop runtime: %v", err)
+	}
+}
+
+// TestStartRejectsCanceledContextBeforeRepositoryLoad 验证 Start 遇到已取消的生命周期
+// 上下文时不会继续读取持久化任务，避免 pgx 把取消状态包装成数据库启动失败。
+func TestStartRejectsCanceledContextBeforeRepositoryLoad(t *testing.T) {
+	runtime := New(zap.NewNop(), newRunRepositoryRecorder())
+	taskRepo := newTaskRepositoryRecorder()
+	runtime.SetTaskRepository(taskRepo)
+
+	runCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := runtime.Start(runCtx)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context cancellation, got %v", err)
+	}
+	if taskRepo.listCalls != 0 {
+		t.Fatalf("expected canceled start to skip repository load, got %d calls", taskRepo.listCalls)
+	}
+	if runtime.started || runtime.lifecycleCtx != nil || runtime.lifecycleCancel != nil {
+		t.Fatal("expected canceled start to leave runtime unstarted")
+	}
+}
+
+// TestStartRejectsCanceledContextAfterRepositoryLoad 验证持久化任务刷新期间发生取消时，
+// Start 不会继续创建生命周期上下文或启动 cron。
+func TestStartRejectsCanceledContextAfterRepositoryLoad(t *testing.T) {
+	runtime := New(zap.NewNop(), newRunRepositoryRecorder())
+	taskRepo := newTaskRepositoryRecorder()
+	runCtx, cancel := context.WithCancel(context.Background())
+	taskRepo.afterList = cancel
+	runtime.SetTaskRepository(taskRepo)
+
+	err := runtime.Start(runCtx)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context cancellation, got %v", err)
+	}
+	if taskRepo.listCalls != 1 {
+		t.Fatalf("expected one repository load before cancellation, got %d", taskRepo.listCalls)
+	}
+	if runtime.started || runtime.lifecycleCtx != nil || runtime.lifecycleCancel != nil {
+		t.Fatal("expected canceled start to leave runtime unstarted")
+	}
+}
+
+// TestStartKeepsRuntimeUnstartedWhenRepositoryLoadFails 验证持久化任务加载失败时不会
+// 留下半初始化的 lifecycle 状态。
+func TestStartKeepsRuntimeUnstartedWhenRepositoryLoadFails(t *testing.T) {
+	runtime := New(zap.NewNop(), newRunRepositoryRecorder())
+	taskRepo := newTaskRepositoryRecorder()
+	taskRepo.listErr = errors.New("list failed")
+	runtime.SetTaskRepository(taskRepo)
+
+	err := runtime.Start(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "list failed") {
+		t.Fatalf("expected repository load error, got %v", err)
+	}
+	if taskRepo.listCalls != 1 {
+		t.Fatalf("expected one repository load, got %d", taskRepo.listCalls)
+	}
+	if runtime.started || runtime.lifecycleCtx != nil || runtime.lifecycleCancel != nil {
+		t.Fatal("expected failed start to leave runtime unstarted")
 	}
 }
 

@@ -44,6 +44,14 @@ func toNotificationItem(item notificationstore.Notification) generated.Notificat
 		ExpiresAt:         item.Event.ExpiresAt,
 		Message:           item.Event.Message,
 		MessageKey:        optionalString(item.Event.MessageKey),
+		CategoryKey:       optionalString(item.Event.CategoryKey),
+		SourceKey:         optionalString(item.Event.SourceKey),
+		LevelKey:          optionalString(item.Event.LevelKey),
+		EventTypeKey:      optionalString(item.Event.EventTypeKey),
+		ResourceTypeKey:   optionalString(item.Event.ResourceTypeKey),
+		ActionLabelKey:    optionalString(item.Event.ActionLabelKey),
+		ActionLabel:       optionalString(item.Event.ActionLabel),
+		Context:           optionalRawJSONMap(item.Event.Metadata),
 		Navigation: generated.NotificationNavigation{
 			Kind:    generated.NotificationNavigationKind(item.Event.NavigationKind),
 			Payload: rawJSONMap(item.Event.NavigationPayload),
@@ -103,4 +111,13 @@ func rawJSONMap(raw json.RawMessage) map[string]interface{} {
 		return map[string]interface{}{}
 	}
 	return payload
+}
+
+// optionalRawJSONMap 将空对象或无效 JSON 映射为 nil，避免 HTTP 响应暴露无意义的空 context。
+func optionalRawJSONMap(raw json.RawMessage) *map[string]interface{} {
+	payload := rawJSONMap(raw)
+	if len(payload) == 0 {
+		return nil
+	}
+	return &payload
 }

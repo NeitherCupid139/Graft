@@ -5,17 +5,6 @@
     }
   },
   "notification": {
-    "actions": {
-      "delete": "Delete",
-      "detail": "Details",
-      "markAllRead": "Mark All Read",
-      "markRead": "Mark Read",
-      "openTarget": "Open Context",
-      "refresh": "Refresh",
-      "reset": "Reset",
-      "search": "Search",
-      "viewAll": "Open Notification Center →"
-    },
     "bell": {
       "emptyDescription": "There are no unread notifications. Notifications are created by system announcements, task failures, security events, and configuration changes.",
       "emptyTitle": "No Unread Notifications",
@@ -27,11 +16,17 @@
       "unreadSummary": "{count} Unread"
     },
     "category": {
-      "CONFIG": "Config",
-      "OPERATIONS": "Operations",
+      "task": "Task",
+      "security": "Security",
+      "system": "System",
+      "announcement": "Announcement",
+      "TASK": "Task",
       "SECURITY": "Security",
       "SYSTEM": "System",
-      "TASK": "Task"
+      "CONFIG": "System",
+      "OPERATIONS": "System",
+      "config": "System",
+      "operations": "System"
     },
     "columns": {
       "actions": "Actions",
@@ -54,7 +49,11 @@
       "targetRef": "Target Reference",
       "targetType": "Target Type",
       "title": "Notification Details",
-      "unsupportedNavigation": "This Notification Target Is Not Available."
+      "unsupportedNavigation": "This Notification Target Is Not Available.",
+      "diagnostics": "Advanced Information",
+      "deliveryType": "Delivery Type",
+      "deliveryTarget": "Delivery Target",
+      "resultSummary": "Result Summary"
     },
     "empty": {
       "description": "Notifications are created by system announcements, administrator messages, task failures, security events, and configuration changes. Routine access logs, routine audit logs, and operations alerts are not included in Notification Center.",
@@ -93,22 +92,19 @@
       "eyebrow": "Workspace",
       "title": "Notification Center"
     },
-    "severity": {
-      "critical": "Critical",
-      "error": "Error",
-      "info": "Info",
-      "warning": "Warning"
-    },
     "source": {
-      "access-log": "Access Log",
+      "scheduler": "Scheduled Tasks",
+      "accessControl": "Access Control",
       "audit": "Security Audit",
+      "logCenter": "Log Center",
+      "system": "System",
       "notification": "Notification Center",
-      "system-config": "System Configuration",
-      "scheduler": "Scheduled Tasks"
+      "accessLog": "Access Log",
+      "systemConfig": "System Configuration"
     },
     "status": {
-      "read": "Read",
-      "unread": "Unread"
+      "unread": "Unread",
+      "read": "Read"
     },
     "table": {
       "summary": "{count} Notifications",
@@ -123,6 +119,55 @@
       "emptyField": "None",
       "notRead": "Unread",
       "unknownSource": "Unknown Source"
-    }
+    },
+    "center": {
+      "title": "Notification Center",
+      "description": "Review security, task, and platform notifications delivered to the current user."
+    },
+    "action": {
+      "refresh": "Refresh",
+      "markAllRead": "Mark All as Read",
+      "markRead": "Mark Read",
+      "delete": "Delete",
+      "detail": "Details",
+      "openBusinessContext": "Open Related Page",
+      "search": "Search",
+      "reset": "Reset",
+      "viewAll": "View All Notifications",
+      "openNotificationCenter": "View All Notifications",
+      "openRelatedPage": "Open Related Page",
+      "openRunRecord": "Open Run Record",
+      "openTarget": "Open Related Page"
+    },
+    "level": {
+      "info": "Info",
+      "warning": "Warning",
+      "error": "Error",
+      "critical": "Critical"
+    },
+    "event": {
+      "taskSucceeded": "Scheduled Task Succeeded"
+    },
+    "resource": {
+      "scheduledTaskRun": "Scheduled Task Run"
+    },
+    "delivery": {
+      "user": "User"
+    },
+    "resourceType": {
+      "scheduledTaskRun": "Scheduled Task Run"
+    },
+    "title": {
+      "scheduler": {
+        "runSucceeded": "Scheduled Task Succeeded"
+      }
+    },
+    "message": {
+      "scheduler": {
+        "runSucceeded": "Completed successfully."
+      }
+    },
+    "emptyValue": "None",
+    "unknownLabel": "Unknown"
   }
 }

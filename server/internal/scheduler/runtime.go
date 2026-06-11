@@ -37,6 +37,7 @@ type Runtime interface {
 	ListRuns(ctx context.Context, query RunListQuery) (RunListResult, error)
 	GetRun(ctx context.Context, id uint64) (TaskRun, error)
 	RunOnce(ctx context.Context, key string) (TaskRun, error)
+	RunOnceWithTrigger(ctx context.Context, key string, trigger RunTrigger) (TaskRun, error)
 	RunAction(ctx context.Context, taskKey string, actionKey string, configJSON string) (JobActionResult, error)
 }
 
@@ -48,6 +49,11 @@ type DefaultConfigResolver interface {
 // RunFailureNotifier observes persisted failed scheduler runs.
 type RunFailureNotifier interface {
 	NotifyRunFailed(ctx context.Context, run TaskRun)
+}
+
+// RunSuccessNotifier observes persisted successful scheduler runs.
+type RunSuccessNotifier interface {
+	NotifyRunSucceeded(ctx context.Context, run TaskRun, trigger RunTrigger)
 }
 
 // RunStatus records the result state of one runtime job execution.
@@ -74,6 +80,12 @@ const (
 	TriggerTypeStartup TriggerType = "startup"
 )
 
+// RunTrigger records scheduler-domain trigger metadata without request-layer dependencies.
+type RunTrigger struct {
+	Type          TriggerType
+	TriggerUserID uint64
+}
+
 var (
 	// ErrTaskNotFound is returned when a scheduled task or run cannot be found.
 	ErrTaskNotFound = errors.New("scheduler task not found")
@@ -87,6 +99,10 @@ var (
 	ErrTaskImmutable = errors.New("scheduler task field is immutable")
 	// ErrTaskValidation is returned when task, job, or cron input is invalid.
 	ErrTaskValidation = errors.New("scheduler task validation failed")
+	// ErrTaskKeyConflict is returned when a scheduled task key is already in use.
+	ErrTaskKeyConflict = errors.New("scheduler task key already exists")
+	// ErrTaskTitleConflict is returned when a scheduled task title is already in use.
+	ErrTaskTitleConflict = errors.New("scheduler task title already exists")
 )
 
 var reservedTaskKeys = map[string]struct{}{
@@ -157,6 +173,8 @@ type TaskRun struct {
 	TaskKey         string
 	JobKey          string
 	TaskName        string
+	TaskNameKey     string
+	TaskBuiltin     bool
 	Owner           string
 	Module          string
 	TriggerType     TriggerType
@@ -289,6 +307,7 @@ type TaskRepository interface {
 	SetTaskEnabled(ctx context.Context, key string, enabled bool) (TaskDefinition, error)
 	ListTasks(ctx context.Context, query TaskListQuery) ([]TaskDefinition, int, error)
 	GetTask(ctx context.Context, key string) (TaskDefinition, error)
+	GetTaskByTitle(ctx context.Context, title string) (TaskDefinition, error)
 }
 
 // JobDefinitionRepository persists module-registered scheduler job definitions.
@@ -317,6 +336,7 @@ type CronRuntime struct {
 	jobDefinitions  JobDefinitionRepository
 	defaultConfigs  DefaultConfigResolver
 	failureNotifier RunFailureNotifier
+	successNotifier RunSuccessNotifier
 	now             func() time.Time
 }
 
@@ -370,6 +390,13 @@ func (r *CronRuntime) SetRunFailureNotifier(notifier RunFailureNotifier) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.failureNotifier = notifier
+}
+
+// SetRunSuccessNotifier attaches a non-blocking observer for persisted successful manual runs.
+func (r *CronRuntime) SetRunSuccessNotifier(notifier RunSuccessNotifier) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.successNotifier = notifier
 }
 
 // RegisterJob adds an in-memory job handler declaration to the runtime.
@@ -587,6 +614,12 @@ func (r *CronRuntime) CreateTask(ctx context.Context, command TaskMutation) (Tas
 	if err != nil {
 		return TaskSnapshot{}, err
 	}
+	if err := r.ensureTaskKeyAvailable(ctx, definition.TaskKey); err != nil {
+		return TaskSnapshot{}, err
+	}
+	if err := r.ensureTaskTitleAvailable(ctx, definition.Title, definition.TaskKey); err != nil {
+		return TaskSnapshot{}, err
+	}
 	created, err := r.tasks.CreateTask(ctx, definition)
 	if err != nil {
 		return TaskSnapshot{}, err
@@ -618,6 +651,9 @@ func (r *CronRuntime) UpdateTask(ctx context.Context, key string, command TaskMu
 	if err := r.validateTaskConfig(ctx, next); err != nil {
 		return TaskSnapshot{}, err
 	}
+	if err := r.ensureTaskTitleAvailable(ctx, next.Title, key); err != nil {
+		return TaskSnapshot{}, err
+	}
 	updated, err := r.tasks.UpdateTask(ctx, key, command)
 	if err != nil {
 		return TaskSnapshot{}, err
@@ -626,6 +662,32 @@ func (r *CronRuntime) UpdateTask(ctx context.Context, key string, command TaskMu
 		return TaskSnapshot{}, err
 	}
 	return r.snapshotDefinition(ctx, updated)
+}
+
+func (r *CronRuntime) ensureTaskKeyAvailable(ctx context.Context, key string) error {
+	_, err := r.tasks.GetTask(ctx, key)
+	switch {
+	case err == nil:
+		return ErrTaskKeyConflict
+	case errors.Is(err, ErrTaskNotFound):
+		return nil
+	default:
+		return err
+	}
+}
+
+func (r *CronRuntime) ensureTaskTitleAvailable(ctx context.Context, title string, currentKey string) error {
+	existing, err := r.tasks.GetTaskByTitle(ctx, title)
+	switch {
+	case err == nil && existing.TaskKey != currentKey:
+		return ErrTaskTitleConflict
+	case err == nil:
+		return nil
+	case errors.Is(err, ErrTaskNotFound):
+		return nil
+	default:
+		return err
+	}
 }
 
 // DeleteTask soft-deletes a user-created scheduled task and removes its cron schedule.
@@ -675,14 +737,20 @@ func (r *CronRuntime) GetRun(ctx context.Context, id uint64) (TaskRun, error) {
 
 // RunOnce starts one manual execution for a scheduled task.
 func (r *CronRuntime) RunOnce(ctx context.Context, key string) (TaskRun, error) {
+	return r.RunOnceWithTrigger(ctx, key, RunTrigger{Type: TriggerTypeManual})
+}
+
+// RunOnceWithTrigger starts one manual execution with scheduler-domain trigger metadata.
+func (r *CronRuntime) RunOnceWithTrigger(ctx context.Context, key string, trigger RunTrigger) (TaskRun, error) {
 	if r.tasks == nil {
 		return TaskRun{}, errors.New("scheduler task repository is unavailable")
 	}
+	trigger = normalizeManualRunTrigger(trigger)
 	definition, err := r.tasks.GetTask(ctx, key)
 	if err != nil {
 		return TaskRun{}, err
 	}
-	return r.runDefinition(ctx, definition, TriggerTypeManual)
+	return r.runDefinition(ctx, definition, trigger)
 }
 
 // RunAction executes one backend-defined Job Definition action without writing run history.
@@ -720,6 +788,9 @@ func (r *CronRuntime) Start(ctx context.Context) error {
 	if ctx == nil {
 		return errors.New("lifecycle context is required")
 	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -727,7 +798,6 @@ func (r *CronRuntime) Start(ctx context.Context) error {
 	if r.started {
 		return nil
 	}
-	r.lifecycleCtx, r.lifecycleCancel = context.WithCancel(ctx)
 	if r.tasks != nil {
 		definitions, _, err := r.tasks.ListTasks(ctx, TaskListQuery{})
 		if err != nil {
@@ -739,6 +809,10 @@ func (r *CronRuntime) Start(ctx context.Context) error {
 			}
 		}
 	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	r.lifecycleCtx, r.lifecycleCancel = context.WithCancel(ctx)
 	r.cron.Start()
 	r.started = true
 	return nil
@@ -860,7 +934,7 @@ func (r *CronRuntime) snapshotDefinition(ctx context.Context, definition TaskDef
 	return snapshot, nil
 }
 
-func (r *CronRuntime) runDefinition(ctx context.Context, definition TaskDefinition, trigger TriggerType) (TaskRun, error) {
+func (r *CronRuntime) runDefinition(ctx context.Context, definition TaskDefinition, trigger RunTrigger) (TaskRun, error) {
 	if r.runs == nil {
 		return TaskRun{}, errors.New("scheduler run repository is unavailable")
 	}
@@ -876,7 +950,7 @@ func (r *CronRuntime) runDefinition(ctx context.Context, definition TaskDefiniti
 	}
 	defer r.markFinished(definition.TaskKey)
 
-	run, err := r.createStartedRun(ctx, definition, trigger)
+	run, err := r.createStartedRun(ctx, definition, trigger.Type)
 	if err != nil {
 		return TaskRun{}, err
 	}
@@ -886,7 +960,7 @@ func (r *CronRuntime) runDefinition(ctx context.Context, definition TaskDefiniti
 		return TaskRun{}, err
 	}
 	jobResult, runErr := job.Invoke(ctx, effectiveConfig)
-	finishedRun, finishErr := r.finishRun(ctx, run.ID, jobResult, runErr)
+	finishedRun, finishErr := r.finishRun(ctx, run.ID, trigger, jobResult, runErr)
 	if finishErr != nil {
 		return finishedRun, finishErr
 	}
@@ -899,10 +973,16 @@ func (r *CronRuntime) runDefinition(ctx context.Context, definition TaskDefiniti
 
 func (r *CronRuntime) createStartedRun(ctx context.Context, definition TaskDefinition, trigger TriggerType) (TaskRun, error) {
 	startedAt := r.now()
+	taskNameKey := ""
+	if jobDefinition, err := r.requireKnownJob(ctx, definition.JobKey); err == nil {
+		taskNameKey = jobDefinition.TitleKey
+	}
 	return r.runs.CreateRun(ctx, TaskRun{
 		TaskKey:     definition.TaskKey,
 		JobKey:      definition.JobKey,
 		TaskName:    definition.Title,
+		TaskNameKey: taskNameKey,
+		TaskBuiltin: definition.Builtin,
 		Owner:       definition.ModuleKey,
 		Module:      definition.ModuleKey,
 		TriggerType: trigger,
@@ -931,11 +1011,14 @@ func (r *CronRuntime) effectiveConfigForRun(ctx context.Context, definition Task
 	return effectiveConfig, nil
 }
 
-func (r *CronRuntime) finishRun(ctx context.Context, id uint64, result cronx.JobRunResult, runErr error) (TaskRun, error) {
+func (r *CronRuntime) finishRun(ctx context.Context, id uint64, trigger RunTrigger, result cronx.JobRunResult, runErr error) (TaskRun, error) {
 	command := r.runFinishCommand(id, result, runErr)
 	finished, err := r.runs.FinishRun(finishRunContext(ctx), command)
 	if err == nil && finished.Status == RunStatusFailed {
 		r.notifyRunFailed(ctx, finished)
+	}
+	if err == nil && finished.Status == RunStatusSuccess && trigger.Type == TriggerTypeManual {
+		r.notifyRunSucceeded(ctx, finished, trigger)
 	}
 	return finished, err
 }
@@ -970,6 +1053,11 @@ func completeJobRunResult(result *cronx.JobRunResult, runErr error) (RunStatus, 
 	return RunStatusFailed, errorMessage
 }
 
+func normalizeManualRunTrigger(trigger RunTrigger) RunTrigger {
+	trigger.Type = TriggerTypeManual
+	return trigger
+}
+
 func finishRunContext(ctx context.Context) context.Context {
 	if ctx == nil {
 		return context.Background()
@@ -1000,6 +1088,29 @@ func (r *CronRuntime) notifyRunFailed(ctx context.Context, run TaskRun) {
 	}()
 }
 
+func (r *CronRuntime) notifyRunSucceeded(ctx context.Context, run TaskRun, trigger RunTrigger) {
+	r.mu.RLock()
+	notifier := r.successNotifier
+	r.mu.RUnlock()
+	if notifier == nil {
+		return
+	}
+	go func() {
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				r.logger.Error("scheduler run success notifier panicked",
+					zap.String("task", run.TaskKey),
+					zap.Uint64("runID", run.ID),
+					zap.Any("panic", recovered),
+				)
+			}
+		}()
+		notifyCtx, cancel := context.WithTimeout(finishRunContext(ctx), runFailureNotifyTTL)
+		defer cancel()
+		notifier.NotifyRunSucceeded(notifyCtx, run, trigger)
+	}()
+}
+
 func (r *CronRuntime) refreshDefinitionSchedule(definition TaskDefinition) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -1016,7 +1127,7 @@ func (r *CronRuntime) refreshDefinitionScheduleLocked(definition TaskDefinition)
 		return nil
 	}
 	entryID, err := r.addCronFuncLocked(key, definition.CronExpression, func(runCtx context.Context) (TaskRun, error) {
-		return r.runDefinition(runCtx, definition, TriggerTypeCron)
+		return r.runDefinition(runCtx, definition, RunTrigger{Type: TriggerTypeCron})
 	})
 	if err != nil {
 		return err

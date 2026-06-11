@@ -49,5 +49,25 @@ class EnvironmentInventoryTests(unittest.TestCase):
         self.assertEqual(MODULE.validate_environment_inventory(), [])
 
 
+class HeadroomGovernanceTests(unittest.TestCase):
+    def test_detects_headroom_rtk_injection_block(self) -> None:
+        text = "<!-- headroom:rtk-instructions -->\ncontent\n<!-- /headroom:rtk-instructions -->\n"
+
+        self.assertTrue(MODULE.contains_headroom_rtk_injection(text))
+
+    def test_allows_text_without_headroom_rtk_injection_block(self) -> None:
+        text = "Headroom MCP may compress context through explicit tool calls.\n"
+
+        self.assertFalse(MODULE.contains_headroom_rtk_injection(text))
+
+    def test_detects_project_rtk_prefix_rule(self) -> None:
+        self.assertTrue(MODULE.contains_project_rtk_prefix_rule("Agents must always prefix with `rtk`.\n"))
+
+    def test_allows_rtk_mentions_without_project_prefix_rule(self) -> None:
+        text = "Do not require project agents to use RTK instruction injection.\n"
+
+        self.assertFalse(MODULE.contains_project_rtk_prefix_rule(text))
+
+
 if __name__ == "__main__":
     unittest.main()

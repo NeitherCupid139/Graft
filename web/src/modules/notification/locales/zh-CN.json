@@ -5,17 +5,6 @@
     }
   },
   "notification": {
-    "actions": {
-      "delete": "删除",
-      "detail": "详情",
-      "markAllRead": "全部已读",
-      "markRead": "标记已读",
-      "openTarget": "打开业务上下文",
-      "refresh": "刷新",
-      "reset": "重置",
-      "search": "查询",
-      "viewAll": "打开通知中心 →"
-    },
     "bell": {
       "emptyDescription": "暂无未读通知。通知由系统公告、任务失败、安全事件、配置变更等事件产生。",
       "emptyTitle": "暂无未读通知",
@@ -27,11 +16,17 @@
       "unreadSummary": "{count} 条未读"
     },
     "category": {
-      "CONFIG": "配置",
-      "OPERATIONS": "运维",
+      "task": "任务",
+      "security": "安全",
+      "system": "系统",
+      "announcement": "公告",
+      "TASK": "任务",
       "SECURITY": "安全",
       "SYSTEM": "系统",
-      "TASK": "任务"
+      "CONFIG": "系统",
+      "OPERATIONS": "系统",
+      "config": "系统",
+      "operations": "系统"
     },
     "columns": {
       "actions": "操作",
@@ -54,7 +49,11 @@
       "targetRef": "投递目标",
       "targetType": "投递类型",
       "title": "通知详情",
-      "unsupportedNavigation": "该通知的跳转目标将在后续阶段开放。"
+      "unsupportedNavigation": "该通知的跳转目标将在后续阶段开放。",
+      "diagnostics": "高级信息",
+      "deliveryType": "投递类型",
+      "deliveryTarget": "投递目标",
+      "resultSummary": "结果摘要"
     },
     "empty": {
       "description": "通知由系统公告、管理员站内通知、任务失败、安全事件、配置变更等事件产生；普通访问日志、普通审计日志和运维监控告警暂不进入通知中心。",
@@ -93,22 +92,19 @@
       "eyebrow": "工作台",
       "title": "通知中心"
     },
-    "severity": {
-      "critical": "严重",
-      "error": "错误",
-      "info": "信息",
-      "warning": "警告"
-    },
     "source": {
-      "access-log": "访问日志",
+      "scheduler": "定时任务",
+      "accessControl": "访问控制",
       "audit": "安全审计",
+      "logCenter": "日志中心",
+      "system": "系统",
       "notification": "通知中心",
-      "system-config": "系统配置",
-      "scheduler": "定时任务"
+      "accessLog": "访问日志",
+      "systemConfig": "系统配置"
     },
     "status": {
-      "read": "已读",
-      "unread": "未读"
+      "unread": "未读",
+      "read": "已读"
     },
     "table": {
       "summary": "共 {count} 条通知",
@@ -123,6 +119,55 @@
       "emptyField": "无",
       "notRead": "未读",
       "unknownSource": "未知来源"
-    }
+    },
+    "center": {
+      "title": "通知中心",
+      "description": "查看当前用户收到的安全、任务和平台通知。"
+    },
+    "action": {
+      "refresh": "刷新",
+      "markAllRead": "全部标为已读",
+      "markRead": "标记已读",
+      "delete": "删除",
+      "detail": "详情",
+      "openBusinessContext": "打开相关页面",
+      "search": "查询",
+      "reset": "重置",
+      "viewAll": "查看全部通知",
+      "openNotificationCenter": "查看全部通知",
+      "openRelatedPage": "打开相关页面",
+      "openRunRecord": "打开运行记录",
+      "openTarget": "打开相关页面"
+    },
+    "level": {
+      "info": "信息",
+      "warning": "警告",
+      "error": "错误",
+      "critical": "严重"
+    },
+    "event": {
+      "taskSucceeded": "定时任务执行成功"
+    },
+    "resource": {
+      "scheduledTaskRun": "定时任务运行记录"
+    },
+    "delivery": {
+      "user": "用户"
+    },
+    "resourceType": {
+      "scheduledTaskRun": "定时任务运行记录"
+    },
+    "title": {
+      "scheduler": {
+        "runSucceeded": "定时任务执行成功"
+      }
+    },
+    "message": {
+      "scheduler": {
+        "runSucceeded": "已成功完成。"
+      }
+    },
+    "emptyValue": "无",
+    "unknownLabel": "未知"
   }
 }

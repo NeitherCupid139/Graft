@@ -6,6 +6,19 @@
       }
     }
   },
+  "scheduler": {
+    "job": {
+      "accessLogRetentionCleanup": {
+        "title": "访问日志保留清理"
+      },
+      "appLogRetentionCleanup": {
+        "title": "应用日志保留清理"
+      },
+      "auditLogRetentionCleanup": {
+        "title": "审计日志保留清理"
+      }
+    }
+  },
   "scheduledTask": {
     "route": {
       "list": {
@@ -350,6 +363,7 @@
         "latestResult": "最近结果",
         "recentRuns": "运行历史",
         "key": "任务键",
+        "taskName": "任务名称",
         "description": "描述",
         "owner": "归属",
         "module": "模块",

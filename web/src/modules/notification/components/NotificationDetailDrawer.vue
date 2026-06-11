@@ -6,23 +6,45 @@
 <template>
   <t-drawer
     :visible="visible"
-    :header="t('notification.detail.title')"
     :footer="false"
     destroy-on-close
     placement="right"
     size="720px"
     @update:visible="$emit('update:visible', $event)"
   >
+    <template #header>
+      <div class="notification-detail__drawer-header">
+        <h2>{{ t('notification.detail.title') }}</h2>
+        <div v-if="item" class="notification-detail__drawer-actions">
+          <t-button
+            v-if="item.status === 'unread'"
+            size="small"
+            theme="default"
+            variant="outline"
+            :loading="markingRead"
+            @click="$emit('mark-read', item)"
+          >
+            {{ t('notification.action.markRead') }}
+          </t-button>
+          <t-tag v-else theme="default" variant="light" size="small">
+            {{ notificationView(item).statusLabel }}
+          </t-tag>
+        </div>
+      </div>
+    </template>
+
     <div v-if="item" class="notification-detail">
       <section class="notification-detail__section">
         <div class="notification-detail__title-row">
           <div>
-            <h3>{{ notificationTitle(item, t) }}</h3>
-            <p>{{ notificationMessage(item, t) }}</p>
+            <h3>{{ notificationView(item).title }}</h3>
+            <p>{{ notificationView(item).message }}</p>
           </div>
-          <t-tag :theme="notificationSeverityTheme(item.severity)" variant="light-outline">
-            {{ t(`notification.severity.${item.severity}`) }}
-          </t-tag>
+          <div class="notification-detail__level">
+            <t-tag :theme="notificationSeverityTheme(item.severity)" variant="light-outline">
+              {{ notificationView(item).levelLabel }}
+            </t-tag>
+          </div>
         </div>
       </section>
 
@@ -32,35 +54,33 @@
           <dt>{{ t('notification.columns.status') }}</dt>
           <dd>
             <t-tag :theme="notificationStatusTheme(item.status)" variant="light" size="small">
-              {{ t(`notification.status.${item.status}`) }}
+              {{ notificationView(item).statusLabel }}
             </t-tag>
           </dd>
+          <dt>{{ t('notification.columns.severity') }}</dt>
+          <dd>{{ notificationView(item).levelLabel }}</dd>
           <dt>{{ t('notification.columns.category') }}</dt>
-          <dd>{{ t(`notification.category.${item.category}`) }}</dd>
+          <dd>{{ notificationView(item).categoryLabel }}</dd>
           <dt>{{ t('notification.columns.sourceModule') }}</dt>
-          <dd>{{ notificationSourceLabel(item.source_module, t) }}</dd>
-          <dt>{{ t('notification.detail.eventType') }}</dt>
-          <dd>{{ item.event_type }}</dd>
+          <dd>{{ notificationView(item).sourceLabel }}</dd>
           <dt>{{ t('notification.columns.occurredAt') }}</dt>
-          <dd>{{ formatCompactDateTime(item.occurred_at, locale) }}</dd>
+          <dd>{{ notificationView(item).occurredAtLabel }}</dd>
           <dt>{{ t('notification.detail.readAt') }}</dt>
-          <dd>{{ item.read_at ? formatCompactDateTime(item.read_at, locale) : t('notification.values.notRead') }}</dd>
+          <dd>{{ notificationView(item).readAtLabel }}</dd>
         </dl>
       </section>
 
       <section class="notification-detail__section">
         <h4>{{ t('notification.detail.resource') }}</h4>
         <dl class="notification-detail__grid">
-          <dt>{{ t('notification.detail.resourceType') }}</dt>
-          <dd>{{ item.resource_type || t('notification.values.emptyField') }}</dd>
-          <dt>{{ t('notification.detail.resourceId') }}</dt>
-          <dd>{{ item.resource_id || t('notification.values.emptyField') }}</dd>
           <dt>{{ t('notification.detail.resourceName') }}</dt>
-          <dd>{{ item.resource_name || t('notification.values.emptyField') }}</dd>
-          <dt>{{ t('notification.detail.targetType') }}</dt>
-          <dd>{{ item.target_type }}</dd>
-          <dt>{{ t('notification.detail.targetRef') }}</dt>
-          <dd>{{ item.target_ref || t('notification.values.emptyField') }}</dd>
+          <dd>{{ notificationView(item).resourceName }}</dd>
+          <dt>{{ t('notification.detail.resourceType') }}</dt>
+          <dd>{{ notificationView(item).resourceTypeLabel }}</dd>
+          <dt>{{ t('notification.detail.resourceId') }}</dt>
+          <dd>{{ notificationView(item).resourceId }}</dd>
+          <dt>{{ t('notification.detail.resultSummary') }}</dt>
+          <dd>{{ resolveNotificationResultSummary(item, t) }}</dd>
         </dl>
       </section>
 
@@ -69,7 +89,7 @@
         <div class="notification-detail__navigation">
           <t-tag variant="light">{{ navigationKindLabel }}</t-tag>
           <t-button v-if="canNavigate" theme="primary" @click="$emit('navigate', item)">
-            {{ t('notification.actions.openTarget') }}
+            {{ notificationView(item).actionLabel }}
           </t-button>
           <span v-else>{{ t('notification.detail.unsupportedNavigation') }}</span>
         </div>
@@ -81,24 +101,23 @@
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 
-import { formatCompactDateTime } from '@/shared/components/management';
-
 import { NOTIFICATION_NAVIGATION_KIND, resolveNotificationNavigationLocation } from '../contract/navigation';
 import {
-  notificationMessage,
   notificationSeverityTheme,
-  notificationSourceLabel,
   notificationStatusTheme,
-  notificationTitle,
+  presentNotification,
+  resolveNotificationResultSummary,
 } from '../shared/presentation';
 import type { NotificationItem } from '../types/notification';
 
 const props = defineProps<{
   item: NotificationItem | null;
+  markingRead?: boolean;
   visible: boolean;
 }>();
 
 defineEmits<{
+  (e: 'mark-read', row: NotificationItem): void;
   (e: 'navigate', row: NotificationItem): void;
   (e: 'update:visible', value: boolean): void;
 }>();
@@ -122,12 +141,39 @@ const NOTIFICATION_NAVIGATION_LABEL_KEYS = {
   [NOTIFICATION_NAVIGATION_KIND.SYSTEM_CONFIG_ITEM]: 'notification.navigation.systemConfigItem',
   [NOTIFICATION_NAVIGATION_KIND.MODULE_RUNTIME_ITEM]: 'notification.navigation.moduleRuntimeItem',
 } as const;
+
+function notificationView(item: NotificationItem) {
+  return presentNotification(item, t, locale.value);
+}
 </script>
 <style scoped lang="less">
 .notification-detail {
   display: flex;
   flex-direction: column;
   gap: var(--graft-density-gap-16);
+}
+
+.notification-detail__drawer-header {
+  align-items: center;
+  display: flex;
+  gap: var(--graft-density-gap-16);
+  justify-content: space-between;
+  min-width: 0;
+  width: 100%;
+}
+
+.notification-detail__drawer-header h2 {
+  color: var(--td-text-color-primary);
+  font: var(--td-font-title-medium);
+  margin: 0;
+  min-width: 0;
+}
+
+.notification-detail__drawer-actions {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--graft-density-gap-8);
 }
 
 .notification-detail__section {
@@ -153,6 +199,12 @@ const NOTIFICATION_NAVIGATION_LABEL_KEYS = {
   display: flex;
   gap: var(--graft-density-gap-16);
   justify-content: space-between;
+}
+
+.notification-detail__level {
+  align-items: flex-end;
+  display: flex;
+  flex: 0 0 auto;
 }
 
 .notification-detail__title-row h3 {

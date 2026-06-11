@@ -26,6 +26,7 @@ func TestSQLRunRepositoryPersistsRunLifecycle(t *testing.T) {
 		TaskKey:     "audit.audit-log-retention-cleanup",
 		JobKey:      "audit.audit-log-retention-cleanup",
 		TaskName:    "audit.audit-log-retention-cleanup",
+		TaskBuiltin: true,
 		Owner:       "audit",
 		Module:      "audit",
 		TriggerType: TriggerTypeManual,
@@ -48,12 +49,7 @@ func TestSQLRunRepositoryPersistsRunLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("finish run: %v", err)
 	}
-	if finished.Status != RunStatusSuccess || finished.DurationMS == nil || *finished.DurationMS != 1500 {
-		t.Fatalf("unexpected finished run: %#v", finished)
-	}
-	if finished.Result != "ok" || finished.Error != "" {
-		t.Fatalf("expected result summary without error, got %#v", finished)
-	}
+	assertFinishedSuccessRun(t, finished)
 
 	result, err := repo.ListRuns(context.Background(), RunListQuery{TaskKey: "audit.audit-log-retention-cleanup"})
 	if err != nil {
@@ -67,8 +63,29 @@ func TestSQLRunRepositoryPersistsRunLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("latest run: %v", err)
 	}
-	if !ok || latest.ID != run.ID {
-		t.Fatalf("expected latest run %d, got ok=%v run=%#v", run.ID, ok, latest)
+	assertLatestBuiltinRun(t, latest, ok, run.ID)
+}
+
+func assertFinishedSuccessRun(t *testing.T, run TaskRun) {
+	t.Helper()
+	if run.Status != RunStatusSuccess || run.DurationMS == nil || *run.DurationMS != 1500 {
+		t.Fatalf("unexpected finished run: %#v", run)
+	}
+	if run.Result != "ok" || run.Error != "" {
+		t.Fatalf("expected result summary without error, got %#v", run)
+	}
+	if !run.TaskBuiltin {
+		t.Fatalf("expected task builtin flag to round-trip through finish, got %#v", run)
+	}
+}
+
+func assertLatestBuiltinRun(t *testing.T, run TaskRun, ok bool, expectedID uint64) {
+	t.Helper()
+	if !ok || run.ID != expectedID {
+		t.Fatalf("expected latest run %d, got ok=%v run=%#v", expectedID, ok, run)
+	}
+	if !run.TaskBuiltin {
+		t.Fatalf("expected task builtin flag to round-trip through latest run, got %#v", run)
 	}
 }
 
@@ -207,6 +224,17 @@ func TestSQLTaskRepositoryCreatesMultipleTasksForOneJobAndSoftDeletes(t *testing
 	if _, err := repo.GetTask(ctx, task.TaskKey); !errors.Is(err, ErrTaskNotFound) {
 		t.Fatalf("expected soft-deleted task to be hidden, got %v", err)
 	}
+	if _, err := repo.CreateTask(ctx, TaskDefinition{
+		TaskKey:        "audit.retention.recreated",
+		JobKey:         "audit.retention.cleanup",
+		ModuleKey:      "audit",
+		Title:          "Ping",
+		CronExpression: "*/15 * * * * *",
+		Enabled:        true,
+		ConfigJSON:     "{}",
+	}); err != nil {
+		t.Fatalf("expected soft-deleted task title to be reusable: %v", err)
+	}
 }
 
 func TestSQLTaskRepositoryListTasksNormalizesPagination(t *testing.T) {
@@ -295,7 +323,7 @@ func newSchedulerRepositoryTestDB(t *testing.T) *sql.DB {
 			config_source text NOT NULL DEFAULT 'system',
 			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			deleted_at datetime NULL
+			deleted_at integer NOT NULL DEFAULT 0
 	);
 	CREATE TABLE scheduler_job_definitions (
 		id integer PRIMARY KEY AUTOINCREMENT,
@@ -318,6 +346,8 @@ func newSchedulerRepositoryTestDB(t *testing.T) *sql.DB {
 		task_key text NOT NULL,
 		job_key text NOT NULL DEFAULT '',
 		task_name text NOT NULL DEFAULT '',
+		task_name_key text NOT NULL DEFAULT '',
+		task_builtin boolean NOT NULL DEFAULT false,
 		owner text NOT NULL DEFAULT '',
 		module text NOT NULL DEFAULT '',
 		task_type text NOT NULL DEFAULT 'cron',

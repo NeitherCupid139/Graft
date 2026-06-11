@@ -647,7 +647,7 @@
               <t-descriptions-item :label="t('scheduledTask.list.detail.key')">
                 {{ selectedTask.key }}
               </t-descriptions-item>
-              <t-descriptions-item :label="t('scheduledTask.list.detail.title')">
+              <t-descriptions-item :label="t('scheduledTask.list.detail.taskName')">
                 {{ taskDisplayName(selectedTask) }}
               </t-descriptions-item>
               <t-descriptions-item :label="t('scheduledTask.list.detail.description')">
@@ -966,6 +966,7 @@ import { MessagePlugin, Tag, type TdBaseTableProps } from 'tdesign-vue-next';
 import { computed, defineComponent, h, onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
+import { requestNotificationHeaderRefresh } from '@/modules/notification/contract/refresh';
 import { readErrorField } from '@/modules/shared/error-field';
 import { buildVisibleColumns, calculateTableContentWidth } from '@/shared/components/management';
 import { AdvancedQueryColumnDrawer, AdvancedQueryListPage } from '@/shared/components/query-list';
@@ -1084,6 +1085,9 @@ const cronTooltipOverlayInnerStyle = {
 
 const statusOptions: ScheduledTaskStatus[] = ['idle', 'running', 'success', 'failed', 'unknown'];
 const builtinTaskMessageKeys = [
+  'scheduler.job.accessLogRetentionCleanup.title',
+  'scheduler.job.auditLogRetentionCleanup.title',
+  'scheduler.job.appLogRetentionCleanup.title',
   'scheduledTask.accessLogRetention.title',
   'scheduledTask.accessLogRetention.description',
   'scheduledTask.auditLogRetention.title',
@@ -1961,6 +1965,7 @@ async function runTask(task: ScheduledTaskItem) {
     if (selectedTask.value?.key === detail.key) {
       selectedTask.value = detail;
     }
+    requestNotificationHeaderRefresh();
     void MessagePlugin.success(t('scheduledTask.list.runSuccess'));
   } catch (error) {
     logger.error(error instanceof Error ? error : 'run scheduled task failed', {
@@ -2389,6 +2394,9 @@ function isBuiltinTaskMessageKey(key: string): key is BuiltinTaskMessageKey {
 
 function builtinTaskMessageText(key: BuiltinTaskMessageKey) {
   const messages: Record<BuiltinTaskMessageKey, string> = {
+    'scheduler.job.accessLogRetentionCleanup.title': t('scheduler.job.accessLogRetentionCleanup.title'),
+    'scheduler.job.auditLogRetentionCleanup.title': t('scheduler.job.auditLogRetentionCleanup.title'),
+    'scheduler.job.appLogRetentionCleanup.title': t('scheduler.job.appLogRetentionCleanup.title'),
     'scheduledTask.accessLogRetention.title': t('scheduledTask.accessLogRetention.title'),
     'scheduledTask.accessLogRetention.description': t('scheduledTask.accessLogRetention.description'),
     'scheduledTask.auditLogRetention.title': t('scheduledTask.auditLogRetention.title'),

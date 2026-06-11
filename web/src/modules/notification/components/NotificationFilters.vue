@@ -37,10 +37,10 @@
       :placeholder="[t('notification.filters.occurredFrom'), t('notification.filters.occurredTo')]"
     />
     <t-button theme="primary" :loading="loading" @click="$emit('search')">
-      {{ t('notification.actions.search') }}
+      {{ t('notification.action.search') }}
     </t-button>
     <t-button theme="default" variant="text" @click="$emit('reset')">
-      {{ t('notification.actions.reset') }}
+      {{ t('notification.action.reset') }}
     </t-button>
   </div>
 </template>
@@ -50,7 +50,11 @@ import { useI18n } from 'vue-i18n';
 
 import { NOTIFICATION_CATEGORY_VALUES } from '../contract/category';
 import { NOTIFICATION_SEVERITY_VALUES } from '../contract/severity';
-import { notificationSourceLabel } from '../shared/presentation';
+import {
+  resolveNotificationCategoryValue,
+  resolveNotificationLevelValue,
+  resolveNotificationSourceValue,
+} from '../shared/presentation';
 import type { NotificationFilterState } from '../types/notification';
 
 const props = defineProps<{
@@ -68,19 +72,19 @@ const { t } = useI18n();
 
 const severityOptions = computed(() =>
   NOTIFICATION_SEVERITY_VALUES.map((value) => ({
-    label: t(`notification.severity.${value}`),
+    label: resolveNotificationLevelValue(value, t),
     value,
   })),
 );
 const categoryOptions = computed(() =>
   NOTIFICATION_CATEGORY_VALUES.map((value) => ({
-    label: t(`notification.category.${value}`),
+    label: resolveNotificationCategoryValue(value, t),
     value,
   })),
 );
 const sourceOptions = computed(() =>
   props.sourceModules.map((sourceModule) => ({
-    label: notificationSourceLabel(sourceModule, t),
+    label: resolveNotificationSourceValue(sourceModule, t),
     value: sourceModule,
   })),
 );

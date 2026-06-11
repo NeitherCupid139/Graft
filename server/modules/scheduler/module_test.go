@@ -8,6 +8,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -108,6 +109,10 @@ func (r *stopContextRecorderRuntime) RunOnce(context.Context, string) (scheduler
 	return schedulercore.TaskRun{}, nil
 }
 
+func (r *stopContextRecorderRuntime) RunOnceWithTrigger(context.Context, string, schedulercore.RunTrigger) (schedulercore.TaskRun, error) {
+	return schedulercore.TaskRun{}, nil
+}
+
 func (r *stopContextRecorderRuntime) RunAction(context.Context, string, string, string) (schedulercore.JobActionResult, error) {
 	return schedulercore.JobActionResult{}, nil
 }
@@ -131,6 +136,7 @@ type schedulerAPIRuntime struct {
 	setResult       schedulercore.TaskSnapshot
 	setErr          error
 	runOnceKeys     []string
+	runOnceTriggers []schedulercore.RunTrigger
 	runOnceResult   schedulercore.TaskRun
 	runOnceErr      error
 	actionTaskKeys  []string
@@ -214,7 +220,12 @@ func (r *schedulerAPIRuntime) SetTaskEnabled(_ context.Context, key string, enab
 }
 
 func (r *schedulerAPIRuntime) RunOnce(_ context.Context, key string) (schedulercore.TaskRun, error) {
+	return r.RunOnceWithTrigger(context.Background(), key, schedulercore.RunTrigger{Type: schedulercore.TriggerTypeManual})
+}
+
+func (r *schedulerAPIRuntime) RunOnceWithTrigger(_ context.Context, key string, trigger schedulercore.RunTrigger) (schedulercore.TaskRun, error) {
 	r.runOnceKeys = append(r.runOnceKeys, key)
+	r.runOnceTriggers = append(r.runOnceTriggers, trigger)
 	if r.runOnceErr != nil {
 		return schedulercore.TaskRun{}, r.runOnceErr
 	}
@@ -337,7 +348,7 @@ func newModuleTestContextWithEngineAndAuthorizer(authorizer moduleapi.Authorizer
 			config_source text NOT NULL DEFAULT 'system',
 			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			deleted_at datetime NULL
+			deleted_at integer NOT NULL DEFAULT 0
 	);
 	CREATE TABLE scheduler_job_definitions (
 		id integer PRIMARY KEY AUTOINCREMENT,
@@ -360,6 +371,8 @@ func newModuleTestContextWithEngineAndAuthorizer(authorizer moduleapi.Authorizer
 		task_key text NOT NULL,
 		job_key text NOT NULL DEFAULT '',
 		task_name text NOT NULL DEFAULT '',
+		task_name_key text NOT NULL DEFAULT '',
+		task_builtin boolean NOT NULL DEFAULT false,
 		owner text NOT NULL DEFAULT '',
 		module text NOT NULL DEFAULT '',
 		task_type text NOT NULL DEFAULT 'cron',
@@ -466,6 +479,143 @@ func TestRegisterMessagesIncludesRunFailureNotificationKeys(t *testing.T) {
 	assertRegisteredSchedulerMessage(t, localizer, i18n.LocaleZHCN, schedulercontract.ScheduledTaskRunFailedNotificationMessage.String(), "定时任务执行失败。")
 	assertRegisteredSchedulerMessage(t, localizer, i18n.LocaleENUS, schedulercontract.ScheduledTaskRunFailedNotificationTitle.String(), "Scheduled Task Failed")
 	assertRegisteredSchedulerMessage(t, localizer, i18n.LocaleENUS, schedulercontract.ScheduledTaskRunFailedNotificationMessage.String(), "Scheduled task failed.")
+	assertRegisteredSchedulerMessage(t, localizer, i18n.LocaleZHCN, schedulercontract.ScheduledTaskRunSucceededNotificationTitle.String(), "定时任务成功")
+	assertRegisteredSchedulerMessage(t, localizer, i18n.LocaleZHCN, schedulercontract.ScheduledTaskRunSucceededNotificationMessage.String(), "手动定时任务执行成功。")
+	assertRegisteredSchedulerMessage(t, localizer, i18n.LocaleENUS, schedulercontract.ScheduledTaskRunSucceededNotificationTitle.String(), "Scheduled Task Succeeded")
+	assertRegisteredSchedulerMessage(t, localizer, i18n.LocaleENUS, schedulercontract.ScheduledTaskRunSucceededNotificationMessage.String(), "Manual scheduled task succeeded.")
+}
+
+func TestSchedulerRunSuccessNotifierPublishesManualSuccessToTriggerUser(t *testing.T) {
+	publisher := &schedulerNotificationPublisherRecorder{}
+	notifier := schedulerRunSuccessNotifier{publisher: publisher, logger: zap.NewNop()}
+	finishedAt := time.Date(2026, 6, 11, 9, 30, 0, 0, time.UTC)
+
+	notifier.NotifyRunSucceeded(context.Background(), schedulercore.TaskRun{
+		ID:          99,
+		TaskKey:     "webhook.health",
+		JobKey:      "scheduler.webhook-health",
+		TaskName:    "Webhook Health",
+		TaskNameKey: "scheduler.job.webhookHealth.title",
+		TaskBuiltin: false,
+		Status:      schedulercore.RunStatusSuccess,
+		Result:      "deleted 3 rows",
+		FinishedAt:  &finishedAt,
+		CreatedAt:   finishedAt.Add(-time.Second),
+	}, schedulercore.RunTrigger{Type: schedulercore.TriggerTypeManual, TriggerUserID: 42})
+
+	if len(publisher.inputs) != 1 {
+		t.Fatalf("expected one success notification, got %d", len(publisher.inputs))
+	}
+	input := publisher.inputs[0]
+	assertSchedulerRunSuccessDisplay(t, input)
+	assertSchedulerRunSuccessRouting(t, input)
+	assertSchedulerRunPayload(t, input.Navigation.Payload, uint64(99), "webhook.health", "scheduler.webhook-health")
+	assertSchedulerRunSuccessMetadata(t, input.Metadata, expectedSchedulerRunSuccessMetadata{
+		runID:         99,
+		taskName:      "Webhook Health",
+		jobKey:        "scheduler.webhook-health",
+		jobTitleKey:   "scheduler.job.webhookHealth.title",
+		triggerType:   "manual",
+		resultSummary: "deleted 3 rows",
+	})
+}
+
+func TestSchedulerRunSuccessNotifierPublishesBuiltinTaskInstanceMetadata(t *testing.T) {
+	publisher := &schedulerNotificationPublisherRecorder{}
+	notifier := schedulerRunSuccessNotifier{publisher: publisher, logger: zap.NewNop()}
+	finishedAt := time.Date(2026, 6, 11, 9, 30, 0, 0, time.UTC)
+
+	notifier.NotifyRunSucceeded(context.Background(), schedulercore.TaskRun{
+		ID:          99,
+		TaskKey:     "httpx.access-log-retention-cleanup",
+		JobKey:      "httpx.access-log-retention-cleanup",
+		TaskName:    "Access log retention cleanup",
+		TaskNameKey: "scheduler.job.accessLogRetentionCleanup.title",
+		TaskBuiltin: true,
+		Status:      schedulercore.RunStatusSuccess,
+		Result:      "deleted 0 rows",
+		FinishedAt:  &finishedAt,
+		CreatedAt:   finishedAt.Add(-time.Second),
+	}, schedulercore.RunTrigger{Type: schedulercore.TriggerTypeManual, TriggerUserID: 42})
+
+	if len(publisher.inputs) != 1 {
+		t.Fatalf("expected one builtin success notification, got %d", len(publisher.inputs))
+	}
+	assertSchedulerRunSuccessMetadata(t, publisher.inputs[0].Metadata, expectedSchedulerRunSuccessMetadata{
+		runID:         99,
+		taskNameKey:   "scheduler.job.accessLogRetentionCleanup.title",
+		taskTitleKey:  "scheduler.job.accessLogRetentionCleanup.title",
+		taskName:      "Access log retention cleanup",
+		taskBuiltin:   true,
+		jobKey:        "httpx.access-log-retention-cleanup",
+		jobTitleKey:   "scheduler.job.accessLogRetentionCleanup.title",
+		triggerType:   "manual",
+		resultSummary: "deleted 0 rows",
+	})
+}
+
+func TestSchedulerRunSuccessNotifierSkipsMissingTriggerUser(t *testing.T) {
+	publisher := &schedulerNotificationPublisherRecorder{}
+	notifier := schedulerRunSuccessNotifier{publisher: publisher, logger: zap.NewNop()}
+
+	notifier.NotifyRunSucceeded(context.Background(), schedulercore.TaskRun{
+		ID:        99,
+		TaskKey:   "webhook.health",
+		JobKey:    "scheduler.webhook-health",
+		Status:    schedulercore.RunStatusSuccess,
+		CreatedAt: time.Now().UTC(),
+	}, schedulercore.RunTrigger{Type: schedulercore.TriggerTypeManual})
+
+	if len(publisher.inputs) != 0 {
+		t.Fatalf("expected missing trigger user to skip notification, got %#v", publisher.inputs)
+	}
+}
+
+func TestSchedulerRunSuccessNotifierLogsPublishFailureWithoutReturning(t *testing.T) {
+	publisher := &schedulerNotificationPublisherRecorder{err: errors.New("publish failed")}
+	notifier := schedulerRunSuccessNotifier{publisher: publisher, logger: zap.NewNop()}
+
+	notifier.NotifyRunSucceeded(context.Background(), schedulercore.TaskRun{
+		ID:        100,
+		TaskKey:   "webhook.health",
+		JobKey:    "scheduler.webhook-health",
+		Status:    schedulercore.RunStatusSuccess,
+		CreatedAt: time.Now().UTC(),
+	}, schedulercore.RunTrigger{Type: schedulercore.TriggerTypeManual, TriggerUserID: 42})
+
+	if len(publisher.inputs) != 1 {
+		t.Fatalf("expected publish attempt despite publisher error, got %d", len(publisher.inputs))
+	}
+}
+
+func TestSchedulerRunFailureNotifierStillPublishesPermissionTarget(t *testing.T) {
+	publisher := &schedulerNotificationPublisherRecorder{}
+	notifier := schedulerRunFailureNotifier{publisher: publisher, logger: zap.NewNop()}
+
+	notifier.NotifyRunFailed(context.Background(), schedulercore.TaskRun{
+		ID:          101,
+		TaskKey:     "webhook.health",
+		JobKey:      "scheduler.webhook-health",
+		TaskName:    "Webhook Health",
+		TriggerType: schedulercore.TriggerTypeManual,
+		Status:      schedulercore.RunStatusFailed,
+		Error:       "boom",
+		CreatedAt:   time.Now().UTC(),
+	})
+
+	if len(publisher.inputs) != 1 {
+		t.Fatalf("expected one failure notification, got %d", len(publisher.inputs))
+	}
+	input := publisher.inputs[0]
+	if input.EventType != "task_failed" ||
+		input.Severity != "error" ||
+		input.Category != "TASK" ||
+		input.Navigation.Kind != "SCHEDULER_RUN" ||
+		input.Target.Type != "PERMISSION" ||
+		input.Target.Ref != schedulercontract.ScheduledTaskReadPermission.String() ||
+		input.DedupeKey != "scheduler:run_failed:101" {
+		t.Fatalf("unexpected failure notification input: %#v", input)
+	}
 }
 
 func TestRegisterRegistersSchedulerTaskAttentionDashboardWidget(t *testing.T) {
@@ -516,6 +666,110 @@ func assertRegisteredSchedulerMessage(t *testing.T, localizer *i18n.Service, loc
 	}
 	if matches[0].Text != expected {
 		t.Fatalf("expected scheduler message %q for %s %q, got %#v", expected, locale, key, matches[0])
+	}
+}
+
+type schedulerNotificationPublisherRecorder struct {
+	inputs []moduleapi.PublishNotificationInput
+	err    error
+}
+
+func (r *schedulerNotificationPublisherRecorder) Publish(_ context.Context, input moduleapi.PublishNotificationInput) (moduleapi.PublishNotificationResult, error) {
+	r.inputs = append(r.inputs, input)
+	return moduleapi.PublishNotificationResult{}, r.err
+}
+
+func assertSchedulerRunSuccessDisplay(t *testing.T, input moduleapi.PublishNotificationInput) {
+	t.Helper()
+	if input.TitleKey != "notification.title.scheduler.runSucceeded" ||
+		input.MessageKey != "notification.message.scheduler.runSucceeded" ||
+		input.CategoryKey != "notification.category.task" ||
+		input.SourceKey != "notification.source.scheduler" ||
+		input.LevelKey != "notification.level.info" ||
+		input.EventTypeKey != "notification.event.taskSucceeded" ||
+		input.ResourceTypeKey != "notification.resourceType.scheduledTaskRun" ||
+		input.ActionLabelKey != "notification.action.openRunRecord" {
+		t.Fatalf("unexpected message keys: %#v", input)
+	}
+	if input.Title != "Webhook Health" ||
+		input.Message != "Completed successfully." ||
+		input.ActionLabel != "Open scheduled task run" {
+		t.Fatalf("unexpected fallback copy: %#v", input)
+	}
+}
+
+func assertSchedulerRunSuccessRouting(t *testing.T, input moduleapi.PublishNotificationInput) {
+	t.Helper()
+	if input.EventType != "task_succeeded" ||
+		input.Severity != "info" ||
+		input.Category != "TASK" ||
+		input.SourceModule != moduleID ||
+		input.ResourceType != "scheduled_task_run" ||
+		input.ResourceID != "99" ||
+		input.Navigation.Kind != "SCHEDULER_RUN" ||
+		input.Target.Type != "USER" ||
+		input.Target.Ref != "42" ||
+		input.DedupeKey != "scheduler:run_succeeded:99" {
+		t.Fatalf("unexpected success notification input: %#v", input)
+	}
+}
+
+func assertSchedulerRunPayload(t *testing.T, payload json.RawMessage, runID uint64, taskKey string, jobKey string) {
+	t.Helper()
+	var decoded struct {
+		RunID   uint64 `json:"run_id"`
+		TaskKey string `json:"task_key"`
+		JobKey  string `json:"job_key"`
+	}
+	if err := json.Unmarshal(payload, &decoded); err != nil {
+		t.Fatalf("decode scheduler run payload: %v", err)
+	}
+	if decoded.RunID != runID || decoded.TaskKey != taskKey || decoded.JobKey != jobKey {
+		t.Fatalf("unexpected scheduler run payload: %#v", decoded)
+	}
+}
+
+type expectedSchedulerRunSuccessMetadata struct {
+	runID         uint64
+	taskNameKey   string
+	taskTitleKey  string
+	taskName      string
+	taskBuiltin   bool
+	jobKey        string
+	jobTitleKey   string
+	triggerType   string
+	resultSummary string
+}
+
+func assertSchedulerRunSuccessMetadata(t *testing.T, payload json.RawMessage, expected expectedSchedulerRunSuccessMetadata) {
+	t.Helper()
+	var decoded struct {
+		RunID         uint64 `json:"runId"`
+		TaskNameKey   string `json:"taskNameKey"`
+		TaskTitleKey  string `json:"taskTitleKey"`
+		TaskName      string `json:"taskName"`
+		TaskTitle     string `json:"taskTitle"`
+		TaskBuiltin   bool   `json:"taskBuiltin"`
+		JobType       string `json:"jobType"`
+		JobTitleKey   string `json:"jobTitleKey"`
+		TriggerType   string `json:"triggerType"`
+		ResultSummary string `json:"resultSummary"`
+	}
+	if err := json.Unmarshal(payload, &decoded); err != nil {
+		t.Fatalf("decode scheduler success metadata: %v", err)
+	}
+	if decoded.RunID != expected.runID ||
+		decoded.TaskNameKey != expected.taskNameKey ||
+		decoded.TaskTitleKey != expected.taskTitleKey ||
+		decoded.TaskBuiltin != expected.taskBuiltin ||
+		decoded.JobType != expected.jobKey ||
+		decoded.JobTitleKey != expected.jobTitleKey ||
+		decoded.TriggerType != expected.triggerType ||
+		decoded.ResultSummary != expected.resultSummary {
+		t.Fatalf("unexpected scheduler success metadata: %#v", decoded)
+	}
+	if decoded.TaskName != expected.taskName || decoded.TaskTitle != expected.taskName {
+		t.Fatalf("unexpected scheduler success task title metadata: %#v", decoded)
 	}
 }
 
@@ -790,6 +1044,39 @@ func TestScheduledTaskCreateRouteRejectsMissingJobKey(t *testing.T) {
 	}
 }
 
+func TestScheduledTaskCreateRouteReturnsFieldErrorsForConflicts(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		err           error
+		expectedField string
+	}{
+		{name: "task key", err: schedulercore.ErrTaskKeyConflict, expectedField: "task_key"},
+		{name: "title", err: schedulercore.ErrTaskTitleConflict, expectedField: "title"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, engine := newModuleTestContextWithEngine()
+			moduleInstance := NewModule()
+			moduleInstance.runtime = &schedulerAPIRuntime{createErr: tc.err}
+			registerAndBootSchedulerModule(t, ctx, moduleInstance)
+
+			recorder := performSchedulerRequest(engine, http.MethodPost, "/api/scheduled-tasks", `{
+				"task_key": "audit.retention.nightly",
+				"job_key": "audit.audit-log-retention-cleanup",
+				"title": "Nightly audit cleanup",
+				"cron_expression": "*/5 * * * * *",
+				"enabled": true
+			}`)
+			if recorder.Code != http.StatusBadRequest {
+				t.Fatalf("expected status 400, got %d with body %s", recorder.Code, recorder.Body.String())
+			}
+			payload := decodeSchedulerErrorPayload(t, recorder.Body.Bytes())
+			if payload.Data.Field != tc.expectedField {
+				t.Fatalf("expected field %q, got %#v", tc.expectedField, payload)
+			}
+		})
+	}
+}
+
 func TestScheduledTaskUpdateSystemTaskAllowsCronAndEnabledOnly(t *testing.T) {
 	ctx, engine := newModuleTestContextWithEngine()
 	ctx.CronRegistry.Register(cronx.Job{
@@ -881,6 +1168,32 @@ func TestScheduledTaskManualRunUsesSlashRunRoute(t *testing.T) {
 	if len(runtimeRecorder.runOnceKeys) != 1 || runtimeRecorder.runOnceKeys[0] != "webhook.health" {
 		t.Fatalf("unexpected run once keys: %#v", runtimeRecorder.runOnceKeys)
 	}
+	if len(runtimeRecorder.runOnceTriggers) != 1 ||
+		runtimeRecorder.runOnceTriggers[0].Type != schedulercore.TriggerTypeManual ||
+		runtimeRecorder.runOnceTriggers[0].TriggerUserID != 7 {
+		t.Fatalf("unexpected run once triggers: %#v", runtimeRecorder.runOnceTriggers)
+	}
+}
+
+func TestSchedulerManualTriggerUserIDReadsRequestAuthContext(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	ginCtx, _ := gin.CreateTestContext(recorder)
+	request := httptest.NewRequest(http.MethodPost, "/api/scheduled-tasks/webhook.health/run", nil)
+	request = request.WithContext(moduleapi.WithRequestAuthContext(request.Context(), moduleapi.RequestAuthContext{
+		User: &moduleapi.CurrentUser{ID: 42, Username: "alice"},
+	}))
+	ginCtx.Request = request
+
+	if got := schedulerManualTriggerUserID(ginCtx); got != 42 {
+		t.Fatalf("expected current user id 42, got %d", got)
+	}
+
+	missingRecorder := httptest.NewRecorder()
+	missingCtx, _ := gin.CreateTestContext(missingRecorder)
+	missingCtx.Request = httptest.NewRequest(http.MethodPost, "/api/scheduled-tasks/webhook.health/run", nil)
+	if got := schedulerManualTriggerUserID(missingCtx); got != 0 {
+		t.Fatalf("expected missing current user to produce zero trigger user id, got %d", got)
+	}
 }
 
 func TestScheduledTaskActionRouteRunsDryRunAction(t *testing.T) {
@@ -969,6 +1282,22 @@ type scheduledTaskListPayload struct {
 		Offset int                            `json:"offset"`
 		Items  []scheduledTaskListItemPayload `json:"items"`
 	} `json:"data"`
+}
+
+type schedulerErrorPayload struct {
+	Success bool `json:"success"`
+	Data    struct {
+		Field string `json:"field"`
+	} `json:"data"`
+}
+
+func decodeSchedulerErrorPayload(t *testing.T, body []byte) schedulerErrorPayload {
+	t.Helper()
+	var payload schedulerErrorPayload
+	if err := json.Unmarshal(body, &payload); err != nil {
+		t.Fatalf("decode scheduler error payload: %v", err)
+	}
+	return payload
 }
 
 type scheduledTaskListItemPayload struct {
