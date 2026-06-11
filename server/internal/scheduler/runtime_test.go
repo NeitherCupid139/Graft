@@ -744,6 +744,99 @@ func TestRunOnceNotifiesAfterPersistedFailure(t *testing.T) {
 	}
 }
 
+func TestRunOnceWithTriggerNotifiesManualSuccess(t *testing.T) {
+	repo := newRunRepositoryRecorder()
+	runtime := New(zap.NewNop(), repo)
+	runtime.SetTaskRepository(newTaskRepositoryRecorder())
+	notifier := newRunSuccessNotifierRecorder()
+	runtime.SetRunSuccessNotifier(notifier)
+
+	seedRuntimeJob(t, runtime, cronx.Job{
+		Name:     "manual-success",
+		Schedule: "*/1 * * * * *",
+		Handler: func(context.Context, string) (cronx.JobRunResult, error) {
+			return cronx.JobRunResult{Summary: "ok"}, nil
+		},
+	})
+
+	run, err := runtime.RunOnceWithTrigger(context.Background(), "manual-success", RunTrigger{
+		Type:          TriggerTypeManual,
+		TriggerUserID: 42,
+	})
+	if err != nil {
+		t.Fatalf("run once with trigger: %v", err)
+	}
+	if run.Status != RunStatusSuccess {
+		t.Fatalf("expected successful run, got %#v", run)
+	}
+
+	notifiedRun, trigger := notifier.wait(t)
+	if notifiedRun.ID != repo.updated[0].ID {
+		t.Fatalf("expected successful-run notification after persistence, got %#v", notifiedRun)
+	}
+	if trigger.Type != TriggerTypeManual || trigger.TriggerUserID != 42 {
+		t.Fatalf("expected manual trigger user to be preserved, got %#v", trigger)
+	}
+}
+
+func TestCronSuccessDoesNotNotifyRunSuccess(t *testing.T) {
+	repo := newRunRepositoryRecorder()
+	runtime := New(zap.NewNop(), repo)
+	runtime.SetTaskRepository(newTaskRepositoryRecorder())
+	notifier := newRunSuccessNotifierRecorder()
+	runtime.SetRunSuccessNotifier(notifier)
+
+	seedRuntimeJob(t, runtime, cronx.Job{
+		Name:     "cron-success",
+		Schedule: "*/1 * * * * *",
+		Handler: func(context.Context, string) (cronx.JobRunResult, error) {
+			return cronx.JobRunResult{Summary: "ok"}, nil
+		},
+	})
+
+	run, err := runtime.runDefinition(context.Background(), TaskDefinition{
+		TaskKey:        "cron-success",
+		JobKey:         "cron-success",
+		ModuleKey:      "test",
+		Title:          "cron-success",
+		CronExpression: "*/1 * * * * *",
+		Enabled:        true,
+		ConfigJSON:     "{}",
+	}, RunTrigger{Type: TriggerTypeCron})
+	if err != nil {
+		t.Fatalf("run cron definition: %v", err)
+	}
+	if run.TriggerType != TriggerTypeCron || run.Status != RunStatusSuccess {
+		t.Fatalf("expected successful cron run, got %#v", run)
+	}
+	notifier.assertNoNotification(t)
+}
+
+func TestManualSuccessWithEmptyUserDoesNotImplyBroadcast(t *testing.T) {
+	repo := newRunRepositoryRecorder()
+	runtime := New(zap.NewNop(), repo)
+	runtime.SetTaskRepository(newTaskRepositoryRecorder())
+	notifier := newRunSuccessNotifierRecorder()
+	runtime.SetRunSuccessNotifier(notifier)
+
+	seedRuntimeJob(t, runtime, cronx.Job{
+		Name:     "manual-empty-user",
+		Schedule: "*/1 * * * * *",
+		Handler: func(context.Context, string) (cronx.JobRunResult, error) {
+			return cronx.JobRunResult{Summary: "ok"}, nil
+		},
+	})
+
+	if _, err := runtime.RunOnceWithTrigger(context.Background(), "manual-empty-user", RunTrigger{Type: TriggerTypeManual}); err != nil {
+		t.Fatalf("run once with empty user trigger: %v", err)
+	}
+
+	_, trigger := notifier.wait(t)
+	if trigger.Type != TriggerTypeManual || trigger.TriggerUserID != 0 {
+		t.Fatalf("expected empty manual trigger to stay userless, got %#v", trigger)
+	}
+}
+
 type runFailureNotifierRecorder struct {
 	done chan TaskRun
 	once sync.Once
@@ -768,6 +861,48 @@ func (r *runFailureNotifierRecorder) wait(t *testing.T) TaskRun {
 	case <-time.After(time.Second):
 		t.Fatal("expected failed-run notification")
 		return TaskRun{}
+	}
+}
+
+type runSuccessNotification struct {
+	run     TaskRun
+	trigger RunTrigger
+}
+
+type runSuccessNotifierRecorder struct {
+	done chan runSuccessNotification
+	once sync.Once
+}
+
+func newRunSuccessNotifierRecorder() *runSuccessNotifierRecorder {
+	return &runSuccessNotifierRecorder{done: make(chan runSuccessNotification, 1)}
+}
+
+func (r *runSuccessNotifierRecorder) NotifyRunSucceeded(_ context.Context, run TaskRun, trigger RunTrigger) {
+	r.once.Do(func() {
+		r.done <- runSuccessNotification{run: run, trigger: trigger}
+	})
+}
+
+func (r *runSuccessNotifierRecorder) wait(t *testing.T) (TaskRun, RunTrigger) {
+	t.Helper()
+
+	select {
+	case notification := <-r.done:
+		return notification.run, notification.trigger
+	case <-time.After(time.Second):
+		t.Fatal("expected successful-run notification")
+		return TaskRun{}, RunTrigger{}
+	}
+}
+
+func (r *runSuccessNotifierRecorder) assertNoNotification(t *testing.T) {
+	t.Helper()
+
+	select {
+	case notification := <-r.done:
+		t.Fatalf("expected no successful-run notification, got %#v", notification)
+	case <-time.After(100 * time.Millisecond):
 	}
 }
 

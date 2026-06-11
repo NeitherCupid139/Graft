@@ -386,7 +386,7 @@ func (r schedulerRouteRuntime) handleRunOnce(ginCtx *gin.Context) {
 	if !ok {
 		return
 	}
-	run, err := runtime.RunOnce(ginCtx.Request.Context(), key)
+	run, err := runtime.RunOnceWithTrigger(ginCtx.Request.Context(), key, schedulercore.RunTrigger{Type: schedulercore.TriggerTypeManual})
 	if err != nil {
 		r.writeRouteError(ginCtx, "run scheduled task once failed", err, zap.String("taskKey", key))
 		return

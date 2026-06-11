@@ -108,6 +108,10 @@ func (r *stopContextRecorderRuntime) RunOnce(context.Context, string) (scheduler
 	return schedulercore.TaskRun{}, nil
 }
 
+func (r *stopContextRecorderRuntime) RunOnceWithTrigger(context.Context, string, schedulercore.RunTrigger) (schedulercore.TaskRun, error) {
+	return schedulercore.TaskRun{}, nil
+}
+
 func (r *stopContextRecorderRuntime) RunAction(context.Context, string, string, string) (schedulercore.JobActionResult, error) {
 	return schedulercore.JobActionResult{}, nil
 }
@@ -131,6 +135,7 @@ type schedulerAPIRuntime struct {
 	setResult       schedulercore.TaskSnapshot
 	setErr          error
 	runOnceKeys     []string
+	runOnceTriggers []schedulercore.RunTrigger
 	runOnceResult   schedulercore.TaskRun
 	runOnceErr      error
 	actionTaskKeys  []string
@@ -214,7 +219,12 @@ func (r *schedulerAPIRuntime) SetTaskEnabled(_ context.Context, key string, enab
 }
 
 func (r *schedulerAPIRuntime) RunOnce(_ context.Context, key string) (schedulercore.TaskRun, error) {
+	return r.RunOnceWithTrigger(context.Background(), key, schedulercore.RunTrigger{Type: schedulercore.TriggerTypeManual})
+}
+
+func (r *schedulerAPIRuntime) RunOnceWithTrigger(_ context.Context, key string, trigger schedulercore.RunTrigger) (schedulercore.TaskRun, error) {
 	r.runOnceKeys = append(r.runOnceKeys, key)
+	r.runOnceTriggers = append(r.runOnceTriggers, trigger)
 	if r.runOnceErr != nil {
 		return schedulercore.TaskRun{}, r.runOnceErr
 	}
@@ -880,6 +890,11 @@ func TestScheduledTaskManualRunUsesSlashRunRoute(t *testing.T) {
 	}
 	if len(runtimeRecorder.runOnceKeys) != 1 || runtimeRecorder.runOnceKeys[0] != "webhook.health" {
 		t.Fatalf("unexpected run once keys: %#v", runtimeRecorder.runOnceKeys)
+	}
+	if len(runtimeRecorder.runOnceTriggers) != 1 ||
+		runtimeRecorder.runOnceTriggers[0].Type != schedulercore.TriggerTypeManual ||
+		runtimeRecorder.runOnceTriggers[0].TriggerUserID != 0 {
+		t.Fatalf("unexpected run once triggers: %#v", runtimeRecorder.runOnceTriggers)
 	}
 }
 
