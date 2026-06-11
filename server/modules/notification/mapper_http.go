@@ -44,6 +44,13 @@ func toNotificationItem(item notificationstore.Notification) generated.Notificat
 		ExpiresAt:         item.Event.ExpiresAt,
 		Message:           item.Event.Message,
 		MessageKey:        optionalString(item.Event.MessageKey),
+		CategoryKey:       optionalString(item.Event.CategoryKey),
+		SourceKey:         optionalString(item.Event.SourceKey),
+		LevelKey:          optionalString(item.Event.LevelKey),
+		EventTypeKey:      optionalString(item.Event.EventTypeKey),
+		ActionLabelKey:    optionalString(item.Event.ActionLabelKey),
+		ActionLabel:       optionalString(item.Event.ActionLabel),
+		Context:           optionalRawJSONMap(item.Event.Metadata),
 		Navigation: generated.NotificationNavigation{
 			Kind:    generated.NotificationNavigationKind(item.Event.NavigationKind),
 			Payload: rawJSONMap(item.Event.NavigationPayload),
@@ -103,4 +110,12 @@ func rawJSONMap(raw json.RawMessage) map[string]interface{} {
 		return map[string]interface{}{}
 	}
 	return payload
+}
+
+func optionalRawJSONMap(raw json.RawMessage) *map[string]interface{} {
+	payload := rawJSONMap(raw)
+	if len(payload) == 0 {
+		return nil
+	}
+	return &payload
 }

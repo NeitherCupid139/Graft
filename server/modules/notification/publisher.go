@@ -94,6 +94,12 @@ func (p *Publisher) Publish(ctx context.Context, input moduleapi.PublishNotifica
 		Title:             normalized.Title,
 		MessageKey:        normalized.MessageKey,
 		Message:           normalized.Message,
+		CategoryKey:       normalized.CategoryKey,
+		SourceKey:         normalized.SourceKey,
+		LevelKey:          normalized.LevelKey,
+		EventTypeKey:      normalized.EventTypeKey,
+		ActionLabelKey:    normalized.ActionLabelKey,
+		ActionLabel:       normalized.ActionLabel,
 		Severity:          string(normalized.Severity),
 		Category:          string(normalized.Category),
 		SourceModule:      normalized.SourceModule,
@@ -224,6 +230,12 @@ func normalizePublishTextFields(input moduleapi.PublishNotificationInput) module
 	input.Title = strings.TrimSpace(input.Title)
 	input.MessageKey = strings.TrimSpace(input.MessageKey)
 	input.Message = strings.TrimSpace(input.Message)
+	input.CategoryKey = strings.TrimSpace(input.CategoryKey)
+	input.SourceKey = strings.TrimSpace(input.SourceKey)
+	input.LevelKey = strings.TrimSpace(input.LevelKey)
+	input.EventTypeKey = strings.TrimSpace(input.EventTypeKey)
+	input.ActionLabelKey = strings.TrimSpace(input.ActionLabelKey)
+	input.ActionLabel = strings.TrimSpace(input.ActionLabel)
 	input.SourceModule = strings.TrimSpace(input.SourceModule)
 	input.EventType = strings.TrimSpace(input.EventType)
 	input.ResourceType = strings.TrimSpace(input.ResourceType)

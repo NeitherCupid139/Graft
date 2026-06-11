@@ -25,6 +25,12 @@ type Event struct {
 	Title             string
 	MessageKey        string
 	Message           string
+	CategoryKey       string
+	SourceKey         string
+	LevelKey          string
+	EventTypeKey      string
+	ActionLabelKey    string
+	ActionLabel       string
 	Severity          string
 	Category          string
 	SourceModule      string
@@ -65,6 +71,12 @@ type CreateEventInput struct {
 	Title             string
 	MessageKey        string
 	Message           string
+	CategoryKey       string
+	SourceKey         string
+	LevelKey          string
+	EventTypeKey      string
+	ActionLabelKey    string
+	ActionLabel       string
 	Severity          string
 	Category          string
 	SourceModule      string

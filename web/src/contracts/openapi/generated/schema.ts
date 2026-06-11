@@ -3065,6 +3065,22 @@ export interface components {
       /** @description Stable localization key for the notification body when supplied by the source module. */
       message_key?: string;
       message: string;
+      /** @description Stable localization key for the notification category display label. */
+      category_key?: string;
+      /** @description Stable localization key for the notification source display label. */
+      source_key?: string;
+      /** @description Stable localization key for the notification level display label. */
+      level_key?: string;
+      /** @description Stable localization key for the notification event type display label. */
+      event_type_key?: string;
+      /** @description Stable localization key for the primary business action label. */
+      action_label_key?: string;
+      /** @description Fallback business action label when action_label_key is missing or unresolved. */
+      action_label?: string;
+      /** @description Source-provided interpolation context for key-first notification rendering. */
+      context?: {
+        [key: string]: unknown;
+      };
       severity: components['schemas']['notification-severity'];
       category: components['schemas']['notification-category'];
       source_module: string;
