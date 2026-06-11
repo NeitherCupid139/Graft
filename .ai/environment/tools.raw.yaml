@@ -1,5 +1,5 @@
 schema_version: 1
-generated_at_utc: "2026-06-07T16:03:46Z"
+generated_at_utc: "2026-06-11T03:47:38Z"
 generator: "scripts/collect-dev-environment.sh"
 
 platform:
@@ -87,6 +87,13 @@ project_tools:
     path: "/usr/bin/gh"
     purpose: "GitHub CLI for authenticated PR automation and future environment bootstrap scripts."
 
+ai_tools:
+  headroom:
+    installed: true
+    version: "headroom, version 0.24.0"
+    path: "/home/gewuyou/project/go/Graft-wt/feat/wt-audit-plugin-mvp/.ai/venv/bin/headroom"
+    purpose: "Optional local Codex wrapper and context compression layer for AI-assisted development."
+
 mcp_servers:
   codegraph:
     configured: true
@@ -103,6 +110,9 @@ mcp_servers:
   playwright:
     configured: true
     purpose: "Exploratory browser interaction aid for graft-web-browser-agent workflows."
+  headroom:
+    configured: true
+    purpose: "Optional local MCP compression, retrieval, and stats tools for AI-assisted context management."
 
 python_packages:
   requests:
@@ -154,5 +164,5 @@ python_environment:
     path: ".ai/ms-playwright"
     purpose: "Project-local Playwright browser cache used by graft-web-browser-agent."
   playwright_system_deps:
-    available: true
+    available: false
     purpose: "Whether Chromium system libraries appear available according to Playwright dry-run checks."

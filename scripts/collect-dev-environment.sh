@@ -98,6 +98,36 @@ command_version() {
     esac
 }
 
+headroom_path() {
+    if command -v headroom >/dev/null 2>&1; then
+        command -v headroom
+    elif [[ -x "${ROOT_DIR}/.ai/venv/bin/headroom" ]]; then
+        printf '%s' "${ROOT_DIR}/.ai/venv/bin/headroom"
+    else
+        printf '%s' ""
+    fi
+}
+
+headroom_installed() {
+    if [[ -n "$(headroom_path)" ]]; then
+        printf 'true'
+    else
+        printf 'false'
+    fi
+}
+
+headroom_version() {
+    local binary
+
+    binary="$(headroom_path)"
+    if [[ -z "${binary}" ]]; then
+        printf '%s' "not-installed"
+        return
+    fi
+
+    "${binary}" --version 2>/dev/null | head -n 1 || printf '%s' "unknown"
+}
+
 gh_authenticated() {
     if ! command -v gh >/dev/null 2>&1; then
         printf 'false'
@@ -371,6 +401,13 @@ project_tools:
     path: "$(command_path gh)"
     purpose: "GitHub CLI for authenticated PR automation and future environment bootstrap scripts."
 
+ai_tools:
+  headroom:
+    installed: $(headroom_installed)
+    version: "$(headroom_version)"
+    path: "$(headroom_path)"
+    purpose: "Optional local Codex wrapper and context compression layer for AI-assisted development."
+
 mcp_servers:
   codegraph:
     configured: $(codex_mcp_configured codegraph)
@@ -387,6 +424,9 @@ mcp_servers:
   playwright:
     configured: $(codex_mcp_configured playwright)
     purpose: "Exploratory browser interaction aid for graft-web-browser-agent workflows."
+  headroom:
+    configured: $(codex_mcp_configured headroom)
+    purpose: "Optional local MCP compression, retrieval, and stats tools for AI-assisted context management."
 
 python_packages:
   requests:

@@ -1,5 +1,5 @@
 schema_version: 1
-generated_at_utc: "2026-06-08T01:19:21Z"
+generated_at_utc: "2026-06-11T03:48:53Z"
 generated_from: ".ai/environment/tools.raw.yaml"
 generator: "scripts/generate-ai-environment.py"
 platform:
@@ -20,17 +20,19 @@ capabilities:
   docker: true
   gh: true
   gh_authenticated: true
+  ai_headroom: true
   mcp_codegraph: true
   mcp_tdesign: true
   mcp_context7: true
   mcp_github: true
   mcp_playwright: true
+  mcp_headroom: true
   fast_search: true
   json_cli: true
-  ai_browser: true
+  ai_browser: false
   playwright_python: true
   playwright_browsers: true
-  playwright_system_deps: true
+  playwright_system_deps: false
   server_scaffolded: true
   web_scaffolded: true
 tool_selection:
@@ -55,9 +57,13 @@ tool_selection:
     fallback: "bash"
     use_for: "Non-trivial local automation and helper scripts."
   ai_browser:
-    preferred: "graft-web-browser-agent"
+    preferred: "unavailable"
     fallback: "unavailable"
     use_for: "AI-assisted local web UI screenshots and simple browser interactions."
+  context_compression:
+    preferred: "HEADROOM_TELEMETRY=off .ai/venv/bin/headroom wrap codex"
+    fallback: "unavailable"
+    use_for: "Optional local AI context compression wrapper for Codex sessions."
   web_package_manager:
     preferred: "bun"
     fallback: "unavailable"
@@ -66,6 +72,13 @@ tool_selection:
     preferred: "go"
     fallback: "unavailable"
     use_for: "Server build and test workflows once server/go.mod exists."
+ai_tools:
+  headroom:
+    installed: true
+    risk_level: "L1"
+    use_for: "Optional local Codex wrapper and context compression layer."
+    default_command: "HEADROOM_TELEMETRY=off .ai/venv/bin/headroom wrap codex"
+    guardrail: "Do not enable --memory, --learn, or automatic AGENTS.md writes without a separate approved governance slice."
 mcp_servers:
   codegraph:
     configured: true
@@ -88,12 +101,17 @@ mcp_servers:
     configured: true
     risk_level: "L1"
     use_for: "Exploratory browser interaction before graft-web-browser-agent evidence capture."
+  headroom:
+    configured: true
+    risk_level: "L1"
+    use_for: "On-demand local compression, retrieval, and stats for AI-assisted context management."
+    access_policy: "Compression and retrieval only by default; memory, learn, or automatic AGENTS.md writes require separate approval."
 python:
   available: true
   venv_available: true
   project_venv_present: true
   playwright_browsers_present: true
-  playwright_system_deps_available: true
+  playwright_system_deps_available: false
   helper_packages:
     requests: true
     rich: true

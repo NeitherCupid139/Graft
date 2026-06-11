@@ -32,6 +32,7 @@ Generated runtime files are intentionally ignored:
 - `.ai/venv/`
 - `.ai/ms-playwright/`
 - `.ai/artifacts/browser/`
+- `.headroom/`
 
 Playwright MCP may be configured in the user-level Codex MCP list as an exploration aid, but the project-local browser
 agent remains the auditable artifact path for screenshots, text snapshots, login summaries, and cleanup.
@@ -45,9 +46,32 @@ The environment inventory records whether these user-level Codex MCP servers are
 - `context7`
 - `github`
 - `playwright`
+- `headroom`
 
 These entries are generated local capability facts. They do not make MCP a repository runtime dependency, CI gate, hook,
 or required contributor setup.
+
+## Headroom
+
+Headroom is an optional local AI context compression tool. The inventory records both the `headroom` CLI and the
+user-level `headroom` MCP server when present.
+
+Recommended privacy-first wrapper entry:
+
+```bash
+HEADROOM_TELEMETRY=off .ai/venv/bin/headroom wrap codex
+```
+
+Recommended MCP entry:
+
+```bash
+.ai/venv/bin/python -m pip install "headroom-ai[proxy]"
+codex mcp add headroom -- .ai/venv/bin/headroom mcp serve
+```
+
+Use Headroom for local compression, retrieval, and stats only by default. Do not enable `--memory`, `--learn`, or any
+automatic write to `AGENTS.md`, Codex `instructions.md`, `ai-plan/lessons/**`, or recovery documents without a separate
+human-confirmed governance slice.
 
 Use the skill cleanup script at task closeout when the user chooses to remove browser artifacts:
 

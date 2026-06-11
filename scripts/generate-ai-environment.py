@@ -93,6 +93,15 @@ def optional_bool_value(data: dict[str, Any], default: bool, *keys: str) -> bool
     return bool(current)
 
 
+def optional_string_value(data: dict[str, Any], default: str, *keys: str) -> str:
+    current: Any = data
+    for key in keys:
+        if not isinstance(current, dict) or key not in current:
+            return default
+        current = current[key]
+    return str(current)
+
+
 def select_tool(use_for: str, preferred: str | None, fallback: str | None) -> dict[str, str]:
     return {
         "preferred": choose(preferred, fallback),
@@ -113,11 +122,14 @@ def build_ai_inventory(raw: dict[str, Any]) -> dict[str, Any]:
     has_docker = available_tool(raw, "project_tools", "docker")
     has_gh = optional_bool_value(raw, False, "project_tools", "gh", "installed")
     has_gh_authenticated = optional_bool_value(raw, False, "project_tools", "gh", "authenticated")
+    has_headroom = optional_bool_value(raw, False, "ai_tools", "headroom", "installed")
+    headroom_path = optional_string_value(raw, "", "ai_tools", "headroom", "path")
     has_mcp_codegraph = optional_bool_value(raw, False, "mcp_servers", "codegraph", "configured")
     has_mcp_tdesign = optional_bool_value(raw, False, "mcp_servers", "tdesign", "configured")
     has_mcp_context7 = optional_bool_value(raw, False, "mcp_servers", "context7", "configured")
     has_mcp_github = optional_bool_value(raw, False, "mcp_servers", "github", "configured")
     has_mcp_playwright = optional_bool_value(raw, False, "mcp_servers", "playwright", "configured")
+    has_mcp_headroom = optional_bool_value(raw, False, "mcp_servers", "headroom", "configured")
     has_python_venv = optional_bool_value(raw, False, "python_environment", "venv", "available")
     has_project_venv = optional_bool_value(raw, False, "python_environment", "project_venv", "present")
     has_playwright = optional_bool_value(raw, False, "python_packages", "playwright", "installed")
@@ -180,6 +192,12 @@ def build_ai_inventory(raw: dict[str, Any]) -> dict[str, Any]:
         preferred="graft-web-browser-agent" if has_ai_browser else None,
         fallback=None,
     )
+    headroom_command = display_path(headroom_path)
+    context_compression = select_tool(
+        use_for="Optional local AI context compression wrapper for Codex sessions.",
+        preferred=f"HEADROOM_TELEMETRY=off {headroom_command} wrap codex" if has_headroom else None,
+        fallback=None,
+    )
 
     if bool_value(raw, "platform", "wsl"):
         platform_family = "wsl-linux"
@@ -211,11 +229,13 @@ def build_ai_inventory(raw: dict[str, Any]) -> dict[str, Any]:
             "docker": has_docker,
             "gh": has_gh,
             "gh_authenticated": has_gh_authenticated,
+            "ai_headroom": has_headroom,
             "mcp_codegraph": has_mcp_codegraph,
             "mcp_tdesign": has_mcp_tdesign,
             "mcp_context7": has_mcp_context7,
             "mcp_github": has_mcp_github,
             "mcp_playwright": has_mcp_playwright,
+            "mcp_headroom": has_mcp_headroom,
             "fast_search": has_rg,
             "json_cli": has_jq,
             "ai_browser": has_ai_browser,
@@ -232,8 +252,18 @@ def build_ai_inventory(raw: dict[str, Any]) -> dict[str, Any]:
             "github_cli": github_cli,
             "scripting": scripting,
             "ai_browser": ai_browser,
+            "context_compression": context_compression,
             "web_package_manager": web_package_manager,
             "server_build_and_test": server_build_and_test,
+        },
+        "ai_tools": {
+            "headroom": {
+                "installed": has_headroom,
+                "risk_level": "L1",
+                "use_for": "Optional local Codex wrapper and context compression layer.",
+                "default_command": f"HEADROOM_TELEMETRY=off {headroom_command} wrap codex",
+                "guardrail": "Do not enable --memory, --learn, or automatic AGENTS.md writes without a separate approved governance slice.",
+            },
         },
         "mcp_servers": {
             "codegraph": {
@@ -261,6 +291,12 @@ def build_ai_inventory(raw: dict[str, Any]) -> dict[str, Any]:
                 "configured": has_mcp_playwright,
                 "risk_level": "L1",
                 "use_for": "Exploratory browser interaction before graft-web-browser-agent evidence capture.",
+            },
+            "headroom": {
+                "configured": has_mcp_headroom,
+                "risk_level": "L1",
+                "use_for": "On-demand local compression, retrieval, and stats for AI-assisted context management.",
+                "access_policy": "Compression and retrieval only by default; memory, learn, or automatic AGENTS.md writes require separate approval.",
             },
         },
         "python": {
@@ -300,6 +336,16 @@ def build_ai_inventory(raw: dict[str, Any]) -> dict[str, Any]:
             "Do not assume unrelated system tools are part of the supported project environment.",
         ],
     }
+
+
+def display_path(raw_path: str) -> str:
+    if not raw_path:
+        return "headroom"
+    path = Path(raw_path)
+    try:
+        return str(path.relative_to(ROOT_DIR))
+    except ValueError:
+        return raw_path
 
 
 def emit_yaml(value: Any, indent: int = 0) -> list[str]:

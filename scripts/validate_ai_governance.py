@@ -93,7 +93,14 @@ def validate_gitignore() -> list[Finding]:
         return []
     text = read_text(GITIGNORE)
     findings: list[Finding] = []
-    for pattern in (".codegraph/", ".ai/private/", ".ai/venv/", ".ai/ms-playwright/", ".ai/artifacts/browser/"):
+    for pattern in (
+        ".codegraph/",
+        ".headroom/",
+        ".ai/private/",
+        ".ai/venv/",
+        ".ai/ms-playwright/",
+        ".ai/artifacts/browser/",
+    ):
         if pattern not in text:
             findings.append(Finding(GITIGNORE, f"missing ignored local AI artifact pattern {pattern!r}"))
     return findings
@@ -113,6 +120,15 @@ def validate_ai_tooling_doc() -> list[Finding]:
         "@upstash/context7-mcp",
         "ghcr.io/github/github-mcp-server",
         "@playwright/mcp",
+        "headroom",
+        "headroom wrap codex",
+        "headroom mcp serve",
+        "headroom-ai[mcp]",
+        "headroom_compress",
+        "HEADROOM_TELEMETRY=off",
+        "headroom learn",
+        "AGENTS.md",
+        "人工确认",
         "memory",
         "postgres",
         "AI tooling evidence",
@@ -142,7 +158,12 @@ def validate_skill_mcp_guidance() -> list[Finding]:
         ),
         (
             AI_AUDIT_SKILL,
-            ("codex mcp get context7", "codex mcp get github", "codex mcp get playwright"),
+            (
+                "codex mcp get context7",
+                "codex mcp get github",
+                "codex mcp get playwright",
+                "codex mcp get headroom",
+            ),
         ),
     )
     findings: list[Finding] = []
@@ -162,9 +183,22 @@ def validate_environment_inventory() -> list[Finding]:
         return []
     text = read_text(TOOLS_AI)
     findings: list[Finding] = []
-    for term in ("mcp_servers:", "codegraph:", "tdesign:", "context7:", "github:", "playwright:"):
+    for term in (
+        "ai_headroom:",
+        "context_compression:",
+        "ai_tools:",
+        "headroom:",
+        "default_command:",
+        "mcp_servers:",
+        "mcp_headroom:",
+        "codegraph:",
+        "tdesign:",
+        "context7:",
+        "github:",
+        "playwright:",
+    ):
         if term not in text:
-            findings.append(Finding(TOOLS_AI, f"missing AI environment MCP inventory term {term!r}"))
+            findings.append(Finding(TOOLS_AI, f"missing AI environment inventory term {term!r}"))
     return findings
 
 
@@ -244,6 +278,7 @@ def validate_no_private_config_tracked(tracked: set[str]) -> list[Finding]:
     findings: list[Finding] = []
     forbidden_prefixes = (
         ".codegraph/",
+        ".headroom/",
         ".ai/private/",
         ".ai/venv/",
         ".ai/ms-playwright/",

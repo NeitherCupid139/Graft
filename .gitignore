@@ -40,6 +40,7 @@ go.work.sum
 # ai
 .codex/
 .codegraph/
+.headroom/
 .ai/private/
 .ai/venv/
 .ai/ms-playwright/
