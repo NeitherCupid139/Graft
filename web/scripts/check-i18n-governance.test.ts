@@ -328,6 +328,17 @@ describe('check-i18n-governance fixture rules', () => {
       expectation: 'blocks English fallbackMessage string fallback',
       expectedSnippets: ['fallbackMessage', 'Request failed'],
     },
+    {
+      fixture: 'invalid-raw-notification-technical-display',
+      expectation: 'blocks raw notification technical values and fallback copy',
+      expectedSnippets: [
+        'no-raw-notification-technical-display',
+        'task_succeeded',
+        'scheduled_task_run',
+        'USER',
+        'Scheduled task succeeded',
+      ],
+    },
   ];
 
   it.each(invalidFixtures)('$fixture: $expectation', async ({ expectedSnippets, fixture }) => {
@@ -342,6 +353,14 @@ describe('check-i18n-governance fixture rules', () => {
 
   it('valid-i18n-keyed-copy: allows keyed UI copy without hardcoded fallback text', async () => {
     const result = await runGovernanceScriptWithFixture('valid-i18n-keyed-copy');
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('No hard-coded UI text or locale governance issues found.');
+    expect(result.stderr).toBe('');
+  });
+
+  it('valid-notification-resolver-display: allows notification resolver and diagnostic formatter usage', async () => {
+    const result = await runGovernanceScriptWithFixture('valid-notification-resolver-display');
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('No hard-coded UI text or locale governance issues found.');

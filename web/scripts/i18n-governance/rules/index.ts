@@ -9,6 +9,7 @@ import { noHardcodedTemplateTextRule } from './no-hardcoded-template-text';
 import { noHardcodedUiPropRule } from './no-hardcoded-ui-prop';
 import { noLocaleCatalogDriftRule } from './no-locale-catalog-drift';
 import { noMissingLocaleKeyRule } from './no-missing-locale-key';
+import { noRawNotificationTechnicalDisplayRule } from './no-raw-notification-technical-display';
 import { noSystemConfigSchemaFallbackRule } from './no-system-config-schema-fallback';
 import { noUnsafeDatetimeLocaleRule } from './no-unsafe-datetime-locale';
 import { noUnsafeLocaleValueRule } from './no-unsafe-locale-value';
@@ -24,6 +25,7 @@ export const rules: I18nGovernanceRule[] = [
   noHardcodedUiPropRule,
   noHardcodedPluginMessageRule,
   noHardcodedTemplateTextRule,
+  noRawNotificationTechnicalDisplayRule,
   noFallbackOnlyKeyFirstRule,
   noSystemConfigSchemaFallbackRule,
 ];
