@@ -103,13 +103,16 @@
         "description": "最近高风险审计和安全事件。",
         "empty": "过去 24 小时暂无审计风险事件",
         "authFailures": {
+          "action": "查看认证失败",
           "description": "过去 24 小时存在认证失败事件"
         },
         "failedOperations": {
+          "action": "查看失败",
           "description": "失败操作需要复核",
           "title": "失败操作"
         },
         "highRisk": {
+          "action": "查看事件",
           "description": "过去 24 小时存在高风险事件",
           "title": "高风险审计事件"
         },

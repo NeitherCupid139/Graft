@@ -4,7 +4,7 @@
 -->
 
 <template>
-  <t-list v-if="payload && payload.items.length" size="small" split>
+  <t-list v-if="payload && payload.items.length" class="dashboard-alert-list" size="small" split>
     <t-list-item v-for="item in payload.items" :key="item.id">
       <div class="dashboard-alert-list__item">
         <t-tag :theme="levelTheme(item.level)" variant="light">{{ levelLabel(item.level) }}</t-tag>
@@ -20,12 +20,17 @@
             {{ t('dashboard.alert.latestAt', { time: formatDashboardDateTime(item.occurred_at, currentLocale) }) }}
           </time>
         </div>
-      </div>
-      <template v-if="item.route_location" #action>
-        <t-button variant="text" theme="primary" size="small" @click="go(item.route_location)">
-          {{ t('dashboard.actions.open') }}
+        <t-button
+          v-if="item.route_location"
+          class="dashboard-alert-list__action"
+          variant="text"
+          theme="primary"
+          size="small"
+          @click="go(item.route_location)"
+        >
+          {{ alertActionLabel(item) }}
         </t-button>
-      </template>
+      </div>
     </t-list-item>
   </t-list>
   <t-empty
@@ -78,6 +83,10 @@ function itemDescription(item: DashboardAlertListPayload['items'][number]) {
     : resolveDashboardRelatedText(item.title_key, 'description', item.description);
 }
 
+function alertActionLabel(item: DashboardAlertListPayload['items'][number]) {
+  return resolveDashboardText(item.action_label_key, item.action_label || t('dashboard.actions.open'));
+}
+
 function normalizedTitle(value: string) {
   const knownAlertTitleKey = KNOWN_ALERT_TITLE_KEYS[value as keyof typeof KNOWN_ALERT_TITLE_KEYS];
   if (knownAlertTitleKey) {
@@ -96,7 +105,9 @@ function go(location: string) {
   align-items: flex-start;
   display: flex;
   gap: var(--td-comp-margin-s);
+  justify-content: space-between;
   min-width: 0;
+  width: 100%;
 }
 
 .dashboard-alert-list__content {
@@ -110,8 +121,14 @@ function go(location: string) {
 .dashboard-alert-list__title-row {
   align-items: center;
   display: flex;
+  flex-wrap: wrap;
   gap: var(--td-comp-margin-xs);
   min-width: 0;
+}
+
+.dashboard-alert-list__action {
+  flex-shrink: 0;
+  margin-left: var(--td-comp-margin-s);
 }
 
 .dashboard-alert-list__content strong,
@@ -124,5 +141,19 @@ function go(location: string) {
   color: var(--td-text-color-secondary);
   font: var(--td-font-body-small);
   margin: 0;
+}
+
+@media (width <= 768px) {
+  .dashboard-alert-list__item {
+    flex-wrap: wrap;
+  }
+
+  .dashboard-alert-list__content {
+    flex-basis: calc(100% - 96px);
+  }
+
+  .dashboard-alert-list__action {
+    margin-left: 0;
+  }
 }
 </style>

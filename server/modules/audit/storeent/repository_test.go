@@ -922,6 +922,31 @@ func TestAuditResultWhereClauseHandlesServerErrors(t *testing.T) {
 	}
 }
 
+func TestOverviewSummaryUsesCanonicalResultAndRiskExpressions(t *testing.T) {
+	if !strings.Contains(overviewSummarySQL, "IN ('FAILED', 'DENIED', 'ERROR')") {
+		t.Fatalf("expected failed operations to use normalized non-success results, got %s", overviewSummarySQL)
+	}
+	if !strings.Contains(overviewSummarySQL, "IN ('HIGH', 'CRITICAL')") {
+		t.Fatalf("expected high-risk events to use normalized risk levels, got %s", overviewSummarySQL)
+	}
+	if strings.Contains(overviewSummarySQL, "WHERE success = false) AS failed_operations") {
+		t.Fatalf("failed operations must not collapse to raw success=false, got %s", overviewSummarySQL)
+	}
+}
+
+func TestOverviewTrendUsesCanonicalResultAndRiskExpressions(t *testing.T) {
+	resultExpression := auditOverviewTrendResultExpression()
+	riskExpression := auditOverviewTrendRiskLevelExpression()
+	if !strings.Contains(resultExpression, "logs.metadata ->> 'status_code'") ||
+		!strings.Contains(riskExpression, "LOWER(logs.action)") {
+		t.Fatalf("expected trend expressions to use table-qualified canonical fields, result=%s risk=%s", resultExpression, riskExpression)
+	}
+	trendSQL := overviewTrendSeriesSQL("1 hour")
+	if !strings.Contains(trendSQL, "logs.id IS NOT NULL") {
+		t.Fatalf("expected trend counters to ignore empty left-join buckets")
+	}
+}
+
 func TestRiskLevelWhereClauseKeepsEscapedLikePatterns(t *testing.T) {
 	clause := riskLevelWhereClause()
 	if !strings.Contains(clause, "LIKE '%%delete%%'") {

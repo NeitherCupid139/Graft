@@ -591,24 +591,11 @@ func auditPresetStart(now time.Time, preset auditstore.AuditTimePreset) time.Tim
 }
 
 func highRiskOperationsWhereClause() string {
-	return `(
-		success = false
-		OR LOWER(action) LIKE '%delete%'
-		OR LOWER(action) LIKE '%reset%'
-		OR LOWER(action) LIKE '%grant%'
-		OR LOWER(action) LIKE '%assign%'
-		OR LOWER(action) LIKE '%revoke%'
-		OR LOWER(action) LIKE '%remove%'
-		OR LOWER(action) LIKE '%replace%'
-	)`
-}
-
-func highRiskWhereClause() string {
-	return highRiskOperationsWhereClause()
+	return `(` + auditRiskLevelExpression() + ` IN ('HIGH', 'CRITICAL'))`
 }
 
 func failedOperationsWhereClause() string {
-	return `success = false`
+	return `(` + auditResultExpression() + ` IN ('FAILED', 'DENIED', 'ERROR'))`
 }
 
 func sensitiveOperationsWhereClause() string {
@@ -1562,6 +1549,27 @@ func normalizeAuditSource(value string) auditstore.AuditSource {
 }
 
 func auditResultWhereClause() string {
+	return auditResultPostgresExpression() + ` = $%d`
+}
+
+func auditResultExpression() string {
+	return auditResultExpressionFor("success", "metadata")
+}
+
+func auditResultExpressionFor(successColumn string, metadataColumn string) string {
+	return `CASE
+		WHEN ` + successColumn + ` THEN 'SUCCESS'
+		ELSE CASE
+			WHEN ` + metadataTextValueSQL(metadataColumn, "status_code") + ` = '403' THEN 'DENIED'
+			WHEN ` + metadataNumericValueSQL(metadataColumn, "status_code") + ` >= 500
+			  OR ` + metadataTextValueSQL(metadataColumn, "error_kind") + ` = 'system'
+			  OR ` + metadataTextValueSQL(metadataColumn, "error") + ` <> '' THEN 'ERROR'
+			ELSE 'FAILED'
+		END
+	END`
+}
+
+func auditResultPostgresExpression() string {
 	return `CASE
 		WHEN success THEN 'SUCCESS'
 		ELSE CASE
@@ -1573,10 +1581,33 @@ func auditResultWhereClause() string {
 			  OR COALESCE(metadata ->> 'error', '') <> '' THEN 'ERROR'
 			ELSE 'FAILED'
 		END
-	END = $%d`
+	END`
 }
 
 func riskLevelWhereClause() string {
+	return auditRiskLevelPostgresExpression() + ` = $%d`
+}
+
+func auditRiskLevelExpression() string {
+	return auditRiskLevelExpressionFor("success", "action", "metadata")
+}
+
+func auditRiskLevelExpressionFor(successColumn string, actionColumn string, metadataColumn string) string {
+	return `CASE
+		WHEN ` + successColumn + ` = false AND (
+			` + metadataTextValueSQL(metadataColumn, "status_code") + ` = '403'
+			OR ` + metadataNumericValueSQL(metadataColumn, "status_code") + ` >= 500
+			OR ` + metadataTextValueSQL(metadataColumn, "error_kind") + ` = 'system'
+			OR ` + metadataTextValueSQL(metadataColumn, "error") + ` <> ''
+		) THEN 'CRITICAL'
+		WHEN LOWER(` + actionColumn + `) LIKE '%%reset_password%%' OR LOWER(` + actionColumn + `) LIKE '%%update_permission%%' OR LOWER(` + actionColumn + `) LIKE '%%update_role%%' OR LOWER(` + actionColumn + `) LIKE '%%assign_role%%' OR LOWER(` + actionColumn + `) LIKE '%%token_revoke%%' THEN 'CRITICAL'
+		WHEN ` + successColumn + ` = false OR LOWER(` + actionColumn + `) LIKE '%%delete%%' OR LOWER(` + actionColumn + `) LIKE '%%reset%%' OR LOWER(` + actionColumn + `) LIKE '%%grant%%' OR LOWER(` + actionColumn + `) LIKE '%%assign%%' OR LOWER(` + actionColumn + `) LIKE '%%revoke%%' OR LOWER(` + actionColumn + `) LIKE '%%remove%%' OR LOWER(` + actionColumn + `) LIKE '%%replace%%' THEN 'HIGH'
+		WHEN LOWER(` + actionColumn + `) LIKE '%%login_failed%%' OR LOWER(` + actionColumn + `) LIKE '%%login%%' OR LOWER(` + actionColumn + `) LIKE '%%permission%%' OR LOWER(` + actionColumn + `) LIKE '%%role%%' OR LOWER(` + actionColumn + `) LIKE '%%auth%%' THEN 'MEDIUM'
+		ELSE 'LOW'
+	END`
+}
+
+func auditRiskLevelPostgresExpression() string {
 	return `CASE
 		WHEN success = false AND (
 			(metadata ->> 'status_code') = '403'
@@ -1591,7 +1622,15 @@ func riskLevelWhereClause() string {
 		WHEN success = false OR LOWER(action) LIKE '%%delete%%' OR LOWER(action) LIKE '%%reset%%' OR LOWER(action) LIKE '%%grant%%' OR LOWER(action) LIKE '%%assign%%' OR LOWER(action) LIKE '%%revoke%%' OR LOWER(action) LIKE '%%remove%%' OR LOWER(action) LIKE '%%replace%%' THEN 'HIGH'
 		WHEN LOWER(action) LIKE '%%login_failed%%' OR LOWER(action) LIKE '%%login%%' OR LOWER(action) LIKE '%%permission%%' OR LOWER(action) LIKE '%%role%%' OR LOWER(action) LIKE '%%auth%%' THEN 'MEDIUM'
 		ELSE 'LOW'
-	END = $%d`
+	END`
+}
+
+func auditOverviewTrendResultExpression() string {
+	return auditResultExpressionFor("logs.success", "logs.metadata")
+}
+
+func auditOverviewTrendRiskLevelExpression() string {
+	return auditRiskLevelExpressionFor("logs.success", "logs.action", "logs.metadata")
 }
 
 func sourceWhereClause() string {
@@ -1601,9 +1640,11 @@ func sourceWhereClause() string {
 var overviewSummarySQL = `
 SELECT
 	COUNT(*) AS total_logs,
-	COUNT(*) FILTER (WHERE success = false) AS failed_operations,
 	COUNT(*) FILTER (
-		WHERE ` + highRiskWhereClause() + `
+		WHERE ` + auditResultExpression() + ` IN ('FAILED', 'DENIED', 'ERROR')
+	) AS failed_operations,
+	COUNT(*) FILTER (
+		WHERE ` + auditRiskLevelExpression() + ` IN ('HIGH', 'CRITICAL')
 	) AS high_risk_events,
 	COUNT(*) FILTER (
 		WHERE ` + sensitiveOperationsWhereClause() + `
@@ -1636,6 +1677,18 @@ LIMIT 3
 
 func metadataTextValueSQL(column string, key string) string {
 	return fmt.Sprintf("COALESCE(%s ->> '%s', '')", column, key)
+}
+
+func metadataNumericValueSQL(column string, key string) string {
+	return fmt.Sprintf(`CASE
+		WHEN COALESCE(NULLIF(%[1]s ->> '%[2]s', ''), '') <> ''
+			AND REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+				%[1]s ->> '%[2]s',
+				'0', ''
+			), '1', ''), '2', ''), '3', ''), '4', ''), '5', ''), '6', ''), '7', ''), '8', ''), '9', '') = ''
+		THEN CAST(%[1]s ->> '%[2]s' AS INTEGER)
+		ELSE 0
+	END`, column, key)
 }
 
 var (
@@ -1675,14 +1728,7 @@ FROM (
 		'audit.overview.riskGroups.highRiskOperations',
 		'HIGH',
 		COUNT(*) FILTER (
-			WHERE success = false
-			   OR LOWER(action) LIKE '%delete%'
-			   OR LOWER(action) LIKE '%reset%'
-			   OR LOWER(action) LIKE '%grant%'
-			   OR LOWER(action) LIKE '%assign%'
-			   OR LOWER(action) LIKE '%revoke%'
-			   OR LOWER(action) LIKE '%remove%'
-			   OR LOWER(action) LIKE '%replace%'
+			WHERE ` + auditRiskLevelExpression() + ` IN ('HIGH', 'CRITICAL')
 		)
 	FROM audit_logs
 	WHERE created_at >= $1
@@ -1783,33 +1829,7 @@ func (r *repository) readOverviewTrend(
 	now time.Time,
 ) (auditstore.OverviewTrend, error) {
 	bucketUnit, bucketSize, step := overviewTrendConfig(preset)
-	//nolint:gosec // step comes from overviewTrendConfig and is limited to fixed internal interval literals.
-	seriesSQL := fmt.Sprintf(`
-SELECT
-	bucket_start,
-	bucket_start + INTERVAL '%[1]s' AS bucket_end,
-	COUNT(logs.id) AS total,
-	COUNT(*) FILTER (WHERE logs.success = false) AS failed,
-	COUNT(*) FILTER (
-		WHERE logs.success = false
-		   OR LOWER(logs.action) LIKE '%%delete%%'
-		   OR LOWER(logs.action) LIKE '%%reset%%'
-		   OR LOWER(logs.action) LIKE '%%grant%%'
-		   OR LOWER(logs.action) LIKE '%%assign%%'
-		   OR LOWER(logs.action) LIKE '%%revoke%%'
-		   OR LOWER(logs.action) LIKE '%%remove%%'
-		   OR LOWER(logs.action) LIKE '%%replace%%'
-	) AS high_risk,
-	COUNT(*) FILTER (
-		WHERE COALESCE(logs.metadata ->> 'auditSource', logs.metadata ->> 'audit_source', '') = 'SECURITY_EVENT'
-	) AS security_events
-FROM generate_series($1::timestamptz, $2::timestamptz - INTERVAL '%[1]s', INTERVAL '%[1]s') AS bucket_start
-LEFT JOIN audit_logs logs
-	ON logs.created_at >= bucket_start
-	AND logs.created_at < bucket_start + INTERVAL '%[1]s'
-GROUP BY bucket_start
-ORDER BY bucket_start ASC
-`, step)
+	seriesSQL := overviewTrendSeriesSQL(step)
 
 	rows, err := r.db.QueryContext(ctx, seriesSQL, startedAt, now)
 	if err != nil {
@@ -1836,6 +1856,33 @@ ORDER BY bucket_start ASC
 		BucketSize: bucketSize,
 		Points:     points,
 	}, nil
+}
+
+func overviewTrendSeriesSQL(step string) string {
+	//nolint:gosec // step comes from overviewTrendConfig and is limited to fixed internal interval literals.
+	return fmt.Sprintf(`
+SELECT
+	bucket_start,
+	bucket_start + INTERVAL '%[1]s' AS bucket_end,
+	COUNT(logs.id) AS total,
+	COUNT(logs.id) FILTER (
+		WHERE logs.id IS NOT NULL
+		  AND `+auditOverviewTrendResultExpression()+` IN ('FAILED', 'DENIED', 'ERROR')
+	) AS failed,
+	COUNT(logs.id) FILTER (
+		WHERE logs.id IS NOT NULL
+		  AND `+auditOverviewTrendRiskLevelExpression()+` IN ('HIGH', 'CRITICAL')
+	) AS high_risk,
+	COUNT(*) FILTER (
+		WHERE COALESCE(logs.metadata ->> 'auditSource', logs.metadata ->> 'audit_source', '') = 'SECURITY_EVENT'
+	) AS security_events
+FROM generate_series($1::timestamptz, $2::timestamptz - INTERVAL '%[1]s', INTERVAL '%[1]s') AS bucket_start
+LEFT JOIN audit_logs logs
+	ON logs.created_at >= bucket_start
+	AND logs.created_at < bucket_start + INTERVAL '%[1]s'
+GROUP BY bucket_start
+ORDER BY bucket_start ASC
+`, step)
 }
 
 func buildOverviewTrendPoints(startedAt time.Time, now time.Time, stepDuration time.Duration) []auditstore.OverviewTrendPoint {
