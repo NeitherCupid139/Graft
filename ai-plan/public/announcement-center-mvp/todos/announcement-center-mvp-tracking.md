@@ -21,15 +21,16 @@ Announcement Center MVP
 
 ## Current Recovery Point
 
-- Phase 0 正在完成。
-- 设计文档和 public topic 已创建。
-- 下一批次应从 OpenAPI、migration 和 `server/modules/announcement` 模块骨架开始。
+- Phase 0 已完成并提交。
+- Phase 1 已完成并提交，OpenAPI、migration、server module foundation 和 generated artifacts 已建立。
+- Phase 2 已完成并提交，管理端 API 行为和 focused tests 已建立。
+- 下一批次进入 Phase 3，实现用户端可见列表、已读、全部已读、未读数和用户隔离。
 
 ## Task Checklist
 
-- [ ] Phase 0：设计和 topic 持久化
-- [ ] Phase 1：OpenAPI + migration + 后端领域模型
-- [ ] Phase 2：后端管理端 API
+- [x] Phase 0：设计和 topic 持久化
+- [x] Phase 1：OpenAPI + migration + 后端领域模型
+- [x] Phase 2：后端管理端 API
 - [ ] Phase 3：后端用户端 API + 已读状态
 - [ ] Phase 4：前端公告管理页
 - [ ] Phase 5：用户侧公告入口 / 工作台摘要
