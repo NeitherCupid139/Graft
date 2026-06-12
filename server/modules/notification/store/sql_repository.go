@@ -387,9 +387,6 @@ func (r *SQLRepository) MarkRead(ctx context.Context, recipientUserID uint64, de
 	if err != nil {
 		return Delivery{}, err
 	}
-	if delivery.DeletedAt != 0 {
-		return Delivery{}, ErrDeliveryNotFound
-	}
 	markAt := readAt.UTC()
 	if delivery.ReadAt != nil {
 		markAt = delivery.ReadAt.UTC()
@@ -474,10 +471,14 @@ func (r *SQLRepository) DeleteDelivery(ctx context.Context, recipientUserID uint
 	if _, err := r.getDelivery(ctx, targetID, recipientID); err != nil {
 		return err
 	}
+	deleteEpoch := deletedAt.UTC().Unix()
+	if deleteEpoch <= 0 {
+		return ErrInvalidInput
+	}
 
 	result, err := r.db.ExecContext(ctx, r.placeholder.rebind(`UPDATE notification_deliveries
-		SET deleted_at = CASE WHEN deleted_at = 0 THEN ? ELSE deleted_at END
-		WHERE id = ? AND recipient_user_id = ? AND deleted_at = 0`), deletedAt.UTC().Unix(), targetID, recipientID)
+		SET deleted_at = ?
+		WHERE id = ? AND recipient_user_id = ? AND deleted_at = 0`), deleteEpoch, targetID, recipientID)
 	if err != nil {
 		return fmt.Errorf("delete notification delivery: %w", err)
 	}

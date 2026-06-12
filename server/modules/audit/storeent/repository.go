@@ -43,6 +43,7 @@ const incidentActorLimit = 5
 const incidentResourceLimit = 5
 const incidentRequestLimit = 5
 const httpStatusForbidden = 403
+const httpStatusServerErrorMin = 500
 const overviewTrendDayStep = "1 day"
 const overviewTrendThreeDayStep = "3 day"
 const overviewTrendTwoHourStep = "2 hour"
@@ -1557,31 +1558,28 @@ func auditResultExpression() string {
 }
 
 func auditResultExpressionFor(successColumn string, metadataColumn string) string {
+	return auditResultExpressionWith(successColumn, metadataColumn, auditPortableMetadataExpressions)
+}
+
+func auditResultExpressionWith(
+	successColumn string,
+	metadataColumn string,
+	metadata auditMetadataExpressionBuilder,
+) string {
 	return `CASE
 		WHEN ` + successColumn + ` THEN 'SUCCESS'
 		ELSE CASE
-			WHEN ` + metadataTextValueSQL(metadataColumn, "status_code") + ` = '403' THEN 'DENIED'
-			WHEN ` + metadataNumericValueSQL(metadataColumn, "status_code") + ` >= 500
-			  OR ` + metadataTextValueSQL(metadataColumn, "error_kind") + ` = 'system'
-			  OR ` + metadataTextValueSQL(metadataColumn, "error") + ` <> '' THEN 'ERROR'
+			WHEN ` + metadata.textValue(metadataColumn, "status_code") + ` = '403' THEN 'DENIED'
+			WHEN ` + metadata.numericAtLeast(metadataColumn, "status_code", httpStatusServerErrorMin) + `
+			  OR ` + metadata.textValue(metadataColumn, "error_kind") + ` = 'system'
+			  OR ` + metadata.textValue(metadataColumn, "error") + ` <> '' THEN 'ERROR'
 			ELSE 'FAILED'
 		END
 	END`
 }
 
 func auditResultPostgresExpression() string {
-	return `CASE
-		WHEN success THEN 'SUCCESS'
-		ELSE CASE
-			WHEN (metadata ->> 'status_code') = '403' THEN 'DENIED'
-			WHEN (
-				COALESCE(metadata ->> 'status_code', '') ~ '^[0-9]+$'
-				AND (metadata ->> 'status_code')::int >= 500
-			) OR COALESCE(metadata ->> 'error_kind', '') = 'system'
-			  OR COALESCE(metadata ->> 'error', '') <> '' THEN 'ERROR'
-			ELSE 'FAILED'
-		END
-	END`
+	return auditResultExpressionWith("success", "metadata", auditPostgresMetadataExpressions)
 }
 
 func riskLevelWhereClause() string {
@@ -1593,12 +1591,21 @@ func auditRiskLevelExpression() string {
 }
 
 func auditRiskLevelExpressionFor(successColumn string, actionColumn string, metadataColumn string) string {
+	return auditRiskLevelExpressionWith(successColumn, actionColumn, metadataColumn, auditPortableMetadataExpressions)
+}
+
+func auditRiskLevelExpressionWith(
+	successColumn string,
+	actionColumn string,
+	metadataColumn string,
+	metadata auditMetadataExpressionBuilder,
+) string {
 	return `CASE
 		WHEN ` + successColumn + ` = false AND (
-			` + metadataTextValueSQL(metadataColumn, "status_code") + ` = '403'
-			OR ` + metadataNumericValueSQL(metadataColumn, "status_code") + ` >= 500
-			OR ` + metadataTextValueSQL(metadataColumn, "error_kind") + ` = 'system'
-			OR ` + metadataTextValueSQL(metadataColumn, "error") + ` <> ''
+			` + metadata.textValue(metadataColumn, "status_code") + ` = '403'
+			OR ` + metadata.numericAtLeast(metadataColumn, "status_code", httpStatusServerErrorMin) + `
+			OR ` + metadata.textValue(metadataColumn, "error_kind") + ` = 'system'
+			OR ` + metadata.textValue(metadataColumn, "error") + ` <> ''
 		) THEN 'CRITICAL'
 		WHEN LOWER(` + actionColumn + `) LIKE '%%reset_password%%' OR LOWER(` + actionColumn + `) LIKE '%%update_permission%%' OR LOWER(` + actionColumn + `) LIKE '%%update_role%%' OR LOWER(` + actionColumn + `) LIKE '%%assign_role%%' OR LOWER(` + actionColumn + `) LIKE '%%token_revoke%%' THEN 'CRITICAL'
 		WHEN ` + successColumn + ` = false OR LOWER(` + actionColumn + `) LIKE '%%delete%%' OR LOWER(` + actionColumn + `) LIKE '%%reset%%' OR LOWER(` + actionColumn + `) LIKE '%%grant%%' OR LOWER(` + actionColumn + `) LIKE '%%assign%%' OR LOWER(` + actionColumn + `) LIKE '%%revoke%%' OR LOWER(` + actionColumn + `) LIKE '%%remove%%' OR LOWER(` + actionColumn + `) LIKE '%%replace%%' THEN 'HIGH'
@@ -1608,21 +1615,7 @@ func auditRiskLevelExpressionFor(successColumn string, actionColumn string, meta
 }
 
 func auditRiskLevelPostgresExpression() string {
-	return `CASE
-		WHEN success = false AND (
-			(metadata ->> 'status_code') = '403'
-			OR (
-				COALESCE(metadata ->> 'status_code', '') ~ '^[0-9]+$'
-				AND (metadata ->> 'status_code')::int >= 500
-			)
-			OR COALESCE(metadata ->> 'error_kind', '') = 'system'
-			OR COALESCE(metadata ->> 'error', '') <> ''
-		) THEN 'CRITICAL'
-		WHEN LOWER(action) LIKE '%%reset_password%%' OR LOWER(action) LIKE '%%update_permission%%' OR LOWER(action) LIKE '%%update_role%%' OR LOWER(action) LIKE '%%assign_role%%' OR LOWER(action) LIKE '%%token_revoke%%' THEN 'CRITICAL'
-		WHEN success = false OR LOWER(action) LIKE '%%delete%%' OR LOWER(action) LIKE '%%reset%%' OR LOWER(action) LIKE '%%grant%%' OR LOWER(action) LIKE '%%assign%%' OR LOWER(action) LIKE '%%revoke%%' OR LOWER(action) LIKE '%%remove%%' OR LOWER(action) LIKE '%%replace%%' THEN 'HIGH'
-		WHEN LOWER(action) LIKE '%%login_failed%%' OR LOWER(action) LIKE '%%login%%' OR LOWER(action) LIKE '%%permission%%' OR LOWER(action) LIKE '%%role%%' OR LOWER(action) LIKE '%%auth%%' THEN 'MEDIUM'
-		ELSE 'LOW'
-	END`
+	return auditRiskLevelExpressionWith("success", "action", "metadata", auditPostgresMetadataExpressions)
 }
 
 func auditOverviewTrendResultExpression() string {
@@ -1677,6 +1670,33 @@ LIMIT 3
 
 func metadataTextValueSQL(column string, key string) string {
 	return fmt.Sprintf("COALESCE(%s ->> '%s', '')", column, key)
+}
+
+type auditMetadataExpressionBuilder struct {
+	textValue      func(column string, key string) string
+	numericAtLeast func(column string, key string, threshold int) string
+}
+
+var (
+	auditPortableMetadataExpressions = auditMetadataExpressionBuilder{
+		textValue:      metadataTextValueSQL,
+		numericAtLeast: metadataNumericAtLeastSQL,
+	}
+	auditPostgresMetadataExpressions = auditMetadataExpressionBuilder{
+		textValue:      metadataTextValueSQL,
+		numericAtLeast: metadataPostgresNumericAtLeastSQL,
+	}
+)
+
+func metadataNumericAtLeastSQL(column string, key string, threshold int) string {
+	return fmt.Sprintf("%s >= %d", metadataNumericValueSQL(column, key), threshold)
+}
+
+func metadataPostgresNumericAtLeastSQL(column string, key string, threshold int) string {
+	return fmt.Sprintf(`(
+				COALESCE(%[1]s ->> '%[2]s', '') ~ '^[0-9]+$'
+				AND (%[1]s ->> '%[2]s')::int >= %[3]d
+			)`, column, key, threshold)
 }
 
 func metadataNumericValueSQL(column string, key string) string {

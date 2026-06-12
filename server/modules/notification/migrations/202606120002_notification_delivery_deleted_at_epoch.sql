@@ -42,6 +42,7 @@ CREATE INDEX IF NOT EXISTS "notification_deliveries_unread"
   ON "notification_deliveries" ("recipient_user_id", "id" DESC)
   WHERE "read_at" IS NULL AND "deleted_at" = 0;
 
+COMMENT ON TABLE "notification_deliveries" IS '通知中心用户投递状态表';
 COMMENT ON COLUMN "notification_deliveries"."deleted_at" IS '软删除时间戳，0 表示未删除，非 0 表示删除发生时的 Unix 秒';
 COMMENT ON INDEX "notification_deliveries_recipient_created" IS '当前用户可见通知列表排序索引，仅覆盖未删除投递';
 COMMENT ON INDEX "notification_deliveries_unread" IS '当前用户未读通知计数索引，仅覆盖未删除投递';

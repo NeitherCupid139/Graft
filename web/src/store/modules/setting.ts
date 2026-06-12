@@ -445,8 +445,10 @@ function hasThemeAuthorityStateDiff(fromState: ThemeAuthorityState, toState: The
   );
 }
 
+// WorkbenchStyleConfigSnapshot 只覆盖 theme authority 之外的壳层样式配置，用于工作台预览期间的差异判断和取消回滚。
 type WorkbenchStyleConfigSnapshot = Pick<typeof STYLE_CONFIG, (typeof WORKBENCH_STYLE_CONFIG_KEYS)[number]>;
 
+// createWorkbenchStyleConfigSnapshot 固定从 store 当前值抽取工作台预览会临时改写的壳层样式配置。
 function createWorkbenchStyleConfigSnapshot(state: SettingState): WorkbenchStyleConfigSnapshot {
   return WORKBENCH_STYLE_CONFIG_KEYS.reduce((snapshot, key) => {
     snapshot[key] = state[key] as never;
@@ -454,6 +456,7 @@ function createWorkbenchStyleConfigSnapshot(state: SettingState): WorkbenchStyle
   }, {} as WorkbenchStyleConfigSnapshot);
 }
 
+// hasWorkbenchStyleConfigDiff 只比较工作台负责回滚的壳层样式配置，避免和 theme authority 草稿重复判定。
 function hasWorkbenchStyleConfigDiff(fromState: WorkbenchStyleConfigSnapshot, toState: WorkbenchStyleConfigSnapshot) {
   return WORKBENCH_STYLE_CONFIG_KEYS.some((key) => fromState[key] !== toState[key]);
 }
