@@ -148,13 +148,14 @@ assets:
     type: "backend-test-helper"
     path: "server/internal/testassert"
     owner: "server/test"
-    purpose: "Small backend test assertions shared across backend packages."
+    purpose: "Small backend test assertions and HTTP envelope decoders shared across backend packages."
     use_when:
-      - "Writing backend tests that need existing shared assertions."
+      - "Writing backend tests that need existing shared assertions or unified HTTP envelope decoding."
     do_not_use_when:
       - "Adding production helper logic or module-private test setup."
     examples:
       - "server/internal/testassert/string_set.go"
+      - "server/internal/testassert/http_envelope.go"
     related_assets:
       - "testent-helpers"
     validation_commands:

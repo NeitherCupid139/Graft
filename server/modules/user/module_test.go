@@ -40,20 +40,13 @@ import (
 	"graft/server/internal/module"
 	"graft/server/internal/moduleapi"
 	"graft/server/internal/permission"
+	"graft/server/internal/testassert"
 	authmodule "graft/server/modules/auth"
 	"graft/server/modules/rbac"
 	rbacstore "graft/server/modules/rbac/store"
 	usercontract "graft/server/modules/user/contract"
 	store "graft/server/modules/user/store"
 )
-
-type successEnvelope[T any] struct {
-	Success bool   `json:"success"`
-	Code    string `json:"code"`
-	Message string `json:"message"`
-	TraceID string `json:"traceId"`
-	Data    T      `json:"data"`
-}
 
 type loginResponse struct {
 	AccessToken        string            `json:"access_token"`
@@ -67,18 +60,7 @@ const testAPIBasePath = "/api"
 func decodeSuccessData[T any](t *testing.T, recorder *httptest.ResponseRecorder) T {
 	t.Helper()
 
-	var payload successEnvelope[T]
-	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode success envelope: %v", err)
-	}
-	if !payload.Success || payload.Code != "OK" || payload.TraceID == "" {
-		t.Fatalf("expected stable success envelope, got %#v", payload)
-	}
-	if recorder.Header().Get(httpx.RequestIDHeader) != payload.TraceID {
-		t.Fatalf("expected response header trace id to match payload, got header=%q payload=%#v", recorder.Header().Get(httpx.RequestIDHeader), payload)
-	}
-
-	return payload.Data
+	return testassert.DecodeSuccessData[T](t, recorder)
 }
 
 func adaptTestAuthRepository(repo store.AuthRepository) userstoreAuthPair {
@@ -919,34 +901,19 @@ func assertStatus(t *testing.T, recorder *httptest.ResponseRecorder, want int) {
 func decodeErrorResponse(t *testing.T, recorder *httptest.ResponseRecorder) httpx.ErrorResponse {
 	t.Helper()
 
-	var payload httpx.ErrorResponse
-	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
-
-	return payload
-}
-
-func assertErrorPayload(t *testing.T, payload httpx.ErrorResponse, messageKey string, code string, locale string) {
-	t.Helper()
-
-	if payload.MessageKey != messageKey || payload.Code != code || payload.Locale != locale {
-		t.Fatalf("expected error payload key=%s code=%s locale=%s, got %#v", messageKey, code, locale, payload)
-	}
+	return testassert.DecodeErrorResponse(t, recorder)
 }
 
 func assertContractErrorPayload(t *testing.T, payload httpx.ErrorResponse, messageKey messagecontract.Key, locale string) {
 	t.Helper()
 
-	assertErrorPayload(t, payload, messageKey.String(), errorcodecontract.FromMessageKey(messageKey).String(), locale)
+	testassert.AssertContractErrorPayload(t, payload, messageKey, locale)
 }
 
 func assertErrorFieldDetail(t *testing.T, payload httpx.ErrorResponse, field string) {
 	t.Helper()
 
-	if payload.Details["field"] != field {
-		t.Fatalf("expected field detail %s, got %#v", field, payload)
-	}
+	testassert.AssertErrorFieldDetail(t, payload, field)
 }
 
 func assertSessionRevoked(t *testing.T, authRepo store.AuthRepository, tokenID string) {
@@ -1582,10 +1549,7 @@ func TestUserRouteReturnsNotFoundContract(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusNotFound, recorder.Code)
 	}
 
-	var payload httpx.ErrorResponse
-	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
+	payload := decodeErrorResponse(t, recorder)
 	assertContractErrorPayload(t, payload, messagecontract.UserNotFound, "en-US")
 	if payload.Message != "User not found" || payload.Error != payload.Message {
 		t.Fatalf("expected not found payload, got %#v", payload)
@@ -1808,10 +1772,7 @@ func TestUserListRouteReturnsInternalErrorContract(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, recorder.Code)
 	}
 
-	var payload httpx.ErrorResponse
-	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
+	payload := decodeErrorResponse(t, recorder)
 	if payload.MessageKey != messagecontract.CommonInternalError.String() || payload.Locale != "en-US" {
 		t.Fatalf("expected localized internal error payload, got %#v", payload)
 	}
@@ -3252,10 +3213,7 @@ func TestAdminListUserSessionsRouteReturnsNotFoundContract(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusNotFound, recorder.Code)
 	}
 
-	var payload httpx.ErrorResponse
-	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
+	payload := decodeErrorResponse(t, recorder)
 	if payload.MessageKey != messagecontract.UserNotFound.String() || payload.Locale != "en-US" {
 		t.Fatalf("expected user.not_found payload, got %#v", payload)
 	}
@@ -3581,10 +3539,7 @@ func TestLoginRouteRejectsInvalidCredentials(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, recorder.Code)
 	}
 
-	var payload httpx.ErrorResponse
-	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
+	payload := decodeErrorResponse(t, recorder)
 	assertContractErrorPayload(t, payload, messagecontract.AuthInvalidCredentials, "en-US")
 }
 
@@ -3624,10 +3579,7 @@ func TestLoginRouteRejectsMissingCredentials(t *testing.T) {
 				t.Fatalf("expected status %d, got %d", tc.wantStatus, recorder.Code)
 			}
 
-			var payload httpx.ErrorResponse
-			if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
-				t.Fatalf("decode response: %v", err)
-			}
+			payload := decodeErrorResponse(t, recorder)
 			assertContractErrorPayload(t, payload, messagecontract.CommonInvalidArgument, "zh-CN")
 			if payload.Details["field"] != tc.field {
 				t.Fatalf("expected %s field detail, got %#v", tc.field, payload.Details)
