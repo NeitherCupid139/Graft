@@ -16,12 +16,16 @@ CREATE TABLE "access_logs" (
   "username" varchar(191) NULL,
   "request_size" bigint NULL,
   "response_size" bigint NULL,
+  "started_at" timestamptz NOT NULL,
   "occurred_at" timestamptz NOT NULL
 );
 
+CREATE INDEX "idx_access_logs_started_at_id" ON "access_logs" ("started_at" DESC, "id" DESC);
 CREATE INDEX "idx_access_logs_occurred_at_id" ON "access_logs" ("occurred_at" DESC, "id" DESC);
 CREATE INDEX "idx_access_logs_request_id" ON "access_logs" ("request_id");
+CREATE INDEX "idx_access_logs_route_started_at" ON "access_logs" ("route", "started_at" DESC);
 CREATE INDEX "idx_access_logs_route_occurred_at" ON "access_logs" ("route", "occurred_at" DESC);
+CREATE INDEX "idx_access_logs_user_id_started_at" ON "access_logs" ("user_id", "started_at" DESC);
 CREATE INDEX "idx_access_logs_user_id_occurred_at" ON "access_logs" ("user_id", "occurred_at" DESC);
 
 COMMENT ON TABLE "access_logs" IS 'HTTP 访问日志表';
@@ -39,4 +43,5 @@ COMMENT ON COLUMN "access_logs"."user_id" IS '认证用户 ID，为空表示匿�
 COMMENT ON COLUMN "access_logs"."username" IS '认证用户名，为空表示匿名请求';
 COMMENT ON COLUMN "access_logs"."request_size" IS '请求体大小，单位字节';
 COMMENT ON COLUMN "access_logs"."response_size" IS '响应体大小，单位字节';
+COMMENT ON COLUMN "access_logs"."started_at" IS '请求开始时间';
 COMMENT ON COLUMN "access_logs"."occurred_at" IS '请求完成时间';

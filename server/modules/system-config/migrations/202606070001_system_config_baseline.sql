@@ -1,20 +1,17 @@
 -- Copyright (c) 2025-2026 GeWuYou
 -- SPDX-License-Identifier: Apache-2.0
 
--- system_config_values records which user wrote each override when request context provides one.
+-- system_config_values stores user overrides only.
+-- ConfigDefinition metadata and defaults remain module-registered runtime authority.
 
-ALTER TABLE system_config_values
-    ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NULL,
-    ADD COLUMN IF NOT EXISTS created_by BIGINT NULL,
-    ADD COLUMN IF NOT EXISTS updated_by BIGINT NULL;
-
-UPDATE system_config_values
-SET created_at = updated_at
-WHERE created_at IS NULL;
-
-ALTER TABLE system_config_values
-    ALTER COLUMN created_at SET DEFAULT NOW(),
-    ALTER COLUMN created_at SET NOT NULL;
+CREATE TABLE system_config_values (
+    key TEXT PRIMARY KEY,
+    override_value JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_by BIGINT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_by BIGINT NULL
+);
 
 COMMENT ON TABLE system_config_values IS '用户提供的系统配置覆盖值表';
 COMMENT ON COLUMN system_config_values.key IS '模块注册的稳定配置定义键';

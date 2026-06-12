@@ -21,6 +21,14 @@ CREATE INDEX "idx_app_logs_severity_occurred_at" ON "app_logs" ("severity", "occ
 CREATE INDEX "idx_app_logs_component_occurred_at" ON "app_logs" ("component", "occurred_at" DESC);
 CREATE INDEX "idx_app_logs_request_id" ON "app_logs" ("request_id");
 CREATE INDEX "idx_app_logs_trace_id" ON "app_logs" ("trace_id");
+CREATE INDEX "idx_app_logs_keyword_search"
+ON "app_logs"
+USING GIN (
+  to_tsvector(
+    'simple',
+    "component" || ' ' || COALESCE("operation", '') || ' ' || "message" || ' ' || COALESCE("error", '')
+  )
+);
 
 COMMENT ON TABLE "app_logs" IS '应用运行日志表';
 COMMENT ON COLUMN "app_logs"."id" IS '主键 ID';
