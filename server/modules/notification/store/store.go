@@ -56,7 +56,7 @@ type Delivery struct {
 	TargetType      string
 	TargetRef       string
 	ReadAt          *time.Time
-	DeletedAt       *time.Time
+	DeletedAt       int64
 	CreatedAt       time.Time
 }
 

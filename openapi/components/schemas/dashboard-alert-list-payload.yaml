@@ -26,6 +26,12 @@ properties:
         occurred_at:
           type: string
           format: date-time
+        action_label_key:
+          type: string
+          description: Optional key-first action label for this alert row.
+        action_label:
+          type: string
+          description: Optional fallback action label for this alert row.
         route_location:
           type: string
   empty_key:

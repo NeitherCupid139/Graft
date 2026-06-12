@@ -462,13 +462,13 @@ func TestAuditRiskEventsDashboardWidgetLoadsRiskPayload(t *testing.T) {
 		id, _ := item["id"].(string)
 		itemsByID[id] = item
 	}
-	if itemsByID["audit.high-risk"]["route_location"] != "/audit/logs?preset=last_24h&scope=high_risk_operations" {
+	if itemsByID["audit.high-risk"]["route_location"] != "/audit/logs?preset=last_24h&risk_levels=HIGH%2CCRITICAL" {
 		t.Fatalf("expected high risk item to drill into audit logs, got %#v", itemsByID["audit.high-risk"])
 	}
-	if itemsByID["audit.failed-operations"]["route_location"] != "/audit/logs?preset=last_24h&scope=failed_operations" {
+	if itemsByID["audit.failed-operations"]["route_location"] != "/audit/logs?preset=last_24h&results=FAILED%2CDENIED%2CERROR" {
 		t.Fatalf("expected failed operations item to drill into audit logs, got %#v", itemsByID["audit.failed-operations"])
 	}
-	if itemsByID["audit.failed-auth"]["route_location"] != "/audit/logs?preset=last_24h&scope=auth_failures" {
+	if itemsByID["audit.failed-auth"]["route_location"] != "/audit/logs?business_category=auth_failures&preset=last_24h" {
 		t.Fatalf("expected failed auth item to drill into audit scope, got %#v", itemsByID["audit.failed-auth"])
 	}
 	if itemsByID["audit.high-risk"]["count"] != 2 {
@@ -480,8 +480,8 @@ func TestAuditRiskEventsDashboardWidgetLoadsRiskPayload(t *testing.T) {
 	if itemsByID["audit.failed-auth"]["count"] != 4 {
 		t.Fatalf("expected failed auth count to come from risk group count, got %#v", itemsByID["audit.failed-auth"])
 	}
-	if itemsByID["audit.permission-denied"]["count"] != 3 {
-		t.Fatalf("expected permission denied count to come from risk group count, got %#v", itemsByID["audit.permission-denied"])
+	if _, ok := itemsByID["audit.permission-denied"]; ok {
+		t.Fatalf("permission denied is no longer a dashboard security entry, got %#v", itemsByID["audit.permission-denied"])
 	}
 }
 

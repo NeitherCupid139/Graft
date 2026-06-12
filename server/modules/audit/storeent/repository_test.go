@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"math"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -919,6 +920,238 @@ func TestAuditResultWhereClauseHandlesServerErrors(t *testing.T) {
 	clause := auditResultWhereClause()
 	if !strings.Contains(clause, "(metadata ->> 'status_code')::int >= 500") {
 		t.Fatalf("expected 5xx branch in audit result clause, got %s", clause)
+	}
+}
+
+func TestAuditResultExpressionsUseSharedClassificationBranches(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		expression string
+	}{
+		{name: "portable", expression: auditResultExpression()},
+		{name: "postgres", expression: auditResultPostgresExpression()},
+	} {
+		if !strings.Contains(tc.expression, "WHEN success THEN 'SUCCESS'") {
+			t.Fatalf("%s expression missing success branch: %s", tc.name, tc.expression)
+		}
+		for _, branch := range []string{
+			"= '403' THEN 'DENIED'",
+			"OR COALESCE(metadata ->> 'error_kind', '') = 'system'",
+			"OR COALESCE(metadata ->> 'error', '') <> '' THEN 'ERROR'",
+			"ELSE 'FAILED'",
+		} {
+			if !strings.Contains(tc.expression, branch) {
+				t.Fatalf("%s expression missing shared branch %q: %s", tc.name, branch, tc.expression)
+			}
+		}
+	}
+	if !strings.Contains(auditResultExpression(), "THEN CAST(metadata ->> 'status_code' AS INTEGER)") {
+		t.Fatalf("expected portable result expression to keep guarded cast branch, got %s", auditResultExpression())
+	}
+	if !strings.Contains(auditResultPostgresExpression(), "(metadata ->> 'status_code')::int >= 500") {
+		t.Fatalf("expected postgres result expression to keep postgres cast branch, got %s", auditResultPostgresExpression())
+	}
+}
+
+func TestAuditRiskLevelExpressionsUseSharedClassificationBranches(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		expression string
+	}{
+		{name: "portable", expression: auditRiskLevelExpression()},
+		{name: "postgres", expression: auditRiskLevelPostgresExpression()},
+	} {
+		for _, branch := range []string{
+			"= '403'",
+			"OR COALESCE(metadata ->> 'error_kind', '') = 'system'",
+			"OR COALESCE(metadata ->> 'error', '') <> ''",
+			"THEN 'CRITICAL'",
+			"LOWER(action) LIKE '%%reset_password%%'",
+			"THEN 'HIGH'",
+			"LOWER(action) LIKE '%%login_failed%%'",
+			"THEN 'MEDIUM'",
+			"ELSE 'LOW'",
+		} {
+			if !strings.Contains(tc.expression, branch) {
+				t.Fatalf("%s expression missing shared branch %q: %s", tc.name, branch, tc.expression)
+			}
+		}
+	}
+	if !strings.Contains(auditRiskLevelExpression(), "THEN CAST(metadata ->> 'status_code' AS INTEGER)") {
+		t.Fatalf("expected portable risk expression to keep guarded cast branch, got %s", auditRiskLevelExpression())
+	}
+	if !strings.Contains(auditRiskLevelPostgresExpression(), "(metadata ->> 'status_code')::int >= 500") {
+		t.Fatalf("expected postgres risk expression to keep postgres cast branch, got %s", auditRiskLevelPostgresExpression())
+	}
+}
+
+func TestAuditResultAndRiskClassifiersCoverRepresentativeInputs(t *testing.T) {
+	tests := []struct {
+		name       string
+		success    bool
+		action     string
+		metadata   map[string]string
+		wantResult string
+		wantRisk   string
+	}{
+		{
+			name:       "success",
+			success:    true,
+			action:     "user.update",
+			metadata:   map[string]string{"status_code": "200"},
+			wantResult: "SUCCESS",
+			wantRisk:   "LOW",
+		},
+		{
+			name:       "denied",
+			success:    false,
+			action:     "rbac.role.delete",
+			metadata:   map[string]string{"status_code": "403"},
+			wantResult: "DENIED",
+			wantRisk:   "CRITICAL",
+		},
+		{
+			name:       "server error",
+			success:    false,
+			action:     "audit.export",
+			metadata:   map[string]string{"status_code": "500"},
+			wantResult: "ERROR",
+			wantRisk:   "CRITICAL",
+		},
+		{
+			name:       "system error kind",
+			success:    false,
+			action:     "audit.export",
+			metadata:   map[string]string{"error_kind": "system"},
+			wantResult: "ERROR",
+			wantRisk:   "CRITICAL",
+		},
+		{
+			name:       "failed without error metadata",
+			success:    false,
+			action:     "audit.export",
+			metadata:   map[string]string{"status_code": "400"},
+			wantResult: "FAILED",
+			wantRisk:   "HIGH",
+		},
+		{
+			name:       "critical action",
+			success:    true,
+			action:     "user.reset_password",
+			metadata:   map[string]string{"status_code": "200"},
+			wantResult: "SUCCESS",
+			wantRisk:   "CRITICAL",
+		},
+		{
+			name:       "medium auth action",
+			success:    true,
+			action:     "auth.login",
+			metadata:   map[string]string{"status_code": "200"},
+			wantResult: "SUCCESS",
+			wantRisk:   "MEDIUM",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, builder := range []struct {
+				name    string
+				builder auditMetadataExpressionBuilder
+			}{
+				{name: "portable", builder: literalMetadataExpressionBuilderForTest(tc.metadata)},
+				{name: "postgres", builder: literalMetadataExpressionBuilderForTest(tc.metadata)},
+			} {
+				resultExpression := auditResultExpressionWith(
+					sqlBoolLiteralForTest(tc.success),
+					"metadata",
+					builder.builder,
+				)
+				if got := evalStringExpressionForTest(t, resultExpression); got != tc.wantResult {
+					t.Fatalf("%s result classifier mismatch: got %s want %s", builder.name, got, tc.wantResult)
+				}
+
+				riskExpression := auditRiskLevelExpressionWith(
+					sqlBoolLiteralForTest(tc.success),
+					sqlStringLiteralForTest(tc.action),
+					"metadata",
+					builder.builder,
+				)
+				if got := evalStringExpressionForTest(t, riskExpression); got != tc.wantRisk {
+					t.Fatalf("%s risk classifier mismatch: got %s want %s", builder.name, got, tc.wantRisk)
+				}
+			}
+		})
+	}
+}
+
+func TestOverviewSummaryUsesCanonicalResultAndRiskExpressions(t *testing.T) {
+	if !strings.Contains(overviewSummarySQL, "IN ('FAILED', 'DENIED', 'ERROR')") {
+		t.Fatalf("expected failed operations to use normalized non-success results, got %s", overviewSummarySQL)
+	}
+	if !strings.Contains(overviewSummarySQL, "IN ('HIGH', 'CRITICAL')") {
+		t.Fatalf("expected high-risk events to use normalized risk levels, got %s", overviewSummarySQL)
+	}
+	if strings.Contains(overviewSummarySQL, "WHERE success = false) AS failed_operations") {
+		t.Fatalf("failed operations must not collapse to raw success=false, got %s", overviewSummarySQL)
+	}
+}
+
+func literalMetadataExpressionBuilderForTest(metadata map[string]string) auditMetadataExpressionBuilder {
+	return auditMetadataExpressionBuilder{
+		textValue: func(_ string, key string) string {
+			return sqlStringLiteralForTest(metadata[key])
+		},
+		numericAtLeast: func(_ string, key string, threshold int) string {
+			value, err := strconv.Atoi(metadata[key])
+			if err != nil || value < threshold {
+				return "0 = 1"
+			}
+			return "1 = 1"
+		},
+	}
+}
+
+func evalStringExpressionForTest(t *testing.T, expression string) string {
+	t.Helper()
+
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatalf("open expression db: %v", err)
+	}
+	defer func() {
+		if closeErr := db.Close(); closeErr != nil {
+			t.Fatalf("close expression db: %v", closeErr)
+		}
+	}()
+
+	var got string
+	if err := db.QueryRow("SELECT " + expression).Scan(&got); err != nil {
+		t.Fatalf("evaluate expression %s: %v", expression, err)
+	}
+	return got
+}
+
+func sqlBoolLiteralForTest(value bool) string {
+	if value {
+		return "1"
+	}
+	return "0"
+}
+
+func sqlStringLiteralForTest(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "''") + "'"
+}
+
+func TestOverviewTrendUsesCanonicalResultAndRiskExpressions(t *testing.T) {
+	resultExpression := auditOverviewTrendResultExpression()
+	riskExpression := auditOverviewTrendRiskLevelExpression()
+	if !strings.Contains(resultExpression, "logs.metadata ->> 'status_code'") ||
+		!strings.Contains(riskExpression, "LOWER(logs.action)") {
+		t.Fatalf("expected trend expressions to use table-qualified canonical fields, result=%s risk=%s", resultExpression, riskExpression)
+	}
+	trendSQL := overviewTrendSeriesSQL("1 hour")
+	if !strings.Contains(trendSQL, "logs.id IS NOT NULL") {
+		t.Fatalf("expected trend counters to ignore empty left-join buckets")
 	}
 }
 

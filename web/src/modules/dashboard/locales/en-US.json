@@ -103,13 +103,16 @@
         "description": "Recent high-risk audit and security events.",
         "empty": "No audit risk events in the last 24 hours",
         "authFailures": {
+          "action": "View Authentication Failures",
           "description": "Authentication failures in the last 24 hours"
         },
         "failedOperations": {
+          "action": "View Failures",
           "description": "Failed operations need review",
           "title": "Failed Operations"
         },
         "highRisk": {
+          "action": "View Events",
           "description": "High-risk events in the last 24 hours",
           "title": "High-risk Audit Events"
         },

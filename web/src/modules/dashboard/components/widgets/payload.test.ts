@@ -25,6 +25,8 @@ describe('dashboard widget payload guards', () => {
       asAlertListPayload({
         items: [
           {
+            action_label: 'View authentication failures',
+            action_label_key: 'dashboard.widget.auditRiskEvents.authFailures.action',
             count: 4,
             id: 'risk.auth',
             level: 'warning',

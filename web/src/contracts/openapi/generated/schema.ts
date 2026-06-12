@@ -3201,6 +3201,10 @@ export interface components {
         count?: number;
         /** Format: date-time */
         occurred_at?: string;
+        /** @description Optional key-first action label for this alert row. */
+        action_label_key?: string;
+        /** @description Optional fallback action label for this alert row. */
+        action_label?: string;
         route_location?: string;
       }[];
       empty_key?: string;

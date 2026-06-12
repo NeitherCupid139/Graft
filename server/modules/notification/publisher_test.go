@@ -274,6 +274,7 @@ func TestRepositoryCreateDeliveriesRejectsInvalidBatchWithoutPartialInsert(t *te
 
 func TestServiceKeepsDeliveryMutationsUserScoped(t *testing.T) {
 	stack := newNotificationTestStack(t)
+	deletedAt := time.Date(2026, 6, 9, 11, 0, 0, 0, time.UTC)
 
 	result, err := stack.publisher.Publish(context.Background(), validPublishInput())
 	if err != nil {
@@ -313,8 +314,16 @@ func TestServiceKeepsDeliveryMutationsUserScoped(t *testing.T) {
 	if count != 1 {
 		t.Fatalf("expected one unread delivery from the wrong-user rejection case, got %d", count)
 	}
-	if err := stack.service.DeleteDelivery(context.Background(), 42, deliveryID, time.Now().UTC()); err != nil {
+	if err := stack.service.DeleteDelivery(context.Background(), 42, deliveryID, deletedAt); err != nil {
 		t.Fatalf("delete delivery: %v", err)
+	}
+	requireDeletedDeliveryEpoch(t, stack.db, deliveryID, deletedAt)
+	count, err = stack.service.UnreadCount(context.Background(), 42)
+	if err != nil {
+		t.Fatalf("unread count after delete: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("expected deleted read delivery to stay hidden from unread count, got %d", count)
 	}
 }
 
@@ -394,6 +403,17 @@ func requireUnreadDeliveryForUser(t *testing.T, db *sql.DB, deliveryID uint64, u
 	}
 	if storedUserID != userID || storedReadAt.Valid {
 		t.Fatalf("wrong-user read changed delivery state: user=%d read_valid=%v", storedUserID, storedReadAt.Valid)
+	}
+}
+
+func requireDeletedDeliveryEpoch(t *testing.T, db *sql.DB, deliveryID uint64, deletedAt time.Time) {
+	t.Helper()
+	var storedDeletedAt int64
+	if err := db.QueryRow(`SELECT deleted_at FROM notification_deliveries WHERE id = ?`, deliveryID).Scan(&storedDeletedAt); err != nil {
+		t.Fatalf("read deleted delivery state: %v", err)
+	}
+	if storedDeletedAt != deletedAt.Unix() {
+		t.Fatalf("expected deleted_at epoch %d, got %d", deletedAt.Unix(), storedDeletedAt)
 	}
 }
 
@@ -574,7 +594,7 @@ func newNotificationTestDB(t *testing.T) *sql.DB {
 		target_type TEXT NOT NULL,
 		target_ref TEXT NOT NULL DEFAULT '',
 		read_at TIMESTAMP NULL,
-		deleted_at TIMESTAMP NULL,
+		deleted_at INTEGER NOT NULL DEFAULT 0,
 		created_at TIMESTAMP NOT NULL,
 		UNIQUE (event_id, recipient_user_id),
 		FOREIGN KEY (event_id) REFERENCES notification_events(id)
