@@ -1,0 +1,126 @@
+{
+  "menu": {
+    "server": {
+      "announcements": {
+        "title": "Announcements"
+      }
+    }
+  },
+  "announcement": {
+    "route": {
+      "management": {
+        "title": "Announcement Management",
+        "breadcrumb": "Announcement Management"
+      }
+    },
+    "management": {
+      "title": "Announcement Management",
+      "description": "Manage long-running platform announcements, publishing time, and visibility status for all users.",
+      "refresh": "Refresh",
+      "create": "Create Announcement",
+      "search": "Search",
+      "reset": "Clear Filters",
+      "summary": "{count} Announcements",
+      "tableHint": "Filter announcements by status, level, pinned state, and keyword.",
+      "loadFailed": "Failed to Load Announcements",
+      "errorTitle": "Announcement Data Is Temporarily Unavailable",
+      "retry": "Retry",
+      "emptyTitle": "No Announcements",
+      "emptyDescription": "No announcements match the current filters. Clear filters or create a new announcement.",
+      "emptyCreate": "Create Announcement",
+      "footerTotal": "{count} Announcements Total",
+      "createSuccess": "Announcement Created",
+      "updateSuccess": "Announcement Updated",
+      "publishSuccess": "Announcement Published",
+      "archiveSuccess": "Announcement Archived",
+      "deleteSuccess": "Announcement Deleted",
+      "submitFailed": "Failed to Submit Announcement",
+      "publishFailed": "Failed to Publish Announcement",
+      "archiveFailed": "Failed to Archive Announcement",
+      "deleteFailed": "Failed to Delete Announcement",
+      "detailLoadFailed": "Failed to Load Announcement Details",
+      "deleteConfirm": "Delete this announcement?",
+      "publishNow": "Publish Now",
+      "archive": "Archive",
+      "delete": "Delete",
+      "detail": "Details",
+      "edit": "Edit",
+      "more": "More",
+      "columns": {
+        "title": "Announcement",
+        "status": "Status",
+        "level": "Level",
+        "pinned": "Pinned",
+        "publishAt": "Publish At",
+        "expireAt": "Expire At",
+        "updatedAt": "Updated At",
+        "operation": "Actions"
+      },
+      "filters": {
+        "keyword": "Search title or content",
+        "status": "Filter Status",
+        "level": "Filter Level",
+        "pinned": "Filter Pinned",
+        "sort": "Sort"
+      },
+      "sort": {
+        "updatedDesc": "Recently Updated",
+        "publishDesc": "Recently Published",
+        "pinnedPublishDesc": "Pinned First"
+      },
+      "form": {
+        "createTitle": "Create Announcement",
+        "editTitle": "Edit Announcement",
+        "basicInfo": "Announcement Content",
+        "visibility": "Visibility Window",
+        "title": "Title",
+        "titlePlaceholder": "Enter announcement title",
+        "content": "Content",
+        "contentPlaceholder": "Enter announcement content",
+        "level": "Level",
+        "levelPlaceholder": "Select announcement level",
+        "publishAt": "Publish At",
+        "expireAt": "Expire At",
+        "publishAtPlaceholder": "Select publish time",
+        "expireAtPlaceholder": "Select expire time",
+        "pinned": "Pinned Announcement",
+        "cancel": "Cancel",
+        "confirm": "Save Announcement",
+        "required": {
+          "title": "Announcement title is required",
+          "content": "Announcement content is required",
+          "level": "Announcement level is required"
+        },
+        "invalidTimeWindow": "Expire time must be later than publish time"
+      },
+      "detailDrawer": {
+        "title": "Announcement Details",
+        "basic": "Basic Information",
+        "content": "Content",
+        "timeline": "Time Information",
+        "createdAt": "Created At",
+        "updatedAt": "Updated At",
+        "publishAt": "Publish At",
+        "expireAt": "Expire At"
+      }
+    },
+    "status": {
+      "draft": "Draft",
+      "published": "Published",
+      "archived": "Archived"
+    },
+    "level": {
+      "info": "Info",
+      "warning": "Warning",
+      "success": "Success",
+      "error": "Error"
+    },
+    "pinned": {
+      "yes": "Pinned",
+      "no": "Normal"
+    },
+    "value": {
+      "notSet": "Not Set"
+    }
+  }
+}
