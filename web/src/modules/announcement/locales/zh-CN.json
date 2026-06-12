@@ -11,7 +11,42 @@
       "management": {
         "title": "公告管理",
         "breadcrumb": "公告管理"
+      },
+      "user": {
+        "title": "公告中心",
+        "breadcrumb": "公告中心"
       }
+    },
+    "header": {
+      "open": "打开公告中心"
+    },
+    "user": {
+      "title": "公告中心",
+      "description": "查看平台维护、版本更新、安全提醒和长期信息。",
+      "refresh": "刷新",
+      "markRead": "标为已读",
+      "markAllRead": "全部已读",
+      "unreadOnly": "仅看未读",
+      "summary": "共 {count} 条公告",
+      "unreadSummary": "{count} 条未读",
+      "listHint": "置顶公告优先展示，已读状态仅对当前账号生效。",
+      "loadFailed": "公告列表加载失败",
+      "errorTitle": "公告数据暂时不可用",
+      "retry": "重试",
+      "loading": "正在加载公告",
+      "emptyTitle": "暂无公告",
+      "emptyDescription": "当前没有可查看的公告。",
+      "emptyUnreadTitle": "暂无未读公告",
+      "emptyUnreadDescription": "当前没有未读公告，可查看全部公告。",
+      "showAll": "查看全部",
+      "footerTotal": "共 {count} 条公告",
+      "publishAt": "发布时间",
+      "expireAt": "过期时间",
+      "readAt": "阅读时间",
+      "markReadSuccess": "公告已标为已读",
+      "markReadFailed": "标记公告失败",
+      "markAllReadSuccess": "全部公告已标为已读",
+      "markAllReadFailed": "全部已读失败"
     },
     "management": {
       "title": "公告管理",
@@ -118,6 +153,10 @@
     "pinned": {
       "yes": "置顶",
       "no": "普通"
+    },
+    "readState": {
+      "read": "已读",
+      "unread": "未读"
     },
     "value": {
       "notSet": "未设置"

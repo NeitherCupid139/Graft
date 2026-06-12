@@ -4,8 +4,10 @@
 -->
 
 <template>
+  <component :is="announcementHeaderEntry" />
   <component :is="notificationHeaderWidget" />
 </template>
 <script setup lang="ts">
+import { announcementHeaderEntry } from '@/modules/announcement';
 import { notificationHeaderWidget } from '@/modules/notification';
 </script>

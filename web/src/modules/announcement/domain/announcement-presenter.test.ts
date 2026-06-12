@@ -8,6 +8,7 @@ import {
   announcementLevelTheme,
   announcementStatusTheme,
   presentAnnouncement,
+  resolveAnnouncementUnread,
   resolvePinnedLabel,
 } from './announcement-presenter';
 
@@ -18,6 +19,8 @@ const labels: Record<string, string> = {
   'announcement.level.warning': 'Warning',
   'announcement.pinned.no': 'Normal',
   'announcement.pinned.yes': 'Pinned',
+  'announcement.readState.read': 'Read',
+  'announcement.readState.unread': 'Unread',
   'announcement.status.archived': 'Archived',
   'announcement.status.draft': 'Draft',
   'announcement.status.published': 'Published',
@@ -57,10 +60,18 @@ describe('announcement presenter', () => {
     expect(view.levelLabel).toBe('Warning');
     expect(view.pinnedLabel).toBe('Pinned');
     expect(view.publishAtLabel).toBe('Not Set');
+    expect(view.unread).toBe(true);
+    expect(view.unreadLabel).toBe('Unread');
   });
 
   it('resolves pinned labels without template branching', () => {
     expect(resolvePinnedLabel(true, translate)).toBe('Pinned');
     expect(resolvePinnedLabel(false, translate)).toBe('Normal');
+  });
+
+  it('prefers explicit unread state and falls back to read_at when needed', () => {
+    expect(resolveAnnouncementUnread({ unread: false, read_at: null } as AnnouncementItem)).toBe(false);
+    expect(resolveAnnouncementUnread({ read_at: '2026-06-12T01:00:00Z' } as AnnouncementItem)).toBe(false);
+    expect(resolveAnnouncementUnread({ read_at: null } as AnnouncementItem)).toBe(true);
   });
 });

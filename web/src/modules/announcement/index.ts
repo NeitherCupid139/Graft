@@ -3,14 +3,17 @@
 
 import type { WebModuleRegistration } from '@/modules/types';
 
-import { announcementBootstrapRouteRegistrations } from './bootstrap-routes';
+import { announcementBootstrapRouteRegistrations, announcementGlobalRouteRegistrations } from './bootstrap-routes';
+import AnnouncementHeaderEntry from './components/AnnouncementHeaderEntry.vue';
 import { ANNOUNCEMENT_PERMISSION_CODE } from './contract/permissions';
 
 export const announcementModuleRegistration: WebModuleRegistration = {
   moduleId: 'announcement',
   bootstrapRoutes: announcementBootstrapRouteRegistrations,
+  globalRoutes: announcementGlobalRouteRegistrations,
 };
 
 export const announcementModulePermissionCodes = ANNOUNCEMENT_PERMISSION_CODE;
+export const announcementHeaderEntry = AnnouncementHeaderEntry;
 
 export default announcementModuleRegistration;

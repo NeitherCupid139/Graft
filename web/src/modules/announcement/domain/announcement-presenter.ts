@@ -25,10 +25,13 @@ export type AnnouncementViewModel = {
   pinned: boolean;
   pinnedLabel: string;
   publishAtLabel: string;
+  readAtLabel: string;
   status: AnnouncementStatus;
   statusLabel: string;
   statusTheme: AnnouncementTagTheme;
   title: string;
+  unread: boolean;
+  unreadLabel: string;
   updatedAtLabel: string;
 };
 
@@ -48,10 +51,13 @@ export function presentAnnouncement(
     pinned: item.pinned,
     pinnedLabel: resolvePinnedLabel(item.pinned, t),
     publishAtLabel: formatAnnouncementDate(item.publish_at, locale, t),
+    readAtLabel: formatAnnouncementDate(item.read_at, locale, t),
     status: item.status,
     statusLabel: resolveAnnouncementStatusLabel(item.status, t),
     statusTheme: announcementStatusTheme(item.status),
     title: item.title,
+    unread: resolveAnnouncementUnread(item),
+    unreadLabel: resolveAnnouncementUnreadLabel(item, t),
     updatedAtLabel: formatAnnouncementDate(item.updated_at, locale, t),
   };
 }
@@ -66,6 +72,14 @@ function resolveAnnouncementLevelLabel(level: AnnouncementLevel, t: ComposerTran
 
 export function resolvePinnedLabel(pinned: boolean, t: ComposerTranslation) {
   return t(pinned ? ANNOUNCEMENT_PINNED_LABEL_KEY.true : ANNOUNCEMENT_PINNED_LABEL_KEY.false);
+}
+
+export function resolveAnnouncementUnread(item: AnnouncementItem) {
+  return typeof item.unread === 'boolean' ? item.unread : !item.read_at;
+}
+
+function resolveAnnouncementUnreadLabel(item: AnnouncementItem, t: ComposerTranslation) {
+  return t(resolveAnnouncementUnread(item) ? 'announcement.readState.unread' : 'announcement.readState.read');
 }
 
 export function announcementStatusTheme(status: AnnouncementStatus): AnnouncementTagTheme {

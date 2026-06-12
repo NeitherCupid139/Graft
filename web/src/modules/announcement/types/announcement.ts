@@ -5,6 +5,8 @@ import type { components } from '@/contracts/openapi/generated/schema';
 
 export type AnnouncementItem = components['schemas']['announcement-item'];
 export type AnnouncementListResponse = components['schemas']['announcement-list-response'];
+export type AnnouncementReadAllResponse = components['schemas']['announcement-read-all-response'];
+export type AnnouncementUnreadCountResponse = components['schemas']['announcement-unread-count-response'];
 export type AnnouncementStatus = components['schemas']['announcement-status'];
 export type AnnouncementLevel = components['schemas']['announcement-level'];
 export type CreateAnnouncementRequest = components['schemas']['create-announcement-request'];
@@ -23,6 +25,12 @@ export type AnnouncementListQuery = {
   pinned?: boolean;
   sort?: AnnouncementSort;
   status?: AnnouncementStatus;
+};
+
+export type MyAnnouncementListQuery = {
+  page?: number;
+  page_size?: number;
+  unread_only?: boolean;
 };
 
 export type AnnouncementFilterState = {

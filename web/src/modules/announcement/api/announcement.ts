@@ -9,12 +9,16 @@ import {
   buildAnnouncementArchiveApiPath,
   buildAnnouncementDetailApiPath,
   buildAnnouncementPublishApiPath,
+  buildMyAnnouncementReadApiPath,
 } from '../contract/paths';
 import type {
   AnnouncementItem,
   AnnouncementListQuery,
   AnnouncementListResponse,
+  AnnouncementReadAllResponse,
+  AnnouncementUnreadCountResponse,
   CreateAnnouncementRequest,
+  MyAnnouncementListQuery,
   PublishAnnouncementRequest,
   UpdateAnnouncementRequest,
 } from '../types/announcement';
@@ -62,6 +66,30 @@ type PostAnnouncementArchiveEnvelope =
 type PostAnnouncementArchiveData = NonNullable<PostAnnouncementArchiveEnvelope['data']>;
 type PostAnnouncementArchivePathParams = PostAnnouncementArchiveOperation['parameters']['path'];
 
+type MyAnnouncementListPath = (typeof ANNOUNCEMENT_API_PATH)['MY_LIST'];
+type GetMyAnnouncementsOperation = paths[MyAnnouncementListPath]['get'];
+type GetMyAnnouncementsEnvelope = GetMyAnnouncementsOperation['responses'][200]['content']['application/json'];
+type GetMyAnnouncementsData = NonNullable<GetMyAnnouncementsEnvelope['data']>;
+type GetMyAnnouncementsQuery = NonNullable<GetMyAnnouncementsOperation['parameters']['query']>;
+
+type MyAnnouncementReadPath = (typeof ANNOUNCEMENT_API_PATH)['MY_READ'];
+type PostMyAnnouncementReadOperation = paths[MyAnnouncementReadPath]['post'];
+type PostMyAnnouncementReadEnvelope = PostMyAnnouncementReadOperation['responses'][200]['content']['application/json'];
+type PostMyAnnouncementReadData = NonNullable<PostMyAnnouncementReadEnvelope['data']>;
+type PostMyAnnouncementReadPathParams = PostMyAnnouncementReadOperation['parameters']['path'];
+
+type MyAnnouncementReadAllPath = (typeof ANNOUNCEMENT_API_PATH)['MY_READ_ALL'];
+type PostMyAnnouncementsReadAllOperation = paths[MyAnnouncementReadAllPath]['post'];
+type PostMyAnnouncementsReadAllEnvelope =
+  PostMyAnnouncementsReadAllOperation['responses'][200]['content']['application/json'];
+type PostMyAnnouncementsReadAllData = NonNullable<PostMyAnnouncementsReadAllEnvelope['data']>;
+
+type MyAnnouncementUnreadCountPath = (typeof ANNOUNCEMENT_API_PATH)['MY_UNREAD_COUNT'];
+type GetMyAnnouncementsUnreadCountOperation = paths[MyAnnouncementUnreadCountPath]['get'];
+type GetMyAnnouncementsUnreadCountEnvelope =
+  GetMyAnnouncementsUnreadCountOperation['responses'][200]['content']['application/json'];
+type GetMyAnnouncementsUnreadCountData = NonNullable<GetMyAnnouncementsUnreadCountEnvelope['data']>;
+
 export function getAnnouncements(query?: AnnouncementListQuery) {
   return request.get<GetAnnouncementsData>({
     url: ANNOUNCEMENT_API_PATH.LIST,
@@ -102,6 +130,31 @@ export function archiveAnnouncement(id: PostAnnouncementArchivePathParams['id'])
   }) as Promise<AnnouncementItem>;
 }
 
+export function getMyAnnouncements(query?: MyAnnouncementListQuery) {
+  return request.get<GetMyAnnouncementsData>({
+    url: ANNOUNCEMENT_API_PATH.MY_LIST,
+    params: normalizeMyAnnouncementListQuery(query),
+  }) as Promise<AnnouncementListResponse>;
+}
+
+export function markAnnouncementRead(id: PostMyAnnouncementReadPathParams['id']) {
+  return request.post<PostMyAnnouncementReadData>({
+    url: buildMyAnnouncementReadApiPath(id),
+  }) as Promise<AnnouncementItem>;
+}
+
+export function markAllAnnouncementsRead() {
+  return request.post<PostMyAnnouncementsReadAllData>({
+    url: ANNOUNCEMENT_API_PATH.MY_READ_ALL,
+  }) as Promise<AnnouncementReadAllResponse>;
+}
+
+export function getAnnouncementUnreadCount() {
+  return request.get<GetMyAnnouncementsUnreadCountData>({
+    url: ANNOUNCEMENT_API_PATH.MY_UNREAD_COUNT,
+  }) as Promise<AnnouncementUnreadCountResponse>;
+}
+
 export function deleteAnnouncement(id: DeleteAnnouncementPathParams['id']) {
   return request.delete<Record<string, never>>({
     url: buildAnnouncementDetailApiPath(id),
@@ -122,4 +175,16 @@ export function normalizeAnnouncementListQuery(query?: AnnouncementListQuery): G
     ...(query.sort ? { sort: query.sort } : {}),
     ...(query.status ? { status: query.status } : {}),
   } satisfies GetAnnouncementsQuery;
+}
+
+export function normalizeMyAnnouncementListQuery(query?: MyAnnouncementListQuery): GetMyAnnouncementsQuery | undefined {
+  if (!query) {
+    return undefined;
+  }
+
+  return {
+    ...(query.page ? { page: query.page } : {}),
+    ...(query.page_size ? { page_size: query.page_size } : {}),
+    ...(typeof query.unread_only === 'boolean' ? { unread_only: query.unread_only } : {}),
+  } satisfies GetMyAnnouncementsQuery;
 }

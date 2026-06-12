@@ -11,7 +11,42 @@
       "management": {
         "title": "Announcement Management",
         "breadcrumb": "Announcement Management"
+      },
+      "user": {
+        "title": "Announcement Center",
+        "breadcrumb": "Announcement Center"
       }
+    },
+    "header": {
+      "open": "Open Announcement Center"
+    },
+    "user": {
+      "title": "Announcement Center",
+      "description": "Review platform maintenance, release updates, security notices, and long-running information.",
+      "refresh": "Refresh",
+      "markRead": "Mark Read",
+      "markAllRead": "Mark All Read",
+      "unreadOnly": "Unread Only",
+      "summary": "{count} Announcements",
+      "unreadSummary": "{count} Unread",
+      "listHint": "Pinned announcements appear first. Read state only applies to the current account.",
+      "loadFailed": "Failed to Load Announcements",
+      "errorTitle": "Announcement Data Is Temporarily Unavailable",
+      "retry": "Retry",
+      "loading": "Loading Announcements",
+      "emptyTitle": "No Announcements",
+      "emptyDescription": "There are no visible announcements.",
+      "emptyUnreadTitle": "No Unread Announcements",
+      "emptyUnreadDescription": "There are no unread announcements. View all announcements instead.",
+      "showAll": "View All",
+      "footerTotal": "{count} Announcements Total",
+      "publishAt": "Publish At",
+      "expireAt": "Expire At",
+      "readAt": "Read At",
+      "markReadSuccess": "Announcement Marked Read",
+      "markReadFailed": "Failed to Mark Announcement",
+      "markAllReadSuccess": "All Announcements Marked Read",
+      "markAllReadFailed": "Failed to Mark All Read"
     },
     "management": {
       "title": "Announcement Management",
@@ -118,6 +153,10 @@
     "pinned": {
       "yes": "Pinned",
       "no": "Normal"
+    },
+    "readState": {
+      "read": "Read",
+      "unread": "Unread"
     },
     "value": {
       "notSet": "Not Set"

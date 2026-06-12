@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { normalizeAnnouncementListQuery } from './announcement';
+import { normalizeAnnouncementListQuery, normalizeMyAnnouncementListQuery } from './announcement';
 
 describe('announcement API query mapping', () => {
   it('omits empty filters and preserves typed backend parameters', () => {
@@ -28,5 +28,23 @@ describe('announcement API query mapping', () => {
 
   it('returns undefined for absent query objects', () => {
     expect(normalizeAnnouncementListQuery()).toBeUndefined();
+  });
+
+  it('maps current-user list query parameters without empty values', () => {
+    expect(
+      normalizeMyAnnouncementListQuery({
+        page: 2,
+        page_size: 10,
+        unread_only: false,
+      }),
+    ).toEqual({
+      page: 2,
+      page_size: 10,
+      unread_only: false,
+    });
+  });
+
+  it('omits absent current-user list query parameters', () => {
+    expect(normalizeMyAnnouncementListQuery()).toBeUndefined();
   });
 });

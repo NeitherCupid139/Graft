@@ -8,6 +8,10 @@ export const ANNOUNCEMENT_BOOTSTRAP_ROUTE = {
     menuPath: ANNOUNCEMENT_ROUTE_PATH.MANAGEMENT,
     routeName: 'AnnouncementManagement',
   },
+  USER_LIST: {
+    menuPath: ANNOUNCEMENT_ROUTE_PATH.USER_LIST,
+    routeName: 'AnnouncementUserList',
+  },
 } as const;
 
 export type AnnouncementBootstrapRouteName =
