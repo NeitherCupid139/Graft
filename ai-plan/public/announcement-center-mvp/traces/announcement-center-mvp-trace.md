@@ -15,6 +15,9 @@
 - Phase 2 完成管理端列表、创建、详情、更新、发布、归档、删除、状态流转、过滤排序、错误映射和 focused tests。
 - Phase 3 已提交：`e9d74363 feat(announcement): implement current-user API`。
 - Phase 3 完成用户侧列表、已读、全部已读、未读数、可见性规则和用户隔离 tests。
+- Phase 4 已提交：`cecea602 feat(announcement): add management web UI`。
+- Phase 4 完成 `web/src/modules/announcement` 管理端模块、API client、bootstrap route、presenter、i18n、
+  管理页和 focused/full web validation。
 
 ## Loop Batch State
 
@@ -25,14 +28,14 @@
     "phase-0-design-topic-persistence",
     "phase-1-openapi-server-foundation",
     "phase-2-server-management-api",
-    "phase-3-server-user-api"
+    "phase-3-server-user-api",
+    "phase-4-web-management-ui"
   ],
   "pending_batches": [
-    "phase-4-web-management-ui",
     "phase-5-user-entry-dashboard",
     "phase-6-validation-governance-closeout"
   ],
   "current_batch": null,
-  "next_batch": "phase-4-web-management-ui"
+  "next_batch": "phase-5-user-entry-dashboard"
 }
 ```
