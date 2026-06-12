@@ -599,6 +599,40 @@ func TestBuiltinExplicitTaskConfigTakesPrecedenceOverEffectiveDefault(t *testing
 	}
 }
 
+func TestGetTaskIncludesNextRunForEnabledScheduledEntry(t *testing.T) {
+	repo := newRunRepositoryRecorder()
+	runtime := New(zap.NewNop(), repo)
+	taskRepo := newTaskRepositoryRecorder()
+	runtime.SetTaskRepository(taskRepo)
+
+	seedRuntimeJob(t, runtime, cronx.Job{
+		Name:     "next-run-job",
+		Schedule: "0 0 17 * * *",
+		Handler: func(context.Context, string) (cronx.JobRunResult, error) {
+			return cronx.JobRunResult{Stage: "completed"}, nil
+		},
+	})
+	if err := runtime.Start(context.Background()); err != nil {
+		t.Fatalf("start runtime: %v", err)
+	}
+	defer func() {
+		if err := runtime.Stop(context.Background()); err != nil {
+			t.Fatalf("stop runtime: %v", err)
+		}
+	}()
+
+	task, err := runtime.GetTask(context.Background(), "next-run-job")
+	if err != nil {
+		t.Fatalf("get task: %v", err)
+	}
+	if task.NextRunAt == nil || task.NextRunAt.IsZero() {
+		t.Fatalf("expected next run timestamp for enabled scheduled entry, got %#v", task.NextRunAt)
+	}
+	if !task.NextRunAt.After(time.Now().Add(-time.Second)) {
+		t.Fatalf("expected next run timestamp to be in the future, got %s", task.NextRunAt.Format(time.RFC3339))
+	}
+}
+
 func TestUpdateTaskRejectsUnknownConfigBeforePersistence(t *testing.T) {
 	runtime := New(zap.NewNop(), newRunRepositoryRecorder())
 	taskRepo := newTaskRepositoryRecorder()

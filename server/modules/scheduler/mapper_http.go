@@ -120,6 +120,7 @@ func toScheduledTaskItem(task schedulercore.TaskSnapshot) generated.ScheduledTas
 		ConfigSource:    generated.ScheduledTaskItemConfigSource(task.ConfigSource),
 		EffectiveConfig: defaultJSONObject(task.EffectiveConfig),
 		LastRun:         lastRun,
+		NextRunAt:       task.NextRunAt,
 		Status:          status,
 		Running:         task.Running,
 		CreatedAt:       task.CreatedAt,

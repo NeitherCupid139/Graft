@@ -165,6 +165,7 @@ type TaskSnapshot struct {
 	JobDefinition   *JobDefinitionSnapshot
 	Running         bool
 	LastRun         *TaskRun
+	NextRunAt       *time.Time
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 	DeletedAt       *time.Time
@@ -926,6 +927,7 @@ func (r *CronRuntime) snapshotDefinition(ctx context.Context, definition TaskDef
 	}
 	r.mu.RLock()
 	_, snapshot.Running = r.running[definition.TaskKey]
+	snapshot.NextRunAt = r.nextRunAtLocked(definition.TaskKey)
 	r.mu.RUnlock()
 	if r.runs == nil {
 		return snapshot, nil
@@ -938,6 +940,18 @@ func (r *CronRuntime) snapshotDefinition(ctx context.Context, definition TaskDef
 		snapshot.LastRun = &latest
 	}
 	return snapshot, nil
+}
+
+func (r *CronRuntime) nextRunAtLocked(key string) *time.Time {
+	entryID, ok := r.entries[key]
+	if !ok {
+		return nil
+	}
+	next := r.cron.Entry(entryID).Next
+	if next.IsZero() {
+		return nil
+	}
+	return &next
 }
 
 func (r *CronRuntime) runDefinition(ctx context.Context, definition TaskDefinition, trigger RunTrigger) (TaskRun, error) {
