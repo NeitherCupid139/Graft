@@ -308,6 +308,11 @@ Prefer the repository skills below when their trigger matches the task:
 - `graft-table-design`
   - use when designing or changing database tables, Ent schemas, Atlas migrations, audit fields, soft delete fields,
     indexes, store query semantics, or database comments
+- `graft-sql-migration`
+  - use when creating or modifying live Atlas/PostgreSQL migration SQL, migration directories, table or column
+    comments, migration versions, indexes, unique constraints, foreign keys, or soft-delete columns; it owns the
+    `scripts/validate_sql_migrations.py` live SQL comment gate and keeps
+    `server/internal/ent/migrate/migrations/**` excluded as legacy/manual replay by default
 - `graft-worktree-init`
   - use when creating or rebuilding a local `Graft` git worktree and the setup should follow the repository-standard
     shared local resource rules without hard-coded machine paths
@@ -331,6 +336,9 @@ Prefer the repository skills below when their trigger matches the task:
 - `graft-lessons-learned`
   - use near task closeout when a corrected mistake, reusable anti-pattern, or stable implementation lesson should be
     captured in `ai-plan/lessons/*`, optionally promoted into design docs, or elevated into the correct `AGENTS.md`
+- `graft-shared-asset-reuse`
+  - use before adding, moving, renaming, removing, or replacing reusable frontend/backend/cross-boundary assets so the
+    curated shared asset registries stay useful without becoming full source-tree inventories
 - `graft-web-module-scaffold`
   - use when adding a new `web` feature module aligned with backend module semantics
 - `graft-web-vibe-coding`
@@ -552,12 +560,17 @@ Explicit commit trigger:
 - when the user explicitly invokes a repository commit trigger such as `$graft-commit`, treat it as permission to
   create one scoped commit for the current validated task slice, but still apply the ownership and mixed-change rules
   above before staging anything
+- if the confirmed owned scope contains multiple independently validated logical slices, or one safe commit cannot
+  cover the confirmed scope cleanly, `$graft-commit` may split the work into multiple scoped commits without asking for
+  repeated permission; each commit must still satisfy ownership, validation, staging, and message rules on its own
 - the trigger grants permission to commit the confirmed owned scope only; it does not permit bundling unrelated files,
   unknown changes, or all current working tree changes by default
 - if the current slice is not yet validated to the level required by its task class, finish the required validation
   before committing or explain why that validation cannot be completed yet
 - if the working tree is mixed and the owned scope cannot be separated confidently, the trigger does not override the
   fail-closed rule; stop and report the ambiguity instead of forcing a commit
+- batching is not a compatibility escape hatch; stop at the first ambiguous, unvalidated, or unsafe batch instead of
+  force-staging the remaining changes
 
 Closeout-driven commit evaluation:
 

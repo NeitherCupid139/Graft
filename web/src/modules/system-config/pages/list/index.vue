@@ -362,12 +362,13 @@
 <script setup lang="ts">
 import { CopyIcon, EditIcon, InfoCircleIcon, RefreshIcon, RollbackIcon, SearchIcon } from 'tdesign-icons-vue-next';
 import type { TreeNodeValue, TreeProps } from 'tdesign-vue-next';
-import { MessagePlugin } from 'tdesign-vue-next';
+import { MessagePlugin } from 'tdesign-vue-next/es/message';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import { formatCompactDateTime } from '@/shared/components/management';
 import { PageHeader } from '@/shared/components/page';
+import { copyText } from '@/shared/observability';
 import {
   configEditorContainer,
   ConfigEditorRenderer,
@@ -910,15 +911,19 @@ function shouldUseDrawerEditor(item: SystemConfigItem) {
 }
 
 async function copyConfigKey(key: string) {
+  let copied = false;
   try {
-    if (!navigator.clipboard?.writeText) {
-      throw new Error('Clipboard API is unavailable');
-    }
-    await navigator.clipboard.writeText(key);
-    MessagePlugin.success(t('systemConfig.list.advanced.copySuccess'));
+    copied = await copyText(key);
   } catch {
-    MessagePlugin.error(t('systemConfig.list.advanced.copyError'));
+    copied = false;
   }
+
+  if (copied) {
+    MessagePlugin.success(t('systemConfig.list.advanced.copySuccess'));
+    return;
+  }
+
+  MessagePlugin.error(t('systemConfig.list.advanced.copyError'));
 }
 
 function schemaDescription(schema: ConfigSchemaProperty) {

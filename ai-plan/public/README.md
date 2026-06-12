@@ -16,9 +16,6 @@ Overlay note:
   - Recovery entry: `ai-plan/public/rbac-feature-and-nplusone-hardening/README.md`
 - `rbac-further-development`
   - Recovery entry: `ai-plan/public/rbac-further-development/todos/rbac-further-development-tracking.md`
-- `scheduled-task-job-definition-model-closure`
-  - Recovery entry:
-    `ai-plan/public/scheduled-task-job-definition-model-closure/todos/scheduled-task-job-definition-model-closure-tracking.md`
 
 ## Archive Location
 

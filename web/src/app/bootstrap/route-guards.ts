@@ -4,14 +4,14 @@
 import 'nprogress/nprogress.css';
 
 import NProgress from 'nprogress';
-import { MessagePlugin } from 'tdesign-vue-next';
+import { MessagePlugin } from 'tdesign-vue-next/es/message';
 import type { Router, RouteRecordRaw } from 'vue-router';
 
 import { t } from '@/locales';
 import { AUTH_ROUTE_NAME, AUTH_ROUTE_PATH } from '@/modules/auth/contract/routes';
 import { useAuthSessionStore } from '@/modules/auth/store';
-import { resolveLocalizedErrorMessage } from '@/modules/shared/localized-api-error';
 import router from '@/router';
+import { resolveLocalizedErrorMessage } from '@/shared/localized-api-error';
 import { getPermissionStore } from '@/store';
 import { isRootEntryPath, resolveRuntimeHomePath, RUNTIME_ENTRY_FALLBACK_PATH } from '@/utils/route';
 import { PAGE_NOT_FOUND_ROUTE } from '@/utils/route/constant';
@@ -157,7 +157,8 @@ export function registerRouteGuards(targetRouter: Router = router) {
       try {
         // 本地没有 access token 时，仍允许先用 refresh cookie 静默恢复一次会话；
         // 只有 refresh 失败后才退回白名单/登录页，避免强制打断仍然有效的登录态。
-        const bootstrap = await userStore.refreshToken().then(() => userStore.bootstrap(true));
+        await userStore.refreshToken();
+        const bootstrap = await userStore.bootstrap(true);
         permissionStore.setBootstrapSnapshot(bootstrap);
 
         if (!permissionStore.routesInitialized) {

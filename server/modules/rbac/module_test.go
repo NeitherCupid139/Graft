@@ -23,12 +23,12 @@ import (
 	generated "graft/server/internal/contract/openapi/generated"
 	"graft/server/internal/cronx"
 	"graft/server/internal/dashboard"
-	"graft/server/internal/httpx"
 	"graft/server/internal/i18n"
 	"graft/server/internal/menu"
 	"graft/server/internal/module"
 	"graft/server/internal/moduleapi"
 	"graft/server/internal/permission"
+	"graft/server/internal/testassert"
 	rbaccontract "graft/server/modules/rbac/contract"
 	store "graft/server/modules/rbac/store"
 	usercontract "graft/server/modules/user/contract"
@@ -606,18 +606,12 @@ func TestRoleRoutesListRoles(t *testing.T) {
 		t.Fatalf("expected status 200, got %d", recorder.Code)
 	}
 
-	var payload httpx.SuccessResponse[generated.RoleListResponse]
-	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode response: %v", err)
+	payload := testassert.DecodeSuccessData[generated.RoleListResponse](t, recorder)
+	if len(payload.Items) != 1 {
+		t.Fatalf("expected one role item, got %#v", payload.Items)
 	}
-	if !payload.Success || payload.Code != "OK" {
-		t.Fatalf("expected success envelope, got %#v", payload)
-	}
-	if len(payload.Data.Items) != 1 {
-		t.Fatalf("expected one role item, got %#v", payload.Data.Items)
-	}
-	if payload.Data.Items[0].Builtin != true || payload.Data.Items[0].Name != "admin" {
-		t.Fatalf("unexpected role item: %#v", payload.Data.Items[0])
+	if payload.Items[0].Builtin != true || payload.Items[0].Name != "admin" {
+		t.Fatalf("unexpected role item: %#v", payload.Items[0])
 	}
 }
 
@@ -667,10 +661,7 @@ func TestRoleRoutesListRolesRejectInvalidQueryValues(t *testing.T) {
 				t.Fatalf("expected status 400, got %d", recorder.Code)
 			}
 
-			var payload httpx.ErrorResponse
-			if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
-				t.Fatalf("decode response: %v", err)
-			}
+			payload := testassert.DecodeErrorResponse(t, recorder)
 			if payload.MessageKey != messagecontract.CommonInvalidArgument.String() || payload.Details["field"] != tc.field {
 				t.Fatalf("unexpected invalid-query payload: %#v", payload)
 			}
@@ -698,11 +689,8 @@ func TestRoleRoutesListRolePermissionBindings(t *testing.T) {
 		t.Fatalf("expected status 200, got %d", recorder.Code)
 	}
 
-	var payload httpx.SuccessResponse[generated.RolePermissionBindingResponse]
-	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
-	if len(payload.Data.PermissionIds) != 2 || payload.Data.PermissionIds[0] != 2 || payload.Data.PermissionIds[1] != 5 {
+	payload := testassert.DecodeSuccessData[generated.RolePermissionBindingResponse](t, recorder)
+	if len(payload.PermissionIds) != 2 || payload.PermissionIds[0] != 2 || payload.PermissionIds[1] != 5 {
 		t.Fatalf("unexpected role permission bindings payload: %#v", payload)
 	}
 }
@@ -723,10 +711,7 @@ func TestRoleRoutesListRolePermissionBindingsRejectMissingReadPermission(t *test
 		t.Fatalf("expected status 403, got %d", recorder.Code)
 	}
 
-	var payload httpx.ErrorResponse
-	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
+	payload := testassert.DecodeErrorResponse(t, recorder)
 	if payload.MessageKey != messagecontract.AuthForbidden.String() || payload.Code != "AUTH_FORBIDDEN" || payload.Locale != "en-US" {
 		t.Fatalf("unexpected forbidden payload: %#v", payload)
 	}
@@ -751,10 +736,7 @@ func TestPermissionRoutesRejectMissingPermission(t *testing.T) {
 		t.Fatalf("expected status 403, got %d", recorder.Code)
 	}
 
-	var payload httpx.ErrorResponse
-	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
+	payload := testassert.DecodeErrorResponse(t, recorder)
 	if payload.MessageKey != messagecontract.AuthForbidden.String() || payload.Code != "AUTH_FORBIDDEN" {
 		t.Fatalf("unexpected forbidden payload: %#v", payload)
 	}
@@ -795,14 +777,11 @@ func TestPermissionRoutesListPermissions(t *testing.T) {
 		t.Fatalf("expected status 200, got %d", recorder.Code)
 	}
 
-	var payload httpx.SuccessResponse[generated.PermissionListResponse]
-	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode response: %v", err)
+	payload := testassert.DecodeSuccessData[generated.PermissionListResponse](t, recorder)
+	if len(payload.Items) != 1 {
+		t.Fatalf("expected one permission item, got %#v", payload.Items)
 	}
-	if len(payload.Data.Items) != 1 {
-		t.Fatalf("expected one permission item, got %#v", payload.Data.Items)
-	}
-	item := payload.Data.Items[0]
+	item := payload.Items[0]
 	if item.Code != rbaccontract.PermissionReadPermission.String() ||
 		item.CreatedAt != "2026-05-22T09:00:00Z" ||
 		item.UpdatedAt != "2026-05-23T10:30:00Z" ||
@@ -841,10 +820,7 @@ func TestRolePermissionAssignRouteRejectsBuiltinAdminPermissionChanges(t *testin
 	if recorder.Code != http.StatusForbidden {
 		t.Fatalf("expected status 403, got %d", recorder.Code)
 	}
-	var payload httpx.ErrorResponse
-	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
+	payload := testassert.DecodeErrorResponse(t, recorder)
 	if payload.MessageKey != messagecontract.RbacBuiltinAdminPermissionsImmutable.String() ||
 		payload.Code != "RBAC_BUILTIN_ADMIN_PERMISSIONS_IMMUTABLE" {
 		t.Fatalf("unexpected builtin-admin-permission payload: %#v", payload)
@@ -871,10 +847,7 @@ func TestPermissionDetailRouteMapsMissingPermissionToDedicatedNotFound(t *testin
 		t.Fatalf("expected status 404, got %d", recorder.Code)
 	}
 
-	var payload httpx.ErrorResponse
-	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
+	payload := testassert.DecodeErrorResponse(t, recorder)
 	if payload.MessageKey != messagecontract.PermissionNotFound.String() || payload.Code != "PERMISSION_NOT_FOUND" {
 		t.Fatalf("unexpected permission-not-found payload: %#v", payload)
 	}
@@ -900,10 +873,7 @@ func TestPermissionRoutesPropagateReadFailure(t *testing.T) {
 		t.Fatalf("expected status 500, got %d", recorder.Code)
 	}
 
-	var payload httpx.ErrorResponse
-	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
+	payload := testassert.DecodeErrorResponse(t, recorder)
 	if payload.MessageKey != messagecontract.CommonInternalError.String() || payload.Code != "COMMON_INTERNAL_ERROR" {
 		t.Fatalf("unexpected internal-error payload: %#v", payload)
 	}
@@ -947,11 +917,8 @@ func TestRoleCreateRouteCreatesRole(t *testing.T) {
 		t.Fatalf("expected status 200, got %d", recorder.Code)
 	}
 
-	var payload httpx.SuccessResponse[generated.RoleListItem]
-	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
-	if !payload.Success || payload.Data.Id != 3 || payload.Data.Name != "operator" {
+	payload := testassert.DecodeSuccessData[generated.RoleListItem](t, recorder)
+	if payload.Id != 3 || payload.Name != "operator" {
 		t.Fatalf("unexpected create-role payload: %#v", payload)
 	}
 }
@@ -976,10 +943,7 @@ func TestRoleUpdateRouteRejectsBuiltinRoleRename(t *testing.T) {
 		t.Fatalf("expected status 400, got %d", recorder.Code)
 	}
 
-	var payload httpx.ErrorResponse
-	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
+	payload := testassert.DecodeErrorResponse(t, recorder)
 	if payload.MessageKey != messagecontract.CommonInvalidArgument.String() || payload.Details["field"] != "name" {
 		t.Fatalf("unexpected builtin-role update payload: %#v", payload)
 	}
@@ -1043,10 +1007,7 @@ func TestRolePermissionAssignRouteMapsMissingPermissionToInvalidArgument(t *test
 		t.Fatalf("expected status 400, got %d", recorder.Code)
 	}
 
-	var payload httpx.ErrorResponse
-	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
+	payload := testassert.DecodeErrorResponse(t, recorder)
 	if payload.MessageKey != messagecontract.CommonInvalidArgument.String() || payload.Details["field"] != "permission_ids" {
 		t.Fatalf("unexpected invalid-permission payload: %#v", payload)
 	}
@@ -1091,10 +1052,7 @@ func TestRolePermissionAssignRouteMapsDeletedPermissionIDsToInvalidArgument(t *t
 		t.Fatalf("expected status 400, got %d", recorder.Code)
 	}
 
-	var payload httpx.ErrorResponse
-	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
+	payload := testassert.DecodeErrorResponse(t, recorder)
 	if payload.MessageKey != messagecontract.CommonInvalidArgument.String() || payload.Details["field"] != "permission_ids" {
 		t.Fatalf("unexpected deleted-permission payload: %#v", payload)
 	}
@@ -1115,10 +1073,7 @@ func TestRoleStatusRouteRequiresDedicatedStatusPermission(t *testing.T) {
 		t.Fatalf("expected status 403, got %d", recorder.Code)
 	}
 
-	var payload httpx.ErrorResponse
-	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
+	payload := testassert.DecodeErrorResponse(t, recorder)
 	if payload.Details["permission"] != rbaccontract.RoleStatusUpdatePermission.String() {
 		t.Fatalf("unexpected denied permission detail: %#v", payload)
 	}
@@ -1137,10 +1092,7 @@ func TestRoleDeleteRouteRequiresDedicatedDeletePermission(t *testing.T) {
 		t.Fatalf("expected status 403, got %d", recorder.Code)
 	}
 
-	var payload httpx.ErrorResponse
-	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
+	payload := testassert.DecodeErrorResponse(t, recorder)
 	if payload.Details["permission"] != rbaccontract.RoleDeletePermission.String() {
 		t.Fatalf("unexpected denied permission detail: %#v", payload)
 	}
@@ -1164,11 +1116,8 @@ func TestUserRoleBindingRouteReturnsStableRoleIDs(t *testing.T) {
 		t.Fatalf("expected status 200, got %d", recorder.Code)
 	}
 
-	var payload httpx.SuccessResponse[generated.UserRoleBindingResponse]
-	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
-	if len(payload.Data.RoleIds) != 2 || payload.Data.RoleIds[0] != 2 || payload.Data.RoleIds[1] != 5 {
+	payload := testassert.DecodeSuccessData[generated.UserRoleBindingResponse](t, recorder)
+	if len(payload.RoleIds) != 2 || payload.RoleIds[0] != 2 || payload.RoleIds[1] != 5 {
 		t.Fatalf("unexpected user-role bindings payload: %#v", payload)
 	}
 }
@@ -1189,10 +1138,7 @@ func TestUserRoleBindingRouteReturnsUserNotFound(t *testing.T) {
 		t.Fatalf("expected status 404, got %d", recorder.Code)
 	}
 
-	var payload httpx.ErrorResponse
-	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
+	payload := testassert.DecodeErrorResponse(t, recorder)
 	if payload.MessageKey != messagecontract.UserNotFound.String() || payload.Code != "USER_NOT_FOUND" || payload.Locale != "en-US" {
 		t.Fatalf("unexpected user-role-binding payload: %#v", payload)
 	}
@@ -1219,10 +1165,7 @@ func TestUserRoleAssignRouteReturnsUserNotFound(t *testing.T) {
 		t.Fatalf("expected status 404, got %d", recorder.Code)
 	}
 
-	var payload httpx.ErrorResponse
-	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
+	payload := testassert.DecodeErrorResponse(t, recorder)
 	if payload.MessageKey != messagecontract.UserNotFound.String() || payload.Code != "USER_NOT_FOUND" || payload.Locale != "en-US" {
 		t.Fatalf("unexpected user-role-assign payload: %#v", payload)
 	}
@@ -1250,10 +1193,7 @@ func TestUserRoleAssignRouteMapsMissingRoleToInvalidArgument(t *testing.T) {
 		t.Fatalf("expected status 400, got %d", recorder.Code)
 	}
 
-	var payload httpx.ErrorResponse
-	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
+	payload := testassert.DecodeErrorResponse(t, recorder)
 	if payload.MessageKey != messagecontract.CommonInvalidArgument.String() || payload.Details["field"] != "role_ids" {
 		t.Fatalf("unexpected invalid-role payload: %#v", payload)
 	}
@@ -1292,10 +1232,7 @@ func TestUserRoleAssignRouteMapsDeletedRoleIDsToInvalidArgument(t *testing.T) {
 		t.Fatalf("expected status 400, got %d", recorder.Code)
 	}
 
-	var payload httpx.ErrorResponse
-	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
+	payload := testassert.DecodeErrorResponse(t, recorder)
 	if payload.MessageKey != messagecontract.CommonInvalidArgument.String() || payload.Details["field"] != "role_ids" {
 		t.Fatalf("unexpected deleted-role payload: %#v", payload)
 	}
@@ -1327,10 +1264,7 @@ func TestUserRoleAssignRouteRejectsRemovingOwnBuiltinAdmin(t *testing.T) {
 		t.Fatalf("expected status 403, got %d", recorder.Code)
 	}
 
-	var payload httpx.ErrorResponse
-	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
+	payload := testassert.DecodeErrorResponse(t, recorder)
 	if payload.MessageKey != messagecontract.RbacCannotRemoveOwnAdminRole.String() ||
 		payload.Code != "RBAC_CANNOT_REMOVE_OWN_ADMIN_ROLE" ||
 		payload.Locale != "en-US" {

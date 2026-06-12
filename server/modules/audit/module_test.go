@@ -30,6 +30,7 @@ import (
 	"graft/server/internal/module"
 	"graft/server/internal/moduleapi"
 	"graft/server/internal/permission"
+	"graft/server/internal/testassert"
 	auditcontract "graft/server/modules/audit/contract"
 	"graft/server/modules/audit/store"
 )
@@ -657,10 +658,7 @@ func TestAuditLogsRouteRejectsUnknownDrilldownScope(t *testing.T) {
 		t.Fatalf("expected status 400, got %d", recorder.Code)
 	}
 
-	var response httpx.ErrorResponse
-	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
-		t.Fatalf("decode error response: %v", err)
-	}
+	response := testassert.DecodeErrorResponse(t, recorder)
 	if field := response.Details["field"]; field != "scope" {
 		t.Fatalf("expected invalid scope field, got %#v", field)
 	}

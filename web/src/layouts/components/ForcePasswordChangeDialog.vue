@@ -56,7 +56,7 @@
 </template>
 <script setup lang="ts">
 import type { FormInstanceFunctions, FormRule, SubmitContext } from 'tdesign-vue-next';
-import { MessagePlugin } from 'tdesign-vue-next';
+import { MessagePlugin } from 'tdesign-vue-next/es/message';
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
@@ -64,7 +64,7 @@ import { API_CODE } from '@/contracts/api/codes';
 import { t } from '@/locales';
 import { completeRestrictedPasswordChange } from '@/modules/auth/runtime/restricted-session';
 import { useAuthSessionStore } from '@/modules/auth/store';
-import { resolveLocalizedErrorMessage } from '@/modules/shared/localized-api-error';
+import { resolveLocalizedErrorMessage } from '@/shared/localized-api-error';
 import { usePermissionStore } from '@/store';
 import { isApiRequestError } from '@/utils/request';
 

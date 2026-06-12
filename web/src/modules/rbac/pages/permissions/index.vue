@@ -244,14 +244,14 @@
   </div>
 </template>
 <script setup lang="ts">
-import { MessagePlugin, type TdBaseTableProps } from 'tdesign-vue-next';
+import type { TdBaseTableProps } from 'tdesign-vue-next';
+import { MessagePlugin } from 'tdesign-vue-next/es/message';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 
 import { buildAuditResourceLocation } from '@/modules/audit/contract/deep-link';
 import { openCorrelationErrorNotification, requestIdFromError } from '@/modules/audit/shared/correlation-actions';
-import { resolveLocalizedErrorMessage } from '@/modules/shared/localized-api-error';
 import {
   buildVisibleColumns,
   calculateTableContentWidth,
@@ -271,6 +271,7 @@ import {
 } from '@/shared/components/management';
 import { useTabPageSnapshot } from '@/shared/composables';
 import { resolveErrorMessageWithCorrelation } from '@/shared/correlation';
+import { resolveLocalizedErrorMessage } from '@/shared/localized-api-error';
 import { createLogger } from '@/utils/logger';
 
 import { getPermissionDetail, getPermissions } from '../../api/rbac';

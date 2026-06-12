@@ -307,6 +307,19 @@
   }
 }
 
+.app-shell .t-default-menu.@{starter-prefix}-side-nav {
+  position: fixed;
+  top: 0;
+}
+
+.app-shell .t-default-menu.@{starter-prefix}-side-nav.@{starter-prefix}-side-nav-mix-fixed {
+  top: var(--td-comp-size-xxxl);
+}
+
+.app-shell .t-default-menu.@{starter-prefix}-side-nav.@{starter-prefix}-side-nav-no-fixed {
+  position: relative;
+}
+
 @media (width <= 768px) {
   :root {
     --graft-page-min-padding: var(--graft-density-gap-16);

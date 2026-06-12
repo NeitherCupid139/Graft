@@ -28,6 +28,22 @@ func TestToScheduledTaskLastRunIncludesResultJSON(t *testing.T) {
 	}
 }
 
+func TestToScheduledTaskItemIncludesNextRunAt(t *testing.T) {
+	nextRunAt := time.Date(2026, 6, 12, 17, 0, 0, 0, time.UTC)
+	mapped := toScheduledTaskItem(schedulercore.TaskSnapshot{
+		ID:        7,
+		Key:       "httpx.access-log-retention-cleanup",
+		JobKey:    "httpx.access-log-retention-cleanup",
+		Schedule:  "0 0 17 * * *",
+		Enabled:   true,
+		NextRunAt: &nextRunAt,
+	})
+
+	if mapped.NextRunAt == nil || !mapped.NextRunAt.Equal(nextRunAt) {
+		t.Fatalf("expected next_run_at to be mapped, got %#v", mapped.NextRunAt)
+	}
+}
+
 func TestToScheduledTaskActionResultUsesSerializableFallback(t *testing.T) {
 	result := toScheduledTaskActionResult(schedulercore.JobActionResult{
 		ActionKey: "dryRun",

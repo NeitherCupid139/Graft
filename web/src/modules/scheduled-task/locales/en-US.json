@@ -16,6 +16,20 @@
       },
       "auditLogRetentionCleanup": {
         "title": "Audit log retention cleanup"
+      },
+      "category": {
+        "retention": "Retention",
+        "sync": "Sync",
+        "maintenance": "Maintenance",
+        "notification": "Notification",
+        "report": "Report",
+        "workflow": "Workflow",
+        "custom": "Custom"
+      },
+      "shortTitle": {
+        "accessLog": "Access Log",
+        "appLog": "App Log",
+        "auditLog": "Audit Log"
       }
     }
   },
@@ -86,8 +100,8 @@
       "everyMinute": "Runs once every minute.",
       "everyNMinutes": "Runs once every {interval} minutes.",
       "hourly": "Runs at the top of every hour.",
-      "daily": "Runs every day at {hour}:00.",
-      "weekly": "Runs weekly on day {dayOfWeek} at {hour}:00.",
+      "daily": "Runs every day at {time}.",
+      "weekly": "Runs weekly on day {dayOfWeek} at {time}.",
       "monthly": "Runs monthly on day {dayOfMonth} at {hour}:00.",
       "advanced": "Advanced Cron expression",
       "custom": "Current expression: {expression}",
@@ -175,7 +189,7 @@
     "list": {
       "eyebrow": "Service Management",
       "title": "Scheduled Tasks",
-      "description": "Manage scheduled tasks bound to registered Job Definitions, inspect run history, and trigger background runs.",
+      "description": "Manage background task schedules, enabled state, and run records.",
       "refresh": "Refresh",
       "create": "Create Task",
       "edit": "Edit",
@@ -192,10 +206,10 @@
       "tableHint": "{count} tasks match the current filters.",
       "metricsAriaLabel": "Scheduled Task Metrics",
       "emptyTitle": "No Scheduled Tasks",
-      "emptyDescription": "Scheduled tasks bound to registered Job Definitions will appear here.",
+      "emptyDescription": "Scheduled tasks bound to registered background task definitions will appear here.",
       "loadError": "Scheduled task data could not be loaded.",
       "detailLoadError": "Scheduled task details could not be loaded.",
-      "jobLoadError": "Job Definitions could not be loaded.",
+      "jobLoadError": "Task definitions could not be loaded.",
       "runSuccess": "Manual run started.",
       "runError": "Manual run could not be started.",
       "createSuccess": "Task created.",
@@ -217,25 +231,35 @@
         "failures24hDescription": "Failed runs in the last 24 hours"
       },
       "filters": {
-        "searchPlaceholder": "Search task, job key, owner, or module",
-        "jobType": "Job Type",
+        "searchPlaceholder": "Search task, task key, category, or module",
         "status": "Status",
-        "allJobTypes": "All Job Types",
-        "allStatuses": "All Statuses"
+        "allStatuses": "All Statuses",
+        "job": "Task Definition",
+        "allJobs": "All Task Definitions"
       },
       "columns": {
         "task": "Task",
         "taskName": "Task Name",
-        "jobType": "Job Type",
         "status": "Status",
         "cron": "Cron",
         "recentResult": "Recent Result",
         "recentRun": "Recent Run",
         "successRate": "Success Rate",
-        "operation": "Operations"
+        "operation": "Operations",
+        "category": "Category",
+        "job": "Job",
+        "owner": "Owner",
+        "schedule": "Schedule",
+        "lastRun": "Last Run"
+      },
+      "result": {
+        "completed": "Execution completed",
+        "deletedRows": "Deleted {count} rows",
+        "estimatedRows": "Estimated {count} rows eligible for deletion",
+        "failed": "Execution failed"
       },
       "status": {
-        "idle": "Idle",
+        "idle": "Pending Schedule",
         "running": "Running",
         "success": "Succeeded",
         "failed": "Failed",
@@ -252,16 +276,12 @@
       "form": {
         "createTitle": "Create Scheduled Task",
         "editTitle": "Edit Task",
-        "sectionJobType": "Job Type",
         "sectionBasic": "Task Description",
         "sectionExecutionPlan": "Execution Plan",
         "sectionEnabled": "Enabled Status",
         "sectionAdvancedConfig": "Advanced Config",
-        "jobType": "Job Type",
-        "jobTypePlaceholder": "Select a Job Definition",
         "jobKey": "Job Key",
         "module": "Module",
-        "owner": "Owner",
         "defaultCron": "Default Cron",
         "defaultConfig": "Default Config",
         "configSchema": "Config Schema",
@@ -277,18 +297,22 @@
         "configJsonPlaceholder": "{\n  \"window_days\": 30\n}",
         "formatJson": "Format JSON",
         "taskKeyRequiredHint": "Task Key is required.",
-        "jobTypeRequiredHint": "Job Type is required.",
         "titleRequiredHint": "Title is required.",
         "configJsonInvalidHint": "Config must be valid JSON.",
-        "cronRequiredHint": "Cron Expression is required.",
+        "cronRequiredHint": "Cron Expression is required for the selected Task Definition.",
         "cronInvalidHint": "Cron Expression is invalid.",
         "sectionConfig": "Task Config",
         "sectionBasicConfig": "Basic Config",
-        "configHint": "Fill config from the Job Definition JSON Schema.",
+        "configHint": "Fill fields from the task definition config schema without editing JSON by default.",
         "configSelectPlaceholder": "Select an option",
         "configNumberPlaceholder": "Enter a number",
         "configStringPlaceholder": "Enter a value",
-        "noConfigFields": "This Job Definition has no configurable fields."
+        "noConfigFields": "This task definition has no configurable fields.",
+        "sectionJobDefinition": "Task Definition",
+        "job": "Task Definition",
+        "jobPlaceholder": "Select a task definition",
+        "category": "Category",
+        "jobRequiredHint": "Task Definition is required."
       },
       "validation": {
         "required": "{field} is required.",
@@ -316,13 +340,13 @@
         "doneJson": "Done",
         "schemaDebug": "Schema Debug Info",
         "confirm": "Save Config",
-        "noJobDefinition": "Select a Job Definition before configuring task behavior.",
+        "noJobDefinition": "Select a task definition before configuring task behavior.",
         "saveSuccess": "Task config saved.",
         "saveError": "Task config could not be saved."
       },
       "action": {
-        "sectionTitle": "Job Actions",
-        "sectionHint": "Preview or inspect Job Definition actions without changing the persistent task config.",
+        "sectionTitle": "Task Actions",
+        "sectionHint": "Preview or inspect task actions without changing the persistent task config.",
         "confirmTitle": "Confirm Action",
         "confirm": "Run Action",
         "taskName": "Task Name",
@@ -365,14 +389,10 @@
         "key": "Task Key",
         "taskName": "Task Name",
         "description": "Description",
-        "owner": "Owner",
         "module": "Module",
         "enabled": "Enabled",
-        "jobType": "Job Type",
         "jobKey": "Job Key",
         "configJson": "Config JSON",
-        "scheduleType": "Schedule Type",
-        "scheduleRule": "Schedule Rule",
         "nextRun": "Next Run",
         "running": "Running",
         "status": "Status",
@@ -402,12 +422,41 @@
         "metrics": "Metrics",
         "details": "Details",
         "warnings": "Warnings",
-        "rawResultJson": "Raw Result JSON"
+        "rawResultJson": "Raw Result JSON",
+        "sections": {
+          "taskInstance": "Task Instance",
+          "jobDefinition": "Task Definition",
+          "configuration": "Configuration",
+          "runInfo": "Run Info",
+          "basicInfo": "Basic Info",
+          "scheduleInfo": "Schedule Info",
+          "configSummary": "Config Summary"
+        },
+        "cron": "Cron",
+        "builtin": "Builtin",
+        "configSource": "Config Source",
+        "jobName": "Job Name",
+        "jobShortName": "Job Short Name",
+        "category": "Category",
+        "defaultCron": "Default Cron",
+        "defaultConfig": "Default Config",
+        "configSchema": "Config Schema",
+        "noRecentRun": "No records yet",
+        "advancedInfo": "Advanced Info",
+        "rawJobDefinition": "Raw Task Definition"
       },
       "resource": {
         "accessLog": "Access Logs",
         "auditLog": "Audit Logs",
         "appLog": "App Logs"
+      },
+      "configSource": {
+        "system": "System Default",
+        "user": "User Override"
+      },
+      "statusLabels": {
+        "enabled": "Enabled",
+        "runtime": "Runtime"
       }
     },
     "notification": {

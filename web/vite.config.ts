@@ -4,15 +4,96 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { TDesignResolver } from '@tdesign-vue-next/auto-import-resolver';
 import UnoCSS from '@unocss/vite';
 import vue from '@vitejs/plugin-vue';
 import vueJsx from '@vitejs/plugin-vue-jsx';
+import AutoImport from 'unplugin-auto-import/vite';
+import type { ComponentInfo, ComponentResolveResult, ComponentResolverObject } from 'unplugin-vue-components';
+import Components from 'unplugin-vue-components/vite';
 import { type ConfigEnv, defineConfig, loadEnv, type ProxyOptions, type UserConfig } from 'vite';
 import { viteMockServe } from 'vite-plugin-mock';
 import svgLoader from 'vite-svg-loader';
 
 const CWD = process.cwd();
 const lessVariablesFile = path.resolve(CWD, 'src/style/variables.less');
+const tdesignVueNextPackageName = 'tdesign-vue-next';
+const tdesignVueNextEsmEntry = `${tdesignVueNextPackageName}/esm`;
+const tdesignComponentPathOverrides: Record<string, string> = {
+  Aside: 'layout',
+  BreadcrumbItem: 'breadcrumb',
+  CheckTag: 'tag',
+  CheckTagGroup: 'tag',
+  CheckboxGroup: 'checkbox',
+  Col: 'grid',
+  CollapsePanel: 'collapse',
+  Content: 'layout',
+  DateRangePicker: 'date-picker',
+  DescriptionsItem: 'descriptions',
+  DropdownItem: 'dropdown',
+  DropdownMenu: 'dropdown',
+  Footer: 'layout',
+  FormItem: 'form',
+  Header: 'layout',
+  HeadMenu: 'menu',
+  ListItem: 'list',
+  MenuItem: 'menu',
+  Option: 'select',
+  OptionGroup: 'select',
+  QRCode: 'qrcode',
+  RadioButton: 'radio',
+  RadioGroup: 'radio',
+  Row: 'grid',
+  Submenu: 'menu',
+  TabPanel: 'tabs',
+  TimelineItem: 'timeline',
+};
+
+function isComponentInfo(result: ComponentResolveResult): result is ComponentInfo {
+  return Boolean(result && typeof result === 'object' && !('then' in result) && 'from' in result);
+}
+
+function createTDesignVueNextResolver(): ComponentResolverObject {
+  const resolver = TDesignResolver({
+    library: 'vue-next',
+    esm: true,
+  }) as ComponentResolverObject;
+
+  return {
+    ...resolver,
+    resolve(name) {
+      const resolved = resolver.resolve?.(name);
+
+      if (!isComponentInfo(resolved) || resolved.from !== tdesignVueNextEsmEntry) {
+        return resolved;
+      }
+
+      const componentName = String(resolved.name);
+      const componentPath =
+        tdesignComponentPathOverrides[componentName] ??
+        componentName
+          .replace(/^([A-Z]+)([A-Z][a-z])/u, '$1-$2')
+          .replace(/([a-z0-9])([A-Z])/gu, '$1-$2')
+          .toLowerCase();
+      const componentStylePath = `${tdesignVueNextPackageName}/es/${componentPath}/style/css`;
+      const componentStyleFile = path.resolve(
+        CWD,
+        'node_modules',
+        tdesignVueNextPackageName,
+        'es',
+        componentPath,
+        'style',
+        'css.mjs',
+      );
+
+      return {
+        ...resolved,
+        from: `${tdesignVueNextPackageName}/es/${componentPath}`,
+        ...(fs.existsSync(componentStyleFile) ? { sideEffects: componentStylePath } : {}),
+      };
+    },
+  };
+}
 
 export function createViteConfig(mode: string): UserConfig {
   const env = loadEnv(mode, CWD, '');
@@ -21,6 +102,7 @@ export function createViteConfig(mode: string): UserConfig {
   const apiTarget = env.VITE_API_TARGET || 'http://127.0.0.1:3000';
   const proxyEnabled = env.VITE_IS_REQUEST_PROXY === 'true';
   const mockEnabled = mode === 'mock' || env.VITE_ENABLE_MOCK === 'true';
+  const tdesignAutoImportEnabled = mode !== 'test';
   const docsProxyPaths = ['/docs', '/openapi.json', '/openapi.yaml'] as const;
 
   const lessOptions = {
@@ -100,6 +182,18 @@ export function createViteConfig(mode: string): UserConfig {
       },
     },
     plugins: [
+      ...(tdesignAutoImportEnabled
+        ? [
+            AutoImport({
+              dts: false,
+              resolvers: [createTDesignVueNextResolver()],
+            }),
+            Components({
+              dts: false,
+              resolvers: [createTDesignVueNextResolver()],
+            }),
+          ]
+        : []),
       vue(),
       vueJsx(),
       UnoCSS(),

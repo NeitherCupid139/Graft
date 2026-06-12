@@ -75,6 +75,13 @@ vi.mock('tdesign-vue-next', () => ({
   },
 }));
 
+vi.mock('tdesign-vue-next/es/message', () => ({
+  MessagePlugin: {
+    error: messageMocks.error,
+    warning: messageMocks.warning,
+  },
+}));
+
 const passthroughStub = defineComponent({
   name: 'PassthroughStub',
   props: {

@@ -89,14 +89,14 @@
   </advanced-query-list-page>
 </template>
 <script setup lang="ts">
-import { MessagePlugin } from 'tdesign-vue-next';
+import { MessagePlugin } from 'tdesign-vue-next/es/message';
 import { computed, onActivated, onDeactivated, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 
-import { resolveLocalizedErrorMessage } from '@/modules/shared/localized-api-error';
 import { AdvancedQueryColumnDrawer, AdvancedQueryListPage } from '@/shared/components/query-list';
 import { describeCorrelationId, formatMessageWithCorrelation } from '@/shared/correlation';
+import { resolveLocalizedErrorMessage } from '@/shared/localized-api-error';
 import {
   buildRecentHoursLocalRange,
   createSingleSorter,

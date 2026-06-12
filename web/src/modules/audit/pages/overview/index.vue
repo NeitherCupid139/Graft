@@ -236,7 +236,7 @@ import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/compon
 import type { EChartsCoreOption } from 'echarts/core';
 import * as echarts from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
-import { MessagePlugin } from 'tdesign-vue-next';
+import { MessagePlugin } from 'tdesign-vue-next/es/message';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
@@ -247,9 +247,9 @@ import { AUDIT_ROUTE_PATH } from '@/modules/audit/contract/paths';
 import { AUDIT_DRILLDOWN_SCOPE } from '@/modules/audit/contract/presets';
 import { AUDIT_TIME_PRESET, type AuditTimePreset } from '@/modules/audit/contract/time-presets';
 import { openCorrelationErrorNotification, requestIdFromError } from '@/modules/audit/shared/correlation-actions';
-import { resolveLocalizedErrorMessage } from '@/modules/shared/localized-api-error';
 import { GovernanceDashboardShell, GovernanceSection, GovernanceSummaryCard } from '@/shared/components/governance';
 import { ManagementEmptyState } from '@/shared/components/management';
+import { resolveLocalizedErrorMessage } from '@/shared/localized-api-error';
 import {
   buildRecentHoursLocalRange,
   buildTrendAxisLabels,

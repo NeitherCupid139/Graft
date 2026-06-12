@@ -52,7 +52,15 @@ vi.mock('tdesign-vue-next', async () => {
   };
 });
 
-vi.mock('@/modules/shared/localized-api-error', () => ({
+vi.mock('tdesign-vue-next/es/message', () => ({
+  MessagePlugin: {
+    error: vi.fn(),
+    success: vi.fn(),
+    warning: vi.fn(),
+  },
+}));
+
+vi.mock('@/shared/localized-api-error', () => ({
   resolveLocalizedErrorMessage: (_t: unknown, _error: unknown, fallback: string) => fallback,
 }));
 

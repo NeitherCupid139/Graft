@@ -208,7 +208,6 @@ func (r *schedulerAPIRuntime) SetTaskEnabled(_ context.Context, key string, enab
 		r.setResult = schedulercore.TaskSnapshot{
 			Key:        key,
 			JobKey:     "scheduler.test-job",
-			ModuleKey:  "scheduler",
 			Title:      key,
 			Schedule:   "*/5 * * * * *",
 			Enabled:    enabled,
@@ -231,16 +230,18 @@ func (r *schedulerAPIRuntime) RunOnceWithTrigger(_ context.Context, key string, 
 	}
 	if r.runOnceResult.ID == 0 {
 		r.runOnceResult = schedulercore.TaskRun{
-			ID:          17,
-			TaskKey:     key,
-			JobKey:      "scheduler.test-job",
-			TaskName:    key,
-			Owner:       "scheduler",
-			Module:      "scheduler",
-			TriggerType: schedulercore.TriggerTypeManual,
-			Status:      schedulercore.RunStatusSuccess,
-			StartedAt:   time.Now().UTC(),
-			CreatedAt:   time.Now().UTC(),
+			ID:            17,
+			TaskKey:       key,
+			JobKey:        "scheduler.test-job",
+			TaskTitle:     key,
+			JobTitle:      "Scheduler test job",
+			JobShortTitle: "Test Job",
+			JobCategory:   "custom",
+			ModuleKey:     "scheduler",
+			TriggerType:   schedulercore.TriggerTypeManual,
+			Status:        schedulercore.RunStatusSuccess,
+			StartedAt:     time.Now().UTC(),
+			CreatedAt:     time.Now().UTC(),
 		}
 	}
 	return r.runOnceResult, nil
@@ -276,7 +277,6 @@ func taskSnapshotFromMutation(command schedulercore.TaskMutation) schedulercore.
 	return schedulercore.TaskSnapshot{
 		Key:         command.TaskKey,
 		JobKey:      command.JobKey,
-		ModuleKey:   "scheduler",
 		Title:       command.Title,
 		Description: command.Description,
 		Schedule:    command.CronExpression,
@@ -316,6 +316,73 @@ func (a *recordingAuthorizer) Authorize(_ context.Context, _ moduleapi.RequestAu
 	return nil
 }
 
+const schedulerModuleTestSchema = `CREATE TABLE scheduled_tasks (
+	id integer PRIMARY KEY AUTOINCREMENT,
+	task_key text NOT NULL,
+	job_key text NOT NULL DEFAULT '',
+	title_key text NOT NULL DEFAULT '',
+	title text NOT NULL DEFAULT '',
+	description_key text NOT NULL DEFAULT '',
+	description text NOT NULL DEFAULT '',
+	cron_expression text NOT NULL,
+	enabled boolean NOT NULL DEFAULT true,
+	builtin boolean NOT NULL DEFAULT false,
+	config_json text NOT NULL DEFAULT '{}',
+	config_source text NOT NULL DEFAULT 'system',
+	created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	deleted_at integer NOT NULL DEFAULT 0
+);
+CREATE UNIQUE INDEX scheduled_tasks_task_key_live_key
+	ON scheduled_tasks (task_key)
+	WHERE deleted_at = 0;
+CREATE TABLE scheduler_job_definitions (
+	id integer PRIMARY KEY AUTOINCREMENT,
+	job_key text NOT NULL,
+	module_key text NOT NULL DEFAULT '',
+	category text NOT NULL DEFAULT 'custom',
+	title_key text NOT NULL DEFAULT '',
+	title text NOT NULL DEFAULT '',
+	short_title_key text NOT NULL DEFAULT '',
+	short_title text NOT NULL DEFAULT '',
+	description_key text NOT NULL DEFAULT '',
+	description text NOT NULL DEFAULT '',
+	config_schema text NOT NULL DEFAULT '{}',
+	default_config text NOT NULL DEFAULT '{}',
+	default_cron text NOT NULL DEFAULT '',
+	default_enabled boolean NOT NULL DEFAULT false,
+	enabled boolean NOT NULL DEFAULT true,
+	created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	deleted_at integer NOT NULL DEFAULT 0
+);
+CREATE UNIQUE INDEX scheduler_job_definitions_job_key_live_key
+	ON scheduler_job_definitions (job_key)
+	WHERE deleted_at = 0;
+CREATE TABLE scheduler_task_runs (
+	id integer PRIMARY KEY AUTOINCREMENT,
+	task_key text NOT NULL,
+	job_key text NOT NULL DEFAULT '',
+	task_title text NOT NULL DEFAULT '',
+	task_title_key text NOT NULL DEFAULT '',
+	job_title text NOT NULL DEFAULT '',
+	job_title_key text NOT NULL DEFAULT '',
+	job_short_title text NOT NULL DEFAULT '',
+	job_short_title_key text NOT NULL DEFAULT '',
+	job_category text NOT NULL DEFAULT 'custom',
+	module_key text NOT NULL DEFAULT '',
+	task_builtin boolean NOT NULL DEFAULT false,
+	trigger_type text NOT NULL,
+	status text NOT NULL,
+	result_summary text NOT NULL DEFAULT '',
+	result_json text NOT NULL DEFAULT '{}',
+	error_message text NOT NULL DEFAULT '',
+	started_at datetime NOT NULL,
+	finished_at datetime NULL,
+	duration_ms integer NULL,
+	created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP
+)`
+
 func newModuleTestContext() *module.Context {
 	ctx, _ := newModuleTestContextWithEngine()
 	return ctx
@@ -328,67 +395,7 @@ func newModuleTestContextWithEngine() (*module.Context, *gin.Engine) {
 func newModuleTestContextWithEngineAndAuthorizer(authorizer moduleapi.Authorizer) (*module.Context, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
-	db, err := sql.Open("sqlite3", ":memory:")
-	if err != nil {
-		panic(err)
-	}
-	db.SetMaxOpenConns(1)
-	if _, err := db.Exec(`CREATE TABLE scheduled_tasks (
-		id integer PRIMARY KEY AUTOINCREMENT,
-		task_key text NOT NULL UNIQUE,
-		job_key text NOT NULL DEFAULT '',
-		module_key text NOT NULL DEFAULT '',
-		task_type text NOT NULL,
-		title text NOT NULL DEFAULT '',
-		description text NOT NULL DEFAULT '',
-		cron_expression text NOT NULL,
-			enabled boolean NOT NULL DEFAULT true,
-			builtin boolean NOT NULL DEFAULT false,
-			config_json text NOT NULL DEFAULT '{}',
-			config_source text NOT NULL DEFAULT 'system',
-			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			deleted_at integer NOT NULL DEFAULT 0
-	);
-	CREATE TABLE scheduler_job_definitions (
-		id integer PRIMARY KEY AUTOINCREMENT,
-		job_key text NOT NULL UNIQUE,
-		module_key text NOT NULL DEFAULT '',
-		title_key text NOT NULL DEFAULT '',
-		title text NOT NULL DEFAULT '',
-		description_key text NOT NULL DEFAULT '',
-		description text NOT NULL DEFAULT '',
-		config_schema text NOT NULL DEFAULT '{}',
-		default_config text NOT NULL DEFAULT '{}',
-		default_cron text NOT NULL DEFAULT '',
-		enabled boolean NOT NULL DEFAULT true,
-		created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		deleted_at datetime NULL
-	);
-	CREATE TABLE scheduler_task_runs (
-		id integer PRIMARY KEY AUTOINCREMENT,
-		task_key text NOT NULL,
-		job_key text NOT NULL DEFAULT '',
-		task_name text NOT NULL DEFAULT '',
-		task_name_key text NOT NULL DEFAULT '',
-		task_builtin boolean NOT NULL DEFAULT false,
-		owner text NOT NULL DEFAULT '',
-		module text NOT NULL DEFAULT '',
-		task_type text NOT NULL DEFAULT 'cron',
-		trigger_type text NOT NULL,
-		status text NOT NULL,
-		error text NOT NULL DEFAULT '',
-		result_summary text NOT NULL DEFAULT '',
-		result_json text NOT NULL DEFAULT '{}',
-		error_message text NOT NULL DEFAULT '',
-		started_at datetime NOT NULL,
-		finished_at datetime NULL,
-		duration_ms integer NULL,
-		created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP
-	)`); err != nil {
-		panic(err)
-	}
+	db := newSchedulerModuleTestDB()
 	services := container.New()
 	if err := services.RegisterSingleton((*sql.DB)(nil), func(container.Resolver) (any, error) {
 		return db, nil
@@ -418,6 +425,18 @@ func newModuleTestContextWithEngineAndAuthorizer(authorizer moduleapi.Authorizer
 		CronRegistry:       cronx.NewRegistry(),
 		DashboardRegistry:  dashboard.NewRegistry(),
 	}, engine
+}
+
+func newSchedulerModuleTestDB() *sql.DB {
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		panic(err)
+	}
+	db.SetMaxOpenConns(1)
+	if _, err := db.Exec(schedulerModuleTestSchema); err != nil {
+		panic(err)
+	}
+	return db
 }
 
 func (r *schedulerAPIRuntime) DeleteTask(_ context.Context, key string) error {
@@ -494,8 +513,8 @@ func TestSchedulerRunSuccessNotifierPublishesManualSuccessToTriggerUser(t *testi
 		ID:          99,
 		TaskKey:     "webhook.health",
 		JobKey:      "scheduler.webhook-health",
-		TaskName:    "Webhook Health",
-		TaskNameKey: "scheduler.job.webhookHealth.title",
+		TaskTitle:   "Webhook Health",
+		JobTitleKey: "scheduler.job.webhookHealth.title",
 		TaskBuiltin: false,
 		Status:      schedulercore.RunStatusSuccess,
 		Result:      "deleted 3 rows",
@@ -526,16 +545,17 @@ func TestSchedulerRunSuccessNotifierPublishesBuiltinTaskInstanceMetadata(t *test
 	finishedAt := time.Date(2026, 6, 11, 9, 30, 0, 0, time.UTC)
 
 	notifier.NotifyRunSucceeded(context.Background(), schedulercore.TaskRun{
-		ID:          99,
-		TaskKey:     "httpx.access-log-retention-cleanup",
-		JobKey:      "httpx.access-log-retention-cleanup",
-		TaskName:    "Access log retention cleanup",
-		TaskNameKey: "scheduler.job.accessLogRetentionCleanup.title",
-		TaskBuiltin: true,
-		Status:      schedulercore.RunStatusSuccess,
-		Result:      "deleted 0 rows",
-		FinishedAt:  &finishedAt,
-		CreatedAt:   finishedAt.Add(-time.Second),
+		ID:           99,
+		TaskKey:      "httpx.access-log-retention-cleanup",
+		JobKey:       "httpx.access-log-retention-cleanup",
+		TaskTitle:    "Access log retention cleanup",
+		TaskTitleKey: "scheduler.job.accessLogRetentionCleanup.title",
+		JobTitleKey:  "scheduler.job.accessLogRetentionCleanup.title",
+		TaskBuiltin:  true,
+		Status:       schedulercore.RunStatusSuccess,
+		Result:       "deleted 0 rows",
+		FinishedAt:   &finishedAt,
+		CreatedAt:    finishedAt.Add(-time.Second),
 	}, schedulercore.RunTrigger{Type: schedulercore.TriggerTypeManual, TriggerUserID: 42})
 
 	if len(publisher.inputs) != 1 {
@@ -543,7 +563,6 @@ func TestSchedulerRunSuccessNotifierPublishesBuiltinTaskInstanceMetadata(t *test
 	}
 	assertSchedulerRunSuccessMetadata(t, publisher.inputs[0].Metadata, expectedSchedulerRunSuccessMetadata{
 		runID:         99,
-		taskNameKey:   "scheduler.job.accessLogRetentionCleanup.title",
 		taskTitleKey:  "scheduler.job.accessLogRetentionCleanup.title",
 		taskName:      "Access log retention cleanup",
 		taskBuiltin:   true,
@@ -593,14 +612,14 @@ func TestSchedulerRunFailureNotifierStillPublishesPermissionTarget(t *testing.T)
 	notifier := schedulerRunFailureNotifier{publisher: publisher, logger: zap.NewNop()}
 
 	notifier.NotifyRunFailed(context.Background(), schedulercore.TaskRun{
-		ID:          101,
-		TaskKey:     "webhook.health",
-		JobKey:      "scheduler.webhook-health",
-		TaskName:    "Webhook Health",
-		TriggerType: schedulercore.TriggerTypeManual,
-		Status:      schedulercore.RunStatusFailed,
-		Error:       "boom",
-		CreatedAt:   time.Now().UTC(),
+		ID:           101,
+		TaskKey:      "webhook.health",
+		JobKey:       "scheduler.webhook-health",
+		TaskTitle:    "Webhook Health",
+		TriggerType:  schedulercore.TriggerTypeManual,
+		Status:       schedulercore.RunStatusFailed,
+		ErrorMessage: "boom",
+		CreatedAt:    time.Now().UTC(),
 	})
 
 	if len(publisher.inputs) != 1 {
@@ -731,7 +750,6 @@ func assertSchedulerRunPayload(t *testing.T, payload json.RawMessage, runID uint
 
 type expectedSchedulerRunSuccessMetadata struct {
 	runID         uint64
-	taskNameKey   string
 	taskTitleKey  string
 	taskName      string
 	taskBuiltin   bool
@@ -745,12 +763,11 @@ func assertSchedulerRunSuccessMetadata(t *testing.T, payload json.RawMessage, ex
 	t.Helper()
 	var decoded struct {
 		RunID         uint64 `json:"runId"`
-		TaskNameKey   string `json:"taskNameKey"`
 		TaskTitleKey  string `json:"taskTitleKey"`
 		TaskName      string `json:"taskName"`
 		TaskTitle     string `json:"taskTitle"`
 		TaskBuiltin   bool   `json:"taskBuiltin"`
-		JobType       string `json:"jobType"`
+		JobKey        string `json:"jobKey"`
 		JobTitleKey   string `json:"jobTitleKey"`
 		TriggerType   string `json:"triggerType"`
 		ResultSummary string `json:"resultSummary"`
@@ -759,10 +776,9 @@ func assertSchedulerRunSuccessMetadata(t *testing.T, payload json.RawMessage, ex
 		t.Fatalf("decode scheduler success metadata: %v", err)
 	}
 	if decoded.RunID != expected.runID ||
-		decoded.TaskNameKey != expected.taskNameKey ||
 		decoded.TaskTitleKey != expected.taskTitleKey ||
 		decoded.TaskBuiltin != expected.taskBuiltin ||
-		decoded.JobType != expected.jobKey ||
+		decoded.JobKey != expected.jobKey ||
 		decoded.JobTitleKey != expected.jobTitleKey ||
 		decoded.TriggerType != expected.triggerType ||
 		decoded.ResultSummary != expected.resultSummary {
@@ -862,15 +878,27 @@ func TestScheduledTaskListRouteReturnsRuntimeTasks(t *testing.T) {
 	moduleInstance.runtime = &schedulerAPIRuntime{
 		tasks: []schedulercore.TaskSnapshot{
 			{
-				Key:                   "audit.retention.cleanup",
-				JobKey:                "audit.audit-log-retention-cleanup",
-				Name:                  "audit-retention-cleanup",
-				ModuleKey:             "audit",
-				DisplayMessageKey:     "scheduledTask.auditLogRetention.title",
-				DescriptionMessageKey: "scheduledTask.auditLogRetention.description",
-				Schedule:              "0 0 * * * *",
-				Enabled:               true,
-				ConfigJSON:            "{}",
+				ID:             1,
+				Key:            "audit.retention.cleanup",
+				JobKey:         "audit.audit-log-retention-cleanup",
+				TitleKey:       "scheduledTask.auditLogRetention.title",
+				Title:          "Audit retention cleanup",
+				DescriptionKey: "scheduledTask.auditLogRetention.description",
+				Schedule:       "0 0 * * * *",
+				Enabled:        true,
+				ConfigJSON:     "{}",
+				ConfigSource:   "system",
+				JobDefinition: &schedulercore.JobDefinitionSnapshot{
+					JobKey:        "audit.audit-log-retention-cleanup",
+					ModuleKey:     "audit",
+					Category:      "retention",
+					TitleKey:      "scheduledTask.auditLogRetention.title",
+					Title:         "Audit retention cleanup",
+					ShortTitleKey: "scheduler.job.shortTitle.auditLog",
+					ShortTitle:    "Audit Log",
+				},
+				CreatedAt: time.Now().UTC(),
+				UpdatedAt: time.Now().UTC(),
 			},
 		},
 	}
@@ -910,8 +938,11 @@ func TestScheduledTaskJobDefinitionsRouteReturnsRuntimeJobDefinitions(t *testing
 			{
 				JobKey:         "audit.audit-log-retention-cleanup",
 				ModuleKey:      "audit",
+				Category:       "retention",
 				TitleKey:       "scheduledTask.auditLogRetention.title",
 				Title:          "Retention Cleanup",
+				ShortTitleKey:  "scheduler.job.shortTitle.auditLog",
+				ShortTitle:     "Audit Log",
 				DescriptionKey: "scheduledTask.auditLogRetention.description",
 				Description:    "Clean audit logs",
 				ConfigSchema:   `{"type":"object"}`,
@@ -941,18 +972,7 @@ func TestScheduledTaskJobDefinitionsRouteReturnsRuntimeJobDefinitions(t *testing
 	if !payload.Success || payload.Data.Total != 1 || len(payload.Data.Items) != 1 {
 		t.Fatalf("unexpected job definition list payload: %#v", payload)
 	}
-	item := payload.Data.Items[0]
-	if item.Key != "audit.audit-log-retention-cleanup" ||
-		item.Module != "audit" ||
-		item.DisplayNameKey != "scheduledTask.auditLogRetention.title" ||
-		item.DefaultCronExpression != "0 0 * * * *" ||
-		item.DefaultConfigJSON != `{"retention_days":30}` ||
-		len(item.Actions) != 1 ||
-		item.Actions[0].Key != "dryRun" ||
-		item.Actions[0].TitleKey != "scheduledTask.action.dryRun.title" ||
-		item.Actions[0].DescriptionKey != "scheduledTask.action.dryRun.description" {
-		t.Fatalf("unexpected job definition item: %#v", item)
-	}
+	assertScheduledTaskJobDefinitionListItem(t, payload.Data.Items[0])
 }
 
 func TestScheduledTaskJobDefinitionDetailRouteReturnsRuntimeJobDefinition(t *testing.T) {
@@ -963,8 +983,11 @@ func TestScheduledTaskJobDefinitionDetailRouteReturnsRuntimeJobDefinition(t *tes
 			{
 				JobKey:         "audit.audit-log-retention-cleanup",
 				ModuleKey:      "audit",
+				Category:       "retention",
 				TitleKey:       "scheduledTask.auditLogRetention.title",
 				Title:          "Retention Cleanup",
+				ShortTitleKey:  "scheduler.job.shortTitle.auditLog",
+				ShortTitle:     "Audit Log",
 				DescriptionKey: "scheduledTask.auditLogRetention.description",
 				Description:    "Clean audit logs",
 				ConfigSchema:   `{"type":"object","properties":{"batchSize":{"type":"integer","x-i18n":{"titleKey":"scheduledTask.auditLogRetention.config.batchSize.title"}}},"additionalProperties":false}`,
@@ -983,9 +1006,9 @@ func TestScheduledTaskJobDefinitionDetailRouteReturnsRuntimeJobDefinition(t *tes
 
 	payload := decodeScheduledTaskJobDefinitionDetailPayload(t, recorder.Body.Bytes())
 	if !payload.Success ||
-		payload.Data.Key != "audit.audit-log-retention-cleanup" ||
-		payload.Data.ConfigSchemaJSON == "" ||
-		payload.Data.DefaultConfigJSON != `{"batchSize":1000}` {
+		payload.Data.JobKey != "audit.audit-log-retention-cleanup" ||
+		payload.Data.ConfigSchema == "" ||
+		payload.Data.DefaultConfig != `{"batchSize":1000}` {
 		t.Fatalf("unexpected job definition detail payload: %#v", payload)
 	}
 }
@@ -1245,20 +1268,22 @@ func TestScheduledTaskRunDetailReturnsResultAndErrorFields(t *testing.T) {
 	moduleInstance := NewModule()
 	moduleInstance.runtime = &schedulerAPIRuntime{
 		getRunResult: schedulercore.TaskRun{
-			ID:          42,
-			TaskKey:     "webhook.health",
-			JobKey:      "scheduler.webhook-health",
-			TaskName:    "Webhook health",
-			Owner:       "scheduler",
-			Module:      "scheduler",
-			TriggerType: schedulercore.TriggerTypeManual,
-			Status:      schedulercore.RunStatusFailed,
-			Error:       "http status 500",
-			Result:      "HTTP 500 failed",
-			StartedAt:   startedAt,
-			FinishedAt:  &finishedAt,
-			DurationMS:  &duration,
-			CreatedAt:   startedAt,
+			ID:            42,
+			TaskKey:       "webhook.health",
+			JobKey:        "scheduler.webhook-health",
+			TaskTitle:     "Webhook health",
+			JobTitle:      "Webhook health",
+			JobShortTitle: "Webhook",
+			JobCategory:   "custom",
+			ModuleKey:     "scheduler",
+			TriggerType:   schedulercore.TriggerTypeManual,
+			Status:        schedulercore.RunStatusFailed,
+			ErrorMessage:  "http status 500",
+			Result:        "HTTP 500 failed",
+			StartedAt:     startedAt,
+			FinishedAt:    &finishedAt,
+			DurationMS:    &duration,
+			CreatedAt:     startedAt,
 		},
 	}
 	registerAndBootSchedulerModule(t, ctx, moduleInstance)
@@ -1269,7 +1294,7 @@ func TestScheduledTaskRunDetailReturnsResultAndErrorFields(t *testing.T) {
 	}
 
 	payload := decodeScheduledTaskRunPayload(t, recorder.Body.Bytes())
-	if payload.Data.ID != 42 || payload.Data.ResultSummary == nil || *payload.Data.ResultSummary != "HTTP 500 failed" || payload.Data.ErrorSummary != "http status 500" {
+	if payload.Data.ID != 42 || payload.Data.ResultSummary == nil || *payload.Data.ResultSummary != "HTTP 500 failed" || payload.Data.ErrorMessage != "http status 500" {
 		t.Fatalf("unexpected run detail payload: %#v", payload.Data)
 	}
 }
@@ -1301,24 +1326,28 @@ func decodeSchedulerErrorPayload(t *testing.T, body []byte) schedulerErrorPayloa
 }
 
 type scheduledTaskListItemPayload struct {
-	Key            string `json:"key"`
-	JobKey         string `json:"job_key"`
-	ScheduleType   string `json:"schedule_type"`
-	DisplayNameKey string `json:"display_name_key"`
-	Module         string `json:"module"`
-	Enabled        bool   `json:"enabled"`
-	Status         string `json:"status"`
-	Running        bool   `json:"running"`
+	TaskKey  string `json:"task_key"`
+	JobKey   string `json:"job_key"`
+	TitleKey string `json:"title_key"`
+	Job      struct {
+		ModuleKey     string `json:"module_key"`
+		Category      string `json:"category"`
+		ShortTitleKey string `json:"short_title_key"`
+	} `json:"job"`
+	Enabled bool   `json:"enabled"`
+	Status  string `json:"status"`
+	Running bool   `json:"running"`
 }
 
 func assertScheduledTaskListItem(t *testing.T, item scheduledTaskListItemPayload) {
 	t.Helper()
 
-	if item.Key != "audit.retention.cleanup" ||
+	if item.TaskKey != "audit.retention.cleanup" ||
 		item.JobKey != "audit.audit-log-retention-cleanup" ||
-		item.ScheduleType != "cron" ||
-		item.DisplayNameKey != "scheduledTask.auditLogRetention.title" ||
-		item.Module != "audit" ||
+		item.TitleKey != "scheduledTask.auditLogRetention.title" ||
+		item.Job.ModuleKey != "audit" ||
+		item.Job.Category != "retention" ||
+		item.Job.ShortTitleKey != "scheduler.job.shortTitle.auditLog" ||
 		!item.Enabled ||
 		item.Status != "idle" ||
 		item.Running {
@@ -1342,12 +1371,14 @@ type scheduledTaskJobDefinitionListPayload struct {
 	Data    struct {
 		Total int `json:"total"`
 		Items []struct {
-			Key                   string `json:"key"`
-			Module                string `json:"module"`
-			DisplayNameKey        string `json:"display_name_key"`
-			DefaultCronExpression string `json:"default_cron_expression"`
-			DefaultConfigJSON     string `json:"default_config_json"`
-			Actions               []struct {
+			JobKey        string `json:"job_key"`
+			ModuleKey     string `json:"module_key"`
+			Category      string `json:"category"`
+			TitleKey      string `json:"title_key"`
+			ShortTitleKey string `json:"short_title_key"`
+			DefaultCron   string `json:"default_cron"`
+			DefaultConfig string `json:"default_config"`
+			Actions       []struct {
 				Key            string `json:"key"`
 				TitleKey       string `json:"title_key"`
 				Title          string `json:"title"`
@@ -1369,12 +1400,50 @@ func decodeScheduledTaskJobDefinitionListPayload(t *testing.T, body []byte) sche
 	return payload
 }
 
+func assertScheduledTaskJobDefinitionListItem(
+	t *testing.T,
+	item struct {
+		JobKey        string `json:"job_key"`
+		ModuleKey     string `json:"module_key"`
+		Category      string `json:"category"`
+		TitleKey      string `json:"title_key"`
+		ShortTitleKey string `json:"short_title_key"`
+		DefaultCron   string `json:"default_cron"`
+		DefaultConfig string `json:"default_config"`
+		Actions       []struct {
+			Key            string `json:"key"`
+			TitleKey       string `json:"title_key"`
+			Title          string `json:"title"`
+			DescriptionKey string `json:"description_key"`
+			Description    string `json:"description"`
+		} `json:"actions"`
+	},
+) {
+	t.Helper()
+
+	if item.JobKey != "audit.audit-log-retention-cleanup" ||
+		item.ModuleKey != "audit" ||
+		item.Category != "retention" ||
+		item.TitleKey != "scheduledTask.auditLogRetention.title" ||
+		item.ShortTitleKey != "scheduler.job.shortTitle.auditLog" ||
+		item.DefaultCron != "0 0 * * * *" ||
+		item.DefaultConfig != `{"retention_days":30}` {
+		t.Fatalf("unexpected job definition item: %#v", item)
+	}
+	if len(item.Actions) != 1 ||
+		item.Actions[0].Key != "dryRun" ||
+		item.Actions[0].TitleKey != "scheduledTask.action.dryRun.title" ||
+		item.Actions[0].DescriptionKey != "scheduledTask.action.dryRun.description" {
+		t.Fatalf("unexpected job definition actions: %#v", item.Actions)
+	}
+}
+
 type scheduledTaskJobDefinitionDetailPayload struct {
 	Success bool `json:"success"`
 	Data    struct {
-		Key               string `json:"key"`
-		ConfigSchemaJSON  string `json:"config_schema_json"`
-		DefaultConfigJSON string `json:"default_config_json"`
+		JobKey        string `json:"job_key"`
+		ConfigSchema  string `json:"config_schema"`
+		DefaultConfig string `json:"default_config"`
 	} `json:"data"`
 }
 
@@ -1393,7 +1462,7 @@ type scheduledTaskRunPayload struct {
 	Success bool `json:"success"`
 	Data    struct {
 		ID            uint64  `json:"id"`
-		ErrorSummary  string  `json:"error_summary"`
+		ErrorMessage  string  `json:"error_message"`
 		ResultSummary *string `json:"result_summary"`
 	} `json:"data"`
 }

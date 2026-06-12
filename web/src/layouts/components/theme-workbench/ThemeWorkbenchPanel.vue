@@ -584,7 +584,7 @@
   </t-drawer>
 </template>
 <script setup lang="ts">
-import { MessagePlugin } from 'tdesign-vue-next';
+import { MessagePlugin } from 'tdesign-vue-next/es/message';
 import { computed, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 

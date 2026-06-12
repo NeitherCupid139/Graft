@@ -56,15 +56,20 @@
         <t-select
           v-model="filters.jobKey"
           class="scheduled-task-toolbar__select"
-          :placeholder="t('scheduledTask.list.filters.jobType')"
+          :placeholder="t('scheduledTask.list.filters.job')"
         >
-          <t-option value="all" :label="t('scheduledTask.list.filters.allJobTypes')" />
+          <t-option value="all" :label="t('scheduledTask.list.filters.allJobs')" />
           <t-option-group
             v-for="group in groupedJobDefinitions"
             :key="group.module"
             :label="moduleDisplayName(group.module)"
           >
-            <t-option v-for="job in group.items" :key="job.key" :value="job.key" :label="jobDefinitionTitle(job)" />
+            <t-option
+              v-for="job in group.items"
+              :key="job.job_key"
+              :value="job.job_key"
+              :label="jobDefinitionTitle(job)"
+            />
           </t-option-group>
         </t-select>
         <t-select
@@ -94,7 +99,7 @@
         </template>
 
         <t-table
-          row-key="key"
+          row-key="task_key"
           :data="filteredTasks"
           :columns="columns"
           :loading="loading"
@@ -106,63 +111,87 @@
           <template #task="{ row }">
             <div class="scheduled-task-identity">
               <span class="scheduled-task-identity__name">{{ taskDisplayName(row) }}</span>
-              <span class="scheduled-task-identity__key">{{ row.key }}</span>
+              <span class="scheduled-task-identity__key">{{ row.task_key }}</span>
             </div>
           </template>
 
           <template #job_key="{ row }">
-            <t-tag variant="light-outline" theme="primary">
-              {{ jobTypeLabel(row.job_key) }}
-            </t-tag>
+            <div class="scheduled-task-owner">
+              <t-tag class="scheduled-task-owner__tag" variant="light-outline" theme="primary">
+                {{ rowView(row).jobCategoryLabel }}
+              </t-tag>
+              <span class="scheduled-task-owner__module">
+                {{ rowView(row).moduleLabel || t('scheduledTask.list.detail.notAvailable') }}
+              </span>
+            </div>
           </template>
 
           <template #status="{ row }">
-            <task-status-tag :status="row.status" />
+            <div class="scheduled-task-status-stack">
+              <div class="scheduled-task-status-stack__row">
+                <span>{{ t('scheduledTask.list.statusLabels.enabled') }}</span>
+                <t-tag :theme="row.enabled ? 'success' : 'default'" variant="light" size="small">
+                  {{ booleanLabel(row.enabled) }}
+                </t-tag>
+              </div>
+              <div class="scheduled-task-status-stack__row">
+                <span>{{ t('scheduledTask.list.statusLabels.runtime') }}</span>
+                <task-status-tag :status="row.status" />
+              </div>
+            </div>
           </template>
 
           <template #schedule="{ row }">
-            <t-tooltip
-              placement="top-left"
-              overlay-class-name="scheduled-task-cron-tooltip"
-              :overlay-inner-style="cronTooltipOverlayInnerStyle"
-            >
-              <template #content>
-                <div class="scheduled-task-cron-tooltip__content">
-                  <div class="scheduled-task-cron-tooltip__item">
-                    <span>{{ t('scheduledTask.cron.expression') }}</span>
-                    <code>{{ scheduleExpressionText(row) }}</code>
+            <div class="scheduled-task-schedule">
+              <strong>{{ cronScheduleDescription(row.cron_expression) }}</strong>
+              <span class="scheduled-task-schedule__next-run">{{ cronNextRunLine(row.cron_expression) }}</span>
+              <t-popup
+                trigger="hover"
+                placement="top-left"
+                show-arrow
+                overlay-class-name="scheduled-task-cron-popover"
+                :overlay-inner-style="cronPopoverOverlayInnerStyle"
+              >
+                <button type="button" class="scheduled-task-cron-trigger">
+                  <code class="scheduled-task-mono">{{ scheduleExpressionText(row) }}</code>
+                </button>
+                <template #content>
+                  <div class="scheduled-task-cron-popover__content">
+                    <div class="scheduled-task-cron-popover__item">
+                      <span>{{ t('scheduledTask.cron.expression') }}</span>
+                      <code>{{ scheduleExpressionText(row) }}</code>
+                    </div>
+                    <div class="scheduled-task-cron-popover__item">
+                      <span>{{ t('scheduledTask.cron.description') }}</span>
+                      <strong>{{ cronScheduleDescription(row.cron_expression) }}</strong>
+                    </div>
+                    <div class="scheduled-task-cron-popover__item">
+                      <span>{{ t('scheduledTask.cron.timezone') }}</span>
+                      <strong>{{ cronTimezone() }}</strong>
+                    </div>
+                    <div class="scheduled-task-cron-popover__item">
+                      <span>{{ t('scheduledTask.list.detail.nextRun') }}</span>
+                      <strong>{{ cronNextRunTime(row.cron_expression) }}</strong>
+                    </div>
                   </div>
-                  <div class="scheduled-task-cron-tooltip__item">
-                    <span>{{ t('scheduledTask.cron.description') }}</span>
-                    <strong>{{ cronScheduleDescription(row.schedule) }}</strong>
-                  </div>
-                  <div class="scheduled-task-cron-tooltip__item">
-                    <span>{{ t('scheduledTask.cron.timezone') }}</span>
-                    <strong>{{ cronTimezone() }}</strong>
-                  </div>
-                </div>
-              </template>
-              <div class="scheduled-task-schedule">
-                <code class="scheduled-task-mono">{{ scheduleExpressionText(row) }}</code>
-                <span class="scheduled-task-schedule__next-run">{{ cronNextRunLine(row.schedule) }}</span>
-              </div>
-            </t-tooltip>
-          </template>
-
-          <template #recent_result="{ row }">
-            <div v-if="row.last_run" class="scheduled-task-last-run">
-              <task-status-tag :status="row.last_run.status" />
-              <span>{{ runResultText(row.last_run) }}</span>
+                </template>
+              </t-popup>
             </div>
-            <span v-else class="scheduled-task-muted">{{ t('scheduledTask.list.detail.none') }}</span>
           </template>
 
-          <template #recent_run="{ row }">
-            {{ formatTimestamp(row.last_run?.started_at) }}
+          <template #last_run="{ row }">
+            <div v-if="row.last_run" class="scheduled-task-last-run">
+              <div class="scheduled-task-last-run__head">
+                <span>{{ formatTimestamp(row.last_run.started_at) }}</span>
+                <task-status-tag :status="row.last_run.status" />
+              </div>
+              <strong>{{ runResultText(row.last_run) }}</strong>
+            </div>
+            <span v-else class="scheduled-task-muted">{{ t('scheduledTask.list.detail.noRecentRun') }}</span>
           </template>
 
           <template #success_rate="{ row }">
-            {{ successRateLabel(row.key) }}
+            {{ successRateLabel(row.task_key) }}
           </template>
 
           <template #operation="{ row }">
@@ -171,31 +200,27 @@
                 <template #icon><browse-icon /></template>
                 {{ t('scheduledTask.list.viewDetail') }}
               </t-button>
-              <t-button
-                v-permission="permissionCodes.RUN"
-                theme="primary"
-                variant="outline"
-                size="small"
-                :disabled="!canRunTask(row)"
-                :loading="runningTaskKey === row.key"
-                @click="openRunDialog(row)"
-              >
-                <template #icon><play-icon /></template>
-                {{ t('scheduledTask.list.run') }}
-              </t-button>
               <t-dropdown trigger="click" placement="bottom-right">
                 <t-button theme="default" variant="outline" size="small">
                   <template #icon><ellipsis-icon /></template>
                   {{ t('scheduledTask.list.more') }}
                 </t-button>
                 <t-dropdown-menu>
+                  <t-dropdown-item
+                    v-permission="permissionCodes.RUN"
+                    :disabled="!canRunTask(row)"
+                    @click="openRunDialog(row)"
+                  >
+                    <template #prefix-icon><play-icon /></template>
+                    {{ t('scheduledTask.list.run') }}
+                  </t-dropdown-item>
                   <t-dropdown-item v-permission="permissionCodes.UPDATE" @click="openEditDrawer(row)">
                     <template #prefix-icon><edit-icon /></template>
                     {{ t('scheduledTask.list.edit') }}
                   </t-dropdown-item>
                   <t-dropdown-item
                     v-permission="permissionCodes.ENABLE"
-                    :disabled="lifecycleTaskKey === row.key"
+                    :disabled="lifecycleTaskKey === row.task_key"
                     @click="toggleTaskEnabled(row)"
                   >
                     <template #prefix-icon>
@@ -206,7 +231,7 @@
                   </t-dropdown-item>
                   <t-dropdown-item
                     v-permission="permissionCodes.DELETE"
-                    :disabled="isSystemTask(row) || deletingTaskKey === row.key"
+                    :disabled="isSystemTask(row) || deletingTaskKey === row.task_key"
                     theme="error"
                     @click="openDeleteDialog(row)"
                   >
@@ -247,13 +272,13 @@
         <t-form :data="taskForm" label-align="top">
           <section v-if="formMode === 'create'" class="scheduled-task-form-section">
             <div class="scheduled-task-form-section__head">
-              <h3>{{ t('scheduledTask.list.form.sectionJobType') }}</h3>
+              <h3>{{ t('scheduledTask.list.form.sectionJobDefinition') }}</h3>
             </div>
-            <t-form-item :label="t('scheduledTask.list.form.jobType')" name="jobKey">
+            <t-form-item :label="t('scheduledTask.list.form.job')" name="jobKey">
               <t-select
                 v-model="taskForm.jobKey"
                 :loading="jobDefinitionsLoading"
-                :placeholder="t('scheduledTask.list.form.jobTypePlaceholder')"
+                :placeholder="t('scheduledTask.list.form.jobPlaceholder')"
                 filterable
                 @change="handleJobDefinitionChange"
               >
@@ -262,13 +287,18 @@
                   :key="group.module"
                   :label="moduleDisplayName(group.module)"
                 >
-                  <t-option v-for="job in group.items" :key="job.key" :value="job.key" :label="jobDefinitionTitle(job)">
+                  <t-option
+                    v-for="job in group.items"
+                    :key="job.job_key"
+                    :value="job.job_key"
+                    :label="jobDefinitionTitle(job)"
+                  >
                     <div class="scheduled-task-job-option">
                       <div class="scheduled-task-job-option__main">
                         <strong>{{ jobDefinitionTitle(job) }}</strong>
-                        <span>{{ job.key }}</span>
+                        <span>{{ job.job_key }}</span>
                       </div>
-                      <t-tag size="small" variant="light">{{ moduleDisplayName(job.module) }}</t-tag>
+                      <t-tag size="small" variant="light">{{ moduleDisplayName(job.module_key) }}</t-tag>
                     </div>
                   </t-option>
                 </t-option-group>
@@ -284,27 +314,27 @@
               <p>{{ jobDefinitionDescription(selectedJobDefinition) }}</p>
               <t-descriptions size="small" :column="2" table-layout="auto">
                 <t-descriptions-item :label="t('scheduledTask.list.form.jobKey')">
-                  {{ selectedJobDefinition.key }}
+                  {{ selectedJobDefinition.job_key }}
                 </t-descriptions-item>
                 <t-descriptions-item :label="t('scheduledTask.list.form.module')">
-                  <t-tag size="small" variant="light">{{ moduleDisplayName(selectedJobDefinition.module) }}</t-tag>
+                  <t-tag size="small" variant="light">{{ moduleDisplayName(selectedJobDefinition.module_key) }}</t-tag>
                 </t-descriptions-item>
                 <t-descriptions-item :label="t('scheduledTask.list.form.defaultCron')">
-                  <code>{{ normalizeCronForForm(selectedJobDefinition.default_cron_expression) }}</code>
+                  <code>{{ normalizeCronForForm(selectedJobDefinition.default_cron) }}</code>
                 </t-descriptions-item>
-                <t-descriptions-item :label="t('scheduledTask.list.form.owner')">
-                  {{ selectedJobDefinition.owner }}
+                <t-descriptions-item :label="t('scheduledTask.list.form.category')">
+                  {{ jobCategoryDisplayLabel(selectedJobDefinition) }}
                 </t-descriptions-item>
                 <t-descriptions-item :label="t('scheduledTask.list.form.defaultConfig')" :span="2">
                   <pre class="scheduled-task-json-preview">{{
-                    formatJsonPreview(selectedJobDefinition.default_config_json) || t('scheduledTask.list.detail.none')
+                    formatJsonPreview(selectedJobDefinition.default_config) || t('scheduledTask.list.detail.none')
                   }}</pre>
                 </t-descriptions-item>
               </t-descriptions>
-              <t-collapse v-if="selectedJobDefinition.config_schema_json" expand-icon-placement="right">
+              <t-collapse v-if="selectedJobDefinition.config_schema" expand-icon-placement="right">
                 <t-collapse-panel value="configSchema" :header="t('scheduledTask.list.form.configSchema')">
                   <pre class="scheduled-task-json-preview">{{
-                    formatJsonPreview(selectedJobDefinition.config_schema_json)
+                    formatJsonPreview(selectedJobDefinition.config_schema)
                   }}</pre>
                 </t-collapse-panel>
               </t-collapse>
@@ -528,8 +558,7 @@
                   <section>
                     <strong>{{ t('scheduledTask.list.configDialog.schemaDebug') }}</strong>
                     <pre class="scheduled-task-json-preview">{{
-                      formatJsonPreview(selectedJobDefinition?.config_schema_json) ||
-                      t('scheduledTask.list.detail.none')
+                      formatJsonPreview(selectedJobDefinition?.config_schema) || t('scheduledTask.list.detail.none')
                     }}</pre>
                   </section>
                 </div>
@@ -585,7 +614,9 @@
         @close="closeActionResultDialog"
       >
         <div v-if="actionResult" class="scheduled-task-dialog-copy">
-          <t-alert v-if="actionResultStructured.summary" theme="success" :message="actionResultStructured.summary" />
+          <t-alert v-if="actionResultSummaryText" theme="success" :message="actionResultSummaryText">
+            {{ actionResultSummaryText }}
+          </t-alert>
           <t-descriptions :column="1" bordered size="small">
             <t-descriptions-item v-if="actionResultStructured.stage" :label="t('scheduledTask.list.detail.stage')">
               <t-tag theme="primary" variant="light">{{ actionResultStructured.stage }}</t-tag>
@@ -638,153 +669,211 @@
         :footer="false"
       >
         <div v-if="selectedTask" class="scheduled-task-detail">
-          <section class="scheduled-task-detail__section">
-            <div class="scheduled-task-detail__section-head">
-              <h3>{{ t('scheduledTask.list.detail.basics') }}</h3>
+          <section class="scheduled-task-detail-hero">
+            <div class="scheduled-task-detail-hero__main">
+              <h3>{{ taskDisplayName(selectedTask) }}</h3>
+              <code>{{ selectedTask.task_key }}</code>
+              <p>{{ taskDescription(selectedTask) }}</p>
+            </div>
+            <div class="scheduled-task-detail-hero__status">
+              <t-tag :theme="selectedTask.enabled ? 'success' : 'default'" variant="light">
+                {{ t('scheduledTask.list.statusLabels.enabled') }}: {{ booleanLabel(selectedTask.enabled) }}
+              </t-tag>
               <task-status-tag :status="selectedTask.status" />
             </div>
-            <t-descriptions :column="1" bordered size="small">
-              <t-descriptions-item :label="t('scheduledTask.list.detail.key')">
-                {{ selectedTask.key }}
-              </t-descriptions-item>
-              <t-descriptions-item :label="t('scheduledTask.list.detail.taskName')">
-                {{ taskDisplayName(selectedTask) }}
-              </t-descriptions-item>
-              <t-descriptions-item :label="t('scheduledTask.list.detail.description')">
-                {{ taskDescription(selectedTask) }}
-              </t-descriptions-item>
-              <t-descriptions-item :label="t('scheduledTask.list.detail.owner')">
-                {{ selectedTask.owner }}
-              </t-descriptions-item>
-              <t-descriptions-item :label="t('scheduledTask.list.detail.module')">
-                {{ selectedTask.module }}
-              </t-descriptions-item>
-              <t-descriptions-item :label="t('scheduledTask.list.detail.jobType')">
-                {{ jobTypeLabel(selectedTask.job_key) }}
-              </t-descriptions-item>
-              <t-descriptions-item :label="t('scheduledTask.list.detail.jobKey')">
-                {{ selectedTask.job_key }}
-              </t-descriptions-item>
-            </t-descriptions>
+          </section>
+
+          <section class="scheduled-task-detail-summary">
+            <t-card class="scheduled-task-detail-summary__card" size="small" :bordered="true">
+              <span>{{ t('scheduledTask.list.detail.nextRun') }}</span>
+              <strong>{{ taskNextRunTime(selectedTask) }}</strong>
+              <small>{{ cronScheduleDescription(selectedTask.cron_expression) }}</small>
+            </t-card>
+            <t-card class="scheduled-task-detail-summary__card" size="small" :bordered="true">
+              <span>{{ t('scheduledTask.list.detail.latestResult') }}</span>
+              <strong>{{
+                selectedTask.last_run
+                  ? runResultText(selectedTask.last_run)
+                  : t('scheduledTask.list.detail.noRecentRun')
+              }}</strong>
+              <small>{{
+                selectedTask.last_run
+                  ? formatTimestamp(selectedTask.last_run.started_at)
+                  : t('scheduledTask.list.detail.notAvailable')
+              }}</small>
+            </t-card>
+            <t-card class="scheduled-task-detail-summary__card" size="small" :bordered="true">
+              <span>{{ t('scheduledTask.list.detail.successRate') }}</span>
+              <strong>{{ successRateLabel(selectedTask.task_key) }}</strong>
+              <small>{{ t('scheduledTask.list.detail.running') }}: {{ booleanLabel(selectedTask.running) }}</small>
+            </t-card>
           </section>
 
           <section class="scheduled-task-detail__section">
-            <h3>{{ t('scheduledTask.list.detail.behavior') }}</h3>
-            <t-descriptions :column="1" bordered size="small">
-              <t-descriptions-item :label="t('scheduledTask.list.detail.jobBehavior')">
-                {{ selectedTaskJobDescription }}
-              </t-descriptions-item>
-              <t-descriptions-item :label="t('scheduledTask.list.detail.configItems')">
-                <div v-if="selectedTaskConfigFields.length > 0" class="scheduled-task-config-list">
-                  <div
-                    v-for="field in selectedTaskConfigFields"
-                    :key="field.key"
-                    class="scheduled-task-config-list__item"
-                  >
-                    <strong>{{ configSchemaFieldTitle(field) }}</strong>
-                    <span>{{ configValuePreview(selectedTaskEffectiveConfig[field.key]) }}</span>
-                    <small v-if="configSchemaFieldDescription(field)">{{ configSchemaFieldDescription(field) }}</small>
-                  </div>
-                </div>
-                <span v-else>{{ t('scheduledTask.list.detail.none') }}</span>
-              </t-descriptions-item>
-              <t-descriptions-item :label="t('scheduledTask.list.detail.effectiveConfig')">
-                <pre class="scheduled-task-json-preview">{{ selectedTaskEffectiveConfigPreview }}</pre>
-              </t-descriptions-item>
-            </t-descriptions>
+            <h3>{{ t('scheduledTask.list.detail.sections.basicInfo') }}</h3>
+            <t-card size="small" :bordered="true">
+              <t-descriptions :column="2" size="small">
+                <t-descriptions-item :label="t('scheduledTask.list.detail.key')">
+                  <span class="scheduled-task-mono">{{ selectedTask.task_key }}</span>
+                </t-descriptions-item>
+                <t-descriptions-item :label="t('scheduledTask.list.detail.module')">
+                  {{
+                    selectedTaskJobDefinition
+                      ? moduleDisplayName(selectedTaskJobDefinition.module_key)
+                      : t('scheduledTask.list.detail.notAvailable')
+                  }}
+                </t-descriptions-item>
+                <t-descriptions-item :label="t('scheduledTask.list.detail.category')">
+                  {{
+                    selectedTaskJobDefinition
+                      ? jobCategoryDisplayLabel(selectedTaskJobDefinition)
+                      : t('scheduledTask.list.detail.notAvailable')
+                  }}
+                </t-descriptions-item>
+                <t-descriptions-item :label="t('scheduledTask.list.detail.builtin')">
+                  {{ booleanLabel(selectedTask.builtin) }}
+                </t-descriptions-item>
+                <t-descriptions-item :label="t('scheduledTask.list.detail.configSource')">
+                  {{ configSourceLabel(selectedTask.config_source) }}
+                </t-descriptions-item>
+              </t-descriptions>
+            </t-card>
+          </section>
+
+          <section class="scheduled-task-detail__section">
+            <h3>{{ t('scheduledTask.list.detail.sections.scheduleInfo') }}</h3>
+            <t-card size="small" :bordered="true">
+              <t-descriptions :column="2" size="small">
+                <t-descriptions-item :label="t('scheduledTask.list.detail.cron')">
+                  <span class="scheduled-task-mono">{{ scheduleExpressionText(selectedTask) }}</span>
+                </t-descriptions-item>
+                <t-descriptions-item :label="t('scheduledTask.cron.description')">
+                  {{ cronScheduleDescription(selectedTask.cron_expression) }}
+                </t-descriptions-item>
+                <t-descriptions-item :label="t('scheduledTask.cron.timezone')">
+                  {{ cronTimezone() }}
+                </t-descriptions-item>
+                <t-descriptions-item :label="t('scheduledTask.list.detail.nextRun')">
+                  {{ taskNextRunTime(selectedTask) }}
+                </t-descriptions-item>
+                <t-descriptions-item :label="t('scheduledTask.list.detail.enabled')">
+                  {{ booleanLabel(selectedTask.enabled) }}
+                </t-descriptions-item>
+              </t-descriptions>
+            </t-card>
+          </section>
+
+          <section class="scheduled-task-detail__section">
+            <h3>{{ t('scheduledTask.list.detail.sections.jobDefinition') }}</h3>
+            <t-card size="small" :bordered="true">
+              <t-descriptions :column="2" size="small">
+                <t-descriptions-item :label="t('scheduledTask.list.detail.jobKey')">
+                  <span class="scheduled-task-mono">{{ selectedTask.job_key }}</span>
+                </t-descriptions-item>
+                <t-descriptions-item :label="t('scheduledTask.list.detail.jobName')">
+                  {{ selectedTaskJobDefinition ? jobDefinitionTitle(selectedTaskJobDefinition) : selectedTask.job_key }}
+                </t-descriptions-item>
+                <t-descriptions-item :label="t('scheduledTask.list.detail.jobShortName')">
+                  {{
+                    selectedTaskJobDefinition
+                      ? jobDefinitionShortTitle(selectedTaskJobDefinition)
+                      : selectedTask.job_key
+                  }}
+                </t-descriptions-item>
+                <t-descriptions-item :label="t('scheduledTask.list.detail.defaultCron')">
+                  <span class="scheduled-task-mono">{{
+                    selectedTaskJobDefinition?.default_cron || t('scheduledTask.list.detail.notAvailable')
+                  }}</span>
+                </t-descriptions-item>
+                <t-descriptions-item :label="t('scheduledTask.list.detail.jobBehavior')" :span="2">
+                  {{ selectedTaskJobDescription }}
+                </t-descriptions-item>
+              </t-descriptions>
+            </t-card>
+          </section>
+
+          <section class="scheduled-task-detail__section">
+            <h3>{{ t('scheduledTask.list.detail.sections.configSummary') }}</h3>
+            <div v-if="selectedTaskConfigSummaryItems.length > 0" class="scheduled-task-config-list">
+              <div
+                v-for="item in selectedTaskConfigSummaryItems"
+                :key="item.key"
+                class="scheduled-task-config-list__item"
+              >
+                <strong>{{ item.label }}</strong>
+                <span>{{ item.value }}</span>
+                <small v-if="item.description">{{ item.description }}</small>
+              </div>
+            </div>
+            <t-card v-else size="small" :bordered="true">
+              <span class="scheduled-task-muted">{{ t('scheduledTask.list.detail.none') }}</span>
+            </t-card>
+          </section>
+
+          <section class="scheduled-task-detail__section">
+            <h3>{{ t('scheduledTask.list.detail.latestResult') }}</h3>
+            <t-card v-if="selectedTask.last_run" size="small" :bordered="true">
+              <t-descriptions :column="2" size="small">
+                <t-descriptions-item :label="t('scheduledTask.list.detail.runId')">
+                  {{ selectedTask.last_run.id }}
+                </t-descriptions-item>
+                <t-descriptions-item :label="t('scheduledTask.list.detail.triggerType')">
+                  {{ triggerLabel(selectedTask.last_run.trigger_type) }}
+                </t-descriptions-item>
+                <t-descriptions-item :label="t('scheduledTask.list.detail.status')">
+                  <task-status-tag :status="selectedTask.last_run.status" />
+                </t-descriptions-item>
+                <t-descriptions-item :label="t('scheduledTask.list.detail.startedAt')">
+                  {{ formatTimestamp(selectedTask.last_run.started_at) }}
+                </t-descriptions-item>
+                <t-descriptions-item :label="t('scheduledTask.list.detail.finishedAt')">
+                  {{ formatTimestamp(selectedTask.last_run.finished_at) }}
+                </t-descriptions-item>
+                <t-descriptions-item :label="t('scheduledTask.list.detail.duration')">
+                  {{ formatDuration(selectedTask.last_run.duration_ms) }}
+                </t-descriptions-item>
+                <t-descriptions-item :label="t('scheduledTask.list.detail.result')" :span="2">
+                  {{ runResultText(selectedTask.last_run) }}
+                </t-descriptions-item>
+                <t-descriptions-item
+                  v-if="runResultStructured(selectedTask.last_run).stage"
+                  :label="t('scheduledTask.list.detail.stage')"
+                >
+                  {{ runResultStructured(selectedTask.last_run).stage }}
+                </t-descriptions-item>
+                <t-descriptions-item
+                  v-if="runResultStructured(selectedTask.last_run).affected_resource"
+                  :label="t('scheduledTask.list.detail.affectedResource')"
+                >
+                  {{ runResultStructured(selectedTask.last_run).affected_resource }}
+                </t-descriptions-item>
+              </t-descriptions>
+            </t-card>
+            <t-card v-else size="small" :bordered="true">
+              <span class="scheduled-task-muted">{{ t('scheduledTask.list.detail.noRecentRun') }}</span>
+            </t-card>
+          </section>
+
+          <section class="scheduled-task-detail__section">
+            <h3>{{ t('scheduledTask.list.detail.advancedInfo') }}</h3>
             <t-collapse expand-icon-placement="right">
-              <t-collapse-panel value="rawConfig" :header="t('scheduledTask.list.detail.advancedConfig')">
+              <t-collapse-panel value="advancedConfig" :header="t('scheduledTask.list.detail.advancedConfig')">
                 <div class="scheduled-task-raw-config">
                   <strong>{{ t('scheduledTask.list.detail.configJson') }}</strong>
                   <pre class="scheduled-task-json-preview">{{
                     formatJsonPreview(selectedTask.config_json) || t('scheduledTask.list.detail.none')
                   }}</pre>
+                  <strong>{{ t('scheduledTask.list.detail.defaultConfig') }}</strong>
+                  <pre class="scheduled-task-json-preview">{{
+                    formatJsonPreview(selectedTaskJobDefinition?.default_config) || t('scheduledTask.list.detail.none')
+                  }}</pre>
                   <strong>{{ t('scheduledTask.list.detail.effectiveConfig') }}</strong>
                   <pre class="scheduled-task-json-preview">{{ selectedTaskEffectiveConfigPreview }}</pre>
+                  <strong>{{ t('scheduledTask.list.detail.rawJobDefinition') }}</strong>
+                  <pre class="scheduled-task-json-preview">{{ selectedTaskJobDefinitionPreview }}</pre>
                 </div>
               </t-collapse-panel>
             </t-collapse>
-          </section>
-
-          <section class="scheduled-task-detail__section">
-            <h3>{{ t('scheduledTask.list.detail.schedule') }}</h3>
-            <t-descriptions :column="1" bordered size="small">
-              <t-descriptions-item :label="t('scheduledTask.list.detail.scheduleType')">
-                {{ scheduleTypeLabel(selectedTask.schedule_type) }}
-              </t-descriptions-item>
-              <t-descriptions-item :label="t('scheduledTask.list.detail.scheduleRule')">
-                <span class="scheduled-task-mono">{{ selectedTask.schedule }}</span>
-              </t-descriptions-item>
-              <t-descriptions-item :label="t('scheduledTask.list.detail.nextRun')">
-                {{ formatTimestamp(selectedTask.next_run_at) }}
-              </t-descriptions-item>
-              <t-descriptions-item :label="t('scheduledTask.list.detail.enabled')">
-                {{ booleanLabel(selectedTask.enabled) }}
-              </t-descriptions-item>
-            </t-descriptions>
-          </section>
-
-          <section class="scheduled-task-detail__section">
-            <h3>{{ t('scheduledTask.list.detail.runtime') }}</h3>
-            <t-descriptions :column="1" bordered size="small">
-              <t-descriptions-item :label="t('scheduledTask.list.detail.running')">
-                {{ booleanLabel(selectedTask.running) }}
-              </t-descriptions-item>
-              <t-descriptions-item :label="t('scheduledTask.list.detail.status')">
-                <task-status-tag :status="selectedTask.status" />
-              </t-descriptions-item>
-              <t-descriptions-item :label="t('scheduledTask.list.detail.successRate')">
-                {{ successRateLabel(selectedTask.key) }}
-              </t-descriptions-item>
-            </t-descriptions>
-          </section>
-
-          <section class="scheduled-task-detail__section">
-            <h3>{{ t('scheduledTask.list.detail.latestResult') }}</h3>
-            <t-descriptions v-if="selectedTask.last_run" :column="1" bordered size="small">
-              <t-descriptions-item :label="t('scheduledTask.list.detail.runId')">
-                {{ selectedTask.last_run.id }}
-              </t-descriptions-item>
-              <t-descriptions-item :label="t('scheduledTask.list.detail.triggerType')">
-                {{ triggerLabel(selectedTask.last_run.trigger_type) }}
-              </t-descriptions-item>
-              <t-descriptions-item :label="t('scheduledTask.list.detail.status')">
-                <task-status-tag :status="selectedTask.last_run.status" />
-              </t-descriptions-item>
-              <t-descriptions-item :label="t('scheduledTask.list.detail.startedAt')">
-                {{ formatTimestamp(selectedTask.last_run.started_at) }}
-              </t-descriptions-item>
-              <t-descriptions-item :label="t('scheduledTask.list.detail.finishedAt')">
-                {{ formatTimestamp(selectedTask.last_run.finished_at) }}
-              </t-descriptions-item>
-              <t-descriptions-item :label="t('scheduledTask.list.detail.duration')">
-                {{ formatDuration(selectedTask.last_run.duration_ms) }}
-              </t-descriptions-item>
-              <t-descriptions-item :label="t('scheduledTask.list.detail.result')">
-                {{ runResultText(selectedTask.last_run) }}
-              </t-descriptions-item>
-              <t-descriptions-item
-                v-if="runResultStructured(selectedTask.last_run).stage"
-                :label="t('scheduledTask.list.detail.stage')"
-              >
-                {{ runResultStructured(selectedTask.last_run).stage }}
-              </t-descriptions-item>
-              <t-descriptions-item
-                v-if="runResultStructured(selectedTask.last_run).affected_resource"
-                :label="t('scheduledTask.list.detail.affectedResource')"
-              >
-                {{ runResultStructured(selectedTask.last_run).affected_resource }}
-              </t-descriptions-item>
-              <t-descriptions-item
-                v-if="Object.keys(runResultStructured(selectedTask.last_run).metrics ?? {}).length > 0"
-                :label="t('scheduledTask.list.detail.metrics')"
-              >
-                <pre class="scheduled-task-json-preview">{{
-                  JSON.stringify(runResultStructured(selectedTask.last_run).metrics, null, 2)
-                }}</pre>
-              </t-descriptions-item>
-            </t-descriptions>
-            <p v-else class="scheduled-task-muted">{{ t('scheduledTask.list.detail.none') }}</p>
           </section>
 
           <section class="scheduled-task-detail__section">
@@ -839,7 +928,7 @@
         :header="t('scheduledTask.list.runDialog.title')"
         :confirm-btn="t('scheduledTask.list.runDialog.confirm')"
         :cancel-btn="t('scheduledTask.list.runDialog.cancel')"
-        :confirm-loading="runningTaskKey === runDialogTask?.key"
+        :confirm-loading="runningTaskKey === runDialogTask?.task_key"
         @confirm="confirmRunTask"
       >
         <div v-if="runDialogTask" class="scheduled-task-dialog-copy">
@@ -862,7 +951,7 @@
         :header="t('scheduledTask.list.deleteDialog.title')"
         :confirm-btn="t('scheduledTask.list.deleteDialog.confirm')"
         :cancel-btn="t('scheduledTask.list.cancel')"
-        :confirm-loading="deletingTaskKey === deleteDialogTask?.key"
+        :confirm-loading="deletingTaskKey === deleteDialogTask?.task_key"
         @confirm="confirmDeleteTask"
       >
         <p v-if="deleteDialogTask">
@@ -881,7 +970,7 @@
             {{ selectedRun.id }}
           </t-descriptions-item>
           <t-descriptions-item :label="t('scheduledTask.list.columns.task')">
-            {{ selectedRun.task_name || selectedRun.task_key }}
+            {{ selectedRun.task_title || selectedRun.task_key }}
           </t-descriptions-item>
           <t-descriptions-item :label="t('scheduledTask.list.detail.triggerType')">
             {{ triggerLabel(selectedRun.trigger_type) }}
@@ -962,7 +1051,9 @@ import {
   PlayIcon,
   SearchIcon,
 } from 'tdesign-icons-vue-next';
-import { MessagePlugin, Tag, type TdBaseTableProps } from 'tdesign-vue-next';
+import type { TdBaseTableProps } from 'tdesign-vue-next';
+import { MessagePlugin } from 'tdesign-vue-next/es/message';
+import { Tag } from 'tdesign-vue-next/es/tag';
 import { computed, defineComponent, h, onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
@@ -970,6 +1061,7 @@ import { requestNotificationHeaderRefresh } from '@/modules/notification/contrac
 import { readErrorField } from '@/modules/shared/error-field';
 import { buildVisibleColumns, calculateTableContentWidth } from '@/shared/components/management';
 import { AdvancedQueryColumnDrawer, AdvancedQueryListPage } from '@/shared/components/query-list';
+import { formatLocaleDateTime, MEDIUM_DATE_TIME_WITH_SECONDS_FORMAT_OPTIONS } from '@/shared/observability';
 import type { ApiRequestError } from '@/types/axios';
 import { createLogger } from '@/utils/logger';
 
@@ -991,6 +1083,16 @@ import {
 import ConfigJsonEditor from '../../components/ConfigJsonEditor.vue';
 import CronExpressionField from '../../components/CronExpressionField.vue';
 import { SCHEDULED_TASK_PERMISSION_CODE } from '../../contract/permissions';
+import {
+  jobCategoryLabel,
+  jobDescription as presentJobDescription,
+  jobShortTitle as presentJobShortTitle,
+  jobTitle as presentJobTitle,
+  moduleLabel as presentModuleLabel,
+  presentScheduledTaskRow,
+  taskDescription as presentTaskDescription,
+  taskTitle as presentTaskTitle,
+} from '../../presenter/scheduled-task-presenter';
 import type {
   CreateScheduledTaskRequest,
   ScheduledTaskActionRequest,
@@ -1024,7 +1126,7 @@ import {
 } from '../../utils/cron';
 import { translateCronValidation } from '../../utils/cron-i18n';
 import { formatJsonPreview, type JsonRecord, parseJsonRecord } from '../../utils/json';
-import { parseRunResult, type ScheduledTaskRunResult } from '../../utils/run-result';
+import { parseRunResult, runResultMetricNumber, type ScheduledTaskRunResult } from '../../utils/run-result';
 
 defineOptions({
   name: 'ScheduledTaskListPage',
@@ -1078,8 +1180,12 @@ type ImmediateRunSummary = {
 const DEFAULT_CRON_EXPRESSION = '0 */5 * * * *';
 const RETENTION_DAY_PRESETS = [1, 7, 30, 90] as const;
 const CUSTOM_RETENTION_DAY_VALUE = 'custom';
-const cronTooltipOverlayInnerStyle = {
-  maxWidth: '280px',
+const cronPopoverOverlayInnerStyle = {
+  background: 'var(--td-bg-color-container)',
+  border: '1px solid var(--td-border-level-2-color)',
+  boxShadow: 'var(--td-shadow-3)',
+  color: 'var(--td-text-color-primary)',
+  maxWidth: '300px',
   padding: 'var(--graft-density-gap-12)',
 };
 
@@ -1189,16 +1295,26 @@ const formFieldErrors = reactive<FormFieldErrors>({
   cronExpression: '',
   configJson: '',
 });
-const visibleColumnKeys = ref(['task', 'job_key', 'status', 'schedule', 'recent_result', 'recent_run']);
+const visibleColumnKeys = ref(['task', 'job_key', 'schedule', 'status', 'last_run']);
 
 const filteredTasks = computed(() => {
   const keyword = filters.keyword.trim().toLowerCase();
   return tasks.value.filter((task) => {
+    const view = rowView(task);
     const matchesKeyword =
       !keyword ||
-      [task.key, task.job_key, taskDisplayName(task), taskDescription(task), task.owner, task.module]
+      [
+        view.taskKey,
+        view.jobKey,
+        view.taskTitle,
+        view.taskDescription,
+        view.jobTitle,
+        view.jobShortTitle,
+        view.jobCategoryLabel,
+        view.moduleLabel,
+      ]
         .filter(Boolean)
-        .some((value) => value.toLowerCase().includes(keyword));
+        .some((value) => String(value).toLowerCase().includes(keyword));
     const matchesJob = filters.jobKey === 'all' || task.job_key === filters.jobKey;
     const matchesStatus = filters.status === 'all' || task.status === filters.status;
     return matchesKeyword && matchesJob && matchesStatus;
@@ -1261,10 +1377,10 @@ const selectedJobDefinition = computed(() => {
   if (!taskForm.jobKey) {
     return null;
   }
-  return jobDefinitions.value.find((job) => job.key === taskForm.jobKey) ?? null;
+  return jobDefinitions.value.find((job) => job.job_key === taskForm.jobKey) ?? null;
 });
 
-const selectedConfigSchema = computed(() => parseConfigSchema(selectedJobDefinition.value?.config_schema_json));
+const selectedConfigSchema = computed(() => parseConfigSchema(selectedJobDefinition.value?.config_schema));
 
 const configSchemaFields = computed(() => getConfigSchemaFields(selectedConfigSchema.value));
 
@@ -1302,11 +1418,11 @@ const configDialogTitle = computed(
 );
 
 const selectedTaskJobDefinition = computed(() =>
-  selectedTask.value ? jobDefinitions.value.find((job) => job.key === selectedTask.value?.job_key) : null,
+  selectedTask.value ? jobDefinitions.value.find((job) => job.job_key === selectedTask.value?.job_key) : null,
 );
 
 const selectedTaskConfigSchema = computed<ConfigSchema>(() =>
-  parseConfigSchema(selectedTaskJobDefinition.value?.config_schema_json),
+  parseConfigSchema(selectedTaskJobDefinition.value?.config_schema),
 );
 
 const selectedTaskConfigFields = computed(() => getConfigSchemaFields(selectedTaskConfigSchema.value));
@@ -1320,12 +1436,29 @@ const selectedTaskEffectiveConfig = computed<JsonRecord>(() => {
   }
 
   return mergeConfigRecords(
-    parseJsonRecord(selectedTaskJobDefinition.value?.default_config_json),
+    parseJsonRecord(selectedTaskJobDefinition.value?.default_config),
     parseJsonRecord(selectedTask.value.config_json),
   );
 });
 
 const selectedTaskEffectiveConfigPreview = computed(() => JSON.stringify(selectedTaskEffectiveConfig.value, null, 2));
+
+const selectedTaskConfigSummaryItems = computed(() =>
+  selectedTaskConfigFields.value
+    .map((field) => ({
+      key: field.key,
+      label: configSchemaFieldTitle(field),
+      value: configValuePreview(selectedTaskEffectiveConfig.value[field.key]),
+      description: configSchemaFieldDescription(field),
+    }))
+    .filter((item) => item.value !== t('scheduledTask.list.detail.none')),
+);
+
+const selectedTaskJobDefinitionPreview = computed(() =>
+  selectedTaskJobDefinition.value
+    ? JSON.stringify(selectedTaskJobDefinition.value, null, 2)
+    : t('scheduledTask.list.detail.none'),
+);
 
 const selectedTaskJobDescription = computed(() =>
   selectedTaskJobDefinition.value
@@ -1353,6 +1486,8 @@ const actionResultStructured = computed<ScheduledTaskRunResult>(() => {
   };
 });
 
+const actionResultSummaryText = computed(() => localizedStructuredRunResultText(actionResultStructured.value));
+
 const actionResultRawJsonPreview = computed(() => {
   if (!actionResult.value) {
     return t('scheduledTask.list.detail.none');
@@ -1366,7 +1501,7 @@ const actionResultRawJsonPreview = computed(() => {
 const groupedJobDefinitions = computed<JobDefinitionGroup[]>(() => {
   const groups = new Map<string, ScheduledTaskJobDefinitionItem[]>();
   for (const job of jobDefinitions.value) {
-    const moduleKey = job.module || job.owner || 'scheduler';
+    const moduleKey = job.module_key || 'scheduler';
     groups.set(moduleKey, [...(groups.get(moduleKey) ?? []), job]);
   }
 
@@ -1382,11 +1517,10 @@ const groupedJobDefinitions = computed<JobDefinitionGroup[]>(() => {
 
 const columnSettingOptions = computed(() => [
   { label: t('scheduledTask.list.columns.taskName'), value: 'task' },
-  { label: t('scheduledTask.list.columns.jobType'), value: 'job_key' },
+  { label: t('scheduledTask.list.columns.owner'), value: 'job_key' },
+  { label: t('scheduledTask.list.columns.schedule'), value: 'schedule' },
   { label: t('scheduledTask.list.columns.status'), value: 'status' },
-  { label: t('scheduledTask.list.columns.cron'), value: 'schedule' },
-  { label: t('scheduledTask.list.columns.recentResult'), value: 'recent_result' },
-  { label: t('scheduledTask.list.columns.recentRun'), value: 'recent_run' },
+  { label: t('scheduledTask.list.columns.lastRun'), value: 'last_run' },
   { label: t('scheduledTask.list.columns.successRate'), value: 'success_rate' },
 ]);
 
@@ -1399,28 +1533,23 @@ const allColumns = computed<TdBaseTableProps['columns']>(() => [
   },
   {
     colKey: 'job_key',
-    title: t('scheduledTask.list.columns.jobType'),
-    width: 180,
+    title: t('scheduledTask.list.columns.owner'),
+    width: 150,
+  },
+  {
+    colKey: 'schedule',
+    title: t('scheduledTask.list.columns.schedule'),
+    width: 270,
   },
   {
     colKey: 'status',
     title: t('scheduledTask.list.columns.status'),
-    width: 110,
+    width: 150,
   },
   {
-    colKey: 'schedule',
-    title: t('scheduledTask.list.columns.cron'),
-    width: 230,
-  },
-  {
-    colKey: 'recent_result',
-    title: t('scheduledTask.list.columns.recentResult'),
-    width: 220,
-  },
-  {
-    colKey: 'recent_run',
-    title: t('scheduledTask.list.columns.recentRun'),
-    width: 210,
+    colKey: 'last_run',
+    title: t('scheduledTask.list.columns.lastRun'),
+    width: 260,
   },
   {
     colKey: 'success_rate',
@@ -1431,7 +1560,7 @@ const allColumns = computed<TdBaseTableProps['columns']>(() => [
     colKey: 'operation',
     title: t('scheduledTask.list.columns.operation'),
     align: 'right',
-    width: 280,
+    width: 150,
     fixed: 'right',
   },
 ]);
@@ -1517,15 +1646,15 @@ async function refreshRunSummaries(items: ScheduledTaskItem[]) {
   const entries = await Promise.all(
     items.map(async (task) => {
       try {
-        const response = await getScheduledTaskRuns(task.key, { limit: 20, offset: 0 });
-        return [task.key, response.items] as const;
+        const response = await getScheduledTaskRuns(task.task_key, { limit: 20, offset: 0 });
+        return [task.task_key, response.items] as const;
       } catch (error) {
         logger.warn('load scheduled task summary runs failed', {
           error,
-          taskKey: task.key,
+          taskKey: task.task_key,
           operation: 'scheduled_task_runs_summary',
         });
-        return [task.key, []] as const;
+        return [task.task_key, []] as const;
       }
     }),
   );
@@ -1536,17 +1665,17 @@ async function refreshRunSummaries(items: ScheduledTaskItem[]) {
 async function openDetail(row: ScheduledTaskItem) {
   errorMessage.value = '';
   selectedTask.value = row;
-  recentRuns.value = runHistoryByTaskKey.value[row.key] ?? [];
+  recentRuns.value = runHistoryByTaskKey.value[row.task_key] ?? [];
   detailVisible.value = true;
 
   try {
-    const [detail] = await Promise.all([getScheduledTask(row.key), loadRuns(row.key)]);
+    const [detail] = await Promise.all([getScheduledTask(row.task_key), loadRuns(row.task_key)]);
     selectedTask.value = detail;
     syncTask(detail);
     await ensureJobDefinitionLoaded(detail.job_key);
   } catch (error) {
     logger.error(error instanceof Error ? error : 'load scheduled task detail failed', {
-      taskKey: row.key,
+      taskKey: row.task_key,
       operation: 'scheduled_task_detail',
     });
     void MessagePlugin.error(t('scheduledTask.list.detailLoadError'));
@@ -1559,10 +1688,10 @@ async function refreshRuns() {
   }
 
   try {
-    await loadRuns(selectedTask.value.key);
+    await loadRuns(selectedTask.value.task_key);
   } catch (error) {
     logger.error(error instanceof Error ? error : 'load scheduled task runs failed', {
-      taskKey: selectedTask.value.key,
+      taskKey: selectedTask.value.task_key,
       operation: 'scheduled_task_runs',
     });
     void MessagePlugin.error(t('scheduledTask.list.detailLoadError'));
@@ -1601,14 +1730,14 @@ async function openEditDrawer(row: ScheduledTaskItem) {
   formMode.value = 'edit';
   formVisible.value = true;
   try {
-    const detail = await getScheduledTask(row.key);
+    const detail = await getScheduledTask(row.task_key);
     editingTask.value = detail;
     syncTask(detail);
     const job = await ensureJobDefinitionLoaded(detail.job_key);
     Object.assign(taskForm, taskToForm(detail, job ?? undefined));
   } catch (error) {
     logger.error(error instanceof Error ? error : 'load scheduled task edit detail failed', {
-      taskKey: row.key,
+      taskKey: row.task_key,
       operation: 'scheduled_task_edit_detail',
     });
     Object.assign(taskForm, taskToForm(row));
@@ -1627,14 +1756,17 @@ async function submitTaskForm() {
     const saved =
       formMode.value === 'create'
         ? await createScheduledTask(payload as CreateScheduledTaskRequest)
-        : await updateScheduledTask(editingTask.value?.key ?? taskForm.taskKey, payload as UpdateScheduledTaskRequest);
+        : await updateScheduledTask(
+            editingTask.value?.task_key ?? taskForm.taskKey,
+            payload as UpdateScheduledTaskRequest,
+          );
 
     syncTask(saved);
     formVisible.value = false;
     void MessagePlugin.success(
       formMode.value === 'create' ? t('scheduledTask.list.createSuccess') : t('scheduledTask.list.updateSuccess'),
     );
-    await loadRuns(saved.key);
+    await loadRuns(saved.task_key);
   } catch (error) {
     logger.error(error instanceof Error ? error : 'save scheduled task failed', {
       taskKey: taskForm.taskKey,
@@ -1694,7 +1826,7 @@ function buildTaskPayload(): CreateScheduledTaskRequest | UpdateScheduledTaskReq
   }
 
   if (!taskForm.jobKey.trim()) {
-    void MessagePlugin.warning(t('scheduledTask.list.form.jobTypeRequiredHint'));
+    void MessagePlugin.warning(t('scheduledTask.list.form.jobRequiredHint'));
     return null;
   }
 
@@ -1765,7 +1897,7 @@ async function confirmConfigDialog() {
     return;
   }
 
-  const taskKey = editingTask.value?.key ?? taskForm.taskKey;
+  const taskKey = editingTask.value?.task_key ?? taskForm.taskKey;
   if (!taskKey) {
     return;
   }
@@ -1849,7 +1981,7 @@ function validatePersistentConfigJson(persistentConfigJson: string) {
     return true;
   }
 
-  const schema = parseConfigSchema(job.config_schema_json);
+  const schema = parseConfigSchema(job.config_schema);
   const result = validateConfigRecord(schema, parseJsonRecord(persistentConfigJson));
   if (result.valid) {
     clearFormFieldError('configJson');
@@ -1924,7 +2056,7 @@ function sanitizeConfigByJobDefinition(config: JsonRecord, job?: ScheduledTaskJo
     return {};
   }
 
-  const fields = getConfigSchemaFields(parseConfigSchema(job.config_schema_json));
+  const fields = getConfigSchemaFields(parseConfigSchema(job.config_schema));
   const allowedKeys = new Set(fields.map((field) => field.key));
   return Object.fromEntries(Object.entries(config).filter(([key]) => allowedKeys.has(key)));
 }
@@ -1951,25 +2083,25 @@ async function runTask(task: ScheduledTaskItem) {
     return;
   }
 
-  runningTaskKey.value = task.key;
+  runningTaskKey.value = task.task_key;
 
   try {
-    const run = await runScheduledTask(task.key);
+    const run = await runScheduledTask(task.task_key);
     recentRuns.value = [run, ...recentRuns.value.filter((item) => item.id !== run.id)].slice(0, 20);
     runHistoryByTaskKey.value = {
       ...runHistoryByTaskKey.value,
-      [task.key]: recentRuns.value,
+      [task.task_key]: recentRuns.value,
     };
-    const detail = await getScheduledTask(task.key);
+    const detail = await getScheduledTask(task.task_key);
     syncTask(detail);
-    if (selectedTask.value?.key === detail.key) {
+    if (selectedTask.value?.task_key === detail.task_key) {
       selectedTask.value = detail;
     }
     requestNotificationHeaderRefresh();
     void MessagePlugin.success(t('scheduledTask.list.runSuccess'));
   } catch (error) {
     logger.error(error instanceof Error ? error : 'run scheduled task failed', {
-      taskKey: task.key,
+      taskKey: task.task_key,
       operation: 'scheduled_task_run',
     });
     void MessagePlugin.error(t('scheduledTask.list.runError'));
@@ -1995,7 +2127,7 @@ async function confirmSelectedAction() {
 }
 
 async function executeSelectedAction(action: ScheduledTaskJobDefinitionAction) {
-  const taskKey = editingTask.value?.key ?? taskForm.taskKey;
+  const taskKey = editingTask.value?.task_key ?? taskForm.taskKey;
   if (!taskKey) {
     return;
   }
@@ -2044,11 +2176,11 @@ function closeActionResultDialog() {
 }
 
 async function toggleTaskEnabled(task: ScheduledTaskItem) {
-  lifecycleTaskKey.value = task.key;
+  lifecycleTaskKey.value = task.task_key;
   try {
-    const updated = task.enabled ? await disableScheduledTask(task.key) : await enableScheduledTask(task.key);
+    const updated = task.enabled ? await disableScheduledTask(task.task_key) : await enableScheduledTask(task.task_key);
     syncTask(updated);
-    if (selectedTask.value?.key === updated.key) {
+    if (selectedTask.value?.task_key === updated.task_key) {
       selectedTask.value = updated;
     }
     void MessagePlugin.success(
@@ -2056,7 +2188,7 @@ async function toggleTaskEnabled(task: ScheduledTaskItem) {
     );
   } catch (error) {
     logger.error(error instanceof Error ? error : 'toggle scheduled task enabled failed', {
-      taskKey: task.key,
+      taskKey: task.task_key,
       operation: 'scheduled_task_lifecycle',
     });
     void MessagePlugin.error(t('scheduledTask.list.lifecycleError'));
@@ -2076,17 +2208,20 @@ async function confirmDeleteTask() {
   }
 
   const task = deleteDialogTask.value;
-  deletingTaskKey.value = task.key;
+  deletingTaskKey.value = task.task_key;
   try {
-    await deleteScheduledTask(task.key);
-    tasks.value = tasks.value.filter((item) => item.key !== task.key);
-    const { [task.key]: _removed, ...remainingRuns } = runHistoryByTaskKey.value;
+    await deleteScheduledTask(task.task_key);
+    tasks.value = tasks.value.filter((item) => item.task_key !== task.task_key);
+    if (selectedTask.value?.task_key === task.task_key) {
+      selectedTask.value = null;
+    }
+    const { [task.task_key]: _removed, ...remainingRuns } = runHistoryByTaskKey.value;
     runHistoryByTaskKey.value = remainingRuns;
     deleteDialogVisible.value = false;
     void MessagePlugin.success(t('scheduledTask.list.deleteSuccess'));
   } catch (error) {
     logger.error(error instanceof Error ? error : 'delete scheduled task failed', {
-      taskKey: task.key,
+      taskKey: task.task_key,
       operation: 'scheduled_task_delete',
     });
     void MessagePlugin.error(t('scheduledTask.list.deleteError'));
@@ -2111,17 +2246,17 @@ async function openRunDetail(row: ScheduledTaskRunItem) {
 }
 
 function syncTask(detail: ScheduledTaskItem) {
-  const index = tasks.value.findIndex((task) => task.key === detail.key);
+  const index = tasks.value.findIndex((task) => task.task_key === detail.task_key);
   if (index === -1) {
     tasks.value = [detail, ...tasks.value];
     return;
   }
 
-  tasks.value = tasks.value.map((task) => (task.key === detail.key ? detail : task));
+  tasks.value = tasks.value.map((task) => (task.task_key === detail.task_key ? detail : task));
 }
 
 function canRunTask(task: ScheduledTaskItem) {
-  return task.enabled && !task.running && runningTaskKey.value !== task.key;
+  return task.enabled && !task.running && runningTaskKey.value !== task.task_key;
 }
 
 function isSystemTask(task: ScheduledTaskItem) {
@@ -2144,14 +2279,14 @@ function createEmptyTaskForm(): TaskFormModel {
 }
 
 function taskToForm(task: ScheduledTaskItem, job?: ScheduledTaskJobDefinitionItem): TaskFormModel {
-  const expression = normalizeCronForForm(task.schedule || DEFAULT_CRON_EXPRESSION);
+  const expression = normalizeCronForForm(task.cron_expression || DEFAULT_CRON_EXPRESSION);
   const taskConfig = job
     ? sanitizeConfigByJobDefinition(parseJsonRecord(task.config_json), job)
     : parseJsonRecord(task.config_json);
   const defaultConfig = job
     ? mergeConfigRecords(
-        buildDefaultConfigFromSchema(parseConfigSchema(job.config_schema_json)),
-        parseJsonRecord(job.default_config_json),
+        buildDefaultConfigFromSchema(parseConfigSchema(job.config_schema)),
+        parseJsonRecord(job.default_config),
       )
     : {};
   const effectiveConfig = task.effective_config?.trim()
@@ -2161,7 +2296,7 @@ function taskToForm(task: ScheduledTaskItem, job?: ScheduledTaskJobDefinitionIte
     : mergeConfigRecords(defaultConfig, taskConfig);
   const taskConfigJson = serializeConfigRecord(taskConfig);
   return {
-    taskKey: task.key,
+    taskKey: task.task_key,
     title: taskDisplayName(task),
     description: isSystemTask(task) ? taskDescription(task) : task.description || '',
     cronExpression: expression,
@@ -2193,14 +2328,18 @@ function normalizeCronForForm(expression: string) {
 }
 
 function scheduleExpressionText(task: ScheduledTaskItem) {
-  return formatCronExpression(task.schedule || DEFAULT_CRON_EXPRESSION);
+  return formatCronExpression(task.cron_expression || DEFAULT_CRON_EXPRESSION);
 }
 
 function cronNextRunLine(expression: string) {
-  const nextRun = getNextRunText(expression || DEFAULT_CRON_EXPRESSION, cronTimezone(), { locale: locale.value });
   return t('scheduledTask.cron.nextRun', {
-    time: nextRun || t('scheduledTask.cron.nextRunUnavailable'),
+    time: cronNextRunTime(expression),
   });
+}
+
+function cronNextRunTime(expression: string) {
+  const nextRun = getNextRunText(expression || DEFAULT_CRON_EXPRESSION, cronTimezone(), { locale: locale.value });
+  return nextRun || t('scheduledTask.cron.nextRunUnavailable');
 }
 
 function cronScheduleDescription(expression: string) {
@@ -2332,11 +2471,11 @@ async function handleJobDefinitionChange(value: unknown) {
 
   taskForm.title = jobDefinitionTitle(job);
   taskForm.description = jobDefinitionDescription(job);
-  taskForm.cronExpression = normalizeCronForForm(job.default_cron_expression || DEFAULT_CRON_EXPRESSION);
+  taskForm.cronExpression = normalizeCronForForm(job.default_cron || DEFAULT_CRON_EXPRESSION);
   taskForm.enabled = job.default_enabled;
   taskForm.config = mergeConfigRecords(
-    buildDefaultConfigFromSchema(parseConfigSchema(job.config_schema_json)),
-    parseJsonRecord(job.default_config_json),
+    buildDefaultConfigFromSchema(parseConfigSchema(job.config_schema)),
+    parseJsonRecord(job.default_config),
   );
   syncConfigJsonFromModel();
   taskForm.configDirty = false;
@@ -2345,14 +2484,14 @@ async function handleJobDefinitionChange(value: unknown) {
 }
 
 async function ensureJobDefinitionLoaded(jobKey: string) {
-  const cached = jobDefinitions.value.find((item) => item.key === jobKey);
-  if (cached?.config_schema_json) {
+  const cached = jobDefinitions.value.find((item) => item.job_key === jobKey);
+  if (cached?.config_schema) {
     return cached;
   }
 
   try {
     const detail = await getScheduledTaskJobDefinition(jobKey);
-    jobDefinitions.value = [detail, ...jobDefinitions.value.filter((item) => item.key !== jobKey)];
+    jobDefinitions.value = [detail, ...jobDefinitions.value.filter((item) => item.job_key !== jobKey)];
     return detail;
   } catch (error) {
     logger.warn('load scheduled task job definition detail failed', {
@@ -2364,15 +2503,32 @@ async function ensureJobDefinitionLoaded(jobKey: string) {
   }
 }
 
+function presenterI18n() {
+  return { t, te };
+}
+
+function rowView(task: ScheduledTaskItem) {
+  const job = jobDefinitions.value.find((item) => item.job_key === task.job_key) ?? task.job ?? null;
+  const recentResultLabel = task.last_run ? runResultText(task.last_run) : t('scheduledTask.list.detail.none');
+  return presentScheduledTaskRow({
+    task,
+    job,
+    i18n: presenterI18n(),
+    cronExpression: scheduleExpressionText(task),
+    nextRunLabel: cronNextRunLine(task.cron_expression),
+    nextRunTooltip: cronScheduleDescription(task.cron_expression),
+    statusLabel: statusLabel(task.status),
+    recentResultLabel,
+    recentResultTooltip: recentResultLabel,
+  });
+}
+
 function taskDisplayName(task: ScheduledTaskItem) {
-  return localizedDisplayText(task.display_name_key, task.title, isSystemTask(task)) || task.key;
+  return presentTaskTitle(task, presenterI18n());
 }
 
 function taskDescription(task: ScheduledTaskItem) {
-  return (
-    localizedDisplayText(task.description_key, task.description, isSystemTask(task)) ||
-    t('scheduledTask.list.detail.none')
-  );
+  return presentTaskDescription(task, presenterI18n()) || t('scheduledTask.list.detail.none');
 }
 
 function localizeMessageKey(key?: string) {
@@ -2469,17 +2625,20 @@ function localizedDisplayText(messageKey?: string, fallback?: string | null, pre
   return localizeDisplayValue(fallback) || localized;
 }
 
-function jobTypeLabel(jobKey: ScheduledTaskJobKey) {
-  const job = jobDefinitions.value.find((item) => item.key === jobKey);
-  return job ? jobDefinitionTitle(job) : jobKey;
+function jobDefinitionTitle(job: ScheduledTaskJobDefinitionItem) {
+  return presentJobTitle(job, presenterI18n());
 }
 
-function jobDefinitionTitle(job: ScheduledTaskJobDefinitionItem) {
-  return localizedDisplayText(job.display_name_key, job.title, true) || job.key;
+function jobDefinitionShortTitle(job: ScheduledTaskJobDefinitionItem) {
+  return presentJobShortTitle(job, presenterI18n());
 }
 
 function jobDefinitionDescription(job: ScheduledTaskJobDefinitionItem) {
-  return localizedDisplayText(job.description_key, job.description, true) || t('scheduledTask.list.detail.none');
+  return presentJobDescription(job, presenterI18n()) || t('scheduledTask.list.detail.none');
+}
+
+function jobCategoryDisplayLabel(job: ScheduledTaskJobDefinitionItem) {
+  return jobCategoryLabel(job, presenterI18n());
 }
 
 function jobDefinitionActionTitle(action: ScheduledTaskJobDefinitionAction) {
@@ -2531,12 +2690,7 @@ function actionButtonTheme(action: ScheduledTaskJobDefinitionAction) {
 }
 
 function moduleDisplayName(moduleKey: string) {
-  const messageKey = `module.${moduleKey}.title`;
-  return te(messageKey) ? t(messageKey) : moduleKey;
-}
-
-function scheduleTypeLabel(type: ScheduledTaskItem['schedule_type']) {
-  return t(`scheduledTask.list.scheduleType.${type}`);
+  return presentModuleLabel(moduleKey, presenterI18n());
 }
 
 function triggerLabel(type: ScheduledTaskRunTriggerType) {
@@ -2549,6 +2703,10 @@ function statusLabel(status: ScheduledTaskStatus | ScheduledTaskRunStatus, trans
 
 function booleanLabel(value: boolean) {
   return value ? t('scheduledTask.list.detail.enabledYes') : t('scheduledTask.list.detail.enabledNo');
+}
+
+function configSourceLabel(source: ScheduledTaskItem['config_source']) {
+  return t(`scheduledTask.list.configSource.${source}`);
 }
 
 function statusTheme(status: ScheduledTaskStatus | ScheduledTaskRunStatus) {
@@ -2578,24 +2736,46 @@ function successRateLabel(taskKey: string) {
 }
 
 function runResultText(run: ScheduledTaskRunItem | NonNullable<ScheduledTaskItem['last_run']>) {
-  const structured = runResultStructured(run);
-  if (structured.summary) {
-    return structured.summary;
+  const localized = localizedRunResultText(run);
+  if (localized) {
+    return localized;
   }
 
   if (run.status === 'success') {
-    return run.result_summary || t('scheduledTask.list.detail.none');
+    return t('scheduledTask.list.result.completed');
   }
 
   if (run.status === 'failed') {
-    return run.error_summary || run.result_summary || t('scheduledTask.list.detail.noError');
+    return t('scheduledTask.list.result.failed');
   }
 
-  return run.result_summary || run.error_summary || t('scheduledTask.list.detail.noError');
+  return t('scheduledTask.list.detail.noError');
 }
 
 function runResultStructured(run: ScheduledTaskRunItem | NonNullable<ScheduledTaskItem['last_run']>) {
   return parseRunResult(run.result_json);
+}
+
+function localizedRunResultText(run: ScheduledTaskRunItem | NonNullable<ScheduledTaskItem['last_run']>) {
+  return localizedStructuredRunResultText(runResultStructured(run), run.status);
+}
+
+function localizedStructuredRunResultText(result: ScheduledTaskRunResult, status?: ScheduledTaskRunStatus) {
+  const deletedCount = runResultMetricNumber(result, 'deletedCount') ?? runResultMetricNumber(result, 'deletedRows');
+  if (deletedCount !== undefined) {
+    return t('scheduledTask.list.result.deletedRows', { count: deletedCount });
+  }
+
+  const estimatedDeleteCount = runResultMetricNumber(result, 'estimatedDeleteCount');
+  if (estimatedDeleteCount !== undefined) {
+    return t('scheduledTask.list.result.estimatedRows', { count: estimatedDeleteCount });
+  }
+
+  if (status === 'failed' || result.stage === 'failed') {
+    return t('scheduledTask.list.result.failed');
+  }
+
+  return '';
 }
 
 function configSchemaFieldTitle(field: ConfigSchemaField) {
@@ -2659,10 +2839,10 @@ function handleRetentionDaysOptionChange(value: unknown) {
 }
 
 function immediateRunSummary(task: ScheduledTaskItem): ImmediateRunSummary {
-  const job = jobDefinitions.value.find((item) => item.key === task.job_key);
+  const job = jobDefinitions.value.find((item) => item.job_key === task.job_key);
   const effectiveConfig = task.effective_config?.trim()
     ? parseJsonRecord(task.effective_config)
-    : mergeConfigRecords(parseJsonRecord(job?.default_config_json), parseJsonRecord(task.config_json));
+    : mergeConfigRecords(parseJsonRecord(job?.default_config), parseJsonRecord(task.config_json));
   const items = [
     {
       key: 'resource',
@@ -2711,7 +2891,7 @@ function isCleanupJob(jobKey: string) {
 }
 
 function cleanupResourceLabel(task: ScheduledTaskItem, job?: ScheduledTaskJobDefinitionItem) {
-  const key = job?.key ?? task.job_key;
+  const key = job?.job_key ?? task.job_key;
   if (key.includes('access-log')) {
     return t('scheduledTask.list.resource.accessLog');
   }
@@ -2721,7 +2901,7 @@ function cleanupResourceLabel(task: ScheduledTaskItem, job?: ScheduledTaskJobDef
   if (key.includes('app-log')) {
     return t('scheduledTask.list.resource.appLog');
   }
-  return moduleDisplayName(job?.module ?? task.module);
+  return moduleDisplayName(job?.module_key ?? task.job?.module_key ?? '');
 }
 
 function formatTimestamp(value?: string | null) {
@@ -2729,15 +2909,16 @@ function formatTimestamp(value?: string | null) {
     return t('scheduledTask.list.detail.notAvailable');
   }
 
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
+  const formatted = formatLocaleDateTime(value, locale, MEDIUM_DATE_TIME_WITH_SECONDS_FORMAT_OPTIONS);
+  return formatted === '-' ? t('scheduledTask.list.detail.notAvailable') : formatted;
+}
 
-  return new Intl.DateTimeFormat(locale.value, {
-    dateStyle: 'medium',
-    timeStyle: 'medium',
-  }).format(date);
+function taskNextRunTime(task: ScheduledTaskItem) {
+  const backendNextRun = formatLocaleDateTime(task.next_run_at, locale, MEDIUM_DATE_TIME_WITH_SECONDS_FORMAT_OPTIONS);
+  if (backendNextRun && backendNextRun !== '-') {
+    return backendNextRun;
+  }
+  return cronNextRunTime(task.cron_expression);
 }
 
 function formatDuration(value?: number | null) {
@@ -2877,20 +3058,43 @@ function formatDuration(value?: number | null) {
 }
 
 .scheduled-task-identity,
+.scheduled-task-owner,
 .scheduled-task-schedule,
-.scheduled-task-last-run {
+.scheduled-task-last-run,
+.scheduled-task-status-stack {
   display: flex;
+  flex-direction: column;
   min-width: 0;
 }
 
-.scheduled-task-identity,
-.scheduled-task-schedule {
-  flex-direction: column;
+.scheduled-task-owner {
+  gap: var(--graft-density-gap-4);
 }
 
-.scheduled-task-last-run {
+.scheduled-task-owner__module,
+.scheduled-task-status-stack__row span {
+  color: var(--td-text-color-secondary);
+  font-size: var(--td-font-size-body-small);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scheduled-task-owner__tag {
+  max-width: 112px;
+  width: fit-content;
+}
+
+.scheduled-task-status-stack {
+  gap: var(--graft-density-gap-6);
+}
+
+.scheduled-task-status-stack__row {
   align-items: center;
+  display: flex;
   gap: var(--graft-density-gap-8);
+  justify-content: space-between;
+  min-width: 0;
 }
 
 .scheduled-task-identity__name {
@@ -2901,6 +3105,7 @@ function formatDuration(value?: number | null) {
 .scheduled-task-identity__key,
 .scheduled-task-schedule span,
 .scheduled-task-last-run span,
+.scheduled-task-last-run strong,
 .scheduled-task-mono {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2918,12 +3123,30 @@ function formatDuration(value?: number | null) {
 .scheduled-task-schedule {
   border-radius: var(--td-radius-small);
   cursor: default;
-  gap: var(--graft-density-gap-4);
+  gap: var(--graft-density-gap-3);
   max-width: 100%;
   padding: var(--graft-density-gap-2) 0;
 }
 
-.scheduled-task-schedule:hover .scheduled-task-mono {
+.scheduled-task-schedule strong,
+.scheduled-task-last-run strong {
+  color: var(--td-text-color-primary);
+  font-size: var(--td-font-size-body-medium);
+  font-weight: 600;
+  line-height: var(--td-line-height-body-medium);
+}
+
+.scheduled-task-cron-trigger {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: default;
+  max-width: 100%;
+  padding: 0;
+  text-align: left;
+}
+
+.scheduled-task-cron-trigger:hover .scheduled-task-mono {
   color: var(--td-brand-color);
 }
 
@@ -2933,24 +3156,32 @@ function formatDuration(value?: number | null) {
   line-height: var(--td-line-height-body-small);
 }
 
-.scheduled-task-cron-tooltip__content {
+.scheduled-task-cron-popover :deep(.t-popup__content),
+:deep(.scheduled-task-cron-popover .t-popup__content) {
+  background: var(--td-bg-color-container);
+  border: 1px solid var(--td-border-level-2-color);
+  box-shadow: var(--td-shadow-3);
+  color: var(--td-text-color-primary);
+}
+
+.scheduled-task-cron-popover__content {
   display: grid;
   gap: var(--graft-density-gap-10);
   min-width: 220px;
 }
 
-.scheduled-task-cron-tooltip__item {
+.scheduled-task-cron-popover__item {
   display: grid;
   gap: var(--graft-density-gap-4);
 }
 
-.scheduled-task-cron-tooltip__item span {
+.scheduled-task-cron-popover__item span {
   color: var(--td-text-color-secondary);
   font-size: var(--td-font-size-body-small);
 }
 
-.scheduled-task-cron-tooltip__item code,
-.scheduled-task-cron-tooltip__item strong {
+.scheduled-task-cron-popover__item code,
+.scheduled-task-cron-popover__item strong {
   color: var(--td-text-color-primary);
   font-size: var(--td-font-size-body-medium);
   font-weight: 500;
@@ -2958,9 +3189,25 @@ function formatDuration(value?: number | null) {
   overflow-wrap: anywhere;
 }
 
-.scheduled-task-cron-tooltip__item code {
+.scheduled-task-cron-popover__item code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
   font-weight: 600;
+}
+
+.scheduled-task-last-run {
+  gap: var(--graft-density-gap-4);
+}
+
+.scheduled-task-last-run__head {
+  align-items: center;
+  display: flex;
+  gap: var(--graft-density-gap-8);
+  min-width: 0;
+}
+
+.scheduled-task-last-run__head span {
+  color: var(--td-text-color-secondary);
+  font-size: var(--td-font-size-body-small);
 }
 
 .scheduled-task-actions {
@@ -2995,6 +3242,64 @@ function formatDuration(value?: number | null) {
   display: flex;
   flex-direction: column;
   gap: var(--graft-density-gap-20);
+}
+
+.scheduled-task-detail-hero {
+  align-items: flex-start;
+  background: var(--td-bg-color-container);
+  border: 1px solid var(--td-component-stroke);
+  border-radius: var(--td-radius-medium);
+  display: flex;
+  gap: var(--graft-density-gap-16);
+  justify-content: space-between;
+  padding: var(--graft-density-gap-16);
+}
+
+.scheduled-task-detail-hero__main {
+  display: grid;
+  gap: var(--graft-density-gap-6);
+  min-width: 0;
+}
+
+.scheduled-task-detail-hero__main code {
+  color: var(--td-text-color-secondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  overflow-wrap: anywhere;
+}
+
+.scheduled-task-detail-hero__main p {
+  color: var(--td-text-color-secondary);
+  margin: 0;
+}
+
+.scheduled-task-detail-hero__status {
+  align-items: flex-end;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: var(--graft-density-gap-8);
+}
+
+.scheduled-task-detail-summary {
+  display: grid;
+  gap: var(--graft-density-gap-12);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.scheduled-task-detail-summary__card :deep(.t-card__body) {
+  display: grid;
+  gap: var(--graft-density-gap-6);
+}
+
+.scheduled-task-detail-summary__card span,
+.scheduled-task-detail-summary__card small {
+  color: var(--td-text-color-secondary);
+}
+
+.scheduled-task-detail-summary__card strong {
+  color: var(--td-text-color-primary);
+  font-size: var(--td-font-size-title-medium);
+  overflow-wrap: anywhere;
 }
 
 .scheduled-task-detail__section {
@@ -3173,13 +3478,19 @@ function formatDuration(value?: number | null) {
 
 @media (width <= 900px) {
   .scheduled-task-page__header,
-  .scheduled-task-table-head {
+  .scheduled-task-table-head,
+  .scheduled-task-detail-hero {
     align-items: flex-start;
     flex-direction: column;
   }
 
-  .scheduled-task-metrics {
+  .scheduled-task-metrics,
+  .scheduled-task-detail-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .scheduled-task-detail-hero__status {
+    align-items: flex-start;
   }
 
   .scheduled-task-toolbar__search,
@@ -3190,7 +3501,8 @@ function formatDuration(value?: number | null) {
 }
 
 @media (width <= 520px) {
-  .scheduled-task-metrics {
+  .scheduled-task-metrics,
+  .scheduled-task-detail-summary {
     grid-template-columns: 1fr;
   }
 }

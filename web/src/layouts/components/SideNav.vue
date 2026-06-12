@@ -12,6 +12,7 @@
       :collapsed="collapsed"
       :expanded="expanded"
       :expand-mutex="menuAutoCollapsed"
+      :width="menuWidth"
       @expand="onExpanded"
     >
       <template #logo>
@@ -48,6 +49,7 @@ import pgk from '../../../package.json';
 import MenuContent from './MenuContent.vue';
 
 const appVersion = 'version' in pgk ? String(pgk.version) : '';
+const menuWidth = ['232px', '64px'];
 
 const { menu, showLogo, isFixed, layout, theme, isCompact } = defineProps({
   menu: {

@@ -40,6 +40,13 @@ vi.mock('tdesign-vue-next', () => ({
   },
 }));
 
+vi.mock('tdesign-vue-next/es/message', () => ({
+  MessagePlugin: {
+    success: vi.fn(),
+    error: vi.fn(),
+  },
+}));
+
 describe('LogJsonPanel', () => {
   it('renders formatted JSON and copy action for non-empty values', () => {
     const wrapper = mount(LogJsonPanel, {

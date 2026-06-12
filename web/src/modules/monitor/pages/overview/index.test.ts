@@ -312,6 +312,12 @@ vi.mock('tdesign-vue-next', async () => {
   };
 });
 
+vi.mock('tdesign-vue-next/es/message', () => ({
+  MessagePlugin: {
+    error: messageMocks.error,
+  },
+}));
+
 vi.mock('@/modules/audit/shared/correlation-actions', () => ({
   openCorrelationErrorNotification: correlationActionMocks.openCorrelationErrorNotification,
   requestIdFromError: correlationActionMocks.requestIdFromError,

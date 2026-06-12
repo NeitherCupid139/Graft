@@ -20,10 +20,6 @@ vi.mock('vue', () => ({
   }),
 }));
 
-vi.mock('tdesign-vue-next', () => ({
-  default: {},
-}));
-
 vi.mock('@/App.vue', () => ({
   default: {},
 }));
@@ -91,7 +87,7 @@ describe('bootstrapApp', () => {
       route: '/login',
     });
     expect(healPersistedState).toHaveBeenCalledTimes(1);
-    expect(useMock).toHaveBeenCalledTimes(4);
+    expect(useMock).toHaveBeenCalledTimes(3);
     expect(registerPermissionDirective).toHaveBeenCalledTimes(1);
     expect(mountMock).toHaveBeenCalledWith('#app');
     expect(healPersistedState.mock.invocationCallOrder[0]).toBeLessThan(mountMock.mock.invocationCallOrder[0]);

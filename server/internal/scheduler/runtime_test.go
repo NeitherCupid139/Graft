@@ -47,7 +47,7 @@ func (r *runRepositoryRecorder) FinishRun(
 		}
 
 		run.Status = command.Status
-		run.Error = command.ErrorMessage
+		run.ErrorMessage = command.ErrorMessage
 		run.Result = command.ResultSummary
 		run.ResultJSON = command.ResultJSON
 		run.FinishedAt = &command.FinishedAt
@@ -221,8 +221,8 @@ func (r *taskRepositoryRecorder) GetTaskByTitle(_ context.Context, title string)
 
 func seedRuntimeJob(t *testing.T, runtime *CronRuntime, job cronx.Job) {
 	t.Helper()
-	if job.Module == "" && job.Owner == "" {
-		job.Module = "test"
+	if job.ModuleKey == "" && job.Module == "" {
+		job.ModuleKey = "test"
 	}
 	job.DefaultEnabled = true
 	if err := runtime.SeedBuiltinJobs(context.Background(), []cronx.Job{job}); err != nil {
@@ -259,9 +259,10 @@ func TestRegisterJobRejectsInvalidDeclarations(t *testing.T) {
 func TestRegisterJobRejectsDuplicateName(t *testing.T) {
 	runtime := New(zap.NewNop(), newRunRepositoryRecorder())
 	job := cronx.Job{
-		Name:     "cleanup",
-		Schedule: "*/1 * * * * *",
-		Run:      func(context.Context) error { return nil },
+		Name:      "cleanup",
+		ModuleKey: "test",
+		Schedule:  "*/1 * * * * *",
+		Run:       func(context.Context) error { return nil },
 	}
 
 	if err := runtime.RegisterJob(job); err != nil {
@@ -278,7 +279,6 @@ func TestValidateDefinitionRejectsReservedRouteKeys(t *testing.T) {
 		err := validateDefinition(TaskDefinition{
 			TaskKey:        key,
 			JobKey:         "scheduler.cleanup",
-			ModuleKey:      "scheduler",
 			Title:          "Cleanup",
 			CronExpression: "*/5 * * * * *",
 			ConfigJSON:     "{}",
@@ -289,22 +289,25 @@ func TestValidateDefinitionRejectsReservedRouteKeys(t *testing.T) {
 	}
 }
 
-// TestListTasksReturnsRuntimeJobSnapshots 验证运行时快照会保留任务声明中的展示与 owner 元数据。
+// TestListTasksReturnsRuntimeJobSnapshots 验证运行时快照会保留任务与 Job Definition 展示元数据。
 func TestListTasksReturnsRuntimeJobSnapshots(t *testing.T) {
 	repo := newRunRepositoryRecorder()
 	runtime := New(zap.NewNop(), repo)
 	runtime.SetTaskRepository(newTaskRepositoryRecorder())
 
 	seedRuntimeJob(t, runtime, cronx.Job{
-		Name:                  "audit.audit-log-retention-cleanup",
-		Key:                   "audit.audit-log-retention-cleanup",
-		Owner:                 "audit",
-		DisplayMessageKey:     "scheduledTask.auditLogRetention.title",
-		DescriptionMessageKey: "scheduledTask.auditLogRetention.description",
-		Schedule:              "*/1 * * * * *",
-		DefaultEnabled:        true,
-		Module:                "audit",
-		Run:                   func(context.Context) error { return nil },
+		Name:           "audit.audit-log-retention-cleanup",
+		Key:            "audit.audit-log-retention-cleanup",
+		ModuleKey:      "audit",
+		Category:       cronx.JobCategoryRetention,
+		TitleKey:       "scheduledTask.auditLogRetention.title",
+		ShortTitleKey:  "scheduler.job.shortTitle.auditLog",
+		DescriptionKey: "scheduledTask.auditLogRetention.description",
+		Schedule:       "*/1 * * * * *",
+		DefaultEnabled: true,
+		DefaultConfig:  "{}",
+		ConfigSchema:   "{}",
+		Run:            func(context.Context) error { return nil },
 	})
 
 	result, err := runtime.ListTasks(context.Background(), TaskListQuery{})
@@ -317,11 +320,15 @@ func TestListTasksReturnsRuntimeJobSnapshots(t *testing.T) {
 	item := result.Items[0]
 	if item.Key != "audit.audit-log-retention-cleanup" ||
 		item.JobKey != "audit.audit-log-retention-cleanup" ||
-		item.ModuleKey != "audit" {
+		item.JobDefinition == nil ||
+		item.JobDefinition.ModuleKey != "audit" {
 		t.Fatalf("unexpected task snapshot: %#v", item)
 	}
-	if item.DisplayMessageKey != "scheduledTask.auditLogRetention.title" || item.DescriptionMessageKey == "" {
+	if item.TitleKey != "scheduledTask.auditLogRetention.title" || item.DescriptionKey == "" {
 		t.Fatalf("expected display metadata, got %#v", item)
+	}
+	if item.JobDefinition != nil && !item.JobDefinition.DefaultEnabled {
+		t.Fatalf("expected job definition default_enabled to reflect cron declaration, got %#v", item.JobDefinition)
 	}
 	if !item.Enabled {
 		t.Fatal("expected runtime job to be default-enabled")
@@ -491,6 +498,7 @@ func TestSeedBuiltinJobsKeepsSystemConfigSourceForDefaultSnapshots(t *testing.T)
 
 	job := cronx.Job{
 		Name:             "audit.audit-log-retention-cleanup",
+		ModuleKey:        "audit",
 		Schedule:         "*/1 * * * * *",
 		DefaultConfig:    `{"retentionDays":30,"batchSize":1000}`,
 		DefaultConfigKey: "audit.audit-log-retention-cleanup",
@@ -502,7 +510,6 @@ func TestSeedBuiltinJobsKeepsSystemConfigSourceForDefaultSnapshots(t *testing.T)
 	taskRepo.tasks["audit.audit-log-retention-cleanup"] = TaskDefinition{
 		TaskKey:        "audit.audit-log-retention-cleanup",
 		JobKey:         "audit.audit-log-retention-cleanup",
-		ModuleKey:      "audit",
 		Title:          "Audit cleanup",
 		CronExpression: "*/1 * * * * *",
 		Enabled:        true,
@@ -526,6 +533,7 @@ func TestSeedBuiltinJobsReclassifiesHistoricalBuiltinOverride(t *testing.T) {
 
 	job := cronx.Job{
 		Name:          "builtin-schema-job",
+		ModuleKey:     "test",
 		Schedule:      "*/1 * * * * *",
 		DefaultConfig: `{"retentionDays":30,"batchSize":1000}`,
 		ConfigSchema:  `{"type":"object","properties":{"retentionDays":{"type":"integer","minimum":1,"maximum":3650},"batchSize":{"type":"integer","minimum":1,"maximum":10000}},"additionalProperties":false}`,
@@ -536,7 +544,6 @@ func TestSeedBuiltinJobsReclassifiesHistoricalBuiltinOverride(t *testing.T) {
 	taskRepo.tasks["builtin-schema-job"] = TaskDefinition{
 		TaskKey:        "builtin-schema-job",
 		JobKey:         "builtin-schema-job",
-		ModuleKey:      "test",
 		Title:          "builtin-schema-job",
 		CronExpression: "*/1 * * * * *",
 		Enabled:        true,
@@ -592,6 +599,40 @@ func TestBuiltinExplicitTaskConfigTakesPrecedenceOverEffectiveDefault(t *testing
 	effective := decodeRuntimeJSONObject(t, task.EffectiveConfig)
 	if effective["retentionDays"] != float64(90) || effective["batchSize"] != float64(2000) {
 		t.Fatalf("expected explicit task config to override effective default, got %s", task.EffectiveConfig)
+	}
+}
+
+func TestGetTaskIncludesNextRunForEnabledScheduledEntry(t *testing.T) {
+	repo := newRunRepositoryRecorder()
+	runtime := New(zap.NewNop(), repo)
+	taskRepo := newTaskRepositoryRecorder()
+	runtime.SetTaskRepository(taskRepo)
+
+	seedRuntimeJob(t, runtime, cronx.Job{
+		Name:     "next-run-job",
+		Schedule: "0 0 17 * * *",
+		Handler: func(context.Context, string) (cronx.JobRunResult, error) {
+			return cronx.JobRunResult{Stage: "completed"}, nil
+		},
+	})
+	if err := runtime.Start(context.Background()); err != nil {
+		t.Fatalf("start runtime: %v", err)
+	}
+	defer func() {
+		if err := runtime.Stop(context.Background()); err != nil {
+			t.Fatalf("stop runtime: %v", err)
+		}
+	}()
+
+	task, err := runtime.GetTask(context.Background(), "next-run-job")
+	if err != nil {
+		t.Fatalf("get task: %v", err)
+	}
+	if task.NextRunAt == nil || task.NextRunAt.IsZero() {
+		t.Fatalf("expected next run timestamp for enabled scheduled entry, got %#v", task.NextRunAt)
+	}
+	if !task.NextRunAt.After(time.Now().Add(-time.Second)) {
+		t.Fatalf("expected next run timestamp to be in the future, got %s", task.NextRunAt.Format(time.RFC3339))
 	}
 }
 
@@ -737,6 +778,7 @@ func TestSeedBuiltinJobsPreservesSchemaBackedConfigAndDropsStaleFields(t *testin
 
 	job := cronx.Job{
 		Name:          "builtin-schema-job",
+		ModuleKey:     "test",
 		Schedule:      "*/1 * * * * *",
 		DefaultConfig: `{"retentionDays":30,"batchSize":1000}`,
 		ConfigSchema:  `{"type":"object","properties":{"retentionDays":{"type":"integer","minimum":1,"maximum":3650},"batchSize":{"type":"integer","minimum":1,"maximum":10000}},"additionalProperties":false}`,
@@ -748,7 +790,6 @@ func TestSeedBuiltinJobsPreservesSchemaBackedConfigAndDropsStaleFields(t *testin
 	taskRepo.tasks["builtin-schema-job"] = TaskDefinition{
 		TaskKey:        "builtin-schema-job",
 		JobKey:         "builtin-schema-job",
-		ModuleKey:      "test",
 		Title:          "builtin-schema-job",
 		CronExpression: "*/1 * * * * *",
 		Enabled:        true,
@@ -883,8 +924,8 @@ func TestRunOnceWithTriggerNotifiesManualSuccess(t *testing.T) {
 	if notifiedRun.ID != repo.updated[0].ID {
 		t.Fatalf("expected successful-run notification after persistence, got %#v", notifiedRun)
 	}
-	if notifiedRun.TaskNameKey != "scheduler.job.manualSuccess.title" {
-		t.Fatalf("expected task name key to be preserved, got %#v", notifiedRun)
+	if notifiedRun.TaskTitleKey != "scheduler.job.manualSuccess.title" {
+		t.Fatalf("expected task title key to be preserved, got %#v", notifiedRun)
 	}
 	if !notifiedRun.TaskBuiltin {
 		t.Fatalf("expected task builtin flag to be preserved, got %#v", notifiedRun)
@@ -912,7 +953,6 @@ func TestCronSuccessDoesNotNotifyRunSuccess(t *testing.T) {
 	run, err := runtime.runDefinition(context.Background(), TaskDefinition{
 		TaskKey:        "cron-success",
 		JobKey:         "cron-success",
-		ModuleKey:      "test",
 		Title:          "cron-success",
 		CronExpression: "*/1 * * * * *",
 		Enabled:        true,

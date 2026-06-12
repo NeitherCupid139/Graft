@@ -69,13 +69,13 @@
 </template>
 <script setup lang="ts">
 import type { TabValue } from 'tdesign-vue-next';
-import { MessagePlugin } from 'tdesign-vue-next';
+import { MessagePlugin } from 'tdesign-vue-next/es/message';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 
-import { resolveLocalizedErrorMessage } from '@/modules/shared/localized-api-error';
 import { AdvancedQueryListPage } from '@/shared/components/query-list';
+import { resolveLocalizedErrorMessage } from '@/shared/localized-api-error';
 import {
   localDateTimeToUtcIso,
   normalizePageStateRangeForRoute,

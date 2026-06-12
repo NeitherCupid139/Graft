@@ -492,13 +492,8 @@
   </div>
 </template>
 <script setup lang="ts">
-import {
-  type FormRule,
-  type FormValidateMessage,
-  MessagePlugin,
-  type SubmitContext,
-  type TdBaseTableProps,
-} from 'tdesign-vue-next';
+import type { FormRule, FormValidateMessage, SubmitContext, TdBaseTableProps } from 'tdesign-vue-next';
+import { MessagePlugin } from 'tdesign-vue-next/es/message';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
@@ -506,7 +501,6 @@ import { useRoute, useRouter } from 'vue-router';
 import { buildAuditResourceLocation } from '@/modules/audit/contract/deep-link';
 import { AUDIT_PERMISSION_CODE } from '@/modules/audit/contract/permissions';
 import { openCorrelationErrorNotification, requestIdFromError } from '@/modules/audit/shared/correlation-actions';
-import { localizedApiErrorMessage, resolveLocalizedErrorMessage } from '@/modules/shared/localized-api-error';
 import {
   AssignmentCard,
   AssignmentDrawer,
@@ -535,6 +529,7 @@ import {
 } from '@/shared/components/management';
 import { useAssignmentSelection, useTabPageSnapshot } from '@/shared/composables';
 import { formatHintedMessage, resolveErrorMessageWithCorrelation } from '@/shared/correlation';
+import { localizedApiErrorMessage, resolveLocalizedErrorMessage } from '@/shared/localized-api-error';
 import { usePermissionStore } from '@/store';
 import { createLogger } from '@/utils/logger';
 import { isApiRequestError } from '@/utils/request';
