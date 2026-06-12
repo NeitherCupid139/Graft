@@ -5,6 +5,7 @@ package announcement
 
 import (
 	"errors"
+	"io"
 	"math"
 	"net/http"
 	"strconv"
@@ -67,7 +68,7 @@ func registerAnnouncementRoutes(ctx *module.Context, service *Service, guards an
 func (r announcementRouteRuntime) handleAdminList(ginCtx *gin.Context) {
 	params := bindAdminListParams(ginCtx)
 	announcementGeneratedHandler{}.GetAnnouncements(params)
-	err := r.service.ListAdmin(ginCtx.Request.Context(), AdminListQuery{
+	result, err := r.service.ListAdmin(ginCtx.Request.Context(), AdminListQuery{
 		Status:   stringFromPointer(params.Status),
 		Level:    stringFromPointer(params.Level),
 		Pinned:   params.Pinned,
@@ -76,7 +77,11 @@ func (r announcementRouteRuntime) handleAdminList(ginCtx *gin.Context) {
 		PageSize: intFromPointer(params.PageSize),
 		Sort:     stringFromPointer(params.Sort),
 	})
-	r.writeRouteError(ginCtx, err)
+	if err != nil {
+		r.writeRouteError(ginCtx, err)
+		return
+	}
+	httpx.WriteSuccess(ginCtx, http.StatusOK, toAnnouncementListResponse(result))
 }
 
 func (r announcementRouteRuntime) handleAdminCreate(ginCtx *gin.Context) {
@@ -85,7 +90,7 @@ func (r announcementRouteRuntime) handleAdminCreate(ginCtx *gin.Context) {
 		return
 	}
 	announcementGeneratedHandler{}.PostAnnouncements(bindCommonParams(ginCtx), request)
-	err := r.service.Create(ginCtx.Request.Context(), announcementstore.CreateInput{
+	item, err := r.service.Create(ginCtx.Request.Context(), announcementstore.CreateInput{
 		Title:     request.Title,
 		Content:   request.Content,
 		Level:     string(request.Level),
@@ -95,7 +100,11 @@ func (r announcementRouteRuntime) handleAdminCreate(ginCtx *gin.Context) {
 		ExpireAt:  request.ExpireAt,
 		ActorID:   currentUserIDPointer(ginCtx),
 	})
-	r.writeRouteError(ginCtx, err)
+	if err != nil {
+		r.writeRouteError(ginCtx, err)
+		return
+	}
+	httpx.WriteSuccess(ginCtx, http.StatusCreated, toAnnouncementItem(item))
 }
 
 func (r announcementRouteRuntime) handleAdminGet(ginCtx *gin.Context) {
@@ -108,7 +117,12 @@ func (r announcementRouteRuntime) handleAdminGet(ginCtx *gin.Context) {
 		return
 	}
 	announcementGeneratedHandler{}.GetAnnouncement(generatedID, bindGetAnnouncementParams(ginCtx))
-	r.writeRouteError(ginCtx, r.service.GetAdmin(ginCtx.Request.Context(), id))
+	item, err := r.service.GetAdmin(ginCtx.Request.Context(), id)
+	if err != nil {
+		r.writeRouteError(ginCtx, err)
+		return
+	}
+	httpx.WriteSuccess(ginCtx, http.StatusOK, toAnnouncementItem(item))
 }
 
 func (r announcementRouteRuntime) handleAdminUpdate(ginCtx *gin.Context) {
@@ -125,7 +139,7 @@ func (r announcementRouteRuntime) handleAdminUpdate(ginCtx *gin.Context) {
 		return
 	}
 	announcementGeneratedHandler{}.PutAnnouncement(generatedID, bindPutAnnouncementParams(ginCtx), request)
-	err := r.service.Update(ginCtx.Request.Context(), id, announcementstore.UpdateInput{
+	item, err := r.service.Update(ginCtx.Request.Context(), id, announcementstore.UpdateInput{
 		Title:     request.Title,
 		Content:   request.Content,
 		Level:     string(request.Level),
@@ -134,7 +148,11 @@ func (r announcementRouteRuntime) handleAdminUpdate(ginCtx *gin.Context) {
 		ExpireAt:  request.ExpireAt,
 		ActorID:   currentUserIDPointer(ginCtx),
 	})
-	r.writeRouteError(ginCtx, err)
+	if err != nil {
+		r.writeRouteError(ginCtx, err)
+		return
+	}
+	httpx.WriteSuccess(ginCtx, http.StatusOK, toAnnouncementItem(item))
 }
 
 func (r announcementRouteRuntime) handlePublish(ginCtx *gin.Context) {
@@ -151,7 +169,12 @@ func (r announcementRouteRuntime) handlePublish(ginCtx *gin.Context) {
 		return
 	}
 	announcementGeneratedHandler{}.PostAnnouncementPublish(generatedID, bindPostAnnouncementPublishParams(ginCtx), request)
-	r.writeRouteError(ginCtx, r.service.Publish(ginCtx.Request.Context(), id, request.PublishAt))
+	item, err := r.service.Publish(ginCtx.Request.Context(), id, request.PublishAt, currentUserIDPointer(ginCtx))
+	if err != nil {
+		r.writeRouteError(ginCtx, err)
+		return
+	}
+	httpx.WriteSuccess(ginCtx, http.StatusOK, toAnnouncementItem(item))
 }
 
 func (r announcementRouteRuntime) handleArchive(ginCtx *gin.Context) {
@@ -164,7 +187,12 @@ func (r announcementRouteRuntime) handleArchive(ginCtx *gin.Context) {
 		return
 	}
 	announcementGeneratedHandler{}.PostAnnouncementArchive(generatedID, bindPostAnnouncementArchiveParams(ginCtx))
-	r.writeRouteError(ginCtx, r.service.Archive(ginCtx.Request.Context(), id))
+	item, err := r.service.Archive(ginCtx.Request.Context(), id, currentUserIDPointer(ginCtx))
+	if err != nil {
+		r.writeRouteError(ginCtx, err)
+		return
+	}
+	httpx.WriteSuccess(ginCtx, http.StatusOK, toAnnouncementItem(item))
 }
 
 func (r announcementRouteRuntime) handleDelete(ginCtx *gin.Context) {
@@ -181,7 +209,11 @@ func (r announcementRouteRuntime) handleDelete(ginCtx *gin.Context) {
 	if current := currentUserIDPointer(ginCtx); current != nil {
 		actorID = *current
 	}
-	r.writeRouteError(ginCtx, r.service.Delete(ginCtx.Request.Context(), id, actorID))
+	if err := r.service.Delete(ginCtx.Request.Context(), id, actorID); err != nil {
+		r.writeRouteError(ginCtx, err)
+		return
+	}
+	httpx.WriteSuccess(ginCtx, http.StatusOK, map[string]any{})
 }
 
 func (r announcementRouteRuntime) handleUserList(ginCtx *gin.Context) {
@@ -242,6 +274,18 @@ func (r announcementRouteRuntime) writeRouteError(ginCtx *gin.Context, err error
 	}
 	if errors.Is(err, errAnnouncementNotImplemented) {
 		httpx.AbortLocalizedError(ginCtx, r.ctx.I18n, http.StatusNotImplemented, announcementcontract.AnnouncementNotImplemented.String(), nil)
+		return
+	}
+	if errors.Is(err, errAnnouncementInvalidInput) {
+		httpx.AbortLocalizedError(ginCtx, r.ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument.String(), nil)
+		return
+	}
+	if errors.Is(err, errAnnouncementNotFound) {
+		httpx.AbortLocalizedError(ginCtx, r.ctx.I18n, http.StatusNotFound, messagecontract.CommonInvalidArgument.String(), nil)
+		return
+	}
+	if errors.Is(err, errAnnouncementInvalidTransition) || errors.Is(err, errAnnouncementPublishedDelete) {
+		httpx.AbortLocalizedError(ginCtx, r.ctx.I18n, http.StatusConflict, messagecontract.CommonInvalidArgument.String(), nil)
 		return
 	}
 	if r.ctx.Logger != nil {
@@ -412,7 +456,7 @@ func bindOptionalJSON[T any](ginCtx *gin.Context, ctx *module.Context, target *T
 	if ginCtx.Request == nil || ginCtx.Request.Body == nil {
 		return true
 	}
-	if err := ginCtx.ShouldBindJSON(target); err != nil {
+	if err := ginCtx.ShouldBindJSON(target); err != nil && !errors.Is(err, io.EOF) {
 		httpx.AbortLocalizedError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument.String(), nil)
 		return false
 	}

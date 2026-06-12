@@ -6,13 +6,24 @@ package announcement
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
+	announcementcontract "graft/server/modules/announcement/contract"
 	announcementstore "graft/server/modules/announcement/store"
 )
 
+const (
+	defaultPageSize = 20
+	maxPageSize     = 100
+)
+
 var (
-	errAnnouncementNotImplemented = errors.New("announcement service behavior is not implemented")
+	errAnnouncementNotImplemented    = errors.New("announcement service behavior is not implemented")
+	errAnnouncementInvalidInput      = errors.New("announcement invalid input")
+	errAnnouncementNotFound          = errors.New("announcement not found")
+	errAnnouncementInvalidTransition = errors.New("announcement invalid status transition")
+	errAnnouncementPublishedDelete   = errors.New("published announcement must be archived before delete")
 )
 
 // AdminListQuery describes management-side announcement filters.
@@ -24,6 +35,14 @@ type AdminListQuery struct {
 	Page     int
 	PageSize int
 	Sort     string
+}
+
+// AdminListResult returns a management announcement page.
+type AdminListResult struct {
+	Items    []announcementstore.Announcement
+	Total    int
+	Page     int
+	PageSize int
 }
 
 // UserListQuery describes current-user announcement filters.
@@ -47,64 +66,234 @@ func NewService(repository announcementstore.Repository) (*Service, error) {
 	return &Service{repository: repository}, nil
 }
 
-// ListAdmin is intentionally unimplemented in Phase 1.
-func (s *Service) ListAdmin(context.Context, AdminListQuery) error {
-	return s.phaseOneNotImplemented()
+// ListAdmin returns one management announcement page.
+func (s *Service) ListAdmin(ctx context.Context, query AdminListQuery) (AdminListResult, error) {
+	if err := s.ensureReady(); err != nil {
+		return AdminListResult{}, err
+	}
+	query = normalizeAdminListQuery(query)
+	if query.Status != "" && !announcementcontract.ValidAnnouncementStatus(announcementcontract.AnnouncementStatus(query.Status)) {
+		return AdminListResult{}, errAnnouncementInvalidInput
+	}
+	if query.Level != "" && !announcementcontract.ValidAnnouncementLevel(announcementcontract.AnnouncementLevel(query.Level)) {
+		return AdminListResult{}, errAnnouncementInvalidInput
+	}
+	if !validAdminSort(query.Sort) {
+		return AdminListResult{}, errAnnouncementInvalidInput
+	}
+	page, size := normalizePage(query.Page, query.PageSize)
+	result, err := s.repository.ListAdmin(ctx, announcementstore.ListQuery{
+		Status:  query.Status,
+		Level:   query.Level,
+		Pinned:  query.Pinned,
+		Keyword: query.Keyword,
+		Sort:    query.Sort,
+		Limit:   size,
+		Offset:  (page - 1) * size,
+	})
+	if err != nil {
+		return AdminListResult{}, mapStoreError(err)
+	}
+	return AdminListResult{Items: result.Items, Total: result.Total, Page: page, PageSize: size}, nil
 }
 
-// Create is intentionally unimplemented in Phase 1.
-func (s *Service) Create(context.Context, announcementstore.CreateInput) error {
-	return s.phaseOneNotImplemented()
+// Create creates a draft announcement. OpenAPI has no create-status field, so draft is the only allowed initial state.
+func (s *Service) Create(ctx context.Context, input announcementstore.CreateInput) (announcementstore.Announcement, error) {
+	if err := s.ensureReady(); err != nil {
+		return announcementstore.Announcement{}, err
+	}
+	input.Title = strings.TrimSpace(input.Title)
+	input.Content = strings.TrimSpace(input.Content)
+	input.Level = strings.TrimSpace(input.Level)
+	input.Status = announcementcontract.AnnouncementStatusDraft.String()
+	if err := validateWriteInput(input.Title, input.Content, input.Level, input.PublishAt, input.ExpireAt); err != nil {
+		return announcementstore.Announcement{}, err
+	}
+	item, err := s.repository.Create(ctx, input)
+	return item, mapStoreError(err)
 }
 
-// GetAdmin is intentionally unimplemented in Phase 1.
-func (s *Service) GetAdmin(context.Context, uint64) error {
-	return s.phaseOneNotImplemented()
+// GetAdmin returns one management announcement.
+func (s *Service) GetAdmin(ctx context.Context, id uint64) (announcementstore.Announcement, error) {
+	if err := s.ensureReady(); err != nil {
+		return announcementstore.Announcement{}, err
+	}
+	item, err := s.repository.GetAdmin(ctx, id)
+	return item, mapStoreError(err)
 }
 
-// Update is intentionally unimplemented in Phase 1.
-func (s *Service) Update(context.Context, uint64, announcementstore.UpdateInput) error {
-	return s.phaseOneNotImplemented()
+// Update replaces editable fields for draft or published management announcements.
+func (s *Service) Update(ctx context.Context, id uint64, input announcementstore.UpdateInput) (announcementstore.Announcement, error) {
+	if err := s.ensureReady(); err != nil {
+		return announcementstore.Announcement{}, err
+	}
+	current, err := s.repository.GetAdmin(ctx, id)
+	if err != nil {
+		return announcementstore.Announcement{}, mapStoreError(err)
+	}
+	if current.Status == announcementcontract.AnnouncementStatusArchived.String() {
+		return announcementstore.Announcement{}, errAnnouncementInvalidTransition
+	}
+	input.Title = strings.TrimSpace(input.Title)
+	input.Content = strings.TrimSpace(input.Content)
+	input.Level = strings.TrimSpace(input.Level)
+	if err := validateWriteInput(input.Title, input.Content, input.Level, input.PublishAt, input.ExpireAt); err != nil {
+		return announcementstore.Announcement{}, err
+	}
+	item, err := s.repository.Update(ctx, id, input)
+	return item, mapStoreError(err)
 }
 
-// Publish is intentionally unimplemented in Phase 1.
-func (s *Service) Publish(context.Context, uint64, *time.Time) error {
-	return s.phaseOneNotImplemented()
+// Publish marks a draft or already-published announcement published.
+func (s *Service) Publish(ctx context.Context, id uint64, publishAt *time.Time, actorID *uint64) (announcementstore.Announcement, error) {
+	if err := s.ensureReady(); err != nil {
+		return announcementstore.Announcement{}, err
+	}
+	current, err := s.repository.GetAdmin(ctx, id)
+	if err != nil {
+		return announcementstore.Announcement{}, mapStoreError(err)
+	}
+	if current.Status == announcementcontract.AnnouncementStatusArchived.String() {
+		return announcementstore.Announcement{}, errAnnouncementInvalidTransition
+	}
+	effectivePublishAt := time.Now().UTC()
+	if publishAt != nil {
+		effectivePublishAt = publishAt.UTC()
+	} else if current.PublishAt != nil {
+		effectivePublishAt = current.PublishAt.UTC()
+	}
+	if current.ExpireAt != nil && !current.ExpireAt.After(effectivePublishAt) {
+		return announcementstore.Announcement{}, errAnnouncementInvalidInput
+	}
+	item, err := s.repository.Publish(ctx, id, effectivePublishAt, actorID)
+	return item, mapStoreError(err)
 }
 
-// Archive is intentionally unimplemented in Phase 1.
-func (s *Service) Archive(context.Context, uint64) error {
-	return s.phaseOneNotImplemented()
+// Archive hides a draft or published announcement from current-user visibility.
+func (s *Service) Archive(ctx context.Context, id uint64, actorID *uint64) (announcementstore.Announcement, error) {
+	if err := s.ensureReady(); err != nil {
+		return announcementstore.Announcement{}, err
+	}
+	current, err := s.repository.GetAdmin(ctx, id)
+	if err != nil {
+		return announcementstore.Announcement{}, mapStoreError(err)
+	}
+	if current.Status == announcementcontract.AnnouncementStatusArchived.String() {
+		return current, nil
+	}
+	item, err := s.repository.Archive(ctx, id, actorID)
+	return item, mapStoreError(err)
 }
 
-// Delete is intentionally unimplemented in Phase 1.
-func (s *Service) Delete(context.Context, uint64, uint64) error {
-	return s.phaseOneNotImplemented()
+// Delete soft-deletes draft and archived announcements. Published announcements must be archived first.
+func (s *Service) Delete(ctx context.Context, id uint64, actorID uint64) error {
+	if err := s.ensureReady(); err != nil {
+		return err
+	}
+	current, err := s.repository.GetAdmin(ctx, id)
+	if err != nil {
+		return mapStoreError(err)
+	}
+	if current.Status == announcementcontract.AnnouncementStatusPublished.String() {
+		return errAnnouncementPublishedDelete
+	}
+	return mapStoreError(s.repository.Delete(ctx, id, actorID, time.Now().UTC()))
 }
 
-// ListCurrentUser is intentionally unimplemented in Phase 1.
+// ListCurrentUser is intentionally left to Phase 3.
 func (s *Service) ListCurrentUser(context.Context, UserListQuery) error {
-	return s.phaseOneNotImplemented()
+	return s.phaseThreeNotImplemented()
 }
 
-// MarkRead is intentionally unimplemented in Phase 1.
+// MarkRead is intentionally left to Phase 3.
 func (s *Service) MarkRead(context.Context, uint64, uint64) error {
-	return s.phaseOneNotImplemented()
+	return s.phaseThreeNotImplemented()
 }
 
-// MarkAllRead is intentionally unimplemented in Phase 1.
+// MarkAllRead is intentionally left to Phase 3.
 func (s *Service) MarkAllRead(context.Context, uint64) error {
-	return s.phaseOneNotImplemented()
+	return s.phaseThreeNotImplemented()
 }
 
-// UnreadCount is intentionally unimplemented in Phase 1.
+// UnreadCount is intentionally left to Phase 3.
 func (s *Service) UnreadCount(context.Context, uint64) error {
-	return s.phaseOneNotImplemented()
+	return s.phaseThreeNotImplemented()
 }
 
-func (s *Service) phaseOneNotImplemented() error {
+func (s *Service) ensureReady() error {
 	if s == nil || s.repository == nil {
 		return errors.New("announcement service is unavailable")
 	}
+	return nil
+}
+
+func (s *Service) phaseThreeNotImplemented() error {
+	if err := s.ensureReady(); err != nil {
+		return err
+	}
 	return errAnnouncementNotImplemented
+}
+
+func normalizeAdminListQuery(query AdminListQuery) AdminListQuery {
+	query.Status = strings.TrimSpace(query.Status)
+	query.Level = strings.TrimSpace(query.Level)
+	query.Keyword = strings.TrimSpace(query.Keyword)
+	query.Sort = strings.TrimSpace(query.Sort)
+	return query
+}
+
+func normalizePage(page int, size int) (int, int) {
+	if page <= 0 {
+		page = 1
+	}
+	if size <= 0 {
+		size = defaultPageSize
+	}
+	if size > maxPageSize {
+		size = maxPageSize
+	}
+	return page, size
+}
+
+func validAdminSort(sort string) bool {
+	switch sort {
+	case "", "updated_desc", "publish_desc", "pinned_publish_desc":
+		return true
+	default:
+		return false
+	}
+}
+
+func validateWriteInput(title string, content string, level string, publishAt *time.Time, expireAt *time.Time) error {
+	if title == "" || content == "" || level == "" {
+		return errAnnouncementInvalidInput
+	}
+	if !announcementcontract.ValidAnnouncementLevel(announcementcontract.AnnouncementLevel(level)) {
+		return errAnnouncementInvalidInput
+	}
+	if publishAt != nil {
+		normalized := publishAt.UTC()
+		publishAt = &normalized
+	}
+	if expireAt != nil {
+		normalized := expireAt.UTC()
+		expireAt = &normalized
+	}
+	if publishAt != nil && expireAt != nil && !expireAt.After(*publishAt) {
+		return errAnnouncementInvalidInput
+	}
+	return nil
+}
+
+func mapStoreError(err error) error {
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, announcementstore.ErrInvalidInput):
+		return errAnnouncementInvalidInput
+	case errors.Is(err, announcementstore.ErrAnnouncementNotFound):
+		return errAnnouncementNotFound
+	default:
+		return err
+	}
 }
