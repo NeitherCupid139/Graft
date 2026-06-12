@@ -8,6 +8,10 @@
 TDesign MCP 是开发时知识源，不是 `web` 的运行时依赖。不要把 `tdesign-mcp-server` 加入 `web/package.json`、
 仓库脚本、CI、hooks，也不要让业务代码依赖 MCP Server。
 
+`web` 的 TDesign Vue Next 运行时组件引入由 Vite resolver 负责按需解析。应用入口不得使用
+`app.use(TDesign)` 全量注册，也不得引入 `tdesign-vue-next/es/style/index.css` 全量样式；程序式插件和渲染函数组件
+只在使用点显式 import，并在 resolver 未覆盖时补对应组件级 style import。
+
 ## 2. Codex 接入方式
 
 Codex 可以使用 MCP，但 MCP Server 必须先注册到 Codex 客户端配置中。当前项目优先把 TDesign MCP 配置给 Codex，

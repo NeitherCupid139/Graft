@@ -249,6 +249,11 @@ UI 约束：
 
 - `TDesign Vue Next` 是唯一主 UI 体系
 - `UnoCSS` 只用于辅助布局和少量原子样式
+- `TDesign Vue Next` 运行时必须默认按需引入：模板组件通过 `vite.config.ts` 中的 resolver 自动解析到
+  `tdesign-vue-next/es/<component>` 子入口，禁止在应用入口重新引入 `app.use(TDesign)` 或
+  `tdesign-vue-next/es/style/index.css` 全量样式
+- `MessagePlugin`、`NotifyPlugin` 等程序式插件和 `h(Button)` / `h(Space)` / `h(Tag)` 等渲染函数组件可保留显式
+  import；若 resolver 未覆盖其样式，只允许补对应组件的子入口或组件级 style import，不得回退到全量注册
 - 生成或修改页面前应先读取根 `DESIGN.md`，再查 TDesign MCP 或官方文档
 - 任何新增、修改 `TDesign Vue Next` 组件用法的前端任务，编码前必须优先查询 TDesign MCP，默认查询框架固定为 `vue-next`
 - 查询范围只覆盖本轮涉及组件，不要求全量扫描，但不得跳过与当前改动直接相关的 MCP 查询

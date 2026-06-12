@@ -1,7 +1,9 @@
 // Copyright (c) 2025-2026 GeWuYou
 // SPDX-License-Identifier: Apache-2.0
 
-import { Button, NotifyPlugin, Space } from 'tdesign-vue-next';
+import { Button } from 'tdesign-vue-next/es/button';
+import { NotifyPlugin } from 'tdesign-vue-next/es/notification';
+import { Space } from 'tdesign-vue-next/es/space';
 import { h } from 'vue';
 import type { Router } from 'vue-router';
 

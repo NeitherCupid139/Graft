@@ -148,6 +148,13 @@ vi.mock('tdesign-vue-next', () => ({
   },
 }));
 
+vi.mock('tdesign-vue-next/es/message', () => ({
+  MessagePlugin: {
+    error: vi.fn(),
+    success: vi.fn(),
+  },
+}));
+
 vi.mock('tdesign-icons-vue-next', () => ({
   CopyIcon: defineComponent({ name: 'CopyIcon', setup: () => () => h('span') }),
   EditIcon: defineComponent({ name: 'EditIcon', setup: () => () => h('span') }),

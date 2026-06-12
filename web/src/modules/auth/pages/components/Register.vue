@@ -97,7 +97,7 @@
 </template>
 <script setup lang="ts">
 import type { FormRule, SubmitContext } from 'tdesign-vue-next';
-import { MessagePlugin } from 'tdesign-vue-next';
+import { MessagePlugin } from 'tdesign-vue-next/es/message';
 import { computed, ref } from 'vue';
 
 import { MESSAGE_KEY } from '@/contracts/api/messages';

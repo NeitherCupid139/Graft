@@ -30,8 +30,9 @@
   </div>
 </template>
 <script setup lang="ts">
+import { Icon as TIcon } from 'tdesign-vue-next/es/icon';
 import type { PropType } from 'vue';
-import { computed, h, resolveComponent } from 'vue';
+import { computed, h } from 'vue';
 import { useRouter } from 'vue-router';
 
 import type { LocalizedTitle } from '@/contracts/i18n/locales';
@@ -61,7 +62,7 @@ const list = computed(() => {
 const menuIcon = (item: ListItemType) => {
   const icon = item.icon ?? item.meta?.icon;
   if (typeof icon === 'string') {
-    return () => h(resolveComponent('t-icon'), { name: icon });
+    return () => h(TIcon, { name: icon });
   }
   const RenderIcon = icon;
   return RenderIcon;

@@ -3,7 +3,6 @@
 
 /* eslint-disable simple-import-sort/imports */
 import { createApp } from 'vue';
-import TDesign from 'tdesign-vue-next';
 
 import App from '@/App.vue';
 import { i18n } from '@/locales';
@@ -14,7 +13,6 @@ import { createLogger, patchGlobalLoggerContext } from '@/utils/logger';
 import { registerPermissionDirective } from './permission-directive';
 import { registerRouteGuards } from './route-guards';
 
-import 'tdesign-vue-next/es/style/index.css';
 import '@/style/index.less';
 
 const appLogger = createLogger('app.runtime').withContext({
@@ -36,7 +34,6 @@ export function bootstrapApp() {
   // 自愈上一次异常中断时遗留的 tabs 刷新态，避免内容区被全局 loading 永久覆盖。
   tabsRouterStore.healPersistedState();
 
-  app.use(TDesign);
   app.use(store);
   app.use(router);
   app.use(i18n);

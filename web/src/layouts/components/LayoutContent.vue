@@ -124,7 +124,8 @@
   </t-layout>
 </template>
 <script setup lang="ts">
-import { MessagePlugin, type PopupVisibleChangeContext } from 'tdesign-vue-next';
+import type { PopupVisibleChangeContext } from 'tdesign-vue-next';
+import { MessagePlugin } from 'tdesign-vue-next/es/message';
 import { computed, nextTick, ref } from 'vue';
 import type { LocationQueryRaw, RouteLocationRaw } from 'vue-router';
 import { useRoute, useRouter } from 'vue-router';

@@ -62,6 +62,12 @@ vi.mock('tdesign-vue-next', () => ({
   },
 }));
 
+vi.mock('tdesign-vue-next/es/message', () => ({
+  MessagePlugin: {
+    error: messageError,
+  },
+}));
+
 vi.mock('@/router', () => ({
   RESTRICTED_SESSION_PATH: '/auth/restricted-session',
   RESTRICTED_SESSION_ROUTE_NAME: 'RestrictedSession',

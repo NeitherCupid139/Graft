@@ -1051,7 +1051,9 @@ import {
   PlayIcon,
   SearchIcon,
 } from 'tdesign-icons-vue-next';
-import { MessagePlugin, Tag, type TdBaseTableProps } from 'tdesign-vue-next';
+import type { TdBaseTableProps } from 'tdesign-vue-next';
+import { MessagePlugin } from 'tdesign-vue-next/es/message';
+import { Tag } from 'tdesign-vue-next/es/tag';
 import { computed, defineComponent, h, onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 

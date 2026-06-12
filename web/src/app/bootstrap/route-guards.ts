@@ -4,7 +4,7 @@
 import 'nprogress/nprogress.css';
 
 import NProgress from 'nprogress';
-import { MessagePlugin } from 'tdesign-vue-next';
+import { MessagePlugin } from 'tdesign-vue-next/es/message';
 import type { Router, RouteRecordRaw } from 'vue-router';
 
 import { t } from '@/locales';

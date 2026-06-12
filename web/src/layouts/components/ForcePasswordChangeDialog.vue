@@ -56,7 +56,7 @@
 </template>
 <script setup lang="ts">
 import type { FormInstanceFunctions, FormRule, SubmitContext } from 'tdesign-vue-next';
-import { MessagePlugin } from 'tdesign-vue-next';
+import { MessagePlugin } from 'tdesign-vue-next/es/message';
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 

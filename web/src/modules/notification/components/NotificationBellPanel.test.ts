@@ -76,6 +76,13 @@ vi.mock('tdesign-vue-next', () => ({
   },
 }));
 
+vi.mock('tdesign-vue-next/es/message', () => ({
+  MessagePlugin: {
+    error: vi.fn(),
+    success: vi.fn(),
+  },
+}));
+
 const buttonStub = defineComponent({
   setup(_, { slots }) {
     return () => h('button', { type: 'button' }, slots.default?.());

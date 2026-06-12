@@ -31,7 +31,7 @@
   </section>
 </template>
 <script setup lang="ts">
-import { MessagePlugin } from 'tdesign-vue-next';
+import { MessagePlugin } from 'tdesign-vue-next/es/message';
 import { computed, ref } from 'vue';
 
 import { copyText } from './copy';

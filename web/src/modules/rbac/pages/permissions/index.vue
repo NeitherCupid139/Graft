@@ -244,7 +244,8 @@
   </div>
 </template>
 <script setup lang="ts">
-import { MessagePlugin, type TdBaseTableProps } from 'tdesign-vue-next';
+import type { TdBaseTableProps } from 'tdesign-vue-next';
+import { MessagePlugin } from 'tdesign-vue-next/es/message';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';

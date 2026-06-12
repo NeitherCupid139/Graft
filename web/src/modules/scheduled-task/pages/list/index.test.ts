@@ -263,6 +263,27 @@ vi.mock('tdesign-vue-next', async () => {
   };
 });
 
+vi.mock('tdesign-vue-next/es/message', () => ({
+  MessagePlugin: {
+    error: vi.fn(),
+    success: vi.fn(),
+    warning: vi.fn(),
+  },
+}));
+
+vi.mock('tdesign-vue-next/es/tag', async () => {
+  const { defineComponent, h } = await import('vue');
+
+  return {
+    Tag: defineComponent({
+      name: 'TTag',
+      setup(_props, { slots }) {
+        return () => h('span', slots.default?.());
+      },
+    }),
+  };
+});
+
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
     locale: { value: 'zh-CN' },

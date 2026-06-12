@@ -362,7 +362,7 @@
 <script setup lang="ts">
 import { CopyIcon, EditIcon, InfoCircleIcon, RefreshIcon, RollbackIcon, SearchIcon } from 'tdesign-icons-vue-next';
 import type { TreeNodeValue, TreeProps } from 'tdesign-vue-next';
-import { MessagePlugin } from 'tdesign-vue-next';
+import { MessagePlugin } from 'tdesign-vue-next/es/message';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 

@@ -97,6 +97,14 @@ vi.mock('tdesign-vue-next', () => ({
   },
 }));
 
+vi.mock('tdesign-vue-next/es/message', () => ({
+  MessagePlugin: {
+    error: messageMocks.error,
+    success: messageMocks.success,
+    warning: messageMocks.warning,
+  },
+}));
+
 vi.stubGlobal('confirm', confirmMock);
 
 const passthroughStub = defineComponent({
