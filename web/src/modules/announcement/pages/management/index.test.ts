@@ -29,15 +29,15 @@ vi.mock('tdesign-vue-next/es/message', () => ({
 }));
 
 vi.mock('@/shared/components/markdown', () => ({
-  markdownToPlainTextSummary: (source: string) => source,
-  SafeMarkdown: defineComponent({
+  MarkdownViewer: defineComponent({
     props: {
       source: { type: String, default: '' },
     },
     setup(props) {
-      return () => h('div', props.source);
+      return () => h('article', { 'data-testid': 'markdown-viewer' }, props.source);
     },
   }),
+  markdownToPlainTextSummary: (source: string) => source,
 }));
 
 const translations = vi.hoisted(
@@ -100,6 +100,12 @@ const translations = vi.hoisted(
     'announcement.management.form.titlePlaceholder': 'Enter announcement title',
     'announcement.management.form.visibility': 'Visibility Window',
     'announcement.management.form.markdownPreview': 'Markdown Preview',
+    'announcement.management.form.previewCurrent': 'Preview Current Content',
+    'announcement.management.form.collapsePreview': 'Collapse Preview',
+    'announcement.management.form.openFullPreview': 'Open Full Preview',
+    'announcement.management.form.emptyPreview': 'No Preview Content',
+    'announcement.management.form.closePreview': 'Close',
+    'announcement.management.form.untitledPreview': 'Untitled Announcement',
     'announcement.management.more': 'More',
     'announcement.management.publishNow': 'Publish Now',
     'announcement.management.publishSuccess': 'Announcement Published',
@@ -180,21 +186,24 @@ const TDrawerStub = defineComponent({
   name: 'TDrawerStub',
   props: ['visible'],
   setup(props, { slots }) {
-    return () => (props.visible ? h('section', { 'data-testid': 'drawer' }, slots.default?.()) : null);
+    return () =>
+      props.visible ? h('section', { 'data-testid': 'drawer' }, [slots.default?.(), slots.footer?.()]) : null;
   },
 });
 
 const TFormStub = defineComponent({
   name: 'TFormStub',
   emits: ['submit'],
-  setup(_props, { emit, slots }) {
+  setup(_props, { emit, expose, slots }) {
+    const submit = () => emit('submit', { validateResult: true });
+    expose({ submit });
     return () =>
       h(
         'form',
         {
           onSubmit: (event: Event) => {
             event.preventDefault();
-            emit('submit', { validateResult: true });
+            submit();
           },
         },
         slots.default?.(),
@@ -272,7 +281,23 @@ function mountPage() {
           },
         }),
         't-drawer': TDrawerStub,
-        't-empty': PassthroughStub,
+        't-dialog': defineComponent({
+          name: 'TDialogStub',
+          props: ['visible'],
+          emits: ['update:visible'],
+          setup(props, { slots }) {
+            return () =>
+              props.visible ? h('aside', { 'data-testid': 'full-preview-dialog' }, slots.default?.()) : null;
+          },
+        }),
+        't-empty': defineComponent({
+          name: 'TEmptyStub',
+          props: ['description'],
+          setup(props, { slots }) {
+            return () =>
+              h('div', { 'data-testid': 'empty-state' }, slots.default?.() ?? String(props.description ?? ''));
+          },
+        }),
         't-form': TFormStub,
         't-form-item': PassthroughStub,
         't-icon': defineComponent({
@@ -311,6 +336,7 @@ function mountPage() {
               });
           },
         }),
+        't-space': PassthroughStub,
         't-table': TTableStub,
         't-tag': PassthroughStub,
         't-textarea': defineComponent({
@@ -415,6 +441,77 @@ describe('announcement management page', () => {
       }),
     );
     expect(window.dispatchEvent).toHaveBeenCalledWith(expect.objectContaining({ type: 'graft:announcement-changed' }));
+  });
+
+  it('keeps markdown preview collapsed by default and toggles inline preview on demand', async () => {
+    const wrapper = mountPage();
+    await flushPromises();
+
+    await wrapper.get('[data-testid="announcement-create"]').trigger('click');
+    await nextTick();
+
+    expect(wrapper.find('.announcement-form__inline-preview').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="markdown-viewer"]').exists()).toBe(false);
+
+    await wrapper.get('textarea').setValue('## Preview Body');
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Preview Current Content')!
+      .trigger('click');
+    await nextTick();
+
+    expect(wrapper.find('.announcement-form__inline-preview').exists()).toBe(true);
+    expect(wrapper.get('[data-testid="markdown-viewer"]').text()).toBe('## Preview Body');
+
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Collapse Preview')!
+      .trigger('click');
+    await nextTick();
+
+    expect(wrapper.find('.announcement-form__inline-preview').exists()).toBe(false);
+  });
+
+  it('shows an empty inline preview state without rendering markdown content', async () => {
+    const wrapper = mountPage();
+    await flushPromises();
+
+    await wrapper.get('[data-testid="announcement-create"]').trigger('click');
+    await nextTick();
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Preview Current Content')!
+      .trigger('click');
+    await nextTick();
+
+    expect(wrapper.text()).toContain('No Preview Content');
+    expect(wrapper.find('[data-testid="markdown-viewer"]').exists()).toBe(false);
+  });
+
+  it('opens full markdown preview without submitting the form', async () => {
+    const wrapper = mountPage();
+    await flushPromises();
+
+    await wrapper.get('[data-testid="announcement-create"]').trigger('click');
+    await nextTick();
+    const titleInput = wrapper
+      .findAll('input')
+      .find(
+        (input) => input.attributes('value') === '' && input.attributes('placeholder') !== 'Search title or content',
+      );
+    await titleInput!.setValue('Preview Title');
+    await wrapper.get('textarea').setValue('Full **body**');
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Open Full Preview')!
+      .trigger('click');
+    await nextTick();
+
+    expect(wrapper.get('[data-testid="full-preview-dialog"]').text()).toContain('Preview Title');
+    expect(wrapper.get('[data-testid="full-preview-dialog"]').text()).toContain('Info');
+    expect(wrapper.get('[data-testid="full-preview-dialog"]').text()).toContain('Silent');
+    expect(wrapper.get('[data-testid="markdown-viewer"]').text()).toBe('Full **body**');
+    expect(apiMocks.createAnnouncement).not.toHaveBeenCalled();
   });
 
   it('keeps delivery mode help in a tooltip instead of inline form copy', async () => {

@@ -219,12 +219,13 @@
     <t-drawer
       v-model:visible="formDrawerVisible"
       :header="formDrawerTitle"
-      :footer="false"
       placement="right"
       size="620px"
       destroy-on-close
+      drawer-class-name="announcement-form-drawer"
     >
       <t-form
+        id="announcement-form"
         ref="formRef"
         class="announcement-form"
         :data="formState"
@@ -244,6 +245,31 @@
               :placeholder="t('announcement.management.form.contentPlaceholder')"
             />
           </t-form-item>
+          <div class="announcement-form__preview-actions">
+            <t-space break-line>
+              <t-button theme="primary" variant="outline" @click="toggleInlinePreview">
+                {{
+                  inlinePreviewVisible
+                    ? t('announcement.management.form.collapsePreview')
+                    : t('announcement.management.form.previewCurrent')
+                }}
+              </t-button>
+              <t-button theme="default" variant="outline" @click="openFullPreview">
+                {{ t('announcement.management.form.openFullPreview') }}
+              </t-button>
+            </t-space>
+          </div>
+          <section
+            v-if="inlinePreviewVisible"
+            class="announcement-form__inline-preview"
+            :aria-label="t('announcement.management.form.markdownPreview')"
+            aria-live="polite"
+          >
+            <template v-if="hasPreviewContent">
+              <markdown-viewer :source="formState.content" />
+            </template>
+            <t-empty v-else :description="t('announcement.management.form.emptyPreview')" />
+          </section>
           <t-form-item name="level" :label="t('announcement.management.form.level')">
             <t-select
               v-model="formState.level"
@@ -274,10 +300,6 @@
               {{ t('announcement.management.form.pinned') }}
             </t-checkbox>
           </t-form-item>
-          <section class="announcement-form__preview" aria-live="polite">
-            <h4>{{ t('announcement.management.form.markdownPreview') }}</h4>
-            <safe-markdown :source="formState.content" />
-          </section>
         </section>
 
         <section class="drawer-section">
@@ -301,17 +323,50 @@
             />
           </t-form-item>
         </section>
-
+      </t-form>
+      <template #footer>
         <div class="drawer-actions">
           <t-button theme="default" variant="outline" @click="closeFormDrawer">
             {{ t('announcement.management.form.cancel') }}
           </t-button>
-          <t-button theme="primary" type="submit" :loading="submitting">
+          <t-button theme="primary" :loading="submitting" @click="submitForm">
             {{ t('announcement.management.form.confirm') }}
           </t-button>
         </div>
-      </t-form>
+      </template>
     </t-drawer>
+
+    <t-dialog
+      v-model:visible="fullPreviewVisible"
+      :aria-label="t('announcement.management.form.markdownPreview')"
+      :header="false"
+      :confirm-btn="null"
+      :cancel-btn="t('announcement.management.form.closePreview')"
+      placement="center"
+      width="min(880px, calc(100vw - 48px))"
+      destroy-on-close
+      dialog-class-name="announcement-preview-dialog"
+    >
+      <article class="announcement-preview-panel">
+        <header class="announcement-preview-panel__header">
+          <h2>{{ previewTitle }}</h2>
+          <div class="detail-tags">
+            <t-tag :theme="previewLevelTheme" variant="light">
+              {{ previewLevelLabel }}
+            </t-tag>
+            <t-tag :theme="formState.delivery_mode === 'popup' ? 'primary' : 'default'" variant="light">
+              {{ previewDeliveryModeLabel }}
+            </t-tag>
+          </div>
+        </header>
+        <div class="announcement-preview-panel__body">
+          <template v-if="hasPreviewContent">
+            <markdown-viewer :source="formState.content" />
+          </template>
+          <t-empty v-else :description="t('announcement.management.form.emptyPreview')" />
+        </div>
+      </article>
+    </t-dialog>
 
     <t-drawer
       v-model:visible="detailDrawerVisible"
@@ -346,7 +401,7 @@
 
         <section class="drawer-section">
           <h3>{{ t('announcement.management.detailDrawer.content') }}</h3>
-          <safe-markdown class="announcement-detail__content" :source="detailRecord.content" />
+          <markdown-viewer class="announcement-detail__content" :source="detailRecord.content" />
         </section>
 
         <section class="drawer-section">
@@ -385,7 +440,7 @@ import {
   ManagementToolbar,
   TableActionMenu,
 } from '@/shared/components/management';
-import { SafeMarkdown } from '@/shared/components/markdown';
+import { MarkdownViewer } from '@/shared/components/markdown';
 import { isApiRequestError } from '@/utils/request';
 
 import {
@@ -399,7 +454,11 @@ import {
 } from '../../api/announcement';
 import { ANNOUNCEMENT_PERMISSION_CODE } from '../../contract/permissions';
 import { emitAnnouncementChanged } from '../../contract/refresh';
-import { type AnnouncementViewModel, presentAnnouncement } from '../../domain/announcement-presenter';
+import {
+  announcementLevelTheme,
+  type AnnouncementViewModel,
+  presentAnnouncement,
+} from '../../domain/announcement-presenter';
 import type {
   AnnouncementDeliveryMode,
   AnnouncementFilterState,
@@ -443,8 +502,10 @@ const filters = reactive<AnnouncementFilterState>({
 const formDrawerVisible = ref(false);
 const formMode = ref<FormMode>('create');
 const editingRecord = ref<AnnouncementItem | null>(null);
-const formRef = ref<{ reset?: () => void } | null>(null);
+const formRef = ref<{ reset?: () => void; submit?: () => void } | null>(null);
 const formState = reactive<AnnouncementFormState>(createEmptyFormState());
+const inlinePreviewVisible = ref(false);
+const fullPreviewVisible = ref(false);
 const detailDrawerVisible = ref(false);
 const detailRecord = ref<AnnouncementViewModel | null>(null);
 
@@ -513,6 +574,11 @@ const formDrawerTitle = computed(() =>
     ? t('announcement.management.form.createTitle')
     : t('announcement.management.form.editTitle'),
 );
+const hasPreviewContent = computed(() => Boolean(formState.content.trim()));
+const previewTitle = computed(() => formState.title.trim() || t('announcement.management.form.untitledPreview'));
+const previewLevelLabel = computed(() => t(`announcement.level.${formState.level}`));
+const previewLevelTheme = computed(() => announcementLevelTheme(formState.level));
+const previewDeliveryModeLabel = computed(() => t(`announcement.deliveryMode.${formState.delivery_mode}`));
 const formRules = computed<Record<keyof AnnouncementFormState, FormRule[]>>(() => ({
   content: [{ required: true, message: t('announcement.management.form.required.content'), type: 'error' }],
   delivery_mode: [{ required: true, message: t('announcement.management.form.required.deliveryMode'), type: 'error' }],
@@ -599,6 +665,7 @@ function openCreateDrawer() {
   formMode.value = 'create';
   editingRecord.value = null;
   Object.assign(formState, createEmptyFormState());
+  resetPreviewState();
   formDrawerVisible.value = true;
 }
 
@@ -606,11 +673,30 @@ function openEditDrawer(row: AnnouncementRowViewModel) {
   formMode.value = 'edit';
   editingRecord.value = row.raw;
   Object.assign(formState, toFormState(row.raw));
+  resetPreviewState();
   formDrawerVisible.value = true;
 }
 
 function closeFormDrawer() {
   formDrawerVisible.value = false;
+  resetPreviewState();
+}
+
+function resetPreviewState() {
+  inlinePreviewVisible.value = false;
+  fullPreviewVisible.value = false;
+}
+
+function toggleInlinePreview() {
+  inlinePreviewVisible.value = !inlinePreviewVisible.value;
+}
+
+function openFullPreview() {
+  fullPreviewVisible.value = true;
+}
+
+function submitForm() {
+  formRef.value?.submit?.();
 }
 
 async function openDetailDrawer(row: AnnouncementRowViewModel) {
@@ -914,7 +1000,8 @@ function readableError(error: unknown, fallback: string) {
 
 .table-empty-state__actions,
 .drawer-actions,
-.detail-tags {
+.detail-tags,
+.announcement-form__preview-actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--graft-density-gap-10);
@@ -925,6 +1012,27 @@ function readableError(error: unknown, fallback: string) {
   display: flex;
   flex-direction: column;
   gap: var(--graft-density-gap-16);
+}
+
+:deep(.announcement-form-drawer) {
+  display: flex;
+  flex-direction: column;
+  max-height: 100vh;
+}
+
+:deep(.announcement-form-drawer .t-drawer__body) {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  scrollbar-color: var(--td-scrollbar-color) transparent;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+:deep(.announcement-form-drawer .t-drawer__footer) {
+  background: var(--td-bg-color-container);
+  border-top: 1px solid var(--td-component-stroke);
+  flex: 0 0 auto;
 }
 
 .drawer-section {
@@ -952,22 +1060,64 @@ function readableError(error: unknown, fallback: string) {
   font-size: var(--td-font-size-body-medium);
 }
 
-.announcement-form__preview {
+.announcement-form__preview-actions {
+  margin: calc(var(--graft-density-gap-8) * -1) 0 var(--graft-density-gap-16);
+}
+
+.announcement-form__inline-preview {
   background: var(--td-bg-color-container-hover);
   border: 1px solid var(--td-component-stroke);
   border-radius: var(--td-radius-medium);
+  max-height: 260px;
+  overflow: auto;
   padding: var(--graft-density-gap-12);
+  scrollbar-color: var(--td-scrollbar-color) transparent;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
 }
 
-.announcement-form__preview h4 {
-  color: var(--td-text-color-secondary);
-  font: var(--td-font-body-small);
-  margin: 0 0 var(--graft-density-gap-10);
+.announcement-form__inline-preview :deep(.t-empty) {
+  padding: var(--graft-density-gap-16) 0;
+}
+
+.announcement-preview-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--graft-density-gap-18);
+  max-height: min(72vh, 720px);
+  min-width: 0;
+}
+
+.announcement-preview-panel__header {
+  border-bottom: 1px solid var(--td-component-stroke);
+  display: flex;
+  flex-direction: column;
+  gap: var(--graft-density-gap-12);
+  padding-bottom: var(--graft-density-gap-14);
+}
+
+.announcement-preview-panel__header h2 {
+  color: var(--td-text-color-primary);
+  font: var(--td-font-title-large);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.announcement-preview-panel__body {
+  min-height: 0;
+  overflow: auto;
+  padding-right: var(--graft-density-gap-4);
+  scrollbar-color: var(--td-scrollbar-color) transparent;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+.announcement-preview-panel__body :deep(.t-empty) {
+  padding: var(--graft-density-gap-24) 0;
 }
 
 .drawer-actions {
   justify-content: flex-end;
-  padding-top: var(--graft-density-gap-4);
 }
 
 .detail-title-row {

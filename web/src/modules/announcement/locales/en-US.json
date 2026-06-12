@@ -144,7 +144,13 @@
           "silent": "Silent: only show in Announcement Center.",
           "popup": "Popup: prompt users when they enter the system and also show in Announcement Center."
         },
-        "markdownPreview": "Markdown Preview"
+        "markdownPreview": "Markdown Preview",
+        "previewCurrent": "Preview Current Content",
+        "collapsePreview": "Collapse Preview",
+        "openFullPreview": "Open Full Preview",
+        "emptyPreview": "No Preview Content",
+        "closePreview": "Close",
+        "untitledPreview": "Untitled Announcement"
       },
       "detailDrawer": {
         "title": "Announcement Details",

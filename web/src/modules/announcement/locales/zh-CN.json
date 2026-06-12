@@ -144,7 +144,13 @@
           "silent": "静默：仅在公告中心展示。",
           "popup": "弹窗：用户进入系统时主动弹窗提醒，同时进入公告中心。"
         },
-        "markdownPreview": "Markdown 预览"
+        "markdownPreview": "Markdown 预览",
+        "previewCurrent": "预览当前内容",
+        "collapsePreview": "收起预览",
+        "openFullPreview": "打开完整预览",
+        "emptyPreview": "暂无可预览内容",
+        "closePreview": "关闭",
+        "untitledPreview": "未命名公告"
       },
       "detailDrawer": {
         "title": "公告详情",
