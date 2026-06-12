@@ -19,6 +19,7 @@ const (
 	maxListLimit              = 100
 	placeholderGrowthEstimate = 8
 	adminFilterCapacity       = 4
+	userFilterCapacity        = 3
 	sortUpdatedDesc           = "updated_desc"
 	sortPublishDesc           = "publish_desc"
 	sortPinnedPublishDesc     = "pinned_publish_desc"
@@ -83,6 +84,47 @@ func (r *SQLRepository) ListAdmin(ctx context.Context, query ListQuery) (ListRes
 		return ListResult{}, err
 	}
 	return ListResult{Items: items, Total: total}, nil
+}
+
+// ListCurrentUser returns currently visible announcements with read state for one user.
+func (r *SQLRepository) ListCurrentUser(ctx context.Context, query UserListQuery) (UserListResult, error) {
+	if err := r.ensureReady(); err != nil {
+		return UserListResult{}, err
+	}
+	query, userDBID, err := normalizeUserListQuery(query)
+	if err != nil {
+		return UserListResult{}, err
+	}
+	where, args := buildUserVisibleWhere(query.Now, query.UnreadOnly)
+	//nolint:gosec // Predicates come from fixed visibility fragments; values stay parameterized.
+	countSQL := r.placeholder.rebind(fmt.Sprintf(`SELECT COUNT(*)
+		FROM announcements a
+		LEFT JOIN announcement_reads ar ON ar.announcement_id = a.id AND ar.user_id = ?
+		WHERE %s`, strings.Join(where, " AND ")))
+	var total int
+	if err := r.db.QueryRowContext(ctx, countSQL, append([]any{userDBID}, args...)...).Scan(&total); err != nil {
+		return UserListResult{}, fmt.Errorf("count current-user announcements: %w", err)
+	}
+
+	listArgs := append([]any{userDBID}, args...)
+	listArgs = append(listArgs, query.Limit, query.Offset)
+	//nolint:gosec // Predicates and ordering come from fixed fragments; values stay parameterized.
+	rows, err := r.db.QueryContext(ctx, r.placeholder.rebind(fmt.Sprintf(`SELECT %s, ar.read_at
+		FROM announcements a
+		LEFT JOIN announcement_reads ar ON ar.announcement_id = a.id AND ar.user_id = ?
+		WHERE %s
+		ORDER BY a.pinned DESC, a.publish_at DESC, a.id DESC
+		LIMIT ? OFFSET ?`, prefixedAnnouncementColumns("a"), strings.Join(where, " AND "))), listArgs...)
+	if err != nil {
+		return UserListResult{}, fmt.Errorf("list current-user announcements: %w", err)
+	}
+	defer closeRows(rows)
+
+	items, err := scanUserAnnouncements(rows)
+	if err != nil {
+		return UserListResult{}, err
+	}
+	return UserListResult{Items: items, Total: total}, nil
 }
 
 // Create inserts one management announcement.
@@ -270,6 +312,92 @@ func (r *SQLRepository) Delete(ctx context.Context, id uint64, actorID uint64, d
 	return nil
 }
 
+// MarkRead records one read fact for a currently visible announcement and user.
+func (r *SQLRepository) MarkRead(ctx context.Context, userID uint64, announcementID uint64, readAt time.Time) (UserAnnouncement, error) {
+	if err := r.ensureReady(); err != nil {
+		return UserAnnouncement{}, err
+	}
+	userDBID, announcementDBID, err := readAccessIDs(userID, announcementID, readAt)
+	if err != nil {
+		return UserAnnouncement{}, err
+	}
+	now := time.Now().UTC()
+	if _, err := r.getVisibleAnnouncement(ctx, announcementDBID, userDBID, now); err != nil {
+		return UserAnnouncement{}, err
+	}
+	readAt = readAt.UTC()
+	if _, err := r.db.ExecContext(ctx, r.placeholder.rebind(`INSERT INTO announcement_reads (
+			announcement_id, user_id, read_at, created_at
+		) VALUES (?, ?, ?, ?)
+		ON CONFLICT (announcement_id, user_id) DO NOTHING`),
+		announcementDBID,
+		userDBID,
+		readAt,
+		readAt,
+	); err != nil {
+		return UserAnnouncement{}, fmt.Errorf("mark announcement read: %w", err)
+	}
+	return r.getVisibleAnnouncement(ctx, announcementDBID, userDBID, now)
+}
+
+// MarkAllRead records read facts for all currently visible unread announcements for one user.
+func (r *SQLRepository) MarkAllRead(ctx context.Context, userID uint64, readAt time.Time, now time.Time) (int, error) {
+	if err := r.ensureReady(); err != nil {
+		return 0, err
+	}
+	userDBID, err := userReadDBID(userID, readAt, now)
+	if err != nil {
+		return 0, err
+	}
+	where, args := buildUserVisibleWhere(now.UTC(), true)
+	insertArgs := append([]any{userDBID, readAt.UTC(), readAt.UTC(), userDBID}, args...)
+
+	//nolint:gosec // Visibility predicates come from fixed fragments; values stay parameterized.
+	result, err := r.db.ExecContext(ctx, r.placeholder.rebind(fmt.Sprintf(`INSERT INTO announcement_reads (
+			announcement_id, user_id, read_at, created_at
+		)
+		SELECT a.id, ?, ?, ?
+		FROM announcements a
+		LEFT JOIN announcement_reads ar ON ar.announcement_id = a.id AND ar.user_id = ?
+		WHERE %s
+		ON CONFLICT (announcement_id, user_id) DO NOTHING`, strings.Join(where, " AND "))), insertArgs...)
+	if err != nil {
+		return 0, fmt.Errorf("mark all announcements read: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("read mark-all announcement rows affected: %w", err)
+	}
+	return int(affected), nil
+}
+
+// UnreadCount counts currently visible unread announcements for one user.
+func (r *SQLRepository) UnreadCount(ctx context.Context, userID uint64, now time.Time) (int, error) {
+	if err := r.ensureReady(); err != nil {
+		return 0, err
+	}
+	if now.IsZero() {
+		return 0, ErrInvalidInput
+	}
+	userDBID, err := toDBID(userID)
+	if err != nil {
+		return 0, err
+	}
+	where, args := buildUserVisibleWhere(now.UTC(), true)
+	countArgs := append([]any{userDBID}, args...)
+
+	//nolint:gosec // Visibility predicates come from fixed fragments; values stay parameterized.
+	countSQL := r.placeholder.rebind(fmt.Sprintf(`SELECT COUNT(*)
+		FROM announcements a
+		LEFT JOIN announcement_reads ar ON ar.announcement_id = a.id AND ar.user_id = ?
+		WHERE %s`, strings.Join(where, " AND ")))
+	var count int
+	if err := r.db.QueryRowContext(ctx, countSQL, countArgs...).Scan(&count); err != nil {
+		return 0, fmt.Errorf("count unread announcements: %w", err)
+	}
+	return count, nil
+}
+
 func (r *SQLRepository) ensureReady() error {
 	if r == nil || r.db == nil {
 		return errors.New("announcement repository is unavailable")
@@ -325,6 +453,27 @@ func normalizeListQuery(query ListQuery) ListQuery {
 	return query
 }
 
+func normalizeUserListQuery(query UserListQuery) (UserListQuery, int64, error) {
+	if query.Now.IsZero() || query.UserID == 0 {
+		return UserListQuery{}, 0, ErrInvalidInput
+	}
+	userID, err := toDBID(query.UserID)
+	if err != nil {
+		return UserListQuery{}, 0, err
+	}
+	query.Now = query.Now.UTC()
+	if query.Limit <= 0 {
+		query.Limit = defaultListLimit
+	}
+	if query.Limit > maxListLimit {
+		query.Limit = maxListLimit
+	}
+	if query.Offset < 0 {
+		query.Offset = 0
+	}
+	return query, userID, nil
+}
+
 func buildAdminWhere(query ListQuery) ([]string, []any, error) {
 	where := []string{"deleted_at = 0"}
 	args := make([]any, 0, adminFilterCapacity)
@@ -348,6 +497,21 @@ func buildAdminWhere(query ListQuery) ([]string, []any, error) {
 	return where, args, nil
 }
 
+func buildUserVisibleWhere(now time.Time, unreadOnly bool) ([]string, []any) {
+	where := []string{
+		"a.deleted_at = 0",
+		"a.status = ?",
+		"a.publish_at <= ?",
+		"(a.expire_at IS NULL OR a.expire_at > ?)",
+	}
+	args := make([]any, 0, userFilterCapacity)
+	args = append(args, statusPublished, now, now)
+	if unreadOnly {
+		where = append(where, "ar.read_at IS NULL")
+	}
+	return where, args
+}
+
 func adminOrderBy(sort string) string {
 	switch sort {
 	case sortPinnedPublishDesc:
@@ -364,6 +528,14 @@ func adminOrderBy(sort string) string {
 func announcementColumns() string {
 	return `id, title, content, level, status, pinned, publish_at, expire_at,
 		created_by, updated_by, deleted_by, created_at, updated_at, deleted_at`
+}
+
+func prefixedAnnouncementColumns(prefix string) string {
+	columns := strings.Split(announcementColumns(), ",")
+	for index, column := range columns {
+		columns[index] = prefix + "." + strings.TrimSpace(column)
+	}
+	return strings.Join(columns, ", ")
 }
 
 func scanAnnouncement(scanner interface{ Scan(dest ...any) error }) (Announcement, error) {
@@ -436,6 +608,58 @@ func scanAnnouncements(rows *sql.Rows) ([]Announcement, error) {
 	return items, nil
 }
 
+func scanUserAnnouncement(scanner interface{ Scan(dest ...any) error }) (UserAnnouncement, error) {
+	var item UserAnnouncement
+	var readAt sql.NullTime
+	announcement, err := scanAnnouncement(rowScannerFunc(func(dest ...any) error {
+		return scanner.Scan(append(dest, &readAt)...)
+	}))
+	if err != nil {
+		return UserAnnouncement{}, err
+	}
+	item.Announcement = announcement
+	if readAt.Valid {
+		value := readAt.Time.UTC()
+		item.ReadAt = &value
+	}
+	return item, nil
+}
+
+func scanUserAnnouncements(rows *sql.Rows) ([]UserAnnouncement, error) {
+	items := make([]UserAnnouncement, 0)
+	for rows.Next() {
+		item, err := scanUserAnnouncement(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan current-user announcement row: %w", err)
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate current-user announcement rows: %w", err)
+	}
+	return items, nil
+}
+
+func (r *SQLRepository) getVisibleAnnouncement(ctx context.Context, announcementID int64, userID int64, now time.Time) (UserAnnouncement, error) {
+	where, args := buildUserVisibleWhere(now.UTC(), false)
+	args = append([]any{userID}, args...)
+	args = append(args, announcementID)
+	where = append(where, "a.id = ?")
+
+	//nolint:gosec // Visibility predicates come from fixed fragments; values stay parameterized.
+	item, err := scanUserAnnouncement(r.db.QueryRowContext(ctx, r.placeholder.rebind(fmt.Sprintf(`SELECT %s, ar.read_at
+		FROM announcements a
+		LEFT JOIN announcement_reads ar ON ar.announcement_id = a.id AND ar.user_id = ?
+		WHERE %s`, prefixedAnnouncementColumns("a"), strings.Join(where, " AND "))), args...))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return UserAnnouncement{}, ErrAnnouncementNotFound
+		}
+		return UserAnnouncement{}, fmt.Errorf("get current-user announcement: %w", err)
+	}
+	return item, nil
+}
+
 func closeRows(rows *sql.Rows) {
 	if rows != nil {
 		_ = rows.Close()
@@ -498,6 +722,34 @@ func uint64FromDBID(value int64) (uint64, error) {
 		return 0, ErrInvalidInput
 	}
 	return uint64(value), nil
+}
+
+type rowScannerFunc func(dest ...any) error
+
+func (f rowScannerFunc) Scan(dest ...any) error {
+	return f(dest...)
+}
+
+func readAccessIDs(userID uint64, announcementID uint64, readAt time.Time) (int64, int64, error) {
+	if announcementID == 0 {
+		return 0, 0, ErrInvalidInput
+	}
+	userDBID, err := userReadDBID(userID, readAt, readAt)
+	if err != nil {
+		return 0, 0, err
+	}
+	announcementDBID, err := toDBID(announcementID)
+	if err != nil {
+		return 0, 0, err
+	}
+	return userDBID, announcementDBID, nil
+}
+
+func userReadDBID(userID uint64, readAt time.Time, now time.Time) (int64, error) {
+	if userID == 0 || readAt.IsZero() || now.IsZero() {
+		return 0, ErrInvalidInput
+	}
+	return toDBID(userID)
 }
 
 var _ Repository = (*SQLRepository)(nil)

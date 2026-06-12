@@ -6,6 +6,7 @@ package announcement
 import (
 	"math"
 
+	announcementopenapi "graft/server/internal/contract/openapi/announcement"
 	announcementstore "graft/server/modules/announcement/store"
 )
 
@@ -37,6 +38,36 @@ func toAnnouncementItem(item announcementstore.Announcement) map[string]any {
 		"deleted_by": safeOptionalInt64(item.DeletedBy),
 		"created_at": item.CreatedAt,
 		"updated_at": item.UpdatedAt,
+	}
+}
+
+func toMyAnnouncementListResponse(result UserListResult) map[string]any {
+	items := make([]map[string]any, 0, len(result.Items))
+	for _, item := range result.Items {
+		items = append(items, toMyAnnouncementItem(item))
+	}
+	return map[string]any{
+		"items":     items,
+		"total":     result.Total,
+		"page":      result.Page,
+		"page_size": result.PageSize,
+	}
+}
+
+func toMyAnnouncementItem(item announcementstore.UserAnnouncement) map[string]any {
+	announcement := item.Announcement
+	return map[string]any{
+		"id":         safeInt64(announcement.ID),
+		"title":      announcement.Title,
+		"content":    announcement.Content,
+		"level":      announcementopenapi.GetMyAnnouncements200JSONResponseBodyDataItemsLevel(announcement.Level),
+		"status":     announcementopenapi.GetMyAnnouncements200JSONResponseBodyDataItemsStatus(announcement.Status),
+		"pinned":     announcement.Pinned,
+		"publish_at": announcement.PublishAt,
+		"expire_at":  announcement.ExpireAt,
+		"read_at":    item.ReadAt,
+		"created_at": announcement.CreatedAt,
+		"updated_at": announcement.UpdatedAt,
 	}
 }
 

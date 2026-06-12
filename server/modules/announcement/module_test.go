@@ -5,6 +5,7 @@ package announcement
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -74,15 +75,33 @@ func TestAnnouncementContractValidators(t *testing.T) {
 	}
 }
 
-func TestAnnouncementUserRoutesRemainExplicitPhaseThreeNotImplemented(t *testing.T) {
+func TestAnnouncementUserRoutesReturnCurrentUserAnnouncements(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	service, err := NewService(testAnnouncementRepository{})
+	repository := newMemoryAnnouncementRepository()
+	service, err := NewService(repository)
 	if err != nil {
 		t.Fatalf("new service: %v", err)
 	}
+	ctx := context.Background()
+	actorID := uint64(7)
+	publishAt := time.Now().UTC().Add(-time.Hour)
+	created, err := service.Create(ctx, announcementstore.CreateInput{
+		Title:     "Visible",
+		Content:   "Visible content",
+		Level:     announcementcontract.AnnouncementLevelInfo.String(),
+		PublishAt: &publishAt,
+		ActorID:   &actorID,
+	})
+	if err != nil {
+		t.Fatalf("create announcement: %v", err)
+	}
+	if _, err := service.Publish(ctx, created.ID, nil, &actorID); err != nil {
+		t.Fatalf("publish announcement: %v", err)
+	}
+
 	engine := gin.New()
-	ctx := newAnnouncementTestContext(engine)
-	if err := registerAnnouncementRoutes(ctx, service, announcementGuards{
+	moduleCtx := newAnnouncementTestContext(engine)
+	if err := registerAnnouncementRoutes(moduleCtx, service, announcementGuards{
 		authenticated: announcementRouteTestAuth(42),
 		read:          announcementRouteTestAuth(42),
 		create:        announcementRouteTestAuth(42),
@@ -96,8 +115,16 @@ func TestAnnouncementUserRoutesRemainExplicitPhaseThreeNotImplemented(t *testing
 	request := httptest.NewRequest(http.MethodGet, "/api/my/announcements", nil)
 	recorder := httptest.NewRecorder()
 	engine.ServeHTTP(recorder, request)
-	if recorder.Code != http.StatusNotImplemented {
-		t.Fatalf("expected 501 phase-three route response, got %d body=%s", recorder.Code, recorder.Body.String())
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected 200 user route response, got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	var response httpx.SuccessResponse[map[string]any]
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	items, ok := response.Data["items"].([]any)
+	if !ok || len(items) != 1 {
+		t.Fatalf("expected one visible announcement, got %#v", response.Data["items"])
 	}
 }
 
@@ -240,6 +267,142 @@ func TestAnnouncementManagementServiceListFiltersAndSort(t *testing.T) {
 	}
 }
 
+func TestAnnouncementUserListExcludesDraftFutureExpiredAndArchived(t *testing.T) {
+	repository := newMemoryAnnouncementRepository()
+	service, err := NewService(repository)
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	ctx := context.Background()
+	actorID := uint64(7)
+	now := time.Now().UTC()
+
+	visible := createAnnouncementForUserTest(t, service, "Visible", now.Add(-time.Hour), nil, actorID)
+	createDraftForUserTest(t, service, "Draft", now.Add(-time.Hour), nil, actorID)
+	createAnnouncementForUserTest(t, service, "Future", now.Add(time.Hour), nil, actorID)
+	expiredAt := now.Add(-time.Minute)
+	createAnnouncementForUserTest(t, service, "Expired", now.Add(-time.Hour), &expiredAt, actorID)
+	archived := createAnnouncementForUserTest(t, service, "Archived", now.Add(-time.Hour), nil, actorID)
+	if _, err := service.Archive(ctx, archived.ID, &actorID); err != nil {
+		t.Fatalf("archive test announcement: %v", err)
+	}
+
+	result, err := service.ListCurrentUser(ctx, UserListQuery{UserID: 42, Page: 1, PageSize: 20})
+	if err != nil {
+		t.Fatalf("list current-user announcements: %v", err)
+	}
+	if result.Total != 1 || len(result.Items) != 1 || result.Items[0].Announcement.ID != visible.ID {
+		t.Fatalf("expected only visible announcement %d, got total=%d items=%#v", visible.ID, result.Total, result.Items)
+	}
+}
+
+func TestAnnouncementReadStateIsIsolatedByUser(t *testing.T) {
+	repository := newMemoryAnnouncementRepository()
+	service, err := NewService(repository)
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	ctx := context.Background()
+	actorID := uint64(7)
+	published := createAnnouncementForUserTest(t, service, "Visible", time.Now().UTC().Add(-time.Hour), nil, actorID)
+
+	if _, err := service.MarkRead(ctx, 42, published.ID); err != nil {
+		t.Fatalf("mark read user 42: %v", err)
+	}
+	user42, err := service.ListCurrentUser(ctx, UserListQuery{UserID: 42, Page: 1, PageSize: 20})
+	if err != nil {
+		t.Fatalf("list user 42: %v", err)
+	}
+	user7, err := service.ListCurrentUser(ctx, UserListQuery{UserID: 7, Page: 1, PageSize: 20})
+	if err != nil {
+		t.Fatalf("list user 7: %v", err)
+	}
+	if user42.Items[0].ReadAt == nil {
+		t.Fatal("expected user 42 read state to be present")
+	}
+	if user7.Items[0].ReadAt != nil {
+		t.Fatalf("expected user 7 read state to stay unread, got %#v", user7.Items[0].ReadAt)
+	}
+}
+
+func TestAnnouncementReadAllOnlyAffectsCurrentUserAndVisibleAnnouncements(t *testing.T) {
+	repository := newMemoryAnnouncementRepository()
+	service, err := NewService(repository)
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	ctx := context.Background()
+	actorID := uint64(7)
+	now := time.Now().UTC()
+	visibleA := createAnnouncementForUserTest(t, service, "Visible A", now.Add(-time.Hour), nil, actorID)
+	visibleB := createAnnouncementForUserTest(t, service, "Visible B", now.Add(-2*time.Hour), nil, actorID)
+	createDraftForUserTest(t, service, "Draft", now.Add(-time.Hour), nil, actorID)
+	future := createAnnouncementForUserTest(t, service, "Future", now.Add(time.Hour), nil, actorID)
+
+	updated, err := service.MarkAllRead(ctx, 42)
+	if err != nil {
+		t.Fatalf("mark all read: %v", err)
+	}
+	if updated != 2 {
+		t.Fatalf("expected two visible announcements marked read, got %d", updated)
+	}
+	user42, err := service.ListCurrentUser(ctx, UserListQuery{UserID: 42, Page: 1, PageSize: 20})
+	if err != nil {
+		t.Fatalf("list user 42: %v", err)
+	}
+	for _, item := range user42.Items {
+		if item.Announcement.ID == visibleA.ID || item.Announcement.ID == visibleB.ID {
+			if item.ReadAt == nil {
+				t.Fatalf("expected visible announcement %d to be read", item.Announcement.ID)
+			}
+		}
+		if item.Announcement.ID == future.ID {
+			t.Fatal("future announcement should not be visible after read-all")
+		}
+	}
+	user7Count, err := service.UnreadCount(ctx, 7)
+	if err != nil {
+		t.Fatalf("unread count user 7: %v", err)
+	}
+	if user7Count != 2 {
+		t.Fatalf("expected user 7 unread count to stay isolated at 2, got %d", user7Count)
+	}
+}
+
+func TestAnnouncementUnreadCountRespectsVisibilityAndUserIsolation(t *testing.T) {
+	repository := newMemoryAnnouncementRepository()
+	service, err := NewService(repository)
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	ctx := context.Background()
+	actorID := uint64(7)
+	now := time.Now().UTC()
+	visibleA := createAnnouncementForUserTest(t, service, "Visible A", now.Add(-time.Hour), nil, actorID)
+	createAnnouncementForUserTest(t, service, "Visible B", now.Add(-2*time.Hour), nil, actorID)
+	createDraftForUserTest(t, service, "Draft", now.Add(-time.Hour), nil, actorID)
+	expiredAt := now.Add(-time.Minute)
+	createAnnouncementForUserTest(t, service, "Expired", now.Add(-time.Hour), &expiredAt, actorID)
+
+	if _, err := service.MarkRead(ctx, 42, visibleA.ID); err != nil {
+		t.Fatalf("mark read user 42: %v", err)
+	}
+	user42Count, err := service.UnreadCount(ctx, 42)
+	if err != nil {
+		t.Fatalf("unread count user 42: %v", err)
+	}
+	if user42Count != 1 {
+		t.Fatalf("expected user 42 one unread visible announcement, got %d", user42Count)
+	}
+	user7Count, err := service.UnreadCount(ctx, 7)
+	if err != nil {
+		t.Fatalf("unread count user 7: %v", err)
+	}
+	if user7Count != 2 {
+		t.Fatalf("expected user 7 two unread visible announcements, got %d", user7Count)
+	}
+}
+
 func TestAnnouncementManagementRoutePermissionDenied(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	service, err := NewService(newMemoryAnnouncementRepository())
@@ -339,6 +502,57 @@ func announcementRouteTestAuth(userID uint64) gin.HandlerFunc {
 	}
 }
 
+func createAnnouncementForUserTest(
+	t *testing.T,
+	service *Service,
+	title string,
+	publishAt time.Time,
+	expireAt *time.Time,
+	actorID uint64,
+) announcementstore.Announcement {
+	t.Helper()
+	ctx := context.Background()
+	item, err := service.Create(ctx, announcementstore.CreateInput{
+		Title:     title,
+		Content:   title + " content",
+		Level:     announcementcontract.AnnouncementLevelInfo.String(),
+		PublishAt: &publishAt,
+		ExpireAt:  expireAt,
+		ActorID:   &actorID,
+	})
+	if err != nil {
+		t.Fatalf("create %s: %v", title, err)
+	}
+	published, err := service.Publish(ctx, item.ID, nil, &actorID)
+	if err != nil {
+		t.Fatalf("publish %s: %v", title, err)
+	}
+	return published
+}
+
+func createDraftForUserTest(
+	t *testing.T,
+	service *Service,
+	title string,
+	publishAt time.Time,
+	expireAt *time.Time,
+	actorID uint64,
+) announcementstore.Announcement {
+	t.Helper()
+	item, err := service.Create(context.Background(), announcementstore.CreateInput{
+		Title:     title,
+		Content:   title + " content",
+		Level:     announcementcontract.AnnouncementLevelInfo.String(),
+		PublishAt: &publishAt,
+		ExpireAt:  expireAt,
+		ActorID:   &actorID,
+	})
+	if err != nil {
+		t.Fatalf("create draft %s: %v", title, err)
+	}
+	return item
+}
+
 type testAnnouncementRepository struct{}
 
 func (testAnnouncementRepository) Ping(context.Context) error {
@@ -347,6 +561,10 @@ func (testAnnouncementRepository) Ping(context.Context) error {
 
 func (testAnnouncementRepository) ListAdmin(context.Context, announcementstore.ListQuery) (announcementstore.ListResult, error) {
 	return announcementstore.ListResult{}, announcementstore.ErrAnnouncementNotFound
+}
+
+func (testAnnouncementRepository) ListCurrentUser(context.Context, announcementstore.UserListQuery) (announcementstore.UserListResult, error) {
+	return announcementstore.UserListResult{}, announcementstore.ErrAnnouncementNotFound
 }
 
 func (testAnnouncementRepository) Create(context.Context, announcementstore.CreateInput) (announcementstore.Announcement, error) {
@@ -371,6 +589,18 @@ func (testAnnouncementRepository) Archive(context.Context, uint64, *uint64) (ann
 
 func (testAnnouncementRepository) Delete(context.Context, uint64, uint64, time.Time) error {
 	return announcementstore.ErrAnnouncementNotFound
+}
+
+func (testAnnouncementRepository) MarkRead(context.Context, uint64, uint64, time.Time) (announcementstore.UserAnnouncement, error) {
+	return announcementstore.UserAnnouncement{}, announcementstore.ErrAnnouncementNotFound
+}
+
+func (testAnnouncementRepository) MarkAllRead(context.Context, uint64, time.Time, time.Time) (int, error) {
+	return 0, announcementstore.ErrAnnouncementNotFound
+}
+
+func (testAnnouncementRepository) UnreadCount(context.Context, uint64, time.Time) (int, error) {
+	return 0, announcementstore.ErrAnnouncementNotFound
 }
 
 var _ announcementstore.Repository = testAnnouncementRepository{}

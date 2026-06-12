@@ -223,13 +223,17 @@ func (r announcementRouteRuntime) handleUserList(ginCtx *gin.Context) {
 	}
 	params := bindUserListParams(ginCtx)
 	announcementGeneratedHandler{}.GetMyAnnouncements(params)
-	err := r.service.ListCurrentUser(ginCtx.Request.Context(), UserListQuery{
+	result, err := r.service.ListCurrentUser(ginCtx.Request.Context(), UserListQuery{
 		UserID:     userID,
 		UnreadOnly: boolFromPointer(params.UnreadOnly),
 		Page:       intFromPointer(params.Page),
 		PageSize:   intFromPointer(params.PageSize),
 	})
-	r.writeRouteError(ginCtx, err)
+	if err != nil {
+		r.writeRouteError(ginCtx, err)
+		return
+	}
+	httpx.WriteSuccess(ginCtx, http.StatusOK, toMyAnnouncementListResponse(result))
 }
 
 func (r announcementRouteRuntime) handleMarkRead(ginCtx *gin.Context) {
@@ -246,7 +250,12 @@ func (r announcementRouteRuntime) handleMarkRead(ginCtx *gin.Context) {
 		return
 	}
 	announcementGeneratedHandler{}.PostMyAnnouncementRead(generatedID, bindPostMyAnnouncementReadParams(ginCtx))
-	r.writeRouteError(ginCtx, r.service.MarkRead(ginCtx.Request.Context(), userID, id))
+	item, err := r.service.MarkRead(ginCtx.Request.Context(), userID, id)
+	if err != nil {
+		r.writeRouteError(ginCtx, err)
+		return
+	}
+	httpx.WriteSuccess(ginCtx, http.StatusOK, toMyAnnouncementItem(item))
 }
 
 func (r announcementRouteRuntime) handleMarkAllRead(ginCtx *gin.Context) {
@@ -255,7 +264,12 @@ func (r announcementRouteRuntime) handleMarkAllRead(ginCtx *gin.Context) {
 		return
 	}
 	announcementGeneratedHandler{}.PostMyAnnouncementsReadAll(bindPostMyAnnouncementsReadAllParams(ginCtx))
-	r.writeRouteError(ginCtx, r.service.MarkAllRead(ginCtx.Request.Context(), userID))
+	count, err := r.service.MarkAllRead(ginCtx.Request.Context(), userID)
+	if err != nil {
+		r.writeRouteError(ginCtx, err)
+		return
+	}
+	httpx.WriteSuccess(ginCtx, http.StatusOK, map[string]int{"updated_count": count})
 }
 
 func (r announcementRouteRuntime) handleUnreadCount(ginCtx *gin.Context) {
@@ -264,16 +278,17 @@ func (r announcementRouteRuntime) handleUnreadCount(ginCtx *gin.Context) {
 		return
 	}
 	announcementGeneratedHandler{}.GetMyAnnouncementsUnreadCount(bindGetMyAnnouncementsUnreadCountParams(ginCtx))
-	r.writeRouteError(ginCtx, r.service.UnreadCount(ginCtx.Request.Context(), userID))
+	count, err := r.service.UnreadCount(ginCtx.Request.Context(), userID)
+	if err != nil {
+		r.writeRouteError(ginCtx, err)
+		return
+	}
+	httpx.WriteSuccess(ginCtx, http.StatusOK, map[string]int{"count": count})
 }
 
 func (r announcementRouteRuntime) writeRouteError(ginCtx *gin.Context, err error) {
 	if err == nil {
 		httpx.WriteSuccess(ginCtx, http.StatusOK, map[string]any{})
-		return
-	}
-	if errors.Is(err, errAnnouncementNotImplemented) {
-		httpx.AbortLocalizedError(ginCtx, r.ctx.I18n, http.StatusNotImplemented, announcementcontract.AnnouncementNotImplemented.String(), nil)
 		return
 	}
 	if errors.Is(err, errAnnouncementInvalidInput) {

@@ -44,6 +44,12 @@ type AnnouncementRead struct {
 	CreatedAt      time.Time
 }
 
+// UserAnnouncement joins one current-user visible announcement with that user's read state.
+type UserAnnouncement struct {
+	Announcement Announcement
+	ReadAt       *time.Time
+}
+
 // CreateInput describes one announcement draft insert.
 type CreateInput struct {
 	Title     string
@@ -84,14 +90,33 @@ type ListResult struct {
 	Total int
 }
 
+// UserListQuery describes current-user visible announcement filters.
+type UserListQuery struct {
+	UserID     uint64
+	UnreadOnly bool
+	Now        time.Time
+	Limit      int
+	Offset     int
+}
+
+// UserListResult returns a paginated current-user announcement page.
+type UserListResult struct {
+	Items []UserAnnouncement
+	Total int
+}
+
 // Repository persists announcement records and per-user read facts.
 type Repository interface {
 	Ping(ctx context.Context) error
 	ListAdmin(ctx context.Context, query ListQuery) (ListResult, error)
+	ListCurrentUser(ctx context.Context, query UserListQuery) (UserListResult, error)
 	Create(ctx context.Context, input CreateInput) (Announcement, error)
 	GetAdmin(ctx context.Context, id uint64) (Announcement, error)
 	Update(ctx context.Context, id uint64, input UpdateInput) (Announcement, error)
 	Publish(ctx context.Context, id uint64, publishAt time.Time, actorID *uint64) (Announcement, error)
 	Archive(ctx context.Context, id uint64, actorID *uint64) (Announcement, error)
 	Delete(ctx context.Context, id uint64, actorID uint64, deletedAt time.Time) error
+	MarkRead(ctx context.Context, userID uint64, announcementID uint64, readAt time.Time) (UserAnnouncement, error)
+	MarkAllRead(ctx context.Context, userID uint64, readAt time.Time, now time.Time) (int, error)
+	UnreadCount(ctx context.Context, userID uint64, now time.Time) (int, error)
 }

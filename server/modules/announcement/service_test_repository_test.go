@@ -14,15 +14,19 @@ import (
 )
 
 type memoryAnnouncementRepository struct {
-	mu     sync.Mutex
-	nextID uint64
-	items  map[uint64]announcementstore.Announcement
+	mu         sync.Mutex
+	nextID     uint64
+	nextReadID uint64
+	items      map[uint64]announcementstore.Announcement
+	reads      map[uint64]map[uint64]announcementstore.AnnouncementRead
 }
 
 func newMemoryAnnouncementRepository() *memoryAnnouncementRepository {
 	return &memoryAnnouncementRepository{
-		nextID: 1,
-		items:  make(map[uint64]announcementstore.Announcement),
+		nextID:     1,
+		nextReadID: 1,
+		items:      make(map[uint64]announcementstore.Announcement),
+		reads:      make(map[uint64]map[uint64]announcementstore.AnnouncementRead),
 	}
 }
 
@@ -65,6 +69,46 @@ func (r *memoryAnnouncementRepository) ListAdmin(_ context.Context, query announ
 		end = total
 	}
 	return announcementstore.ListResult{Items: append([]announcementstore.Announcement(nil), items[start:end]...), Total: total}, nil
+}
+
+func (r *memoryAnnouncementRepository) ListCurrentUser(_ context.Context, query announcementstore.UserListQuery) (announcementstore.UserListResult, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	items := make([]announcementstore.UserAnnouncement, 0, len(r.items))
+	for _, item := range r.items {
+		if !memoryVisibleAnnouncement(item, query.Now) {
+			continue
+		}
+		userItem := announcementstore.UserAnnouncement{
+			Announcement: item,
+			ReadAt:       r.readAtLocked(item.ID, query.UserID),
+		}
+		if query.UnreadOnly && userItem.ReadAt != nil {
+			continue
+		}
+		items = append(items, userItem)
+	}
+	sort.SliceStable(items, func(i int, j int) bool {
+		if items[i].Announcement.Pinned != items[j].Announcement.Pinned {
+			return items[i].Announcement.Pinned
+		}
+		left := publishSortTime(items[i].Announcement)
+		right := publishSortTime(items[j].Announcement)
+		if !left.Equal(right) {
+			return left.After(right)
+		}
+		return items[i].Announcement.ID > items[j].Announcement.ID
+	})
+	total := len(items)
+	start := query.Offset
+	if start > total {
+		start = total
+	}
+	end := start + query.Limit
+	if end > total {
+		end = total
+	}
+	return announcementstore.UserListResult{Items: append([]announcementstore.UserAnnouncement(nil), items[start:end]...), Total: total}, nil
 }
 
 func (r *memoryAnnouncementRepository) Create(_ context.Context, input announcementstore.CreateInput) (announcementstore.Announcement, error) {
@@ -164,6 +208,99 @@ func (r *memoryAnnouncementRepository) Delete(_ context.Context, id uint64, acto
 	item.UpdatedAt = deletedAt.UTC()
 	r.items[id] = item
 	return nil
+}
+
+func (r *memoryAnnouncementRepository) MarkRead(_ context.Context, userID uint64, announcementID uint64, readAt time.Time) (announcementstore.UserAnnouncement, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	item, ok := r.items[announcementID]
+	if !ok || !memoryVisibleAnnouncement(item, time.Now().UTC()) {
+		return announcementstore.UserAnnouncement{}, announcementstore.ErrAnnouncementNotFound
+	}
+	if _, ok := r.reads[userID]; !ok {
+		r.reads[userID] = make(map[uint64]announcementstore.AnnouncementRead)
+	}
+	if _, exists := r.reads[userID][announcementID]; !exists {
+		r.reads[userID][announcementID] = announcementstore.AnnouncementRead{
+			ID:             r.nextReadID,
+			AnnouncementID: announcementID,
+			UserID:         userID,
+			ReadAt:         readAt.UTC(),
+			CreatedAt:      readAt.UTC(),
+		}
+		r.nextReadID++
+	}
+	return announcementstore.UserAnnouncement{
+		Announcement: item,
+		ReadAt:       r.readAtLocked(announcementID, userID),
+	}, nil
+}
+
+func (r *memoryAnnouncementRepository) MarkAllRead(_ context.Context, userID uint64, readAt time.Time, now time.Time) (int, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, ok := r.reads[userID]; !ok {
+		r.reads[userID] = make(map[uint64]announcementstore.AnnouncementRead)
+	}
+	count := 0
+	for _, item := range r.items {
+		if !memoryVisibleAnnouncement(item, now) {
+			continue
+		}
+		if _, exists := r.reads[userID][item.ID]; exists {
+			continue
+		}
+		r.reads[userID][item.ID] = announcementstore.AnnouncementRead{
+			ID:             r.nextReadID,
+			AnnouncementID: item.ID,
+			UserID:         userID,
+			ReadAt:         readAt.UTC(),
+			CreatedAt:      readAt.UTC(),
+		}
+		r.nextReadID++
+		count++
+	}
+	return count, nil
+}
+
+func (r *memoryAnnouncementRepository) UnreadCount(_ context.Context, userID uint64, now time.Time) (int, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	count := 0
+	for _, item := range r.items {
+		if !memoryVisibleAnnouncement(item, now) || r.readAtLocked(item.ID, userID) != nil {
+			continue
+		}
+		count++
+	}
+	return count, nil
+}
+
+func (r *memoryAnnouncementRepository) readAtLocked(announcementID uint64, userID uint64) *time.Time {
+	userReads, ok := r.reads[userID]
+	if !ok {
+		return nil
+	}
+	read, ok := userReads[announcementID]
+	if !ok {
+		return nil
+	}
+	readAt := read.ReadAt.UTC()
+	return &readAt
+}
+
+func memoryVisibleAnnouncement(item announcementstore.Announcement, now time.Time) bool {
+	if item.DeletedAt != 0 || item.Status != "published" || item.PublishAt == nil || item.PublishAt.After(now.UTC()) {
+		return false
+	}
+	return item.ExpireAt == nil || item.ExpireAt.After(now.UTC())
+}
+
+func publishSortTime(item announcementstore.Announcement) time.Time {
+	if item.PublishAt == nil {
+		return time.Time{}
+	}
+	return item.PublishAt.UTC()
 }
 
 func cloneTime(value *time.Time) *time.Time {

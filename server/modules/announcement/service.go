@@ -19,7 +19,6 @@ const (
 )
 
 var (
-	errAnnouncementNotImplemented    = errors.New("announcement service behavior is not implemented")
 	errAnnouncementInvalidInput      = errors.New("announcement invalid input")
 	errAnnouncementNotFound          = errors.New("announcement not found")
 	errAnnouncementInvalidTransition = errors.New("announcement invalid status transition")
@@ -51,6 +50,14 @@ type UserListQuery struct {
 	UnreadOnly bool
 	Page       int
 	PageSize   int
+}
+
+// UserListResult returns a current-user announcement page.
+type UserListResult struct {
+	Items    []announcementstore.UserAnnouncement
+	Total    int
+	Page     int
+	PageSize int
 }
 
 // Service owns announcement use cases.
@@ -200,24 +207,52 @@ func (s *Service) Delete(ctx context.Context, id uint64, actorID uint64) error {
 	return mapStoreError(s.repository.Delete(ctx, id, actorID, time.Now().UTC()))
 }
 
-// ListCurrentUser is intentionally left to Phase 3.
-func (s *Service) ListCurrentUser(context.Context, UserListQuery) error {
-	return s.phaseThreeNotImplemented()
+// ListCurrentUser returns currently visible announcements and read state for one user.
+func (s *Service) ListCurrentUser(ctx context.Context, query UserListQuery) (UserListResult, error) {
+	if err := s.ensureReady(); err != nil {
+		return UserListResult{}, err
+	}
+	page, size := normalizePage(query.Page, query.PageSize)
+	now := time.Now().UTC()
+	result, err := s.repository.ListCurrentUser(ctx, announcementstore.UserListQuery{
+		UserID:     query.UserID,
+		UnreadOnly: query.UnreadOnly,
+		Now:        now,
+		Limit:      size,
+		Offset:     (page - 1) * size,
+	})
+	if err != nil {
+		return UserListResult{}, mapStoreError(err)
+	}
+	return UserListResult{Items: result.Items, Total: result.Total, Page: page, PageSize: size}, nil
 }
 
-// MarkRead is intentionally left to Phase 3.
-func (s *Service) MarkRead(context.Context, uint64, uint64) error {
-	return s.phaseThreeNotImplemented()
+// MarkRead marks one currently visible announcement read for one user.
+func (s *Service) MarkRead(ctx context.Context, userID uint64, announcementID uint64) (announcementstore.UserAnnouncement, error) {
+	if err := s.ensureReady(); err != nil {
+		return announcementstore.UserAnnouncement{}, err
+	}
+	item, err := s.repository.MarkRead(ctx, userID, announcementID, time.Now().UTC())
+	return item, mapStoreError(err)
 }
 
-// MarkAllRead is intentionally left to Phase 3.
-func (s *Service) MarkAllRead(context.Context, uint64) error {
-	return s.phaseThreeNotImplemented()
+// MarkAllRead marks all currently visible unread announcements read for one user.
+func (s *Service) MarkAllRead(ctx context.Context, userID uint64) (int, error) {
+	if err := s.ensureReady(); err != nil {
+		return 0, err
+	}
+	now := time.Now().UTC()
+	count, err := s.repository.MarkAllRead(ctx, userID, now, now)
+	return count, mapStoreError(err)
 }
 
-// UnreadCount is intentionally left to Phase 3.
-func (s *Service) UnreadCount(context.Context, uint64) error {
-	return s.phaseThreeNotImplemented()
+// UnreadCount returns the current user's currently visible unread announcement count.
+func (s *Service) UnreadCount(ctx context.Context, userID uint64) (int, error) {
+	if err := s.ensureReady(); err != nil {
+		return 0, err
+	}
+	count, err := s.repository.UnreadCount(ctx, userID, time.Now().UTC())
+	return count, mapStoreError(err)
 }
 
 func (s *Service) ensureReady() error {
@@ -225,13 +260,6 @@ func (s *Service) ensureReady() error {
 		return errors.New("announcement service is unavailable")
 	}
 	return nil
-}
-
-func (s *Service) phaseThreeNotImplemented() error {
-	if err := s.ensureReady(); err != nil {
-		return err
-	}
-	return errAnnouncementNotImplemented
 }
 
 func normalizeAdminListQuery(query AdminListQuery) AdminListQuery {
