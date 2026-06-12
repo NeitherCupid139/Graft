@@ -1,0 +1,26 @@
+type: object
+required:
+  - title
+  - content
+  - level
+properties:
+  title:
+    type: string
+    minLength: 1
+    maxLength: 200
+  content:
+    type: string
+    minLength: 1
+  level:
+    $ref: ./announcement-level.yaml
+  pinned:
+    type: boolean
+    default: false
+  publish_at:
+    type: string
+    format: date-time
+    nullable: true
+  expire_at:
+    type: string
+    format: date-time
+    nullable: true
