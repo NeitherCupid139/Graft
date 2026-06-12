@@ -336,7 +336,7 @@ func (r *SQLRepository) Get(ctx context.Context, recipientUserID uint64, deliver
 			d.id, d.event_id, d.recipient_user_id, d.target_type, d.target_ref, d.read_at, d.deleted_at, d.created_at
 		FROM notification_deliveries d
 		INNER JOIN notification_events e ON e.id = d.event_id
-		WHERE d.id = ? AND d.recipient_user_id = ? AND d.deleted_at IS NULL`), targetID, recipientID)
+		WHERE d.id = ? AND d.recipient_user_id = ? AND d.deleted_at = 0`), targetID, recipientID)
 	if err != nil {
 		return Notification{}, fmt.Errorf("get notification: %w", err)
 	}
@@ -368,7 +368,7 @@ func (r *SQLRepository) UnreadCount(ctx context.Context, recipientUserID uint64)
 	var count int
 	if err := r.db.QueryRowContext(ctx, r.placeholder.rebind(`SELECT COUNT(*)
 		FROM notification_deliveries
-		WHERE recipient_user_id = ? AND read_at IS NULL AND deleted_at IS NULL`), id).Scan(&count); err != nil {
+		WHERE recipient_user_id = ? AND read_at IS NULL AND deleted_at = 0`), id).Scan(&count); err != nil {
 		return 0, fmt.Errorf("count unread notifications: %w", err)
 	}
 	return count, nil
@@ -387,7 +387,7 @@ func (r *SQLRepository) MarkRead(ctx context.Context, recipientUserID uint64, de
 	if err != nil {
 		return Delivery{}, err
 	}
-	if delivery.DeletedAt != nil {
+	if delivery.DeletedAt != 0 {
 		return Delivery{}, ErrDeliveryNotFound
 	}
 	markAt := readAt.UTC()
@@ -399,7 +399,7 @@ func (r *SQLRepository) MarkRead(ctx context.Context, recipientUserID uint64, de
 		ctx,
 		r.placeholder.rebind(`UPDATE notification_deliveries
 		SET read_at = ?
-		WHERE id = ? AND recipient_user_id = ? AND deleted_at IS NULL`),
+		WHERE id = ? AND recipient_user_id = ? AND deleted_at = 0`),
 		markAt,
 		targetID,
 		recipientID,
@@ -476,8 +476,8 @@ func (r *SQLRepository) DeleteDelivery(ctx context.Context, recipientUserID uint
 	}
 
 	result, err := r.db.ExecContext(ctx, r.placeholder.rebind(`UPDATE notification_deliveries
-		SET deleted_at = COALESCE(deleted_at, ?)
-		WHERE id = ? AND recipient_user_id = ? AND deleted_at IS NULL`), deletedAt.UTC(), targetID, recipientID)
+		SET deleted_at = CASE WHEN deleted_at = 0 THEN ? ELSE deleted_at END
+		WHERE id = ? AND recipient_user_id = ? AND deleted_at = 0`), deletedAt.UTC().Unix(), targetID, recipientID)
 	if err != nil {
 		return fmt.Errorf("delete notification delivery: %w", err)
 	}
@@ -553,7 +553,7 @@ func normalizeListQuery(query ListQuery) ListQuery {
 }
 
 func buildListWhere(query ListQuery) ([]string, []any, error) {
-	where := []string{"d.recipient_user_id = ?", "d.deleted_at IS NULL"}
+	where := []string{"d.recipient_user_id = ?", "d.deleted_at = 0"}
 	args := []any{query.RecipientUserID}
 	switch query.Status {
 	case "", "all":
@@ -633,7 +633,6 @@ func scanEvent(scanner interface{ Scan(dest ...any) error }) (Event, error) {
 func scanDelivery(scanner interface{ Scan(dest ...any) error }) (Delivery, error) {
 	var delivery Delivery
 	var readAt sql.NullTime
-	var deletedAt sql.NullTime
 	if err := scanner.Scan(
 		&delivery.ID,
 		&delivery.EventID,
@@ -641,16 +640,13 @@ func scanDelivery(scanner interface{ Scan(dest ...any) error }) (Delivery, error
 		&delivery.TargetType,
 		&delivery.TargetRef,
 		&readAt,
-		&deletedAt,
+		&delivery.DeletedAt,
 		&delivery.CreatedAt,
 	); err != nil {
 		return Delivery{}, err
 	}
 	if readAt.Valid {
 		delivery.ReadAt = &readAt.Time
-	}
-	if deletedAt.Valid {
-		delivery.DeletedAt = &deletedAt.Time
 	}
 	return delivery, nil
 }
@@ -660,7 +656,7 @@ func (r *SQLRepository) getDelivery(ctx context.Context, deliveryID int64, recip
 		ctx,
 		r.placeholder.rebind(`SELECT id, event_id, recipient_user_id, target_type, target_ref, read_at, deleted_at, created_at
 		FROM notification_deliveries
-		WHERE id = ? AND recipient_user_id = ? AND deleted_at IS NULL`),
+		WHERE id = ? AND recipient_user_id = ? AND deleted_at = 0`),
 		deliveryID,
 		recipientUserID,
 	))
@@ -693,7 +689,6 @@ func scanNotifications(rows *sql.Rows) ([]Notification, error) {
 		var metadata []byte
 		var dedupeKey sql.NullString
 		var readAt sql.NullTime
-		var deletedAt sql.NullTime
 		if err := rows.Scan(
 			&item.Event.ID,
 			&item.Event.TitleKey,
@@ -727,7 +722,7 @@ func scanNotifications(rows *sql.Rows) ([]Notification, error) {
 			&item.Delivery.TargetType,
 			&item.Delivery.TargetRef,
 			&readAt,
-			&deletedAt,
+			&item.Delivery.DeletedAt,
 			&item.Delivery.CreatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scan notification row: %w", err)
@@ -739,9 +734,6 @@ func scanNotifications(rows *sql.Rows) ([]Notification, error) {
 		}
 		if readAt.Valid {
 			item.Delivery.ReadAt = &readAt.Time
-		}
-		if deletedAt.Valid {
-			item.Delivery.DeletedAt = &deletedAt.Time
 		}
 		items = append(items, item)
 	}
