@@ -7,19 +7,12 @@
   <advanced-query-paged-table
     v-model:current="current"
     v-model:page-size="pageSize"
-    :cell-slot-names="cellSlotNames"
-    :columns="columns"
-    :description="description"
-    :empty-description="emptyDescription"
-    :empty-title="t('appLog.page.emptyTitle')"
-    :footer-summary="footerSummary"
-    head-label="app-log-table-head"
-    :loading="loading"
-    :rows="rows"
-    :summary="summary"
-    :total="total"
+    v-bind="pagedTableProps"
     @page-change="$emit('page-change')"
   >
+    <template v-if="$slots.toolbar" #toolbar>
+      <slot name="toolbar" />
+    </template>
     <template #occurred_at="{ row }">
       <span>{{ formatCompactDateTime(appLogRow(row).occurred_at, locale) }}</span>
     </template>
@@ -115,6 +108,19 @@ const columns = computed<TdBaseTableProps['columns']>(() => {
 
   return resolveManagedColumns(allColumns, props.visibleColumnKeys, ['actions']);
 });
+const pagedTableProps = computed(() => ({
+  cellSlotNames,
+  columns: columns.value,
+  description: props.description,
+  emptyDescription: props.emptyDescription,
+  emptyTitle: t('appLog.page.emptyTitle'),
+  footerSummary: props.footerSummary,
+  headLabel: 'app-log-table-head',
+  loading: props.loading,
+  rows: props.rows,
+  summary: props.summary,
+  total: props.total,
+}));
 
 function appLogRow(row: unknown) {
   return row as AppLogItem;
