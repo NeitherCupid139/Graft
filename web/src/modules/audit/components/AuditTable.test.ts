@@ -90,7 +90,6 @@ const translations: Record<string, string> = {
   'audit.logList.columns.actor': 'Actor',
   'audit.logList.columns.resource': 'Audit Target',
   'audit.logList.columns.correlation': 'Request ID',
-  'audit.logList.columns.traceId': 'Trace ID',
   'audit.logList.columns.sessionId': 'Session ID',
   'audit.logList.columns.ip': 'IP',
   'audit.logList.columns.result': 'Result',

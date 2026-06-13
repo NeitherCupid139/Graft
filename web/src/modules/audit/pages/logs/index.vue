@@ -169,22 +169,12 @@ defineOptions({
 const logger = createLogger('audit.logs');
 const securityEventPresetResults: AuditResult[] = ['DENIED', 'FAILED', 'ERROR'];
 const DEFAULT_VISIBLE_COLUMNS = ['action', 'actor', 'resource', 'correlation', 'result', 'risk', 'created_at'];
-const TROUBLESHOOTING_VISIBLE_COLUMNS = [
-  'action',
-  'actor',
-  'resource',
-  'correlation',
-  'trace_id',
-  'result',
-  'risk',
-  'created_at',
-];
+const TROUBLESHOOTING_VISIBLE_COLUMNS = ['action', 'actor', 'resource', 'correlation', 'result', 'risk', 'created_at'];
 const TECHNICAL_VISIBLE_COLUMNS = [
   'action',
   'actor',
   'resource',
   'correlation',
-  'trace_id',
   'session_id',
   'ip',
   'result',
@@ -264,7 +254,6 @@ const columnSettingOptions = computed(() => [
   { label: t('audit.logList.columns.actor'), value: 'actor' },
   { label: t('audit.logList.columns.resource'), value: 'resource' },
   { label: t('audit.logList.columns.correlation'), value: 'correlation' },
-  { label: t('audit.logList.columns.traceId'), value: 'trace_id' },
   { label: t('audit.logList.columns.sessionId'), value: 'session_id' },
   { label: t('audit.logList.columns.ip'), value: 'ip' },
   { label: t('audit.logList.columns.result'), value: 'result' },

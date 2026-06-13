@@ -61,14 +61,6 @@
           />
         </template>
 
-        <template #trace_id="{ row }">
-          <log-id-text
-            :display-value="traceIdForRecord(row)"
-            :tooltip="traceIdForRecord(row)"
-            v-bind="technicalCopyLabels"
-          />
-        </template>
-
         <template #session_id="{ row }">
           <log-id-text
             :display-value="row.session_id || '-'"
@@ -161,7 +153,6 @@ import {
   resultTone,
   riskLabel,
   riskTone,
-  traceIdForRecord,
 } from '../shared/presentation';
 import { copyAuditRequestId } from '../shared/request-id-copy';
 import type { AuditLogListItem } from '../types/audit';
@@ -213,7 +204,6 @@ const columns = computed<TdBaseTableProps['columns']>(() => {
     createIdentifierColumn(t('audit.logList.columns.actor'), 'actor', 168),
     createIdentifierColumn(t('audit.logList.columns.resource'), 'resource', 208),
     createTechnicalColumn(t('audit.logList.columns.correlation'), 'correlation', 248),
-    createTechnicalColumn(t('audit.logList.columns.traceId'), 'trace_id', 260),
     createTechnicalColumn(t('audit.logList.columns.sessionId'), 'session_id', 220),
     createIdentifierColumn(t('audit.logList.columns.ip'), 'ip', 160),
     createStatusColumn(t('audit.logList.columns.result'), 'result', 132),

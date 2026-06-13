@@ -48,20 +48,6 @@
             </t-button>
           </div>
         </t-descriptions-item>
-        <t-descriptions-item :label="t('appLog.filters.traceId')" :span="2">
-          <div class="app-log-detail__copy-line">
-            <strong class="app-log-detail__mono">{{ record.trace_id || t('appLog.values.emptyField') }}</strong>
-            <t-button
-              v-if="record.trace_id"
-              size="small"
-              theme="default"
-              variant="text"
-              @click="copyValue(record.trace_id)"
-            >
-              {{ t('appLog.actions.copy') }}
-            </t-button>
-          </div>
-        </t-descriptions-item>
         <t-descriptions-item :label="t('appLog.filters.route')">
           {{ record.route || t('appLog.values.emptyField') }}
         </t-descriptions-item>
@@ -72,10 +58,10 @@
 
       <t-tabs v-model="activeTab">
         <t-tab-panel value="fields" :label="t('appLog.detail.fields')">
-          <log-json-panel v-bind="jsonPanelBindings" :title="t('appLog.detail.fields')" :value="record.fields" />
+          <log-json-panel v-bind="jsonPanelBindings" :title="t('appLog.detail.fields')" :value="sanitizedFields" />
         </t-tab-panel>
         <t-tab-panel value="raw" :label="t('appLog.detail.rawJson')">
-          <log-json-panel v-bind="jsonPanelBindings" :title="t('appLog.detail.rawJson')" :value="record" />
+          <log-json-panel v-bind="jsonPanelBindings" :title="t('appLog.detail.rawJson')" :value="sanitizedRecord" />
         </t-tab-panel>
       </t-tabs>
     </div>
@@ -87,7 +73,7 @@ import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import { formatCompactDateTime } from '@/shared/components/management';
-import { copyText, LogJsonPanel } from '@/shared/observability';
+import { copyText, LogJsonPanel, sanitizeTraceFieldsForDisplay } from '@/shared/observability';
 
 import { appLogOperationText, appLogSeverityTheme } from '../shared/presentation';
 import type { AppLogItem } from '../types/app-log';
@@ -104,6 +90,8 @@ defineEmits<{
 
 const { t, locale } = useI18n();
 const activeTab = ref<'fields' | 'raw'>('fields');
+const sanitizedFields = computed(() => sanitizeTraceFieldsForDisplay(props.record?.fields ?? {}));
+const sanitizedRecord = computed(() => sanitizeTraceFieldsForDisplay(props.record ?? {}));
 
 const jsonPanelBindings = computed(() => ({
   expandLabel: t('appLog.detail.expandContext'),

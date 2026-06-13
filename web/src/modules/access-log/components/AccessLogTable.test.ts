@@ -45,7 +45,6 @@ const translations: Record<string, string> = {
   'accessLog.columns.requestId': '请求 ID',
   'accessLog.columns.startedAt': '开始时间',
   'accessLog.columns.statusCode': '状态码',
-  'accessLog.columns.traceId': 'Trace ID',
   'accessLog.columns.user': '用户',
   'accessLog.columns.clientIp': '客户端 IP',
   'accessLog.columns.userAgent': '用户代理',

@@ -70,7 +70,6 @@
       "component": "组件",
       "operation": "事件",
       "requestId": "请求 ID",
-      "traceId": "Trace ID",
       "route": "路由模板",
       "method": "方法",
       "message": "消息",
@@ -100,7 +99,6 @@
         "component": "组件",
         "operation": "事件",
         "requestId": "请求 ID",
-        "traceId": "Trace ID",
         "message": "消息",
         "error": "错误"
       }
@@ -113,7 +111,6 @@
       "message": "消息",
       "correlation": "关联字段",
       "requestId": "请求 ID",
-      "traceId": "Trace ID",
       "fields": "字段数",
       "actions": "动作"
     },

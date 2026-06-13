@@ -109,7 +109,6 @@
       "durationMs": "耗时",
       "user": "用户",
       "requestId": "请求 ID",
-      "traceId": "Trace ID",
       "clientIp": "客户端 IP",
       "userAgent": "用户代理",
       "operation": "动作"
@@ -129,7 +128,6 @@
       "network": "网络信息",
       "size": "传输大小",
       "requestId": "请求 ID",
-      "traceId": "Trace ID",
       "route": "路由模板",
       "relatedAudit": "关联审计排查",
       "clientIp": "客户端 IP",

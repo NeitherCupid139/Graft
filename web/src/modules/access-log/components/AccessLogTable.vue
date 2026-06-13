@@ -58,13 +58,6 @@
         v-bind="technicalCopyLabels"
       />
     </template>
-    <template #trace_id="{ row }">
-      <log-id-text
-        :display-value="accessRow(row).trace_id"
-        :tooltip="accessRow(row).trace_id"
-        v-bind="technicalCopyLabels"
-      />
-    </template>
     <template #client_ip="{ row }">
       <log-id-text
         :display-value="accessRow(row).client_ip"
@@ -151,7 +144,6 @@ const cellSlotNames = [
   'duration_ms',
   'user',
   'request_id',
-  'trace_id',
   'client_ip',
   'user_agent',
   'started_at',
@@ -169,7 +161,6 @@ const columns = computed<TdBaseTableProps['columns']>(() => {
     Management.createCountColumn(t('accessLog.columns.durationMs'), 'duration_ms', 112),
     Management.createIdentifierColumn(t('accessLog.columns.user'), 'user', 170),
     Management.createTechnicalColumn(t('accessLog.columns.requestId'), 'request_id', 260),
-    Management.createTechnicalColumn(t('accessLog.columns.traceId'), 'trace_id', 260),
     Management.createIdentifierColumn(t('accessLog.columns.clientIp'), 'client_ip', 160),
     Management.createTechnicalColumn(t('accessLog.columns.userAgent'), 'user_agent', 280),
     Management.createTimeColumn(t('accessLog.columns.occurredAt'), 'occurred_at', 176),

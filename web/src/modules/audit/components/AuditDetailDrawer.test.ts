@@ -79,7 +79,6 @@ const i18n = createI18n({
               eventType: 'Event Type',
               permission: 'Permission',
               securityTarget: 'Security Target',
-              traceId: 'Trace ID',
             },
             actions: {
               copyRequestId: 'Copy',
@@ -160,7 +159,6 @@ describe('AuditDetailDrawer', () => {
             eventType: 'auth.permission.denied',
             permission: 'rbac.role.read',
             targetName: 'rbac.role.read',
-            traceId: 'trace-1',
           },
           created_at: '2026-05-31T04:00:00Z',
         },
@@ -175,10 +173,13 @@ describe('AuditDetailDrawer', () => {
     expect(wrapper.text()).toContain('Security');
     expect(wrapper.text()).toContain('auth.permission.denied');
     expect(wrapper.text()).toContain('rbac.role.read');
-    expect(wrapper.text()).toContain('trace-1');
+    expect(wrapper.text()).not.toContain('trace-1');
     expect(wrapper.get('[data-testid="json-panel-Audit Context"]').text()).toContain('"requestId":"req-1"');
+    expect(wrapper.get('[data-testid="json-panel-Audit Context"]').text()).not.toContain('trace');
     expect(wrapper.get('[data-testid="json-panel-Metadata"]').text()).toContain('"permission":"rbac.role.read"');
+    expect(wrapper.get('[data-testid="json-panel-Metadata"]').text()).not.toContain('trace');
     expect(wrapper.get('[data-testid="json-panel-Raw JSON"]').text()).toContain('"request_id":"req-1"');
+    expect(wrapper.get('[data-testid="json-panel-Raw JSON"]').text()).not.toContain('trace');
     expect(wrapper.text()).not.toContain('openIncident');
   });
 });

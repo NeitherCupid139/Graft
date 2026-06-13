@@ -140,7 +140,6 @@ const TECHNICAL_VISIBLE_COLUMNS = [
   'duration_ms',
   'user',
   'request_id',
-  'trace_id',
   'client_ip',
   'user_agent',
   'occurred_at',
@@ -188,7 +187,6 @@ const columnSettingOptions = computed(() => [
   { label: t('accessLog.columns.durationMs'), value: 'duration_ms' },
   { label: t('accessLog.columns.user'), value: 'user' },
   { label: t('accessLog.columns.requestId'), value: 'request_id' },
-  { label: t('accessLog.columns.traceId'), value: 'trace_id' },
   { label: t('accessLog.columns.clientIp'), value: 'client_ip' },
   { label: t('accessLog.columns.userAgent'), value: 'user_agent' },
 ]);

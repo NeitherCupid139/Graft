@@ -41,7 +41,6 @@ function createAuditLogsResponse(overrides: Partial<AuditLogListResponse> = {}):
         target_type: 'ROLE',
         target_label: '角色',
         request_id: 'req-1',
-        trace_id: 'trace-1',
         session_id: 'sess-1',
         ip: '127.0.0.1',
         user_agent: 'vitest',
@@ -50,7 +49,6 @@ function createAuditLogsResponse(overrides: Partial<AuditLogListResponse> = {}):
         status_code: 403,
         message: 'role removed',
         metadata: {
-          trace_id: 'trace-1',
           session_id: 'sess-1',
         },
         created_at: '2026-05-27T08:00:00Z',
@@ -416,7 +414,6 @@ const i18n = createI18n({
               eventType: 'Event Type',
               permission: 'Permission',
               securityTarget: 'Security Target',
-              traceId: 'Trace ID',
             },
             related: {
               sameRequest: 'Same Request ID',
@@ -463,7 +460,6 @@ describe('AuditLogsPage', () => {
       id,
       metadata: {
         detail: true,
-        trace_id: 'trace-1',
       },
     }));
   });

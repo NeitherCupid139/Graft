@@ -148,7 +148,6 @@ const TROUBLESHOOTING_VISIBLE_COLUMNS = [
   'message',
   'correlation',
   'request_id',
-  'trace_id',
 ];
 const TECHNICAL_VISIBLE_COLUMNS = [
   'occurred_at',
@@ -158,7 +157,6 @@ const TECHNICAL_VISIBLE_COLUMNS = [
   'message',
   'correlation',
   'request_id',
-  'trace_id',
   'fields',
 ];
 
@@ -201,7 +199,6 @@ const columnSettingOptions = computed(() => [
   { label: t('appLog.columns.message'), value: 'message' },
   { label: t('appLog.columns.correlation'), value: 'correlation' },
   { label: t('appLog.columns.requestId'), value: 'request_id' },
-  { label: t('appLog.columns.traceId'), value: 'trace_id' },
   { label: t('appLog.columns.fields'), value: 'fields' },
 ]);
 const columnViewPresets = computed(() => [
@@ -232,7 +229,6 @@ function createDefaultFilters(): AppLogFilterState {
     component: '',
     operation: '',
     requestId: '',
-    traceId: '',
     message: '',
     error: '',
     sorters: createSingleSorter('occurred_at', 'desc'),
@@ -251,7 +247,6 @@ function buildQuery(): AppLogQuery {
   if (filters.value.component) query.component = filters.value.component;
   if (filters.value.operation) query.operation = filters.value.operation;
   if (filters.value.requestId) query.request_id = filters.value.requestId;
-  if (filters.value.traceId) query.trace_id = filters.value.traceId;
   if (filters.value.message) query.message = filters.value.message;
   if (filters.value.error) query.error = filters.value.error;
   for (const [index, key] of ['occurred_from', 'occurred_to'].entries()) {
@@ -425,7 +420,6 @@ function applyRouteFilters() {
     component = '',
     operation = '',
     request_id: requestId = '',
-    trace_id: traceId = '',
     message = '',
     error = '',
     sort = [],
@@ -440,7 +434,6 @@ function applyRouteFilters() {
     component,
     operation,
     requestId,
-    traceId,
     message,
     error,
     sorters: (() => {
@@ -462,7 +455,6 @@ function buildRouteQuery() {
     component: filters.value.component,
     operation: filters.value.operation,
     request_id: filters.value.requestId,
-    trace_id: filters.value.traceId,
     message: filters.value.message,
     error: filters.value.error,
     sort: encodeSorters(normalizedSorters, sortOptions.value),
@@ -493,7 +485,6 @@ watch(
     route.query.component,
     route.query.operation,
     route.query.request_id,
-    route.query.trace_id,
     route.query.message,
     route.query.error,
     route.query.sort,

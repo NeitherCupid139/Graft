@@ -62,14 +62,13 @@ describe('table column width policy', () => {
       createTechnicalColumn('事件 Key', 'operation', 196),
       createMainTextColumn('消息', 'message', 420),
       createTechnicalColumn('请求 ID', 'request_id', 260),
-      createTechnicalColumn('Trace ID', 'trace_id', 260),
       createCountColumn('字段数', 'fields', 92),
     ];
 
     expect(resolveTableWidthPolicy(columns, 1280)).toEqual({
-      contentWidth: 1692,
+      contentWidth: 1432,
       mode: 'scroll',
-      tableContentWidth: '1692px',
+      tableContentWidth: '1432px',
     });
   });
 });

@@ -70,7 +70,6 @@ const i18n = createI18n({
           requestSize: '请求大小',
           responseSize: '响应大小',
           route: '路由模板',
-          traceId: 'Trace ID',
           user: '用户名',
           userAgent: '用户代理',
           userId: '用户 ID',
@@ -101,7 +100,6 @@ function accessLogRecord(): AccessLogItem {
     route: '/api/access-log',
     started_at: '2026-06-13T08:00:00Z',
     status_code: 200,
-    trace_id: 'trace-8',
     user_agent: 'Mozilla/5.0',
     user_id: 1,
     username: 'graft',
@@ -131,9 +129,10 @@ describe('AccessLogDetailDrawer', () => {
     });
 
     expect(wrapper.text()).toContain('/api/access-log');
-    expect(wrapper.text()).toContain('trace-8');
+    expect(wrapper.text()).not.toContain('trace-8');
     expect(wrapper.text()).toContain('Mozilla/5.0');
     expect(wrapper.get('[data-testid="json-panel-原始 JSON"]').text()).toContain('"id":8');
     expect(wrapper.get('[data-testid="json-panel-原始 JSON"]').text()).toContain('"request_id":"req-8"');
+    expect(wrapper.get('[data-testid="json-panel-原始 JSON"]').text()).not.toContain('trace');
   });
 });

@@ -22,7 +22,6 @@ export type AppLogQuery = {
   component?: string;
   operation?: string;
   request_id?: string;
-  trace_id?: string;
   keyword?: string;
   message?: string;
   error?: string;
@@ -36,7 +35,6 @@ export type AppLogFilterState = {
   component: string;
   operation: string;
   requestId: string;
-  traceId: string;
   message: string;
   error: string;
   sorters: AppLogSorter[];

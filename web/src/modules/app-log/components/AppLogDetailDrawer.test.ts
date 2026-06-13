@@ -57,7 +57,6 @@ const i18n = createI18n({
           method: '方法',
           requestId: '请求 ID',
           route: '路由模板',
-          traceId: 'Trace ID',
         },
         page: { detailTitle: '应用日志详情' },
         values: {
@@ -115,5 +114,7 @@ describe('AppLogDetailDrawer', () => {
     expect(wrapper.get('[data-testid="json-panel-结构化字段"]').text()).toContain('"widget":"summary"');
     expect(wrapper.get('[data-testid="json-panel-原始 JSON"]').text()).toContain('"id":7');
     expect(wrapper.get('[data-testid="json-panel-原始 JSON"]').text()).toContain('"request_id":"req-7"');
+    expect(wrapper.text()).not.toContain('trace-7');
+    expect(wrapper.get('[data-testid="json-panel-原始 JSON"]').text()).not.toContain('trace');
   });
 });

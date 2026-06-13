@@ -70,7 +70,6 @@
       "component": "Component",
       "operation": "Event",
       "requestId": "Request ID",
-      "traceId": "Trace ID",
       "route": "Route Template",
       "method": "Method",
       "message": "Message",
@@ -100,7 +99,6 @@
         "component": "Component",
         "operation": "Event",
         "requestId": "Request ID",
-        "traceId": "Trace ID",
         "message": "Message",
         "error": "Error"
       }
@@ -113,7 +111,6 @@
       "message": "Message",
       "correlation": "Correlation",
       "requestId": "Request ID",
-      "traceId": "Trace ID",
       "fields": "Fields",
       "actions": "Actions"
     },

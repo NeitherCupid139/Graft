@@ -49,13 +49,6 @@
         v-bind="technicalCopyLabels"
       />
     </template>
-    <template #trace_id="{ row }">
-      <log-id-text
-        :display-value="appLogRow(row).trace_id"
-        :tooltip="appLogRow(row).trace_id"
-        v-bind="technicalCopyLabels"
-      />
-    </template>
     <template #fields="{ row }">
       <span>{{ appLogFieldsCount(appLogRow(row)) }}</span>
     </template>
@@ -133,7 +126,6 @@ const cellSlotNames = [
   'operation',
   'correlation',
   'request_id',
-  'trace_id',
   'fields',
   'actions',
 ];
@@ -166,7 +158,6 @@ const columns = computed<TdBaseTableProps['columns']>(() => {
     createMainTextColumn(t('appLog.columns.message'), 'message', 420),
     createTechnicalColumn(t('appLog.columns.correlation'), 'correlation', 260),
     createTechnicalColumn(t('appLog.columns.requestId'), 'request_id', 260),
-    createTechnicalColumn(t('appLog.columns.traceId'), 'trace_id', 260),
     createCountColumn(t('appLog.columns.fields'), 'fields', 92),
     createActionColumn(t('appLog.columns.actions'), 156, 'center', 'actions'),
   ];

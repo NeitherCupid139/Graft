@@ -110,10 +110,6 @@
             <span>{{ t('audit.logList.drawer.fields.securityTarget') }}</span>
             <strong>{{ securityTargetForRecord(record, t) }}</strong>
           </div>
-          <div class="audit-detail__item">
-            <span>{{ t('audit.logList.drawer.fields.traceId') }}</span>
-            <strong class="audit-detail__mono">{{ traceIdForRecord(record) }}</strong>
-          </div>
         </div>
       </section>
 
@@ -211,7 +207,7 @@
             v-bind="jsonPanelBindings"
             :title="t('audit.logList.drawer.sections.metadata')"
             :empty-text="t('audit.logList.drawer.metadataEmpty')"
-            :value="record.metadata"
+            :value="sanitizedMetadata"
           />
         </t-tab-panel>
         <t-tab-panel value="raw" :label="t('audit.logList.drawer.sections.rawJson')">
@@ -219,7 +215,7 @@
             v-bind="jsonPanelBindings"
             :title="t('audit.logList.drawer.sections.rawJson')"
             :empty-text="t('audit.logList.drawer.rawJsonEmpty')"
-            :value="record"
+            :value="sanitizedRecord"
           />
         </t-tab-panel>
       </t-tabs>
@@ -233,7 +229,7 @@ import { useRouter } from 'vue-router';
 
 import type { MonitorOriginContext } from '@/modules/monitor/contract/navigation';
 import { buildMonitorLocationFromOrigin } from '@/modules/monitor/contract/navigation';
-import { LogJsonPanel } from '@/shared/observability';
+import { LogJsonPanel, sanitizeTraceFieldsForDisplay } from '@/shared/observability';
 
 import {
   buildAccessLogRequestLocationWithOrigin,
@@ -259,7 +255,6 @@ import {
   securityTargetForRecord,
   sessionIdForRecord,
   sourceLabel,
-  traceIdForRecord,
 } from '../shared/presentation';
 import { copyAuditRequestId } from '../shared/request-id-copy';
 import type { AuditLogListItem } from '../types/audit';
@@ -316,13 +311,14 @@ const relatedRequestActionLabel = computed(() =>
     ? t('audit.logList.drawer.actions.viewAccessLogRequest')
     : t('audit.logList.drawer.actions.viewRelatedRequest'),
 );
+const sanitizedMetadata = computed(() => sanitizeTraceFieldsForDisplay(props.record?.metadata ?? {}));
+const sanitizedRecord = computed(() => sanitizeTraceFieldsForDisplay(props.record ?? {}));
 const structuredAuditContext = computed(() => {
   const record = props.record;
   if (!record) {
     return {};
   }
   const requestId = requestIdForRecord(record);
-  const traceId = traceIdForRecord(record);
   const target = record.target ?? null;
 
   return {
@@ -352,15 +348,13 @@ const structuredAuditContext = computed(() => {
     },
     requestContext: {
       requestId: requestId === '-' ? null : requestId,
-      traceId: traceId === '-' ? null : traceId,
       method: record.request_method || metadataLookup(record, 'request_method') || null,
       path: record.request_path || metadataLookup(record, 'request_path') || metadataLookup(record, 'path') || null,
       route: metadataValue(record, 'route', 'route_ref') || target?.route_ref || null,
     },
     evidenceChain: {
       accessLog: requestId === '-' ? null : { requestId },
-      appLog:
-        requestId === '-' && traceId === '-' ? null : { requestId: requestId === '-' ? null : requestId, traceId },
+      appLog: requestId === '-' ? null : { requestId },
       securityEvent: isSecurityEvent.value ? { eventId: record.id, type: eventTypeForRecord(record) } : null,
       incident: metadataValue(record, 'incident', 'incident_id', 'incidentId') || null,
       evidenceLinks: metadataValue(record, 'evidence_links', 'evidenceLinks') || [],
@@ -369,7 +363,7 @@ const structuredAuditContext = computed(() => {
       before: metadataValue(record, 'before', 'old_value', 'oldValue') || null,
       after: metadataValue(record, 'after', 'new_value', 'newValue') || null,
       diff: metadataValue(record, 'diff', 'changes') || null,
-      metadata: record.metadata ?? {},
+      metadata: sanitizedMetadata.value,
     },
   };
 });

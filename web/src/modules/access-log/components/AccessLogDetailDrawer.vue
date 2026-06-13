@@ -46,14 +46,6 @@
             </t-button>
           </div>
         </t-descriptions-item>
-        <t-descriptions-item :label="t('accessLog.detail.traceId')" :span="2">
-          <div class="access-log-detail__copy-line">
-            <strong class="access-log-detail__mono">{{ record.trace_id }}</strong>
-            <t-button size="small" theme="default" variant="text" @click="copyValue(record.trace_id)">
-              {{ t('accessLog.actions.copy') }}
-            </t-button>
-          </div>
-        </t-descriptions-item>
         <t-descriptions-item :label="t('accessLog.detail.userId')">
           {{ accessLogUserSecondary(record, t) }}
         </t-descriptions-item>
@@ -79,7 +71,7 @@
 
       <t-tabs v-model="activeTab">
         <t-tab-panel value="raw" :label="t('accessLog.detail.rawJson')">
-          <log-json-panel v-bind="jsonPanelBindings" :title="t('accessLog.detail.rawJson')" :value="record" />
+          <log-json-panel v-bind="jsonPanelBindings" :title="t('accessLog.detail.rawJson')" :value="sanitizedRecord" />
         </t-tab-panel>
       </t-tabs>
 
@@ -108,7 +100,7 @@ import { useRouter } from 'vue-router';
 
 import { buildAuditRequestLocation } from '@/modules/audit/contract/deep-link';
 import { formatCompactDateTime } from '@/shared/components/management';
-import { LogJsonPanel } from '@/shared/observability';
+import { LogJsonPanel, sanitizeTraceFieldsForDisplay } from '@/shared/observability';
 
 import { copyAccessLogValue } from '../shared/clipboard';
 import { accessLogPathSecondary, accessLogUserPrimary, accessLogUserSecondary } from '../shared/presentation';
@@ -126,6 +118,7 @@ defineEmits<{
 const { t, locale } = useI18n();
 const router = useRouter();
 const activeTab = ref<'raw'>('raw');
+const sanitizedRecord = computed(() => sanitizeTraceFieldsForDisplay(props.record ?? {}));
 
 const jsonPanelBindings = computed(() => ({
   expandLabel: t('accessLog.detail.expandContext'),
