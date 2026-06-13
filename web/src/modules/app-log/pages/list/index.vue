@@ -62,7 +62,11 @@
         v-model:visible="columnDrawerVisible"
         v-model:selected-keys="visibleColumnKeys"
         :columns="columnSettingOptions"
+        :default-selected-keys="DEFAULT_VISIBLE_COLUMNS"
+        :presets-label="t('appLog.columnViews.label')"
+        :reset-label="t('appLog.columnViews.resetDefault')"
         :title="t('appLog.page.columnSettings')"
+        :view-presets="columnViewPresets"
       />
       <app-log-detail-drawer v-model:visible="detailVisible" :record="detailRecord" />
     </template>
@@ -110,6 +114,28 @@ const route = useRoute();
 const router = useRouter();
 
 type AppLogPresetKey = 'all' | 'errors' | 'warnings' | 'lastHour';
+const DEFAULT_VISIBLE_COLUMNS = ['occurred_at', 'severity', 'component', 'operation', 'message'];
+const TROUBLESHOOTING_VISIBLE_COLUMNS = [
+  'occurred_at',
+  'severity',
+  'component',
+  'operation',
+  'message',
+  'correlation',
+  'request_id',
+  'trace_id',
+];
+const TECHNICAL_VISIBLE_COLUMNS = [
+  'occurred_at',
+  'severity',
+  'component',
+  'operation',
+  'message',
+  'correlation',
+  'request_id',
+  'trace_id',
+  'fields',
+];
 
 const loading = ref(false);
 const listError = ref('');
@@ -120,7 +146,7 @@ const detailRecord = ref<AppLogItem | null>(null);
 const applyingRoute = ref(false);
 const activePreset = ref<AppLogPresetKey>('all');
 const columnDrawerVisible = ref(false);
-const visibleColumnKeys = ref(['occurred_at', 'severity', 'component', 'operation', 'message', 'correlation']);
+const visibleColumnKeys = ref([...DEFAULT_VISIBLE_COLUMNS]);
 const pagination = ref({
   current: 1,
   pageSize: 20,
@@ -145,7 +171,14 @@ const columnSettingOptions = computed(() => [
   { label: t('appLog.columns.operation'), value: 'operation' },
   { label: t('appLog.columns.message'), value: 'message' },
   { label: t('appLog.columns.correlation'), value: 'correlation' },
+  { label: t('appLog.columns.requestId'), value: 'request_id' },
+  { label: t('appLog.columns.traceId'), value: 'trace_id' },
   { label: t('appLog.columns.fields'), value: 'fields' },
+]);
+const columnViewPresets = computed(() => [
+  { value: 'default', label: t('appLog.columnViews.default'), keys: DEFAULT_VISIBLE_COLUMNS },
+  { value: 'troubleshooting', label: t('appLog.columnViews.troubleshooting'), keys: TROUBLESHOOTING_VISIBLE_COLUMNS },
+  { value: 'technical', label: t('appLog.columnViews.technical'), keys: TECHNICAL_VISIBLE_COLUMNS },
 ]);
 const tableSummary = computed(() => t('appLog.page.summary', { count: rows.value.length }));
 const footerSummary = computed(() => t('appLog.page.footerTotal', { count: total.value }));

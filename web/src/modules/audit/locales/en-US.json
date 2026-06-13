@@ -257,6 +257,13 @@
         "authFailed": "Auth Failed",
         "highRisk": "High Risk"
       },
+      "columnViews": {
+        "label": "View Presets",
+        "default": "Default View",
+        "troubleshooting": "Troubleshooting View",
+        "technical": "Technical View",
+        "resetDefault": "Restore Default Columns"
+      },
       "actions": {
         "search": "Search",
         "reset": "Reset",
@@ -365,10 +372,13 @@
         "CRITICAL": "Critical"
       },
       "columns": {
-        "action": "Action",
+        "action": "Event",
         "actor": "Actor",
         "resource": "Audit Target",
         "correlation": "Request ID",
+        "traceId": "Trace ID",
+        "sessionId": "Session ID",
+        "ip": "IP",
         "result": "Result",
         "risk": "Risk",
         "createdAt": "Time"

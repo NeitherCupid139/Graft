@@ -15,16 +15,17 @@
       <slot name="toolbar" />
     </template>
 
-    <div>
+    <div ref="tableHostRef" class="advanced-query-paged-table__table-host" :data-table-mode="tableWidthPolicy.mode">
       <t-table
         row-key="id"
         :columns="columns"
         :data="rows"
         :loading="loading"
         table-layout="fixed"
-        :table-content-width="tableContentWidth"
+        :table-content-width="tableWidthPolicy.tableContentWidth"
         cell-empty-content="-"
         hover
+        @row-click="emitRowClick"
       >
         <template v-for="slotName in cellSlotNames" #[slotName]="slotProps" :key="slotName">
           <slot :name="slotName" v-bind="slotProps" />
@@ -61,9 +62,10 @@ import type { TableRowData, TdBaseTableProps } from 'tdesign-vue-next';
 import { computed } from 'vue';
 
 import {
-  calculateTableContentWidth,
   ManagementTableCard,
   ManagementTablePagination,
+  resolveTableWidthPolicy,
+  useTableHostWidth,
 } from '@/shared/components/management';
 
 const props = defineProps<{
@@ -80,8 +82,9 @@ const props = defineProps<{
   total: number;
 }>();
 
-defineEmits<{
+const emit = defineEmits<{
   (e: 'page-change'): void;
+  (e: 'row-click', row: TableRowData): void;
 }>();
 
 const current = defineModel<number>('current', { required: true });
@@ -90,7 +93,13 @@ const pageSize = defineModel<number>('pageSize', { required: true });
 const passthroughTableSlotNames = computed(() =>
   ['toolbar'].filter((slotName) => !props.cellSlotNames.includes(slotName)),
 );
-const tableContentWidth = computed(() => calculateTableContentWidth(props.columns));
+const { tableHostRef, tableHostWidth } = useTableHostWidth(() => props.columns);
+
+const tableWidthPolicy = computed(() => resolveTableWidthPolicy(props.columns, tableHostWidth.value));
+
+function emitRowClick(context: { row: TableRowData }) {
+  emit('row-click', context.row);
+}
 </script>
 <style scoped lang="less">
 .advanced-query-paged-table__summary,
@@ -101,5 +110,15 @@ const tableContentWidth = computed(() => calculateTableContentWidth(props.column
 
 .advanced-query-paged-table__empty {
   padding: var(--graft-density-gap-24) 0 var(--graft-density-gap-8);
+}
+
+.advanced-query-paged-table__table-host {
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.advanced-query-paged-table__table-host[data-table-mode='scroll'] {
+  overflow-x: auto;
 }
 </style>

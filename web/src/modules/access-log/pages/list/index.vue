@@ -61,7 +61,11 @@
         v-model:visible="columnDrawerVisible"
         v-model:selected-keys="visibleColumnKeys"
         :columns="columnSettingOptions"
+        :default-selected-keys="DEFAULT_VISIBLE_COLUMNS"
+        :presets-label="t('accessLog.columnViews.label')"
+        :reset-label="t('accessLog.columnViews.resetDefault')"
         :title="t('accessLog.page.columnSettings')"
+        :view-presets="columnViewPresets"
       />
       <access-log-detail-drawer v-model:visible="detailVisible" :record="detailRecord" />
     </template>
@@ -114,6 +118,29 @@ type AccessLogPresetKey =
   | 'slowRequests'
   | 'currentUser'
   | 'lastHour';
+const DEFAULT_VISIBLE_COLUMNS = ['started_at', 'method', 'path', 'status_code', 'duration_ms', 'user'];
+const TROUBLESHOOTING_VISIBLE_COLUMNS = [
+  'started_at',
+  'method',
+  'path',
+  'status_code',
+  'duration_ms',
+  'user',
+  'request_id',
+];
+const TECHNICAL_VISIBLE_COLUMNS = [
+  'started_at',
+  'method',
+  'path',
+  'status_code',
+  'duration_ms',
+  'user',
+  'request_id',
+  'trace_id',
+  'client_ip',
+  'user_agent',
+  'occurred_at',
+];
 
 const { t } = useI18n();
 const logger = createModuleLogger('access-log.list');
@@ -130,7 +157,7 @@ const detailRecord = ref<AccessLogItem | null>(null);
 const applyingRoute = ref(false);
 const activePreset = ref<AccessLogPresetKey>('all');
 const columnDrawerVisible = ref(false);
-const visibleColumnKeys = ref(['started_at', 'method', 'path', 'status_code', 'duration_ms', 'user', 'request_id']);
+const visibleColumnKeys = ref([...DEFAULT_VISIBLE_COLUMNS]);
 const pagination = ref({
   current: 1,
   pageSize: 20,
@@ -157,6 +184,18 @@ const columnSettingOptions = computed(() => [
   { label: t('accessLog.columns.durationMs'), value: 'duration_ms' },
   { label: t('accessLog.columns.user'), value: 'user' },
   { label: t('accessLog.columns.requestId'), value: 'request_id' },
+  { label: t('accessLog.columns.traceId'), value: 'trace_id' },
+  { label: t('accessLog.columns.clientIp'), value: 'client_ip' },
+  { label: t('accessLog.columns.userAgent'), value: 'user_agent' },
+]);
+const columnViewPresets = computed(() => [
+  { value: 'default', label: t('accessLog.columnViews.default'), keys: DEFAULT_VISIBLE_COLUMNS },
+  {
+    value: 'troubleshooting',
+    label: t('accessLog.columnViews.troubleshooting'),
+    keys: TROUBLESHOOTING_VISIBLE_COLUMNS,
+  },
+  { value: 'technical', label: t('accessLog.columnViews.technical'), keys: TECHNICAL_VISIBLE_COLUMNS },
 ]);
 
 const hasClientOnlyFilters = computed(() =>

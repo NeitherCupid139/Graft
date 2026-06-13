@@ -46,6 +46,13 @@
       "currentUser": "Current User",
       "lastHour": "Last Hour"
     },
+    "columnViews": {
+      "label": "View Presets",
+      "default": "Default View",
+      "troubleshooting": "Troubleshooting View",
+      "technical": "Technical View",
+      "resetDefault": "Restore Default Columns"
+    },
     "filters": {
       "requestId": "Request ID",
       "userId": "User ID",
@@ -97,6 +104,9 @@
       "durationMs": "Duration",
       "user": "User",
       "requestId": "Request ID",
+      "traceId": "Trace ID",
+      "clientIp": "Client IP",
+      "userAgent": "User-Agent",
       "operation": "Operation"
     },
     "path": {

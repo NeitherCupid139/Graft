@@ -19,6 +19,7 @@
     :summary="summary"
     :total="total"
     @page-change="$emit('page-change')"
+    @row-click="(row) => $emit('detail', accessRow(row))"
   >
     <template v-if="$slots.toolbar" #toolbar>
       <slot name="toolbar" />
@@ -27,7 +28,7 @@
       <t-tag theme="primary" variant="light-outline" size="small">{{ accessRow(row).method }}</t-tag>
     </template>
     <template #path="{ row }">
-      <div class="stack-cell">
+      <div class="stack-cell stack-cell--compact">
         <strong>{{ accessRow(row).path }}</strong>
         <span v-if="accessLogPathSecondary(accessRow(row))" class="stack-cell__secondary">
           {{ t('accessLog.path.routeTemplateValue', { route: accessLogPathSecondary(accessRow(row)) }) }}
@@ -51,20 +52,38 @@
       </div>
     </template>
     <template #request_id="{ row }">
-      <log-id-text :display-value="accessRow(row).request_id || '-'" :tooltip="accessRow(row).request_id || '-'" />
+      <log-id-text
+        :display-value="accessRow(row).request_id"
+        :tooltip="accessRow(row).request_id"
+        v-bind="technicalCopyLabels"
+      />
+    </template>
+    <template #trace_id="{ row }">
+      <log-id-text
+        :display-value="accessRow(row).trace_id"
+        :tooltip="accessRow(row).trace_id"
+        v-bind="technicalCopyLabels"
+      />
+    </template>
+    <template #client_ip="{ row }">
+      <log-id-text
+        :display-value="accessRow(row).client_ip"
+        :tooltip="accessRow(row).client_ip"
+        v-bind="technicalCopyLabels"
+      />
+    </template>
+    <template #user_agent="{ row }">
+      <log-id-text
+        :display-value="accessRow(row).user_agent"
+        :tooltip="accessRow(row).user_agent"
+        v-bind="technicalCopyLabels"
+      />
     </template>
     <template #started_at="{ row }">
       <span>{{ Management.formatCompactDateTime(accessRow(row).started_at, locale) }}</span>
     </template>
     <template #occurred_at="{ row }">
       <span>{{ Management.formatCompactDateTime(accessRow(row).occurred_at, locale) }}</span>
-    </template>
-    <template #operation="{ row }">
-      <management-table-action-menu
-        :actions="[{ label: t('accessLog.actions.detail'), testId: 'access-log-detail', value: 'detail' }]"
-        :more-label="t('accessLog.actions.detail')"
-        @action="() => $emit('detail', accessRow(row))"
-      />
     </template>
   </advanced-query-paged-table>
 </template>
@@ -100,6 +119,12 @@ const current = defineModel<number>('current', { required: true });
 const pageSize = defineModel<number>('pageSize', { required: true });
 
 const { t, locale } = useI18n();
+const technicalCopyLabels = computed(() => ({
+  copyable: true,
+  copyLabel: t('accessLog.actions.copy'),
+  copySuccessLabel: t('accessLog.actions.copySuccess'),
+  copyFailLabel: t('accessLog.actions.copyFail'),
+}));
 const cellSlotNames = [
   'method',
   'path',
@@ -107,28 +132,30 @@ const cellSlotNames = [
   'duration_ms',
   'user',
   'request_id',
+  'trace_id',
+  'client_ip',
+  'user_agent',
   'started_at',
   'occurred_at',
-  'operation',
 ];
 
 const columns = computed<TdBaseTableProps['columns']>(() => {
   void locale.value;
   const allColumns: TdBaseTableProps['columns'] = [
-    ...Management.createConfiguredColumns([
-      { kind: 'time', key: 'started_at', title: t('accessLog.columns.startedAt'), width: 176 },
-      { key: 'method', title: t('accessLog.columns.method'), config: { width: 110, fixed: 'left' } },
-      { key: 'path', title: t('accessLog.columns.path'), config: { minWidth: 320 } },
-      { key: 'status_code', title: t('accessLog.columns.statusCode'), config: { width: 110 } },
-      { key: 'duration_ms', title: t('accessLog.columns.durationMs'), config: { width: 120 } },
-      { key: 'user', title: t('accessLog.columns.user'), config: { width: 190 } },
-      { key: 'request_id', title: t('accessLog.columns.requestId'), config: { width: 240 } },
-      { kind: 'time', key: 'occurred_at', title: t('accessLog.columns.occurredAt'), width: 176 },
-    ]),
-    Management.createActionColumn(t('accessLog.columns.operation'), 104),
+    Management.createTimeColumn(t('accessLog.columns.startedAt'), 'started_at', 176),
+    Management.createStatusColumn(t('accessLog.columns.method'), 'method', 96),
+    Management.createMainTextColumn(t('accessLog.columns.path'), 'path', 420),
+    Management.createStatusColumn(t('accessLog.columns.statusCode'), 'status_code', 112),
+    Management.createCountColumn(t('accessLog.columns.durationMs'), 'duration_ms', 120),
+    Management.createIdentifierColumn(t('accessLog.columns.user'), 'user', 190),
+    Management.createTechnicalColumn(t('accessLog.columns.requestId'), 'request_id', 260),
+    Management.createTechnicalColumn(t('accessLog.columns.traceId'), 'trace_id', 260),
+    Management.createIdentifierColumn(t('accessLog.columns.clientIp'), 'client_ip', 160),
+    Management.createTechnicalColumn(t('accessLog.columns.userAgent'), 'user_agent', 280),
+    Management.createTimeColumn(t('accessLog.columns.occurredAt'), 'occurred_at', 176),
   ];
 
-  return Management.resolveManagedColumns(allColumns, props.visibleColumnKeys, ['operation']);
+  return Management.resolveManagedColumns(allColumns, props.visibleColumnKeys);
 });
 
 function statusTheme(statusCode: number) {
@@ -146,19 +173,11 @@ function accessRow(row: unknown) {
 }
 
 void LogIdText;
-const ManagementTableActionMenu = Management.TableActionMenu;
 </script>
 <style scoped lang="less">
-.stack-cell__secondary {
-  color: var(--td-text-color-secondary);
-  margin: 0;
-}
+@import '@/shared/observability/log-table-cells.less';
 
-.stack-cell {
-  display: flex;
-  flex-direction: column;
-  gap: var(--graft-density-gap-4);
-}
+.log-table-stack-cells();
 
 .duration-danger {
   color: var(--td-error-color);

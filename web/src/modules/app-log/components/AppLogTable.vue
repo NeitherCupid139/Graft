@@ -9,6 +9,7 @@
     v-model:page-size="pageSize"
     v-bind="pagedTableProps"
     @page-change="$emit('page-change')"
+    @row-click="(row) => $emit('detail', appLogRow(row))"
   >
     <template v-if="$slots.toolbar" #toolbar>
       <slot name="toolbar" />
@@ -22,29 +23,37 @@
       </t-tag>
     </template>
     <template #message="{ row }">
-      <div class="stack-cell">
+      <div class="stack-cell stack-cell--compact">
         <strong>{{ appLogRow(row).message }}</strong>
         <span v-if="appLogRow(row).error" class="stack-cell__secondary">{{ appLogRow(row).error }}</span>
       </div>
     </template>
     <template #operation="{ row }">
-      <span>{{ appLogOperationText(appLogRow(row), t) }}</span>
+      <log-id-text v-bind="technicalTextProps(appLogOperationText(appLogRow(row), t))" />
     </template>
     <template #correlation="{ row }">
       <log-id-text
         :display-value="appLogCorrelationText(appLogRow(row), t)"
         :tooltip="appLogCorrelationText(appLogRow(row), t)"
+        v-bind="technicalCopyLabels"
+      />
+    </template>
+    <template #request_id="{ row }">
+      <log-id-text
+        :display-value="appLogRow(row).request_id"
+        :tooltip="appLogRow(row).request_id"
+        v-bind="technicalCopyLabels"
+      />
+    </template>
+    <template #trace_id="{ row }">
+      <log-id-text
+        :display-value="appLogRow(row).trace_id"
+        :tooltip="appLogRow(row).trace_id"
+        v-bind="technicalCopyLabels"
       />
     </template>
     <template #fields="{ row }">
       <span>{{ appLogFieldsCount(appLogRow(row)) }}</span>
-    </template>
-    <template #actions="{ row }">
-      <table-action-menu
-        :actions="[{ label: t('appLog.actions.detail'), testId: 'app-log-detail', value: 'detail' }]"
-        :more-label="t('appLog.actions.detail')"
-        @action="() => $emit('detail', appLogRow(row))"
-      />
     </template>
   </advanced-query-paged-table>
 </template>
@@ -54,11 +63,14 @@ import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import {
-  createActionColumn,
-  createConfiguredColumns,
+  createCountColumn,
+  createIdentifierColumn,
+  createMainTextColumn,
+  createStatusColumn,
+  createTechnicalColumn,
+  createTimeColumn,
   formatCompactDateTime,
   resolveManagedColumns,
-  TableActionMenu,
 } from '@/shared/components/management';
 import { AdvancedQueryPagedTable } from '@/shared/components/query-list';
 import { LogIdText } from '@/shared/observability';
@@ -89,24 +101,38 @@ const emit = defineEmits<{
   (e: 'detail', row: AppLogItem): void;
 }>();
 const pageSize = defineModel<number>('pageSize', { required: true });
-const cellSlotNames = ['occurred_at', 'severity', 'message', 'operation', 'correlation', 'fields', 'actions'];
+const cellSlotNames = [
+  'occurred_at',
+  'severity',
+  'message',
+  'operation',
+  'correlation',
+  'request_id',
+  'trace_id',
+  'fields',
+];
+const technicalCopyLabels = computed(() => ({
+  copyable: true,
+  copyLabel: t('appLog.actions.copy'),
+  copySuccessLabel: t('appLog.actions.copySuccess'),
+  copyFailLabel: t('appLog.actions.copyFail'),
+}));
 
 const columns = computed<TdBaseTableProps['columns']>(() => {
   void locale.value;
   const allColumns: TdBaseTableProps['columns'] = [
-    ...createConfiguredColumns([
-      { kind: 'time', key: 'occurred_at', title: t('appLog.columns.occurredAt'), width: 176 },
-      { key: 'severity', title: t('appLog.columns.severity'), config: { width: 110 } },
-      { key: 'component', title: t('appLog.columns.component'), config: { minWidth: 210 } },
-      { key: 'operation', title: t('appLog.columns.operation'), config: { minWidth: 160 } },
-      { key: 'message', title: t('appLog.columns.message'), config: { minWidth: 360 } },
-      { key: 'correlation', title: t('appLog.columns.correlation'), config: { width: 240 } },
-      { key: 'fields', title: t('appLog.columns.fields'), config: { width: 90, align: 'center' } },
-    ]),
-    createActionColumn(t('appLog.columns.actions'), 104),
+    createTimeColumn(t('appLog.columns.occurredAt'), 'occurred_at', 176),
+    createStatusColumn(t('appLog.columns.severity'), 'severity', 104),
+    createIdentifierColumn(t('appLog.columns.component'), 'component', 184),
+    createTechnicalColumn(t('appLog.columns.operation'), 'operation', 196),
+    createMainTextColumn(t('appLog.columns.message'), 'message', 420),
+    createTechnicalColumn(t('appLog.columns.correlation'), 'correlation', 260),
+    createTechnicalColumn(t('appLog.columns.requestId'), 'request_id', 260),
+    createTechnicalColumn(t('appLog.columns.traceId'), 'trace_id', 260),
+    createCountColumn(t('appLog.columns.fields'), 'fields', 92),
   ];
 
-  return resolveManagedColumns(allColumns, props.visibleColumnKeys, ['actions']);
+  return resolveManagedColumns(allColumns, props.visibleColumnKeys);
 });
 const pagedTableProps = computed(() => ({
   cellSlotNames,
@@ -126,18 +152,19 @@ function appLogRow(row: unknown) {
   return row as AppLogItem;
 }
 
+function technicalTextProps(value: string) {
+  return {
+    displayValue: value,
+    tooltip: value,
+    ...technicalCopyLabels.value,
+  };
+}
+
 void LogIdText;
 void emit;
 </script>
 <style scoped lang="less">
-.stack-cell__secondary {
-  color: var(--td-text-color-secondary);
-  margin: 0;
-}
+@import '@/shared/observability/log-table-cells.less';
 
-.stack-cell {
-  display: flex;
-  flex-direction: column;
-  gap: var(--graft-density-gap-4);
-}
+.log-table-stack-cells();
 </style>

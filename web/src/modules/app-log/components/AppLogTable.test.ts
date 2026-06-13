@@ -1,7 +1,7 @@
 // Copyright (c) 2025-2026 GeWuYou
 // SPDX-License-Identifier: Apache-2.0
 
-import { mount } from '@vue/test-utils';
+import { shallowMount } from '@vue/test-utils';
 import { describe, expect, it } from 'vitest';
 import { defineComponent, h } from 'vue';
 import { createI18n } from 'vue-i18n';
@@ -12,7 +12,8 @@ import AppLogTable from './AppLogTable.vue';
 const AdvancedQueryPagedTableStub = defineComponent({
   name: 'AdvancedQueryPagedTableStub',
   props: ['columns'],
-  setup(props, { slots }) {
+  emits: ['row-click'],
+  setup(props, { emit, slots }) {
     return () =>
       h('section', { 'data-testid': 'paged-table' }, [
         h('div', { 'data-testid': 'table-toolbar' }, slots.toolbar?.()),
@@ -21,6 +22,7 @@ const AdvancedQueryPagedTableStub = defineComponent({
           { 'data-testid': 'table-columns' },
           (props.columns ?? []).map((column: { colKey: string }) => h('span', column.colKey)),
         ),
+        h('button', { 'data-testid': 'row-click', onClick: () => emit('row-click', appLogRow()) }, 'open'),
       ]);
   },
 });
@@ -33,7 +35,9 @@ const translations: Record<string, string> = {
   'appLog.columns.message': '消息',
   'appLog.columns.occurredAt': '发生时间',
   'appLog.columns.operation': '操作',
+  'appLog.columns.requestId': '请求 ID',
   'appLog.columns.severity': '级别',
+  'appLog.columns.traceId': 'Trace ID',
   'appLog.page.emptyTitle': '暂无应用日志',
 };
 
@@ -69,12 +73,12 @@ function appLogRow(): AppLogItem {
 
 describe('AppLogTable', () => {
   it('forwards the table toolbar slot into the shared paged table header', () => {
-    const wrapper = mount(AppLogTable, {
+    const wrapper = shallowMount(AppLogTable, {
       global: {
         plugins: [i18n],
         stubs: {
           AdvancedQueryPagedTable: AdvancedQueryPagedTableStub,
-          't-tag': TTagStub,
+          TTag: TTagStub,
         },
       },
       props: {
@@ -95,5 +99,34 @@ describe('AppLogTable', () => {
 
     expect(wrapper.get('[data-testid="table-toolbar"]').text()).toContain('刷新');
     expect(wrapper.get('[data-testid="table-refresh"]').text()).toBe('刷新');
+  });
+
+  it('uses row click for detail instead of a dedicated action column', async () => {
+    const wrapper = shallowMount(AppLogTable, {
+      global: {
+        plugins: [i18n],
+        stubs: {
+          AdvancedQueryPagedTable: AdvancedQueryPagedTableStub,
+          TTag: TTagStub,
+        },
+      },
+      props: {
+        current: 1,
+        description: '列表说明',
+        emptyDescription: '暂无数据',
+        footerSummary: '共 1 条',
+        pageSize: 20,
+        rows: [appLogRow()],
+        summary: '当前 1 条',
+        total: 1,
+        visibleColumnKeys: ['occurred_at', 'severity', 'component', 'operation', 'message'],
+      },
+    });
+
+    expect(wrapper.get('[data-testid="table-columns"]').text()).not.toContain('actions');
+
+    await wrapper.get('[data-testid="row-click"]').trigger('click');
+
+    expect(wrapper.emitted('detail')?.[0]?.[0]).toMatchObject({ id: 1, operation: 'dashboard_widget_load' });
   });
 });

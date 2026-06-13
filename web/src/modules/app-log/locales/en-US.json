@@ -7,7 +7,7 @@
   "appLog": {
     "page": {
       "title": "App Logs",
-      "description": "Inspect retained runtime troubleshooting logs across component, operation, severity, and correlation fields.",
+      "description": "Inspect retained runtime troubleshooting logs across component, event key, severity, and correlation fields.",
       "refresh": "Refresh",
       "retry": "Retry",
       "errorTitle": "App logs are temporarily unavailable",
@@ -17,7 +17,7 @@
       "emptyTitle": "No app logs",
       "emptyDescription": "Adjust filters and try again.",
       "detailTitle": "App Log Detail",
-      "searchPlaceholder": "Search component, operation, message, or error",
+      "searchPlaceholder": "Search component, event key, message, or error",
       "tableHint": "The table is ordered by latest retained occurrence time.",
       "columnSettings": "Column Settings"
     },
@@ -41,10 +41,17 @@
       "warnings": "Warnings",
       "lastHour": "Last Hour"
     },
+    "columnViews": {
+      "label": "View Presets",
+      "default": "Default View",
+      "troubleshooting": "Troubleshooting View",
+      "technical": "Technical View",
+      "resetDefault": "Restore Default Columns"
+    },
     "filters": {
       "occurredRange": "Occurrence Time",
       "component": "Component",
-      "operation": "Operation",
+      "operation": "Event",
       "requestId": "Request ID",
       "traceId": "Trace ID",
       "route": "Route Template",
@@ -74,7 +81,7 @@
         "sorterBuilder": "Sort Order",
         "severity": "Severity",
         "component": "Component",
-        "operation": "Operation",
+        "operation": "Event",
         "requestId": "Request ID",
         "traceId": "Trace ID",
         "message": "Message",
@@ -85,9 +92,11 @@
       "occurredAt": "Occurred At",
       "severity": "Severity",
       "component": "Component",
-      "operation": "Operation",
+      "operation": "Event Key",
       "message": "Message",
       "correlation": "Correlation",
+      "requestId": "Request ID",
+      "traceId": "Trace ID",
       "fields": "Fields",
       "actions": "Actions"
     },
@@ -106,7 +115,7 @@
       "contextEmpty": "No app log context is available."
     },
     "values": {
-      "noOperation": "No operation",
+      "noOperation": "No event",
       "noCorrelation": "No correlation",
       "noError": "No error",
       "emptyField": "-"

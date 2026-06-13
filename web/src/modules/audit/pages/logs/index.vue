@@ -86,7 +86,11 @@
         v-model:visible="columnDrawerVisible"
         v-model:selected-keys="visibleColumnKeys"
         :columns="columnSettingOptions"
+        :default-selected-keys="DEFAULT_VISIBLE_COLUMNS"
+        :presets-label="t('audit.logList.columnViews.label')"
+        :reset-label="t('audit.logList.columnViews.resetDefault')"
         :title="t('audit.logList.columnSettings')"
+        :view-presets="columnViewPresets"
       />
       <audit-detail-drawer
         v-model:visible="detailDrawerVisible"
@@ -156,6 +160,29 @@ defineOptions({
 
 const logger = createLogger('audit.logs');
 const securityEventPresetResults: AuditResult[] = ['DENIED', 'FAILED', 'ERROR'];
+const DEFAULT_VISIBLE_COLUMNS = ['action', 'actor', 'resource', 'correlation', 'result', 'risk', 'created_at'];
+const TROUBLESHOOTING_VISIBLE_COLUMNS = [
+  'action',
+  'actor',
+  'resource',
+  'correlation',
+  'trace_id',
+  'result',
+  'risk',
+  'created_at',
+];
+const TECHNICAL_VISIBLE_COLUMNS = [
+  'action',
+  'actor',
+  'resource',
+  'correlation',
+  'trace_id',
+  'session_id',
+  'ip',
+  'result',
+  'risk',
+  'created_at',
+];
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
@@ -168,7 +195,7 @@ const detailDrawerVisible = ref(false);
 const detailRecord = ref<AuditLogListItem | null>(null);
 const latestRequestSeq = ref(0);
 const columnDrawerVisible = ref(false);
-const visibleColumnKeys = ref(['action', 'actor', 'resource', 'correlation', 'result', 'risk', 'created_at']);
+const visibleColumnKeys = ref([...DEFAULT_VISIBLE_COLUMNS]);
 const pagination = ref({
   current: 1,
   pageSize: 10,
@@ -228,9 +255,21 @@ const columnSettingOptions = computed(() => [
   { label: t('audit.logList.columns.actor'), value: 'actor' },
   { label: t('audit.logList.columns.resource'), value: 'resource' },
   { label: t('audit.logList.columns.correlation'), value: 'correlation' },
+  { label: t('audit.logList.columns.traceId'), value: 'trace_id' },
+  { label: t('audit.logList.columns.sessionId'), value: 'session_id' },
+  { label: t('audit.logList.columns.ip'), value: 'ip' },
   { label: t('audit.logList.columns.result'), value: 'result' },
   { label: t('audit.logList.columns.risk'), value: 'risk' },
   { label: t('audit.logList.columns.createdAt'), value: 'created_at' },
+]);
+const columnViewPresets = computed(() => [
+  { value: 'default', label: t('audit.logList.columnViews.default'), keys: DEFAULT_VISIBLE_COLUMNS },
+  {
+    value: 'troubleshooting',
+    label: t('audit.logList.columnViews.troubleshooting'),
+    keys: TROUBLESHOOTING_VISIBLE_COLUMNS,
+  },
+  { value: 'technical', label: t('audit.logList.columnViews.technical'), keys: TECHNICAL_VISIBLE_COLUMNS },
 ]);
 
 const hasClientOnlyFilters = computed(() => false);

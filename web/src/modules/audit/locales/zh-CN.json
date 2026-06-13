@@ -257,6 +257,13 @@
         "authFailed": "认证失败",
         "highRisk": "高风险"
       },
+      "columnViews": {
+        "label": "视图预设",
+        "default": "默认视图",
+        "troubleshooting": "排障视图",
+        "technical": "技术视图",
+        "resetDefault": "恢复默认列"
+      },
       "actions": {
         "search": "查询",
         "reset": "重置",
@@ -365,10 +372,13 @@
         "CRITICAL": "严重"
       },
       "columns": {
-        "action": "操作",
+        "action": "事件",
         "actor": "操作者",
         "resource": "审计目标",
         "correlation": "请求 ID",
+        "traceId": "Trace ID",
+        "sessionId": "Session ID",
+        "ip": "IP",
         "result": "结果",
         "risk": "风险等级",
         "createdAt": "时间"

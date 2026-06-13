@@ -46,6 +46,13 @@
       "currentUser": "当前用户",
       "lastHour": "最近一小时"
     },
+    "columnViews": {
+      "label": "视图预设",
+      "default": "默认视图",
+      "troubleshooting": "排障视图",
+      "technical": "技术视图",
+      "resetDefault": "恢复默认列"
+    },
     "filters": {
       "requestId": "请求 ID",
       "userId": "用户 ID",
@@ -97,7 +104,10 @@
       "durationMs": "耗时",
       "user": "用户",
       "requestId": "请求 ID",
-      "operation": "操作"
+      "traceId": "Trace ID",
+      "clientIp": "客户端 IP",
+      "userAgent": "用户代理",
+      "operation": "动作"
     },
     "path": {
       "routeTemplateValue": "路由模板：{route}"
