@@ -7509,6 +7509,16 @@ export interface operations {
           'application/json': components['schemas']['error-response'];
         };
       };
+      /** @description Published announcements must be archived before deletion. */
+      409: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['error-response'];
+        };
+      };
       500: components['responses']['internal-server-error'];
     };
   };

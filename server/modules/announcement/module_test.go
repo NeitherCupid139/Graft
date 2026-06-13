@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -26,6 +27,7 @@ import (
 	"graft/server/internal/module"
 	"graft/server/internal/moduleapi"
 	"graft/server/internal/permission"
+	"graft/server/internal/testassert"
 	announcementcontract "graft/server/modules/announcement/contract"
 	announcementstore "graft/server/modules/announcement/store"
 )
@@ -605,6 +607,44 @@ func TestAnnouncementRoutesRejectInvalidQueryParams(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAnnouncementDeletePublishedRouteReturnsDomainConflict(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	repository := newMemoryAnnouncementRepository()
+	service, err := NewService(repository)
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	actorID := uint64(7)
+	published := createAnnouncementForUserTest(t, service, "Published", time.Now().UTC().Add(-time.Hour), nil, actorID)
+	engine := gin.New()
+	ctx := newAnnouncementTestContext(engine)
+	if err := registerAnnouncementRoutes(ctx, service, announcementGuards{
+		authenticated: announcementRouteTestAuth(42),
+		read:          announcementRouteTestAuth(42),
+		create:        announcementRouteTestAuth(42),
+		update:        announcementRouteTestAuth(42),
+		publish:       announcementRouteTestAuth(42),
+		delete:        announcementRouteTestAuth(42),
+	}); err != nil {
+		t.Fatalf("register announcement routes: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/announcements/%d", published.ID), nil)
+	recorder := httptest.NewRecorder()
+	engine.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusConflict {
+		t.Fatalf("expected 409 published delete conflict, got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	payload := testassert.DecodeErrorResponse(t, recorder)
+	testassert.AssertErrorPayload(
+		t,
+		payload,
+		announcementcontract.AnnouncementPublishedDeleteForbidden.String(),
+		"ANNOUNCEMENT_PUBLISHED_DELETE_FORBIDDEN",
+		"zh-CN",
+	)
 }
 
 func TestAnnouncementMapperRejectsInt64Overflow(t *testing.T) {

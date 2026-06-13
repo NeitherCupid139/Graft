@@ -4522,6 +4522,9 @@ type UserRoleSummary struct {
 	Name    string `json:"name"`
 }
 
+// AnnouncementIdPath defines model for announcement-id-path.
+type AnnouncementIdPath = int64
+
 // LocaleHeader defines model for locale-header.
 type LocaleHeader = string
 

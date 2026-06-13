@@ -25,6 +25,7 @@ vi.mock('tdesign-vue-next/es/message', () => ({
   MessagePlugin: {
     error: vi.fn(),
     success: vi.fn(),
+    warning: vi.fn(),
   },
 }));
 
@@ -62,8 +63,13 @@ const translations = vi.hoisted(
     'announcement.management.create': 'Create Announcement',
     'announcement.management.createSuccess': 'Announcement Created',
     'announcement.management.delete': 'Delete',
+    'announcement.management.deleteDialog.cancel': 'Cancel',
+    'announcement.management.deleteDialog.confirm': 'Delete',
+    'announcement.management.deleteDialog.description': 'Delete confirmation description',
+    'announcement.management.deleteDialog.title': 'Delete Announcement',
     'announcement.management.detail': 'Details',
     'announcement.management.description': 'Manage announcements.',
+    'announcement.management.deletePublishedHint': 'Archive before deleting',
     'announcement.management.edit': 'Edit',
     'announcement.management.emptyCreate': 'Create Announcement',
     'announcement.management.emptyDescription': 'No announcements match filters.',
@@ -258,6 +264,7 @@ function mountPage() {
               h('div', [
                 h('button', { 'data-testid': 'publish-action', onClick: () => emit('action', 'publish') }, 'publish'),
                 h('button', { 'data-testid': 'detail-action', onClick: () => emit('action', 'detail') }, 'detail'),
+                h('button', { 'data-testid': 'delete-action', onClick: () => emit('action', 'delete') }, 'delete'),
               ]);
           },
         }),
@@ -283,11 +290,47 @@ function mountPage() {
         't-drawer': TDrawerStub,
         't-dialog': defineComponent({
           name: 'TDialogStub',
-          props: ['visible'],
-          emits: ['update:visible'],
-          setup(props, { slots }) {
+          props: ['cancelBtn', 'confirmBtn', 'header', 'visible'],
+          emits: ['close', 'confirm', 'update:visible'],
+          setup(props, { emit, slots }) {
             return () =>
-              props.visible ? h('aside', { 'data-testid': 'full-preview-dialog' }, slots.default?.()) : null;
+              props.visible
+                ? h(
+                    'aside',
+                    {
+                      'data-testid':
+                        props.header === 'Delete Announcement' ? 'delete-confirm-dialog' : 'full-preview-dialog',
+                    },
+                    [
+                      props.header ? h('h2', String(props.header)) : null,
+                      slots.default?.(),
+                      props.cancelBtn
+                        ? h(
+                            'button',
+                            {
+                              'data-testid': 'dialog-cancel',
+                              onClick: () => {
+                                emit('close');
+                                emit('update:visible', false);
+                              },
+                            },
+                            String(props.cancelBtn),
+                          )
+                        : null,
+                      props.confirmBtn
+                        ? h(
+                            'button',
+                            {
+                              'data-testid': 'dialog-confirm',
+                              disabled: Boolean(props.confirmBtn.disabled),
+                              onClick: () => emit('confirm'),
+                            },
+                            String(props.confirmBtn.content),
+                          )
+                        : null,
+                    ],
+                  )
+                : null;
           },
         }),
         't-empty': defineComponent({
@@ -376,7 +419,7 @@ describe('announcement management page', () => {
     apiMocks.getAnnouncement.mockResolvedValue(announcement({ id: 1 }));
     apiMocks.publishAnnouncement.mockResolvedValue(announcement({ status: 'published' }));
     apiMocks.createAnnouncement.mockResolvedValue(announcement({ id: 2 }));
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    apiMocks.deleteAnnouncement.mockResolvedValue({});
   });
 
   it('refreshes the list after a publish action succeeds', async () => {
@@ -388,6 +431,46 @@ describe('announcement management page', () => {
 
     expect(apiMocks.publishAnnouncement).toHaveBeenCalledWith(1);
     expect(apiMocks.getAnnouncements).toHaveBeenCalledTimes(2);
+  });
+
+  it('opens a TDesign confirmation dialog before deleting a draft announcement', async () => {
+    const nativeConfirmSpy = vi.spyOn(window, 'confirm');
+    const wrapper = mountPage();
+    await flushPromises();
+    apiMocks.getAnnouncements.mockClear();
+
+    await wrapper.get('[data-testid="delete-action"]').trigger('click');
+    await nextTick();
+
+    expect(nativeConfirmSpy).not.toHaveBeenCalled();
+    expect(apiMocks.deleteAnnouncement).not.toHaveBeenCalled();
+    expect(wrapper.get('[data-testid="delete-confirm-dialog"]').text()).toContain('Maintenance');
+
+    await wrapper.get('[data-testid="dialog-confirm"]').trigger('click');
+    await flushPromises();
+
+    expect(apiMocks.deleteAnnouncement).toHaveBeenCalledWith(1);
+    expect(apiMocks.getAnnouncements).toHaveBeenCalledTimes(1);
+    expect(window.dispatchEvent).toHaveBeenCalledWith(expect.objectContaining({ type: 'graft:announcement-changed' }));
+  });
+
+  it('warns instead of calling delete API for published announcements', async () => {
+    apiMocks.getAnnouncements.mockResolvedValue({
+      items: [announcement({ status: 'published' })],
+      page: 1,
+      page_size: 20,
+      total: 1,
+    });
+    const wrapper = mountPage();
+    await flushPromises();
+
+    await wrapper.get('[data-testid="delete-action"]').trigger('click');
+    await flushPromises();
+
+    const { MessagePlugin } = await import('tdesign-vue-next/es/message');
+    expect(MessagePlugin.warning).toHaveBeenCalledWith('Archive before deleting');
+    expect(apiMocks.deleteAnnouncement).not.toHaveBeenCalled();
+    expect(wrapper.find('[data-testid="delete-confirm-dialog"]').exists()).toBe(false);
   });
 
   it('searches through a single fetch chain when the current page resets', async () => {

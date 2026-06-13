@@ -395,6 +395,21 @@ func (e DeleteAnnouncement404JSONResponseBodySuccess) Valid() bool {
 	}
 }
 
+// Defines values for DeleteAnnouncement409JSONResponseBodySuccess.
+const (
+	DeleteAnnouncement409JSONResponseBodySuccessFalse DeleteAnnouncement409JSONResponseBodySuccess = false
+)
+
+// Valid indicates whether the value is a known member of the DeleteAnnouncement409JSONResponseBodySuccess enum.
+func (e DeleteAnnouncement409JSONResponseBodySuccess) Valid() bool {
+	switch e {
+	case DeleteAnnouncement409JSONResponseBodySuccessFalse:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DeleteAnnouncement500JSONResponseBodySuccess.
 const (
 	DeleteAnnouncement500JSONResponseBodySuccessFalse DeleteAnnouncement500JSONResponseBodySuccess = false
@@ -1207,13 +1222,13 @@ func (e PostMyAnnouncementRead404JSONResponseBodySuccess) Valid() bool {
 
 // Defines values for PostMyAnnouncementRead500JSONResponseBodySuccess.
 const (
-	False PostMyAnnouncementRead500JSONResponseBodySuccess = false
+	PostMyAnnouncementRead500JSONResponseBodySuccessFalse PostMyAnnouncementRead500JSONResponseBodySuccess = false
 )
 
 // Valid indicates whether the value is a known member of the PostMyAnnouncementRead500JSONResponseBodySuccess enum.
 func (e PostMyAnnouncementRead500JSONResponseBodySuccess) Valid() bool {
 	switch e {
-	case False:
+	case PostMyAnnouncementRead500JSONResponseBodySuccessFalse:
 		return true
 	default:
 		return false
@@ -1341,6 +1356,9 @@ type DeleteAnnouncement403JSONResponseBodySuccess bool
 
 // DeleteAnnouncement404JSONResponseBodySuccess defines parameters for DeleteAnnouncement.
 type DeleteAnnouncement404JSONResponseBodySuccess bool
+
+// DeleteAnnouncement409JSONResponseBodySuccess defines parameters for DeleteAnnouncement.
+type DeleteAnnouncement409JSONResponseBodySuccess bool
 
 // DeleteAnnouncement500JSONResponseBodySuccess defines parameters for DeleteAnnouncement.
 type DeleteAnnouncement500JSONResponseBodySuccess bool

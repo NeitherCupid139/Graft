@@ -419,10 +419,31 @@
         </section>
       </div>
     </t-drawer>
+
+    <t-dialog
+      v-model:visible="deleteDialogVisible"
+      :header="t('announcement.management.deleteDialog.title')"
+      :confirm-btn="deleteDialogConfirmBtn"
+      :cancel-btn="t('announcement.management.deleteDialog.cancel')"
+      :confirm-loading="deleting"
+      theme="danger"
+      width="420px"
+      placement="center"
+      destroy-on-close
+      @confirm="confirmDelete"
+      @close="closeDeleteDialog"
+    >
+      <p class="announcement-delete-dialog__description">
+        {{ t('announcement.management.deleteDialog.description') }}
+      </p>
+      <p v-if="deleteTarget" class="announcement-delete-dialog__target">
+        {{ deleteTarget.title }}
+      </p>
+    </t-dialog>
   </div>
 </template>
 <script setup lang="ts">
-import type { FormRule, PageInfo, SortInfo, SubmitContext, TdBaseTableProps } from 'tdesign-vue-next';
+import type { ButtonProps, FormRule, PageInfo, SortInfo, SubmitContext, TdBaseTableProps } from 'tdesign-vue-next';
 import { MessagePlugin } from 'tdesign-vue-next/es/message';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -484,6 +505,7 @@ const permissionCodes = ANNOUNCEMENT_PERMISSION_CODE;
 
 const loading = ref(false);
 const submitting = ref(false);
+const deleting = ref(false);
 const listError = ref('');
 const rows = ref<AnnouncementItem[]>([]);
 const total = ref(0);
@@ -508,6 +530,8 @@ const inlinePreviewVisible = ref(false);
 const fullPreviewVisible = ref(false);
 const detailDrawerVisible = ref(false);
 const detailRecord = ref<AnnouncementViewModel | null>(null);
+const deleteDialogVisible = ref(false);
+const deleteTarget = ref<AnnouncementRowViewModel | null>(null);
 
 const statusValues: AnnouncementStatus[] = ['draft', 'published', 'archived'];
 const levelValues: AnnouncementLevel[] = ['info', 'warning', 'success', 'error'];
@@ -569,6 +593,11 @@ const columns = computed<TdBaseTableProps['columns']>(() => [
   createActionColumn(t('announcement.management.columns.operation'), 132),
 ]);
 const tableContentWidth = computed(() => '1200');
+const deleteDialogConfirmBtn = computed<ButtonProps>(() => ({
+  content: t('announcement.management.deleteDialog.confirm'),
+  disabled: deleting.value,
+  theme: 'danger',
+}));
 const formDrawerTitle = computed(() =>
   formMode.value === 'create'
     ? t('announcement.management.form.createTitle')
@@ -834,22 +863,46 @@ async function archiveRow(row: AnnouncementRowViewModel) {
 }
 
 async function deleteRow(row: AnnouncementRowViewModel) {
-  if (!window.confirm(t('announcement.management.deleteConfirm'))) {
+  if (row.status === 'published') {
+    MessagePlugin.warning(t('announcement.management.deletePublishedHint'));
     return;
   }
 
+  deleteTarget.value = row;
+  deleteDialogVisible.value = true;
+}
+
+async function confirmDelete() {
+  if (!deleteTarget.value || deleting.value) {
+    return;
+  }
+
+  const target = deleteTarget.value;
+  deleting.value = true;
   try {
-    await deleteAnnouncement(row.id);
+    await deleteAnnouncement(target.id);
     MessagePlugin.success(t('announcement.management.deleteSuccess'));
-    if (detailRecord.value?.id === row.id) {
+    if (detailRecord.value?.id === target.id) {
       detailDrawerVisible.value = false;
       detailRecord.value = null;
     }
+    deleteDialogVisible.value = false;
+    deleteTarget.value = null;
     await fetchAnnouncements();
     emitAnnouncementChanged();
   } catch (error) {
     MessagePlugin.error(readableError(error, t('announcement.management.deleteFailed')));
+  } finally {
+    deleting.value = false;
   }
+}
+
+function closeDeleteDialog() {
+  if (deleting.value) {
+    return;
+  }
+  deleteDialogVisible.value = false;
+  deleteTarget.value = null;
 }
 
 function normalizeStatusFilter(value: AnnouncementStatusFilter) {
@@ -1018,6 +1071,8 @@ function readableError(error: unknown, fallback: string) {
 }
 
 .table-empty-state {
+  display: flex;
+  justify-content: center;
   padding: var(--graft-density-gap-24) 0;
 }
 
@@ -1028,6 +1083,28 @@ function readableError(error: unknown, fallback: string) {
   display: flex;
   flex-wrap: wrap;
   gap: var(--graft-density-gap-10);
+}
+
+.table-empty-state__actions {
+  justify-content: center;
+  width: 100%;
+}
+
+.announcement-delete-dialog__description,
+.announcement-delete-dialog__target {
+  margin: 0;
+}
+
+.announcement-delete-dialog__description {
+  color: var(--td-text-color-secondary);
+  font: var(--td-font-body-medium);
+}
+
+.announcement-delete-dialog__target {
+  color: var(--td-text-color-primary);
+  font: var(--td-font-body-medium);
+  margin-top: var(--graft-density-gap-12);
+  overflow-wrap: anywhere;
 }
 
 .announcement-form,

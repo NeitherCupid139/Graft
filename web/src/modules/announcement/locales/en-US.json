@@ -83,7 +83,13 @@
       "archiveFailed": "Failed to Archive Announcement",
       "deleteFailed": "Failed to Delete Announcement",
       "detailLoadFailed": "Failed to Load Announcement Details",
-      "deleteConfirm": "Delete this announcement?",
+      "deletePublishedHint": "Archive the published announcement before deleting it.",
+      "deleteDialog": {
+        "title": "Delete Announcement",
+        "description": "After deletion, this announcement will be removed from the management list. This action cannot be undone.",
+        "confirm": "Delete",
+        "cancel": "Cancel"
+      },
       "publishNow": "Publish Now",
       "archive": "Archive",
       "delete": "Delete",

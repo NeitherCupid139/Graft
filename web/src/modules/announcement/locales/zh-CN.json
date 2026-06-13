@@ -83,7 +83,13 @@
       "archiveFailed": "公告归档失败",
       "deleteFailed": "公告删除失败",
       "detailLoadFailed": "公告详情加载失败",
-      "deleteConfirm": "确认删除该公告？",
+      "deletePublishedHint": "已发布公告需先归档后删除。",
+      "deleteDialog": {
+        "title": "删除公告",
+        "description": "删除后该公告将从管理列表中移除，操作不可撤销。",
+        "confirm": "删除",
+        "cancel": "取消"
+      },
       "publishNow": "立即发布",
       "archive": "归档",
       "delete": "删除",
