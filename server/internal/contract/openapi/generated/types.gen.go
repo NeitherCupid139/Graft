@@ -2133,6 +2133,11 @@ type ApiEnvelope struct {
 	TraceId string `json:"traceId"`
 }
 
+// AppLogBatchDeleteRequest defines model for app-log-batch-delete-request.
+type AppLogBatchDeleteRequest struct {
+	Ids []int64 `json:"ids"`
+}
+
 // AppLogDetailResponse defines model for app-log-detail-response.
 type AppLogDetailResponse struct {
 	Component  string                       `json:"component"`
@@ -4779,6 +4784,26 @@ type GetAppLogsParamsSeverity string
 // GetAppLogsParamsSort defines parameters for GetAppLogs.
 type GetAppLogsParamsSort string
 
+// PostAppLogBatchDeleteParams defines parameters for PostAppLogBatchDelete.
+type PostAppLogBatchDeleteParams struct {
+	// XGraftLocale Explicit locale override header already supported by the runtime.
+	XGraftLocale *LocaleHeader `json:"X-Graft-Locale,omitempty"`
+
+	// XRequestId Optional caller-supplied request id. If omitted, the runtime generates one and echoes it
+	// through the response header and envelope traceId field.
+	XRequestId *RequestIdHeader `json:"X-Request-Id,omitempty"`
+}
+
+// DeleteAppLogParams defines parameters for DeleteAppLog.
+type DeleteAppLogParams struct {
+	// XGraftLocale Explicit locale override header already supported by the runtime.
+	XGraftLocale *LocaleHeader `json:"X-Graft-Locale,omitempty"`
+
+	// XRequestId Optional caller-supplied request id. If omitted, the runtime generates one and echoes it
+	// through the response header and envelope traceId field.
+	XRequestId *RequestIdHeader `json:"X-Request-Id,omitempty"`
+}
+
 // GetAppLogDetailParams defines parameters for GetAppLogDetail.
 type GetAppLogDetailParams struct {
 	// XGraftLocale Explicit locale override header already supported by the runtime.
@@ -5635,6 +5660,9 @@ type PutAnnouncementJSONRequestBody = UpdateAnnouncementRequest
 
 // PostAnnouncementPublishJSONRequestBody defines body for PostAnnouncementPublish for application/json ContentType.
 type PostAnnouncementPublishJSONRequestBody = PublishAnnouncementRequest
+
+// PostAppLogBatchDeleteJSONRequestBody defines body for PostAppLogBatchDelete for application/json ContentType.
+type PostAppLogBatchDeleteJSONRequestBody = AppLogBatchDeleteRequest
 
 // PostAuthChangePasswordJSONRequestBody defines body for PostAuthChangePassword for application/json ContentType.
 type PostAuthChangePasswordJSONRequestBody = ChangePasswordRequest

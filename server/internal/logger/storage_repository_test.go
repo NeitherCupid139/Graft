@@ -146,6 +146,102 @@ func TestAppLogRepositoryDeleteBefore(t *testing.T) {
 	}
 }
 
+func TestAppLogRepositoryDeleteByIDAndBatch(t *testing.T) {
+	repo := newSQLiteAppLogRepository(t)
+	ctx := context.Background()
+	base := time.Date(2026, 6, 4, 8, 0, 0, 0, time.UTC)
+
+	first, err := repo.CreateAppLog(ctx, CreateAppLogInput{
+		OccurredAt: base,
+		Severity:   AppLogSeverityInfo,
+		Component:  "core.app",
+		Message:    "first",
+	})
+	if err != nil {
+		t.Fatalf("seed first app log: %v", err)
+	}
+	second, err := repo.CreateAppLog(ctx, CreateAppLogInput{
+		OccurredAt: base.Add(time.Minute),
+		Severity:   AppLogSeverityInfo,
+		Component:  "core.app",
+		Message:    "second",
+	})
+	if err != nil {
+		t.Fatalf("seed second app log: %v", err)
+	}
+	third, err := repo.CreateAppLog(ctx, CreateAppLogInput{
+		OccurredAt: base.Add(2 * time.Minute),
+		Severity:   AppLogSeverityInfo,
+		Component:  "core.app",
+		Message:    "third",
+	})
+	if err != nil {
+		t.Fatalf("seed third app log: %v", err)
+	}
+
+	deleted, err := repo.DeleteAppLogByID(ctx, first.ID)
+	if err != nil {
+		t.Fatalf("delete app log by id: %v", err)
+	}
+	if !deleted {
+		t.Fatal("expected first app log to be deleted")
+	}
+	deleted, err = repo.DeleteAppLogByID(ctx, first.ID)
+	if err != nil {
+		t.Fatalf("delete missing app log by id: %v", err)
+	}
+	if deleted {
+		t.Fatal("expected second delete to miss")
+	}
+
+	batchDeleted, err := repo.DeleteAppLogsByIDs(ctx, []uint64{second.ID, third.ID, second.ID})
+	if err != nil {
+		t.Fatalf("batch delete app logs: %v", err)
+	}
+	if batchDeleted != 2 {
+		t.Fatalf("expected two batch-deleted rows, got %d", batchDeleted)
+	}
+	result, err := repo.ListAppLogs(ctx, AppLogListQuery{})
+	if err != nil {
+		t.Fatalf("list app logs after delete: %v", err)
+	}
+	if result.Total != 0 {
+		t.Fatalf("expected all rows deleted, got total=%d", result.Total)
+	}
+}
+
+func TestAppLogRepositoryBatchDeleteDoesNotPartiallyDeleteMissingIDs(t *testing.T) {
+	repo := newSQLiteAppLogRepository(t)
+	ctx := context.Background()
+	base := time.Date(2026, 6, 4, 8, 0, 0, 0, time.UTC)
+
+	record, err := repo.CreateAppLog(ctx, CreateAppLogInput{
+		OccurredAt: base,
+		Severity:   AppLogSeverityInfo,
+		Component:  "core.app",
+		Message:    "first",
+	})
+	if err != nil {
+		t.Fatalf("seed app log: %v", err)
+	}
+
+	deleted, err := repo.DeleteAppLogsByIDs(ctx, []uint64{record.ID, record.ID + 1000})
+	if err != nil {
+		t.Fatalf("batch delete app logs with missing id: %v", err)
+	}
+	if deleted != 1 {
+		t.Fatalf("expected one existing row to be reported, got %d", deleted)
+	}
+
+	result, err := repo.ListAppLogs(ctx, AppLogListQuery{})
+	if err != nil {
+		t.Fatalf("list app logs after missing batch delete: %v", err)
+	}
+	if result.Total != 1 {
+		t.Fatalf("expected no partial delete, got total=%d", result.Total)
+	}
+}
+
 func TestAppLogRepositorySortsByRequestedFields(t *testing.T) {
 	repo := newSQLiteAppLogRepository(t)
 	ctx := context.Background()

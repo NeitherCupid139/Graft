@@ -10,9 +10,13 @@
     v-bind="pagedTableProps"
     @page-change="$emit('page-change')"
     @row-click="(row) => $emit('detail', appLogRow(row))"
+    @select-change="$emit('select-change', $event)"
   >
     <template v-if="$slots.toolbar" #toolbar>
       <slot name="toolbar" />
+    </template>
+    <template v-if="$slots.batch" #batch>
+      <slot name="batch" />
     </template>
     <template #occurred_at="{ row }">
       <span>{{ formatCompactDateTime(appLogRow(row).occurred_at, locale) }}</span>
@@ -55,6 +59,14 @@
     <template #fields="{ row }">
       <span>{{ appLogFieldsCount(appLogRow(row)) }}</span>
     </template>
+    <template #actions="{ row }">
+      <table-action-menu
+        :actions="rowActions(appLogRow(row))"
+        :more-label="t('appLog.actions.more')"
+        :more-label-fallback="t('appLog.actions.more')"
+        @action="(action) => handleRowAction(action, appLogRow(row))"
+      />
+    </template>
   </advanced-query-paged-table>
 </template>
 <script setup lang="ts">
@@ -63,6 +75,7 @@ import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import {
+  createActionColumn,
   createCountColumn,
   createIdentifierColumn,
   createMainTextColumn,
@@ -71,10 +84,13 @@ import {
   createTimeColumn,
   formatCompactDateTime,
   resolveManagedColumns,
+  TableActionMenu,
 } from '@/shared/components/management';
 import { AdvancedQueryPagedTable } from '@/shared/components/query-list';
 import { LogIdText } from '@/shared/observability';
+import { usePermissionStore } from '@/store';
 
+import { APP_LOG_PERMISSION_CODE } from '../contract/permissions';
 import {
   appLogCorrelationText,
   appLogFieldsCount,
@@ -83,22 +99,31 @@ import {
 } from '../shared/presentation';
 import type { AppLogItem } from '../types/app-log';
 
+type AppLogRowAction = {
+  fallbackLabel: string;
+  label: string;
+  testId?: string;
+  value: 'delete' | 'detail';
+};
+
 const props = defineProps<{
-  description: string;
   emptyDescription: string;
   footerSummary: string;
   loading?: boolean;
   rows: AppLogItem[];
-  summary: string;
+  selectedRowKeys?: Array<string | number>;
   total: number;
   visibleColumnKeys?: string[];
 }>();
 
 const current = defineModel<number>('current', { required: true });
 const { t, locale } = useI18n();
+const permissionStore = usePermissionStore();
 const emit = defineEmits<{
   (e: 'page-change'): void;
   (e: 'detail', row: AppLogItem): void;
+  (e: 'delete', row: AppLogItem): void;
+  (e: 'select-change', rowKeys: Array<string | number>): void;
 }>();
 const pageSize = defineModel<number>('pageSize', { required: true });
 const cellSlotNames = [
@@ -110,6 +135,7 @@ const cellSlotNames = [
   'request_id',
   'trace_id',
   'fields',
+  'actions',
 ];
 const technicalCopyLabels = computed(() => ({
   copyable: true,
@@ -117,10 +143,22 @@ const technicalCopyLabels = computed(() => ({
   copySuccessLabel: t('appLog.actions.copySuccess'),
   copyFailLabel: t('appLog.actions.copyFail'),
 }));
+const canDelete = computed(() => permissionStore.hasPermission(APP_LOG_PERMISSION_CODE.DELETE));
 
 const columns = computed<TdBaseTableProps['columns']>(() => {
   void locale.value;
+  const selectionColumn = canDelete.value
+    ? [
+        {
+          colKey: 'row-select',
+          fixed: 'left' as const,
+          type: 'multiple',
+          width: 48,
+        },
+      ]
+    : [];
   const allColumns: TdBaseTableProps['columns'] = [
+    ...selectionColumn,
     createTimeColumn(t('appLog.columns.occurredAt'), 'occurred_at', 176),
     createStatusColumn(t('appLog.columns.severity'), 'severity', 104),
     createIdentifierColumn(t('appLog.columns.component'), 'component', 184),
@@ -130,21 +168,21 @@ const columns = computed<TdBaseTableProps['columns']>(() => {
     createTechnicalColumn(t('appLog.columns.requestId'), 'request_id', 260),
     createTechnicalColumn(t('appLog.columns.traceId'), 'trace_id', 260),
     createCountColumn(t('appLog.columns.fields'), 'fields', 92),
+    createActionColumn(t('appLog.columns.actions'), 156, 'center', 'actions'),
   ];
 
-  return resolveManagedColumns(allColumns, props.visibleColumnKeys);
+  return resolveManagedColumns(allColumns, props.visibleColumnKeys, ['row-select', 'actions']);
 });
 const pagedTableProps = computed(() => ({
   cellSlotNames,
   columns: columns.value,
-  description: props.description,
   emptyDescription: props.emptyDescription,
   emptyTitle: t('appLog.page.emptyTitle'),
   footerSummary: props.footerSummary,
   headLabel: 'app-log-table-head',
   loading: props.loading,
   rows: props.rows,
-  summary: props.summary,
+  selectedRowKeys: props.selectedRowKeys,
   total: props.total,
 }));
 
@@ -160,7 +198,39 @@ function technicalTextProps(value: string) {
   };
 }
 
+function rowActions(row: AppLogItem) {
+  const actions: AppLogRowAction[] = [
+    {
+      fallbackLabel: t('appLog.actions.detail'),
+      label: t('appLog.actions.detail'),
+      testId: `app-log-detail-${row.id}`,
+      value: 'detail',
+    },
+  ];
+
+  if (permissionStore.hasPermission(APP_LOG_PERMISSION_CODE.DELETE)) {
+    actions.push({
+      fallbackLabel: t('appLog.actions.delete'),
+      label: t('appLog.actions.delete'),
+      value: 'delete',
+    });
+  }
+
+  return actions;
+}
+
+function handleRowAction(action: string, row: AppLogItem) {
+  if (action === 'detail') {
+    emit('detail', row);
+    return;
+  }
+  if (action === 'delete') {
+    emit('delete', row);
+  }
+}
+
 void LogIdText;
+void TableActionMenu;
 void emit;
 </script>
 <style scoped lang="less">

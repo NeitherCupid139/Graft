@@ -12,19 +12,24 @@
       "retry": "Retry",
       "errorTitle": "App logs are temporarily unavailable",
       "loadFailed": "Failed to load app logs",
-      "summary": "{count} app logs on this page",
       "footerTotal": "{count} total records",
       "emptyTitle": "No app logs",
       "emptyDescription": "Adjust filters and try again.",
       "detailTitle": "App Log Detail",
       "searchPlaceholder": "Search component, event key, message, or error",
-      "tableHint": "The table is ordered by latest retained occurrence time.",
       "columnSettings": "Column Settings"
     },
     "actions": {
       "search": "Search",
       "reset": "Reset",
       "detail": "Detail",
+      "more": "More",
+      "delete": "Delete",
+      "batchDelete": "Batch Delete",
+      "deleteSuccess": "App log deleted",
+      "deleteFail": "Failed to delete app log",
+      "batchDeleteSuccess": "Selected app logs deleted",
+      "batchDeleteFail": "Failed to delete selected app logs",
       "copy": "Copy",
       "copySuccess": "Copied",
       "copyFail": "Copy failed",
@@ -33,6 +38,18 @@
       "removeSorter": "Remove Sorter",
       "moveSorterUp": "Move Up",
       "moveSorterDown": "Move Down"
+    },
+    "batch": {
+      "selected": "{count} app logs selected",
+      "cancelSelection": "Cancel Selection"
+    },
+    "deleteDialog": {
+      "title": "Delete App Log",
+      "batchTitle": "Batch Delete App Logs",
+      "description": "Delete app log #{id}? The retention cleanup policy will not change.",
+      "batchDescription": "Delete the selected {count} app logs? The retention cleanup policy will not change.",
+      "confirm": "Delete",
+      "cancel": "Cancel"
     },
     "presets": {
       "label": "Quick Filters",
@@ -106,6 +123,7 @@
       "message": "Message",
       "error": "Error",
       "fields": "Structured Fields",
+      "rawJson": "Raw JSON",
       "fullContext": "Full App Log Context",
       "expandContext": "Expand full app log JSON",
       "collapseContext": "Collapse full app log JSON",

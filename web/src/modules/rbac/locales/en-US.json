@@ -292,6 +292,10 @@
         "display": "Read App Logs",
         "description": "Allows reading logger-owned app-log explorer data."
       },
+      "appLogDelete": {
+        "display": "Delete App Logs",
+        "description": "Allows explicitly deleting retained app-log records."
+      },
       "systemConfigRead": {
         "display": "Read System Configuration",
         "description": "Allows reading registered system configuration definitions and effective values."

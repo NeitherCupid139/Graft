@@ -5,14 +5,17 @@
 
 <template>
   <management-table-card>
-    <template #head>
+    <template v-if="hasHeadContent" #head>
       <section class="advanced-query-paged-table__head" :aria-label="headLabel">
-        <p class="advanced-query-paged-table__description">{{ description }}</p>
-        <p class="advanced-query-paged-table__summary">{{ summary }}</p>
+        <p v-if="description" class="advanced-query-paged-table__description">{{ description }}</p>
+        <p v-if="summary" class="advanced-query-paged-table__summary">{{ summary }}</p>
       </section>
     </template>
     <template v-if="$slots.toolbar" #toolbar>
       <slot name="toolbar" />
+    </template>
+    <template v-if="$slots.batch" #batch>
+      <slot name="batch" />
     </template>
 
     <div ref="tableHostRef" class="advanced-query-paged-table__table-host" :data-table-mode="tableWidthPolicy.mode">
@@ -21,11 +24,13 @@
         :columns="columns"
         :data="rows"
         :loading="loading"
+        :selected-row-keys="selectedRowKeys"
         table-layout="fixed"
         :table-content-width="tableWidthPolicy.tableContentWidth"
         cell-empty-content="-"
         hover
         @row-click="emitRowClick"
+        @select-change="emitSelectChange"
       >
         <template v-for="slotName in cellSlotNames" #[slotName]="slotProps" :key="slotName">
           <slot :name="slotName" v-bind="slotProps" />
@@ -71,20 +76,22 @@ import {
 const props = defineProps<{
   cellSlotNames: string[];
   columns: TdBaseTableProps['columns'];
-  description: string;
+  description?: string;
   emptyDescription: string;
   emptyTitle: string;
   footerSummary: string;
   headLabel: string;
   loading?: boolean;
   rows: TableRowData[];
-  summary: string;
+  selectedRowKeys?: Array<string | number>;
+  summary?: string;
   total: number;
 }>();
 
 const emit = defineEmits<{
   (e: 'page-change'): void;
   (e: 'row-click', row: TableRowData): void;
+  (e: 'select-change', rowKeys: Array<string | number>): void;
 }>();
 
 const current = defineModel<number>('current', { required: true });
@@ -93,12 +100,17 @@ const pageSize = defineModel<number>('pageSize', { required: true });
 const passthroughTableSlotNames = computed(() =>
   ['toolbar'].filter((slotName) => !props.cellSlotNames.includes(slotName)),
 );
+const hasHeadContent = computed(() => Boolean(props.description || props.summary));
 const { tableHostRef, tableHostWidth } = useTableHostWidth(() => props.columns);
 
 const tableWidthPolicy = computed(() => resolveTableWidthPolicy(props.columns, tableHostWidth.value));
 
 function emitRowClick(context: { row: TableRowData }) {
   emit('row-click', context.row);
+}
+
+function emitSelectChange(rowKeys: Array<string | number>) {
+  emit('select-change', rowKeys);
 }
 </script>
 <style scoped lang="less">

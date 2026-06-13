@@ -35,16 +35,17 @@
       <app-log-table
         v-model:current="pagination.current"
         v-model:page-size="pagination.pageSize"
-        :description="t('appLog.page.tableHint')"
         :empty-description="t('appLog.page.emptyDescription')"
         :footer-summary="footerSummary"
         :loading="loading"
         :rows="rows"
-        :summary="tableSummary"
+        :selected-row-keys="selectedRowKeys"
         :total="total"
         :visible-column-keys="visibleColumnKeys"
+        @delete="confirmDeleteOne"
         @detail="openDetail"
         @page-change="fetchAppLogs"
+        @select-change="handleSelectChange"
       >
         <template #toolbar>
           <table-view-toolbar
@@ -54,6 +55,26 @@
             @column-settings="columnDrawerVisible = true"
             @refresh="fetchAppLogs"
           />
+        </template>
+        <template #batch>
+          <div v-if="selectedRowKeys.length > 0" class="app-log-batch-bar">
+            <span>{{ t('appLog.batch.selected', { count: selectedRowKeys.length }) }}</span>
+            <div class="app-log-batch-bar__actions">
+              <t-button
+                v-permission="permissionCodes.DELETE"
+                size="small"
+                theme="danger"
+                variant="outline"
+                :loading="deleting"
+                @click="confirmBatchDelete"
+              >
+                {{ t('appLog.actions.batchDelete') }}
+              </t-button>
+              <t-button size="small" theme="default" variant="text" @click="selectedRowKeys = []">
+                {{ t('appLog.batch.cancelSelection') }}
+              </t-button>
+            </div>
+          </div>
         </template>
       </app-log-table>
     </template>
@@ -68,11 +89,12 @@
         :title="t('appLog.page.columnSettings')"
         :view-presets="columnViewPresets"
       />
-      <app-log-detail-drawer v-model:visible="detailVisible" :record="detailRecord" />
+      <app-log-detail-drawer v-model:visible="detailVisible" :initial-tab="detailInitialTab" :record="detailRecord" />
     </template>
   </advanced-query-list-page>
 </template>
 <script setup lang="ts">
+import { DialogPlugin, MessagePlugin } from 'tdesign-vue-next';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
@@ -95,13 +117,15 @@ import {
   openLogDetailRow,
   restartLogListQuery,
 } from '@/shared/observability';
+import { usePermissionStore } from '@/store';
 import { createLogger as createModuleLogger } from '@/utils/logger';
 
-import { getAppLogDetail, getAppLogs } from '../../api/app-log';
+import { deleteAppLog, deleteAppLogs, getAppLogDetail, getAppLogs } from '../../api/app-log';
 import AppLogDetailDrawer from '../../components/AppLogDetailDrawer.vue';
 import AppLogFilters from '../../components/AppLogFilters.vue';
 import AppLogTable from '../../components/AppLogTable.vue';
 import { buildAppLogLocation, parseAppLogRouteQuery } from '../../contract/deep-link';
+import { APP_LOG_PERMISSION_CODE } from '../../contract/permissions';
 import type { AppLogFilterState, AppLogItem, AppLogQuery, AppLogSortBy, AppLogSortOrder } from '../../types/app-log';
 
 defineOptions({
@@ -112,6 +136,7 @@ const { t } = useI18n();
 const logger = createModuleLogger('app-log.list');
 const route = useRoute();
 const router = useRouter();
+const permissionStore = usePermissionStore();
 
 type AppLogPresetKey = 'all' | 'errors' | 'warnings' | 'lastHour';
 const DEFAULT_VISIBLE_COLUMNS = ['occurred_at', 'severity', 'component', 'operation', 'message'];
@@ -138,20 +163,24 @@ const TECHNICAL_VISIBLE_COLUMNS = [
 ];
 
 const loading = ref(false);
+const deleting = ref(false);
 const listError = ref('');
 const rows = ref<AppLogItem[]>([]);
 const total = ref(0);
 const detailVisible = ref(false);
 const detailRecord = ref<AppLogItem | null>(null);
+const detailInitialTab = ref<'fields' | 'raw'>('fields');
 const applyingRoute = ref(false);
 const activePreset = ref<AppLogPresetKey>('all');
 const columnDrawerVisible = ref(false);
 const visibleColumnKeys = ref([...DEFAULT_VISIBLE_COLUMNS]);
+const selectedRowKeys = ref<Array<string | number>>([]);
 const pagination = ref({
   current: 1,
   pageSize: 20,
 });
 const filters = ref<AppLogFilterState>(createDefaultFilters());
+const permissionCodes = APP_LOG_PERMISSION_CODE;
 
 const presetViews = computed(() => [
   { key: 'all' as const, title: t('appLog.presets.all') },
@@ -180,7 +209,6 @@ const columnViewPresets = computed(() => [
   { value: 'troubleshooting', label: t('appLog.columnViews.troubleshooting'), keys: TROUBLESHOOTING_VISIBLE_COLUMNS },
   { value: 'technical', label: t('appLog.columnViews.technical'), keys: TECHNICAL_VISIBLE_COLUMNS },
 ]);
-const tableSummary = computed(() => t('appLog.page.summary', { count: rows.value.length }));
 const footerSummary = computed(() => t('appLog.page.footerTotal', { count: total.value }));
 const reportListLoadError = createLogListErrorReporter<AppLogItem>({
   fallbackMessage: () => t('appLog.page.loadFailed'),
@@ -251,6 +279,7 @@ async function fetchAppLogs() {
 function applyListResponse(response: Awaited<ReturnType<typeof getAppLogs>>) {
   rows.value = response.items;
   total.value = response.total;
+  selectedRowKeys.value = selectedRowKeys.value.filter((key) => rows.value.some((row) => row.id === Number(key)));
 }
 
 function handleListLoadError(error: unknown) {
@@ -258,7 +287,97 @@ function handleListLoadError(error: unknown) {
 }
 
 async function openDetail(row: AppLogItem) {
+  detailInitialTab.value = 'fields';
   await openLogDetailRow(row, getAppLogDetail, detailRecord, detailVisible, reportDetailLoadError);
+}
+
+function handleSelectChange(keys: Array<string | number>) {
+  selectedRowKeys.value = keys;
+}
+
+function confirmDeleteOne(row: AppLogItem) {
+  if (!permissionStore.hasPermission(permissionCodes.DELETE)) {
+    return;
+  }
+  const dialog = DialogPlugin.confirm({
+    header: t('appLog.deleteDialog.title'),
+    body: t('appLog.deleteDialog.description', { id: row.id }),
+    theme: 'danger',
+    confirmBtn: t('appLog.deleteDialog.confirm'),
+    cancelBtn: t('appLog.deleteDialog.cancel'),
+    onConfirm: async () => {
+      dialog.setConfirmLoading(true);
+      try {
+        if (await deleteOne(row)) {
+          dialog.hide();
+        }
+      } finally {
+        dialog.setConfirmLoading(false);
+      }
+    },
+  });
+}
+
+function confirmBatchDelete() {
+  if (!permissionStore.hasPermission(permissionCodes.DELETE) || selectedRowKeys.value.length === 0) {
+    return;
+  }
+  const dialog = DialogPlugin.confirm({
+    header: t('appLog.deleteDialog.batchTitle'),
+    body: t('appLog.deleteDialog.batchDescription', { count: selectedRowKeys.value.length }),
+    theme: 'danger',
+    confirmBtn: t('appLog.deleteDialog.confirm'),
+    cancelBtn: t('appLog.deleteDialog.cancel'),
+    onConfirm: async () => {
+      dialog.setConfirmLoading(true);
+      try {
+        if (await deleteSelected()) {
+          dialog.hide();
+        }
+      } finally {
+        dialog.setConfirmLoading(false);
+      }
+    },
+  });
+}
+
+async function deleteOne(row: AppLogItem) {
+  deleting.value = true;
+  try {
+    await deleteAppLog(row.id);
+    selectedRowKeys.value = selectedRowKeys.value.filter((key) => Number(key) !== row.id);
+    MessagePlugin.success(t('appLog.actions.deleteSuccess'));
+    await fetchAppLogs();
+    return true;
+  } catch (error) {
+    logger.error('failed to delete app log', error);
+    MessagePlugin.error(resolveAppLogErrorMessage(t, error, t('appLog.actions.deleteFail')));
+    return false;
+  } finally {
+    deleting.value = false;
+  }
+}
+
+async function deleteSelected() {
+  const ids = selectedRowKeys.value.map((key) => Number(key)).filter((id) => Number.isInteger(id) && id > 0);
+  if (ids.length === 0) {
+    return false;
+  }
+
+  deleting.value = true;
+  try {
+    await deleteAppLogs({ ids });
+    selectedRowKeys.value = [];
+    MessagePlugin.success(t('appLog.actions.batchDeleteSuccess'));
+    await fetchAppLogs();
+    return true;
+  } catch (error) {
+    logger.error('failed to batch delete app logs', error);
+    MessagePlugin.error(resolveAppLogErrorMessage(t, error, t('appLog.actions.batchDeleteFail')));
+    return false;
+  } finally {
+    deleting.value = false;
+  }
 }
 
 function resetFilters() {
@@ -400,3 +519,20 @@ function normalizeSortOrder(value: string): AppLogSortOrder {
   return value === 'asc' ? 'asc' : 'desc';
 }
 </script>
+<style scoped lang="less">
+.app-log-batch-bar {
+  align-items: center;
+  display: flex;
+  gap: var(--graft-density-gap-12);
+  justify-content: space-between;
+  width: 100%;
+}
+
+.app-log-batch-bar__actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--graft-density-gap-8);
+  justify-content: flex-end;
+}
+</style>

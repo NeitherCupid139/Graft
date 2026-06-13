@@ -12,19 +12,24 @@
       "retry": "重试",
       "errorTitle": "应用日志暂时不可用",
       "loadFailed": "应用日志加载失败",
-      "summary": "当前页 {count} 条应用日志",
       "footerTotal": "共 {count} 条记录",
       "emptyTitle": "暂无应用日志",
       "emptyDescription": "调整筛选条件后重试。",
       "detailTitle": "应用日志详情",
       "searchPlaceholder": "搜索组件、事件、消息或错误",
-      "tableHint": "列表默认按当前保留范围内的最新发生时间排序。",
       "columnSettings": "列设置"
     },
     "actions": {
       "search": "查询",
       "reset": "重置",
       "detail": "详情",
+      "more": "更多",
+      "delete": "删除",
+      "batchDelete": "批量删除",
+      "deleteSuccess": "应用日志已删除",
+      "deleteFail": "应用日志删除失败",
+      "batchDeleteSuccess": "已删除选中的应用日志",
+      "batchDeleteFail": "批量删除应用日志失败",
       "copy": "复制",
       "copySuccess": "已复制",
       "copyFail": "复制失败",
@@ -33,6 +38,18 @@
       "removeSorter": "移除排序项",
       "moveSorterUp": "上移",
       "moveSorterDown": "下移"
+    },
+    "batch": {
+      "selected": "已选择 {count} 条应用日志",
+      "cancelSelection": "取消选择"
+    },
+    "deleteDialog": {
+      "title": "删除应用日志",
+      "batchTitle": "批量删除应用日志",
+      "description": "确认删除应用日志 #{id} 吗？保留期清理策略不会因此改变。",
+      "batchDescription": "确认删除选中的 {count} 条应用日志吗？保留期清理策略不会因此改变。",
+      "confirm": "删除",
+      "cancel": "取消"
     },
     "presets": {
       "label": "快捷筛选",
@@ -106,6 +123,7 @@
       "message": "消息",
       "error": "错误",
       "fields": "结构化字段",
+      "rawJson": "原始 JSON",
       "fullContext": "完整应用日志上下文",
       "expandContext": "展开完整应用日志 JSON",
       "collapseContext": "收起完整应用日志 JSON",

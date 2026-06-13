@@ -1218,6 +1218,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/app-log/batch-delete': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Delete app logs in batch
+     * @description Explicitly deletes selected retained app-log rows without changing the logger-owned retention cleanup policy.
+     */
+    post: operations['postAppLogBatchDelete'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/app-log/{id}': {
     parameters: {
       query?: never;
@@ -1229,7 +1249,11 @@ export interface paths {
     get: operations['getAppLogDetail'];
     put?: never;
     post?: never;
-    delete?: never;
+    /**
+     * Delete one app log
+     * @description Explicitly deletes one retained app-log row without changing the logger-owned retention cleanup policy.
+     */
+    delete: operations['deleteAppLog'];
     options?: never;
     head?: never;
     patch?: never;
@@ -1660,6 +1684,7 @@ export interface components {
     EnvelopedAccessLogDetailResponse: components['schemas']['enveloped-access-log-detail-response'];
     AppLogDetailResponse: components['schemas']['app-log-detail-response'];
     AppLogListResponse: components['schemas']['app-log-list-response'];
+    AppLogBatchDeleteRequest: components['schemas']['app-log-batch-delete-request'];
     EnvelopedAppLogListResponse: components['schemas']['enveloped-app-log-list-response'];
     EnvelopedAppLogDetailResponse: components['schemas']['enveloped-app-log-detail-response'];
     DashboardCurrentUserSummary: components['schemas']['dashboard-current-user-summary'];
@@ -3141,6 +3166,9 @@ export interface components {
     };
     'enveloped-app-log-list-response': components['schemas']['api-envelope'] & {
       data?: components['schemas']['app-log-list-response'];
+    };
+    'app-log-batch-delete-request': {
+      ids: number[];
     };
     'enveloped-app-log-detail-response': components['schemas']['api-envelope'] & {
       data?: components['schemas']['app-log-detail-response'];
@@ -6985,6 +7013,62 @@ export interface operations {
       500: components['responses']['internal-server-error'];
     };
   };
+  postAppLogBatchDelete: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Explicit locale override header already supported by the runtime. */
+        'X-Graft-Locale'?: components['parameters']['locale-header'];
+        /**
+         * @description Optional caller-supplied request id. If omitted, the runtime generates one and echoes it
+         *     through the response header and envelope traceId field.
+         */
+        'X-Request-Id'?: components['parameters']['request-id-header'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['app-log-batch-delete-request'];
+      };
+    };
+    responses: {
+      /** @description App logs deleted. */
+      200: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['enveloped-empty-response'];
+        };
+      };
+      /** @description Invalid app log id set. */
+      400: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['error-response'];
+        };
+      };
+      401: components['responses']['unauthorized'];
+      403: components['responses']['forbidden'];
+      /** @description One or more app logs were not found. */
+      404: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['error-response'];
+        };
+      };
+      500: components['responses']['internal-server-error'];
+    };
+  };
   getAppLogDetail: {
     parameters: {
       query?: never;
@@ -7012,6 +7096,60 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['enveloped-app-log-detail-response'];
+        };
+      };
+      /** @description Invalid app log id. */
+      400: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['error-response'];
+        };
+      };
+      401: components['responses']['unauthorized'];
+      403: components['responses']['forbidden'];
+      /** @description App log not found. */
+      404: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['error-response'];
+        };
+      };
+      500: components['responses']['internal-server-error'];
+    };
+  };
+  deleteAppLog: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Explicit locale override header already supported by the runtime. */
+        'X-Graft-Locale'?: components['parameters']['locale-header'];
+        /**
+         * @description Optional caller-supplied request id. If omitted, the runtime generates one and echoes it
+         *     through the response header and envelope traceId field.
+         */
+        'X-Request-Id'?: components['parameters']['request-id-header'];
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description App log deleted. */
+      200: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['enveloped-empty-response'];
         };
       };
       /** @description Invalid app log id. */

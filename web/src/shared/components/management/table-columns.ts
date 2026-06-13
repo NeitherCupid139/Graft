@@ -113,11 +113,11 @@ export function createTechnicalColumn(title: string, colKey: string, width = 240
   });
 }
 
-export function createActionColumn(title: string, width = 108, align: ColumnAlign = 'center') {
+export function createActionColumn(title: string, width = 108, align: ColumnAlign = 'center', colKey = 'operation') {
   return withCommonColumnOptions(
     {
       title,
-      colKey: 'operation',
+      colKey,
     },
     {
       width,

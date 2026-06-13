@@ -292,6 +292,10 @@
         "display": "读取应用日志",
         "description": "允许读取日志模块拥有的应用日志检索数据。"
       },
+      "appLogDelete": {
+        "display": "删除应用日志",
+        "description": "允许显式删除当前保留范围内的应用日志记录。"
+      },
       "systemConfigRead": {
         "display": "读取系统配置",
         "description": "允许读取已注册的系统配置定义和生效值。"
