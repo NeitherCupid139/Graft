@@ -19,6 +19,10 @@ const messageMocks = vi.hoisted(() => ({
   success: vi.fn(),
 }));
 
+const permissionMocks = vi.hoisted(() => ({
+  hasPermission: vi.fn(),
+}));
+
 const translations = vi.hoisted(
   (): Record<string, string> => ({
     'container.list.actionFailed': '容器操作失败。',
@@ -28,12 +32,18 @@ const translations = vi.hoisted(
     'container.list.actions.confirmRestart': '确认重启该容器？',
     'container.list.actions.confirmStart': '确认启动该容器？',
     'container.list.actions.confirmStop': '确认停止该容器？',
+    'container.list.actions.copyId': '复制 ID',
     'container.list.actions.detail': '详情',
     'container.list.actions.logs': '日志',
+    'container.list.actions.more': '更多',
     'container.list.actions.restart': '重启',
     'container.list.actions.start': '启动',
     'container.list.actions.stop': '停止',
     'container.list.clearFilters': '清除筛选',
+    'container.list.columnSettings': '列设置',
+    'container.list.columns.imageId': '镜像 ID',
+    'container.list.columns.labels': '标签',
+    'container.list.columns.runtimeStatus': '运行时 / 状态',
     'container.list.columns.createdAt': '创建时间',
     'container.list.columns.image': '镜像',
     'container.list.columns.name': '容器',
@@ -43,7 +53,11 @@ const translations = vi.hoisted(
     'container.list.columns.startedAt': '启动时间',
     'container.list.columns.status': '状态',
     'container.list.copyError': '日志复制失败。',
+    'container.list.copyIdError': '容器 ID 复制失败。',
+    'container.list.copyIdSuccess': '容器 ID 已复制。',
     'container.list.copySuccess': '日志已复制。',
+    'container.list.compactDensity': '紧凑密度',
+    'container.list.defaultDensity': '默认密度',
     'container.list.description': '查看容器状态。',
     'container.list.detail.command': '命令',
     'container.list.detail.entrypoint': '入口',
@@ -60,6 +74,7 @@ const translations = vi.hoisted(
     'container.list.emptyDescription': '当前容器运行时未返回容器。',
     'container.list.emptyFilteredDescription': '没有符合筛选条件的容器。',
     'container.list.emptyTitle': '暂无容器',
+    'container.list.errorCount': '异常 {count}',
     'container.list.eyebrow': '运维管理',
     'container.list.fields.apiVersion': 'API 版本',
     'container.list.fields.architecture': '架构',
@@ -81,6 +96,7 @@ const translations = vi.hoisted(
     'container.list.filters.searchPlaceholder': '搜索名称、镜像、ID 或端口',
     'container.list.filters.status': '容器状态',
     'container.list.loadFailed': '容器列表加载失败。',
+    'container.list.labelCount': '{count} 个标签',
     'container.list.logs.copy': '复制',
     'container.list.logs.empty': '暂无日志。',
     'container.list.logs.loadFailed': '容器日志加载失败。',
@@ -93,12 +109,17 @@ const translations = vi.hoisted(
     'container.list.logs.timestamps': '时间戳',
     'container.list.logs.title': '容器日志',
     'container.list.logs.truncated': '日志已按当前上限截断。',
+    'container.list.morePorts': '+{count}',
+    'container.list.pagination.empty': '暂无记录',
+    'container.list.pagination.summary': '第 {start}-{end} 条 / 共 {total} 条',
     'container.list.refresh': '刷新',
+    'container.list.resetColumns': '恢复默认列',
     'container.list.retry': '重试',
     'container.list.runtimeContainers': '{running}/{total} 运行中',
     'container.list.runtimeDisabledHint': '请在系统配置中启用容器运行时访问后重试。',
     'container.list.runtimeLabel': '运行时',
     'container.list.runtimeUnavailable': '运行时不可用',
+    'container.list.runningCount': '运行中 {count}',
     'container.list.states.created': '已创建',
     'container.list.states.dead': '异常',
     'container.list.states.exited': '已退出',
@@ -107,6 +128,7 @@ const translations = vi.hoisted(
     'container.list.states.restarting': '重启中',
     'container.list.states.running': '运行中',
     'container.list.states.unknown': '未知',
+    'container.list.stoppedCount': '已停止 {count}',
     'container.list.tableHint': '数据来自当前配置的容器运行时。',
     'container.list.tableSummary': '共 {count} 个容器',
     'container.list.title': '容器管理',
@@ -124,6 +146,10 @@ vi.mock('../../api/container', () => ({
 
 vi.mock('tdesign-vue-next', () => ({
   MessagePlugin: messageMocks,
+}));
+
+vi.mock('@/store', () => ({
+  usePermissionStore: () => permissionMocks,
 }));
 
 vi.mock('tdesign-icons-vue-next', () => ({
@@ -150,27 +176,17 @@ vi.mock('@/shared/observability', async () => {
 describe('container list page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.localStorage.clear();
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    permissionMocks.hasPermission.mockReturnValue(true);
     apiMocks.getContainers.mockResolvedValue({
-      items: [
-        {
-          id: 'container-1',
-          names: ['graft-web'],
-          image: 'graft/web:latest',
-          status: 'Up 10 minutes',
-          state: 'running',
-          runtime: 'first-adapter',
-          created_at: '2026-06-14T01:00:00Z',
-          started_at: '2026-06-14T01:05:00Z',
-          ports: [{ private_port: 80, public_port: 8080, type: 'tcp' }],
-          restart_policy: 'unless-stopped',
-        },
-      ],
+      items: createContainerRows(25),
       runtime: {
         runtime: 'first-adapter',
         status: 'enabled',
         endpoint: 'unix:///var/run/docker.sock',
         containers_running: 1,
-        containers_total: 1,
+        containers_total: 25,
       },
     });
     apiMocks.getContainer.mockResolvedValue({
@@ -203,6 +219,13 @@ describe('container list page', () => {
       timestamps: false,
       lines: ['server started'],
     });
+    apiMocks.runContainerAction.mockResolvedValue({
+      action: 'start',
+      id: 'container-2',
+      message: 'started',
+      runtime: 'first-adapter',
+      state: 'running',
+    });
   });
 
   it('loads and renders container rows with required operation buttons', async () => {
@@ -214,12 +237,15 @@ describe('container list page', () => {
     expect(wrapper.text()).toContain('graft-web');
     expect(wrapper.text()).toContain('graft/web:latest');
     expect(wrapper.text()).toContain('8080->80/tcp');
+    expect(wrapper.text()).toContain('+1');
     expect(wrapper.text()).toContain('运行中');
     expect(wrapper.text()).toContain('详情');
     expect(wrapper.text()).toContain('日志');
     expect(wrapper.text()).toContain('启动');
     expect(wrapper.text()).toContain('停止');
     expect(wrapper.text()).toContain('重启');
+    expect(wrapper.text()).toContain('第 1-20 条 / 共 25 条');
+    expect(wrapper.text()).not.toContain('graft-extra-21');
   });
 
   it('opens detail and log drawers through module API actions', async () => {
@@ -245,6 +271,65 @@ describe('container list page', () => {
       timestamps: false,
     });
     expect(wrapper.text()).toContain('server started');
+  });
+
+  it('uses optional column settings without showing started time and restart policy by default', async () => {
+    const wrapper = mountPage();
+    await flushPromises();
+
+    const table = wrapper.get('[data-testid="container-table"]');
+    const columnKeys = JSON.parse(table.attributes('data-column-keys') ?? '[]');
+
+    expect(columnKeys).toEqual(['state', 'name', 'image', 'ports', 'runtime_status', 'created_at', 'operation']);
+    expect(columnKeys).not.toContain('started_at');
+    expect(columnKeys).not.toContain('restart_policy');
+
+    const drawer = wrapper.get('[data-testid="container-column-drawer"]');
+    expect(JSON.parse(drawer.attributes('data-default-selected-keys') ?? '[]')).toEqual([
+      'state',
+      'name',
+      'image',
+      'ports',
+      'runtime_status',
+      'created_at',
+      'operation',
+    ]);
+    expect(JSON.parse(drawer.attributes('data-disabled-keys') ?? '[]')).toEqual(['state', 'name', 'operation']);
+  });
+
+  it('supports local pagination and table density controls', async () => {
+    const wrapper = mountPage();
+    await flushPromises();
+
+    expect(wrapper.findAll('[data-testid="container-table-row"]')).toHaveLength(20);
+
+    await wrapper.get('[data-testid="pagination-next"]').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('第 21-25 条 / 共 25 条');
+    expect(wrapper.findAll('[data-testid="container-table-row"]')).toHaveLength(5);
+    expect(wrapper.text()).toContain('graft-extra-21');
+
+    expect(wrapper.get('[data-testid="container-table"]').attributes('data-size')).toBe('medium');
+    await wrapper.get('[data-testid="table-density"]').trigger('click');
+    await flushPromises();
+    expect(wrapper.get('[data-testid="container-table"]').attributes('data-size')).toBe('small');
+  });
+
+  it('confirms start stop and restart from the more action menu', async () => {
+    const wrapper = mountPage();
+    await flushPromises();
+
+    const startAction = wrapper
+      .findAll('[data-testid="container-action-start"]')
+      .find((button) => button.attributes('disabled') === undefined);
+    expect(startAction).toBeTruthy();
+
+    await startAction?.trigger('click');
+    await flushPromises();
+
+    expect(window.confirm).toHaveBeenCalledWith('确认启动该容器？');
+    expect(apiMocks.runContainerAction).toHaveBeenCalledWith('start', 'container-2');
   });
 
   it('renders runtime disabled as an access configuration error with system config hint', async () => {
@@ -286,6 +371,33 @@ function apiError(messageKey: string, message: string) {
   };
 }
 
+function createContainerRows(count: number) {
+  return Array.from({ length: count }, (_, index) => {
+    const ordinal = index + 1;
+    return {
+      id: `container-${ordinal}`,
+      names: [ordinal === 1 ? 'graft-web' : `graft-extra-${ordinal}`],
+      image: ordinal === 1 ? 'graft/web:latest' : 'graft/worker:latest',
+      image_id: `sha256:${ordinal}`,
+      labels: ordinal === 1 ? { 'com.docker.compose.project': 'graft' } : {},
+      ports:
+        ordinal === 1
+          ? [
+              { private_port: 80, public_port: 8080, type: 'tcp' as const },
+              { private_port: 443, public_port: 8443, type: 'tcp' as const },
+              { private_port: 9000, type: 'tcp' as const },
+            ]
+          : [],
+      restart_policy: 'unless-stopped',
+      runtime: 'first-adapter',
+      state: ordinal === 1 ? ('running' as const) : ('exited' as const),
+      status: ordinal === 1 ? 'Up 10 minutes' : 'Exited',
+      created_at: '2026-06-14T01:00:00Z',
+      started_at: ordinal === 1 ? '2026-06-14T01:05:00Z' : undefined,
+    };
+  });
+}
+
 function mountPage() {
   return mount(ContainerListPage, {
     global: {
@@ -315,15 +427,68 @@ function mountPage() {
           setup:
             (_, { slots }) =>
             () =>
-              h('section', [slots.head?.(), slots.toolbar?.(), slots.default?.()]),
+              h('section', [slots.head?.(), slots.toolbar?.(), slots.default?.(), slots.footer?.()]),
         }),
-        'table-view-toolbar': defineComponent({
-          props: ['refreshLabel'],
-          emits: ['refresh'],
+        'advanced-query-column-drawer': defineComponent({
+          name: 'AdvancedQueryColumnDrawerStub',
+          props: ['columns', 'defaultSelectedKeys', 'disabledKeys', 'resetLabel', 'selectedKeys', 'title', 'visible'],
+          setup: (props) => () =>
+            h('aside', {
+              'data-default-selected-keys': JSON.stringify(props.defaultSelectedKeys ?? []),
+              'data-disabled-keys': JSON.stringify(props.disabledKeys ?? []),
+              'data-testid': 'container-column-drawer',
+            }),
+        }),
+        'management-table-pagination': defineComponent({
+          props: ['summary'],
+          setup:
+            (props, { slots }) =>
+            () =>
+              h('footer', [String(props.summary ?? ''), slots.default?.()]),
+        }),
+        'table-action-menu': defineComponent({
+          props: ['actions'],
+          emits: ['action'],
           setup:
             (props, { emit }) =>
             () =>
-              h('button', { onClick: () => emit('refresh') }, String(props.refreshLabel ?? '')),
+              h(
+                'div',
+                (props.actions as Array<{ disabled?: boolean; label: string; testId?: string; value: string }>).map(
+                  (action) =>
+                    h(
+                      'button',
+                      {
+                        disabled: Boolean(action.disabled),
+                        'data-testid': action.testId,
+                        onClick: () => emit('action', action.value),
+                      },
+                      translations[action.label] ?? action.label,
+                    ),
+                ),
+              ),
+        }),
+        'table-view-toolbar': defineComponent({
+          props: ['columnSettingsLabel', 'densityLabel', 'refreshLabel'],
+          emits: ['column-settings', 'density', 'refresh'],
+          setup:
+            (props, { emit }) =>
+            () =>
+              h('div', [
+                props.refreshLabel
+                  ? h('button', { 'data-testid': 'table-refresh', onClick: () => emit('refresh') }, props.refreshLabel)
+                  : null,
+                props.columnSettingsLabel
+                  ? h(
+                      'button',
+                      { 'data-testid': 'table-column-settings', onClick: () => emit('column-settings') },
+                      props.columnSettingsLabel,
+                    )
+                  : null,
+                props.densityLabel
+                  ? h('button', { 'data-testid': 'table-density', onClick: () => emit('density') }, props.densityLabel)
+                  : null,
+              ]),
         }),
         't-alert': defineComponent({
           props: ['title'],
@@ -435,6 +600,25 @@ function mountPage() {
             () =>
               h('div', slots.default?.()),
         }),
+        't-pagination': defineComponent({
+          props: ['current', 'pageSize', 'total'],
+          emits: ['change', 'update:current', 'update:pageSize'],
+          setup:
+            (props, { emit }) =>
+            () =>
+              h(
+                'button',
+                {
+                  'data-testid': 'pagination-next',
+                  onClick: () => {
+                    const current = Number(props.current ?? 1) + 1;
+                    emit('update:current', current);
+                    emit('change', { current, pageSize: Number(props.pageSize ?? 20) });
+                  },
+                },
+                `next ${String(props.total ?? 0)}`,
+              ),
+        }),
         't-option': defineComponent({
           props: ['label', 'value'],
           setup: (props) => () => h('option', { value: props.value }, String(props.label ?? '')),
@@ -468,19 +652,29 @@ function mountPage() {
               h('div', slots.default?.()),
         }),
         't-table': defineComponent({
-          props: ['data'],
+          props: ['columns', 'data', 'size'],
           setup:
             (props, { slots }) =>
             () =>
               h(
                 'div',
+                {
+                  'data-column-keys': JSON.stringify(
+                    (props.columns as Array<{ colKey: string }> | undefined)?.map((column) => column.colKey) ?? [],
+                  ),
+                  'data-size': props.size,
+                  'data-testid': 'container-table',
+                },
                 (props.data as Array<Record<string, unknown>>).length
                   ? (props.data as Array<Record<string, unknown>>).map((row) =>
-                      h('div', { key: String(row.id) }, [
+                      h('div', { 'data-testid': 'container-table-row', key: String(row.id) }, [
                         slots.state?.({ row }),
                         slots.name?.({ row }),
                         slots.image?.({ row }),
                         slots.ports?.({ row }),
+                        slots.runtime_status?.({ row }),
+                        slots.image_id?.({ row }),
+                        slots.labels?.({ row }),
                         slots.created_at?.({ row }),
                         slots.started_at?.({ row }),
                         slots.restart_policy?.({ row }),
@@ -491,6 +685,12 @@ function mountPage() {
               ),
         }),
         't-tag': defineComponent({
+          setup:
+            (_, { slots }) =>
+            () =>
+              h('span', slots.default?.()),
+        }),
+        't-tooltip': defineComponent({
           setup:
             (_, { slots }) =>
             () =>

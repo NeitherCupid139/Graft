@@ -20,13 +20,16 @@
           <t-tag theme="default" variant="light-outline">
             {{ t('container.list.runtimeContainers', runtimeCountParams) }}
           </t-tag>
+          <t-tag theme="success" variant="light-outline">
+            {{ t('container.list.runningCount', { count: runningCount }) }}
+          </t-tag>
+          <t-tag theme="warning" variant="light-outline">
+            {{ t('container.list.stoppedCount', { count: stoppedCount }) }}
+          </t-tag>
+          <t-tag theme="danger" variant="light-outline">
+            {{ t('container.list.errorCount', { count: errorCount }) }}
+          </t-tag>
         </t-space>
-      </template>
-      <template #actions>
-        <t-button theme="primary" :loading="loading" @click="refreshContainers">
-          <template #icon><refresh-icon /></template>
-          {{ t('container.list.refresh') }}
-        </t-button>
       </template>
     </management-page-header>
 
@@ -69,8 +72,12 @@
       </template>
       <template #toolbar>
         <table-view-toolbar
+          :column-settings-label="t('container.list.columnSettings')"
+          :density-label="tableDensityLabel"
           :refresh-label="t('container.list.refresh')"
           :refresh-loading="loading"
+          @column-settings="columnDrawerVisible = true"
+          @density="toggleTableDensity"
           @refresh="refreshContainers"
         />
       </template>
@@ -84,12 +91,13 @@
         </template>
       </t-alert>
 
-      <div ref="tableHostRef" class="container-table-host">
+      <div ref="tableHostRef" class="container-table-host" :data-table-mode="tableWidthPolicy.mode">
         <t-table
           row-key="id"
-          :columns="columns"
-          :data="filteredRows"
+          :columns="visibleColumns"
+          :data="paginatedRows"
           :loading="loading"
+          :size="tableDensity"
           :table-content-width="tableWidthPolicy.tableContentWidth"
           cell-empty-content="-"
           table-layout="fixed"
@@ -104,7 +112,9 @@
           <template #name="{ row }">
             <div class="container-identity">
               <span class="container-identity__name">{{ displayName(row) }}</span>
-              <span class="container-identity__id">{{ row.id }}</span>
+              <t-tooltip :content="row.id" placement="top-left">
+                <span class="container-identity__id">{{ shortContainerId(row.id) }}</span>
+              </t-tooltip>
             </div>
           </template>
 
@@ -116,12 +126,36 @@
           </template>
 
           <template #ports="{ row }">
-            <div v-if="formatPorts(row.ports).length" class="container-port-list">
-              <t-tag v-for="port in formatPorts(row.ports)" :key="port" size="small" theme="default" variant="light">
+            <div v-if="visiblePortLabels(row).length" class="container-port-list">
+              <t-tag v-for="port in visiblePortLabels(row)" :key="port" size="small" theme="default" variant="light">
                 {{ port }}
               </t-tag>
+              <t-tooltip
+                v-if="hiddenPortLabels(row).length"
+                :content="hiddenPortLabels(row).join(' / ')"
+                placement="top"
+              >
+                <t-tag size="small" theme="primary" variant="light">
+                  {{ t('container.list.morePorts', { count: hiddenPortLabels(row).length }) }}
+                </t-tag>
+              </t-tooltip>
             </div>
             <span v-else>-</span>
+          </template>
+
+          <template #runtime_status="{ row }">
+            <div class="container-runtime-status">
+              <span>{{ row.runtime || '-' }}</span>
+              <span>{{ row.status || '-' }}</span>
+            </div>
+          </template>
+
+          <template #image_id="{ row }">
+            <span>{{ row.image_id || '-' }}</span>
+          </template>
+
+          <template #labels="{ row }">
+            <span>{{ labelSummary(row) }}</span>
           </template>
 
           <template #created_at="{ row }">
@@ -148,67 +182,12 @@
               >
                 {{ t('container.list.actions.detail') }}
               </t-button>
-              <t-button
-                v-permission="permissionCodes.LOGS"
-                data-testid="container-action-logs"
-                theme="primary"
-                variant="text"
-                size="small"
-                @click="openLogs(row)"
-              >
-                {{ t('container.list.actions.logs') }}
-              </t-button>
-              <t-popconfirm
-                v-permission="permissionCodes.START"
-                :content="t('container.list.actions.confirmStart')"
-                :confirm-btn="t('container.list.actions.confirm')"
-                :cancel-btn="t('container.list.actions.cancel')"
-                theme="warning"
-                @confirm="runAction('start', row)"
-              >
-                <t-button
-                  theme="success"
-                  variant="text"
-                  size="small"
-                  :loading="actionLoadingKey === actionKey('start', row)"
-                >
-                  {{ t('container.list.actions.start') }}
-                </t-button>
-              </t-popconfirm>
-              <t-popconfirm
-                v-permission="permissionCodes.STOP"
-                :content="t('container.list.actions.confirmStop')"
-                :confirm-btn="t('container.list.actions.confirm')"
-                :cancel-btn="t('container.list.actions.cancel')"
-                theme="danger"
-                @confirm="runAction('stop', row)"
-              >
-                <t-button
-                  theme="danger"
-                  variant="text"
-                  size="small"
-                  :loading="actionLoadingKey === actionKey('stop', row)"
-                >
-                  {{ t('container.list.actions.stop') }}
-                </t-button>
-              </t-popconfirm>
-              <t-popconfirm
-                v-permission="permissionCodes.RESTART"
-                :content="t('container.list.actions.confirmRestart')"
-                :confirm-btn="t('container.list.actions.confirm')"
-                :cancel-btn="t('container.list.actions.cancel')"
-                theme="warning"
-                @confirm="runAction('restart', row)"
-              >
-                <t-button
-                  theme="warning"
-                  variant="text"
-                  size="small"
-                  :loading="actionLoadingKey === actionKey('restart', row)"
-                >
-                  {{ t('container.list.actions.restart') }}
-                </t-button>
-              </t-popconfirm>
+              <table-action-menu
+                :actions="rowActions(row)"
+                :more-label="t('container.list.actions.more')"
+                more-label-fallback="container.list.actions.more"
+                @action="(action) => handleRowAction(action, row)"
+              />
             </t-space>
           </template>
 
@@ -228,7 +207,30 @@
           </template>
         </t-table>
       </div>
+
+      <template #footer>
+        <management-table-pagination :summary="footerSummary">
+          <t-pagination
+            v-model:current="pagination.current"
+            v-model:page-size="pagination.pageSize"
+            :page-size-options="[10, 20, 50, 100]"
+            :show-page-number="true"
+            :total="filteredRows.length"
+            @change="handlePageChange"
+          />
+        </management-table-pagination>
+      </template>
     </management-table-card>
+
+    <advanced-query-column-drawer
+      v-model:visible="columnDrawerVisible"
+      v-model:selected-keys="visibleColumnKeys"
+      :columns="columnSettingOptions"
+      :default-selected-keys="DEFAULT_VISIBLE_COLUMNS"
+      :disabled-keys="ALWAYS_VISIBLE_COLUMNS"
+      :reset-label="t('container.list.resetColumns')"
+      :title="t('container.list.columnSettings')"
+    />
 
     <t-drawer
       v-model:visible="detailDrawerVisible"
@@ -381,22 +383,27 @@
   </div>
 </template>
 <script setup lang="ts">
-import { RefreshIcon, SearchIcon } from 'tdesign-icons-vue-next';
+import { SearchIcon } from 'tdesign-icons-vue-next';
 import type { TdBaseTableProps } from 'tdesign-vue-next';
 import { MessagePlugin } from 'tdesign-vue-next';
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import {
+  buildVisibleColumns,
   ManagementPageHeader,
   ManagementTableCard,
+  ManagementTablePagination,
   ManagementToolbar,
   resolveTableWidthPolicy,
+  TableActionMenu,
   TableViewToolbar,
   useTableHostWidth,
 } from '@/shared/components/management';
+import { AdvancedQueryColumnDrawer } from '@/shared/components/query-list';
 import { resolveLocalizedErrorMessage } from '@/shared/localized-api-error';
 import { formatLocaleDateTime } from '@/shared/observability';
+import { usePermissionStore } from '@/store';
 import { createLogger } from '@/utils/logger';
 
 import { getContainer, getContainerLogs, getContainers, runContainerAction } from '../../api/container';
@@ -418,6 +425,7 @@ defineOptions({
 });
 
 const { locale, t } = useI18n();
+const permissionStore = usePermissionStore();
 const logger = createLogger('container.list');
 const permissionCodes = CONTAINER_PERMISSION_CODE;
 
@@ -439,11 +447,30 @@ const DEFAULT_LOG_QUERY: Required<ContainerLogQuery> = {
   stderr: true,
 };
 const CONTAINER_RUNTIME_DISABLED_MESSAGE_KEY = 'ops.container.error.runtimeDisabled';
+const CONTAINER_COLUMN_STORAGE_KEY = 'graft.container.list.visibleColumns';
+const DEFAULT_VISIBLE_COLUMNS = ['state', 'name', 'image', 'ports', 'runtime_status', 'created_at', 'operation'];
+const ALWAYS_VISIBLE_COLUMNS = ['state', 'name', 'operation'];
+const ALL_COLUMN_KEYS = [
+  'state',
+  'name',
+  'image',
+  'ports',
+  'runtime_status',
+  'created_at',
+  'started_at',
+  'restart_policy',
+  'image_id',
+  'labels',
+  'operation',
+];
+const CONTAINER_PORT_VISIBLE_LIMIT = 2;
+const CONTAINER_DEFAULT_PAGE_SIZE = 20;
 
 type ListErrorState = {
   title: string;
   hint: string;
 };
+type RowAction = 'copy-id' | 'logs' | ContainerAction;
 
 const loading = ref(false);
 const listError = ref<ListErrorState>({ title: '', hint: '' });
@@ -459,14 +486,21 @@ const logsLoading = ref(false);
 const logsError = ref('');
 const activeLogs = ref<ContainerLogResponse | null>(null);
 const actionLoadingKey = ref('');
+const columnDrawerVisible = ref(false);
+const visibleColumnKeys = ref<string[]>(loadVisibleColumnKeys());
+const tableDensity = ref<'medium' | 'small'>('medium');
 const filters = reactive<ContainerFilters>({
   keyword: '',
   status: 'all',
 });
 const logQuery = reactive<Required<ContainerLogQuery>>({ ...DEFAULT_LOG_QUERY });
+const pagination = reactive({
+  current: 1,
+  pageSize: CONTAINER_DEFAULT_PAGE_SIZE,
+});
 
-const columns = computed<TdBaseTableProps['columns']>(() => [
-  { title: t('container.list.columns.status'), colKey: 'state', width: 108, align: 'center', ellipsis: false },
+const allColumns = computed<TdBaseTableProps['columns']>(() => [
+  { title: t('container.list.columns.status'), colKey: 'state', width: 104, align: 'center', ellipsis: false },
   {
     title: t('container.list.columns.name'),
     colKey: 'name',
@@ -476,36 +510,73 @@ const columns = computed<TdBaseTableProps['columns']>(() => [
   {
     title: t('container.list.columns.image'),
     colKey: 'image',
-    minWidth: 240,
+    minWidth: 280,
     ellipsis: { theme: 'default', placement: 'top-left' },
   },
   { title: t('container.list.columns.ports'), colKey: 'ports', width: 220, ellipsis: false },
+  {
+    title: t('container.list.columns.runtimeStatus'),
+    colKey: 'runtime_status',
+    minWidth: 220,
+    ellipsis: { theme: 'default', placement: 'top-left' },
+  },
   { title: t('container.list.columns.createdAt'), colKey: 'created_at', width: 168, align: 'center' },
   { title: t('container.list.columns.startedAt'), colKey: 'started_at', width: 168, align: 'center' },
   { title: t('container.list.columns.restartPolicy'), colKey: 'restart_policy', width: 140, align: 'center' },
   {
+    title: t('container.list.columns.imageId'),
+    colKey: 'image_id',
+    width: 220,
+    ellipsis: { theme: 'default', placement: 'top-left' },
+  },
+  {
+    title: t('container.list.columns.labels'),
+    colKey: 'labels',
+    width: 180,
+    ellipsis: { theme: 'default', placement: 'top-left' },
+  },
+  {
     title: t('container.list.columns.operation'),
     colKey: 'operation',
-    width: 360,
+    width: 176,
     fixed: 'right',
     align: 'center',
     ellipsis: false,
   },
 ]);
-const { tableHostRef, tableHostWidth } = useTableHostWidth(() => columns.value);
-const tableWidthPolicy = computed(() => resolveTableWidthPolicy(columns.value, tableHostWidth.value));
+const visibleColumns = computed<TdBaseTableProps['columns']>(() =>
+  buildVisibleColumns(allColumns.value, visibleColumnKeys.value, ALWAYS_VISIBLE_COLUMNS),
+);
+const { tableHostRef, tableHostWidth } = useTableHostWidth(() => visibleColumns.value);
+const tableWidthPolicy = computed(() => resolveTableWidthPolicy(visibleColumns.value, tableHostWidth.value));
 const filteredRows = computed(() => {
   const keyword = filters.keyword.trim().toLowerCase();
   return rows.value.filter((row) => {
     const matchesStatus = filters.status === 'all' || row.state === filters.status;
     if (!matchesStatus) return false;
     if (!keyword) return true;
-    return [row.id, row.image, row.status, row.restart_policy, ...row.names, ...formatPorts(row.ports)].some(
-      (value) => value?.toLowerCase().includes(keyword) ?? false,
-    );
+    return [
+      row.id,
+      shortContainerId(row.id),
+      row.image,
+      row.status,
+      row.runtime,
+      row.restart_policy,
+      ...row.names,
+      ...formatPorts(row.ports),
+    ].some((value) => value?.toLowerCase().includes(keyword) ?? false);
   });
 });
+const paginatedRows = computed(() => {
+  const start = (pagination.current - 1) * pagination.pageSize;
+  return filteredRows.value.slice(start, start + pagination.pageSize);
+});
 const hasActiveFilters = computed(() => Boolean(filters.keyword.trim()) || filters.status !== 'all');
+const runningCount = computed(() => rows.value.filter((row) => row.state === 'running').length);
+const stoppedCount = computed(
+  () => rows.value.filter((row) => row.state === 'exited' || row.state === 'created').length,
+);
+const errorCount = computed(() => rows.value.filter((row) => row.state === 'dead' || row.state === 'unknown').length);
 const runtimeStatusTheme = computed(() => {
   if (runtime.value?.status === 'enabled') return 'success';
   if (runtime.value?.status === 'disabled') return 'warning';
@@ -520,6 +591,35 @@ const runtimeCountParams = computed(() => ({
   running: runtime.value?.containers_running ?? 0,
   total: runtime.value?.containers_total ?? rows.value.length,
 }));
+const tableDensityLabel = computed(() =>
+  tableDensity.value === 'medium' ? t('container.list.compactDensity') : t('container.list.defaultDensity'),
+);
+const columnSettingOptions = computed(() => [
+  { label: t('container.list.columns.status'), value: 'state' },
+  { label: t('container.list.columns.name'), value: 'name' },
+  { label: t('container.list.columns.image'), value: 'image' },
+  { label: t('container.list.columns.ports'), value: 'ports' },
+  { label: t('container.list.columns.runtimeStatus'), value: 'runtime_status' },
+  { label: t('container.list.columns.createdAt'), value: 'created_at' },
+  { label: t('container.list.columns.startedAt'), value: 'started_at' },
+  { label: t('container.list.columns.restartPolicy'), value: 'restart_policy' },
+  { label: t('container.list.columns.imageId'), value: 'image_id' },
+  { label: t('container.list.columns.labels'), value: 'labels' },
+  { label: t('container.list.columns.operation'), value: 'operation' },
+]);
+const footerSummary = computed(() => {
+  if (!filteredRows.value.length) {
+    return t('container.list.pagination.empty');
+  }
+
+  const start = (pagination.current - 1) * pagination.pageSize + 1;
+  const end = Math.min(pagination.current * pagination.pageSize, filteredRows.value.length);
+  return t('container.list.pagination.summary', {
+    end,
+    start,
+    total: filteredRows.value.length,
+  });
+});
 const logsDrawerTitle = computed(() => {
   const containerName = selectedContainer.value ? displayName(selectedContainer.value) : '';
   return containerName ? `${t('container.list.logs.title')} - ${containerName}` : t('container.list.logs.title');
@@ -528,6 +628,29 @@ const logsDrawerTitle = computed(() => {
 onMounted(() => {
   void refreshContainers();
 });
+
+watch(
+  visibleColumnKeys,
+  (keys) => {
+    const normalizedKeys = normalizeVisibleColumnKeys(keys);
+    if (normalizedKeys.join('|') !== keys.join('|')) {
+      visibleColumnKeys.value = normalizedKeys;
+      return;
+    }
+    persistVisibleColumnKeys(normalizedKeys);
+  },
+  { deep: true },
+);
+
+watch(
+  () => [filters.status, filteredRows.value.length, pagination.pageSize],
+  () => {
+    const lastPage = Math.max(1, Math.ceil(filteredRows.value.length / pagination.pageSize));
+    if (pagination.current > lastPage) {
+      pagination.current = lastPage;
+    }
+  },
+);
 
 async function refreshContainers() {
   loading.value = true;
@@ -566,11 +689,13 @@ function isApiRequestErrorShape(error: unknown): error is { isApiRequestError: t
 
 function applyFilters() {
   filters.keyword = filters.keyword.trim();
+  pagination.current = 1;
 }
 
 function resetFilters() {
   filters.keyword = '';
   filters.status = 'all';
+  pagination.current = 1;
 }
 
 async function openDetail(row: ContainerSummary) {
@@ -638,6 +763,16 @@ async function copyLogs() {
   }
 }
 
+async function copyContainerId(row: ContainerSummary) {
+  try {
+    await navigator.clipboard.writeText(row.id);
+    MessagePlugin.success(t('container.list.copyIdSuccess'));
+  } catch (error) {
+    logger.warn('failed to copy container id', error);
+    MessagePlugin.error(t('container.list.copyIdError'));
+  }
+}
+
 async function runAction(action: ContainerAction, row: ContainerSummary) {
   const key = actionKey(action, row);
   actionLoadingKey.value = key;
@@ -669,8 +804,106 @@ function actionKey(action: ContainerAction, row: ContainerSummary) {
   return `${action}:${row.id}`;
 }
 
+function rowActions(row: ContainerSummary) {
+  const actions: Array<{
+    disabled?: boolean;
+    fallbackLabel: string;
+    label: string;
+    testId: string;
+    value: RowAction;
+  }> = [];
+
+  if (permissionStore.hasPermission(permissionCodes.LOGS)) {
+    actions.push({
+      fallbackLabel: t('container.list.actions.logs'),
+      label: 'container.list.actions.logs',
+      testId: 'container-action-logs',
+      value: 'logs',
+    });
+  }
+
+  if (permissionStore.hasPermission(permissionCodes.START)) {
+    actions.push({
+      disabled: rowActionDisabled('start', row),
+      fallbackLabel: t('container.list.actions.start'),
+      label: 'container.list.actions.start',
+      testId: 'container-action-start',
+      value: 'start',
+    });
+  }
+
+  if (permissionStore.hasPermission(permissionCodes.STOP)) {
+    actions.push({
+      disabled: rowActionDisabled('stop', row),
+      fallbackLabel: t('container.list.actions.stop'),
+      label: 'container.list.actions.stop',
+      testId: 'container-action-stop',
+      value: 'stop',
+    });
+  }
+
+  if (permissionStore.hasPermission(permissionCodes.RESTART)) {
+    actions.push({
+      disabled: rowActionDisabled('restart', row),
+      fallbackLabel: t('container.list.actions.restart'),
+      label: 'container.list.actions.restart',
+      testId: 'container-action-restart',
+      value: 'restart',
+    });
+  }
+
+  actions.push({
+    fallbackLabel: t('container.list.actions.copyId'),
+    label: 'container.list.actions.copyId',
+    testId: 'container-action-copy-id',
+    value: 'copy-id',
+  });
+
+  return actions;
+}
+
+function handleRowAction(action: string, row: ContainerSummary) {
+  if (action === 'logs') {
+    void openLogs(row);
+    return;
+  }
+
+  if (action === 'copy-id') {
+    void copyContainerId(row);
+    return;
+  }
+
+  if (action === 'start' || action === 'stop' || action === 'restart') {
+    const messageKey = `container.list.actions.confirm${action[0].toUpperCase()}${action.slice(1)}`;
+    const confirmed = window.confirm(t(messageKey));
+    if (confirmed) {
+      void runAction(action as ContainerAction, row);
+    }
+  }
+}
+
+function rowActionDisabled(action: ContainerAction, row?: ContainerSummary) {
+  if (!row) return false;
+  if (action === 'start') return row.state === 'running' || row.state === 'removing';
+  if (action === 'stop') return row.state !== 'running';
+  return row.state === 'removing' || row.state === 'dead';
+}
+
+function handlePageChange(pageInfo: { current?: number; pageSize?: number }) {
+  if (pageInfo.current) {
+    pagination.current = pageInfo.current;
+  }
+  if (pageInfo.pageSize) {
+    pagination.pageSize = pageInfo.pageSize;
+  }
+}
+
 function displayName(row: ContainerSummary | ContainerDetail) {
   return row.names[0] || row.id;
+}
+
+function shortContainerId(id: string) {
+  return id.length > 12 ? id.slice(0, 12) : id;
 }
 
 function formatPorts(ports: ContainerPort[]) {
@@ -681,6 +914,19 @@ function formatPorts(ports: ContainerPort[]) {
     }
     return `${port.ip ? `${port.ip}:` : ''}${port.public_port}->${target}`;
   });
+}
+
+function visiblePortLabels(row: ContainerSummary) {
+  return formatPorts(row.ports).slice(0, CONTAINER_PORT_VISIBLE_LIMIT);
+}
+
+function hiddenPortLabels(row: ContainerSummary) {
+  return formatPorts(row.ports).slice(CONTAINER_PORT_VISIBLE_LIMIT);
+}
+
+function labelSummary(row: ContainerSummary) {
+  const count = Object.keys(row.labels ?? {}).length;
+  return count ? t('container.list.labelCount', { count }) : '-';
 }
 
 function formatTime(value?: string | null) {
@@ -700,6 +946,62 @@ function stateTheme(state: ContainerState) {
   if (state === 'created' || state === 'paused' || state === 'restarting') return 'warning';
   if (state === 'dead') return 'danger';
   return 'default';
+}
+
+function toggleTableDensity() {
+  tableDensity.value = tableDensity.value === 'medium' ? 'small' : 'medium';
+}
+
+function loadVisibleColumnKeys() {
+  if (typeof window === 'undefined') {
+    return [...DEFAULT_VISIBLE_COLUMNS];
+  }
+
+  try {
+    const stored = window.localStorage.getItem(CONTAINER_COLUMN_STORAGE_KEY);
+    if (!stored) {
+      return [...DEFAULT_VISIBLE_COLUMNS];
+    }
+    const parsed = JSON.parse(stored);
+    if (!Array.isArray(parsed)) {
+      return [...DEFAULT_VISIBLE_COLUMNS];
+    }
+
+    const normalizedKeys = normalizeVisibleColumnKeys(parsed);
+    persistVisibleColumnKeys(normalizedKeys);
+    return normalizedKeys;
+  } catch {
+    return [...DEFAULT_VISIBLE_COLUMNS];
+  }
+}
+
+function persistVisibleColumnKeys(keys: string[]) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(CONTAINER_COLUMN_STORAGE_KEY, JSON.stringify(keys));
+  } catch {
+    // Column settings are a convenience preference; list rendering must not depend on storage availability.
+  }
+}
+
+function normalizeVisibleColumnKeys(keys: unknown[]) {
+  const availableKeySet = new Set(ALL_COLUMN_KEYS);
+  const nextKeys = new Set<string>();
+
+  for (const key of keys) {
+    if (typeof key === 'string' && availableKeySet.has(key)) {
+      nextKeys.add(key);
+    }
+  }
+
+  for (const key of ALWAYS_VISIBLE_COLUMNS) {
+    nextKeys.add(key);
+  }
+
+  return ALL_COLUMN_KEYS.filter((key) => nextKeys.has(key));
 }
 </script>
 <style scoped lang="less">
@@ -753,6 +1055,26 @@ function stateTheme(state: ContainerState) {
   gap: var(--graft-density-gap-6);
 }
 
+.container-runtime-status {
+  display: flex;
+  flex-direction: column;
+  gap: var(--graft-density-gap-4);
+  min-width: 0;
+}
+
+.container-runtime-status span:first-child {
+  color: var(--td-text-color-primary);
+  font: var(--td-font-body-medium);
+}
+
+.container-runtime-status span:last-child {
+  color: var(--td-text-color-secondary);
+  font: var(--td-font-body-small);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .container-alert {
   margin-bottom: var(--graft-density-gap-12);
 }
@@ -762,6 +1084,18 @@ function stateTheme(state: ContainerState) {
   min-width: 0;
   overflow-x: hidden;
   width: 100%;
+}
+
+.container-table-host[data-table-mode='scroll'] {
+  overflow-x: auto;
+}
+
+.container-table-host :deep(.t-table__content) {
+  min-width: 0;
+}
+
+.container-table-host :deep(.t-table__content table) {
+  min-width: 100%;
 }
 
 .container-alert__hint {

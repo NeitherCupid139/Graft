@@ -24,25 +24,28 @@ experience, then close backend/OpenAPI fields, controlled operations, validation
 
 ## Current Recovery Point
 
-- The planning and topic persistence slice has been created.
-- Temporary checklist exists at `ai-plan/dolist/container-management-console-redesign-plan.md`.
-- Public recovery topic exists at `ai-plan/public/container-management-console-redesign/`.
-- Next batch: `phase-1-wide-screen-list-convergence`.
+- Phase 1 wide-screen list convergence is implemented and validated on the frontend.
+- Container list now keeps refresh in the TableCard toolbar, uses local pagination, column settings, density toggle, and
+  a stable detail/logs/more action pattern.
+- Default visible columns are status, container, image, ports, runtime/status, created time, and operation; `started_at`
+  and `restart_policy` are optional column settings.
+- Backend/OpenAPI field and server-pagination authority remains intentionally deferred to Phase 3.
+- Next batch: `phase-2-detail-logs-drawers`.
 
 ## Task Checklist
 
 - [x] Phase 0: planning and topic persistence.
-- [ ] Phase 1: wide-screen list convergence.
-  - [ ] PageHeader overview chips.
-  - [ ] Move refresh exclusively to TableCard toolbar.
-  - [ ] Tight FilterBar query layout.
-  - [ ] Default column redesign.
-  - [ ] Move `started_at` and `restart_policy` to optional columns.
-  - [ ] Add column settings.
-  - [ ] Add density toggle.
-  - [ ] Add `ManagementTablePagination`.
-  - [ ] Convert row actions to detail/logs/more.
-  - [ ] Preserve fill/internal-scroll policy and prevent page-level horizontal scroll.
+- [x] Phase 1: wide-screen list convergence.
+  - [x] PageHeader overview chips.
+  - [x] Move refresh exclusively to TableCard toolbar.
+  - [x] Tight FilterBar query layout.
+  - [x] Default column redesign.
+  - [x] Move `started_at` and `restart_policy` to optional columns.
+  - [x] Add column settings.
+  - [x] Add density toggle.
+  - [x] Add `ManagementTablePagination`.
+  - [x] Convert row actions to detail/logs/more.
+  - [x] Preserve fill/internal-scroll policy and prevent page-level horizontal scroll.
 - [ ] Phase 2: detail and logs Drawer improvements.
   - [ ] Detail Drawer width and sections.
   - [ ] Raw JSON collapsed area.
@@ -79,17 +82,17 @@ experience, then close backend/OpenAPI fields, controlled operations, validation
 {
   "loop_mode": "topic-completion-loop",
   "completed_batches": [
-    "phase-0-planning-topic-persistence"
+    "phase-0-planning-topic-persistence",
+    "phase-1-wide-screen-list-convergence"
   ],
   "pending_batches": [
-    "phase-1-wide-screen-list-convergence",
     "phase-2-detail-logs-drawers",
     "phase-3-backend-openapi-fields-pagination",
     "phase-4-controlled-operations-closure",
     "phase-5-polish-validation-governance-closeout"
   ],
   "current_batch": null,
-  "next_batch": "phase-1-wide-screen-list-convergence",
+  "next_batch": "phase-2-detail-logs-drawers",
   "closeout_status": "active"
 }
 ```
