@@ -84,148 +84,150 @@
         </template>
       </t-alert>
 
-      <t-table
-        row-key="id"
-        :columns="columns"
-        :data="filteredRows"
-        :loading="loading"
-        :table-content-width="tableContentWidth"
-        cell-empty-content="-"
-        table-layout="fixed"
-        hover
-      >
-        <template #state="{ row }">
-          <t-tag :theme="stateTheme(row.state)" variant="light-outline">
-            {{ stateLabel(row.state) }}
-          </t-tag>
-        </template>
-
-        <template #name="{ row }">
-          <div class="container-identity">
-            <span class="container-identity__name">{{ displayName(row) }}</span>
-            <span class="container-identity__id">{{ row.id }}</span>
-          </div>
-        </template>
-
-        <template #image="{ row }">
-          <div class="container-image">
-            <span>{{ row.image }}</span>
-            <span v-if="row.runtime" class="container-muted">{{ row.runtime }}</span>
-          </div>
-        </template>
-
-        <template #ports="{ row }">
-          <div v-if="formatPorts(row.ports).length" class="container-port-list">
-            <t-tag v-for="port in formatPorts(row.ports)" :key="port" size="small" theme="default" variant="light">
-              {{ port }}
+      <div ref="tableHostRef" class="container-table-host">
+        <t-table
+          row-key="id"
+          :columns="columns"
+          :data="filteredRows"
+          :loading="loading"
+          :table-content-width="tableWidthPolicy.tableContentWidth"
+          cell-empty-content="-"
+          table-layout="fixed"
+          hover
+        >
+          <template #state="{ row }">
+            <t-tag :theme="stateTheme(row.state)" variant="light-outline">
+              {{ stateLabel(row.state) }}
             </t-tag>
-          </div>
-          <span v-else>-</span>
-        </template>
+          </template>
 
-        <template #created_at="{ row }">
-          {{ formatTime(row.created_at) }}
-        </template>
+          <template #name="{ row }">
+            <div class="container-identity">
+              <span class="container-identity__name">{{ displayName(row) }}</span>
+              <span class="container-identity__id">{{ row.id }}</span>
+            </div>
+          </template>
 
-        <template #started_at="{ row }">
-          {{ formatTime(row.started_at) }}
-        </template>
+          <template #image="{ row }">
+            <div class="container-image">
+              <span>{{ row.image }}</span>
+              <span v-if="row.runtime" class="container-muted">{{ row.runtime }}</span>
+            </div>
+          </template>
 
-        <template #restart_policy="{ row }">
-          {{ row.restart_policy || '-' }}
-        </template>
+          <template #ports="{ row }">
+            <div v-if="formatPorts(row.ports).length" class="container-port-list">
+              <t-tag v-for="port in formatPorts(row.ports)" :key="port" size="small" theme="default" variant="light">
+                {{ port }}
+              </t-tag>
+            </div>
+            <span v-else>-</span>
+          </template>
 
-        <template #operation="{ row }">
-          <t-space class="container-actions" size="small" align="center">
-            <t-button
-              v-permission="permissionCodes.DETAIL"
-              data-testid="container-action-detail"
-              theme="primary"
-              variant="text"
-              size="small"
-              @click="openDetail(row)"
-            >
-              {{ t('container.list.actions.detail') }}
-            </t-button>
-            <t-button
-              v-permission="permissionCodes.LOGS"
-              data-testid="container-action-logs"
-              theme="primary"
-              variant="text"
-              size="small"
-              @click="openLogs(row)"
-            >
-              {{ t('container.list.actions.logs') }}
-            </t-button>
-            <t-popconfirm
-              v-permission="permissionCodes.START"
-              :content="t('container.list.actions.confirmStart')"
-              :confirm-btn="t('container.list.actions.confirm')"
-              :cancel-btn="t('container.list.actions.cancel')"
-              theme="warning"
-              @confirm="runAction('start', row)"
-            >
+          <template #created_at="{ row }">
+            {{ formatTime(row.created_at) }}
+          </template>
+
+          <template #started_at="{ row }">
+            {{ formatTime(row.started_at) }}
+          </template>
+
+          <template #restart_policy="{ row }">
+            {{ row.restart_policy || '-' }}
+          </template>
+
+          <template #operation="{ row }">
+            <t-space class="container-actions" size="small" align="center">
               <t-button
-                theme="success"
+                v-permission="permissionCodes.DETAIL"
+                data-testid="container-action-detail"
+                theme="primary"
                 variant="text"
                 size="small"
-                :loading="actionLoadingKey === actionKey('start', row)"
+                @click="openDetail(row)"
               >
-                {{ t('container.list.actions.start') }}
+                {{ t('container.list.actions.detail') }}
               </t-button>
-            </t-popconfirm>
-            <t-popconfirm
-              v-permission="permissionCodes.STOP"
-              :content="t('container.list.actions.confirmStop')"
-              :confirm-btn="t('container.list.actions.confirm')"
-              :cancel-btn="t('container.list.actions.cancel')"
-              theme="danger"
-              @confirm="runAction('stop', row)"
-            >
               <t-button
-                theme="danger"
+                v-permission="permissionCodes.LOGS"
+                data-testid="container-action-logs"
+                theme="primary"
                 variant="text"
                 size="small"
-                :loading="actionLoadingKey === actionKey('stop', row)"
+                @click="openLogs(row)"
               >
-                {{ t('container.list.actions.stop') }}
+                {{ t('container.list.actions.logs') }}
               </t-button>
-            </t-popconfirm>
-            <t-popconfirm
-              v-permission="permissionCodes.RESTART"
-              :content="t('container.list.actions.confirmRestart')"
-              :confirm-btn="t('container.list.actions.confirm')"
-              :cancel-btn="t('container.list.actions.cancel')"
-              theme="warning"
-              @confirm="runAction('restart', row)"
-            >
-              <t-button
+              <t-popconfirm
+                v-permission="permissionCodes.START"
+                :content="t('container.list.actions.confirmStart')"
+                :confirm-btn="t('container.list.actions.confirm')"
+                :cancel-btn="t('container.list.actions.cancel')"
                 theme="warning"
-                variant="text"
-                size="small"
-                :loading="actionLoadingKey === actionKey('restart', row)"
+                @confirm="runAction('start', row)"
               >
-                {{ t('container.list.actions.restart') }}
-              </t-button>
-            </t-popconfirm>
-          </t-space>
-        </template>
+                <t-button
+                  theme="success"
+                  variant="text"
+                  size="small"
+                  :loading="actionLoadingKey === actionKey('start', row)"
+                >
+                  {{ t('container.list.actions.start') }}
+                </t-button>
+              </t-popconfirm>
+              <t-popconfirm
+                v-permission="permissionCodes.STOP"
+                :content="t('container.list.actions.confirmStop')"
+                :confirm-btn="t('container.list.actions.confirm')"
+                :cancel-btn="t('container.list.actions.cancel')"
+                theme="danger"
+                @confirm="runAction('stop', row)"
+              >
+                <t-button
+                  theme="danger"
+                  variant="text"
+                  size="small"
+                  :loading="actionLoadingKey === actionKey('stop', row)"
+                >
+                  {{ t('container.list.actions.stop') }}
+                </t-button>
+              </t-popconfirm>
+              <t-popconfirm
+                v-permission="permissionCodes.RESTART"
+                :content="t('container.list.actions.confirmRestart')"
+                :confirm-btn="t('container.list.actions.confirm')"
+                :cancel-btn="t('container.list.actions.cancel')"
+                theme="warning"
+                @confirm="runAction('restart', row)"
+              >
+                <t-button
+                  theme="warning"
+                  variant="text"
+                  size="small"
+                  :loading="actionLoadingKey === actionKey('restart', row)"
+                >
+                  {{ t('container.list.actions.restart') }}
+                </t-button>
+              </t-popconfirm>
+            </t-space>
+          </template>
 
-        <template #empty>
-          <t-empty
-            :title="t('container.list.emptyTitle')"
-            :description="
-              hasActiveFilters ? t('container.list.emptyFilteredDescription') : t('container.list.emptyDescription')
-            "
-          >
-            <template v-if="hasActiveFilters" #action>
-              <t-button theme="primary" variant="outline" @click="resetFilters">
-                {{ t('container.list.clearFilters') }}
-              </t-button>
-            </template>
-          </t-empty>
-        </template>
-      </t-table>
+          <template #empty>
+            <t-empty
+              :title="t('container.list.emptyTitle')"
+              :description="
+                hasActiveFilters ? t('container.list.emptyFilteredDescription') : t('container.list.emptyDescription')
+              "
+            >
+              <template v-if="hasActiveFilters" #action>
+                <t-button theme="primary" variant="outline" @click="resetFilters">
+                  {{ t('container.list.clearFilters') }}
+                </t-button>
+              </template>
+            </t-empty>
+          </template>
+        </t-table>
+      </div>
     </management-table-card>
 
     <t-drawer
@@ -389,7 +391,9 @@ import {
   ManagementPageHeader,
   ManagementTableCard,
   ManagementToolbar,
+  resolveTableWidthPolicy,
   TableViewToolbar,
+  useTableHostWidth,
 } from '@/shared/components/management';
 import { resolveLocalizedErrorMessage } from '@/shared/localized-api-error';
 import { formatLocaleDateTime } from '@/shared/observability';
@@ -488,14 +492,8 @@ const columns = computed<TdBaseTableProps['columns']>(() => [
     ellipsis: false,
   },
 ]);
-const tableContentWidth = computed(() => {
-  const totalWidth = (columns.value ?? []).reduce((sum, column) => {
-    if (typeof column?.width === 'number') return sum + column.width;
-    if (typeof column?.minWidth === 'number') return sum + column.minWidth;
-    return sum + 160;
-  }, 0);
-  return `max(100%, ${totalWidth}px)`;
-});
+const { tableHostRef, tableHostWidth } = useTableHostWidth(() => columns.value);
+const tableWidthPolicy = computed(() => resolveTableWidthPolicy(columns.value, tableHostWidth.value));
 const filteredRows = computed(() => {
   const keyword = filters.keyword.trim().toLowerCase();
   return rows.value.filter((row) => {
@@ -757,6 +755,13 @@ function stateTheme(state: ContainerState) {
 
 .container-alert {
   margin-bottom: var(--graft-density-gap-12);
+}
+
+.container-table-host {
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+  width: 100%;
 }
 
 .container-alert__hint {

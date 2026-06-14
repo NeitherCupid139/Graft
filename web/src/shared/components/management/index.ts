@@ -9,7 +9,6 @@ export { default as ManagementTablePagination } from './ManagementTablePaginatio
 export { default as ManagementToolbar } from './ManagementToolbar.vue';
 export {
   buildVisibleColumns,
-  calculateTableContentWidth,
   createActionColumn,
   createConfiguredColumns,
   createCountColumn,

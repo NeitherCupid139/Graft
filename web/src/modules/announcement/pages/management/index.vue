@@ -110,124 +110,125 @@
           </template>
         </management-empty-state>
 
-        <t-table
-          v-else
-          row-key="id"
-          :data="presentedRows"
-          :columns="columns"
-          :loading="loading"
-          table-layout="fixed"
-          :table-content-width="tableContentWidth"
-          cell-empty-content="-"
-          @sort-change="handleSortChange"
-        >
-          <template #title="{ row }">
-            <div class="announcement-title-cell">
-              <strong>{{ row.title }}</strong>
-              <t-tooltip placement="top-left" :content="row.summary">
-                <span>{{ row.summary }}</span>
-              </t-tooltip>
-            </div>
-          </template>
+        <div v-else ref="tableHostRef" class="announcement-management-page__table-host">
+          <t-table
+            row-key="id"
+            :data="presentedRows"
+            :columns="columns"
+            :loading="loading"
+            table-layout="fixed"
+            :table-content-width="tableWidthPolicy.tableContentWidth"
+            cell-empty-content="-"
+            @sort-change="handleSortChange"
+          >
+            <template #title="{ row }">
+              <div class="announcement-title-cell">
+                <strong>{{ row.title }}</strong>
+                <t-tooltip placement="top-left" :content="row.summary">
+                  <span>{{ row.summary }}</span>
+                </t-tooltip>
+              </div>
+            </template>
 
-          <template #status="{ row }">
-            <t-tag :theme="row.statusTheme" variant="light">
-              {{ row.statusLabel }}
-            </t-tag>
-          </template>
+            <template #status="{ row }">
+              <t-tag :theme="row.statusTheme" variant="light">
+                {{ row.statusLabel }}
+              </t-tag>
+            </template>
 
-          <template #visibility="{ row }">
-            <t-tag :theme="row.visibilityTheme" variant="light">
-              {{ row.visibilityLabel }}
-            </t-tag>
-          </template>
+            <template #visibility="{ row }">
+              <t-tag :theme="row.visibilityTheme" variant="light">
+                {{ row.visibilityLabel }}
+              </t-tag>
+            </template>
 
-          <template #level="{ row }">
-            <t-tag :theme="row.levelTheme" variant="light">
-              {{ row.levelLabel }}
-            </t-tag>
-          </template>
+            <template #level="{ row }">
+              <t-tag :theme="row.levelTheme" variant="light">
+                {{ row.levelLabel }}
+              </t-tag>
+            </template>
 
-          <template #delivery_mode="{ row }">
-            <t-tag :theme="row.deliveryMode === 'popup' ? 'primary' : 'default'" variant="light">
-              {{ row.deliveryModeLabel }}
-            </t-tag>
-          </template>
+            <template #delivery_mode="{ row }">
+              <t-tag :theme="row.deliveryMode === 'popup' ? 'primary' : 'default'" variant="light">
+                {{ row.deliveryModeLabel }}
+              </t-tag>
+            </template>
 
-          <template #pinned="{ row }">
-            <t-tag :theme="row.pinned ? 'primary' : 'default'" variant="light">
-              {{ row.pinnedLabel }}
-            </t-tag>
-          </template>
+            <template #pinned="{ row }">
+              <t-tag :theme="row.pinned ? 'primary' : 'default'" variant="light">
+                {{ row.pinnedLabel }}
+              </t-tag>
+            </template>
 
-          <template #published_at="{ row }">
-            <span class="table-muted">{{ row.publishedAtLabel }}</span>
-          </template>
+            <template #published_at="{ row }">
+              <span class="table-muted">{{ row.publishedAtLabel }}</span>
+            </template>
 
-          <template #publish_at="{ row }">
-            <span class="table-muted">{{ row.publishAtLabel }}</span>
-          </template>
+            <template #publish_at="{ row }">
+              <span class="table-muted">{{ row.publishAtLabel }}</span>
+            </template>
 
-          <template #expire_at="{ row }">
-            <span class="table-muted">{{ row.expireAtLabel }}</span>
-          </template>
+            <template #expire_at="{ row }">
+              <span class="table-muted">{{ row.expireAtLabel }}</span>
+            </template>
 
-          <template #published_by="{ row }">
-            <span class="table-muted">{{ row.publishedByLabel }}</span>
-          </template>
+            <template #published_by="{ row }">
+              <span class="table-muted">{{ row.publishedByLabel }}</span>
+            </template>
 
-          <template #created_at="{ row }">
-            <span class="table-muted">{{ row.createdAtLabel }}</span>
-          </template>
+            <template #created_at="{ row }">
+              <span class="table-muted">{{ row.createdAtLabel }}</span>
+            </template>
 
-          <template #updated_at="{ row }">
-            <span class="table-muted">{{ row.updatedAtLabel }}</span>
-          </template>
+            <template #updated_at="{ row }">
+              <span class="table-muted">{{ row.updatedAtLabel }}</span>
+            </template>
 
-          <template #archived_at="{ row }">
-            <span class="table-muted">{{ row.archivedAtLabel }}</span>
-          </template>
+            <template #archived_at="{ row }">
+              <span class="table-muted">{{ row.archivedAtLabel }}</span>
+            </template>
 
-          <template #operation="{ row }">
-            <table-action-menu
-              :actions="rowActions(row)"
-              :more-label="t('announcement.management.more')"
-              :more-label-fallback="t('announcement.management.more')"
-              @action="(action) => handleRowAction(action, row)"
-            />
-          </template>
+            <template #operation="{ row }">
+              <table-action-menu
+                :actions="rowActions(row)"
+                :more-label="t('announcement.management.more')"
+                :more-label-fallback="t('announcement.management.more')"
+                @action="(action) => handleRowAction(action, row)"
+              />
+            </template>
 
-          <template #empty>
-            <div class="table-empty-state">
-              <t-empty
-                :title="t('announcement.management.emptyTitle')"
-                :description="t('announcement.management.emptyDescription')"
-              >
-                <template #action>
-                  <div class="table-empty-state__actions">
-                    <t-button
-                      v-if="hasActiveFilters"
-                      theme="default"
-                      variant="outline"
-                      data-testid="announcement-empty-clear-filters"
-                      @click="resetFilters"
-                    >
-                      {{ t('announcement.management.reset') }}
-                    </t-button>
-                    <t-button
-                      v-permission="permissionCodes.CREATE"
-                      theme="primary"
-                      data-testid="announcement-empty-create"
-                      @click="openCreateDrawer"
-                    >
-                      {{ t('announcement.management.emptyCreate') }}
-                    </t-button>
-                  </div>
-                </template>
-              </t-empty>
-            </div>
-          </template>
-        </t-table>
+            <template #empty>
+              <div class="table-empty-state">
+                <t-empty
+                  :title="t('announcement.management.emptyTitle')"
+                  :description="t('announcement.management.emptyDescription')"
+                >
+                  <template #action>
+                    <div class="table-empty-state__actions">
+                      <t-button
+                        v-if="hasActiveFilters"
+                        theme="default"
+                        variant="outline"
+                        data-testid="announcement-empty-clear-filters"
+                        @click="resetFilters"
+                      >
+                        {{ t('announcement.management.reset') }}
+                      </t-button>
+                      <t-button
+                        v-permission="permissionCodes.CREATE"
+                        theme="primary"
+                        data-testid="announcement-empty-create"
+                        @click="openCreateDrawer"
+                      >
+                        {{ t('announcement.management.emptyCreate') }}
+                      </t-button>
+                    </div>
+                  </template>
+                </t-empty>
+              </div>
+            </template>
+          </t-table>
+        </div>
 
         <template #footer>
           <management-table-pagination :summary="t('announcement.management.footerTotal', { count: total })">
@@ -511,7 +512,6 @@ import { useI18n } from 'vue-i18n';
 
 import {
   buildVisibleColumns,
-  calculateTableContentWidth,
   createActionColumn,
   createStatusColumn,
   createTextColumn,
@@ -522,8 +522,10 @@ import {
   ManagementTableCard,
   ManagementTablePagination,
   ManagementToolbar,
+  resolveTableWidthPolicy,
   TableActionMenu,
   TableViewToolbar,
+  useTableHostWidth,
 } from '@/shared/components/management';
 import { MarkdownViewer } from '@/shared/components/markdown';
 import { AdvancedQueryColumnDrawer } from '@/shared/components/query-list';
@@ -719,7 +721,8 @@ const allColumns = computed<TdBaseTableProps['columns']>(() => [
 const columns = computed<TdBaseTableProps['columns']>(() =>
   buildVisibleColumns(allColumns.value, visibleColumnKeys.value, ALWAYS_VISIBLE_COLUMNS),
 );
-const tableContentWidth = computed(() => calculateTableContentWidth(columns.value));
+const { tableHostRef, tableHostWidth } = useTableHostWidth(() => columns.value);
+const tableWidthPolicy = computed(() => resolveTableWidthPolicy(columns.value, tableHostWidth.value));
 const deleteDialogConfirmBtn = computed<ButtonProps>(() => ({
   content: t('announcement.management.deleteDialog.confirm'),
   disabled: deleting.value,
@@ -1271,6 +1274,13 @@ function normalizeVisibleColumnKeys(keys: unknown[]) {
   flex-wrap: wrap;
   gap: var(--graft-density-gap-12);
   justify-content: flex-end;
+}
+
+.announcement-management-page__table-host {
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+  width: 100%;
 }
 
 .toolbar__select {

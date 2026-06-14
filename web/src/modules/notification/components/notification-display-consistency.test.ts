@@ -3,18 +3,29 @@
 
 import { mount } from '@vue/test-utils';
 import { describe, expect, it, vi } from 'vitest';
-import { defineComponent, h } from 'vue';
+import { defineComponent, h, ref } from 'vue';
 
 import type { NotificationItem } from '../types/notification';
 import NotificationDetailDrawer from './NotificationDetailDrawer.vue';
 import NotificationTable from './NotificationTable.vue';
 
 vi.mock('@/shared/components/management', () => ({
-  calculateTableContentWidth: () => 1000,
   createActionColumn: (title: string, width: number) => ({ colKey: 'operation', title, width }),
   createConfiguredColumns: (columns: Array<{ key: string; title: string; config?: Record<string, unknown> }>) =>
     columns.map((column) => ({ colKey: column.key, title: column.title, ...(column.config ?? {}) })),
   formatCompactDateTime: () => '2026/06/11 10:47:21',
+  ManagementTableCard: defineComponent({
+    setup(_, { slots }) {
+      return () => h('section', [slots.default?.(), slots.footer?.()]);
+    },
+  }),
+  ManagementTablePagination: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default?.());
+    },
+  }),
+  resolveTableWidthPolicy: () => ({ contentWidth: 1000, mode: 'fill', tableContentWidth: undefined }),
+  useTableHostWidth: () => ({ tableHostRef: ref(null), tableHostWidth: ref(1000) }),
 }));
 
 vi.mock('../contract/navigation', () => ({
@@ -134,6 +145,7 @@ const stubs = {
   't-card': passthroughStub,
   't-drawer': drawerStub,
   't-empty': passthroughStub,
+  't-pagination': passthroughStub,
   't-space': passthroughStub,
   't-table': tableStub,
   't-tag': passthroughStub,

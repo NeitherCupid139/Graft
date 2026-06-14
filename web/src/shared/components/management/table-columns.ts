@@ -152,12 +152,6 @@ export function resolveManagedColumns(
   return buildVisibleColumns(columns, visibleKeys, alwaysVisibleKeys);
 }
 
-export function calculateTableContentWidth(columns: TdBaseTableProps['columns']) {
-  const totalWidth = calculateVisibleColumnWidth(columns);
-
-  return `max(100%, ${totalWidth}px)`;
-}
-
 function calculateVisibleColumnWidth(columns: TdBaseTableProps['columns']) {
   return (columns ?? []).reduce((sum, column) => {
     if (typeof column?.width === 'number') {
