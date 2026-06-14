@@ -96,6 +96,7 @@ const translations = vi.hoisted(
     'container.list.refresh': '刷新',
     'container.list.retry': '重试',
     'container.list.runtimeContainers': '{running}/{total} 运行中',
+    'container.list.runtimeDisabledHint': '请在系统配置中启用容器运行时访问后重试。',
     'container.list.runtimeLabel': '运行时',
     'container.list.runtimeUnavailable': '运行时不可用',
     'container.list.states.created': '已创建',
@@ -109,6 +110,8 @@ const translations = vi.hoisted(
     'container.list.tableHint': '数据来自当前配置的容器运行时。',
     'container.list.tableSummary': '共 {count} 个容器',
     'container.list.title': '容器管理',
+    'ops.container.error.runtimeDisabled': '容器运行时访问未启用',
+    'ops.container.error.runtimeUnavailable': '容器运行时连接不可用',
   }),
 );
 
@@ -239,7 +242,45 @@ describe('container list page', () => {
     });
     expect(wrapper.text()).toContain('server started');
   });
+
+  it('renders runtime disabled as an access configuration error with system config hint', async () => {
+    apiMocks.getContainers.mockRejectedValue(
+      apiError('ops.container.error.runtimeDisabled', 'Container runtime is disabled'),
+    );
+
+    const wrapper = mountPage();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('容器运行时访问未启用');
+    expect(wrapper.text()).toContain('请在系统配置中启用容器运行时访问后重试。');
+    expect(wrapper.text()).not.toContain('容器模块');
+    expect(wrapper.text()).not.toContain('module is disabled');
+  });
+
+  it('renders runtime connection failures without implying the module is disabled', async () => {
+    apiMocks.getContainers.mockRejectedValue(
+      apiError('ops.container.error.runtimeUnavailable', 'Container runtime is unavailable'),
+    );
+
+    const wrapper = mountPage();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('容器运行时连接不可用');
+    expect(wrapper.text()).not.toContain('请在系统配置中启用容器运行时访问后重试。');
+    expect(wrapper.text()).not.toContain('容器模块');
+    expect(wrapper.text()).not.toContain('module is disabled');
+  });
 });
+
+function apiError(messageKey: string, message: string) {
+  return {
+    code: 'COMMON_INTERNAL_ERROR',
+    isApiRequestError: true,
+    message,
+    messageKey,
+    status: 500,
+  };
+}
 
 function mountPage() {
   return mount(ContainerListPage, {
@@ -285,7 +326,7 @@ function mountPage() {
           setup:
             (props, { slots }) =>
             () =>
-              h('div', [String(props.title ?? ''), slots.operation?.()]),
+              h('div', [String(props.title ?? ''), slots.default?.(), slots.operation?.()]),
         }),
         't-button': defineComponent({
           props: ['loading', 'disabled'],

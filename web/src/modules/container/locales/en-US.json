@@ -25,6 +25,7 @@
       "runtimeStatus": "Status",
       "runtimeEndpoint": "Endpoint",
       "runtimeUnavailable": "Runtime Unavailable",
+      "runtimeDisabledHint": "Enable container runtime access in System Config, then retry.",
       "runtimeVersion": "Version",
       "runtimeContainers": "{running}/{total} Running",
       "tableSummary": "{count} Containers",
@@ -121,6 +122,16 @@
         "serverVersion": "Server Version",
         "operatingSystem": "Operating System",
         "architecture": "Architecture"
+      }
+    }
+  },
+  "ops": {
+    "container": {
+      "error": {
+        "runtimeDisabled": "Container runtime access is not enabled",
+        "runtimeUnavailable": "Container runtime connection is unavailable",
+        "runtimeSocketMissing": "Container runtime socket is missing",
+        "runtimePermissionDenied": "Permission denied for container runtime access"
       }
     }
   }

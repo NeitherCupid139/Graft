@@ -4,9 +4,11 @@
 package user
 
 import (
+	"context"
 	"testing"
 
 	"graft/server/internal/menu"
+	"graft/server/internal/moduleapi"
 	usercontract "graft/server/modules/user/contract"
 )
 
@@ -29,9 +31,9 @@ func TestRegisterUserMenuIncludesTitleKey(t *testing.T) {
 }
 
 func TestFilterBootstrapMenusIncludesTitleKeyAndFallback(t *testing.T) {
-	menus := filterBootstrapMenus(testMenuRegistry(), map[string]struct{}{
+	menus := filterBootstrapMenus(context.Background(), testMenuRegistry(), map[string]struct{}{
 		usercontract.UserReadPermission.String(): {},
-	})
+	}, nil)
 
 	if len(menus) != 2 {
 		t.Fatalf("expected filtered menus to keep user and public entries, got %#v", menus)
@@ -84,10 +86,10 @@ func TestFilterBootstrapMenusDeduplicatesSharedRootMenu(t *testing.T) {
 		Permission: "app_log.read",
 	})
 
-	menus := filterBootstrapMenus(registry, map[string]struct{}{
+	menus := filterBootstrapMenus(context.Background(), registry, map[string]struct{}{
 		"access_log.read": {},
 		"app_log.read":    {},
-	})
+	}, nil)
 
 	if len(menus) != 3 {
 		t.Fatalf("expected one root and two leaf log menus, got %#v", menus)
@@ -98,6 +100,77 @@ func TestFilterBootstrapMenusDeduplicatesSharedRootMenu(t *testing.T) {
 	if menus[1].Code != "access-log.list" || menus[2].Code != "app-log.list" {
 		t.Fatalf("expected access-log then app-log leaves, got %#v", menus)
 	}
+}
+
+func TestFilterBootstrapMenusAppliesFeatureGateAfterPermission(t *testing.T) {
+	registry := menu.NewRegistry()
+	registry.Register(menu.Item{
+		Code:  "ops.root",
+		Title: "运维管理",
+		Path:  "/ops",
+	})
+	registry.Register(menu.Item{
+		Code:                     "container.list",
+		Title:                    "容器管理",
+		Path:                     "/ops/containers",
+		Permission:               "ops.container.view",
+		VisibleWhenConfigEnabled: "ops.container.runtime.enabled",
+	})
+	registry.Register(menu.Item{
+		Code:  "profile.self",
+		Title: "个人中心",
+		Path:  "/profile",
+	})
+
+	menus := filterBootstrapMenus(context.Background(), registry, map[string]struct{}{
+		"ops.container.view": {},
+	}, bootstrapMenuTestSystemConfig{values: map[string]bool{
+		"ops.container.runtime.enabled": false,
+	}})
+	if len(menus) != 1 || menus[0].Code != "profile.self" {
+		t.Fatalf("expected disabled feature gate to hide container menu and empty parent, got %#v", menus)
+	}
+
+	menus = filterBootstrapMenus(context.Background(), registry, map[string]struct{}{
+		"ops.container.view": {},
+	}, bootstrapMenuTestSystemConfig{values: map[string]bool{
+		"ops.container.runtime.enabled": true,
+	}})
+	if len(menus) != 3 ||
+		!bootstrapMenuTestContainsCode(menus, "ops.root") ||
+		!bootstrapMenuTestContainsCode(menus, "container.list") {
+		t.Fatalf("expected enabled feature gate to keep container parent and leaf menu, got %#v", menus)
+	}
+
+	menus = filterBootstrapMenus(context.Background(), registry, map[string]struct{}{}, bootstrapMenuTestSystemConfig{values: map[string]bool{
+		"ops.container.runtime.enabled": true,
+	}})
+	if len(menus) != 1 || menus[0].Code != "profile.self" {
+		t.Fatalf("expected permission filter to still hide container menu and empty parent, got %#v", menus)
+	}
+}
+
+type bootstrapMenuTestSystemConfig struct {
+	values map[string]bool
+}
+
+func (r bootstrapMenuTestSystemConfig) IsBooleanConfigEnabled(_ context.Context, key string, fallback bool) bool {
+	value, ok := r.values[key]
+	if !ok {
+		return fallback
+	}
+	return value
+}
+
+var _ moduleapi.SystemConfigResolver = bootstrapMenuTestSystemConfig{}
+
+func bootstrapMenuTestContainsCode(menus []bootstrapMenuResponse, code string) bool {
+	for _, item := range menus {
+		if item.Code == code {
+			return true
+		}
+	}
+	return false
 }
 
 func testMenuRegistry() *menu.Registry {

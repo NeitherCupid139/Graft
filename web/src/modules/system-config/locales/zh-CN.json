@@ -225,6 +225,42 @@
         }
       }
     },
+    "container": {
+      "ops": {
+        "container": {
+          "runtime": {
+            "title": "容器运行时",
+            "description": "容器管理使用的运行时适配器。",
+            "enabled": {
+              "title": "启用容器运行时访问",
+              "description": "是否允许容器管理访问已配置的容器运行时。"
+            }
+          },
+          "docker": {
+            "endpoint": {
+              "title": "容器运行时 endpoint",
+              "description": "首个本地容器运行时适配器使用的 endpoint。"
+            }
+          },
+          "logs": {
+            "default_tail": {
+              "title": "默认日志行数",
+              "description": "容器日志读取的默认返回行数。"
+            },
+            "max_tail": {
+              "title": "最大日志行数",
+              "description": "容器日志读取允许的最大返回行数。"
+            }
+          },
+          "actions": {
+            "dangerous_enabled": {
+              "title": "启用容器高危操作",
+              "description": "是否允许容器启动、停止和重启等高危操作。"
+            }
+          }
+        }
+      }
+    },
     "fields": {
       "retentionDays": {
         "title": "日志保留时间",

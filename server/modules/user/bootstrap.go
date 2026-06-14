@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"graft/server/internal/config"
+	servicecontainer "graft/server/internal/container"
 	"graft/server/internal/i18n"
 	"graft/server/internal/menu"
 	"graft/server/internal/moduleapi"
@@ -25,6 +26,7 @@ type bootstrapReader struct {
 	auth         userstore.AuthRepository
 	rbac         moduleapi.RBACAccessService
 	menuRegistry *menu.Registry
+	services     servicecontainer.Resolver
 	localizer    *i18n.Service
 	localeConfig config.I18nConfig
 }
@@ -61,6 +63,7 @@ func newBootstrapReader(
 	localeConfig config.I18nConfig,
 	localizer *i18n.Service,
 	menuRegistry *menu.Registry,
+	services servicecontainer.Resolver,
 	auth userstore.AuthRepository,
 	rbac moduleapi.RBACAccessService,
 ) bootstrapReader {
@@ -68,6 +71,7 @@ func newBootstrapReader(
 		auth:         auth,
 		rbac:         rbac,
 		menuRegistry: menuRegistry,
+		services:     services,
 		localizer:    localizer,
 		localeConfig: localeConfig,
 	}
@@ -109,7 +113,7 @@ func (r bootstrapReader) Read(ctx context.Context, request *http.Request) (boots
 		MustChangePassword: credential.MustChangePassword,
 		Roles:              roleNames,
 		Permissions:        permissionCodes,
-		Menus:              filterBootstrapMenus(r.menuRegistry, permissionSet),
+		Menus:              r.filterBootstrapMenus(ctx, permissionSet),
 		Locale:             r.localeSnapshot(request),
 	}, nil
 }
@@ -150,12 +154,22 @@ func (r bootstrapReader) listRoleNames(ctx context.Context, userID uint64) ([]st
 	return r.rbac.ListRoleNamesByUserID(ctx, userID)
 }
 
-func filterBootstrapMenus(registry *menu.Registry, granted map[string]struct{}) []bootstrapMenuResponse {
+func (r bootstrapReader) filterBootstrapMenus(ctx context.Context, granted map[string]struct{}) []bootstrapMenuResponse {
+	return filterBootstrapMenus(ctx, r.menuRegistry, granted, resolveBootstrapSystemConfig(r.services))
+}
+
+func filterBootstrapMenus(
+	ctx context.Context,
+	registry *menu.Registry,
+	granted map[string]struct{},
+	systemConfig moduleapi.SystemConfigResolver,
+) []bootstrapMenuResponse {
 	if registry == nil {
 		return []bootstrapMenuResponse{}
 	}
 
 	items := registry.Items()
+	originalParentPaths := bootstrapOriginalParentPaths(items)
 	menusByKey := make(map[string]bootstrapMenuResponse, len(items))
 	menuKeys := make([]string, 0, len(items))
 	for _, item := range items {
@@ -164,6 +178,9 @@ func filterBootstrapMenus(registry *menu.Registry, granted map[string]struct{}) 
 			if _, ok := granted[required]; !ok {
 				continue
 			}
+		}
+		if !bootstrapMenuFeatureGateVisible(ctx, item, systemConfig) {
+			continue
 		}
 
 		response := bootstrapMenuResponse{
@@ -189,10 +206,92 @@ func filterBootstrapMenus(registry *menu.Registry, granted map[string]struct{}) 
 	for _, key := range menuKeys {
 		menus = append(menus, menusByKey[key])
 	}
+	menus = pruneEmptyBootstrapParentMenus(menus, originalParentPaths)
 
 	slices.SortStableFunc(menus, compareBootstrapMenus)
 
 	return menus
+}
+
+func bootstrapOriginalParentPaths(items []menu.Item) map[string]struct{} {
+	parentPaths := make(map[string]struct{}, len(items))
+	for _, item := range items {
+		path := strings.TrimSpace(item.Path)
+		for parent := parentMenuPath(path); parent != ""; parent = parentMenuPath(parent) {
+			parentPaths[parent] = struct{}{}
+		}
+	}
+	return parentPaths
+}
+
+func pruneEmptyBootstrapParentMenus(
+	menus []bootstrapMenuResponse,
+	originalParentPaths map[string]struct{},
+) []bootstrapMenuResponse {
+	if len(menus) == 0 || len(originalParentPaths) == 0 {
+		return menus
+	}
+	includedChildParents := make(map[string]struct{}, len(menus))
+	for _, item := range menus {
+		path := strings.TrimSpace(item.Path)
+		for parent := parentMenuPath(path); parent != ""; parent = parentMenuPath(parent) {
+			includedChildParents[parent] = struct{}{}
+		}
+	}
+
+	pruned := menus[:0]
+	for _, item := range menus {
+		path := strings.TrimSpace(item.Path)
+		if _, isDeclaredParent := originalParentPaths[path]; isDeclaredParent {
+			if _, hasVisibleChild := includedChildParents[path]; !hasVisibleChild {
+				continue
+			}
+		}
+		pruned = append(pruned, item)
+	}
+	return pruned
+}
+
+func parentMenuPath(path string) string {
+	path = strings.TrimRight(strings.TrimSpace(path), "/")
+	if path == "" || path == "/" {
+		return ""
+	}
+	index := strings.LastIndex(path, "/")
+	if index <= 0 {
+		return ""
+	}
+	return path[:index]
+}
+
+func resolveBootstrapSystemConfig(resolver servicecontainer.Resolver) moduleapi.SystemConfigResolver {
+	if resolver == nil {
+		return nil
+	}
+	resolved, err := resolver.Resolve((*moduleapi.SystemConfigResolver)(nil))
+	if err != nil {
+		return nil
+	}
+	systemConfig, ok := resolved.(moduleapi.SystemConfigResolver)
+	if !ok {
+		return nil
+	}
+	return systemConfig
+}
+
+func bootstrapMenuFeatureGateVisible(
+	ctx context.Context,
+	item menu.Item,
+	systemConfig moduleapi.SystemConfigResolver,
+) bool {
+	key := strings.TrimSpace(item.VisibleWhenConfigEnabled)
+	if key == "" {
+		return true
+	}
+	if systemConfig == nil {
+		return true
+	}
+	return systemConfig.IsBooleanConfigEnabled(ctx, key, true)
 }
 
 func bootstrapMenuIdentity(item bootstrapMenuResponse) string {

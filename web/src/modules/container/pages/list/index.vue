@@ -75,7 +75,8 @@
         />
       </template>
 
-      <t-alert v-if="listError" class="container-alert" theme="error" :title="listError">
+      <t-alert v-if="listError.title" class="container-alert" theme="error" :title="listError.title">
+        <p v-if="listError.hint" class="container-alert__hint">{{ listError.hint }}</p>
         <template #operation>
           <t-button theme="danger" variant="text" @click="refreshContainers">
             {{ t('container.list.retry') }}
@@ -433,9 +434,15 @@ const DEFAULT_LOG_QUERY: Required<ContainerLogQuery> = {
   stdout: true,
   stderr: true,
 };
+const CONTAINER_RUNTIME_DISABLED_MESSAGE_KEY = 'ops.container.error.runtimeDisabled';
+
+type ListErrorState = {
+  title: string;
+  hint: string;
+};
 
 const loading = ref(false);
-const listError = ref('');
+const listError = ref<ListErrorState>({ title: '', hint: '' });
 const rows = ref<ContainerSummary[]>([]);
 const runtime = ref<ContainerRuntimeInfo | null>(null);
 const detailDrawerVisible = ref(false);
@@ -526,7 +533,7 @@ onMounted(() => {
 
 async function refreshContainers() {
   loading.value = true;
-  listError.value = '';
+  listError.value = { title: '', hint: '' };
   try {
     const payload = await getContainers();
     rows.value = payload.items;
@@ -534,11 +541,29 @@ async function refreshContainers() {
   } catch (error) {
     rows.value = [];
     runtime.value = null;
-    listError.value = resolveLocalizedErrorMessage(t, error, t('container.list.loadFailed'));
+    listError.value = resolveListError(error);
     logger.error('failed to fetch containers', error);
   } finally {
     loading.value = false;
   }
+}
+
+function resolveListError(error: unknown): ListErrorState {
+  if (isApiRequestErrorShape(error) && error.messageKey === CONTAINER_RUNTIME_DISABLED_MESSAGE_KEY) {
+    return {
+      title: t(CONTAINER_RUNTIME_DISABLED_MESSAGE_KEY),
+      hint: t('container.list.runtimeDisabledHint'),
+    };
+  }
+
+  return {
+    title: resolveLocalizedErrorMessage(t, error, t('container.list.loadFailed')),
+    hint: '',
+  };
+}
+
+function isApiRequestErrorShape(error: unknown): error is { isApiRequestError: true; messageKey?: string } {
+  return Boolean(error && typeof error === 'object' && (error as { isApiRequestError?: unknown }).isApiRequestError);
 }
 
 function applyFilters() {
@@ -732,6 +757,12 @@ function stateTheme(state: ContainerState) {
 
 .container-alert {
   margin-bottom: var(--graft-density-gap-12);
+}
+
+.container-alert__hint {
+  color: var(--td-text-color-secondary);
+  font: var(--td-font-body-small);
+  margin: var(--graft-density-gap-4) 0 0;
 }
 
 .container-drawer-panel,

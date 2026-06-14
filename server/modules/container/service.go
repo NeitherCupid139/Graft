@@ -17,6 +17,7 @@ import (
 	"graft/server/internal/httpx"
 	"graft/server/internal/module"
 	"graft/server/internal/moduleapi"
+	containercontract "graft/server/modules/container/contract"
 )
 
 const (
@@ -26,6 +27,7 @@ const (
 
 type service struct {
 	runtime                 Runtime
+	systemConfig            moduleapi.SystemConfigResolver
 	auditBus                eventbus.Bus
 	logger                  *zap.Logger
 	moduleName              string
@@ -37,6 +39,7 @@ type service struct {
 
 type containerServiceOptions struct {
 	runtime                 Runtime
+	systemConfig            moduleapi.SystemConfigResolver
 	auditBus                eventbus.Bus
 	logger                  *zap.Logger
 	moduleName              string
@@ -48,12 +51,10 @@ type containerServiceOptions struct {
 
 func newContainerService(ctx *module.Context, moduleName string) (*service, error) {
 	options := containerOptionsFromConfig(ctx)
-	runtime, err := newContainerRuntime(options)
-	if err != nil {
-		return nil, err
-	}
+	runtime := Runtime(disabledRuntime{})
 	return newService(containerServiceOptions{
 		runtime:                 runtime,
+		systemConfig:            resolveSystemConfigResolver(ctx),
 		auditBus:                ctx.EventBus,
 		logger:                  ctx.Logger,
 		moduleName:              moduleName,
@@ -80,6 +81,7 @@ func newService(options containerServiceOptions) (*service, error) {
 		logger:                  options.logger,
 		moduleName:              firstNonEmpty(options.moduleName, moduleID),
 		enabled:                 options.enabled,
+		systemConfig:            options.systemConfig,
 		dangerousActionsEnabled: options.dangerousActionsEnabled,
 		defaultTail:             options.defaultTail,
 		maxTail:                 options.maxTail,
@@ -94,14 +96,18 @@ func (s *service) Close() error {
 }
 
 func (s *service) List(ctx context.Context) (RuntimeInfo, []Summary, error) {
-	if err := s.requireEnabled(); err != nil {
+	if err := s.requireRuntimeAccess(ctx); err != nil {
 		return RuntimeInfo{}, nil, err
 	}
-	info, err := s.runtime.Info(ctx)
+	runtime, err := s.runtimeForRequest()
 	if err != nil {
 		return RuntimeInfo{}, nil, err
 	}
-	items, err := s.runtime.List(ctx, ListQuery{})
+	info, err := runtime.Info(ctx)
+	if err != nil {
+		return RuntimeInfo{}, nil, err
+	}
+	items, err := runtime.List(ctx, ListQuery{})
 	if err != nil {
 		return RuntimeInfo{}, nil, err
 	}
@@ -109,52 +115,63 @@ func (s *service) List(ctx context.Context) (RuntimeInfo, []Summary, error) {
 }
 
 func (s *service) Detail(ctx context.Context, ref Ref) (Detail, error) {
-	if err := s.requireEnabled(); err != nil {
+	if err := s.requireRuntimeAccess(ctx); err != nil {
 		return Detail{}, err
 	}
-	return s.runtime.Detail(ctx, ref)
+	runtime, err := s.runtimeForRequest()
+	if err != nil {
+		return Detail{}, err
+	}
+	return runtime.Detail(ctx, ref)
 }
 
 func (s *service) Logs(ctx context.Context, ref Ref, query LogQuery) (Logs, error) {
-	if err := s.requireEnabled(); err != nil {
+	if err := s.requireRuntimeAccess(ctx); err != nil {
 		return Logs{}, err
 	}
 	normalized, err := s.normalizeLogQuery(query)
 	if err != nil {
 		return Logs{}, err
 	}
-	return s.runtime.Logs(ctx, ref, normalized)
+	runtime, err := s.runtimeForRequest()
+	if err != nil {
+		return Logs{}, err
+	}
+	return runtime.Logs(ctx, ref, normalized)
 }
 
 func (s *service) Start(ctx context.Context, ref Ref) (ActionResult, error) {
-	return s.runAction(ctx, ref, containerActionStart, s.runtime.Start)
+	return s.runAction(ctx, ref, containerActionStart)
 }
 
 func (s *service) Stop(ctx context.Context, ref Ref) (ActionResult, error) {
-	return s.runAction(ctx, ref, containerActionStop, s.runtime.Stop)
+	return s.runAction(ctx, ref, containerActionStop)
 }
 
 func (s *service) Restart(ctx context.Context, ref Ref) (ActionResult, error) {
-	return s.runAction(ctx, ref, containerActionRestart, s.runtime.Restart)
+	return s.runAction(ctx, ref, containerActionRestart)
 }
 
 func (s *service) runAction(
 	ctx context.Context,
 	ref Ref,
 	action string,
-	run func(context.Context, Ref) (ActionResult, error),
 ) (ActionResult, error) {
-	if err := s.requireEnabled(); err != nil {
+	if err := s.requireRuntimeAccess(ctx); err != nil {
 		return ActionResult{}, err
 	}
-	if !s.dangerousActionsEnabled {
+	if !s.dangerousActionsAllowed(ctx) {
 		result := ActionResult{ID: ref.Value, Action: action, Runtime: runtimeNameDocker}
 		s.publishActionAudit(ctx, result, errDangerousActionsDisabled)
 		return ActionResult{}, errDangerousActionsDisabled
 	}
+	runtime, err := s.runtimeForRequest()
+	if err != nil {
+		return ActionResult{}, err
+	}
 	actionCtx, cancel := context.WithTimeout(ctx, containerOperationTTL)
 	defer cancel()
-	result, err := run(actionCtx, ref)
+	result, err := runWithRuntime(actionCtx, ref, action, runtime)
 	if result.Action == "" {
 		result.Action = action
 	}
@@ -165,11 +182,22 @@ func (s *service) runAction(
 	return result, nil
 }
 
-func (s *service) requireEnabled() error {
-	if s == nil || !s.enabled || s.runtime == nil {
+func (s *service) requireRuntimeAccess(ctx context.Context) error {
+	if s == nil || !s.runtimeAccessEnabled(ctx) {
 		return errRuntimeDisabled
 	}
 	return nil
+}
+
+func runWithRuntime(ctx context.Context, ref Ref, action string, runtime Runtime) (ActionResult, error) {
+	switch action {
+	case containerActionStart:
+		return runtime.Start(ctx, ref)
+	case containerActionStop:
+		return runtime.Stop(ctx, ref)
+	default:
+		return runtime.Restart(ctx, ref)
+	}
 }
 
 func (s *service) normalizeLogQuery(query LogQuery) (LogQuery, error) {
@@ -307,6 +335,45 @@ func containerOptionsFromConfig(ctx *module.Context) containerRuntimeOptions {
 	return options
 }
 
+func resolveSystemConfigResolver(ctx *module.Context) moduleapi.SystemConfigResolver {
+	if ctx == nil || ctx.Services == nil {
+		return nil
+	}
+	resolved, err := ctx.Services.Resolve((*moduleapi.SystemConfigResolver)(nil))
+	if err != nil {
+		return nil
+	}
+	resolver, ok := resolved.(moduleapi.SystemConfigResolver)
+	if !ok {
+		return nil
+	}
+	return resolver
+}
+
+func (s *service) runtimeAccessEnabled(ctx context.Context) bool {
+	if s == nil {
+		return false
+	}
+	if s.systemConfig == nil {
+		return s.enabled
+	}
+	return s.systemConfig.IsBooleanConfigEnabled(ctx, containercontract.ContainerRuntimeEnabledConfig.String(), s.enabled)
+}
+
+func (s *service) dangerousActionsAllowed(ctx context.Context) bool {
+	if s == nil {
+		return false
+	}
+	if s.systemConfig == nil {
+		return s.dangerousActionsEnabled
+	}
+	return s.systemConfig.IsBooleanConfigEnabled(
+		ctx,
+		containercontract.ContainerDangerousActionsEnabledConfig.String(),
+		s.dangerousActionsEnabled,
+	)
+}
+
 func newContainerRuntime(options containerRuntimeOptions) (Runtime, error) {
 	if !options.enabled {
 		return disabledRuntime{}, nil
@@ -315,6 +382,30 @@ func newContainerRuntime(options containerRuntimeOptions) (Runtime, error) {
 		return nil, errUnsupportedContainerRuntime
 	}
 	return NewDockerRuntime(options.endpoint)
+}
+
+func (s *service) runtimeForRequest() (Runtime, error) {
+	if s == nil {
+		return nil, errRuntimeDisabled
+	}
+	if s.runtime != nil {
+		if _, disabled := s.runtime.(disabledRuntime); !disabled {
+			return s.runtime, nil
+		}
+	}
+	runtime, err := newContainerRuntime(containerRuntimeOptions{
+		enabled:                 true,
+		runtime:                 defaultContainerRuntime,
+		endpoint:                defaultContainerDockerEndpoint,
+		dangerousActionsEnabled: s.dangerousActionsEnabled,
+		defaultTail:             s.defaultTail,
+		maxTail:                 s.maxTail,
+	})
+	if err != nil {
+		return nil, err
+	}
+	s.runtime = runtime
+	return runtime, nil
 }
 
 type disabledRuntime struct{}

@@ -6,6 +6,7 @@ package container
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 	"testing"
 
 	"go.uber.org/zap"
@@ -13,6 +14,7 @@ import (
 	"graft/server/internal/eventbus"
 	"graft/server/internal/httpx"
 	"graft/server/internal/moduleapi"
+	containercontract "graft/server/modules/container/contract"
 )
 
 func TestParseRefRejectsUnsafeValues(t *testing.T) {
@@ -109,6 +111,172 @@ func TestDangerousActionsDisabledPublishesFailureAudit(t *testing.T) {
 		t.Fatalf("expected request id metadata, got %#v", event.Metadata)
 	}
 }
+
+func TestRuntimeAccessDisabledUsesResolverAndDoesNotTouchRuntime(t *testing.T) {
+	t.Parallel()
+
+	runtime := &countingRuntime{}
+	service, err := newService(containerServiceOptions{
+		runtime: runtime,
+		systemConfig: serviceTestSystemConfig{values: map[string]bool{
+			containercontract.ContainerRuntimeEnabledConfig.String(): false,
+		}},
+		enabled:     true,
+		defaultTail: defaultContainerLogsDefaultTail,
+		maxTail:     defaultContainerLogsMaxTail,
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	_, _, err = service.List(context.Background())
+	if !errors.Is(err, errRuntimeDisabled) {
+		t.Fatalf("expected runtime disabled, got %v", err)
+	}
+	if calls := runtime.calls.Load(); calls != 0 {
+		t.Fatalf("expected disabled runtime access to avoid runtime calls, got %d", calls)
+	}
+}
+
+func TestRuntimeAccessEnabledButRuntimeUnavailableUsesConnectionErrorKey(t *testing.T) {
+	t.Parallel()
+
+	service, err := newService(containerServiceOptions{
+		runtime: failingRuntime{err: errRuntimeDaemonUnavailable},
+		systemConfig: serviceTestSystemConfig{values: map[string]bool{
+			containercontract.ContainerRuntimeEnabledConfig.String(): true,
+		}},
+		defaultTail: defaultContainerLogsDefaultTail,
+		maxTail:     defaultContainerLogsMaxTail,
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	_, _, err = service.List(context.Background())
+	if !errors.Is(err, errRuntimeDaemonUnavailable) {
+		t.Fatalf("expected runtime daemon unavailable, got %v", err)
+	}
+	if got := messageKeyForError(err); got != containercontract.ContainerRuntimeUnavailable {
+		t.Fatalf("expected runtime unavailable message key, got %s", got)
+	}
+}
+
+func TestDangerousActionsResolverControlsWriteActionsOnly(t *testing.T) {
+	t.Parallel()
+
+	service, err := newService(containerServiceOptions{
+		runtime: fakeRuntime{},
+		systemConfig: serviceTestSystemConfig{values: map[string]bool{
+			containercontract.ContainerRuntimeEnabledConfig.String():          true,
+			containercontract.ContainerDangerousActionsEnabledConfig.String(): false,
+		}},
+		enabled:                 false,
+		dangerousActionsEnabled: true,
+		defaultTail:             defaultContainerLogsDefaultTail,
+		maxTail:                 defaultContainerLogsMaxTail,
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	if _, _, err := service.List(context.Background()); err != nil {
+		t.Fatalf("expected read path to stay available, got %v", err)
+	}
+	_, err = service.Start(context.Background(), Ref{Value: "web"})
+	if !errors.Is(err, errDangerousActionsDisabled) {
+		t.Fatalf("expected dangerous actions guard, got %v", err)
+	}
+}
+
+type serviceTestSystemConfig struct {
+	values map[string]bool
+}
+
+func (r serviceTestSystemConfig) IsBooleanConfigEnabled(_ context.Context, key string, fallback bool) bool {
+	value, ok := r.values[key]
+	if !ok {
+		return fallback
+	}
+	return value
+}
+
+var _ moduleapi.SystemConfigResolver = serviceTestSystemConfig{}
+
+type countingRuntime struct {
+	calls atomic.Int64
+}
+
+func (r *countingRuntime) Info(context.Context) (RuntimeInfo, error) {
+	r.calls.Add(1)
+	return RuntimeInfo{}, nil
+}
+
+func (r *countingRuntime) List(context.Context, ListQuery) ([]Summary, error) {
+	r.calls.Add(1)
+	return nil, nil
+}
+
+func (r *countingRuntime) Detail(context.Context, Ref) (Detail, error) {
+	r.calls.Add(1)
+	return Detail{}, nil
+}
+
+func (r *countingRuntime) Logs(context.Context, Ref, LogQuery) (Logs, error) {
+	r.calls.Add(1)
+	return Logs{}, nil
+}
+
+func (r *countingRuntime) Start(context.Context, Ref) (ActionResult, error) {
+	r.calls.Add(1)
+	return ActionResult{}, nil
+}
+
+func (r *countingRuntime) Stop(context.Context, Ref) (ActionResult, error) {
+	r.calls.Add(1)
+	return ActionResult{}, nil
+}
+
+func (r *countingRuntime) Restart(context.Context, Ref) (ActionResult, error) {
+	r.calls.Add(1)
+	return ActionResult{}, nil
+}
+
+func (r *countingRuntime) Close() error { return nil }
+
+type failingRuntime struct {
+	err error
+}
+
+func (r failingRuntime) Info(context.Context) (RuntimeInfo, error) {
+	return RuntimeInfo{}, r.err
+}
+
+func (r failingRuntime) List(context.Context, ListQuery) ([]Summary, error) {
+	return nil, r.err
+}
+
+func (r failingRuntime) Detail(context.Context, Ref) (Detail, error) {
+	return Detail{}, r.err
+}
+
+func (r failingRuntime) Logs(context.Context, Ref, LogQuery) (Logs, error) {
+	return Logs{}, r.err
+}
+
+func (r failingRuntime) Start(context.Context, Ref) (ActionResult, error) {
+	return ActionResult{}, r.err
+}
+
+func (r failingRuntime) Stop(context.Context, Ref) (ActionResult, error) {
+	return ActionResult{}, r.err
+}
+
+func (r failingRuntime) Restart(context.Context, Ref) (ActionResult, error) {
+	return ActionResult{}, r.err
+}
+
+func (r failingRuntime) Close() error { return nil }
 
 type fakeRuntime struct{}
 

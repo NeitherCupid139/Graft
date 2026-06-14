@@ -12,8 +12,8 @@ func (k ConfigKey) String() string {
 }
 
 const (
-	// ContainerEnabledConfig enables the container management module.
-	ContainerEnabledConfig ConfigKey = "ops.container.enabled"
+	// ContainerRuntimeEnabledConfig enables access to the configured container runtime.
+	ContainerRuntimeEnabledConfig ConfigKey = "ops.container.runtime.enabled"
 	// ContainerRuntimeConfig selects the runtime adapter.
 	ContainerRuntimeConfig ConfigKey = "ops.container.runtime"
 	// ContainerDockerEndpointConfig stores the first local runtime endpoint.
@@ -22,6 +22,6 @@ const (
 	ContainerLogsDefaultTailConfig ConfigKey = "ops.container.logs.default_tail"
 	// ContainerLogsMaxTailConfig stores the maximum log tail size.
 	ContainerLogsMaxTailConfig ConfigKey = "ops.container.logs.max_tail"
-	// ContainerDangerousActionsEnabledConfig enables start, stop, and restart actions.
-	ContainerDangerousActionsEnabledConfig ConfigKey = "ops.container.dangerous_actions_enabled"
+	// ContainerDangerousActionsEnabledConfig enables high-risk container actions.
+	ContainerDangerousActionsEnabledConfig ConfigKey = "ops.container.actions.dangerous_enabled"
 )

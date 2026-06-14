@@ -225,6 +225,42 @@
         }
       }
     },
+    "container": {
+      "ops": {
+        "container": {
+          "runtime": {
+            "title": "Container Runtime",
+            "description": "Runtime adapter used by container management.",
+            "enabled": {
+              "title": "Container Runtime Access Enabled",
+              "description": "Whether container management may access the configured runtime."
+            }
+          },
+          "docker": {
+            "endpoint": {
+              "title": "Container Runtime Endpoint",
+              "description": "Local runtime endpoint used by the first container adapter."
+            }
+          },
+          "logs": {
+            "default_tail": {
+              "title": "Default Log Tail",
+              "description": "Default number of log lines returned by container log reads."
+            },
+            "max_tail": {
+              "title": "Maximum Log Tail",
+              "description": "Maximum number of log lines allowed for container log reads."
+            }
+          },
+          "actions": {
+            "dangerous_enabled": {
+              "title": "Dangerous Container Actions Enabled",
+              "description": "Whether start, stop, restart, and future high-risk actions are enabled."
+            }
+          }
+        }
+      }
+    },
     "fields": {
       "retentionDays": {
         "title": "Log Retention Days",

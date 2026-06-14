@@ -22,8 +22,8 @@ const (
 	ContainerRuntimeSocketMissing MessageKey = "ops.container.error.runtimeSocketMissing"
 	// ContainerRuntimePermissionDenied identifies runtime socket permission errors.
 	ContainerRuntimePermissionDenied MessageKey = "ops.container.error.runtimePermissionDenied"
-	// ContainerRuntimeDaemonUnavailable identifies unavailable runtime daemon errors.
-	ContainerRuntimeDaemonUnavailable MessageKey = "ops.container.error.runtimeDaemonUnavailable"
+	// ContainerRuntimeUnavailable identifies unavailable runtime connection errors.
+	ContainerRuntimeUnavailable MessageKey = "ops.container.error.runtimeUnavailable"
 	// ContainerNotFound identifies missing container errors.
 	ContainerNotFound MessageKey = "ops.container.error.containerNotFound"
 	// ContainerInvalidRef identifies invalid container reference errors.

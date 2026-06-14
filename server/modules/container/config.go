@@ -64,10 +64,10 @@ func registerConfigDefinitions(registry *configregistry.Registry) error {
 func configDefinitions() []configregistry.Definition {
 	return []configregistry.Definition{
 		containerBooleanDefinition(containerDefinitionSpec{
-			key:                 containercontract.ContainerEnabledConfig.String(),
+			key:                 containercontract.ContainerRuntimeEnabledConfig.String(),
 			group:               containerConfigGeneralGroup,
-			fallbackTitle:       "Container management enabled",
-			fallbackDescription: "Whether container management APIs and UI should be enabled.",
+			fallbackTitle:       "Container runtime access enabled",
+			fallbackDescription: "Whether container management may access the configured runtime.",
 			defaultValue:        mustRawJSON(defaultContainerEnabled),
 		}),
 		containerRuntimeDefinition(),
@@ -368,22 +368,22 @@ func containerConfigMessages(prefix map[string]string, definitions map[string][2
 
 func zhCNContainerConfigCopy() map[string][2]string {
 	return map[string][2]string{
-		containercontract.ContainerEnabledConfig.String():                 {"启用容器管理", "是否启用容器管理功能。"},
+		containercontract.ContainerRuntimeEnabledConfig.String():          {"启用容器运行时访问", "是否允许容器管理访问已配置的容器运行时。"},
 		containercontract.ContainerRuntimeConfig.String():                 {"容器运行时", "容器管理使用的运行时适配器。"},
 		containercontract.ContainerDockerEndpointConfig.String():          {"容器运行时 endpoint", "首个本地容器运行时适配器使用的 endpoint。"},
 		containercontract.ContainerLogsDefaultTailConfig.String():         {"默认日志行数", "容器日志读取的默认返回行数。"},
 		containercontract.ContainerLogsMaxTailConfig.String():             {"最大日志行数", "容器日志读取允许的最大返回行数。"},
-		containercontract.ContainerDangerousActionsEnabledConfig.String(): {"启用高危操作", "是否允许容器启动、停止和重启操作。"},
+		containercontract.ContainerDangerousActionsEnabledConfig.String(): {"启用容器高危操作", "是否允许容器启动、停止和重启等高危操作。"},
 	}
 }
 
 func enUSContainerConfigCopy() map[string][2]string {
 	return map[string][2]string{
-		containercontract.ContainerEnabledConfig.String():                 {"Container Management Enabled", "Whether container management is enabled."},
+		containercontract.ContainerRuntimeEnabledConfig.String():          {"Container Runtime Access Enabled", "Whether container management may access the configured runtime."},
 		containercontract.ContainerRuntimeConfig.String():                 {"Container Runtime", "Runtime adapter used by container management."},
 		containercontract.ContainerDockerEndpointConfig.String():          {"Container Runtime Endpoint", "Local runtime endpoint used by the first container adapter."},
 		containercontract.ContainerLogsDefaultTailConfig.String():         {"Default Log Tail", "Default number of log lines returned by container log reads."},
 		containercontract.ContainerLogsMaxTailConfig.String():             {"Maximum Log Tail", "Maximum number of log lines allowed for container log reads."},
-		containercontract.ContainerDangerousActionsEnabledConfig.String(): {"Dangerous Actions Enabled", "Whether start, stop, and restart actions are enabled."},
+		containercontract.ContainerDangerousActionsEnabledConfig.String(): {"Dangerous Container Actions Enabled", "Whether start, stop, restart, and future high-risk actions are enabled."},
 	}
 }

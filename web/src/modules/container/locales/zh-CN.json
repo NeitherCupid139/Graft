@@ -25,6 +25,7 @@
       "runtimeStatus": "状态",
       "runtimeEndpoint": "Endpoint",
       "runtimeUnavailable": "运行时不可用",
+      "runtimeDisabledHint": "请在系统配置中启用容器运行时访问后重试。",
       "runtimeVersion": "版本",
       "runtimeContainers": "{running}/{total} 运行中",
       "tableSummary": "共 {count} 个容器",
@@ -121,6 +122,16 @@
         "serverVersion": "服务端版本",
         "operatingSystem": "操作系统",
         "architecture": "架构"
+      }
+    }
+  },
+  "ops": {
+    "container": {
+      "error": {
+        "runtimeDisabled": "容器运行时访问未启用",
+        "runtimeUnavailable": "容器运行时连接不可用",
+        "runtimeSocketMissing": "容器运行时套接字不存在",
+        "runtimePermissionDenied": "没有权限访问容器运行时"
       }
     }
   }

@@ -31,7 +31,7 @@ func messageKeyForError(err error) containercontract.MessageKey {
 			return rule.key
 		}
 	}
-	return containercontract.ContainerRuntimeDaemonUnavailable
+	return containercontract.ContainerRuntimeUnavailable
 }
 
 func fallbackMessageForError(err error) string {
@@ -45,7 +45,7 @@ var containerErrorMessageRules = []struct {
 	{err: errRuntimeDisabled, key: containercontract.ContainerRuntimeDisabled},
 	{err: errRuntimeSocketMissing, key: containercontract.ContainerRuntimeSocketMissing},
 	{err: errRuntimePermissionDenied, key: containercontract.ContainerRuntimePermissionDenied},
-	{err: errRuntimeDaemonUnavailable, key: containercontract.ContainerRuntimeDaemonUnavailable},
+	{err: errRuntimeDaemonUnavailable, key: containercontract.ContainerRuntimeUnavailable},
 	{err: errContainerNotFound, key: containercontract.ContainerNotFound},
 	{err: errInvalidRef, key: containercontract.ContainerInvalidRef},
 	{err: errInvalidContainerState, key: containercontract.ContainerInvalidState},

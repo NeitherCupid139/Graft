@@ -66,6 +66,12 @@ func TestRouteAndConfigContractsStayCanonical(t *testing.T) {
 	if containercontract.ContainerDockerEndpointConfig.String() != "ops.container.docker.endpoint" {
 		t.Fatalf("unexpected docker endpoint config key")
 	}
+	if containercontract.ContainerRuntimeEnabledConfig.String() != "ops.container.runtime.enabled" {
+		t.Fatalf("unexpected runtime access config key")
+	}
+	if containercontract.ContainerDangerousActionsEnabledConfig.String() != "ops.container.actions.dangerous_enabled" {
+		t.Fatalf("unexpected dangerous actions config key")
+	}
 	for _, permissionCode := range expectedPermissionCodes() {
 		if strings.Contains(permissionCode, "ops.docker") {
 			t.Fatalf("permission %s must not use ops.docker", permissionCode)
@@ -118,18 +124,20 @@ func assertMenu(t *testing.T, registry *menu.Registry) {
 		t.Fatalf("expected root and container menu items, got %#v", items)
 	}
 	assertMenuItem(t, items, expectedMenuItem{
-		code:       "ops.root",
-		title:      "运维管理",
-		titleKey:   containercontract.OperationsMenuTitle.String(),
-		path:       "/ops",
-		permission: "",
+		code:                     "ops.root",
+		title:                    "运维管理",
+		titleKey:                 containercontract.OperationsMenuTitle.String(),
+		path:                     "/ops",
+		permission:               "",
+		visibleWhenConfigEnabled: "",
 	})
 	assertMenuItem(t, items, expectedMenuItem{
-		code:       "container.list",
-		title:      "容器管理",
-		titleKey:   containercontract.ContainerMenuTitle.String(),
-		path:       "/ops/containers",
-		permission: containercontract.ContainerViewPermission.String(),
+		code:                     "container.list",
+		title:                    "容器管理",
+		titleKey:                 containercontract.ContainerMenuTitle.String(),
+		path:                     "/ops/containers",
+		permission:               containercontract.ContainerViewPermission.String(),
+		visibleWhenConfigEnabled: containercontract.ContainerRuntimeEnabledConfig.String(),
 	})
 	for _, item := range items {
 		if strings.Contains(item.Path, "/server") || strings.Contains(item.Title, "服务器") {
@@ -139,11 +147,12 @@ func assertMenu(t *testing.T, registry *menu.Registry) {
 }
 
 type expectedMenuItem struct {
-	code       string
-	title      string
-	titleKey   string
-	path       string
-	permission string
+	code                     string
+	title                    string
+	titleKey                 string
+	path                     string
+	permission               string
+	visibleWhenConfigEnabled string
 }
 
 func assertMenuItem(t *testing.T, items []menu.Item, expected expectedMenuItem) {
@@ -151,7 +160,8 @@ func assertMenuItem(t *testing.T, items []menu.Item, expected expectedMenuItem) 
 
 	if !slices.ContainsFunc(items, func(item menu.Item) bool {
 		return item.Code == expected.code && item.Title == expected.title && item.TitleKey == expected.titleKey &&
-			item.Path == expected.path && item.Permission == expected.permission && item.Module == moduleID
+			item.Path == expected.path && item.Permission == expected.permission &&
+			item.VisibleWhenConfigEnabled == expected.visibleWhenConfigEnabled && item.Module == moduleID
 	}) {
 		t.Fatalf("expected menu item %s in %#v", expected.code, items)
 	}
@@ -219,7 +229,7 @@ func assertConfigDefinitions(t *testing.T, registry *configregistry.Registry, lo
 
 func expectedConfigKeys() []string {
 	return []string{
-		containercontract.ContainerEnabledConfig.String(),
+		containercontract.ContainerRuntimeEnabledConfig.String(),
 		containercontract.ContainerRuntimeConfig.String(),
 		containercontract.ContainerDockerEndpointConfig.String(),
 		containercontract.ContainerLogsDefaultTailConfig.String(),

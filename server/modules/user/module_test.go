@@ -2416,6 +2416,7 @@ func TestBootstrapLocaleSnapshotDeduplicatesFallbackLocales(t *testing.T) {
 		nil,
 		nil,
 		nil,
+		nil,
 	)
 
 	snapshot := reader.localeSnapshot(httptest.NewRequest(http.MethodGet, authRoutePath(usercontract.AuthBootstrap), nil))

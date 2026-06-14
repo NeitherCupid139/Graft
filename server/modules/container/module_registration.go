@@ -63,10 +63,10 @@ const (
 var containerMessageCopyRows = []containerMessageCopyRow{
 	{key: containercontract.OperationsMenuTitle.String(), copy: [2]string{"运维管理", "Operations"}},
 	{key: containercontract.ContainerMenuTitle.String(), copy: [2]string{"容器管理", "Container Management"}},
-	{key: containercontract.ContainerRuntimeDisabled.String(), copy: [2]string{"容器运行时未启用", "Container runtime is disabled"}},
+	{key: containercontract.ContainerRuntimeDisabled.String(), copy: [2]string{"容器运行时访问未启用", "Container runtime access is not enabled"}},
 	{key: containercontract.ContainerRuntimeSocketMissing.String(), copy: [2]string{"容器运行时 socket 不存在", "Container runtime socket is missing"}},
 	{key: containercontract.ContainerRuntimePermissionDenied.String(), copy: [2]string{"当前进程无权访问容器运行时", "The current process cannot access the container runtime"}},
-	{key: containercontract.ContainerRuntimeDaemonUnavailable.String(), copy: [2]string{"容器运行时不可用", "Container runtime is unavailable"}},
+	{key: containercontract.ContainerRuntimeUnavailable.String(), copy: [2]string{"容器运行时不可用", "Container runtime is unavailable"}},
 	{key: containercontract.ContainerNotFound.String(), copy: [2]string{"容器不存在", "Container not found"}},
 	{key: containercontract.ContainerInvalidRef.String(), copy: [2]string{"容器标识不合法", "Invalid container reference"}},
 	{key: containercontract.ContainerInvalidState.String(), copy: [2]string{"容器当前状态不允许执行该操作", "The container state does not allow this action"}},
@@ -161,14 +161,15 @@ func registerMenu(registry *menu.Registry, moduleName string) error {
 		Module:     moduleName,
 	})
 	registry.Register(menu.Item{
-		Code:       "container.list",
-		Title:      "容器管理",
-		TitleKey:   containercontract.ContainerMenuTitle.String(),
-		Path:       containercontract.ContainerMenuPath,
-		Icon:       "server",
-		Order:      containerMenuOrderList,
-		Permission: containercontract.ContainerViewPermission.String(),
-		Module:     moduleName,
+		Code:                     "container.list",
+		Title:                    "容器管理",
+		TitleKey:                 containercontract.ContainerMenuTitle.String(),
+		Path:                     containercontract.ContainerMenuPath,
+		Icon:                     "server",
+		Order:                    containerMenuOrderList,
+		Permission:               containercontract.ContainerViewPermission.String(),
+		VisibleWhenConfigEnabled: containercontract.ContainerRuntimeEnabledConfig.String(),
+		Module:                   moduleName,
 	})
 	return nil
 }
