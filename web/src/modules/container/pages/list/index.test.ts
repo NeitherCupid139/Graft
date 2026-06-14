@@ -64,11 +64,18 @@ const translations = vi.hoisted(
     'container.list.detail.identity': '基础信息',
     'container.list.detail.inspectUpdatedAt': '详情更新时间',
     'container.list.detail.loadFailed': '容器详情加载失败。',
+    'container.list.detail.metadata': '标签与元数据',
+    'container.list.detail.metadataEmpty': '暂无标签或元数据。',
     'container.list.detail.mountEmpty': '暂无挂载。',
     'container.list.detail.mounts': '挂载',
+    'container.list.detail.networkPorts': '网络与端口',
     'container.list.detail.networkEmpty': '暂无网络信息。',
     'container.list.detail.networks': '网络',
+    'container.list.detail.portEmpty': '暂无端口映射。',
+    'container.list.detail.ports': '端口',
+    'container.list.detail.rawJson': '原始详情 JSON',
     'container.list.detail.runtime': '运行时',
+    'container.list.detail.state': '状态与生命周期',
     'container.list.detail.title': '容器详情',
     'container.list.detail.workingDir': '工作目录',
     'container.list.emptyDescription': '当前容器运行时未返回容器。',
@@ -97,9 +104,16 @@ const translations = vi.hoisted(
     'container.list.filters.status': '容器状态',
     'container.list.loadFailed': '容器列表加载失败。',
     'container.list.labelCount': '{count} 个标签',
+    'container.list.logs.autoRefresh': '自动刷新',
+    'container.list.logs.autoRefreshStatus': '每 {seconds} 秒自动刷新',
     'container.list.logs.copy': '复制',
+    'container.list.logs.emptyTitle': '暂无日志',
     'container.list.logs.empty': '暂无日志。',
+    'container.list.logs.enabled': '启用',
+    'container.list.logs.errorEmpty': '修复错误后可重试加载日志。',
+    'container.list.logs.lastLoadedAt': '上次加载：{time}',
     'container.list.logs.loadFailed': '容器日志加载失败。',
+    'container.list.logs.notLoaded': '尚未加载日志',
     'container.list.logs.refresh': '刷新日志',
     'container.list.logs.since': '起始时间或时长',
     'container.list.logs.sincePlaceholder': '例如 10m、1h 或 RFC3339',
@@ -193,6 +207,8 @@ describe('container list page', () => {
       id: 'container-1',
       names: ['graft-web'],
       image: 'graft/web:latest',
+      image_id: 'sha256:1',
+      labels: { 'com.docker.compose.project': 'graft' },
       status: 'Up 10 minutes',
       state: 'running',
       command: ['npm', 'run', 'serve'],
@@ -200,9 +216,23 @@ describe('container list page', () => {
       runtime: 'first-adapter',
       created_at: '2026-06-14T01:00:00Z',
       started_at: '2026-06-14T01:05:00Z',
-      ports: [],
-      mounts: [],
-      networks: [],
+      ports: [{ private_port: 80, public_port: 8080, type: 'tcp' }],
+      mounts: [
+        {
+          type: 'bind',
+          source: '/srv/graft',
+          destination: '/app',
+          mode: 'rw',
+          read_only: false,
+        },
+      ],
+      networks: [
+        {
+          name: 'bridge',
+          ip_address: '172.18.0.2',
+          gateway: '172.18.0.1',
+        },
+      ],
       runtime_info: {
         runtime: 'first-adapter',
         status: 'enabled',
@@ -256,9 +286,17 @@ describe('container list page', () => {
     await flushPromises();
 
     expect(apiMocks.getContainer).toHaveBeenCalledWith('container-1');
+    expect(wrapper.get('[data-testid="td-drawer-容器详情"]').attributes('data-size')).toBe('960px');
     expect(wrapper.text()).toContain('容器详情');
+    expect(wrapper.text()).toContain('状态与生命周期');
+    expect(wrapper.text()).toContain('网络与端口');
+    expect(wrapper.text()).toContain('标签与元数据');
     expect(wrapper.text()).toContain('npm run serve');
     expect(wrapper.text()).toContain('docker-entrypoint.sh');
+    expect(wrapper.text()).toContain('172.18.0.2');
+    expect(wrapper.text()).toContain('/app');
+    expect(wrapper.text()).toContain('com.docker.compose.project=graft');
+    expect(wrapper.text()).toContain('"id": "container-1"');
 
     await wrapper.get('[data-testid="container-action-logs"]').trigger('click');
     await flushPromises();
@@ -271,6 +309,52 @@ describe('container list page', () => {
       timestamps: false,
     });
     expect(wrapper.text()).toContain('server started');
+  });
+
+  it('copies container id from the detail drawer context', async () => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: vi.fn().mockResolvedValue(undefined) },
+    });
+    const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined);
+    const wrapper = mountPage();
+    await flushPromises();
+
+    await wrapper.get('[data-testid="container-action-detail"]').trigger('click');
+    await flushPromises();
+
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === '复制 ID')
+      ?.trigger('click');
+    await flushPromises();
+
+    expect(writeText).toHaveBeenCalledWith('container-1');
+    expect(messageMocks.success).toHaveBeenCalledWith('容器 ID 已复制。');
+  });
+
+  it('auto-refreshes logs only after the logs drawer is opened and enabled', async () => {
+    vi.useFakeTimers();
+    const wrapper = mountPage();
+    await flushPromises();
+
+    expect(apiMocks.getContainerLogs).not.toHaveBeenCalled();
+
+    await wrapper.get('[data-testid="container-action-logs"]').trigger('click');
+    await flushPromises();
+
+    expect(apiMocks.getContainerLogs).toHaveBeenCalledTimes(1);
+
+    const autoRefreshCheckbox = wrapper.findAll('input[type="checkbox"]').at(3);
+    expect(autoRefreshCheckbox).toBeTruthy();
+    await autoRefreshCheckbox?.setValue(true);
+
+    vi.advanceTimersByTime(10_000);
+    await flushPromises();
+
+    expect(apiMocks.getContainerLogs).toHaveBeenCalledTimes(2);
+
+    vi.useRealTimers();
   });
 
   it('uses optional column settings without showing started time and restart policy by default', async () => {
@@ -542,12 +626,34 @@ function mountPage() {
             () =>
               h('div', [h('strong', String(props.label ?? '')), slots.default?.()]),
         }),
-        't-drawer': defineComponent({
-          props: ['visible', 'header'],
+        't-collapse': defineComponent({
+          setup:
+            (_, { slots }) =>
+            () =>
+              h('section', slots.default?.()),
+        }),
+        't-collapse-panel': defineComponent({
+          props: ['header'],
           setup:
             (props, { slots }) =>
             () =>
-              props.visible ? h('aside', [h('h2', String(props.header ?? '')), slots.default?.()]) : null,
+              h('section', [h('h3', String(props.header ?? '')), slots.default?.()]),
+        }),
+        't-drawer': defineComponent({
+          props: ['visible', 'header', 'size'],
+          setup:
+            (props, { slots }) =>
+            () =>
+              props.visible
+                ? h(
+                    'aside',
+                    {
+                      'data-size': String(props.size ?? ''),
+                      'data-testid': `td-drawer-${String(props.header ?? '')}`,
+                    },
+                    [h('h2', String(props.header ?? '')), slots.default?.()],
+                  )
+                : null,
         }),
         't-empty': defineComponent({
           props: ['title', 'description'],
@@ -583,15 +689,20 @@ function mountPage() {
               }),
         }),
         't-input-number': defineComponent({
-          props: ['modelValue'],
-          emits: ['update:modelValue'],
+          props: ['modelValue', 'value', 'disabled'],
+          emits: ['update:modelValue', 'update:value'],
           setup:
             (props, { emit }) =>
             () =>
               h('input', {
+                disabled: Boolean(props.disabled),
                 type: 'number',
-                value: props.modelValue,
-                onInput: (event: Event) => emit('update:modelValue', Number((event.target as HTMLInputElement).value)),
+                value: props.value ?? props.modelValue,
+                onInput: (event: Event) => {
+                  const value = Number((event.target as HTMLInputElement).value);
+                  emit('update:modelValue', value);
+                  emit('update:value', value);
+                },
               }),
         }),
         't-loading': defineComponent({

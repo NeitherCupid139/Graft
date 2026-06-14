@@ -68,6 +68,35 @@
   - queries: get_component_list, get_component_docs, get_component_dom
   - adoption: adopted
 
+### Phase 2 Detail And Logs Drawers
+
+- Completed frontend-focused `phase-2-detail-logs-drawers` without backend/OpenAPI changes.
+- Startup receipt:
+  - governance source: root `AGENTS.md`
+  - task class: `cross-boundary`
+  - recovery source: `parent topic`
+  - authority summary: `ai-plan/design/容器管理设计.md` + `openapi/**` + `server/modules/container/**` +
+    `web/src/modules/container/**` + shared management table components
+- Updated `web/src/modules/container/pages/list/index.vue`:
+  - widened the Detail Drawer to `960px` and enabled `attach="body"` plus `destroy-on-close`
+  - added a detail context area with copy-ID action while preserving the list row copy-ID action
+  - regrouped detail content into identity, state/lifecycle, runtime, network/ports, mounts, labels/metadata, and
+    collapsed raw detail JSON using only the existing detail response object
+  - widened the Logs Drawer to `800px`, kept logs unloaded until the user opens logs, and preserved tail/since,
+    timestamp, stdout, stderr, refresh, and copy controls
+  - added optional logs auto-refresh using the existing logs endpoint, with interval cleanup on Drawer close/unmount and
+    improved empty/error/loading state copy
+- Updated container module zh-CN/en-US locale keys and focused page tests.
+- Validation:
+  - `cd web && bun run test:run -- src/modules/container/pages/list/index.test.ts`
+  - `cd web && bun run typecheck`
+  - `git diff --check`
+- TDesign MCP preflight was performed by the outer orchestrator and adopted for this slice:
+  - framework: `vue-next`
+  - components: Drawer, Descriptions, Collapse, InputNumber, Checkbox, Button, Alert, Loading, Empty, Tooltip, Tag
+  - queries: get_component_docs, get_component_dom
+  - adoption: adopted
+
 ## Loop Batch State
 
 ```json
@@ -75,16 +104,16 @@
   "loop_mode": "topic-completion-loop",
   "completed_batches": [
     "phase-0-planning-topic-persistence",
-    "phase-1-wide-screen-list-convergence"
+    "phase-1-wide-screen-list-convergence",
+    "phase-2-detail-logs-drawers"
   ],
   "pending_batches": [
-    "phase-2-detail-logs-drawers",
     "phase-3-backend-openapi-fields-pagination",
     "phase-4-controlled-operations-closure",
     "phase-5-polish-validation-governance-closeout"
   ],
   "current_batch": null,
-  "next_batch": "phase-2-detail-logs-drawers",
+  "next_batch": "phase-3-backend-openapi-fields-pagination",
   "closeout_status": "active"
 }
 ```

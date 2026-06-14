@@ -236,7 +236,9 @@
       v-model:visible="detailDrawerVisible"
       :header="t('container.list.detail.title')"
       :footer="false"
-      size="560px"
+      attach="body"
+      destroy-on-close
+      size="960px"
     >
       <div class="container-drawer-panel">
         <t-alert v-if="detailError" theme="error" :title="detailError">
@@ -248,14 +250,46 @@
         </t-alert>
         <t-loading :loading="detailLoading">
           <section v-if="activeDetail" class="container-detail-stack">
-            <t-descriptions :title="t('container.list.detail.identity')" :column="1" bordered>
-              <t-descriptions-item :label="t('container.list.fields.name')">{{
-                displayName(activeDetail)
-              }}</t-descriptions-item>
-              <t-descriptions-item :label="t('container.list.fields.id')">{{ activeDetail.id }}</t-descriptions-item>
-              <t-descriptions-item :label="t('container.list.fields.image')">{{
-                activeDetail.image
-              }}</t-descriptions-item>
+            <div class="container-detail-context">
+              <div class="container-detail-context__main">
+                <strong>{{ displayName(activeDetail) }}</strong>
+                <t-tooltip :content="activeDetail.id" placement="top-left">
+                  <span>{{ shortContainerId(activeDetail.id) }}</span>
+                </t-tooltip>
+              </div>
+              <t-button theme="default" variant="outline" @click="copyDetailContainerId">
+                {{ t('container.list.actions.copyId') }}
+              </t-button>
+            </div>
+
+            <t-descriptions
+              :title="t('container.list.detail.identity')"
+              :column="2"
+              item-layout="vertical"
+              bordered
+              table-layout="fixed"
+            >
+              <t-descriptions-item :label="t('container.list.fields.name')">
+                {{ displayName(activeDetail) }}
+              </t-descriptions-item>
+              <t-descriptions-item :label="t('container.list.fields.id')">
+                {{ activeDetail.id }}
+              </t-descriptions-item>
+              <t-descriptions-item :label="t('container.list.fields.image')">
+                {{ activeDetail.image }}
+              </t-descriptions-item>
+              <t-descriptions-item :label="t('container.list.fields.imageId')">
+                {{ activeDetail.image_id || '-' }}
+              </t-descriptions-item>
+            </t-descriptions>
+
+            <t-descriptions
+              :title="t('container.list.detail.state')"
+              :column="2"
+              item-layout="vertical"
+              bordered
+              table-layout="fixed"
+            >
               <t-descriptions-item :label="t('container.list.fields.state')">
                 {{ stateLabel(activeDetail.state) }}
               </t-descriptions-item>
@@ -271,21 +305,18 @@
               <t-descriptions-item :label="t('container.list.fields.startedAt')">
                 {{ formatTime(activeDetail.started_at) }}
               </t-descriptions-item>
-              <t-descriptions-item :label="t('container.list.detail.command')">
-                {{ joinList(activeDetail.command) }}
-              </t-descriptions-item>
-              <t-descriptions-item :label="t('container.list.detail.entrypoint')">
-                {{ joinList(activeDetail.entrypoint) }}
-              </t-descriptions-item>
-              <t-descriptions-item :label="t('container.list.detail.workingDir')">
-                {{ activeDetail.working_dir || '-' }}
-              </t-descriptions-item>
               <t-descriptions-item :label="t('container.list.detail.inspectUpdatedAt')">
                 {{ formatTime(activeDetail.inspect_updated_at) }}
               </t-descriptions-item>
             </t-descriptions>
 
-            <t-descriptions :title="t('container.list.detail.runtime')" :column="1" bordered>
+            <t-descriptions
+              :title="t('container.list.detail.runtime')"
+              :column="2"
+              item-layout="vertical"
+              bordered
+              table-layout="fixed"
+            >
               <t-descriptions-item :label="t('container.list.fields.runtime')">
                 {{ activeDetail.runtime_info.runtime }}
               </t-descriptions-item>
@@ -304,7 +335,42 @@
               <t-descriptions-item :label="t('container.list.fields.architecture')">
                 {{ activeDetail.runtime_info.architecture || '-' }}
               </t-descriptions-item>
+              <t-descriptions-item :label="t('container.list.detail.command')">
+                {{ joinList(activeDetail.command) }}
+              </t-descriptions-item>
+              <t-descriptions-item :label="t('container.list.detail.entrypoint')">
+                {{ joinList(activeDetail.entrypoint) }}
+              </t-descriptions-item>
+              <t-descriptions-item :label="t('container.list.detail.workingDir')">
+                {{ activeDetail.working_dir || '-' }}
+              </t-descriptions-item>
             </t-descriptions>
+
+            <section class="container-detail-section">
+              <h3>{{ t('container.list.detail.networkPorts') }}</h3>
+              <div class="container-detail-grid">
+                <div>
+                  <h4>{{ t('container.list.detail.ports') }}</h4>
+                  <div v-if="activeDetail.ports.length" class="container-detail-list">
+                    <div v-for="port in formatPorts(activeDetail.ports)" :key="port" class="container-detail-item">
+                      <strong>{{ port }}</strong>
+                    </div>
+                  </div>
+                  <t-empty v-else size="small" :description="t('container.list.detail.portEmpty')" />
+                </div>
+                <div>
+                  <h4>{{ t('container.list.detail.networks') }}</h4>
+                  <div v-if="activeDetail.networks.length" class="container-detail-list">
+                    <div v-for="network in activeDetail.networks" :key="network.name" class="container-detail-item">
+                      <strong>{{ network.name }}</strong>
+                      <span>{{ network.ip_address || '-' }}</span>
+                      <span>{{ network.gateway || network.mac_address || '-' }}</span>
+                    </div>
+                  </div>
+                  <t-empty v-else size="small" :description="t('container.list.detail.networkEmpty')" />
+                </div>
+              </div>
+            </section>
 
             <section class="container-detail-section">
               <h3>{{ t('container.list.detail.mounts') }}</h3>
@@ -323,38 +389,69 @@
             </section>
 
             <section class="container-detail-section">
-              <h3>{{ t('container.list.detail.networks') }}</h3>
-              <div v-if="activeDetail.networks.length" class="container-detail-list">
-                <div v-for="network in activeDetail.networks" :key="network.name" class="container-detail-item">
-                  <strong>{{ network.name }}</strong>
-                  <span>{{ network.ip_address || '-' }}</span>
-                  <span>{{ network.gateway || network.mac_address || '-' }}</span>
-                </div>
+              <h3>{{ t('container.list.detail.metadata') }}</h3>
+              <div v-if="detailLabelEntries.length" class="container-label-list">
+                <t-tag
+                  v-for="[labelKey, labelValue] in detailLabelEntries"
+                  :key="labelKey"
+                  theme="default"
+                  variant="light"
+                >
+                  {{ labelKey }}={{ labelValue }}
+                </t-tag>
               </div>
-              <t-empty v-else size="small" :description="t('container.list.detail.networkEmpty')" />
+              <t-empty v-else size="small" :description="t('container.list.detail.metadataEmpty')" />
             </section>
+
+            <t-collapse v-model:value="detailCollapseValues">
+              <t-collapse-panel value="raw" :header="t('container.list.detail.rawJson')">
+                <pre class="container-raw-json">{{ detailRawJson }}</pre>
+              </t-collapse-panel>
+            </t-collapse>
           </section>
         </t-loading>
       </div>
     </t-drawer>
 
-    <t-drawer v-model:visible="logsDrawerVisible" :header="logsDrawerTitle" :footer="false" size="720px">
+    <t-drawer
+      v-model:visible="logsDrawerVisible"
+      :header="logsDrawerTitle"
+      :footer="false"
+      attach="body"
+      destroy-on-close
+      size="800px"
+    >
       <div class="container-drawer-panel container-logs-panel">
-        <t-form class="container-log-controls" layout="inline" label-align="top" :data="logQuery">
-          <t-form-item :label="t('container.list.logs.tail')" name="tail">
-            <t-input-number v-model="logQuery.tail" theme="normal" :min="1" :max="2000" :step="100" />
-          </t-form-item>
-          <t-form-item :label="t('container.list.logs.since')" name="since">
-            <t-input v-model="logQuery.since" clearable :placeholder="t('container.list.logs.sincePlaceholder')" />
-          </t-form-item>
-          <t-form-item name="streams">
-            <t-space break-line size="small">
-              <t-checkbox v-model="logQuery.timestamps">{{ t('container.list.logs.timestamps') }}</t-checkbox>
-              <t-checkbox v-model="logQuery.stdout">{{ t('container.list.logs.stdout') }}</t-checkbox>
-              <t-checkbox v-model="logQuery.stderr">{{ t('container.list.logs.stderr') }}</t-checkbox>
-            </t-space>
-          </t-form-item>
-          <t-form-item>
+        <section class="container-log-toolbar">
+          <t-form class="container-log-controls" layout="inline" label-align="top" :data="logQuery">
+            <t-form-item :label="t('container.list.logs.tail')" name="tail">
+              <t-input-number v-model:value="logQuery.tail" theme="normal" :min="1" :max="2000" :step="100" />
+            </t-form-item>
+            <t-form-item :label="t('container.list.logs.since')" name="since">
+              <t-input v-model="logQuery.since" clearable :placeholder="t('container.list.logs.sincePlaceholder')" />
+            </t-form-item>
+            <t-form-item name="streams">
+              <t-space break-line size="small">
+                <t-checkbox v-model="logQuery.timestamps">{{ t('container.list.logs.timestamps') }}</t-checkbox>
+                <t-checkbox v-model="logQuery.stdout">{{ t('container.list.logs.stdout') }}</t-checkbox>
+                <t-checkbox v-model="logQuery.stderr">{{ t('container.list.logs.stderr') }}</t-checkbox>
+              </t-space>
+            </t-form-item>
+            <t-form-item :label="t('container.list.logs.autoRefresh')" name="autoRefresh">
+              <t-space break-line size="small">
+                <t-checkbox v-model="logsAutoRefreshEnabled">{{ t('container.list.logs.enabled') }}</t-checkbox>
+                <t-input-number
+                  v-model:value="logsAutoRefreshSeconds"
+                  theme="normal"
+                  :disabled="!logsAutoRefreshEnabled"
+                  :min="5"
+                  :max="60"
+                  :step="5"
+                />
+              </t-space>
+            </t-form-item>
+          </t-form>
+          <div class="container-log-actions">
             <t-space size="small">
               <t-button theme="primary" :loading="logsLoading" @click="refreshLogs">
                 {{ t('container.list.logs.refresh') }}
@@ -363,8 +460,9 @@
                 {{ t('container.list.logs.copy') }}
               </t-button>
             </t-space>
-          </t-form-item>
-        </t-form>
+            <span class="container-log-status">{{ logsRefreshStatus }}</span>
+          </div>
+        </section>
 
         <t-alert v-if="logsError" class="container-alert" theme="error" :title="logsError" />
         <t-alert
@@ -376,7 +474,12 @@
 
         <t-loading :loading="logsLoading">
           <pre v-if="activeLogs?.lines.length" class="container-log-output">{{ activeLogs.lines.join('\n') }}</pre>
-          <t-empty v-else size="small" :description="t('container.list.logs.empty')" />
+          <t-empty
+            v-else
+            size="small"
+            :title="t('container.list.logs.emptyTitle')"
+            :description="logsError ? t('container.list.logs.errorEmpty') : t('container.list.logs.empty')"
+          />
         </t-loading>
       </div>
     </t-drawer>
@@ -386,7 +489,7 @@
 import { SearchIcon } from 'tdesign-icons-vue-next';
 import type { TdBaseTableProps } from 'tdesign-vue-next';
 import { MessagePlugin } from 'tdesign-vue-next';
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import {
@@ -485,8 +588,12 @@ const logsDrawerVisible = ref(false);
 const logsLoading = ref(false);
 const logsError = ref('');
 const activeLogs = ref<ContainerLogResponse | null>(null);
+const logsAutoRefreshEnabled = ref(false);
+const logsAutoRefreshSeconds = ref(10);
+const logsLastLoadedAt = ref('');
 const actionLoadingKey = ref('');
 const columnDrawerVisible = ref(false);
+const detailCollapseValues = ref<string[]>([]);
 const visibleColumnKeys = ref<string[]>(loadVisibleColumnKeys());
 const tableDensity = ref<'medium' | 'small'>('medium');
 const filters = reactive<ContainerFilters>({
@@ -624,9 +731,26 @@ const logsDrawerTitle = computed(() => {
   const containerName = selectedContainer.value ? displayName(selectedContainer.value) : '';
   return containerName ? `${t('container.list.logs.title')} - ${containerName}` : t('container.list.logs.title');
 });
+const logsRefreshStatus = computed(() => {
+  if (logsAutoRefreshEnabled.value) {
+    return t('container.list.logs.autoRefreshStatus', { seconds: logsAutoRefreshSeconds.value });
+  }
+  if (logsLastLoadedAt.value) {
+    return t('container.list.logs.lastLoadedAt', { time: formatTime(logsLastLoadedAt.value) });
+  }
+  return t('container.list.logs.notLoaded');
+});
+const detailLabelEntries = computed(() => Object.entries(activeDetail.value?.labels ?? {}));
+const detailRawJson = computed(() => (activeDetail.value ? JSON.stringify(activeDetail.value, null, 2) : ''));
+
+let logsAutoRefreshTimer: number | undefined;
 
 onMounted(() => {
   void refreshContainers();
+});
+
+onUnmounted(() => {
+  stopLogsAutoRefresh();
 });
 
 watch(
@@ -649,6 +773,25 @@ watch(
     if (pagination.current > lastPage) {
       pagination.current = lastPage;
     }
+  },
+);
+
+watch(
+  () => logsDrawerVisible.value,
+  (visible) => {
+    if (!visible) {
+      stopLogsAutoRefresh();
+      logsAutoRefreshEnabled.value = false;
+    } else {
+      syncLogsAutoRefresh();
+    }
+  },
+);
+
+watch(
+  () => [logsAutoRefreshEnabled.value, logsAutoRefreshSeconds.value],
+  () => {
+    syncLogsAutoRefresh();
   },
 );
 
@@ -701,6 +844,7 @@ function resetFilters() {
 async function openDetail(row: ContainerSummary) {
   selectedContainer.value = row;
   activeDetail.value = null;
+  detailCollapseValues.value = [];
   detailDrawerVisible.value = true;
   await loadDetail(row.id);
 }
@@ -722,6 +866,8 @@ async function openLogs(row: ContainerSummary) {
   selectedContainer.value = row;
   activeLogs.value = null;
   logsError.value = '';
+  logsLastLoadedAt.value = '';
+  logsAutoRefreshEnabled.value = false;
   Object.assign(logQuery, DEFAULT_LOG_QUERY);
   logsDrawerVisible.value = true;
   await refreshLogs();
@@ -733,11 +879,33 @@ async function refreshLogs() {
   logsError.value = '';
   try {
     activeLogs.value = await getContainerLogs(selectedContainer.value.id, normalizeLogQuery());
+    logsLastLoadedAt.value = new Date().toISOString();
   } catch (error) {
     logsError.value = resolveLocalizedErrorMessage(t, error, t('container.list.logs.loadFailed'));
     logger.warn('failed to fetch container logs', error);
   } finally {
     logsLoading.value = false;
+  }
+}
+
+function syncLogsAutoRefresh() {
+  stopLogsAutoRefresh();
+  if (!logsDrawerVisible.value || !logsAutoRefreshEnabled.value) {
+    return;
+  }
+
+  const interval = Math.max(5, logsAutoRefreshSeconds.value) * 1000;
+  logsAutoRefreshTimer = window.setInterval(() => {
+    if (!logsLoading.value) {
+      void refreshLogs();
+    }
+  }, interval);
+}
+
+function stopLogsAutoRefresh() {
+  if (logsAutoRefreshTimer !== undefined) {
+    window.clearInterval(logsAutoRefreshTimer);
+    logsAutoRefreshTimer = undefined;
   }
 }
 
@@ -771,6 +939,11 @@ async function copyContainerId(row: ContainerSummary) {
     logger.warn('failed to copy container id', error);
     MessagePlugin.error(t('container.list.copyIdError'));
   }
+}
+
+async function copyDetailContainerId() {
+  if (!activeDetail.value) return;
+  await copyContainerId(activeDetail.value);
 }
 
 async function runAction(action: ContainerAction, row: ContainerSummary) {
@@ -1023,12 +1196,14 @@ function normalizeVisibleColumnKeys(keys: unknown[]) {
 }
 
 .container-table-head p,
-.container-detail-section h3 {
+.container-detail-section h3,
+.container-detail-section h4 {
   margin: 0;
 }
 
 .container-table-head__summary,
 .container-identity__name,
+.container-detail-context__main strong,
 .container-detail-item strong {
   color: var(--td-text-color-primary);
   font: var(--td-font-title-small);
@@ -1036,6 +1211,7 @@ function normalizeVisibleColumnKeys(keys: unknown[]) {
 
 .container-table-head p:not(.container-table-head__summary),
 .container-identity__id,
+.container-detail-context__main span,
 .container-muted,
 .container-detail-item span {
   color: var(--td-text-color-secondary);
@@ -1122,6 +1298,37 @@ function normalizeVisibleColumnKeys(keys: unknown[]) {
   padding: var(--graft-density-gap-14);
 }
 
+.container-detail-context {
+  align-items: center;
+  background: var(--td-bg-color-container);
+  border: 1px solid var(--td-component-stroke);
+  border-radius: var(--td-radius-medium);
+  display: flex;
+  gap: var(--graft-density-gap-12);
+  justify-content: space-between;
+  padding: var(--graft-density-gap-14);
+}
+
+.container-detail-context__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--graft-density-gap-4);
+  min-width: 0;
+}
+
+.container-detail-grid {
+  display: grid;
+  gap: var(--graft-density-gap-14);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.container-detail-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--graft-density-gap-10);
+  min-width: 0;
+}
+
 .container-detail-list {
   gap: var(--graft-density-gap-10);
 }
@@ -1136,12 +1343,13 @@ function normalizeVisibleColumnKeys(keys: unknown[]) {
   padding-bottom: 0;
 }
 
-.container-log-controls {
-  border: 1px solid var(--td-component-stroke);
-  border-radius: var(--td-radius-medium);
-  padding: var(--graft-density-gap-14);
+.container-label-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--graft-density-gap-8);
 }
 
+.container-raw-json,
 .container-log-output {
   background: var(--td-bg-color-page);
   border: 1px solid var(--td-component-stroke);
@@ -1150,16 +1358,55 @@ function normalizeVisibleColumnKeys(keys: unknown[]) {
   font-family: var(--td-font-family-monospace);
   line-height: var(--td-line-height-body-medium);
   margin: 0;
-  max-height: min(60vh, 640px);
   overflow: auto;
   overflow-wrap: anywhere;
   padding: var(--graft-density-gap-14);
   white-space: pre-wrap;
 }
 
+.container-raw-json {
+  max-height: min(48vh, 520px);
+}
+
+.container-log-toolbar {
+  border: 1px solid var(--td-component-stroke);
+  border-radius: var(--td-radius-medium);
+  display: flex;
+  flex-direction: column;
+  gap: var(--graft-density-gap-12);
+  padding: var(--graft-density-gap-14);
+}
+
+.container-log-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--graft-density-gap-10);
+  justify-content: space-between;
+}
+
+.container-log-status {
+  color: var(--td-text-color-secondary);
+  font: var(--td-font-body-small);
+}
+
+.container-log-output {
+  max-height: min(60vh, 640px);
+}
+
 @media (width <= 768px) {
   .container-actions {
     justify-content: flex-start;
+  }
+
+  .container-detail-context,
+  .container-log-actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .container-detail-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

@@ -52,12 +52,14 @@ Do not expand into:
 
 ## Current Recovery Point
 
-- Current implementation is MVP-grade and already has list/detail/logs/start/stop/restart.
-- Current frontend page uses `ManagementPageHeader`, `ManagementTableCard`, `TableViewToolbar`, and
-  `resolveTableWidthPolicy`.
-- Current page lacks unified pagination, column settings, density, batch actions, service-side pagination/filtering, and
-  operations-console default columns.
-- Next batch: `phase-1-wide-screen-list-convergence`.
+- Phase 1 wide-screen list convergence is implemented and validated on the frontend.
+- Phase 2 detail and logs Drawer improvements are implemented and validated on the frontend.
+- Detail Drawer now uses a wider operations-console layout, copy-ID context action, grouped existing detail fields,
+  labels/metadata, and collapsed raw detail JSON based only on the current detail response.
+- Logs Drawer now keeps logs unloaded until opened and provides clearer controls, copy, timestamp/stdout/stderr toggles,
+  optional safe auto-refresh through the existing logs endpoint, and clearer empty/error/loading states.
+- Backend/OpenAPI field and server-pagination authority remains intentionally deferred to Phase 3.
+- Next batch: `phase-3-backend-openapi-fields-pagination`.
 
 ## Acceptance Conditions
 

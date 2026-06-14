@@ -25,12 +25,19 @@ experience, then close backend/OpenAPI fields, controlled operations, validation
 ## Current Recovery Point
 
 - Phase 1 wide-screen list convergence is implemented and validated on the frontend.
+- Phase 2 detail and logs Drawer improvements are implemented and validated on the frontend.
 - Container list now keeps refresh in the TableCard toolbar, uses local pagination, column settings, density toggle, and
   a stable detail/logs/more action pattern.
 - Default visible columns are status, container, image, ports, runtime/status, created time, and operation; `started_at`
   and `restart_policy` are optional column settings.
+- Detail Drawer now uses a 960px attached/destroyed Drawer with grouped identity/state/runtime/network/ports/mounts and
+  labels/metadata sections using current detail API data only.
+- Raw JSON is collapsed by default and serializes only the current detail response; no separate raw inspect request is
+  preloaded.
+- Logs Drawer now uses an 800px attached/destroyed Drawer, keeps logs unloaded until opened, preserves tail/since,
+  timestamp/stdout/stderr/copy controls, and adds optional auto-refresh through the existing logs endpoint.
 - Backend/OpenAPI field and server-pagination authority remains intentionally deferred to Phase 3.
-- Next batch: `phase-2-detail-logs-drawers`.
+- Next batch: `phase-3-backend-openapi-fields-pagination`.
 
 ## Task Checklist
 
@@ -46,11 +53,11 @@ experience, then close backend/OpenAPI fields, controlled operations, validation
   - [x] Add `ManagementTablePagination`.
   - [x] Convert row actions to detail/logs/more.
   - [x] Preserve fill/internal-scroll policy and prevent page-level horizontal scroll.
-- [ ] Phase 2: detail and logs Drawer improvements.
-  - [ ] Detail Drawer width and sections.
-  - [ ] Raw JSON collapsed area.
-  - [ ] Copy ID.
-  - [ ] Logs Drawer auto-refresh, copy, timestamps, and error states.
+- [x] Phase 2: detail and logs Drawer improvements.
+  - [x] Detail Drawer width and sections.
+  - [x] Raw JSON collapsed area.
+  - [x] Copy ID.
+  - [x] Logs Drawer auto-refresh, copy, timestamps, and error states.
 - [ ] Phase 3: backend/OpenAPI field and pagination enhancement.
   - [ ] List pagination and filters.
   - [ ] List summary.
@@ -83,16 +90,16 @@ experience, then close backend/OpenAPI fields, controlled operations, validation
   "loop_mode": "topic-completion-loop",
   "completed_batches": [
     "phase-0-planning-topic-persistence",
-    "phase-1-wide-screen-list-convergence"
+    "phase-1-wide-screen-list-convergence",
+    "phase-2-detail-logs-drawers"
   ],
   "pending_batches": [
-    "phase-2-detail-logs-drawers",
     "phase-3-backend-openapi-fields-pagination",
     "phase-4-controlled-operations-closure",
     "phase-5-polish-validation-governance-closeout"
   ],
   "current_batch": null,
-  "next_batch": "phase-2-detail-logs-drawers",
+  "next_batch": "phase-3-backend-openapi-fields-pagination",
   "closeout_status": "active"
 }
 ```
