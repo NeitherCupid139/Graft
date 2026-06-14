@@ -43,6 +43,8 @@ const translations = vi.hoisted(
     'container.list.columnSettings': '列设置',
     'container.list.columns.imageId': '镜像 ID',
     'container.list.columns.labels': '标签',
+    'container.list.columns.network': '网络 / IP',
+    'container.list.columns.resource': '资源',
     'container.list.columns.runtimeStatus': '运行时 / 状态',
     'container.list.columns.createdAt': '创建时间',
     'container.list.columns.image': '镜像',
@@ -98,6 +100,8 @@ const translations = vi.hoisted(
     'container.list.fields.state': '状态码',
     'container.list.fields.status': '状态',
     'container.list.filters.allStatuses': '全部状态',
+    'container.list.filters.allHealth': '全部健康状态',
+    'container.list.filters.health': '健康状态',
     'container.list.filters.query': '查询',
     'container.list.filters.reset': '重置',
     'container.list.filters.searchPlaceholder': '搜索名称、镜像、ID 或端口',
@@ -127,6 +131,7 @@ const translations = vi.hoisted(
     'container.list.pagination.empty': '暂无记录',
     'container.list.pagination.summary': '第 {start}-{end} 条 / 共 {total} 条',
     'container.list.refresh': '刷新',
+    'container.list.resourceUnavailable': '不可用',
     'container.list.resetColumns': '恢复默认列',
     'container.list.retry': '重试',
     'container.list.runtimeContainers': '{running}/{total} 运行中',
@@ -142,6 +147,11 @@ const translations = vi.hoisted(
     'container.list.states.restarting': '重启中',
     'container.list.states.running': '运行中',
     'container.list.states.unknown': '未知',
+    'container.list.health.healthy': '健康',
+    'container.list.health.unhealthy': '异常',
+    'container.list.health.starting': '启动中',
+    'container.list.health.none': '无健康检查',
+    'container.list.health.unavailable': '健康未知',
     'container.list.stoppedCount': '已停止 {count}',
     'container.list.tableHint': '数据来自当前配置的容器运行时。',
     'container.list.tableSummary': '共 {count} 个容器',
@@ -193,8 +203,10 @@ describe('container list page', () => {
     window.localStorage.clear();
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     permissionMocks.hasPermission.mockReturnValue(true);
-    apiMocks.getContainers.mockResolvedValue({
-      items: createContainerRows(25),
+    apiMocks.getContainers.mockImplementation(async (query) => ({
+      items: createContainerRows(query?.offset === 20 ? 5 : 20, query?.offset === 20 ? 21 : 1),
+      limit: query?.limit ?? 20,
+      offset: query?.offset ?? 0,
       runtime: {
         runtime: 'first-adapter',
         status: 'enabled',
@@ -202,15 +214,28 @@ describe('container list page', () => {
         containers_running: 1,
         containers_total: 25,
       },
-    });
+      summary: {
+        total: 25,
+        running: 1,
+        stopped: 24,
+        error: 0,
+        healthy: 1,
+        unhealthy: 0,
+        health_unavailable: 24,
+      },
+      total: 25,
+    }));
     apiMocks.getContainer.mockResolvedValue({
       id: 'container-1',
+      short_id: 'container-1',
+      name: 'graft-web',
       names: ['graft-web'],
       image: 'graft/web:latest',
       image_id: 'sha256:1',
       labels: { 'com.docker.compose.project': 'graft' },
       status: 'Up 10 minutes',
       state: 'running',
+      health: 'healthy',
       command: ['npm', 'run', 'serve'],
       entrypoint: ['docker-entrypoint.sh'],
       runtime: 'first-adapter',
@@ -233,6 +258,12 @@ describe('container list page', () => {
           gateway: '172.18.0.1',
         },
       ],
+      resource: { available: false, unavailable_reason: 'stats_not_collected' },
+      primary_ip: '172.18.0.2',
+      network_summary: 'bridge',
+      can_start: false,
+      can_stop: true,
+      can_restart: true,
       runtime_info: {
         runtime: 'first-adapter',
         status: 'enabled',
@@ -263,6 +294,13 @@ describe('container list page', () => {
     await flushPromises();
 
     expect(apiMocks.getContainers).toHaveBeenCalledTimes(1);
+    expect(apiMocks.getContainers).toHaveBeenCalledWith({
+      health: undefined,
+      keyword: undefined,
+      limit: 20,
+      offset: 0,
+      state: undefined,
+    });
     expect(wrapper.text()).toContain('容器管理');
     expect(wrapper.text()).toContain('graft-web');
     expect(wrapper.text()).toContain('graft/web:latest');
@@ -364,7 +402,17 @@ describe('container list page', () => {
     const table = wrapper.get('[data-testid="container-table"]');
     const columnKeys = JSON.parse(table.attributes('data-column-keys') ?? '[]');
 
-    expect(columnKeys).toEqual(['state', 'name', 'image', 'ports', 'runtime_status', 'created_at', 'operation']);
+    expect(columnKeys).toEqual([
+      'state',
+      'name',
+      'image',
+      'ports',
+      'network',
+      'resource',
+      'runtime_status',
+      'created_at',
+      'operation',
+    ]);
     expect(columnKeys).not.toContain('started_at');
     expect(columnKeys).not.toContain('restart_policy');
 
@@ -374,6 +422,8 @@ describe('container list page', () => {
       'name',
       'image',
       'ports',
+      'network',
+      'resource',
       'runtime_status',
       'created_at',
       'operation',
@@ -381,7 +431,7 @@ describe('container list page', () => {
     expect(JSON.parse(drawer.attributes('data-disabled-keys') ?? '[]')).toEqual(['state', 'name', 'operation']);
   });
 
-  it('supports local pagination and table density controls', async () => {
+  it('supports server pagination and table density controls', async () => {
     const wrapper = mountPage();
     await flushPromises();
 
@@ -390,6 +440,13 @@ describe('container list page', () => {
     await wrapper.get('[data-testid="pagination-next"]').trigger('click');
     await flushPromises();
 
+    expect(apiMocks.getContainers).toHaveBeenLastCalledWith({
+      health: undefined,
+      keyword: undefined,
+      limit: 20,
+      offset: 20,
+      state: undefined,
+    });
     expect(wrapper.text()).toContain('第 21-25 条 / 共 25 条');
     expect(wrapper.findAll('[data-testid="container-table-row"]')).toHaveLength(5);
     expect(wrapper.text()).toContain('graft-extra-21');
@@ -455,11 +512,13 @@ function apiError(messageKey: string, message: string) {
   };
 }
 
-function createContainerRows(count: number) {
+function createContainerRows(count: number, startOrdinal = 1) {
   return Array.from({ length: count }, (_, index) => {
-    const ordinal = index + 1;
+    const ordinal = startOrdinal + index;
     return {
       id: `container-${ordinal}`,
+      short_id: `container-${ordinal}`,
+      name: ordinal === 1 ? 'graft-web' : `graft-extra-${ordinal}`,
       names: [ordinal === 1 ? 'graft-web' : `graft-extra-${ordinal}`],
       image: ordinal === 1 ? 'graft/web:latest' : 'graft/worker:latest',
       image_id: `sha256:${ordinal}`,
@@ -475,9 +534,27 @@ function createContainerRows(count: number) {
       restart_policy: 'unless-stopped',
       runtime: 'first-adapter',
       state: ordinal === 1 ? ('running' as const) : ('exited' as const),
+      health: ordinal === 1 ? ('healthy' as const) : ('unavailable' as const),
       status: ordinal === 1 ? 'Up 10 minutes' : 'Exited',
       created_at: '2026-06-14T01:00:00Z',
       started_at: ordinal === 1 ? '2026-06-14T01:05:00Z' : undefined,
+      primary_ip: ordinal === 1 ? '172.18.0.2' : undefined,
+      network_summary: ordinal === 1 ? 'bridge' : undefined,
+      networks:
+        ordinal === 1
+          ? [
+              {
+                name: 'bridge',
+                ip_address: '172.18.0.2',
+              },
+            ]
+          : [],
+      resource: { available: false, unavailable_reason: 'stats_not_collected' },
+      compose_project: ordinal === 1 ? 'graft' : undefined,
+      compose_service: ordinal === 1 ? 'web' : undefined,
+      can_start: ordinal !== 1,
+      can_stop: ordinal === 1,
+      can_restart: true,
     };
   });
 }
@@ -783,6 +860,8 @@ function mountPage() {
                         slots.name?.({ row }),
                         slots.image?.({ row }),
                         slots.ports?.({ row }),
+                        slots.network?.({ row }),
+                        slots.resource?.({ row }),
                         slots.runtime_status?.({ row }),
                         slots.image_id?.({ row }),
                         slots.labels?.({ row }),

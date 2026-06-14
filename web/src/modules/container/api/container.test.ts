@@ -41,9 +41,10 @@ describe('container api', () => {
       runtime: { runtime: 'first-adapter', status: 'disabled', endpoint: '' },
     } as never);
 
-    await getContainers();
+    await getContainers({ limit: 20, offset: 40, keyword: 'graft', state: 'running', health: 'healthy' });
 
     expect(requestGet).toHaveBeenCalledWith({
+      params: { limit: 20, offset: 40, keyword: 'graft', state: 'running', health: 'healthy' },
       url: CONTAINER_API_PATH.LIST,
     });
   });

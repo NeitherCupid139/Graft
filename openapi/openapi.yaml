@@ -546,6 +546,10 @@ components:
       $ref: ./components/schemas/container-action-response.yaml
     ContainerRuntimeInfo:
       $ref: ./components/schemas/container-runtime-info.yaml
+    ContainerResourceSummary:
+      $ref: ./components/schemas/container-resource-summary.yaml
+    ContainerListSummary:
+      $ref: ./components/schemas/container-list-summary.yaml
     ContainerListResponse:
       $ref: ./components/schemas/container-list-response.yaml
     EnvelopedContainerListResponse:

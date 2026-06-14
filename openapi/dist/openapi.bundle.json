@@ -8577,6 +8577,21 @@
           },
           {
             "$ref": "#/components/parameters/request-id-header"
+          },
+          {
+            "$ref": "#/components/parameters/container-list-limit"
+          },
+          {
+            "$ref": "#/components/parameters/container-list-offset"
+          },
+          {
+            "$ref": "#/components/parameters/container-list-keyword"
+          },
+          {
+            "$ref": "#/components/parameters/container-list-state"
+          },
+          {
+            "$ref": "#/components/parameters/container-list-health"
           }
         ],
         "security": [
@@ -8596,6 +8611,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/enveloped-container-list-response"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query parameter.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
                 }
               }
             }
@@ -9618,6 +9643,12 @@
       },
       "ContainerRuntimeInfo": {
         "$ref": "#/components/schemas/container-runtime-info"
+      },
+      "ContainerResourceSummary": {
+        "$ref": "#/components/schemas/container-resource-summary"
+      },
+      "ContainerListSummary": {
+        "$ref": "#/components/schemas/container-list-summary"
       },
       "ContainerListResponse": {
         "$ref": "#/components/schemas/container-list-response"
@@ -15100,10 +15131,80 @@
           }
         }
       },
+      "container-network": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Runtime network name attached to the container."
+          },
+          "network_id": {
+            "type": "string",
+            "description": "Runtime network identifier, such as the Docker network ID."
+          },
+          "endpoint_id": {
+            "type": "string",
+            "description": "Runtime endpoint identifier for this container attachment within the network."
+          },
+          "ip_address": {
+            "type": "string",
+            "description": "Container IP address assigned on this network."
+          },
+          "gateway": {
+            "type": "string",
+            "description": "Gateway address reported for this container network attachment."
+          },
+          "mac_address": {
+            "type": "string",
+            "description": "MAC address assigned to the container endpoint on this network."
+          }
+        }
+      },
+      "container-resource-summary": {
+        "type": "object",
+        "required": [
+          "available"
+        ],
+        "properties": {
+          "available": {
+            "type": "boolean",
+            "description": "False when runtime stats are not collected on the list path."
+          },
+          "unavailable_reason": {
+            "type": "string",
+            "description": "Stable reason stats are absent, such as stats_not_collected."
+          },
+          "cpu_percent": {
+            "type": "number",
+            "format": "double",
+            "minimum": 0
+          },
+          "memory_usage_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "memory_limit_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "memory_percent": {
+            "type": "number",
+            "format": "double",
+            "minimum": 0
+          }
+        }
+      },
       "container-summary": {
         "type": "object",
         "required": [
           "id",
+          "short_id",
+          "name",
           "names",
           "image",
           "status",
@@ -15115,6 +15216,14 @@
         "properties": {
           "id": {
             "type": "string"
+          },
+          "short_id": {
+            "type": "string",
+            "description": "Runtime id prefix suitable for list display."
+          },
+          "name": {
+            "type": "string",
+            "description": "Primary display name, falling back to id when the runtime returns no names."
           },
           "names": {
             "type": "array",
@@ -15145,6 +15254,18 @@
               "unknown"
             ]
           },
+          "health": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "healthy",
+              "unhealthy",
+              "starting",
+              "none",
+              "unavailable"
+            ],
+            "description": "Nullable when the runtime cannot determine health on the list path without row-level inspect."
+          },
           "runtime": {
             "type": "string",
             "description": "Container runtime adapter key."
@@ -15169,8 +15290,94 @@
               "$ref": "#/components/schemas/container-port"
             }
           },
+          "primary_ip": {
+            "type": "string",
+            "nullable": true,
+            "description": "Primary IP address when the runtime list summary exposes one without raw inspect."
+          },
+          "networks": {
+            "type": "array",
+            "description": "Low-cost network attachment summary from the runtime list path.",
+            "items": {
+              "$ref": "#/components/schemas/container-network"
+            }
+          },
+          "network_summary": {
+            "type": "string",
+            "nullable": true
+          },
+          "resource": {
+            "$ref": "#/components/schemas/container-resource-summary"
+          },
+          "restart_count": {
+            "type": "integer",
+            "minimum": 0,
+            "nullable": true,
+            "description": "Nullable when the runtime list path does not expose restart count without inspect."
+          },
           "restart_policy": {
             "type": "string"
+          },
+          "compose_project": {
+            "type": "string",
+            "nullable": true,
+            "description": "Docker Compose project label when present."
+          },
+          "compose_service": {
+            "type": "string",
+            "nullable": true,
+            "description": "Docker Compose service label when present."
+          },
+          "can_start": {
+            "type": "boolean"
+          },
+          "can_stop": {
+            "type": "boolean"
+          },
+          "can_restart": {
+            "type": "boolean"
+          }
+        }
+      },
+      "container-list-summary": {
+        "type": "object",
+        "required": [
+          "total",
+          "running",
+          "stopped",
+          "error",
+          "healthy",
+          "unhealthy",
+          "health_unavailable"
+        ],
+        "properties": {
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "running": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stopped": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "error": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "healthy": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unhealthy": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "health_unavailable": {
+            "type": "integer",
+            "minimum": 0
           }
         }
       },
@@ -15224,6 +15431,10 @@
         "type": "object",
         "required": [
           "items",
+          "total",
+          "limit",
+          "offset",
+          "summary",
           "runtime"
         ],
         "properties": {
@@ -15232,6 +15443,21 @@
             "items": {
               "$ref": "#/components/schemas/container-summary"
             }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "summary": {
+            "$ref": "#/components/schemas/container-list-summary"
           },
           "runtime": {
             "$ref": "#/components/schemas/container-runtime-info"
@@ -15283,38 +15509,6 @@
           },
           "read_only": {
             "type": "boolean"
-          }
-        }
-      },
-      "container-network": {
-        "type": "object",
-        "required": [
-          "name"
-        ],
-        "properties": {
-          "name": {
-            "type": "string",
-            "description": "Runtime network name attached to the container."
-          },
-          "network_id": {
-            "type": "string",
-            "description": "Runtime network identifier, such as the Docker network ID."
-          },
-          "endpoint_id": {
-            "type": "string",
-            "description": "Runtime endpoint identifier for this container attachment within the network."
-          },
-          "ip_address": {
-            "type": "string",
-            "description": "Container IP address assigned on this network."
-          },
-          "gateway": {
-            "type": "string",
-            "description": "Gateway address reported for this container network attachment."
-          },
-          "mac_address": {
-            "type": "string",
-            "description": "MAC address assigned to the container endpoint on this network."
           }
         }
       },
@@ -16120,6 +16314,89 @@
           "type": "integer",
           "format": "int64",
           "minimum": 1
+        }
+      },
+      "container-list-limit": {
+        "name": "limit",
+        "in": "query",
+        "required": false,
+        "description": "Optional maximum number of containers to return. The runtime accepts values from 1 to 100.",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "examples": {
+          "defaultWindow": {
+            "summary": "Fetch the default container list window",
+            "value": 20
+          },
+          "maxWindow": {
+            "summary": "Fetch up to the maximum supported window",
+            "value": 100
+          }
+        }
+      },
+      "container-list-offset": {
+        "name": "offset",
+        "in": "query",
+        "required": false,
+        "description": "Optional zero-based offset for containers.",
+        "schema": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "examples": {
+          "firstPage": {
+            "summary": "Start from the first container",
+            "value": 0
+          }
+        }
+      },
+      "container-list-keyword": {
+        "name": "keyword",
+        "in": "query",
+        "required": false,
+        "description": "Optional case-insensitive keyword matched against id, short id, name, image, status, runtime, ports, labels, compose metadata, and low-cost network fields.",
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "container-list-state": {
+        "name": "state",
+        "in": "query",
+        "required": false,
+        "description": "Optional normalized container state filter.",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "created",
+            "running",
+            "paused",
+            "restarting",
+            "removing",
+            "exited",
+            "dead",
+            "unknown"
+          ]
+        }
+      },
+      "container-list-health": {
+        "name": "health",
+        "in": "query",
+        "required": false,
+        "description": "Optional health filter. Containers whose list row cannot cheaply determine health are excluded when a specific health filter is provided.",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "healthy",
+            "unhealthy",
+            "starting",
+            "none",
+            "unavailable"
+          ]
         }
       },
       "container-id-path": {

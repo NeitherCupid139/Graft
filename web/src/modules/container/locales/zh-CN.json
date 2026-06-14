@@ -33,6 +33,7 @@
       "errorCount": "异常 {count}",
       "tableSummary": "共 {count} 个容器",
       "tableHint": "数据来自当前配置的容器运行时。",
+      "resourceUnavailable": "不可用",
       "columnSettings": "列设置",
       "resetColumns": "恢复默认列",
       "compactDensity": "紧凑密度",
@@ -56,7 +57,9 @@
       "filters": {
         "searchPlaceholder": "搜索名称、镜像、ID 或端口",
         "status": "容器状态",
+        "health": "健康状态",
         "allStatuses": "全部状态",
+        "allHealth": "全部健康状态",
         "query": "查询",
         "reset": "重置"
       },
@@ -65,6 +68,8 @@
         "name": "容器",
         "image": "镜像",
         "ports": "端口",
+        "network": "网络 / IP",
+        "resource": "资源",
         "runtimeStatus": "运行时 / 状态",
         "createdAt": "创建时间",
         "startedAt": "启动时间",
@@ -82,6 +87,13 @@
         "exited": "已退出",
         "dead": "异常",
         "unknown": "未知"
+      },
+      "health": {
+        "healthy": "健康",
+        "unhealthy": "异常",
+        "starting": "启动中",
+        "none": "无健康检查",
+        "unavailable": "健康未知"
       },
       "actions": {
         "detail": "详情",
@@ -164,7 +176,8 @@
         "runtimeDisabled": "容器运行时访问未启用",
         "runtimeUnavailable": "容器运行时连接不可用",
         "runtimeSocketMissing": "容器运行时套接字不存在",
-        "runtimePermissionDenied": "没有权限访问容器运行时"
+        "runtimePermissionDenied": "没有权限访问容器运行时",
+        "invalidListQuery": "容器列表查询参数不合法"
       }
     }
   }

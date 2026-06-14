@@ -80,6 +80,20 @@ func TestRoutesRejectInvalidLogQuery(t *testing.T) {
 	}
 }
 
+func TestRoutesRejectInvalidListQuery(t *testing.T) {
+	t.Parallel()
+
+	_, engine := newRegisteredRouteTestService(t)
+	response := httptest.NewRecorder()
+	engine.ServeHTTP(response, authorizedRequest(http.MethodGet, "/api/ops/containers?limit=0"))
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), "limit") {
+		t.Fatalf("expected invalid limit field, got %s", response.Body.String())
+	}
+}
+
 func newRegisteredRouteTestService(t *testing.T) (*module.Context, *gin.Engine) {
 	t.Helper()
 

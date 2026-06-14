@@ -134,7 +134,7 @@ Optional columns:
 
 - [x] Phase 1: wide-screen list convergence.
 - [x] Phase 2: detail and logs Drawer improvements.
-- [ ] Phase 3: backend/OpenAPI field and pagination enhancement.
+- [x] Phase 3: backend/OpenAPI field and pagination enhancement.
 - [ ] Phase 4: controlled operations closure including remove, permissions, dangerous gate, audit, and confirmations.
 - [ ] Phase 5: experience polish including auto-refresh, stats refresh, column preference persistence, runtime extension space.
 - [ ] Final: update `ai-plan/design/容器管理设计.md`.

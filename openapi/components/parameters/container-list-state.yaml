@@ -1,0 +1,7 @@
+name: state
+in: query
+required: false
+description: Optional normalized container state filter.
+schema:
+  type: string
+  enum: [created, running, paused, restarting, removing, exited, dead, unknown]

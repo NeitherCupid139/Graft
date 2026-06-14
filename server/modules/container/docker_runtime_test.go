@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/pkg/stdcopy"
 )
 
@@ -112,6 +113,68 @@ func TestDockerRuntimeLogsReturnsInvalidLogQueryError(t *testing.T) {
 	}
 }
 
+func TestDockerRuntimeListUsesCheapSummaryFields(t *testing.T) {
+	t.Parallel()
+
+	client := &countingDockerClient{
+		list: []container.Summary{
+			{
+				ID:      "1234567890abcdef",
+				Names:   []string{"/graft-web"},
+				Image:   "graft/web:latest",
+				ImageID: "sha256:web",
+				Labels: map[string]string{
+					composeProjectLabel: "graft",
+					composeServiceLabel: "web",
+				},
+				Ports:  []container.Port{{IP: "0.0.0.0", PrivatePort: 80, PublicPort: 8080, Type: "tcp"}},
+				State:  container.StateRunning,
+				Status: "Up 10 minutes",
+				NetworkSettings: &container.NetworkSettingsSummary{
+					Networks: map[string]*network.EndpointSettings{
+						"bridge": {
+							NetworkID:  "net-1",
+							EndpointID: "endpoint-1",
+							Gateway:    "172.18.0.1",
+							IPAddress:  "172.18.0.2",
+							MacAddress: "02:42:ac:12:00:02",
+						},
+					},
+				},
+				Created: 1781409600,
+			},
+		},
+	}
+	runtime := &DockerRuntime{client: client, endpoint: "unix:///var/run/docker.sock"}
+
+	items, err := runtime.List(context.Background(), ListQuery{})
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("expected one item, got %#v", items)
+	}
+	item := items[0]
+	if item.ShortID != "1234567890ab" || item.Name != "graft-web" {
+		t.Fatalf("unexpected identity fields %#v", item)
+	}
+	if item.PrimaryIP != "172.18.0.2" || item.NetworkSummary != "bridge" {
+		t.Fatalf("unexpected network fields %#v", item)
+	}
+	if item.Health != containerHealthUnavailable || item.Resource.Available {
+		t.Fatalf("expected unavailable health/resource semantics, got %#v", item)
+	}
+	if item.ComposeProject != "graft" || item.ComposeService != "web" {
+		t.Fatalf("unexpected compose fields %#v", item)
+	}
+	if !item.CanStop || !item.CanRestart || item.CanStart {
+		t.Fatalf("unexpected action availability %#v", item)
+	}
+	if calls := client.inspectCalls.Load(); calls != 0 {
+		t.Fatalf("expected list to avoid inspect calls, got %d", calls)
+	}
+}
+
 func dockerLogStream(t *testing.T, chunks ...string) io.Reader {
 	t.Helper()
 
@@ -135,8 +198,10 @@ type countingDockerClient struct {
 	infoCalls    atomic.Int64
 	inspectCalls atomic.Int64
 	logCalls     atomic.Int64
+	listCalls    atomic.Int64
 	logReader    io.ReadCloser
 	inspect      container.InspectResponse
+	list         []container.Summary
 }
 
 func (c *countingDockerClient) Info(context.Context) (systemInfo, error) {
@@ -145,7 +210,8 @@ func (c *countingDockerClient) Info(context.Context) (systemInfo, error) {
 }
 
 func (c *countingDockerClient) ContainerList(context.Context, container.ListOptions) ([]container.Summary, error) {
-	return nil, nil
+	c.listCalls.Add(1)
+	return c.list, nil
 }
 
 func (c *countingDockerClient) ContainerInspect(context.Context, string) (container.InspectResponse, error) {

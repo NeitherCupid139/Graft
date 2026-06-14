@@ -12,7 +12,7 @@ import (
 
 func statusForError(err error) int {
 	switch {
-	case errors.Is(err, errInvalidRef), errors.Is(err, errLogsTooLarge), errors.Is(err, errInvalidLogQuery):
+	case errors.Is(err, errInvalidRef), errors.Is(err, errInvalidListQuery), errors.Is(err, errLogsTooLarge), errors.Is(err, errInvalidLogQuery):
 		return http.StatusBadRequest
 	case errors.Is(err, errRuntimeDisabled), errors.Is(err, errDangerousActionsDisabled):
 		return http.StatusForbidden
@@ -48,6 +48,7 @@ var containerErrorMessageRules = []struct {
 	{err: errRuntimeDaemonUnavailable, key: containercontract.ContainerRuntimeUnavailable},
 	{err: errContainerNotFound, key: containercontract.ContainerNotFound},
 	{err: errInvalidRef, key: containercontract.ContainerInvalidRef},
+	{err: errInvalidListQuery, key: containercontract.ContainerInvalidListQuery},
 	{err: errInvalidContainerState, key: containercontract.ContainerInvalidState},
 	{err: errLogsTooLarge, key: containercontract.ContainerLogsTooLarge},
 	{err: errInvalidLogQuery, key: containercontract.ContainerInvalidLogQuery},

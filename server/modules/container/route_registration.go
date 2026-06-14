@@ -9,10 +9,12 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
 	"graft/server/internal/contract/httpheader"
+	messagecontract "graft/server/internal/contract/message"
 	containeropenapi "graft/server/internal/contract/openapi/container"
 	"graft/server/internal/httpx"
 	"graft/server/internal/module"
@@ -79,14 +81,16 @@ func registerRoutes(ctx *module.Context, moduleName string, service *service) er
 }
 
 func (r routeRuntime) handleList(ginCtx *gin.Context) {
-	// Keep generated binding on routes with OpenAPI header parameters even when the handler does not read them.
-	_ = bindGetContainersParams(ginCtx)
-	runtime, items, err := r.service.List(ginCtx.Request.Context())
+	params, ok := bindGetContainersParams(ginCtx, r.ctx)
+	if !ok {
+		return
+	}
+	result, err := r.service.List(ginCtx.Request.Context(), listQueryFromParams(params))
 	if err != nil {
 		r.writeRouteError(ginCtx, err)
 		return
 	}
-	httpx.WriteSuccess(ginCtx, http.StatusOK, toContainerListResponse(runtime, items))
+	httpx.WriteSuccess(ginCtx, http.StatusOK, toContainerListResponse(result))
 }
 
 func (r routeRuntime) handleDetail(ginCtx *gin.Context) {
@@ -186,9 +190,43 @@ func resolveAuthorizer(ctx *module.Context) (moduleapi.Authorizer, error) {
 	return authorizer, nil
 }
 
-func bindGetContainersParams(ginCtx *gin.Context) containeropenapi.GetContainersParams {
+func bindGetContainersParams(ginCtx *gin.Context, ctx *module.Context) (containeropenapi.GetContainersParams, bool) {
 	locale, requestID := commonHeaders(ginCtx)
-	return containeropenapi.GetContainersParams{XGraftLocale: locale, XRequestId: requestID}
+	params := containeropenapi.GetContainersParams{XGraftLocale: locale, XRequestId: requestID}
+	limit, ok := queryBoundedInt(ginCtx, ctx, "limit", 1, maxContainerListLimit)
+	if !ok {
+		return containeropenapi.GetContainersParams{}, false
+	}
+	params.Limit = limit
+	offset, ok := queryBoundedInt(ginCtx, ctx, "offset", 0, 0)
+	if !ok {
+		return containeropenapi.GetContainersParams{}, false
+	}
+	params.Offset = offset
+	if value := strings.TrimSpace(ginCtx.Query("keyword")); value != "" {
+		if len(value) > containerListKeywordMaxLength {
+			writeInvalidContainerQuery(ginCtx, ctx, "keyword")
+			return containeropenapi.GetContainersParams{}, false
+		}
+		params.Keyword = &value
+	}
+	if value := strings.TrimSpace(ginCtx.Query("state")); value != "" {
+		if !isValidContainerState(value) {
+			writeInvalidContainerQuery(ginCtx, ctx, "state")
+			return containeropenapi.GetContainersParams{}, false
+		}
+		state := containeropenapi.GetContainersParamsState(value)
+		params.State = &state
+	}
+	if value := strings.TrimSpace(ginCtx.Query("health")); value != "" {
+		if !isValidContainerHealth(value) {
+			writeInvalidContainerQuery(ginCtx, ctx, "health")
+			return containeropenapi.GetContainersParams{}, false
+		}
+		health := containeropenapi.GetContainersParamsHealth(value)
+		params.Health = &health
+	}
+	return params, true
 }
 
 func bindGetContainerParams(ginCtx *gin.Context) containeropenapi.GetContainerParams {
@@ -241,6 +279,40 @@ func queryInt(ginCtx *gin.Context, key string) (int, bool) {
 		return 0, false
 	}
 	return parsed, true
+}
+
+func queryBoundedInt(ginCtx *gin.Context, ctx *module.Context, key string, min int, max int) (*int, bool) {
+	raw := strings.TrimSpace(ginCtx.Query(key))
+	if raw == "" {
+		return nil, true
+	}
+	value, err := strconv.Atoi(raw)
+	if err != nil || value < min || (max > 0 && value > max) {
+		writeInvalidContainerQuery(ginCtx, ctx, key)
+		return nil, false
+	}
+	return &value, true
+}
+
+func writeInvalidContainerQuery(ginCtx *gin.Context, ctx *module.Context, field string) {
+	httpx.AbortLocalizedError(ginCtx, ctx.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument.String(), map[string]any{
+		"field": field,
+	})
+}
+
+func listQueryFromParams(params containeropenapi.GetContainersParams) ListQuery {
+	query := ListQuery{
+		Limit:   intValue(params.Limit),
+		Offset:  intValue(params.Offset),
+		Keyword: stringPtrValue(params.Keyword),
+	}
+	if params.State != nil {
+		query.State = string(*params.State)
+	}
+	if params.Health != nil {
+		query.Health = string(*params.Health)
+	}
+	return query
 }
 
 func queryBool(ginCtx *gin.Context, key string) (bool, bool) {

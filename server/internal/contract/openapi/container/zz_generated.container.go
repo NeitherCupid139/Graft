@@ -7,6 +7,96 @@ const (
 	BearerAuthScopes bearerAuthContextKey = "bearerAuth.Scopes"
 )
 
+// Defines values for GetContainersParamsState.
+const (
+	GetContainersParamsStateCreated    GetContainersParamsState = "created"
+	GetContainersParamsStateDead       GetContainersParamsState = "dead"
+	GetContainersParamsStateExited     GetContainersParamsState = "exited"
+	GetContainersParamsStatePaused     GetContainersParamsState = "paused"
+	GetContainersParamsStateRemoving   GetContainersParamsState = "removing"
+	GetContainersParamsStateRestarting GetContainersParamsState = "restarting"
+	GetContainersParamsStateRunning    GetContainersParamsState = "running"
+	GetContainersParamsStateUnknown    GetContainersParamsState = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the GetContainersParamsState enum.
+func (e GetContainersParamsState) Valid() bool {
+	switch e {
+	case GetContainersParamsStateCreated:
+		return true
+	case GetContainersParamsStateDead:
+		return true
+	case GetContainersParamsStateExited:
+		return true
+	case GetContainersParamsStatePaused:
+		return true
+	case GetContainersParamsStateRemoving:
+		return true
+	case GetContainersParamsStateRestarting:
+		return true
+	case GetContainersParamsStateRunning:
+		return true
+	case GetContainersParamsStateUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetContainersParamsHealth.
+const (
+	GetContainersParamsHealthHealthy     GetContainersParamsHealth = "healthy"
+	GetContainersParamsHealthNone        GetContainersParamsHealth = "none"
+	GetContainersParamsHealthStarting    GetContainersParamsHealth = "starting"
+	GetContainersParamsHealthUnavailable GetContainersParamsHealth = "unavailable"
+	GetContainersParamsHealthUnhealthy   GetContainersParamsHealth = "unhealthy"
+)
+
+// Valid indicates whether the value is a known member of the GetContainersParamsHealth enum.
+func (e GetContainersParamsHealth) Valid() bool {
+	switch e {
+	case GetContainersParamsHealthHealthy:
+		return true
+	case GetContainersParamsHealthNone:
+		return true
+	case GetContainersParamsHealthStarting:
+		return true
+	case GetContainersParamsHealthUnavailable:
+		return true
+	case GetContainersParamsHealthUnhealthy:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetContainers200JSONResponseBodyDataItemsHealth.
+const (
+	GetContainers200JSONResponseBodyDataItemsHealthHealthy     GetContainers200JSONResponseBodyDataItemsHealth = "healthy"
+	GetContainers200JSONResponseBodyDataItemsHealthNone        GetContainers200JSONResponseBodyDataItemsHealth = "none"
+	GetContainers200JSONResponseBodyDataItemsHealthStarting    GetContainers200JSONResponseBodyDataItemsHealth = "starting"
+	GetContainers200JSONResponseBodyDataItemsHealthUnavailable GetContainers200JSONResponseBodyDataItemsHealth = "unavailable"
+	GetContainers200JSONResponseBodyDataItemsHealthUnhealthy   GetContainers200JSONResponseBodyDataItemsHealth = "unhealthy"
+)
+
+// Valid indicates whether the value is a known member of the GetContainers200JSONResponseBodyDataItemsHealth enum.
+func (e GetContainers200JSONResponseBodyDataItemsHealth) Valid() bool {
+	switch e {
+	case GetContainers200JSONResponseBodyDataItemsHealthHealthy:
+		return true
+	case GetContainers200JSONResponseBodyDataItemsHealthNone:
+		return true
+	case GetContainers200JSONResponseBodyDataItemsHealthStarting:
+		return true
+	case GetContainers200JSONResponseBodyDataItemsHealthUnavailable:
+		return true
+	case GetContainers200JSONResponseBodyDataItemsHealthUnhealthy:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetContainers200JSONResponseBodyDataItemsPortsType.
 const (
 	GetContainers200JSONResponseBodyDataItemsPortsTypeSctp GetContainers200JSONResponseBodyDataItemsPortsType = "sctp"
@@ -85,6 +175,21 @@ func (e GetContainers200JSONResponseBodyDataRuntimeStatus) Valid() bool {
 	}
 }
 
+// Defines values for GetContainers400JSONResponseBodySuccess.
+const (
+	GetContainers400JSONResponseBodySuccessFalse GetContainers400JSONResponseBodySuccess = false
+)
+
+// Valid indicates whether the value is a known member of the GetContainers400JSONResponseBodySuccess enum.
+func (e GetContainers400JSONResponseBodySuccess) Valid() bool {
+	switch e {
+	case GetContainers400JSONResponseBodySuccessFalse:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetContainers401JSONResponseBodySuccess.
 const (
 	GetContainers401JSONResponseBodySuccessFalse GetContainers401JSONResponseBodySuccess = false
@@ -130,6 +235,33 @@ func (e GetContainers500JSONResponseBodySuccess) Valid() bool {
 	}
 }
 
+// Defines values for GetContainer200JSONResponseBodyDataHealth.
+const (
+	GetContainer200JSONResponseBodyDataHealthHealthy     GetContainer200JSONResponseBodyDataHealth = "healthy"
+	GetContainer200JSONResponseBodyDataHealthNone        GetContainer200JSONResponseBodyDataHealth = "none"
+	GetContainer200JSONResponseBodyDataHealthStarting    GetContainer200JSONResponseBodyDataHealth = "starting"
+	GetContainer200JSONResponseBodyDataHealthUnavailable GetContainer200JSONResponseBodyDataHealth = "unavailable"
+	GetContainer200JSONResponseBodyDataHealthUnhealthy   GetContainer200JSONResponseBodyDataHealth = "unhealthy"
+)
+
+// Valid indicates whether the value is a known member of the GetContainer200JSONResponseBodyDataHealth enum.
+func (e GetContainer200JSONResponseBodyDataHealth) Valid() bool {
+	switch e {
+	case GetContainer200JSONResponseBodyDataHealthHealthy:
+		return true
+	case GetContainer200JSONResponseBodyDataHealthNone:
+		return true
+	case GetContainer200JSONResponseBodyDataHealthStarting:
+		return true
+	case GetContainer200JSONResponseBodyDataHealthUnavailable:
+		return true
+	case GetContainer200JSONResponseBodyDataHealthUnhealthy:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetContainer200JSONResponseBodyDataPortsType.
 const (
 	GetContainer200JSONResponseBodyDataPortsTypeSctp GetContainer200JSONResponseBodyDataPortsType = "sctp"
@@ -153,19 +285,19 @@ func (e GetContainer200JSONResponseBodyDataPortsType) Valid() bool {
 
 // Defines values for GetContainer200JSONResponseBodyDataRuntimeInfoStatus.
 const (
-	GetContainer200JSONResponseBodyDataRuntimeInfoStatusDisabled    GetContainer200JSONResponseBodyDataRuntimeInfoStatus = "disabled"
-	GetContainer200JSONResponseBodyDataRuntimeInfoStatusEnabled     GetContainer200JSONResponseBodyDataRuntimeInfoStatus = "enabled"
-	GetContainer200JSONResponseBodyDataRuntimeInfoStatusUnavailable GetContainer200JSONResponseBodyDataRuntimeInfoStatus = "unavailable"
+	Disabled    GetContainer200JSONResponseBodyDataRuntimeInfoStatus = "disabled"
+	Enabled     GetContainer200JSONResponseBodyDataRuntimeInfoStatus = "enabled"
+	Unavailable GetContainer200JSONResponseBodyDataRuntimeInfoStatus = "unavailable"
 )
 
 // Valid indicates whether the value is a known member of the GetContainer200JSONResponseBodyDataRuntimeInfoStatus enum.
 func (e GetContainer200JSONResponseBodyDataRuntimeInfoStatus) Valid() bool {
 	switch e {
-	case GetContainer200JSONResponseBodyDataRuntimeInfoStatusDisabled:
+	case Disabled:
 		return true
-	case GetContainer200JSONResponseBodyDataRuntimeInfoStatusEnabled:
+	case Enabled:
 		return true
-	case GetContainer200JSONResponseBodyDataRuntimeInfoStatusUnavailable:
+	case Unavailable:
 		return true
 	default:
 		return false
@@ -174,34 +306,34 @@ func (e GetContainer200JSONResponseBodyDataRuntimeInfoStatus) Valid() bool {
 
 // Defines values for GetContainer200JSONResponseBodyDataState.
 const (
-	GetContainer200JSONResponseBodyDataStateCreated    GetContainer200JSONResponseBodyDataState = "created"
-	GetContainer200JSONResponseBodyDataStateDead       GetContainer200JSONResponseBodyDataState = "dead"
-	GetContainer200JSONResponseBodyDataStateExited     GetContainer200JSONResponseBodyDataState = "exited"
-	GetContainer200JSONResponseBodyDataStatePaused     GetContainer200JSONResponseBodyDataState = "paused"
-	GetContainer200JSONResponseBodyDataStateRemoving   GetContainer200JSONResponseBodyDataState = "removing"
-	GetContainer200JSONResponseBodyDataStateRestarting GetContainer200JSONResponseBodyDataState = "restarting"
-	GetContainer200JSONResponseBodyDataStateRunning    GetContainer200JSONResponseBodyDataState = "running"
-	GetContainer200JSONResponseBodyDataStateUnknown    GetContainer200JSONResponseBodyDataState = "unknown"
+	Created    GetContainer200JSONResponseBodyDataState = "created"
+	Dead       GetContainer200JSONResponseBodyDataState = "dead"
+	Exited     GetContainer200JSONResponseBodyDataState = "exited"
+	Paused     GetContainer200JSONResponseBodyDataState = "paused"
+	Removing   GetContainer200JSONResponseBodyDataState = "removing"
+	Restarting GetContainer200JSONResponseBodyDataState = "restarting"
+	Running    GetContainer200JSONResponseBodyDataState = "running"
+	Unknown    GetContainer200JSONResponseBodyDataState = "unknown"
 )
 
 // Valid indicates whether the value is a known member of the GetContainer200JSONResponseBodyDataState enum.
 func (e GetContainer200JSONResponseBodyDataState) Valid() bool {
 	switch e {
-	case GetContainer200JSONResponseBodyDataStateCreated:
+	case Created:
 		return true
-	case GetContainer200JSONResponseBodyDataStateDead:
+	case Dead:
 		return true
-	case GetContainer200JSONResponseBodyDataStateExited:
+	case Exited:
 		return true
-	case GetContainer200JSONResponseBodyDataStatePaused:
+	case Paused:
 		return true
-	case GetContainer200JSONResponseBodyDataStateRemoving:
+	case Removing:
 		return true
-	case GetContainer200JSONResponseBodyDataStateRestarting:
+	case Restarting:
 		return true
-	case GetContainer200JSONResponseBodyDataStateRunning:
+	case Running:
 		return true
-	case GetContainer200JSONResponseBodyDataStateUnknown:
+	case Unknown:
 		return true
 	default:
 		return false
@@ -726,13 +858,13 @@ func (e PostContainerStop404JSONResponseBodySuccess) Valid() bool {
 
 // Defines values for PostContainerStop409JSONResponseBodySuccess.
 const (
-	PostContainerStop409JSONResponseBodySuccessFalse PostContainerStop409JSONResponseBodySuccess = false
+	False PostContainerStop409JSONResponseBodySuccess = false
 )
 
 // Valid indicates whether the value is a known member of the PostContainerStop409JSONResponseBodySuccess enum.
 func (e PostContainerStop409JSONResponseBodySuccess) Valid() bool {
 	switch e {
-	case PostContainerStop409JSONResponseBodySuccessFalse:
+	case False:
 		return true
 	default:
 		return false
@@ -762,6 +894,21 @@ type refreshCookieContextKey string
 
 // GetContainersParams defines parameters for GetContainers.
 type GetContainersParams struct {
+	// Limit Optional maximum number of containers to return. The runtime accepts values from 1 to 100.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Optional zero-based offset for containers.
+	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
+
+	// Keyword Optional case-insensitive keyword matched against id, short id, name, image, status, runtime, ports, labels, compose metadata, and low-cost network fields.
+	Keyword *string `form:"keyword,omitempty" json:"keyword,omitempty"`
+
+	// State Optional normalized container state filter.
+	State *GetContainersParamsState `form:"state,omitempty" json:"state,omitempty"`
+
+	// Health Optional health filter. Containers whose list row cannot cheaply determine health are excluded when a specific health filter is provided.
+	Health *GetContainersParamsHealth `form:"health,omitempty" json:"health,omitempty"`
+
 	// XGraftLocale Explicit locale override header already supported by the runtime.
 	XGraftLocale *string `json:"X-Graft-Locale,omitempty"`
 
@@ -769,6 +916,15 @@ type GetContainersParams struct {
 	// through the response header and envelope traceId field.
 	XRequestId *string `json:"X-Request-Id,omitempty"`
 }
+
+// GetContainersParamsState defines parameters for GetContainers.
+type GetContainersParamsState string
+
+// GetContainersParamsHealth defines parameters for GetContainers.
+type GetContainersParamsHealth string
+
+// GetContainers200JSONResponseBodyDataItemsHealth defines parameters for GetContainers.
+type GetContainers200JSONResponseBodyDataItemsHealth string
 
 // GetContainers200JSONResponseBodyDataItemsPortsType defines parameters for GetContainers.
 type GetContainers200JSONResponseBodyDataItemsPortsType string
@@ -778,6 +934,9 @@ type GetContainers200JSONResponseBodyDataItemsState string
 
 // GetContainers200JSONResponseBodyDataRuntimeStatus defines parameters for GetContainers.
 type GetContainers200JSONResponseBodyDataRuntimeStatus string
+
+// GetContainers400JSONResponseBodySuccess defines parameters for GetContainers.
+type GetContainers400JSONResponseBodySuccess bool
 
 // GetContainers401JSONResponseBodySuccess defines parameters for GetContainers.
 type GetContainers401JSONResponseBodySuccess bool
@@ -797,6 +956,9 @@ type GetContainerParams struct {
 	// through the response header and envelope traceId field.
 	XRequestId *string `json:"X-Request-Id,omitempty"`
 }
+
+// GetContainer200JSONResponseBodyDataHealth defines parameters for GetContainer.
+type GetContainer200JSONResponseBodyDataHealth string
 
 // GetContainer200JSONResponseBodyDataPortsType defines parameters for GetContainer.
 type GetContainer200JSONResponseBodyDataPortsType string

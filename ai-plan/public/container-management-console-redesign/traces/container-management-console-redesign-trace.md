@@ -97,6 +97,50 @@
   - queries: get_component_docs, get_component_dom
   - adoption: adopted
 
+### Phase 3 Backend OpenAPI Fields And Pagination
+
+- Completed `phase-3-backend-openapi-fields-pagination` as a cross-boundary authority repair.
+- Startup receipt:
+  - governance source: root `AGENTS.md`
+  - task class: `cross-boundary`
+  - recovery source: `parent topic`
+  - authority summary: `ai-plan/design/容器管理设计.md` + `openapi/**` + `server/modules/container/**` +
+    `web/src/modules/container/**` + shared management table components
+- Updated OpenAPI source:
+  - added container list `limit` / `offset` / `keyword` / `state` / `health` query parameters
+  - extended list responses with `total`, `limit`, `offset`, `summary`, `runtime`, and enriched row fields
+  - documented nullable/unavailable semantics for health, resource stats, restart count, and low-cost network fields
+- Updated backend container module:
+  - replaced placeholder `ListQuery` with a typed pagination/filter query and `ListResult`
+  - validated out-of-range list params at the route boundary with localized invalid-argument errors
+  - added service filtering, pagination, summary counts, and dangerous-action-gated row action flags
+  - kept Docker list on the cheap `/containers/json` path and avoided row-level raw inspect/stats polling
+  - exposed Compose project/service, primary IP/network summary, short ID/name, and explicit resource unavailable state
+- Updated generated artifacts:
+  - `openapi/dist/openapi.bundle.json`
+  - `server/internal/contract/openapi/container/zz_generated.container.go`
+  - `server/internal/contract/openapi/generated/types.gen.go`
+  - `web/src/contracts/openapi/generated/schema.ts`
+- Updated web container consumers:
+  - `getContainers` now accepts the generated OpenAPI query type
+  - list page now uses server `limit` / `offset` / `total` / `summary` instead of local pagination/filter authority
+  - default columns now include low-cost network/IP and resource availability columns
+  - action disabled state prefers server-provided `can_start` / `can_stop` / `can_restart`
+- TDesign MCP preflight:
+  - framework: `vue-next`
+  - components: Table, Pagination, Select, Tag
+  - queries: get_component_docs
+  - adoption: adopted
+- Validation:
+  - `node scripts/openapi-bundle.mjs`
+  - `cd server && go generate ./internal/contract/openapi ./internal/contract/openapi/container`
+  - `cd server && go test ./modules/container`
+  - `cd server && go test ./modules/container ./internal/contract/openapi/...`
+  - `cd web && bun run openapi:types`
+  - `cd web && bun run openapi:types:check`
+  - `cd web && bun run test:run -- src/modules/container/pages/list/index.test.ts src/modules/container/api/container.test.ts`
+  - `cd web && bun run typecheck`
+
 ## Loop Batch State
 
 ```json
@@ -105,15 +149,15 @@
   "completed_batches": [
     "phase-0-planning-topic-persistence",
     "phase-1-wide-screen-list-convergence",
-    "phase-2-detail-logs-drawers"
+    "phase-2-detail-logs-drawers",
+    "phase-3-backend-openapi-fields-pagination"
   ],
   "pending_batches": [
-    "phase-3-backend-openapi-fields-pagination",
     "phase-4-controlled-operations-closure",
     "phase-5-polish-validation-governance-closeout"
   ],
   "current_batch": null,
-  "next_batch": "phase-3-backend-openapi-fields-pagination",
+  "next_batch": "phase-4-controlled-operations-closure",
   "closeout_status": "active"
 }
 ```

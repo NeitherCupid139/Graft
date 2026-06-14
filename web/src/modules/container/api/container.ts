@@ -16,6 +16,7 @@ import type {
   ContainerAction,
   ContainerActionResponse,
   ContainerDetail,
+  ContainerListQuery,
   ContainerLogQuery,
   ContainerLogResponse,
 } from '../types/container';
@@ -57,9 +58,10 @@ type PostContainerRestartPathParams = PostContainerRestartOperation['parameters'
 
 export type ContainerListResponse = GetContainersData;
 
-export function getContainers() {
+export function getContainers(query?: ContainerListQuery) {
   return request.get<GetContainersData>({
     url: CONTAINER_API_PATH.LIST,
+    params: query,
   }) as Promise<ContainerListResponse>;
 }
 

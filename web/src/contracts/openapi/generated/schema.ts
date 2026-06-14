@@ -1889,6 +1889,8 @@ export interface components {
     ContainerLogResponse: components['schemas']['container-log-response'];
     ContainerActionResponse: components['schemas']['container-action-response'];
     ContainerRuntimeInfo: components['schemas']['container-runtime-info'];
+    ContainerResourceSummary: components['schemas']['container-resource-summary'];
+    ContainerListSummary: components['schemas']['container-list-summary'];
     ContainerListResponse: components['schemas']['container-list-response'];
     EnvelopedContainerListResponse: components['schemas']['enveloped-container-list-response'];
     EnvelopedContainerDetail: components['schemas']['enveloped-container-detail'];
@@ -3688,8 +3690,40 @@ export interface components {
       /** @enum {string} */
       type: 'tcp' | 'udp' | 'sctp';
     };
+    'container-network': {
+      /** @description Runtime network name attached to the container. */
+      name: string;
+      /** @description Runtime network identifier, such as the Docker network ID. */
+      network_id?: string;
+      /** @description Runtime endpoint identifier for this container attachment within the network. */
+      endpoint_id?: string;
+      /** @description Container IP address assigned on this network. */
+      ip_address?: string;
+      /** @description Gateway address reported for this container network attachment. */
+      gateway?: string;
+      /** @description MAC address assigned to the container endpoint on this network. */
+      mac_address?: string;
+    };
+    'container-resource-summary': {
+      /** @description False when runtime stats are not collected on the list path. */
+      available: boolean;
+      /** @description Stable reason stats are absent, such as stats_not_collected. */
+      unavailable_reason?: string;
+      /** Format: double */
+      cpu_percent?: number;
+      /** Format: int64 */
+      memory_usage_bytes?: number;
+      /** Format: int64 */
+      memory_limit_bytes?: number;
+      /** Format: double */
+      memory_percent?: number;
+    };
     'container-summary': {
       id: string;
+      /** @description Runtime id prefix suitable for list display. */
+      short_id: string;
+      /** @description Primary display name, falling back to id when the runtime returns no names. */
+      name: string;
       names: string[];
       image: string;
       image_id?: string;
@@ -3697,6 +3731,11 @@ export interface components {
       status: string;
       /** @enum {string} */
       state: 'created' | 'running' | 'paused' | 'restarting' | 'removing' | 'exited' | 'dead' | 'unknown';
+      /**
+       * @description Nullable when the runtime cannot determine health on the list path without row-level inspect.
+       * @enum {string|null}
+       */
+      health?: 'healthy' | 'unhealthy' | 'starting' | 'none' | 'unavailable' | null;
       /** @description Container runtime adapter key. */
       runtime: string;
       /** Format: date-time */
@@ -3707,7 +3746,31 @@ export interface components {
         [key: string]: string;
       };
       ports: components['schemas']['container-port'][];
+      /** @description Primary IP address when the runtime list summary exposes one without raw inspect. */
+      primary_ip?: string | null;
+      /** @description Low-cost network attachment summary from the runtime list path. */
+      networks?: components['schemas']['container-network'][];
+      network_summary?: string | null;
+      resource?: components['schemas']['container-resource-summary'];
+      /** @description Nullable when the runtime list path does not expose restart count without inspect. */
+      restart_count?: number | null;
       restart_policy?: string;
+      /** @description Docker Compose project label when present. */
+      compose_project?: string | null;
+      /** @description Docker Compose service label when present. */
+      compose_service?: string | null;
+      can_start?: boolean;
+      can_stop?: boolean;
+      can_restart?: boolean;
+    };
+    'container-list-summary': {
+      total: number;
+      running: number;
+      stopped: number;
+      error: number;
+      healthy: number;
+      unhealthy: number;
+      health_unavailable: number;
     };
     'container-runtime-info': {
       /** @description Container runtime adapter key. */
@@ -3725,6 +3788,10 @@ export interface components {
     };
     'container-list-response': {
       items: components['schemas']['container-summary'][];
+      total: number;
+      limit: number;
+      offset: number;
+      summary: components['schemas']['container-list-summary'];
       runtime: components['schemas']['container-runtime-info'];
     };
     'enveloped-container-list-response': components['schemas']['api-envelope'] & {
@@ -3738,20 +3805,6 @@ export interface components {
       destination: string;
       mode: string;
       read_only: boolean;
-    };
-    'container-network': {
-      /** @description Runtime network name attached to the container. */
-      name: string;
-      /** @description Runtime network identifier, such as the Docker network ID. */
-      network_id?: string;
-      /** @description Runtime endpoint identifier for this container attachment within the network. */
-      endpoint_id?: string;
-      /** @description Container IP address assigned on this network. */
-      ip_address?: string;
-      /** @description Gateway address reported for this container network attachment. */
-      gateway?: string;
-      /** @description MAC address assigned to the container endpoint on this network. */
-      mac_address?: string;
     };
     /** @description Container detail intentionally omits environment variables and raw inspect payload fields that may contain secrets. */
     'container-detail': components['schemas']['container-summary'] & {
@@ -3977,6 +4030,24 @@ export interface components {
     'scheduled-task-action-key': string;
     /** @description Announcement id. */
     'announcement-id-path': number;
+    /** @description Optional maximum number of containers to return. The runtime accepts values from 1 to 100. */
+    'container-list-limit': number;
+    /** @description Optional zero-based offset for containers. */
+    'container-list-offset': number;
+    /** @description Optional case-insensitive keyword matched against id, short id, name, image, status, runtime, ports, labels, compose metadata, and low-cost network fields. */
+    'container-list-keyword': string;
+    /** @description Optional normalized container state filter. */
+    'container-list-state':
+      | 'created'
+      | 'running'
+      | 'paused'
+      | 'restarting'
+      | 'removing'
+      | 'exited'
+      | 'dead'
+      | 'unknown';
+    /** @description Optional health filter. Containers whose list row cannot cheaply determine health are excluded when a specific health filter is provided. */
+    'container-list-health': 'healthy' | 'unhealthy' | 'starting' | 'none' | 'unavailable';
     /** @description Container id or name. Clients must call encodeURIComponent before placing this value in the path. The backend must PathUnescape the path parameter and reject empty values, slashes, and control characters with ops.container.error.invalidContainerRef. */
     'container-id-path': string;
     /** @description Number of log lines to return from the end of the stream. */
@@ -8293,7 +8364,18 @@ export interface operations {
   };
   getContainers: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Optional maximum number of containers to return. The runtime accepts values from 1 to 100. */
+        limit?: components['parameters']['container-list-limit'];
+        /** @description Optional zero-based offset for containers. */
+        offset?: components['parameters']['container-list-offset'];
+        /** @description Optional case-insensitive keyword matched against id, short id, name, image, status, runtime, ports, labels, compose metadata, and low-cost network fields. */
+        keyword?: components['parameters']['container-list-keyword'];
+        /** @description Optional normalized container state filter. */
+        state?: components['parameters']['container-list-state'];
+        /** @description Optional health filter. Containers whose list row cannot cheaply determine health are excluded when a specific health filter is provided. */
+        health?: components['parameters']['container-list-health'];
+      };
       header?: {
         /** @description Explicit locale override header already supported by the runtime. */
         'X-Graft-Locale'?: components['parameters']['locale-header'];
@@ -8316,6 +8398,15 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['enveloped-container-list-response'];
+        };
+      };
+      /** @description Invalid query parameter. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['error-response'];
         };
       };
       401: components['responses']['unauthorized'];

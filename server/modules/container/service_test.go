@@ -137,7 +137,7 @@ func TestRuntimeAccessDisabledUsesResolverAndDoesNotTouchRuntime(t *testing.T) {
 		t.Fatalf("new service: %v", err)
 	}
 
-	_, _, err = service.List(context.Background())
+	_, err = service.List(context.Background(), ListQuery{})
 	if !errors.Is(err, errRuntimeDisabled) {
 		t.Fatalf("expected runtime disabled, got %v", err)
 	}
@@ -161,7 +161,7 @@ func TestRuntimeAccessEnabledButRuntimeUnavailableUsesConnectionErrorKey(t *test
 		t.Fatalf("new service: %v", err)
 	}
 
-	_, _, err = service.List(context.Background())
+	_, err = service.List(context.Background(), ListQuery{})
 	if !errors.Is(err, errRuntimeDaemonUnavailable) {
 		t.Fatalf("expected runtime daemon unavailable, got %v", err)
 	}
@@ -188,12 +188,86 @@ func TestDangerousActionsResolverControlsWriteActionsOnly(t *testing.T) {
 		t.Fatalf("new service: %v", err)
 	}
 
-	if _, _, err := service.List(context.Background()); err != nil {
+	if _, err := service.List(context.Background(), ListQuery{}); err != nil {
 		t.Fatalf("expected read path to stay available, got %v", err)
 	}
 	_, err = service.Start(context.Background(), Ref{Value: "web"})
 	if !errors.Is(err, errDangerousActionsDisabled) {
 		t.Fatalf("expected dangerous actions guard, got %v", err)
+	}
+}
+
+func TestServiceListAppliesPaginationFiltersAndActionAvailability(t *testing.T) {
+	t.Parallel()
+
+	service := newListTestService(t, false)
+	result, err := service.List(context.Background(), ListQuery{
+		Limit:   1,
+		Offset:  1,
+		Keyword: "graft",
+	})
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if result.Total != 2 || result.Limit != 1 || result.Offset != 1 {
+		t.Fatalf("unexpected page metadata %#v", result)
+	}
+	if result.Summary.Total != 2 || result.Summary.Running != 1 || result.Summary.Stopped != 1 {
+		t.Fatalf("unexpected summary %#v", result.Summary)
+	}
+	if len(result.Items) != 1 || result.Items[0].Name != "graft-worker" {
+		t.Fatalf("unexpected paged items %#v", result.Items)
+	}
+	if result.Items[0].CanStart || result.Items[0].CanStop || result.Items[0].CanRestart {
+		t.Fatalf("expected dangerous action gate to disable row actions, got %#v", result.Items[0])
+	}
+}
+
+func TestServiceListFiltersHealth(t *testing.T) {
+	t.Parallel()
+
+	service := newListTestService(t, true)
+	healthResult, err := service.List(context.Background(), ListQuery{Health: containerHealthUnavailable})
+	if err != nil {
+		t.Fatalf("list by health: %v", err)
+	}
+	if healthResult.Total != 1 || healthResult.Items[0].Name != "cache" {
+		t.Fatalf("unexpected health-filtered result %#v", healthResult)
+	}
+}
+
+func newListTestService(t *testing.T, dangerousActionsEnabled bool) *service {
+	t.Helper()
+
+	service, err := newService(containerServiceOptions{
+		runtime:                 listRuntime{},
+		enabled:                 true,
+		dangerousActionsEnabled: dangerousActionsEnabled,
+		defaultTail:             defaultContainerLogsDefaultTail,
+		maxTail:                 defaultContainerLogsMaxTail,
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	return service
+}
+
+func TestServiceListRejectsInvalidQuery(t *testing.T) {
+	t.Parallel()
+
+	service, err := newService(containerServiceOptions{
+		runtime:     fakeRuntime{},
+		enabled:     true,
+		defaultTail: defaultContainerLogsDefaultTail,
+		maxTail:     defaultContainerLogsMaxTail,
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	_, err = service.List(context.Background(), ListQuery{Limit: maxContainerListLimit + 1})
+	if !errors.Is(err, errInvalidListQuery) {
+		t.Fatalf("expected invalid list query, got %v", err)
 	}
 }
 
@@ -381,6 +455,67 @@ func (r *countingRuntime) Close() error { return nil }
 type failingRuntime struct {
 	err error
 }
+
+type listRuntime struct{}
+
+func (listRuntime) Info(context.Context) (RuntimeInfo, error) {
+	return RuntimeInfo{Runtime: runtimeNameDocker, Status: "enabled", Endpoint: "unix:///var/run/docker.sock"}, nil
+}
+
+func (listRuntime) List(context.Context, ListQuery) ([]Summary, error) {
+	return []Summary{
+		{
+			ID:         "111111111111abcdef",
+			ShortID:    "111111111111",
+			Name:       "graft-web",
+			Names:      []string{"graft-web"},
+			Image:      "graft/web:latest",
+			Runtime:    runtimeNameDocker,
+			CreatedAt:  "2026-06-14T00:00:00Z",
+			State:      "running",
+			Status:     "Up",
+			Health:     containerHealthHealthy,
+			Ports:      []Port{{PrivatePort: 80, PublicPort: intPtr(8080), Type: "tcp"}},
+			Labels:     map[string]string{composeProjectLabel: "graft", composeServiceLabel: "web"},
+			CanStop:    true,
+			CanRestart: true,
+		},
+		{
+			ID:         "222222222222abcdef",
+			ShortID:    "222222222222",
+			Name:       "graft-worker",
+			Names:      []string{"graft-worker"},
+			Image:      "graft/worker:latest",
+			Runtime:    runtimeNameDocker,
+			CreatedAt:  "2026-06-14T00:00:00Z",
+			State:      "exited",
+			Status:     "Exited",
+			Health:     containerHealthNone,
+			CanStart:   true,
+			CanRestart: true,
+		},
+		{
+			ID:         "333333333333abcdef",
+			ShortID:    "333333333333",
+			Name:       "cache",
+			Names:      []string{"cache"},
+			Image:      "redis:latest",
+			Runtime:    runtimeNameDocker,
+			CreatedAt:  "2026-06-14T00:00:00Z",
+			State:      "running",
+			Status:     "Up",
+			CanStop:    true,
+			CanRestart: true,
+		},
+	}, nil
+}
+
+func (listRuntime) Detail(context.Context, Ref) (Detail, error)        { return Detail{}, nil }
+func (listRuntime) Logs(context.Context, Ref, LogQuery) (Logs, error)  { return Logs{}, nil }
+func (listRuntime) Start(context.Context, Ref) (ActionResult, error)   { return ActionResult{}, nil }
+func (listRuntime) Stop(context.Context, Ref) (ActionResult, error)    { return ActionResult{}, nil }
+func (listRuntime) Restart(context.Context, Ref) (ActionResult, error) { return ActionResult{}, nil }
+func (listRuntime) Close() error                                       { return nil }
 
 func (r failingRuntime) Info(context.Context) (RuntimeInfo, error) {
 	return RuntimeInfo{}, r.err

@@ -36,8 +36,14 @@ experience, then close backend/OpenAPI fields, controlled operations, validation
   preloaded.
 - Logs Drawer now uses an 800px attached/destroyed Drawer, keeps logs unloaded until opened, preserves tail/since,
   timestamp/stdout/stderr/copy controls, and adds optional auto-refresh through the existing logs endpoint.
-- Backend/OpenAPI field and server-pagination authority remains intentionally deferred to Phase 3.
-- Next batch: `phase-3-backend-openapi-fields-pagination`.
+- Phase 3 backend/OpenAPI field and server-pagination authority is implemented and validated.
+- The container list endpoint now accepts `limit` / `offset` plus `keyword` / `state` / `health` filters.
+- The list response now returns `items`, `total`, `limit`, `offset`, `summary`, `runtime`, and low-cost row fields for
+  identity, health availability, network summary, resource availability, Compose metadata, and action availability.
+- Docker list rows intentionally do not preload raw inspect/log/env/stats. List health and resource stats degrade to
+  explicit unavailable semantics unless a low-cost runtime list source exists.
+- The web container page now consumes generated OpenAPI query/response types and server pagination.
+- Next batch: `phase-4-controlled-operations-closure`.
 
 ## Task Checklist
 
@@ -58,13 +64,13 @@ experience, then close backend/OpenAPI fields, controlled operations, validation
   - [x] Raw JSON collapsed area.
   - [x] Copy ID.
   - [x] Logs Drawer auto-refresh, copy, timestamps, and error states.
-- [ ] Phase 3: backend/OpenAPI field and pagination enhancement.
-  - [ ] List pagination and filters.
-  - [ ] List summary.
-  - [ ] Health field.
-  - [ ] Stats/resource fields with graceful unavailability.
-  - [ ] Ports/network/Compose summaries.
-  - [ ] Nullable rules and generated artifacts.
+- [x] Phase 3: backend/OpenAPI field and pagination enhancement.
+  - [x] List pagination and filters.
+  - [x] List summary.
+  - [x] Health field.
+  - [x] Stats/resource fields with graceful unavailability.
+  - [x] Ports/network/Compose summaries.
+  - [x] Nullable rules and generated artifacts.
 - [ ] Phase 4: controlled operations closure.
   - [ ] Operation availability flags.
   - [ ] Optional remove endpoint and permission if implemented.
@@ -91,15 +97,15 @@ experience, then close backend/OpenAPI fields, controlled operations, validation
   "completed_batches": [
     "phase-0-planning-topic-persistence",
     "phase-1-wide-screen-list-convergence",
-    "phase-2-detail-logs-drawers"
+    "phase-2-detail-logs-drawers",
+    "phase-3-backend-openapi-fields-pagination"
   ],
   "pending_batches": [
-    "phase-3-backend-openapi-fields-pagination",
     "phase-4-controlled-operations-closure",
     "phase-5-polish-validation-governance-closeout"
   ],
   "current_batch": null,
-  "next_batch": "phase-3-backend-openapi-fields-pagination",
+  "next_batch": "phase-4-controlled-operations-closure",
   "closeout_status": "active"
 }
 ```

@@ -124,23 +124,37 @@ func (s *service) Close() error {
 	return s.runtime.Close()
 }
 
-func (s *service) List(ctx context.Context) (RuntimeInfo, []Summary, error) {
+func (s *service) List(ctx context.Context, query ListQuery) (ListResult, error) {
 	if err := s.requireRuntimeAccess(ctx); err != nil {
-		return RuntimeInfo{}, nil, err
+		return ListResult{}, err
+	}
+	normalized, err := normalizeListQuery(query)
+	if err != nil {
+		return ListResult{}, err
 	}
 	runtime, err := s.runtimeForRequest()
 	if err != nil {
-		return RuntimeInfo{}, nil, err
+		return ListResult{}, err
 	}
 	info, err := runtime.Info(ctx)
 	if err != nil {
-		return RuntimeInfo{}, nil, err
+		return ListResult{}, err
 	}
-	items, err := runtime.List(ctx, ListQuery{})
+	items, err := runtime.List(ctx, normalized)
 	if err != nil {
-		return RuntimeInfo{}, nil, err
+		return ListResult{}, err
 	}
-	return info, items, nil
+	filtered := filterContainerSummaries(items, normalized)
+	paged := pageContainerSummaries(filtered, normalized)
+	paged = applyActionAvailability(paged, s.dangerousActionsAllowed(ctx))
+	return ListResult{
+		Runtime: info,
+		Items:   paged,
+		Total:   len(filtered),
+		Limit:   normalized.Limit,
+		Offset:  normalized.Offset,
+		Summary: summarizeContainers(filtered),
+	}, nil
 }
 
 func (s *service) Detail(ctx context.Context, ref Ref) (Detail, error) {
@@ -246,6 +260,116 @@ func (s *service) normalizeLogQuery(query LogQuery) (LogQuery, error) {
 		}
 	}
 	return query, nil
+}
+
+func filterContainerSummaries(items []Summary, query ListQuery) []Summary {
+	filtered := make([]Summary, 0, len(items))
+	keyword := strings.ToLower(strings.TrimSpace(query.Keyword))
+	for _, item := range items {
+		if query.State != "" && item.State != query.State {
+			continue
+		}
+		if query.Health != "" && effectiveHealth(item) != query.Health {
+			continue
+		}
+		if keyword != "" && !summaryMatchesKeyword(item, keyword) {
+			continue
+		}
+		filtered = append(filtered, item)
+	}
+	return filtered
+}
+
+func pageContainerSummaries(items []Summary, query ListQuery) []Summary {
+	if query.Offset >= len(items) {
+		return []Summary{}
+	}
+	end := query.Offset + query.Limit
+	if end > len(items) {
+		end = len(items)
+	}
+	return items[query.Offset:end]
+}
+
+func summarizeContainers(items []Summary) ListSummary {
+	summary := ListSummary{Total: len(items)}
+	for _, item := range items {
+		switch item.State {
+		case "running":
+			summary.Running++
+		case "created", "exited":
+			summary.Stopped++
+		case "dead", "unknown":
+			summary.Error++
+		}
+		switch effectiveHealth(item) {
+		case containerHealthHealthy:
+			summary.Healthy++
+		case containerHealthUnhealthy:
+			summary.Unhealthy++
+		default:
+			summary.HealthUnavailable++
+		}
+	}
+	return summary
+}
+
+func applyActionAvailability(items []Summary, dangerousAllowed bool) []Summary {
+	if dangerousAllowed {
+		return items
+	}
+	adjusted := make([]Summary, 0, len(items))
+	for _, item := range items {
+		item.CanStart = false
+		item.CanStop = false
+		item.CanRestart = false
+		adjusted = append(adjusted, item)
+	}
+	return adjusted
+}
+
+func summaryMatchesKeyword(item Summary, keyword string) bool {
+	values := []string{
+		item.ID,
+		item.ShortID,
+		item.Name,
+		item.Image,
+		item.ImageID,
+		item.Status,
+		item.State,
+		item.Runtime,
+		item.RestartPolicy,
+		item.PrimaryIP,
+		item.NetworkSummary,
+		item.ComposeProject,
+		item.ComposeService,
+	}
+	values = append(values, item.Names...)
+	for _, port := range item.Ports {
+		values = append(values, port.IP, strconv.Itoa(port.PrivatePort), port.Type)
+		if port.PublicPort != nil {
+			values = append(values, strconv.Itoa(*port.PublicPort))
+		}
+	}
+	for _, network := range item.Networks {
+		values = append(values, network.Name, network.NetworkID, network.EndpointID, network.Gateway, network.IPAddress, network.MacAddress)
+	}
+	for key, value := range item.Labels {
+		values = append(values, key, value)
+	}
+	for _, value := range values {
+		if strings.Contains(strings.ToLower(value), keyword) {
+			return true
+		}
+	}
+	return false
+}
+
+func effectiveHealth(item Summary) string {
+	if item.Health == "" {
+		return containerHealthUnavailable
+	}
+	return item.Health
 }
 
 func parseLogSince(raw string) (string, error) {

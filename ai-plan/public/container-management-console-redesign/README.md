@@ -58,8 +58,11 @@ Do not expand into:
   labels/metadata, and collapsed raw detail JSON based only on the current detail response.
 - Logs Drawer now keeps logs unloaded until opened and provides clearer controls, copy, timestamp/stdout/stderr toggles,
   optional safe auto-refresh through the existing logs endpoint, and clearer empty/error/loading states.
-- Backend/OpenAPI field and server-pagination authority remains intentionally deferred to Phase 3.
-- Next batch: `phase-3-backend-openapi-fields-pagination`.
+- Phase 3 backend/OpenAPI field and server-pagination authority is implemented and validated.
+- Container list now uses OpenAPI-owned `limit` / `offset` pagination and `keyword` / `state` / `health` filters.
+- List responses expose `items`, `total`, `limit`, `offset`, `summary`, `runtime`, and low-cost list row fields.
+- Docker list rows avoid raw inspect/log/env/stats preloading; resource stats and health degrade to explicit unavailable semantics on the list path.
+- Next batch: `phase-4-controlled-operations-closure`.
 
 ## Acceptance Conditions
 
@@ -89,4 +92,6 @@ Additional expected focused checks:
 - container backend focused Go tests for list filters/pagination, disabled/unavailable runtime, dangerous action gates,
   audit, and logs query behavior
 - OpenAPI validation/generation checks required by the changed contract slice
+- Phase 3 focused checks completed: OpenAPI bundle, Go OpenAPI generate, frontend OpenAPI type generation/check, focused
+  container Go tests, focused container frontend tests, and frontend typecheck.
 - Playwright/browser evidence for 1920-wide no page-level horizontal scroll and stable table layout

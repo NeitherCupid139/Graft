@@ -9,55 +9,108 @@ import (
 	containergen "graft/server/internal/contract/openapi/generated"
 )
 
-func toContainerListResponse(runtime RuntimeInfo, items []Summary) containergen.ContainerListResponse {
-	mapped := make([]containergen.ContainerSummary, 0, len(items))
-	for _, item := range items {
+func toContainerListResponse(result ListResult) containergen.ContainerListResponse {
+	mapped := make([]containergen.ContainerSummary, 0, len(result.Items))
+	for _, item := range result.Items {
 		mapped = append(mapped, toSummary(item))
 	}
 	return containergen.ContainerListResponse{
 		Items:   mapped,
-		Runtime: toRuntimeInfo(runtime),
+		Limit:   result.Limit,
+		Offset:  result.Offset,
+		Runtime: toRuntimeInfo(result.Runtime),
+		Summary: toListSummary(result.Summary),
+		Total:   result.Total,
 	}
 }
 
 func toSummary(item Summary) containergen.ContainerSummary {
 	return containergen.ContainerSummary{
-		Id:            item.ID,
-		Names:         item.Names,
-		Image:         item.Image,
-		ImageId:       optionalString(item.ImageID),
-		Labels:        optionalStringMap(item.Labels),
-		Ports:         toPorts(item.Ports),
-		RestartPolicy: optionalString(item.RestartPolicy),
-		Runtime:       item.Runtime,
-		CreatedAt:     mustTime(item.CreatedAt),
-		StartedAt:     optionalTime(item.StartedAt),
-		State:         containergen.ContainerSummaryState(item.State),
-		Status:        item.Status,
+		CanRestart:     optionalBool(item.CanRestart),
+		CanStart:       optionalBool(item.CanStart),
+		CanStop:        optionalBool(item.CanStop),
+		ComposeProject: optionalString(item.ComposeProject),
+		ComposeService: optionalString(item.ComposeService),
+		Id:             item.ID,
+		ShortId:        item.ShortID,
+		Name:           item.Name,
+		Names:          item.Names,
+		Image:          item.Image,
+		ImageId:        optionalString(item.ImageID),
+		Labels:         optionalStringMap(item.Labels),
+		Health:         optionalSummaryHealth(item.Health),
+		Ports:          toPorts(item.Ports),
+		PrimaryIp:      optionalString(item.PrimaryIP),
+		Networks:       optionalNetworks(item.Networks),
+		NetworkSummary: optionalString(item.NetworkSummary),
+		Resource:       toResourceSummary(item.Resource),
+		RestartCount:   item.RestartCount,
+		RestartPolicy:  optionalString(item.RestartPolicy),
+		Runtime:        item.Runtime,
+		CreatedAt:      mustTime(item.CreatedAt),
+		StartedAt:      optionalTime(item.StartedAt),
+		State:          containergen.ContainerSummaryState(item.State),
+		Status:         item.Status,
 	}
 }
 
 func toDetail(detail Detail) containergen.ContainerDetail {
 	return containergen.ContainerDetail{
+		CanRestart:       optionalBool(detail.CanRestart),
+		CanStart:         optionalBool(detail.CanStart),
+		CanStop:          optionalBool(detail.CanStop),
 		Command:          optionalStringSlice(detail.Command),
+		ComposeProject:   optionalString(detail.ComposeProject),
+		ComposeService:   optionalString(detail.ComposeService),
 		CreatedAt:        mustTime(detail.CreatedAt),
 		Entrypoint:       optionalStringSlice(detail.Entrypoint),
+		Health:           optionalDetailHealth(detail.Health),
 		Id:               detail.ID,
 		Image:            detail.Image,
 		ImageId:          optionalString(detail.ImageID),
 		InspectUpdatedAt: optionalTime(detail.InspectUpdatedAt),
 		Labels:           optionalStringMap(detail.Labels),
 		Mounts:           toMounts(detail.Mounts),
+		Name:             detail.Name,
 		Names:            detail.Names,
+		NetworkSummary:   optionalString(detail.NetworkSummary),
 		Networks:         toNetworks(detail.Networks),
 		Ports:            toPorts(detail.Ports),
+		PrimaryIp:        optionalString(detail.PrimaryIP),
+		Resource:         toResourceSummary(detail.Resource),
+		RestartCount:     detail.RestartCount,
 		RestartPolicy:    optionalString(detail.RestartPolicy),
 		Runtime:          detail.Runtime,
 		RuntimeInfo:      toRuntimeInfo(detail.RuntimeInfo),
+		ShortId:          detail.ShortID,
 		StartedAt:        optionalTime(detail.StartedAt),
 		State:            containergen.ContainerDetailState(detail.State),
 		Status:           detail.Status,
 		WorkingDir:       optionalString(detail.WorkingDir),
+	}
+}
+
+func toListSummary(summary ListSummary) containergen.ContainerListSummary {
+	return containergen.ContainerListSummary{
+		Error:             summary.Error,
+		HealthUnavailable: summary.HealthUnavailable,
+		Healthy:           summary.Healthy,
+		Running:           summary.Running,
+		Stopped:           summary.Stopped,
+		Total:             summary.Total,
+		Unhealthy:         summary.Unhealthy,
+	}
+}
+
+func toResourceSummary(resource ResourceSummary) *containergen.ContainerResourceSummary {
+	unavailableReason := optionalString(resource.UnavailableReason)
+	return &containergen.ContainerResourceSummary{
+		Available:         resource.Available,
+		CpuPercent:        resource.CPUPercent,
+		MemoryLimitBytes:  resource.MemoryLimitBytes,
+		MemoryPercent:     resource.MemoryPercent,
+		MemoryUsageBytes:  resource.MemoryUsageBytes,
+		UnavailableReason: unavailableReason,
 	}
 }
 
@@ -145,6 +198,14 @@ func toNetworks(networks []Network) []containergen.ContainerNetwork {
 	return mapped
 }
 
+func optionalNetworks(networks []Network) *[]containergen.ContainerNetwork {
+	if len(networks) == 0 {
+		return nil
+	}
+	mapped := toNetworks(networks)
+	return &mapped
+}
+
 func optionalString(value string) *string {
 	if value == "" {
 		return nil
@@ -171,6 +232,26 @@ func optionalInt(value int) *int {
 		return nil
 	}
 	return &value
+}
+
+func optionalBool(value bool) *bool {
+	return &value
+}
+
+func optionalSummaryHealth(value string) *containergen.ContainerSummaryHealth {
+	if value == "" {
+		return nil
+	}
+	health := containergen.ContainerSummaryHealth(value)
+	return &health
+}
+
+func optionalDetailHealth(value string) *containergen.ContainerDetailHealth {
+	if value == "" {
+		return nil
+	}
+	health := containergen.ContainerDetailHealth(value)
+	return &health
 }
 
 func optionalTime(value string) *time.Time {

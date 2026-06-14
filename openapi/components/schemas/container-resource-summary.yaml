@@ -1,0 +1,26 @@
+type: object
+required:
+  - available
+properties:
+  available:
+    type: boolean
+    description: False when runtime stats are not collected on the list path.
+  unavailable_reason:
+    type: string
+    description: Stable reason stats are absent, such as stats_not_collected.
+  cpu_percent:
+    type: number
+    format: double
+    minimum: 0
+  memory_usage_bytes:
+    type: integer
+    format: int64
+    minimum: 0
+  memory_limit_bytes:
+    type: integer
+    format: int64
+    minimum: 0
+  memory_percent:
+    type: number
+    format: double
+    minimum: 0

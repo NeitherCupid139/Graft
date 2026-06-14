@@ -20,6 +20,7 @@ import (
 
 	cerrdefs "github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
 )
@@ -72,7 +73,7 @@ func (r *DockerRuntime) Info(ctx context.Context) (RuntimeInfo, error) {
 	return dockerInfoToRuntimeInfo(info, safeEndpointLabel(r.endpoint)), nil
 }
 
-// List returns Docker container summaries without raw inspect payloads.
+// List returns Docker container summaries without raw inspect, logs, env, or stats polling.
 func (r *DockerRuntime) List(ctx context.Context, _ ListQuery) ([]Summary, error) {
 	items, err := r.client.ContainerList(ctx, container.ListOptions{All: true})
 	if err != nil {
@@ -185,34 +186,68 @@ func (r *DockerRuntime) Close() error {
 }
 
 func dockerSummary(item container.Summary) Summary {
+	names := cleanDockerNames(item.Names)
+	networks := dockerSummaryNetworks(item)
+	primaryIP := primaryNetworkIP(networks)
+	state := normalizeContainerState(string(item.State))
 	return Summary{
-		ID:        strings.TrimSpace(item.ID),
-		Names:     cleanDockerNames(item.Names),
-		Image:     strings.TrimSpace(item.Image),
-		ImageID:   strings.TrimSpace(item.ImageID),
-		Labels:    cloneLabels(item.Labels),
-		Ports:     dockerPorts(item.Ports),
-		Runtime:   runtimeNameDocker,
-		CreatedAt: time.Unix(item.Created, 0).UTC().Format(time.RFC3339),
-		State:     normalizeContainerState(string(item.State)),
-		Status:    strings.TrimSpace(item.Status),
+		ID:             strings.TrimSpace(item.ID),
+		ShortID:        shortRuntimeID(item.ID),
+		Name:           firstNonEmpty(firstContainerName(names), shortRuntimeID(item.ID), strings.TrimSpace(item.ID)),
+		Names:          names,
+		Image:          strings.TrimSpace(item.Image),
+		ImageID:        strings.TrimSpace(item.ImageID),
+		Labels:         cloneLabels(item.Labels),
+		Ports:          dockerPorts(item.Ports),
+		PrimaryIP:      primaryIP,
+		Networks:       networks,
+		NetworkSummary: networkSummary(networks),
+		Resource: ResourceSummary{
+			Available:         false,
+			UnavailableReason: containerStatsUnavailableReason,
+		},
+		Runtime:        runtimeNameDocker,
+		CreatedAt:      time.Unix(item.Created, 0).UTC().Format(time.RFC3339),
+		State:          state,
+		Status:         strings.TrimSpace(item.Status),
+		Health:         containerHealthUnavailable,
+		ComposeProject: strings.TrimSpace(item.Labels[composeProjectLabel]),
+		ComposeService: strings.TrimSpace(item.Labels[composeServiceLabel]),
+		CanStart:       canStartState(state),
+		CanStop:        canStopState(state),
+		CanRestart:     canRestartState(state),
 	}
 }
 
 func dockerDetail(inspect container.InspectResponse, info RuntimeInfo) Detail {
 	state, status, startedAt := dockerState(inspect)
 	summary := Summary{
-		ID:        strings.TrimSpace(inspect.ID),
-		Names:     []string{strings.TrimPrefix(strings.TrimSpace(inspect.Name), "/")},
-		Image:     dockerImage(inspect),
-		ImageID:   strings.TrimSpace(inspect.Image),
-		Labels:    dockerLabels(inspect),
-		Ports:     dockerInspectPorts(inspect),
-		Runtime:   runtimeNameDocker,
-		CreatedAt: parseDockerTimeString(inspect.Created),
-		StartedAt: startedAt,
-		State:     state,
-		Status:    status,
+		ID:             strings.TrimSpace(inspect.ID),
+		ShortID:        shortRuntimeID(inspect.ID),
+		Names:          []string{strings.TrimPrefix(strings.TrimSpace(inspect.Name), "/")},
+		Image:          dockerImage(inspect),
+		ImageID:        strings.TrimSpace(inspect.Image),
+		Labels:         dockerLabels(inspect),
+		Ports:          dockerInspectPorts(inspect),
+		Networks:       dockerNetworks(inspect),
+		Resource:       ResourceSummary{Available: false, UnavailableReason: containerStatsUnavailableReason},
+		Runtime:        runtimeNameDocker,
+		CreatedAt:      parseDockerTimeString(inspect.Created),
+		StartedAt:      startedAt,
+		State:          state,
+		Status:         status,
+		Health:         dockerHealth(inspect),
+		ComposeProject: strings.TrimSpace(dockerLabels(inspect)[composeProjectLabel]),
+		ComposeService: strings.TrimSpace(dockerLabels(inspect)[composeServiceLabel]),
+		CanStart:       canStartState(state),
+		CanStop:        canStopState(state),
+		CanRestart:     canRestartState(state),
+	}
+	summary.Name = firstNonEmpty(firstContainerName(summary.Names), summary.ShortID, summary.ID)
+	summary.PrimaryIP = primaryNetworkIP(summary.Networks)
+	summary.NetworkSummary = networkSummary(summary.Networks)
+	if inspect.ContainerJSONBase != nil {
+		summary.RestartCount = intPtrAllowZero(inspect.RestartCount)
 	}
 	detail := Detail{
 		Summary:          summary,
@@ -230,6 +265,76 @@ func dockerDetail(inspect container.InspectResponse, info RuntimeInfo) Detail {
 		detail.RestartPolicy = string(inspect.HostConfig.RestartPolicy.Name)
 	}
 	return detail
+}
+
+func dockerSummaryNetworks(item container.Summary) []Network {
+	if item.NetworkSettings == nil || len(item.NetworkSettings.Networks) == 0 {
+		return nil
+	}
+	networks := make([]Network, 0, len(item.NetworkSettings.Networks))
+	for name, network := range item.NetworkSettings.Networks {
+		if mapped, ok := dockerEndpointNetwork(name, network); ok {
+			networks = append(networks, mapped)
+		}
+	}
+	return networks
+}
+
+func primaryNetworkIP(networks []Network) string {
+	for _, network := range networks {
+		if strings.TrimSpace(network.IPAddress) != "" {
+			return strings.TrimSpace(network.IPAddress)
+		}
+	}
+	return ""
+}
+
+func networkSummary(networks []Network) string {
+	names := make([]string, 0, len(networks))
+	for _, network := range networks {
+		if strings.TrimSpace(network.Name) != "" {
+			names = append(names, strings.TrimSpace(network.Name))
+		}
+	}
+	return strings.Join(names, ", ")
+}
+
+func dockerHealth(inspect container.InspectResponse) string {
+	if inspect.State == nil || inspect.State.Health == nil {
+		return containerHealthNone
+	}
+	switch strings.TrimSpace(inspect.State.Health.Status) {
+	case container.NoHealthcheck:
+		return containerHealthNone
+	case container.Starting:
+		return containerHealthStarting
+	case container.Healthy:
+		return containerHealthHealthy
+	case container.Unhealthy:
+		return containerHealthUnhealthy
+	default:
+		return containerHealthUnavailable
+	}
+}
+
+func shortRuntimeID(id string) string {
+	value := strings.TrimSpace(id)
+	if len(value) <= containerShortIDLength {
+		return value
+	}
+	return value[:containerShortIDLength]
+}
+
+func canStartState(state string) bool {
+	return state != "running" && state != "removing"
+}
+
+func canStopState(state string) bool {
+	return state == "running"
+}
+
+func canRestartState(state string) bool {
+	return state != "removing" && state != "dead"
 }
 
 func dockerInfoToRuntimeInfo(info systemInfo, endpoint string) RuntimeInfo {
@@ -439,19 +544,25 @@ func dockerNetworks(inspect container.InspectResponse) []Network {
 	}
 	networks := make([]Network, 0, len(inspect.NetworkSettings.Networks))
 	for name, network := range inspect.NetworkSettings.Networks {
-		if network == nil {
-			continue
+		if mapped, ok := dockerEndpointNetwork(name, network); ok {
+			networks = append(networks, mapped)
 		}
-		networks = append(networks, Network{
-			Name:       strings.TrimSpace(name),
-			NetworkID:  strings.TrimSpace(network.NetworkID),
-			EndpointID: strings.TrimSpace(network.EndpointID),
-			Gateway:    strings.TrimSpace(network.Gateway),
-			IPAddress:  strings.TrimSpace(network.IPAddress),
-			MacAddress: strings.TrimSpace(network.MacAddress),
-		})
 	}
 	return networks
+}
+
+func dockerEndpointNetwork(name string, network *network.EndpointSettings) (Network, bool) {
+	if network == nil {
+		return Network{}, false
+	}
+	return Network{
+		Name:       strings.TrimSpace(name),
+		NetworkID:  strings.TrimSpace(network.NetworkID),
+		EndpointID: strings.TrimSpace(network.EndpointID),
+		Gateway:    strings.TrimSpace(network.Gateway),
+		IPAddress:  strings.TrimSpace(network.IPAddress),
+		MacAddress: strings.TrimSpace(network.MacAddress),
+	}, true
 }
 
 func cleanDockerNames(names []string) []string {
@@ -520,6 +631,10 @@ func intPtr(value int) *int {
 	if value <= 0 {
 		return nil
 	}
+	return &value
+}
+
+func intPtrAllowZero(value int) *int {
 	return &value
 }
 
