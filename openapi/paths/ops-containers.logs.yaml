@@ -1,0 +1,50 @@
+get:
+  tags: [container]
+  summary: Read container logs
+  operationId: getContainerLogs
+  description: Returns bounded container log lines from stdout and stderr.
+  parameters:
+    - $ref: ../components/parameters/locale-header.yaml
+    - $ref: ../components/parameters/request-id-header.yaml
+    - $ref: ../components/parameters/container-id-path.yaml
+    - $ref: ../components/parameters/container-logs-tail.yaml
+    - $ref: ../components/parameters/container-logs-since.yaml
+    - $ref: ../components/parameters/container-logs-timestamps.yaml
+    - $ref: ../components/parameters/container-logs-stdout.yaml
+    - $ref: ../components/parameters/container-logs-stderr.yaml
+  security:
+    - bearerAuth: []
+  responses:
+    '200':
+      description: Container logs.
+      headers:
+        X-Request-Id:
+          $ref: ../components/headers/request-id.yaml
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/enveloped-container-log-response.yaml
+    '400':
+      description: Invalid container reference or log query.
+      headers:
+        X-Request-Id:
+          $ref: ../components/headers/request-id.yaml
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/error-response.yaml
+    '401':
+      $ref: ../components/responses/unauthorized.yaml
+    '403':
+      $ref: ../components/responses/forbidden.yaml
+    '404':
+      description: Container was not found.
+      headers:
+        X-Request-Id:
+          $ref: ../components/headers/request-id.yaml
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/error-response.yaml
+    '500':
+      $ref: ../components/responses/internal-server-error.yaml

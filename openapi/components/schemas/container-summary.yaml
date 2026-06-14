@@ -1,0 +1,46 @@
+type: object
+required:
+  - id
+  - names
+  - image
+  - status
+  - state
+  - runtime
+  - created_at
+  - ports
+properties:
+  id:
+    type: string
+  names:
+    type: array
+    items:
+      type: string
+  image:
+    type: string
+  image_id:
+    type: string
+  status:
+    type: string
+    description: Runtime-provided human-readable status.
+  state:
+    type: string
+    enum: [created, running, paused, restarting, removing, exited, dead, unknown]
+  runtime:
+    type: string
+    description: Container runtime adapter key.
+  created_at:
+    type: string
+    format: date-time
+  started_at:
+    type: string
+    format: date-time
+  labels:
+    type: object
+    additionalProperties:
+      type: string
+  ports:
+    type: array
+    items:
+      $ref: ./container-port.yaml
+  restart_policy:
+    type: string

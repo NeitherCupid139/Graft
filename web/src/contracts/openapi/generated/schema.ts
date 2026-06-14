@@ -1591,6 +1591,126 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/ops/containers': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List containers
+     * @description Returns container summaries for the configured container runtime.
+     */
+    get: operations['getContainers'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/ops/containers/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Read container detail
+     * @description Returns one container detail without exposing sensitive environment variables.
+     */
+    get: operations['getContainer'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/ops/containers/{id}/logs': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Read container logs
+     * @description Returns bounded container log lines from stdout and stderr.
+     */
+    get: operations['getContainerLogs'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/ops/containers/{id}/start': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Start container
+     * @description Starts one stopped container when dangerous actions are enabled.
+     */
+    post: operations['postContainerStart'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/ops/containers/{id}/stop': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Stop container
+     * @description Stops one running container when dangerous actions are enabled.
+     */
+    post: operations['postContainerStop'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/ops/containers/{id}/restart': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Restart container
+     * @description Restarts one container when dangerous actions are enabled.
+     */
+    post: operations['postContainerRestart'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1761,6 +1881,19 @@ export interface components {
     EnvelopedAnnouncementListResponse: components['schemas']['enveloped-announcement-list-response'];
     EnvelopedAnnouncementUnreadCountResponse: components['schemas']['enveloped-announcement-unread-count-response'];
     EnvelopedAnnouncementReadAllResponse: components['schemas']['enveloped-announcement-read-all-response'];
+    ContainerSummary: components['schemas']['container-summary'];
+    ContainerDetail: components['schemas']['container-detail'];
+    ContainerPort: components['schemas']['container-port'];
+    ContainerMount: components['schemas']['container-mount'];
+    ContainerNetwork: components['schemas']['container-network'];
+    ContainerLogResponse: components['schemas']['container-log-response'];
+    ContainerActionResponse: components['schemas']['container-action-response'];
+    ContainerRuntimeInfo: components['schemas']['container-runtime-info'];
+    ContainerListResponse: components['schemas']['container-list-response'];
+    EnvelopedContainerListResponse: components['schemas']['enveloped-container-list-response'];
+    EnvelopedContainerDetail: components['schemas']['enveloped-container-detail'];
+    EnvelopedContainerLogResponse: components['schemas']['enveloped-container-log-response'];
+    EnvelopedContainerActionResponse: components['schemas']['enveloped-container-action-response'];
     'health-response': {
       /** @enum {string} */
       status: 'ok';
@@ -3548,6 +3681,122 @@ export interface components {
     'enveloped-announcement-unread-count-response': components['schemas']['api-envelope'] & {
       data: components['schemas']['announcement-unread-count-response'];
     };
+    'container-port': {
+      ip?: string;
+      private_port: number;
+      public_port?: number;
+      /** @enum {string} */
+      type: 'tcp' | 'udp' | 'sctp';
+    };
+    'container-summary': {
+      id: string;
+      names: string[];
+      image: string;
+      image_id?: string;
+      /** @description Runtime-provided human-readable status. */
+      status: string;
+      /** @enum {string} */
+      state: 'created' | 'running' | 'paused' | 'restarting' | 'removing' | 'exited' | 'dead' | 'unknown';
+      /** @description Container runtime adapter key. */
+      runtime: string;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      started_at?: string;
+      labels?: {
+        [key: string]: string;
+      };
+      ports: components['schemas']['container-port'][];
+      restart_policy?: string;
+    };
+    'container-runtime-info': {
+      /** @description Container runtime adapter key. */
+      runtime: string;
+      /** @enum {string} */
+      status: 'enabled' | 'disabled' | 'unavailable';
+      /** @description Runtime endpoint label. Sensitive credentials must not be included. */
+      endpoint: string;
+      api_version?: string;
+      server_version?: string;
+      operating_system?: string;
+      architecture?: string;
+      containers_total?: number;
+      containers_running?: number;
+    };
+    'container-list-response': {
+      items: components['schemas']['container-summary'][];
+      runtime: components['schemas']['container-runtime-info'];
+    };
+    'enveloped-container-list-response': components['schemas']['api-envelope'] & {
+      data: components['schemas']['container-list-response'];
+    };
+    'container-mount': {
+      /** @description Runtime mount type such as bind, volume, or tmpfs. */
+      type: string;
+      name?: string;
+      source?: string;
+      destination: string;
+      mode: string;
+      read_only: boolean;
+    };
+    'container-network': {
+      name: string;
+      network_id?: string;
+      endpoint_id?: string;
+      ip_address?: string;
+      gateway?: string;
+      mac_address?: string;
+    };
+    /** @description Container detail intentionally omits environment variables and raw inspect payload fields that may contain secrets. */
+    'container-detail': components['schemas']['container-summary'] & {
+      command?: string;
+      entrypoint?: string[];
+      working_dir?: string;
+      mounts: components['schemas']['container-mount'][];
+      networks: components['schemas']['container-network'][];
+      runtime_info: components['schemas']['container-runtime-info'];
+      /** Format: date-time */
+      inspect_updated_at?: string;
+    };
+    'enveloped-container-detail': components['schemas']['api-envelope'] & {
+      data: components['schemas']['container-detail'];
+    };
+    'container-log-response': {
+      id: string;
+      name?: string;
+      /** @description Container runtime adapter key. */
+      runtime: string;
+      /** @default 200 */
+      tail: number;
+      /** @description Echoes the accepted since query when provided. */
+      since?: string;
+      /** @description True when runtime output exceeded the bounded tail window. */
+      truncated: boolean;
+      stdout: boolean;
+      stderr: boolean;
+      timestamps: boolean;
+      lines: string[];
+    };
+    'enveloped-container-log-response': components['schemas']['api-envelope'] & {
+      data: components['schemas']['container-log-response'];
+    };
+    'container-action-response': {
+      id: string;
+      name?: string;
+      /** @enum {string} */
+      action: 'start' | 'stop' | 'restart';
+      /** @description Container runtime adapter key. */
+      runtime: string;
+      /** @enum {string} */
+      result: 'accepted' | 'completed' | 'unchanged';
+      status_before?: string;
+      status_after: string;
+      message_key?: string;
+      message?: string;
+    };
+    'enveloped-container-action-response': components['schemas']['api-envelope'] & {
+      data: components['schemas']['container-action-response'];
+    };
     'dashboard-stat-group-payload': {
       items: {
         key: string;
@@ -3705,6 +3954,18 @@ export interface components {
     'scheduled-task-action-key': string;
     /** @description Announcement id. */
     'announcement-id-path': number;
+    /** @description Container id or name. Clients must call encodeURIComponent before placing this value in the path. The backend must PathUnescape the path parameter and reject empty values, slashes, and control characters with ops.container.error.invalidContainerRef. */
+    'container-id-path': string;
+    /** @description Number of log lines to return from the end of the stream. */
+    'container-logs-tail': number;
+    /** @description Optional log lower bound. Accepts an RFC3339 timestamp or a duration such as 10m, 1h, or 24h. Invalid values must return a localized validation error. */
+    'container-logs-since': string;
+    /** @description Whether each returned log line should include the runtime-provided timestamp. */
+    'container-logs-timestamps': boolean;
+    /** @description Whether stdout stream lines should be included. */
+    'container-logs-stdout': boolean;
+    /** @description Whether stderr stream lines should be included. */
+    'container-logs-stderr': boolean;
   };
   requestBodies: never;
   headers: {
@@ -8004,6 +8265,354 @@ export interface operations {
         };
       };
       401: components['responses']['unauthorized'];
+      500: components['responses']['internal-server-error'];
+    };
+  };
+  getContainers: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Explicit locale override header already supported by the runtime. */
+        'X-Graft-Locale'?: components['parameters']['locale-header'];
+        /**
+         * @description Optional caller-supplied request id. If omitted, the runtime generates one and echoes it
+         *     through the response header and envelope traceId field.
+         */
+        'X-Request-Id'?: components['parameters']['request-id-header'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Container list. */
+      200: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['enveloped-container-list-response'];
+        };
+      };
+      401: components['responses']['unauthorized'];
+      403: components['responses']['forbidden'];
+      500: components['responses']['internal-server-error'];
+    };
+  };
+  getContainer: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Explicit locale override header already supported by the runtime. */
+        'X-Graft-Locale'?: components['parameters']['locale-header'];
+        /**
+         * @description Optional caller-supplied request id. If omitted, the runtime generates one and echoes it
+         *     through the response header and envelope traceId field.
+         */
+        'X-Request-Id'?: components['parameters']['request-id-header'];
+      };
+      path: {
+        /** @description Container id or name. Clients must call encodeURIComponent before placing this value in the path. The backend must PathUnescape the path parameter and reject empty values, slashes, and control characters with ops.container.error.invalidContainerRef. */
+        id: components['parameters']['container-id-path'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Container detail. */
+      200: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['enveloped-container-detail'];
+        };
+      };
+      /** @description Invalid container reference. */
+      400: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['error-response'];
+        };
+      };
+      401: components['responses']['unauthorized'];
+      403: components['responses']['forbidden'];
+      /** @description Container was not found. */
+      404: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['error-response'];
+        };
+      };
+      500: components['responses']['internal-server-error'];
+    };
+  };
+  getContainerLogs: {
+    parameters: {
+      query?: {
+        /** @description Number of log lines to return from the end of the stream. */
+        tail?: components['parameters']['container-logs-tail'];
+        /** @description Optional log lower bound. Accepts an RFC3339 timestamp or a duration such as 10m, 1h, or 24h. Invalid values must return a localized validation error. */
+        since?: components['parameters']['container-logs-since'];
+        /** @description Whether each returned log line should include the runtime-provided timestamp. */
+        timestamps?: components['parameters']['container-logs-timestamps'];
+        /** @description Whether stdout stream lines should be included. */
+        stdout?: components['parameters']['container-logs-stdout'];
+        /** @description Whether stderr stream lines should be included. */
+        stderr?: components['parameters']['container-logs-stderr'];
+      };
+      header?: {
+        /** @description Explicit locale override header already supported by the runtime. */
+        'X-Graft-Locale'?: components['parameters']['locale-header'];
+        /**
+         * @description Optional caller-supplied request id. If omitted, the runtime generates one and echoes it
+         *     through the response header and envelope traceId field.
+         */
+        'X-Request-Id'?: components['parameters']['request-id-header'];
+      };
+      path: {
+        /** @description Container id or name. Clients must call encodeURIComponent before placing this value in the path. The backend must PathUnescape the path parameter and reject empty values, slashes, and control characters with ops.container.error.invalidContainerRef. */
+        id: components['parameters']['container-id-path'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Container logs. */
+      200: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['enveloped-container-log-response'];
+        };
+      };
+      /** @description Invalid container reference or log query. */
+      400: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['error-response'];
+        };
+      };
+      401: components['responses']['unauthorized'];
+      403: components['responses']['forbidden'];
+      /** @description Container was not found. */
+      404: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['error-response'];
+        };
+      };
+      500: components['responses']['internal-server-error'];
+    };
+  };
+  postContainerStart: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Explicit locale override header already supported by the runtime. */
+        'X-Graft-Locale'?: components['parameters']['locale-header'];
+        /**
+         * @description Optional caller-supplied request id. If omitted, the runtime generates one and echoes it
+         *     through the response header and envelope traceId field.
+         */
+        'X-Request-Id'?: components['parameters']['request-id-header'];
+      };
+      path: {
+        /** @description Container id or name. Clients must call encodeURIComponent before placing this value in the path. The backend must PathUnescape the path parameter and reject empty values, slashes, and control characters with ops.container.error.invalidContainerRef. */
+        id: components['parameters']['container-id-path'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Container action result. */
+      200: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['enveloped-container-action-response'];
+        };
+      };
+      /** @description Invalid container reference. */
+      400: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['error-response'];
+        };
+      };
+      401: components['responses']['unauthorized'];
+      403: components['responses']['forbidden'];
+      /** @description Container was not found. */
+      404: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['error-response'];
+        };
+      };
+      /** @description Container state does not allow this action. */
+      409: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['error-response'];
+        };
+      };
+      500: components['responses']['internal-server-error'];
+    };
+  };
+  postContainerStop: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Explicit locale override header already supported by the runtime. */
+        'X-Graft-Locale'?: components['parameters']['locale-header'];
+        /**
+         * @description Optional caller-supplied request id. If omitted, the runtime generates one and echoes it
+         *     through the response header and envelope traceId field.
+         */
+        'X-Request-Id'?: components['parameters']['request-id-header'];
+      };
+      path: {
+        /** @description Container id or name. Clients must call encodeURIComponent before placing this value in the path. The backend must PathUnescape the path parameter and reject empty values, slashes, and control characters with ops.container.error.invalidContainerRef. */
+        id: components['parameters']['container-id-path'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Container action result. */
+      200: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['enveloped-container-action-response'];
+        };
+      };
+      /** @description Invalid container reference. */
+      400: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['error-response'];
+        };
+      };
+      401: components['responses']['unauthorized'];
+      403: components['responses']['forbidden'];
+      /** @description Container was not found. */
+      404: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['error-response'];
+        };
+      };
+      /** @description Container state does not allow this action. */
+      409: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['error-response'];
+        };
+      };
+      500: components['responses']['internal-server-error'];
+    };
+  };
+  postContainerRestart: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Explicit locale override header already supported by the runtime. */
+        'X-Graft-Locale'?: components['parameters']['locale-header'];
+        /**
+         * @description Optional caller-supplied request id. If omitted, the runtime generates one and echoes it
+         *     through the response header and envelope traceId field.
+         */
+        'X-Request-Id'?: components['parameters']['request-id-header'];
+      };
+      path: {
+        /** @description Container id or name. Clients must call encodeURIComponent before placing this value in the path. The backend must PathUnescape the path parameter and reject empty values, slashes, and control characters with ops.container.error.invalidContainerRef. */
+        id: components['parameters']['container-id-path'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Container action result. */
+      200: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['enveloped-container-action-response'];
+        };
+      };
+      /** @description Invalid container reference. */
+      400: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['error-response'];
+        };
+      };
+      401: components['responses']['unauthorized'];
+      403: components['responses']['forbidden'];
+      /** @description Container was not found. */
+      404: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['error-response'];
+        };
+      };
+      /** @description Container state does not allow this action. */
+      409: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['error-response'];
+        };
+      };
       500: components['responses']['internal-server-error'];
     };
   };

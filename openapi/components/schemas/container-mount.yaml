@@ -1,0 +1,20 @@
+type: object
+required:
+  - type
+  - destination
+  - mode
+  - read_only
+properties:
+  type:
+    type: string
+    description: Runtime mount type such as bind, volume, or tmpfs.
+  name:
+    type: string
+  source:
+    type: string
+  destination:
+    type: string
+  mode:
+    type: string
+  read_only:
+    type: boolean

@@ -31,7 +31,7 @@
 
 禁止误触：
 
-- 不得把产品能力命名为“Docker 管理”。
+- 不得把产品能力命名为特定容器运行时管理。
 - 不得使用 `ops.docker` 作为权限、菜单、OpenAPI tag 或前端业务前缀。
 - 不得在 MVP 中实现 exec、终端、文件编辑、删除、prune、镜像构建/拉取/推送、容器创建、多节点、远程 Docker Host 或 Kubernetes。
 - 不得新增单独操作日志表；操作记录复用 audit log。
@@ -42,7 +42,7 @@
 - Phase 0：设计和 public topic 持久化。
 - Phase 1：OpenAPI 与 contract source。
 - Phase 2：后端模块骨架、菜单、权限、i18n、系统配置定义。
-- Phase 3：后端 Docker runtime、API、权限、错误映射、审计。
+- Phase 3：后端 `DockerRuntime` adapter、API、权限、错误映射、审计。
 - Phase 4：前端容器列表、详情 Drawer、日志 Drawer/Dialog、高危确认。
 - Phase 5：测试、i18n、治理收尾、归档准备。
 
@@ -51,7 +51,8 @@
 - 分支为 `feat/container-management-mvp`。
 - 设计 authority 已落到 `ai-plan/design/容器管理设计.md`。
 - active topic 已落到 `ai-plan/public/container-management-mvp/`。
-- 当前下一批次：Phase 1 OpenAPI 与 contract source。
+- Phase 1 已完成：OpenAPI 与 generated contract artifacts。
+- 当前下一批次：Phase 2 后端模块骨架、菜单、权限、i18n、系统配置定义。
 
 ## Validation Targets
 

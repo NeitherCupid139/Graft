@@ -1,0 +1,7 @@
+name: stdout
+in: query
+required: false
+description: Whether stdout stream lines should be included.
+schema:
+  type: boolean
+  default: true

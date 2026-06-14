@@ -1,0 +1,15 @@
+name: since
+in: query
+required: false
+description: >
+  Optional log lower bound. Accepts an RFC3339 timestamp or a duration such as 10m, 1h, or 24h.
+  Invalid values must return a localized validation error.
+schema:
+  type: string
+examples:
+  timestamp:
+    summary: RFC3339 timestamp
+    value: '2026-06-14T08:00:00Z'
+  duration:
+    summary: Relative duration
+    value: 10m

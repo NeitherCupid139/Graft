@@ -1,0 +1,7 @@
+name: stderr
+in: query
+required: false
+description: Whether stderr stream lines should be included.
+schema:
+  type: boolean
+  default: true

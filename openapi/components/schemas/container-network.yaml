@@ -1,0 +1,16 @@
+type: object
+required:
+  - name
+properties:
+  name:
+    type: string
+  network_id:
+    type: string
+  endpoint_id:
+    type: string
+  ip_address:
+    type: string
+  gateway:
+    type: string
+  mac_address:
+    type: string

@@ -1,0 +1,17 @@
+name: id
+in: path
+required: true
+description: >
+  Container id or name. Clients must call encodeURIComponent before placing this value in the path.
+  The backend must PathUnescape the path parameter and reject empty values, slashes, and control characters with
+  ops.container.error.invalidContainerRef.
+schema:
+  type: string
+  minLength: 1
+examples:
+  containerId:
+    summary: Container id prefix
+    value: 2c4f1a0b9e2d
+  encodedName:
+    summary: Encoded container name
+    value: web%2Dapi
