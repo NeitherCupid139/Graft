@@ -3705,10 +3705,16 @@ export interface components {
       mac_address?: string;
     };
     'container-resource-summary': {
-      /** @description False when runtime stats are not collected on the list path. */
+      /** @description Compatibility mirror of stats_available for existing clients. New UI code should use stats_available. */
       available: boolean;
-      /** @description Stable reason stats are absent, such as stats_not_collected. */
+      /** @description Compatibility mirror of stats_error_key for existing clients. */
       unavailable_reason?: string;
+      /** @description True when Docker runtime CPU or memory stats were collected for this row. */
+      stats_available: boolean;
+      /** @description Stable sanitized reason stats are absent, such as stats_timeout, stats_unavailable, or stats_incomplete. */
+      stats_error_key?: string | null;
+      /** @description Sanitized display-safe stats collection message; raw Docker daemon errors are not exposed. */
+      stats_error_message?: string | null;
       /** Format: double */
       cpu_percent?: number;
       /** Format: int64 */

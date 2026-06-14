@@ -1,13 +1,25 @@
 type: object
 required:
   - available
+  - stats_available
 properties:
   available:
     type: boolean
-    description: False when runtime stats are not collected on the list path.
+    description: Compatibility mirror of stats_available for existing clients. New UI code should use stats_available.
   unavailable_reason:
     type: string
-    description: Stable reason stats are absent, such as stats_not_collected.
+    description: Compatibility mirror of stats_error_key for existing clients.
+  stats_available:
+    type: boolean
+    description: True when Docker runtime CPU or memory stats were collected for this row.
+  stats_error_key:
+    type: string
+    nullable: true
+    description: Stable sanitized reason stats are absent, such as stats_timeout, stats_unavailable, or stats_incomplete.
+  stats_error_message:
+    type: string
+    nullable: true
+    description: Sanitized display-safe stats collection message; raw Docker daemon errors are not exposed.
   cpu_percent:
     type: number
     format: double

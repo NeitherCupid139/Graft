@@ -33,7 +33,10 @@ const (
 	containerHealthNone        = "none"
 	containerHealthUnavailable = "unavailable"
 
-	containerStatsUnavailableReason = "stats_not_collected"
+	containerStatsNotCollectedReason = "stats_not_collected"
+	containerStatsIncompleteReason   = "stats_incomplete"
+	containerStatsTimeoutReason      = "stats_timeout"
+	containerStatsUnavailableReason  = "stats_unavailable"
 
 	composeProjectLabel = "com.docker.compose.project"
 	composeServiceLabel = "com.docker.compose.service"
@@ -127,6 +130,9 @@ type ListSummary struct {
 type ResourceSummary struct {
 	Available         bool
 	UnavailableReason string
+	StatsAvailable    bool
+	StatsErrorKey     string
+	StatsErrorMessage string
 	CPUPercent        *float64
 	MemoryUsageBytes  *int64
 	MemoryLimitBytes  *int64

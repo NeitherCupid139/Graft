@@ -3051,14 +3051,23 @@ type ContainerPortType string
 
 // ContainerResourceSummary defines model for container-resource-summary.
 type ContainerResourceSummary struct {
-	// Available False when runtime stats are not collected on the list path.
+	// Available Compatibility mirror of stats_available for existing clients. New UI code should use stats_available.
 	Available        bool     `json:"available"`
 	CpuPercent       *float64 `json:"cpu_percent,omitempty"`
 	MemoryLimitBytes *int64   `json:"memory_limit_bytes,omitempty"`
 	MemoryPercent    *float64 `json:"memory_percent,omitempty"`
 	MemoryUsageBytes *int64   `json:"memory_usage_bytes,omitempty"`
 
-	// UnavailableReason Stable reason stats are absent, such as stats_not_collected.
+	// StatsAvailable True when Docker runtime CPU or memory stats were collected for this row.
+	StatsAvailable bool `json:"stats_available"`
+
+	// StatsErrorKey Stable sanitized reason stats are absent, such as stats_timeout, stats_unavailable, or stats_incomplete.
+	StatsErrorKey *string `json:"stats_error_key,omitempty"`
+
+	// StatsErrorMessage Sanitized display-safe stats collection message; raw Docker daemon errors are not exposed.
+	StatsErrorMessage *string `json:"stats_error_message,omitempty"`
+
+	// UnavailableReason Compatibility mirror of stats_error_key for existing clients.
 	UnavailableReason *string `json:"unavailable_reason,omitempty"`
 }
 

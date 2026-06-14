@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -29,6 +30,8 @@ const (
 	dockerSocketScheme       = "unix"
 	dockerLogScannerInitSize = 64 * 1024
 	dockerLogScannerMaxSize  = 1024 * 1024
+	dockerStatsListTimeout   = 2 * time.Second
+	dockerStatsPercentScale  = 100.0
 )
 
 var errInvalidLogQuery = errors.New("invalid log query parameter")
@@ -44,6 +47,7 @@ type dockerClient interface {
 	ContainerList(context.Context, container.ListOptions) ([]container.Summary, error)
 	ContainerInspect(context.Context, string) (container.InspectResponse, error)
 	ContainerLogs(context.Context, string, container.LogsOptions) (io.ReadCloser, error)
+	ContainerStatsOneShot(context.Context, string) (container.StatsResponseReader, error)
 	ContainerStart(context.Context, string, container.StartOptions) error
 	ContainerStop(context.Context, string, container.StopOptions) error
 	ContainerRestart(context.Context, string, container.StopOptions) error
@@ -73,7 +77,7 @@ func (r *DockerRuntime) Info(ctx context.Context) (RuntimeInfo, error) {
 	return dockerInfoToRuntimeInfo(info, safeEndpointLabel(r.endpoint)), nil
 }
 
-// List returns Docker container summaries without raw inspect, logs, env, or stats polling.
+// List returns Docker container summaries without raw inspect, logs, or env leakage.
 func (r *DockerRuntime) List(ctx context.Context, _ ListQuery) ([]Summary, error) {
 	items, err := r.client.ContainerList(ctx, container.ListOptions{All: true})
 	if err != nil {
@@ -81,7 +85,9 @@ func (r *DockerRuntime) List(ctx context.Context, _ ListQuery) ([]Summary, error
 	}
 	summaries := make([]Summary, 0, len(items))
 	for _, item := range items {
-		summaries = append(summaries, dockerSummary(item))
+		summary := dockerSummary(item)
+		summary.Resource = r.containerResourceSummary(ctx, summary.ID)
+		summaries = append(summaries, summary)
 	}
 	return summaries, nil
 }
@@ -204,7 +210,10 @@ func dockerSummary(item container.Summary) Summary {
 		NetworkSummary: networkSummary(networks),
 		Resource: ResourceSummary{
 			Available:         false,
-			UnavailableReason: containerStatsUnavailableReason,
+			UnavailableReason: containerStatsNotCollectedReason,
+			StatsAvailable:    false,
+			StatsErrorKey:     containerStatsNotCollectedReason,
+			StatsErrorMessage: "Container stats were not collected.",
 		},
 		Runtime:        runtimeNameDocker,
 		CreatedAt:      time.Unix(item.Created, 0).UTC().Format(time.RFC3339),
@@ -219,6 +228,117 @@ func dockerSummary(item container.Summary) Summary {
 	}
 }
 
+func (r *DockerRuntime) containerResourceSummary(ctx context.Context, id string) ResourceSummary {
+	ref := strings.TrimSpace(id)
+	if ref == "" {
+		return unavailableResourceSummary(containerStatsIncompleteReason)
+	}
+	statsCtx, cancel := context.WithTimeout(ctx, dockerStatsListTimeout)
+	defer cancel()
+
+	reader, err := r.client.ContainerStatsOneShot(statsCtx, ref)
+	if err != nil {
+		return unavailableResourceSummary(resourceStatsErrorReason(err))
+	}
+	defer func() {
+		if reader.Body != nil {
+			_ = reader.Body.Close()
+		}
+	}()
+	if reader.Body == nil {
+		return unavailableResourceSummary(containerStatsIncompleteReason)
+	}
+
+	var stats container.StatsResponse
+	if err := json.NewDecoder(reader.Body).Decode(&stats); err != nil {
+		return unavailableResourceSummary(resourceStatsErrorReason(err))
+	}
+	return dockerResourceSummary(stats)
+}
+
+func dockerResourceSummary(stats container.StatsResponse) ResourceSummary {
+	resource := ResourceSummary{
+		Available:      true,
+		StatsAvailable: true,
+	}
+	if cpuPercent, ok := dockerCPUPercent(stats); ok {
+		resource.CPUPercent = &cpuPercent
+	}
+	if usage, ok := uint64ToInt64(stats.MemoryStats.Usage); ok {
+		resource.MemoryUsageBytes = &usage
+	}
+	if limit, ok := uint64ToInt64(stats.MemoryStats.Limit); ok {
+		resource.MemoryLimitBytes = &limit
+	}
+	if resource.MemoryUsageBytes != nil && resource.MemoryLimitBytes != nil && *resource.MemoryLimitBytes > 0 {
+		memoryPercent := (float64(*resource.MemoryUsageBytes) / float64(*resource.MemoryLimitBytes)) * dockerStatsPercentScale
+		resource.MemoryPercent = &memoryPercent
+	}
+	if resource.CPUPercent == nil && resource.MemoryUsageBytes == nil && resource.MemoryLimitBytes == nil {
+		return unavailableResourceSummary(containerStatsIncompleteReason)
+	}
+	return resource
+}
+
+func dockerCPUPercent(stats container.StatsResponse) (float64, bool) {
+	if stats.CPUStats.CPUUsage.TotalUsage <= stats.PreCPUStats.CPUUsage.TotalUsage ||
+		stats.CPUStats.SystemUsage <= stats.PreCPUStats.SystemUsage {
+		return 0, false
+	}
+	cpuDelta := float64(stats.CPUStats.CPUUsage.TotalUsage - stats.PreCPUStats.CPUUsage.TotalUsage)
+	systemDelta := float64(stats.CPUStats.SystemUsage - stats.PreCPUStats.SystemUsage)
+	onlineCPUs := float64(stats.CPUStats.OnlineCPUs)
+	if onlineCPUs == 0 {
+		onlineCPUs = float64(len(stats.CPUStats.CPUUsage.PercpuUsage))
+	}
+	if onlineCPUs == 0 {
+		return 0, false
+	}
+	return (cpuDelta / systemDelta) * onlineCPUs * dockerStatsPercentScale, true
+}
+
+func unavailableResourceSummary(reason string) ResourceSummary {
+	reason = firstNonEmpty(strings.TrimSpace(reason), containerStatsUnavailableReason)
+	return ResourceSummary{
+		Available:         false,
+		UnavailableReason: reason,
+		StatsAvailable:    false,
+		StatsErrorKey:     reason,
+		StatsErrorMessage: resourceStatsErrorMessage(reason),
+	}
+}
+
+func resourceStatsErrorReason(err error) string {
+	if err == nil {
+		return containerStatsUnavailableReason
+	}
+	mapped := mapDockerError(err)
+	if errors.Is(mapped, errContainerRuntimeTimeout) {
+		return containerStatsTimeoutReason
+	}
+	return containerStatsUnavailableReason
+}
+
+func resourceStatsErrorMessage(reason string) string {
+	switch reason {
+	case containerStatsNotCollectedReason:
+		return "Container stats were not collected."
+	case containerStatsIncompleteReason:
+		return "Container stats did not include CPU or memory data."
+	case containerStatsTimeoutReason:
+		return "Container stats collection timed out."
+	default:
+		return "Container stats are unavailable."
+	}
+}
+
+func uint64ToInt64(value uint64) (int64, bool) {
+	if value > uint64(^uint64(0)>>1) {
+		return 0, false
+	}
+	return int64(value), value > 0
+}
+
 func dockerDetail(inspect container.InspectResponse, info RuntimeInfo) Detail {
 	state, status, startedAt := dockerState(inspect)
 	summary := Summary{
@@ -230,7 +350,7 @@ func dockerDetail(inspect container.InspectResponse, info RuntimeInfo) Detail {
 		Labels:         dockerLabels(inspect),
 		Ports:          dockerInspectPorts(inspect),
 		Networks:       dockerNetworks(inspect),
-		Resource:       ResourceSummary{Available: false, UnavailableReason: containerStatsUnavailableReason},
+		Resource:       unavailableResourceSummary(containerStatsNotCollectedReason),
 		Runtime:        runtimeNameDocker,
 		CreatedAt:      parseDockerTimeString(inspect.Created),
 		StartedAt:      startedAt,
