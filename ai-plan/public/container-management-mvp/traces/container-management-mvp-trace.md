@@ -1,0 +1,34 @@
+# Container Management MVP Trace
+
+## 2026-06-14
+
+- 启动任务并确认 task class 为 `cross-boundary`。
+- 当前分支从 `feat/frontend-vibe-toolchain-ui-fixes` 重命名为 `feat/container-management-mvp`。
+- 建立容器管理设计 authority：`ai-plan/design/容器管理设计.md`。
+- 建立 public recovery topic：`ai-plan/public/container-management-mvp/README.md`。
+- 明确菜单 IA 为 `运维管理 / 容器管理`，不复用既有 `服务器管理`。
+- 明确业务命名使用 `container` / `ops.container`，Docker 只作为第一版 adapter 名称 `DockerRuntime`。
+- 明确 MVP 不做 exec、终端、文件编辑、删除、prune、镜像构建/拉取/推送、容器创建、远程 Docker Host、
+  Kubernetes、长周期资源采集或单独操作日志表。
+- Phase 0 仅持久化设计与恢复入口，不修改 OpenAPI source、后端模块或前端页面。
+
+## Loop Batch State
+
+```json
+{
+  "loop_mode": "topic-completion-loop",
+  "completed_batches": [
+    "phase-0-design-topic-persistence"
+  ],
+  "pending_batches": [
+    "phase-1-openapi-contract-source",
+    "phase-2-server-module-foundation",
+    "phase-3-server-runtime-api-audit",
+    "phase-4-web-container-management-ui",
+    "phase-5-validation-governance-closeout"
+  ],
+  "current_batch": "phase-0-design-topic-persistence",
+  "next_batch": "phase-1-openapi-contract-source",
+  "closeout_status": "active"
+}
+```
