@@ -11,17 +11,12 @@ const apiMocks = vi.hoisted(() => ({
   getContainer: vi.fn(),
   getContainerLogs: vi.fn(),
   getContainers: vi.fn(),
-  runContainerAction: vi.fn(),
 }));
 
 const messageMocks = vi.hoisted(() => ({
   error: vi.fn(),
   success: vi.fn(),
   warning: vi.fn(),
-}));
-
-const permissionMocks = vi.hoisted(() => ({
-  hasPermission: vi.fn(),
 }));
 
 const translations = vi.hoisted(
@@ -35,16 +30,23 @@ const translations = vi.hoisted(
     'container.list.actions.confirmStop': '确认停止容器 {name}？',
     'container.list.actions.copyId': '复制 ID',
     'container.list.actions.detail': '详情',
+    'container.list.actions.inspect': '检查',
     'container.list.actions.logs': '日志',
     'container.list.actions.more': '更多',
     'container.list.actions.restart': '重启',
     'container.list.actions.start': '启动',
     'container.list.actions.stop': '停止',
     'container.list.actions.unavailable': '该操作当前不可用。',
+    'container.list.actions.viewEnvironment': '查看环境变量',
+    'container.list.actions.viewMounts': '查看挂载',
+    'container.list.actions.viewNetworks': '查看网络',
+    'container.list.actionModeUnavailable': '操作未启用',
     'container.list.clearFilters': '清除筛选',
     'container.list.columnSettings': '列设置',
+    'container.list.columns.cpu': 'CPU',
     'container.list.columns.imageId': '镜像 ID',
     'container.list.columns.labels': '标签',
+    'container.list.columns.memory': '内存',
     'container.list.columns.network': '网络 / IP',
     'container.list.columns.resource': '资源',
     'container.list.columns.runtimeStatus': '运行时 / 状态',
@@ -65,6 +67,8 @@ const translations = vi.hoisted(
     'container.list.description': '查看容器状态。',
     'container.list.detail.command': '命令',
     'container.list.detail.entrypoint': '入口',
+    'container.list.detail.environment': '环境变量',
+    'container.list.detail.environmentUnavailable': '当前安全详情契约不返回环境变量。',
     'container.list.detail.identity': '基础信息',
     'container.list.detail.inspectUpdatedAt': '详情更新时间',
     'container.list.detail.loadFailed': '容器详情加载失败。',
@@ -134,6 +138,8 @@ const translations = vi.hoisted(
     'container.list.pagination.summary': '第 {start}-{end} 条 / 共 {total} 条',
     'container.list.refresh': '刷新',
     'container.list.resourceUnavailable': '不可用',
+    'container.list.healthyCount': '健康 {count}',
+    'container.list.readOnlyMode': '只读模式',
     'container.list.resetColumns': '恢复默认列',
     'container.list.retry': '重试',
     'container.list.runtimeContainers': '{running}/{total} 运行中',
@@ -141,6 +147,7 @@ const translations = vi.hoisted(
     'container.list.runtimeLabel': '运行时',
     'container.list.runtimeUnavailable': '运行时不可用',
     'container.list.runningCount': '运行中 {count}',
+    'container.list.stats.notCollected': '未采集',
     'container.list.states.created': '已创建',
     'container.list.states.dead': '异常',
     'container.list.states.exited': '已退出',
@@ -158,6 +165,7 @@ const translations = vi.hoisted(
     'container.list.tableHint': '数据来自当前配置的容器运行时。',
     'container.list.tableSummary': '共 {count} 个容器',
     'container.list.title': '容器管理',
+    'container.list.totalCount': '总数 {count}',
     'ops.container.error.runtimeDisabled': '容器运行时访问未启用',
     'ops.container.error.runtimeUnavailable': '容器运行时连接不可用',
     'ops.container.action.start.completed': '容器启动操作已完成',
@@ -168,15 +176,10 @@ vi.mock('../../api/container', () => ({
   getContainer: apiMocks.getContainer,
   getContainerLogs: apiMocks.getContainerLogs,
   getContainers: apiMocks.getContainers,
-  runContainerAction: apiMocks.runContainerAction,
 }));
 
 vi.mock('tdesign-vue-next', () => ({
   MessagePlugin: messageMocks,
-}));
-
-vi.mock('@/store', () => ({
-  usePermissionStore: () => permissionMocks,
 }));
 
 vi.mock('tdesign-icons-vue-next', () => ({
@@ -205,7 +208,6 @@ describe('container list page', () => {
     vi.clearAllMocks();
     window.localStorage.clear();
     vi.spyOn(window, 'confirm').mockReturnValue(true);
-    permissionMocks.hasPermission.mockReturnValue(true);
     apiMocks.getContainers.mockImplementation(async (query) => ({
       items: createContainerRows(query?.offset === 20 ? 5 : 20, query?.offset === 20 ? 21 : 1),
       limit: query?.limit ?? 20,
@@ -261,7 +263,14 @@ describe('container list page', () => {
           gateway: '172.18.0.1',
         },
       ],
-      resource: { available: false, unavailable_reason: 'stats_not_collected' },
+      resource: {
+        available: true,
+        stats_available: true,
+        cpu_percent: 21.8,
+        memory_limit_bytes: 536870912,
+        memory_percent: 50,
+        memory_usage_bytes: 268435456,
+      },
       primary_ip: '172.18.0.2',
       network_summary: 'bridge',
       can_start: false,
@@ -283,14 +292,6 @@ describe('container list page', () => {
       timestamps: false,
       lines: ['server started'],
     });
-    apiMocks.runContainerAction.mockResolvedValue({
-      action: 'start',
-      id: 'container-2',
-      message_key: 'ops.container.action.start.completed',
-      message: 'started',
-      runtime: 'first-adapter',
-      state: 'running',
-    });
   });
 
   it('loads and renders container rows with required operation buttons', async () => {
@@ -306,16 +307,29 @@ describe('container list page', () => {
       state: undefined,
     });
     expect(wrapper.text()).toContain('容器管理');
+    expect(wrapper.text()).toContain('总数 25');
+    expect(wrapper.text()).toContain('健康 1');
+    expect(wrapper.text()).toContain('只读模式');
     expect(wrapper.text()).toContain('graft-web');
     expect(wrapper.text()).toContain('graft/web:latest');
+    expect(wrapper.text()).toContain('21.8%');
+    expect(wrapper.text()).toContain('50.0%');
+    expect(wrapper.text()).toContain('256.0 MiB / 512.0 MiB');
+    expect(wrapper.text()).toContain('未采集');
+    expect(wrapper.text()).toContain('stats_not_collected');
     expect(wrapper.text()).toContain('8080->80/tcp');
     expect(wrapper.text()).toContain('+1');
     expect(wrapper.text()).toContain('运行中');
     expect(wrapper.text()).toContain('详情');
     expect(wrapper.text()).toContain('日志');
-    expect(wrapper.text()).toContain('启动');
-    expect(wrapper.text()).toContain('停止');
-    expect(wrapper.text()).toContain('重启');
+    expect(wrapper.text()).toContain('复制 ID');
+    expect(wrapper.text()).toContain('检查');
+    expect(wrapper.text()).toContain('查看挂载');
+    expect(wrapper.text()).toContain('查看网络');
+    expect(wrapper.text()).toContain('查看环境变量');
+    expect(wrapper.find('[data-testid="container-action-start"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="container-action-stop"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="container-action-restart"]').exists()).toBe(false);
     expect(wrapper.text()).toContain('第 1-20 条 / 共 25 条');
     expect(wrapper.text()).not.toContain('graft-extra-21');
   });
@@ -410,24 +424,27 @@ describe('container list page', () => {
       'state',
       'name',
       'image',
+      'cpu',
+      'memory',
       'ports',
       'network',
-      'resource',
       'runtime_status',
       'created_at',
       'operation',
     ]);
     expect(columnKeys).not.toContain('started_at');
     expect(columnKeys).not.toContain('restart_policy');
+    expect(columnKeys).not.toContain('resource');
 
     const drawer = wrapper.get('[data-testid="container-column-drawer"]');
     expect(JSON.parse(drawer.attributes('data-default-selected-keys') ?? '[]')).toEqual([
       'state',
       'name',
       'image',
+      'cpu',
+      'memory',
       'ports',
       'network',
-      'resource',
       'runtime_status',
       'created_at',
       'operation',
@@ -461,35 +478,33 @@ describe('container list page', () => {
     expect(wrapper.get('[data-testid="container-table"]').attributes('data-size')).toBe('small');
   });
 
-  it('confirms start stop and restart from the more action menu', async () => {
+  it('hides dangerous actions while read-only mode is active', async () => {
     const wrapper = mountPage();
     await flushPromises();
 
-    const startAction = wrapper
-      .findAll('[data-testid="container-action-start"]')
-      .find((button) => button.attributes('disabled') === undefined);
-    expect(startAction).toBeTruthy();
-
-    await startAction?.trigger('click');
-    await flushPromises();
-
-    expect(window.confirm).toHaveBeenCalledWith('确认启动容器 graft-extra-2？');
-    expect(apiMocks.runContainerAction).toHaveBeenCalledWith('start', 'container-2');
-    expect(messageMocks.success).toHaveBeenCalledWith('容器启动操作已完成');
+    expect(wrapper.text()).toContain('只读模式');
+    expect(wrapper.find('[data-testid="container-action-start"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="container-action-stop"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="container-action-restart"]').exists()).toBe(false);
+    expect(window.confirm).not.toHaveBeenCalled();
   });
 
-  it('does not confirm or call the API when server action availability disables the action', async () => {
+  it('opens sanitized detail sections from safe read-only more actions', async () => {
     const wrapper = mountPage();
     await flushPromises();
 
-    const disabledStartAction = wrapper.get('[data-testid="container-action-start"]');
-    expect(disabledStartAction.attributes('disabled')).toBeDefined();
-    await disabledStartAction.trigger('click');
+    await wrapper.get('[data-testid="container-action-view-env"]').trigger('click');
     await flushPromises();
 
-    expect(window.confirm).not.toHaveBeenCalled();
-    expect(apiMocks.runContainerAction).not.toHaveBeenCalled();
-    expect(messageMocks.warning).not.toHaveBeenCalled();
+    expect(apiMocks.getContainer).toHaveBeenCalledWith('container-1');
+    expect(wrapper.text()).toContain('环境变量');
+    expect(wrapper.text()).toContain('当前安全详情契约不返回环境变量。');
+
+    await wrapper.get('[data-testid="container-action-inspect"]').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('原始详情 JSON');
+    expect(wrapper.text()).toContain('"id": "container-1"');
   });
 
   it('renders runtime disabled as an access configuration error with system config hint', async () => {
@@ -568,7 +583,23 @@ function createContainerRows(count: number, startOrdinal = 1) {
               },
             ]
           : [],
-      resource: { available: false, unavailable_reason: 'stats_not_collected' },
+      resource:
+        ordinal === 1
+          ? {
+              available: true,
+              stats_available: true,
+              cpu_percent: 21.8,
+              memory_limit_bytes: 536870912,
+              memory_percent: 50,
+              memory_usage_bytes: 268435456,
+            }
+          : {
+              available: false,
+              stats_available: false,
+              stats_error_key: 'stats_not_collected',
+              stats_error_message: 'stats_not_collected',
+              unavailable_reason: 'stats_not_collected',
+            },
       compose_project: ordinal === 1 ? 'graft' : undefined,
       compose_service: ordinal === 1 ? 'web' : undefined,
       can_start: ordinal !== 1,
@@ -878,6 +909,8 @@ function mountPage() {
                         slots.state?.({ row }),
                         slots.name?.({ row }),
                         slots.image?.({ row }),
+                        slots.cpu?.({ row }),
+                        slots.memory?.({ row }),
                         slots.ports?.({ row }),
                         slots.network?.({ row }),
                         slots.resource?.({ row }),

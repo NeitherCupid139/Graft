@@ -13,7 +13,6 @@ import {
   CONTAINER_API_PATH,
 } from '../contract/paths';
 import type {
-  ContainerAction,
   ContainerActionResponse,
   ContainerDetail,
   ContainerListQuery,
@@ -94,14 +93,4 @@ export function restartContainer(containerId: PostContainerRestartPathParams['id
   return request.post<PostContainerRestartData>({
     url: buildContainerRestartApiPath(containerId),
   }) as Promise<ContainerActionResponse>;
-}
-
-export function runContainerAction(action: ContainerAction, containerId: string) {
-  if (action === 'start') {
-    return startContainer(containerId);
-  }
-  if (action === 'stop') {
-    return stopContainer(containerId);
-  }
-  return restartContainer(containerId);
 }
