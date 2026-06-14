@@ -113,166 +113,168 @@
           />
         </template>
 
-        <t-table
-          row-key="task_key"
-          :data="filteredTasks"
-          :columns="columns"
-          :loading="loading"
-          table-layout="fixed"
-          :table-content-width="tableContentWidth"
-          cell-empty-content="-"
-          hover
-        >
-          <template #task="{ row }">
-            <div class="scheduled-task-identity">
-              <span class="scheduled-task-identity__name">{{ taskDisplayName(row) }}</span>
-              <span class="scheduled-task-identity__key">{{ row.task_key }}</span>
-            </div>
-          </template>
+        <div ref="tableHostRef" class="scheduled-task-table-host" :data-table-mode="tableWidthPolicy.mode">
+          <t-table
+            row-key="task_key"
+            :data="filteredTasks"
+            :columns="columns"
+            :loading="loading"
+            table-layout="fixed"
+            :table-content-width="tableWidthPolicy.tableContentWidth"
+            cell-empty-content="-"
+            hover
+          >
+            <template #task="{ row }">
+              <div class="scheduled-task-identity">
+                <span class="scheduled-task-identity__name">{{ taskDisplayName(row) }}</span>
+                <span class="scheduled-task-identity__key">{{ row.task_key }}</span>
+              </div>
+            </template>
 
-          <template #job_key="{ row }">
-            <div class="scheduled-task-owner">
-              <t-tag class="scheduled-task-owner__tag" variant="light-outline" theme="primary">
-                {{ rowView(row).jobCategoryLabel }}
-              </t-tag>
-              <span class="scheduled-task-owner__module">
-                {{ rowView(row).moduleLabel || t('scheduledTask.list.detail.notAvailable') }}
-              </span>
-            </div>
-          </template>
-
-          <template #status="{ row }">
-            <div class="scheduled-task-status-stack">
-              <div class="scheduled-task-status-stack__row">
-                <span>{{ t('scheduledTask.list.statusLabels.enabled') }}</span>
-                <t-tag :theme="row.enabled ? 'success' : 'default'" variant="light" size="small">
-                  {{ booleanLabel(row.enabled) }}
+            <template #job_key="{ row }">
+              <div class="scheduled-task-owner">
+                <t-tag class="scheduled-task-owner__tag" variant="light-outline" theme="primary">
+                  {{ rowView(row).jobCategoryLabel }}
                 </t-tag>
+                <span class="scheduled-task-owner__module">
+                  {{ rowView(row).moduleLabel || t('scheduledTask.list.detail.notAvailable') }}
+                </span>
               </div>
-              <div class="scheduled-task-status-stack__row">
-                <span>{{ t('scheduledTask.list.statusLabels.runtime') }}</span>
-                <task-status-tag :status="row.status" />
+            </template>
+
+            <template #status="{ row }">
+              <div class="scheduled-task-status-stack">
+                <div class="scheduled-task-status-stack__row">
+                  <span>{{ t('scheduledTask.list.statusLabels.enabled') }}</span>
+                  <t-tag :theme="row.enabled ? 'success' : 'default'" variant="light" size="small">
+                    {{ booleanLabel(row.enabled) }}
+                  </t-tag>
+                </div>
+                <div class="scheduled-task-status-stack__row">
+                  <span>{{ t('scheduledTask.list.statusLabels.runtime') }}</span>
+                  <task-status-tag :status="row.status" />
+                </div>
               </div>
-            </div>
-          </template>
+            </template>
 
-          <template #schedule="{ row }">
-            <div class="scheduled-task-schedule">
-              <strong>{{ cronScheduleDescription(row.cron_expression) }}</strong>
-              <span class="scheduled-task-schedule__next-run">{{ cronNextRunLine(row.cron_expression) }}</span>
-              <t-popup
-                trigger="hover"
-                placement="top-left"
-                show-arrow
-                overlay-class-name="scheduled-task-cron-popover"
-                :overlay-inner-style="cronPopoverOverlayInnerStyle"
-              >
-                <button type="button" class="scheduled-task-cron-trigger">
-                  <code class="scheduled-task-mono">{{ scheduleExpressionText(row) }}</code>
-                </button>
-                <template #content>
-                  <div class="scheduled-task-cron-popover__content">
-                    <div class="scheduled-task-cron-popover__item">
-                      <span>{{ t('scheduledTask.cron.expression') }}</span>
-                      <code>{{ scheduleExpressionText(row) }}</code>
+            <template #schedule="{ row }">
+              <div class="scheduled-task-schedule">
+                <strong>{{ cronScheduleDescription(row.cron_expression) }}</strong>
+                <span class="scheduled-task-schedule__next-run">{{ cronNextRunLine(row.cron_expression) }}</span>
+                <t-popup
+                  trigger="hover"
+                  placement="top-left"
+                  show-arrow
+                  overlay-class-name="scheduled-task-cron-popover"
+                  :overlay-inner-style="cronPopoverOverlayInnerStyle"
+                >
+                  <button type="button" class="scheduled-task-cron-trigger">
+                    <code class="scheduled-task-mono">{{ scheduleExpressionText(row) }}</code>
+                  </button>
+                  <template #content>
+                    <div class="scheduled-task-cron-popover__content">
+                      <div class="scheduled-task-cron-popover__item">
+                        <span>{{ t('scheduledTask.cron.expression') }}</span>
+                        <code>{{ scheduleExpressionText(row) }}</code>
+                      </div>
+                      <div class="scheduled-task-cron-popover__item">
+                        <span>{{ t('scheduledTask.cron.description') }}</span>
+                        <strong>{{ cronScheduleDescription(row.cron_expression) }}</strong>
+                      </div>
+                      <div class="scheduled-task-cron-popover__item">
+                        <span>{{ t('scheduledTask.cron.timezone') }}</span>
+                        <strong>{{ cronTimezone() }}</strong>
+                      </div>
+                      <div class="scheduled-task-cron-popover__item">
+                        <span>{{ t('scheduledTask.list.detail.nextRun') }}</span>
+                        <strong>{{ cronNextRunTime(row.cron_expression) }}</strong>
+                      </div>
                     </div>
-                    <div class="scheduled-task-cron-popover__item">
-                      <span>{{ t('scheduledTask.cron.description') }}</span>
-                      <strong>{{ cronScheduleDescription(row.cron_expression) }}</strong>
-                    </div>
-                    <div class="scheduled-task-cron-popover__item">
-                      <span>{{ t('scheduledTask.cron.timezone') }}</span>
-                      <strong>{{ cronTimezone() }}</strong>
-                    </div>
-                    <div class="scheduled-task-cron-popover__item">
-                      <span>{{ t('scheduledTask.list.detail.nextRun') }}</span>
-                      <strong>{{ cronNextRunTime(row.cron_expression) }}</strong>
-                    </div>
-                  </div>
-                </template>
-              </t-popup>
-            </div>
-          </template>
-
-          <template #last_run="{ row }">
-            <div v-if="row.last_run" class="scheduled-task-last-run">
-              <div class="scheduled-task-last-run__head">
-                <span>{{ formatTimestamp(row.last_run.started_at) }}</span>
-                <task-status-tag :status="row.last_run.status" />
+                  </template>
+                </t-popup>
               </div>
-              <strong>{{ runResultText(row.last_run) }}</strong>
-            </div>
-            <span v-else class="scheduled-task-muted">{{ t('scheduledTask.list.detail.noRecentRun') }}</span>
-          </template>
+            </template>
 
-          <template #success_rate="{ row }">
-            {{ successRateLabel(row.task_key) }}
-          </template>
+            <template #last_run="{ row }">
+              <div v-if="row.last_run" class="scheduled-task-last-run">
+                <div class="scheduled-task-last-run__head">
+                  <span>{{ formatTimestamp(row.last_run.started_at) }}</span>
+                  <task-status-tag :status="row.last_run.status" />
+                </div>
+                <strong>{{ runResultText(row.last_run) }}</strong>
+              </div>
+              <span v-else class="scheduled-task-muted">{{ t('scheduledTask.list.detail.noRecentRun') }}</span>
+            </template>
 
-          <template #operation="{ row }">
-            <t-space class="scheduled-task-actions" size="small" align="center">
-              <t-button theme="primary" variant="text" size="small" @click="openDetail(row)">
-                <template #icon><browse-icon /></template>
-                {{ t('scheduledTask.list.viewDetail') }}
-              </t-button>
-              <t-dropdown trigger="click" placement="bottom-right">
-                <t-button theme="default" variant="outline" size="small">
-                  <template #icon><ellipsis-icon /></template>
-                  {{ t('scheduledTask.list.more') }}
+            <template #success_rate="{ row }">
+              {{ successRateLabel(row.task_key) }}
+            </template>
+
+            <template #operation="{ row }">
+              <t-space class="scheduled-task-actions" size="small" align="center">
+                <t-button theme="primary" variant="text" size="small" @click="openDetail(row)">
+                  <template #icon><browse-icon /></template>
+                  {{ t('scheduledTask.list.viewDetail') }}
                 </t-button>
-                <t-dropdown-menu>
-                  <t-dropdown-item
-                    v-permission="permissionCodes.RUN"
-                    :disabled="!canRunTask(row)"
-                    @click="openRunDialog(row)"
-                  >
-                    <template #prefix-icon><play-icon /></template>
-                    {{ t('scheduledTask.list.run') }}
-                  </t-dropdown-item>
-                  <t-dropdown-item v-permission="permissionCodes.UPDATE" @click="openEditDrawer(row)">
-                    <template #prefix-icon><edit-icon /></template>
-                    {{ t('scheduledTask.list.edit') }}
-                  </t-dropdown-item>
-                  <t-dropdown-item
-                    v-permission="permissionCodes.ENABLE"
-                    :disabled="lifecycleTaskKey === row.task_key"
-                    @click="toggleTaskEnabled(row)"
-                  >
-                    <template #prefix-icon>
-                      <pause-icon v-if="row.enabled" />
-                      <play-icon v-else />
-                    </template>
-                    {{ row.enabled ? t('scheduledTask.list.disable') : t('scheduledTask.list.enable') }}
-                  </t-dropdown-item>
-                  <t-dropdown-item
-                    v-permission="permissionCodes.DELETE"
-                    :disabled="isSystemTask(row) || deletingTaskKey === row.task_key"
-                    theme="error"
-                    @click="openDeleteDialog(row)"
-                  >
-                    <template #prefix-icon><delete-icon /></template>
-                    {{ t('scheduledTask.list.delete') }}
-                  </t-dropdown-item>
-                </t-dropdown-menu>
-              </t-dropdown>
-            </t-space>
-          </template>
-
-          <template #empty>
-            <div class="scheduled-task-empty">
-              <t-empty
-                :title="t('scheduledTask.list.emptyTitle')"
-                :description="t('scheduledTask.list.emptyDescription')"
-              >
-                <template #action>
-                  <t-button theme="primary" variant="outline" @click="refreshTasks">
-                    {{ t('scheduledTask.list.refresh') }}
+                <t-dropdown trigger="click" placement="bottom-right">
+                  <t-button theme="default" variant="outline" size="small">
+                    <template #icon><ellipsis-icon /></template>
+                    {{ t('scheduledTask.list.more') }}
                   </t-button>
-                </template>
-              </t-empty>
-            </div>
-          </template>
-        </t-table>
+                  <t-dropdown-menu>
+                    <t-dropdown-item
+                      v-permission="permissionCodes.RUN"
+                      :disabled="!canRunTask(row)"
+                      @click="openRunDialog(row)"
+                    >
+                      <template #prefix-icon><play-icon /></template>
+                      {{ t('scheduledTask.list.run') }}
+                    </t-dropdown-item>
+                    <t-dropdown-item v-permission="permissionCodes.UPDATE" @click="openEditDrawer(row)">
+                      <template #prefix-icon><edit-icon /></template>
+                      {{ t('scheduledTask.list.edit') }}
+                    </t-dropdown-item>
+                    <t-dropdown-item
+                      v-permission="permissionCodes.ENABLE"
+                      :disabled="lifecycleTaskKey === row.task_key"
+                      @click="toggleTaskEnabled(row)"
+                    >
+                      <template #prefix-icon>
+                        <pause-icon v-if="row.enabled" />
+                        <play-icon v-else />
+                      </template>
+                      {{ row.enabled ? t('scheduledTask.list.disable') : t('scheduledTask.list.enable') }}
+                    </t-dropdown-item>
+                    <t-dropdown-item
+                      v-permission="permissionCodes.DELETE"
+                      :disabled="isSystemTask(row) || deletingTaskKey === row.task_key"
+                      theme="error"
+                      @click="openDeleteDialog(row)"
+                    >
+                      <template #prefix-icon><delete-icon /></template>
+                      {{ t('scheduledTask.list.delete') }}
+                    </t-dropdown-item>
+                  </t-dropdown-menu>
+                </t-dropdown>
+              </t-space>
+            </template>
+
+            <template #empty>
+              <div class="scheduled-task-empty">
+                <t-empty
+                  :title="t('scheduledTask.list.emptyTitle')"
+                  :description="t('scheduledTask.list.emptyDescription')"
+                >
+                  <template #action>
+                    <t-button theme="primary" variant="outline" @click="refreshTasks">
+                      {{ t('scheduledTask.list.refresh') }}
+                    </t-button>
+                  </template>
+                </t-empty>
+              </div>
+            </template>
+          </t-table>
+        </div>
 
         <template #footer>
           <management-table-pagination :summary="footerSummary">
@@ -1089,11 +1091,12 @@ import { requestNotificationHeaderRefresh } from '@/modules/notification/contrac
 import { readErrorField } from '@/modules/shared/error-field';
 import {
   buildVisibleColumns,
-  calculateTableContentWidth,
   ManagementTableCard,
   ManagementTablePagination,
   ManagementToolbar,
+  resolveTableWidthPolicy,
   TableViewToolbar,
+  useTableHostWidth,
 } from '@/shared/components/management';
 import { AdvancedQueryColumnDrawer, AdvancedQueryListPage } from '@/shared/components/query-list';
 import { formatLocaleDateTime, MEDIUM_DATE_TIME_WITH_SECONDS_FORMAT_OPTIONS } from '@/shared/observability';
@@ -1622,7 +1625,8 @@ const allColumns = computed<TdBaseTableProps['columns']>(() => [
 const columns = computed<TdBaseTableProps['columns']>(() =>
   buildVisibleColumns(allColumns.value, visibleColumnKeys.value, ['operation']),
 );
-const tableContentWidth = computed(() => calculateTableContentWidth(columns.value));
+const { tableHostRef, tableHostWidth } = useTableHostWidth(() => columns.value);
+const tableWidthPolicy = computed(() => resolveTableWidthPolicy(columns.value, tableHostWidth.value));
 
 const runColumns = computed<TdBaseTableProps['columns']>(() => [
   {
@@ -3149,6 +3153,13 @@ function formatDuration(value?: number | null) {
   justify-content: space-between;
   margin-bottom: var(--graft-density-gap-12);
   padding: var(--graft-density-gap-10) var(--graft-density-gap-12);
+}
+
+.scheduled-task-table-host {
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+  width: 100%;
 }
 
 .scheduled-task-identity,

@@ -128,9 +128,14 @@ function emitSelectChange(rowKeys: Array<string | number>) {
   max-width: 100%;
   min-width: 0;
   overflow-x: hidden;
+  width: 100%;
 }
 
 .advanced-query-paged-table__table-host[data-table-mode='scroll'] {
   overflow-x: auto;
+}
+
+.advanced-query-paged-table__table-host :deep(.t-table__content) {
+  min-width: 0;
 }
 </style>

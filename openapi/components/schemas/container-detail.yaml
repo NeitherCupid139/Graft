@@ -1,0 +1,33 @@
+allOf:
+  - $ref: ./container-summary.yaml
+  - type: object
+    required:
+      - mounts
+      - networks
+      - runtime_info
+    properties:
+      command:
+        type: array
+        items:
+          type: string
+      entrypoint:
+        type: array
+        items:
+          type: string
+      working_dir:
+        type: string
+      mounts:
+        type: array
+        items:
+          $ref: ./container-mount.yaml
+      networks:
+        type: array
+        items:
+          $ref: ./container-network.yaml
+      runtime_info:
+        $ref: ./container-runtime-info.yaml
+      inspect_updated_at:
+        type: string
+        format: date-time
+description: >
+  Container detail intentionally omits environment variables and raw inspect payload fields that may contain secrets.

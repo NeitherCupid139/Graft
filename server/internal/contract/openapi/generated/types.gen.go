@@ -681,6 +681,177 @@ func (e AuditTargetKind) Valid() bool {
 	}
 }
 
+// Defines values for ContainerActionResponseAction.
+const (
+	Restart ContainerActionResponseAction = "restart"
+	Start   ContainerActionResponseAction = "start"
+	Stop    ContainerActionResponseAction = "stop"
+)
+
+// Valid indicates whether the value is a known member of the ContainerActionResponseAction enum.
+func (e ContainerActionResponseAction) Valid() bool {
+	switch e {
+	case Restart:
+		return true
+	case Start:
+		return true
+	case Stop:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ContainerActionResponseResult.
+const (
+	Accepted  ContainerActionResponseResult = "accepted"
+	Completed ContainerActionResponseResult = "completed"
+	Unchanged ContainerActionResponseResult = "unchanged"
+)
+
+// Valid indicates whether the value is a known member of the ContainerActionResponseResult enum.
+func (e ContainerActionResponseResult) Valid() bool {
+	switch e {
+	case Accepted:
+		return true
+	case Completed:
+		return true
+	case Unchanged:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ContainerDetailState.
+const (
+	ContainerDetailStateCreated    ContainerDetailState = "created"
+	ContainerDetailStateDead       ContainerDetailState = "dead"
+	ContainerDetailStateExited     ContainerDetailState = "exited"
+	ContainerDetailStatePaused     ContainerDetailState = "paused"
+	ContainerDetailStateRemoving   ContainerDetailState = "removing"
+	ContainerDetailStateRestarting ContainerDetailState = "restarting"
+	ContainerDetailStateRunning    ContainerDetailState = "running"
+	ContainerDetailStateUnknown    ContainerDetailState = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the ContainerDetailState enum.
+func (e ContainerDetailState) Valid() bool {
+	switch e {
+	case ContainerDetailStateCreated:
+		return true
+	case ContainerDetailStateDead:
+		return true
+	case ContainerDetailStateExited:
+		return true
+	case ContainerDetailStatePaused:
+		return true
+	case ContainerDetailStateRemoving:
+		return true
+	case ContainerDetailStateRestarting:
+		return true
+	case ContainerDetailStateRunning:
+		return true
+	case ContainerDetailStateUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ContainerPortType.
+const (
+	Sctp ContainerPortType = "sctp"
+	Tcp  ContainerPortType = "tcp"
+	Udp  ContainerPortType = "udp"
+)
+
+// Valid indicates whether the value is a known member of the ContainerPortType enum.
+func (e ContainerPortType) Valid() bool {
+	switch e {
+	case Sctp:
+		return true
+	case Tcp:
+		return true
+	case Udp:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ContainerRuntimeInfoStatus.
+const (
+	ContainerRuntimeInfoStatusDisabled    ContainerRuntimeInfoStatus = "disabled"
+	ContainerRuntimeInfoStatusEnabled     ContainerRuntimeInfoStatus = "enabled"
+	ContainerRuntimeInfoStatusUnavailable ContainerRuntimeInfoStatus = "unavailable"
+)
+
+// Valid indicates whether the value is a known member of the ContainerRuntimeInfoStatus enum.
+func (e ContainerRuntimeInfoStatus) Valid() bool {
+	switch e {
+	case ContainerRuntimeInfoStatusDisabled:
+		return true
+	case ContainerRuntimeInfoStatusEnabled:
+		return true
+	case ContainerRuntimeInfoStatusUnavailable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ContainerStopErrorResponseSuccess.
+const (
+	PostContainerStop500JSONResponseBodySuccessFalse ContainerStopErrorResponseSuccess = false
+)
+
+// Valid indicates whether the value is a known member of the ContainerStopErrorResponseSuccess enum.
+func (e ContainerStopErrorResponseSuccess) Valid() bool {
+	switch e {
+	case PostContainerStop500JSONResponseBodySuccessFalse:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ContainerSummaryState.
+const (
+	ContainerSummaryStateCreated    ContainerSummaryState = "created"
+	ContainerSummaryStateDead       ContainerSummaryState = "dead"
+	ContainerSummaryStateExited     ContainerSummaryState = "exited"
+	ContainerSummaryStatePaused     ContainerSummaryState = "paused"
+	ContainerSummaryStateRemoving   ContainerSummaryState = "removing"
+	ContainerSummaryStateRestarting ContainerSummaryState = "restarting"
+	ContainerSummaryStateRunning    ContainerSummaryState = "running"
+	ContainerSummaryStateUnknown    ContainerSummaryState = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the ContainerSummaryState enum.
+func (e ContainerSummaryState) Valid() bool {
+	switch e {
+	case ContainerSummaryStateCreated:
+		return true
+	case ContainerSummaryStateDead:
+		return true
+	case ContainerSummaryStateExited:
+		return true
+	case ContainerSummaryStatePaused:
+		return true
+	case ContainerSummaryStateRemoving:
+		return true
+	case ContainerSummaryStateRestarting:
+		return true
+	case ContainerSummaryStateRunning:
+		return true
+	case ContainerSummaryStateUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DashboardWidgetCategory.
 const (
 	DashboardWidgetCategoryBusiness  DashboardWidgetCategory = "business"
@@ -857,22 +1028,22 @@ func (e ErrorResponseSuccess) Valid() bool {
 
 // Defines values for EvidenceLinkLinkState.
 const (
-	EvidenceLinkLinkStateAvailable   EvidenceLinkLinkState = "available"
-	EvidenceLinkLinkStateEmpty       EvidenceLinkLinkState = "empty"
-	EvidenceLinkLinkStateUnavailable EvidenceLinkLinkState = "unavailable"
-	EvidenceLinkLinkStateUnsupported EvidenceLinkLinkState = "unsupported"
+	Available   EvidenceLinkLinkState = "available"
+	Empty       EvidenceLinkLinkState = "empty"
+	Unavailable EvidenceLinkLinkState = "unavailable"
+	Unsupported EvidenceLinkLinkState = "unsupported"
 )
 
 // Valid indicates whether the value is a known member of the EvidenceLinkLinkState enum.
 func (e EvidenceLinkLinkState) Valid() bool {
 	switch e {
-	case EvidenceLinkLinkStateAvailable:
+	case Available:
 		return true
-	case EvidenceLinkLinkStateEmpty:
+	case Empty:
 		return true
-	case EvidenceLinkLinkStateUnavailable:
+	case Unavailable:
 		return true
-	case EvidenceLinkLinkStateUnsupported:
+	case Unsupported:
 		return true
 	default:
 		return false
@@ -2533,6 +2704,193 @@ type CompleteRequiredPasswordChangeRequest struct {
 	NewPassword string `json:"new_password"`
 }
 
+// ContainerActionResponse defines model for container-action-response.
+type ContainerActionResponse struct {
+	Action     ContainerActionResponseAction `json:"action"`
+	Id         string                        `json:"id"`
+	Message    *string                       `json:"message,omitempty"`
+	MessageKey *string                       `json:"message_key,omitempty"`
+	Name       *string                       `json:"name,omitempty"`
+	Result     ContainerActionResponseResult `json:"result"`
+
+	// Runtime Container runtime adapter key.
+	Runtime      string  `json:"runtime"`
+	StatusAfter  string  `json:"status_after"`
+	StatusBefore *string `json:"status_before,omitempty"`
+}
+
+// ContainerActionResponseAction defines model for ContainerActionResponse.Action.
+type ContainerActionResponseAction string
+
+// ContainerActionResponseResult defines model for ContainerActionResponse.Result.
+type ContainerActionResponseResult string
+
+// ContainerDetail defines model for container-detail.
+type ContainerDetail struct {
+	Command          *[]string          `json:"command,omitempty"`
+	CreatedAt        time.Time          `json:"created_at"`
+	Entrypoint       *[]string          `json:"entrypoint,omitempty"`
+	Id               string             `json:"id"`
+	Image            string             `json:"image"`
+	ImageId          *string            `json:"image_id,omitempty"`
+	InspectUpdatedAt *time.Time         `json:"inspect_updated_at,omitempty"`
+	Labels           *map[string]string `json:"labels,omitempty"`
+	Mounts           []ContainerMount   `json:"mounts"`
+	Names            []string           `json:"names"`
+	Networks         []ContainerNetwork `json:"networks"`
+	Ports            []ContainerPort    `json:"ports"`
+	RestartPolicy    *string            `json:"restart_policy,omitempty"`
+
+	// Runtime Container runtime adapter key.
+	Runtime     string               `json:"runtime"`
+	RuntimeInfo ContainerRuntimeInfo `json:"runtime_info"`
+	StartedAt   *time.Time           `json:"started_at,omitempty"`
+	State       ContainerDetailState `json:"state"`
+
+	// Status Runtime-provided human-readable status.
+	Status     string  `json:"status"`
+	WorkingDir *string `json:"working_dir,omitempty"`
+}
+
+// ContainerDetailState defines model for ContainerDetail.State.
+type ContainerDetailState string
+
+// ContainerListResponse defines model for container-list-response.
+type ContainerListResponse struct {
+	Items   []ContainerSummary   `json:"items"`
+	Runtime ContainerRuntimeInfo `json:"runtime"`
+}
+
+// ContainerLogResponse defines model for container-log-response.
+type ContainerLogResponse struct {
+	Id    string   `json:"id"`
+	Lines []string `json:"lines"`
+	Name  *string  `json:"name,omitempty"`
+
+	// Runtime Container runtime adapter key.
+	Runtime string `json:"runtime"`
+
+	// Since Echoes the accepted since query when provided.
+	Since      *string `json:"since,omitempty"`
+	Stderr     bool    `json:"stderr"`
+	Stdout     bool    `json:"stdout"`
+	Tail       int     `json:"tail"`
+	Timestamps bool    `json:"timestamps"`
+
+	// Truncated True when runtime output exceeded the bounded tail window.
+	Truncated bool `json:"truncated"`
+}
+
+// ContainerMount defines model for container-mount.
+type ContainerMount struct {
+	Destination string  `json:"destination"`
+	Mode        string  `json:"mode"`
+	Name        *string `json:"name,omitempty"`
+	ReadOnly    bool    `json:"read_only"`
+	Source      *string `json:"source,omitempty"`
+
+	// Type Runtime mount type such as bind, volume, or tmpfs.
+	Type string `json:"type"`
+}
+
+// ContainerNetwork defines model for container-network.
+type ContainerNetwork struct {
+	// EndpointId Runtime endpoint identifier for this container attachment within the network.
+	EndpointId *string `json:"endpoint_id,omitempty"`
+
+	// Gateway Gateway address reported for this container network attachment.
+	Gateway *string `json:"gateway,omitempty"`
+
+	// IpAddress Container IP address assigned on this network.
+	IpAddress *string `json:"ip_address,omitempty"`
+
+	// MacAddress MAC address assigned to the container endpoint on this network.
+	MacAddress *string `json:"mac_address,omitempty"`
+
+	// Name Runtime network name attached to the container.
+	Name string `json:"name"`
+
+	// NetworkId Runtime network identifier, such as the Docker network ID.
+	NetworkId *string `json:"network_id,omitempty"`
+}
+
+// ContainerPort defines model for container-port.
+type ContainerPort struct {
+	Ip          *string           `json:"ip,omitempty"`
+	PrivatePort int               `json:"private_port"`
+	PublicPort  *int              `json:"public_port,omitempty"`
+	Type        ContainerPortType `json:"type"`
+}
+
+// ContainerPortType defines model for ContainerPort.Type.
+type ContainerPortType string
+
+// ContainerRuntimeInfo defines model for container-runtime-info.
+type ContainerRuntimeInfo struct {
+	ApiVersion        *string `json:"api_version,omitempty"`
+	Architecture      *string `json:"architecture,omitempty"`
+	ContainersRunning *int    `json:"containers_running,omitempty"`
+	ContainersTotal   *int    `json:"containers_total,omitempty"`
+
+	// Endpoint Runtime endpoint label. Sensitive credentials must not be included.
+	Endpoint        string  `json:"endpoint"`
+	OperatingSystem *string `json:"operating_system,omitempty"`
+
+	// Runtime Container runtime adapter key.
+	Runtime       string                     `json:"runtime"`
+	ServerVersion *string                    `json:"server_version,omitempty"`
+	Status        ContainerRuntimeInfoStatus `json:"status"`
+}
+
+// ContainerRuntimeInfoStatus defines model for ContainerRuntimeInfo.Status.
+type ContainerRuntimeInfoStatus string
+
+// ContainerStopErrorResponse defines model for container-stop-error-response.
+type ContainerStopErrorResponse struct {
+	// Code Existing canonical error response code.
+	Code string `json:"code"`
+
+	// Data Optional structured error details preserved from the current runtime.
+	Data *map[string]interface{} `json:"data,omitempty"`
+
+	// Locale Locale used to resolve the fallback message text in this response.
+	Locale *string `json:"locale,omitempty"`
+
+	// Message Existing runtime fallback text paired with messageKey for compatibility.
+	Message string `json:"message"`
+
+	// MessageKey Stable error localization key. Consumers should prefer this key and use message only as fallback text.
+	MessageKey *string                           `json:"messageKey,omitempty"`
+	Success    ContainerStopErrorResponseSuccess `json:"success"`
+	TraceId    string                            `json:"traceId"`
+}
+
+// ContainerStopErrorResponseSuccess defines model for ContainerStopErrorResponse.Success.
+type ContainerStopErrorResponseSuccess bool
+
+// ContainerSummary defines model for container-summary.
+type ContainerSummary struct {
+	CreatedAt     time.Time          `json:"created_at"`
+	Id            string             `json:"id"`
+	Image         string             `json:"image"`
+	ImageId       *string            `json:"image_id,omitempty"`
+	Labels        *map[string]string `json:"labels,omitempty"`
+	Names         []string           `json:"names"`
+	Ports         []ContainerPort    `json:"ports"`
+	RestartPolicy *string            `json:"restart_policy,omitempty"`
+
+	// Runtime Container runtime adapter key.
+	Runtime   string                `json:"runtime"`
+	StartedAt *time.Time            `json:"started_at,omitempty"`
+	State     ContainerSummaryState `json:"state"`
+
+	// Status Runtime-provided human-readable status.
+	Status string `json:"status"`
+}
+
+// ContainerSummaryState defines model for ContainerSummary.State.
+type ContainerSummaryState string
+
 // CreateAnnouncementRequest defines model for create-announcement-request.
 type CreateAnnouncementRequest struct {
 	Content string `json:"content"`
@@ -2952,6 +3310,88 @@ type EnvelopedBootstrapResponse struct {
 	// Code Existing canonical response code.
 	Code string            `json:"code"`
 	Data BootstrapResponse `json:"data"`
+
+	// Locale Present on localized error flows and omitted on normal success.
+	Locale *string `json:"locale,omitempty"`
+
+	// Message Existing runtime fallback text. Consumers should not treat this as the canonical localization contract when a key field is present.
+	Message string `json:"message"`
+
+	// MessageKey Stable localization key for key-aware error flows. When present, consumers should treat it as canonical and use message only as fallback text.
+	MessageKey *string `json:"messageKey,omitempty"`
+	Success    bool    `json:"success"`
+
+	// TraceId Mirrors the request id contract used by the current runtime.
+	TraceId string `json:"traceId"`
+}
+
+// EnvelopedContainerActionResponse defines model for enveloped-container-action-response.
+type EnvelopedContainerActionResponse struct {
+	// Code Existing canonical response code.
+	Code string                  `json:"code"`
+	Data ContainerActionResponse `json:"data"`
+
+	// Locale Present on localized error flows and omitted on normal success.
+	Locale *string `json:"locale,omitempty"`
+
+	// Message Existing runtime fallback text. Consumers should not treat this as the canonical localization contract when a key field is present.
+	Message string `json:"message"`
+
+	// MessageKey Stable localization key for key-aware error flows. When present, consumers should treat it as canonical and use message only as fallback text.
+	MessageKey *string `json:"messageKey,omitempty"`
+	Success    bool    `json:"success"`
+
+	// TraceId Mirrors the request id contract used by the current runtime.
+	TraceId string `json:"traceId"`
+}
+
+// EnvelopedContainerDetail defines model for enveloped-container-detail.
+type EnvelopedContainerDetail struct {
+	// Code Existing canonical response code.
+	Code string `json:"code"`
+
+	// Data Container detail intentionally omits environment variables and raw inspect payload fields that may contain secrets.
+	Data ContainerDetail `json:"data"`
+
+	// Locale Present on localized error flows and omitted on normal success.
+	Locale *string `json:"locale,omitempty"`
+
+	// Message Existing runtime fallback text. Consumers should not treat this as the canonical localization contract when a key field is present.
+	Message string `json:"message"`
+
+	// MessageKey Stable localization key for key-aware error flows. When present, consumers should treat it as canonical and use message only as fallback text.
+	MessageKey *string `json:"messageKey,omitempty"`
+	Success    bool    `json:"success"`
+
+	// TraceId Mirrors the request id contract used by the current runtime.
+	TraceId string `json:"traceId"`
+}
+
+// EnvelopedContainerListResponse defines model for enveloped-container-list-response.
+type EnvelopedContainerListResponse struct {
+	// Code Existing canonical response code.
+	Code string                `json:"code"`
+	Data ContainerListResponse `json:"data"`
+
+	// Locale Present on localized error flows and omitted on normal success.
+	Locale *string `json:"locale,omitempty"`
+
+	// Message Existing runtime fallback text. Consumers should not treat this as the canonical localization contract when a key field is present.
+	Message string `json:"message"`
+
+	// MessageKey Stable localization key for key-aware error flows. When present, consumers should treat it as canonical and use message only as fallback text.
+	MessageKey *string `json:"messageKey,omitempty"`
+	Success    bool    `json:"success"`
+
+	// TraceId Mirrors the request id contract used by the current runtime.
+	TraceId string `json:"traceId"`
+}
+
+// EnvelopedContainerLogResponse defines model for enveloped-container-log-response.
+type EnvelopedContainerLogResponse struct {
+	// Code Existing canonical response code.
+	Code string               `json:"code"`
+	Data ContainerLogResponse `json:"data"`
 
 	// Locale Present on localized error flows and omitted on normal success.
 	Locale *string `json:"locale,omitempty"`
@@ -4573,6 +5013,24 @@ type UserRoleSummary struct {
 // AnnouncementIdPath defines model for announcement-id-path.
 type AnnouncementIdPath = int64
 
+// ContainerIdPath defines model for container-id-path.
+type ContainerIdPath = string
+
+// ContainerLogsSince defines model for container-logs-since.
+type ContainerLogsSince = string
+
+// ContainerLogsStderr defines model for container-logs-stderr.
+type ContainerLogsStderr = bool
+
+// ContainerLogsStdout defines model for container-logs-stdout.
+type ContainerLogsStdout = bool
+
+// ContainerLogsTail defines model for container-logs-tail.
+type ContainerLogsTail = int
+
+// ContainerLogsTimestamps defines model for container-logs-timestamps.
+type ContainerLogsTimestamps = bool
+
 // LocaleHeader defines model for locale-header.
 type LocaleHeader = string
 
@@ -5192,6 +5650,81 @@ type DeleteNotificationParams struct {
 
 // PostNotificationReadParams defines parameters for PostNotificationRead.
 type PostNotificationReadParams struct {
+	// XGraftLocale Explicit locale override header already supported by the runtime.
+	XGraftLocale *LocaleHeader `json:"X-Graft-Locale,omitempty"`
+
+	// XRequestId Optional caller-supplied request id. If omitted, the runtime generates one and echoes it
+	// through the response header and envelope traceId field.
+	XRequestId *RequestIdHeader `json:"X-Request-Id,omitempty"`
+}
+
+// GetContainersParams defines parameters for GetContainers.
+type GetContainersParams struct {
+	// XGraftLocale Explicit locale override header already supported by the runtime.
+	XGraftLocale *LocaleHeader `json:"X-Graft-Locale,omitempty"`
+
+	// XRequestId Optional caller-supplied request id. If omitted, the runtime generates one and echoes it
+	// through the response header and envelope traceId field.
+	XRequestId *RequestIdHeader `json:"X-Request-Id,omitempty"`
+}
+
+// GetContainerParams defines parameters for GetContainer.
+type GetContainerParams struct {
+	// XGraftLocale Explicit locale override header already supported by the runtime.
+	XGraftLocale *LocaleHeader `json:"X-Graft-Locale,omitempty"`
+
+	// XRequestId Optional caller-supplied request id. If omitted, the runtime generates one and echoes it
+	// through the response header and envelope traceId field.
+	XRequestId *RequestIdHeader `json:"X-Request-Id,omitempty"`
+}
+
+// GetContainerLogsParams defines parameters for GetContainerLogs.
+type GetContainerLogsParams struct {
+	// Tail Number of log lines to return from the end of the stream.
+	Tail *ContainerLogsTail `form:"tail,omitempty" json:"tail,omitempty"`
+
+	// Since Optional log lower bound. Accepts an RFC3339 timestamp or a duration such as 10m, 1h, or 24h. Invalid values must return a localized validation error.
+	Since *ContainerLogsSince `form:"since,omitempty" json:"since,omitempty"`
+
+	// Timestamps Whether each returned log line should include the runtime-provided timestamp.
+	Timestamps *ContainerLogsTimestamps `form:"timestamps,omitempty" json:"timestamps,omitempty"`
+
+	// Stdout Whether stdout stream lines should be included.
+	Stdout *ContainerLogsStdout `form:"stdout,omitempty" json:"stdout,omitempty"`
+
+	// Stderr Whether stderr stream lines should be included.
+	Stderr *ContainerLogsStderr `form:"stderr,omitempty" json:"stderr,omitempty"`
+
+	// XGraftLocale Explicit locale override header already supported by the runtime.
+	XGraftLocale *LocaleHeader `json:"X-Graft-Locale,omitempty"`
+
+	// XRequestId Optional caller-supplied request id. If omitted, the runtime generates one and echoes it
+	// through the response header and envelope traceId field.
+	XRequestId *RequestIdHeader `json:"X-Request-Id,omitempty"`
+}
+
+// PostContainerRestartParams defines parameters for PostContainerRestart.
+type PostContainerRestartParams struct {
+	// XGraftLocale Explicit locale override header already supported by the runtime.
+	XGraftLocale *LocaleHeader `json:"X-Graft-Locale,omitempty"`
+
+	// XRequestId Optional caller-supplied request id. If omitted, the runtime generates one and echoes it
+	// through the response header and envelope traceId field.
+	XRequestId *RequestIdHeader `json:"X-Request-Id,omitempty"`
+}
+
+// PostContainerStartParams defines parameters for PostContainerStart.
+type PostContainerStartParams struct {
+	// XGraftLocale Explicit locale override header already supported by the runtime.
+	XGraftLocale *LocaleHeader `json:"X-Graft-Locale,omitempty"`
+
+	// XRequestId Optional caller-supplied request id. If omitted, the runtime generates one and echoes it
+	// through the response header and envelope traceId field.
+	XRequestId *RequestIdHeader `json:"X-Request-Id,omitempty"`
+}
+
+// PostContainerStopParams defines parameters for PostContainerStop.
+type PostContainerStopParams struct {
 	// XGraftLocale Explicit locale override header already supported by the runtime.
 	XGraftLocale *LocaleHeader `json:"X-Graft-Locale,omitempty"`
 

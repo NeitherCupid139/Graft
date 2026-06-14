@@ -6,6 +6,7 @@ import (
 	announcementmodule "graft/server/modules/announcement"
 	auditmodule "graft/server/modules/audit"
 	authmodule "graft/server/modules/auth"
+	containermodule "graft/server/modules/container"
 	monitormodule "graft/server/modules/monitor"
 	notificationmodule "graft/server/modules/notification"
 	rbacmodule "graft/server/modules/rbac"
@@ -18,6 +19,7 @@ var generatedModuleSpecs = []module.Spec{
 	announcementmodule.NewModuleSpec(),
 	auditmodule.NewModuleSpec(),
 	authmodule.NewModuleSpec(),
+	containermodule.NewModuleSpec(),
 	monitormodule.NewModuleSpec(),
 	notificationmodule.NewModuleSpec(),
 	rbacmodule.NewModuleSpec(),

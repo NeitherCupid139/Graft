@@ -225,6 +225,42 @@
         }
       }
     },
+    "container": {
+      "ops": {
+        "container": {
+          "runtime": {
+            "title": "Container Runtime",
+            "description": "Runtime adapter used by container management.",
+            "enabled": {
+              "title": "Container Runtime Access Enabled",
+              "description": "Whether container management may access the configured runtime."
+            }
+          },
+          "docker": {
+            "endpoint": {
+              "title": "Container Runtime Endpoint",
+              "description": "Local runtime endpoint used by the first container adapter."
+            }
+          },
+          "logs": {
+            "default_tail": {
+              "title": "Default Log Tail",
+              "description": "Default number of log lines returned by container log reads."
+            },
+            "max_tail": {
+              "title": "Maximum Log Tail",
+              "description": "Maximum number of log lines allowed for container log reads."
+            }
+          },
+          "actions": {
+            "dangerous_enabled": {
+              "title": "Dangerous Container Actions Enabled",
+              "description": "Whether start, stop, restart, and future high-risk actions are enabled."
+            }
+          }
+        }
+      }
+    },
     "fields": {
       "retentionDays": {
         "title": "Log Retention Days",
@@ -273,5 +309,14 @@
   "systemConfig.groups.notification.delivery": "Delivery",
   "systemConfig.groups.notification.delivery.description": "Control in-app delivery and fan-out limits.",
   "systemConfig.groups.notification.display": "Display",
-  "systemConfig.groups.notification.display.description": "Control Notification Center display defaults."
+  "systemConfig.groups.notification.display.description": "Control Notification Center display defaults.",
+  "systemConfig.domains.ops": "Operations",
+  "systemConfig.groups.ops.container.general": "Container Management",
+  "systemConfig.groups.ops.container.general.description": "Control the container management baseline.",
+  "systemConfig.groups.ops.container.runtime": "Runtime",
+  "systemConfig.groups.ops.container.runtime.description": "Control the local container runtime adapter.",
+  "systemConfig.groups.ops.container.logs": "Logs",
+  "systemConfig.groups.ops.container.logs.description": "Control bounded container log reads.",
+  "systemConfig.groups.ops.container.actions": "Dangerous Actions",
+  "systemConfig.groups.ops.container.actions.description": "Control container start, stop, and restart actions."
 }

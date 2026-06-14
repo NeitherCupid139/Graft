@@ -83,82 +83,83 @@
           </template>
         </management-empty-state>
 
-        <t-table
-          v-else
-          row-key="id"
-          :data="pagedRoles"
-          :columns="visibleColumns"
-          :loading="loading"
-          table-layout="fixed"
-          :table-content-width="tableContentWidth"
-          cell-empty-content="-"
-        >
-          <template #role="{ row }">
-            <div class="role-identity">
-              <span class="role-identity__display">{{ row.display }}</span>
-              <span class="role-identity__code">{{ row.name }}</span>
-            </div>
-          </template>
+        <div v-else ref="tableHostRef" class="table-host" :data-table-mode="tableWidthPolicy.mode">
+          <t-table
+            row-key="id"
+            :data="pagedRoles"
+            :columns="visibleColumns"
+            :loading="loading"
+            table-layout="fixed"
+            :table-content-width="tableWidthPolicy.tableContentWidth"
+            cell-empty-content="-"
+          >
+            <template #role="{ row }">
+              <div class="role-identity">
+                <span class="role-identity__display">{{ row.display }}</span>
+                <span class="role-identity__code">{{ row.name }}</span>
+              </div>
+            </template>
 
-          <template #builtin="{ row }">
-            <t-tag class="role-type-tag" :theme="row.builtin ? 'primary' : 'default'" variant="light">
-              {{ row.builtin ? t('rbac.roleList.builtinYes') : t('rbac.roleList.builtinNo') }}
-            </t-tag>
-          </template>
+            <template #builtin="{ row }">
+              <t-tag class="role-type-tag" :theme="row.builtin ? 'primary' : 'default'" variant="light">
+                {{ row.builtin ? t('rbac.roleList.builtinYes') : t('rbac.roleList.builtinNo') }}
+              </t-tag>
+            </template>
 
-          <template #permission_count="{ row }">
-            <span class="role-count">{{ countLabel(row.permission_count, 'rbac.roleList.permissionCount') }}</span>
-          </template>
+            <template #permission_count="{ row }">
+              <span class="role-count">{{ countLabel(row.permission_count, 'rbac.roleList.permissionCount') }}</span>
+            </template>
 
-          <template #user_count="{ row }">
-            <span class="role-count">{{ countLabel(row.user_count, 'rbac.roleList.userCount') }}</span>
-          </template>
+            <template #user_count="{ row }">
+              <span class="role-count">{{ countLabel(row.user_count, 'rbac.roleList.userCount') }}</span>
+            </template>
 
-          <template #remark="{ row }">
-            <span class="role-remark table-muted">{{ roleRemark(row) }}</span>
-          </template>
+            <template #remark="{ row }">
+              <span class="role-remark table-muted">{{ roleRemark(row) }}</span>
+            </template>
 
-          <template #updated_at="{ row }">
-            <span class="role-date">{{ formatTimestamp(row.updated_at) }}</span>
-          </template>
+            <template #updated_at="{ row }">
+              <span class="role-date">{{ formatTimestamp(row.updated_at) }}</span>
+            </template>
 
-          <template #operation="{ row }">
-            <table-action-menu
-              :actions="roleRowActions(row)"
-              :more-label="t('rbac.roleList.more')"
-              :more-label-fallback="t('rbac.roleList.more')"
-              @action="(action) => handleRoleRowAction(action, row)"
-            />
-          </template>
+            <template #operation="{ row }">
+              <table-action-menu
+                :actions="roleRowActions(row)"
+                :more-label="t('rbac.roleList.more')"
+                :more-label-fallback="t('rbac.roleList.more')"
+                @action="(action) => handleRoleRowAction(action, row)"
+              />
+            </template>
 
-          <template #empty>
-            <div class="table-empty-state">
-              <t-empty :title="t('rbac.roleList.emptyTitle')" :description="t('rbac.roleList.emptyDescription')">
-                <template #action>
-                  <div class="table-empty-state__actions">
-                    <t-button
-                      v-if="hasActiveFilters"
-                      theme="default"
-                      variant="outline"
-                      data-testid="role-empty-clear-filters"
-                      @click="resetFilters"
-                    >
-                      {{ t('rbac.roleList.toolbar.clearFilters') }}
-                    </t-button>
-                    <t-button
-                      v-permission="permissionCodes.ROLE_CREATE"
-                      theme="primary"
-                      data-testid="role-empty-create"
-                      @click="openCreateDrawer"
-                    >
-                      {{ t('rbac.roleList.emptyCreate') }}
-                    </t-button>
-                  </div>
-                </template>
-              </t-empty>
-            </div>
-          </template>
-        </t-table>
+            <template #empty>
+              <div class="table-empty-state">
+                <t-empty :title="t('rbac.roleList.emptyTitle')" :description="t('rbac.roleList.emptyDescription')">
+                  <template #action>
+                    <div class="table-empty-state__actions">
+                      <t-button
+                        v-if="hasActiveFilters"
+                        theme="default"
+                        variant="outline"
+                        data-testid="role-empty-clear-filters"
+                        @click="resetFilters"
+                      >
+                        {{ t('rbac.roleList.toolbar.clearFilters') }}
+                      </t-button>
+                      <t-button
+                        v-permission="permissionCodes.ROLE_CREATE"
+                        theme="primary"
+                        data-testid="role-empty-create"
+                        @click="openCreateDrawer"
+                      >
+                        {{ t('rbac.roleList.emptyCreate') }}
+                      </t-button>
+                    </div>
+                  </template>
+                </t-empty>
+              </div>
+            </template>
+          </t-table>
+        </div>
 
         <template #footer>
           <management-table-pagination :summary="t('rbac.roleList.footerTotal', { count: filteredRoles.length })">
@@ -507,7 +508,6 @@ import {
 } from '@/shared/components/assignment';
 import {
   buildVisibleColumns,
-  calculateTableContentWidth,
   createActionColumn,
   createCountColumn,
   createStatusColumn,
@@ -520,8 +520,10 @@ import {
   ManagementTableCard,
   ManagementTablePagination,
   ManagementToolbar,
+  resolveTableWidthPolicy,
   TableActionMenu,
   TableViewToolbar,
+  useTableHostWidth,
 } from '@/shared/components/management';
 import { useAssignmentSelection, useTabPageSnapshot } from '@/shared/composables';
 import { formatHintedMessage, resolveErrorMessageWithCorrelation } from '@/shared/correlation';
@@ -1092,7 +1094,8 @@ const visibleColumns = computed(() => {
   return (columns.value ?? []).filter((column) => column?.colKey !== 'operation');
 });
 
-const tableContentWidth = computed(() => calculateTableContentWidth(visibleColumns.value));
+const { tableHostRef, tableHostWidth } = useTableHostWidth(() => visibleColumns.value);
+const tableWidthPolicy = computed(() => resolveTableWidthPolicy(visibleColumns.value, tableHostWidth.value));
 
 async function fetchRolePageData(preservePagination = false) {
   loading.value = true;

@@ -1,0 +1,11 @@
+type: object
+required:
+  - items
+  - runtime
+properties:
+  items:
+    type: array
+    items:
+      $ref: ./container-summary.yaml
+  runtime:
+    $ref: ./container-runtime-info.yaml

@@ -172,7 +172,7 @@ func (p *Module) registerServices(ctx *module.Context) (registeredServices, erro
 	if err != nil {
 		return registeredServices{}, err
 	}
-	bootstrapSvc := newBootstrapReader(ctx.Config.I18n, ctx.I18n, ctx.MenuRegistry, authRepo, p.bootstrapAccess)
+	bootstrapSvc := newBootstrapReader(ctx.Config.I18n, ctx.I18n, ctx.MenuRegistry, ctx.Services, authRepo, p.bootstrapAccess)
 	p.defaultAdminAuth = authSvc
 
 	if err := ctx.Services.RegisterSingleton((*moduleapi.AuthService)(nil), func(_ container.Resolver) (any, error) {

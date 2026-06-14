@@ -16,6 +16,11 @@ type Item struct {
 	Order int
 	// Permission 记录访问该菜单所需的后端权限编码；留空表示暂不做权限门控。
 	Permission string
+	// VisibleWhenConfigEnabled 是后端 bootstrap 菜单裁剪使用的内部 feature gate。
+	//
+	// 该字段不进入 bootstrap menu wire shape；System Config 只控制模块内部业务能力，
+	// 不代表 backend module 加载/卸载 authority。
+	VisibleWhenConfigEnabled string
 	// Module 标记菜单归属的模块，便于启动诊断与后续按模块裁剪导航。
 	Module string
 }

@@ -78,87 +78,90 @@
           </template>
         </management-empty-state>
 
-        <t-table
-          v-else
-          row-key="id"
-          :data="pagedPermissions"
-          :columns="visibleColumns"
-          :loading="loading"
-          table-layout="fixed"
-          :table-content-width="tableContentWidth"
-          cell-empty-content="-"
-        >
-          <template #permission="{ row }">
-            <div class="permission-cell">
-              <span class="permission-cell__name">{{ localizedPermissionDisplay(row) }}</span>
-              <span class="permission-cell__code">{{ row.code }}</span>
-            </div>
-          </template>
+        <div v-else ref="tableHostRef" class="table-host" :data-table-mode="tableWidthPolicy.mode">
+          <t-table
+            row-key="id"
+            :data="pagedPermissions"
+            :columns="visibleColumns"
+            :loading="loading"
+            table-layout="fixed"
+            :table-content-width="tableWidthPolicy.tableContentWidth"
+            cell-empty-content="-"
+          >
+            <template #permission="{ row }">
+              <div class="permission-cell">
+                <span class="permission-cell__name">{{ localizedPermissionDisplay(row) }}</span>
+                <span class="permission-cell__code">{{ row.code }}</span>
+              </div>
+            </template>
 
-          <template #category="{ row }">
-            <t-tag theme="default" variant="light">{{ row.category || '-' }}</t-tag>
-          </template>
+            <template #category="{ row }">
+              <t-tag theme="default" variant="light">{{ row.category || '-' }}</t-tag>
+            </template>
 
-          <template #description="{ row }">
-            <span class="permission-description">{{ localizedPermissionDescription(row) }}</span>
-          </template>
+            <template #description="{ row }">
+              <span class="permission-description">{{ localizedPermissionDescription(row) }}</span>
+            </template>
 
-          <template #created_at="{ row }">
-            <span>{{ formatTimestamp(row.created_at) }}</span>
-          </template>
+            <template #created_at="{ row }">
+              <span>{{ formatTimestamp(row.created_at) }}</span>
+            </template>
 
-          <template #updated_at="{ row }">
-            <span>{{ formatTimestamp(row.updated_at) }}</span>
-          </template>
+            <template #updated_at="{ row }">
+              <span>{{ formatTimestamp(row.updated_at) }}</span>
+            </template>
 
-          <template #role_count="{ row }">
-            <span>{{ row.role_binding_count ?? '-' }}</span>
-          </template>
+            <template #role_count="{ row }">
+              <span>{{ row.role_binding_count ?? '-' }}</span>
+            </template>
 
-          <template #operation="{ row }">
-            <table-action-menu
-              :actions="[
-                {
-                  label: t('rbac.permissionList.detail'),
-                  testId: 'permission-detail',
-                  value: 'detail',
-                },
-                {
-                  label: t('rbac.permissionList.viewAudit'),
-                  testId: 'permission-view-audit',
-                  value: 'view-audit',
-                },
-              ]"
-              :more-label="t('rbac.permissionList.more')"
-              :more-label-fallback="t('rbac.permissionList.more')"
-              @action="(action) => handlePermissionAction(action, row)"
-            />
-          </template>
+            <template #operation="{ row }">
+              <table-action-menu
+                :actions="[
+                  {
+                    label: t('rbac.permissionList.detail'),
+                    testId: 'permission-detail',
+                    value: 'detail',
+                  },
+                  {
+                    label: t('rbac.permissionList.viewAudit'),
+                    testId: 'permission-view-audit',
+                    value: 'view-audit',
+                  },
+                ]"
+                :more-label="t('rbac.permissionList.more')"
+                :more-label-fallback="t('rbac.permissionList.more')"
+                @action="(action) => handlePermissionAction(action, row)"
+              />
+            </template>
 
-          <template #empty>
-            <div class="table-empty-state">
-              <t-empty
-                :title="t('rbac.permissionList.emptyTitle')"
-                :description="
-                  hasActiveFilters ? t('rbac.permissionList.emptyFilteredDescription') : t('rbac.permissionList.empty')
-                "
-              >
-                <template #action>
-                  <div v-if="hasActiveFilters" class="table-empty-state__actions">
-                    <t-button
-                      theme="default"
-                      variant="outline"
-                      data-testid="permission-empty-clear-filters"
-                      @click="resetFilters"
-                    >
-                      {{ t('rbac.permissionList.toolbar.clearFilters') }}
-                    </t-button>
-                  </div>
-                </template>
-              </t-empty>
-            </div>
-          </template>
-        </t-table>
+            <template #empty>
+              <div class="table-empty-state">
+                <t-empty
+                  :title="t('rbac.permissionList.emptyTitle')"
+                  :description="
+                    hasActiveFilters
+                      ? t('rbac.permissionList.emptyFilteredDescription')
+                      : t('rbac.permissionList.empty')
+                  "
+                >
+                  <template #action>
+                    <div v-if="hasActiveFilters" class="table-empty-state__actions">
+                      <t-button
+                        theme="default"
+                        variant="outline"
+                        data-testid="permission-empty-clear-filters"
+                        @click="resetFilters"
+                      >
+                        {{ t('rbac.permissionList.toolbar.clearFilters') }}
+                      </t-button>
+                    </div>
+                  </template>
+                </t-empty>
+              </div>
+            </template>
+          </t-table>
+        </div>
 
         <template #footer>
           <management-table-pagination
@@ -253,7 +256,6 @@ import { buildAuditResourceLocation } from '@/modules/audit/contract/deep-link';
 import { openCorrelationErrorNotification, requestIdFromError } from '@/modules/audit/shared/correlation-actions';
 import {
   buildVisibleColumns,
-  calculateTableContentWidth,
   createActionColumn,
   createCountColumn,
   createStatusColumn,
@@ -266,8 +268,10 @@ import {
   ManagementTableCard,
   ManagementTablePagination,
   ManagementToolbar,
+  resolveTableWidthPolicy,
   TableActionMenu,
   TableViewToolbar,
+  useTableHostWidth,
 } from '@/shared/components/management';
 import { useTabPageSnapshot } from '@/shared/composables';
 import { resolveErrorMessageWithCorrelation } from '@/shared/correlation';
@@ -389,7 +393,8 @@ const visibleColumns = computed<TdBaseTableProps['columns']>(() => {
   return buildVisibleColumns(allColumns, visibleColumnKeys.value);
 });
 
-const tableContentWidth = computed(() => calculateTableContentWidth(visibleColumns.value));
+const { tableHostRef, tableHostWidth } = useTableHostWidth(() => visibleColumns.value);
+const tableWidthPolicy = computed(() => resolveTableWidthPolicy(visibleColumns.value, tableHostWidth.value));
 
 async function fetchPermissions(preservePagination = false) {
   loading.value = true;

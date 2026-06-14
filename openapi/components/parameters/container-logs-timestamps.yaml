@@ -1,0 +1,7 @@
+name: timestamps
+in: query
+required: false
+description: Whether each returned log line should include the runtime-provided timestamp.
+schema:
+  type: boolean
+  default: false

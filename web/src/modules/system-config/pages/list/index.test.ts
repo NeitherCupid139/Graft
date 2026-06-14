@@ -34,6 +34,7 @@ const translations = vi.hoisted(
     'systemConfig.domains.dashboard': '工作台配置',
     'systemConfig.domains.logs': '日志配置',
     'systemConfig.domains.notification': '站内通知',
+    'systemConfig.domains.ops': '运维管理',
     'systemConfig.groupDescriptions.dashboardQuickActions': '管理首页快捷入口的显示与排序策略。',
     'systemConfig.groupDescriptions.coreLoggerLogRetention': '管理应用日志清理的保留周期与批量策略。',
     'systemConfig.groupDescriptions.coreHttpxLogRetention': '管理访问日志清理的保留周期与批量策略。',
@@ -42,6 +43,8 @@ const translations = vi.hoisted(
     'systemConfig.groups.dashboardQuickActions': '工作台快捷入口',
     'systemConfig.groups.notification.general': '通用',
     'systemConfig.groups.notification.general.description': '控制通知中心的基础行为。',
+    'systemConfig.groups.ops.container.general': '容器管理',
+    'systemConfig.groups.ops.container.general.description': '控制容器管理能力的基础开关。',
     'systemConfig.items.appLogRetentionCleanup.description': '应用日志保留清理任务的默认配置。',
     'systemConfig.items.appLogRetentionCleanup.title': '应用日志保留清理',
     'systemConfig.items.accessLogRetentionCleanup.description': '访问日志保留清理任务的默认配置。',
@@ -58,6 +61,19 @@ const translations = vi.hoisted(
     'systemConfig.notification.notification.enabled.title': '启用通知',
     'systemConfig.notification.notification.retention_days.description': '通知记录的默认保留天数。',
     'systemConfig.notification.notification.retention_days.title': '通知保留天数',
+    'systemConfig.container.ops.container.runtime.enabled.description': '是否允许容器管理访问已配置的容器运行时。',
+    'systemConfig.container.ops.container.runtime.enabled.title': '启用容器运行时访问',
+    'systemConfig.container.ops.container.runtime.description': '容器管理使用的运行时适配器。',
+    'systemConfig.container.ops.container.runtime.title': '容器运行时',
+    'systemConfig.container.ops.container.docker.endpoint.description': '首个本地容器运行时适配器使用的 endpoint。',
+    'systemConfig.container.ops.container.docker.endpoint.title': '容器运行时 endpoint',
+    'systemConfig.container.ops.container.logs.default_tail.description': '容器日志读取的默认返回行数。',
+    'systemConfig.container.ops.container.logs.default_tail.title': '默认日志行数',
+    'systemConfig.container.ops.container.logs.max_tail.description': '容器日志读取允许的最大返回行数。',
+    'systemConfig.container.ops.container.logs.max_tail.title': '最大日志行数',
+    'systemConfig.container.ops.container.actions.dangerous_enabled.description':
+      '是否允许容器启动、停止和重启等高危操作。',
+    'systemConfig.container.ops.container.actions.dangerous_enabled.title': '启用容器高危操作',
     'systemConfig.list.boolean.disabled': '已禁用',
     'systemConfig.list.boolean.enabled': '已启用',
     'systemConfig.list.boolean.false': '否',
@@ -382,6 +398,46 @@ describe('system config list page', () => {
     expect(wrapper.text()).toContain('通知保留天数');
     expect(wrapper.text()).not.toContain('Notification enabled');
     expect(wrapper.text()).not.toContain('Number of days notification records should be retained.');
+  });
+
+  it('renders container config metadata from web catalog entries instead of backend fallback English', async () => {
+    apiMocks.getSystemConfigs.mockResolvedValue({
+      items: [
+        containerConfigItem({
+          key: 'ops.container.runtime.enabled',
+          titleKey: 'systemConfig.container.ops.container.runtime.enabled.title',
+          title: 'Container runtime access enabled',
+          descriptionKey: 'systemConfig.container.ops.container.runtime.enabled.description',
+          description: 'Whether container management may access the configured runtime.',
+          type: 'boolean',
+          configSchema: {
+            type: 'boolean',
+            title: 'Container runtime access enabled',
+            description: 'Whether container management may access the configured runtime.',
+            'x-i18n': {
+              titleKey: 'systemConfig.container.ops.container.runtime.enabled.title',
+              descriptionKey: 'systemConfig.container.ops.container.runtime.enabled.description',
+            },
+          },
+          defaultValue: 'false',
+          effectiveValue: 'true',
+          hasOverride: true,
+          order: 6200,
+        }),
+      ],
+      total: 1,
+    });
+
+    const wrapper = mountPage();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('运维管理');
+    expect(wrapper.text()).toContain('容器管理');
+    expect(wrapper.text()).toContain('控制容器管理能力的基础开关。');
+    expect(wrapper.text()).toContain('启用容器运行时访问');
+    expect(wrapper.text()).toContain('是否允许容器管理访问已配置的容器运行时。');
+    expect(wrapper.text()).not.toContain('Container runtime access enabled');
+    expect(wrapper.text()).not.toContain('Whether container management may access the configured runtime.');
   });
 
   it('uses item type fallback to render notification boolean config without schema as a switch', async () => {
@@ -1165,6 +1221,49 @@ function notificationConfigItem(input: {
     masked: false,
     restart_required: false,
     status: 'default',
+    order: input.order,
+  };
+}
+
+function containerConfigItem(input: {
+  key: string;
+  titleKey: string;
+  title: string;
+  descriptionKey: string;
+  description: string;
+  type: string;
+  configSchema: Record<string, unknown>;
+  defaultValue: string;
+  effectiveValue: string;
+  hasOverride?: boolean;
+  order: number;
+}) {
+  return {
+    key: input.key,
+    module: 'container',
+    domain: 'ops',
+    domain_key: 'systemConfig.domains.ops',
+    domain_label: 'Operations',
+    group: 'ops.container.general',
+    group_key: 'systemConfig.groups.ops.container.general',
+    group_label: 'Container Management',
+    group_description_key: 'systemConfig.groups.ops.container.general.description',
+    group_description: 'Control the container management baseline.',
+    title_key: input.titleKey,
+    title: input.title,
+    description_key: input.descriptionKey,
+    description: input.description,
+    tags: ['ops', 'container', 'ops.container.general'],
+    type: input.type,
+    config_schema: input.configSchema,
+    default_value: input.defaultValue,
+    effective_value: input.effectiveValue,
+    override_value: input.hasOverride ? input.effectiveValue : null,
+    has_override: input.hasOverride ?? false,
+    sensitive: false,
+    masked: false,
+    restart_required: false,
+    status: input.hasOverride ? 'modified' : 'default',
     order: input.order,
   };
 }

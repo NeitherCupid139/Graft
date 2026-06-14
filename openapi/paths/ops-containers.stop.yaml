@@ -1,0 +1,61 @@
+post:
+  tags: [container]
+  summary: Stop container
+  operationId: postContainerStop
+  description: Stops one running container when dangerous actions are enabled.
+  parameters:
+    - $ref: ../components/parameters/locale-header.yaml
+    - $ref: ../components/parameters/request-id-header.yaml
+    - $ref: ../components/parameters/container-id-path.yaml
+  security:
+    - bearerAuth: []
+  responses:
+    '200':
+      description: Container action result.
+      headers:
+        X-Request-Id:
+          $ref: ../components/headers/request-id.yaml
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/enveloped-container-action-response.yaml
+    '400':
+      description: Invalid container reference.
+      headers:
+        X-Request-Id:
+          $ref: ../components/headers/request-id.yaml
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/error-response.yaml
+    '401':
+      $ref: ../components/responses/unauthorized.yaml
+    '403':
+      $ref: ../components/responses/forbidden.yaml
+    '404':
+      description: Container was not found.
+      headers:
+        X-Request-Id:
+          $ref: ../components/headers/request-id.yaml
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/error-response.yaml
+    '409':
+      description: Container state does not allow this action.
+      headers:
+        X-Request-Id:
+          $ref: ../components/headers/request-id.yaml
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/error-response.yaml
+    '500':
+      description: Internal server error under existing error envelope semantics.
+      headers:
+        X-Request-Id:
+          $ref: ../components/headers/request-id.yaml
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/container-stop-error-response.yaml

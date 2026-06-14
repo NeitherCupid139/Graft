@@ -57,6 +57,10 @@
     },
     {
       "name": "announcements"
+    },
+    {
+      "name": "container",
+      "description": "容器管理"
     }
   ],
   "paths": {
@@ -8558,6 +8562,537 @@
           }
         }
       }
+    },
+    "/api/ops/containers": {
+      "get": {
+        "tags": [
+          "container"
+        ],
+        "summary": "List containers",
+        "operationId": "getContainers",
+        "description": "Returns container summaries for the configured container runtime.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/locale-header"
+          },
+          {
+            "$ref": "#/components/parameters/request-id-header"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Container list.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/enveloped-container-list-response"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/internal-server-error"
+          }
+        }
+      }
+    },
+    "/api/ops/containers/{id}": {
+      "get": {
+        "tags": [
+          "container"
+        ],
+        "summary": "Read container detail",
+        "operationId": "getContainer",
+        "description": "Returns one container detail without exposing sensitive environment variables.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/locale-header"
+          },
+          {
+            "$ref": "#/components/parameters/request-id-header"
+          },
+          {
+            "$ref": "#/components/parameters/container-id-path"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Container detail.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/enveloped-container-detail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid container reference.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/forbidden"
+          },
+          "404": {
+            "description": "Container was not found.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/internal-server-error"
+          }
+        }
+      }
+    },
+    "/api/ops/containers/{id}/logs": {
+      "get": {
+        "tags": [
+          "container"
+        ],
+        "summary": "Read container logs",
+        "operationId": "getContainerLogs",
+        "description": "Returns bounded container log lines from stdout and stderr.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/locale-header"
+          },
+          {
+            "$ref": "#/components/parameters/request-id-header"
+          },
+          {
+            "$ref": "#/components/parameters/container-id-path"
+          },
+          {
+            "$ref": "#/components/parameters/container-logs-tail"
+          },
+          {
+            "$ref": "#/components/parameters/container-logs-since"
+          },
+          {
+            "$ref": "#/components/parameters/container-logs-timestamps"
+          },
+          {
+            "$ref": "#/components/parameters/container-logs-stdout"
+          },
+          {
+            "$ref": "#/components/parameters/container-logs-stderr"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Container logs.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/enveloped-container-log-response"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid container reference or log query.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/forbidden"
+          },
+          "404": {
+            "description": "Container was not found.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/internal-server-error"
+          }
+        }
+      }
+    },
+    "/api/ops/containers/{id}/start": {
+      "post": {
+        "tags": [
+          "container"
+        ],
+        "summary": "Start container",
+        "operationId": "postContainerStart",
+        "description": "Starts one stopped container when dangerous actions are enabled.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/locale-header"
+          },
+          {
+            "$ref": "#/components/parameters/request-id-header"
+          },
+          {
+            "$ref": "#/components/parameters/container-id-path"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Container action result.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/enveloped-container-action-response"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid container reference.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/forbidden"
+          },
+          "404": {
+            "description": "Container was not found.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Container state does not allow this action.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/internal-server-error"
+          }
+        }
+      }
+    },
+    "/api/ops/containers/{id}/stop": {
+      "post": {
+        "tags": [
+          "container"
+        ],
+        "summary": "Stop container",
+        "operationId": "postContainerStop",
+        "description": "Stops one running container when dangerous actions are enabled.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/locale-header"
+          },
+          {
+            "$ref": "#/components/parameters/request-id-header"
+          },
+          {
+            "$ref": "#/components/parameters/container-id-path"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Container action result.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/enveloped-container-action-response"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid container reference.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/forbidden"
+          },
+          "404": {
+            "description": "Container was not found.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Container state does not allow this action.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error under existing error envelope semantics.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/container-stop-error-response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ops/containers/{id}/restart": {
+      "post": {
+        "tags": [
+          "container"
+        ],
+        "summary": "Restart container",
+        "operationId": "postContainerRestart",
+        "description": "Restarts one container when dangerous actions are enabled.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/locale-header"
+          },
+          {
+            "$ref": "#/components/parameters/request-id-header"
+          },
+          {
+            "$ref": "#/components/parameters/container-id-path"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Container action result.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/enveloped-container-action-response"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid container reference.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/forbidden"
+          },
+          "404": {
+            "description": "Container was not found.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Container state does not allow this action.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/internal-server-error"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -9059,6 +9594,45 @@
       },
       "EnvelopedAnnouncementReadAllResponse": {
         "$ref": "#/components/schemas/enveloped-announcement-read-all-response"
+      },
+      "ContainerSummary": {
+        "$ref": "#/components/schemas/container-summary"
+      },
+      "ContainerDetail": {
+        "$ref": "#/components/schemas/container-detail"
+      },
+      "ContainerPort": {
+        "$ref": "#/components/schemas/container-port"
+      },
+      "ContainerMount": {
+        "$ref": "#/components/schemas/container-mount"
+      },
+      "ContainerNetwork": {
+        "$ref": "#/components/schemas/container-network"
+      },
+      "ContainerLogResponse": {
+        "$ref": "#/components/schemas/container-log-response"
+      },
+      "ContainerActionResponse": {
+        "$ref": "#/components/schemas/container-action-response"
+      },
+      "ContainerRuntimeInfo": {
+        "$ref": "#/components/schemas/container-runtime-info"
+      },
+      "ContainerListResponse": {
+        "$ref": "#/components/schemas/container-list-response"
+      },
+      "EnvelopedContainerListResponse": {
+        "$ref": "#/components/schemas/enveloped-container-list-response"
+      },
+      "EnvelopedContainerDetail": {
+        "$ref": "#/components/schemas/enveloped-container-detail"
+      },
+      "EnvelopedContainerLogResponse": {
+        "$ref": "#/components/schemas/enveloped-container-log-response"
+      },
+      "EnvelopedContainerActionResponse": {
+        "$ref": "#/components/schemas/enveloped-container-action-response"
       },
       "health-response": {
         "type": "object",
@@ -14496,6 +15070,508 @@
           }
         ]
       },
+      "container-port": {
+        "type": "object",
+        "required": [
+          "private_port",
+          "type"
+        ],
+        "properties": {
+          "ip": {
+            "type": "string"
+          },
+          "private_port": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "public_port": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "tcp",
+              "udp",
+              "sctp"
+            ]
+          }
+        }
+      },
+      "container-summary": {
+        "type": "object",
+        "required": [
+          "id",
+          "names",
+          "image",
+          "status",
+          "state",
+          "runtime",
+          "created_at",
+          "ports"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "image": {
+            "type": "string"
+          },
+          "image_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "description": "Runtime-provided human-readable status."
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "created",
+              "running",
+              "paused",
+              "restarting",
+              "removing",
+              "exited",
+              "dead",
+              "unknown"
+            ]
+          },
+          "runtime": {
+            "type": "string",
+            "description": "Container runtime adapter key."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "labels": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "ports": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/container-port"
+            }
+          },
+          "restart_policy": {
+            "type": "string"
+          }
+        }
+      },
+      "container-runtime-info": {
+        "type": "object",
+        "required": [
+          "runtime",
+          "status",
+          "endpoint"
+        ],
+        "properties": {
+          "runtime": {
+            "type": "string",
+            "description": "Container runtime adapter key."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "enabled",
+              "disabled",
+              "unavailable"
+            ]
+          },
+          "endpoint": {
+            "type": "string",
+            "description": "Runtime endpoint label. Sensitive credentials must not be included."
+          },
+          "api_version": {
+            "type": "string"
+          },
+          "server_version": {
+            "type": "string"
+          },
+          "operating_system": {
+            "type": "string"
+          },
+          "architecture": {
+            "type": "string"
+          },
+          "containers_total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "containers_running": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "container-list-response": {
+        "type": "object",
+        "required": [
+          "items",
+          "runtime"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/container-summary"
+            }
+          },
+          "runtime": {
+            "$ref": "#/components/schemas/container-runtime-info"
+          }
+        }
+      },
+      "enveloped-container-list-response": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/api-envelope"
+          },
+          {
+            "type": "object",
+            "required": [
+              "data"
+            ],
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/container-list-response"
+              }
+            }
+          }
+        ]
+      },
+      "container-mount": {
+        "type": "object",
+        "required": [
+          "type",
+          "destination",
+          "mode",
+          "read_only"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Runtime mount type such as bind, volume, or tmpfs."
+          },
+          "name": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "destination": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "read_only": {
+            "type": "boolean"
+          }
+        }
+      },
+      "container-network": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Runtime network name attached to the container."
+          },
+          "network_id": {
+            "type": "string",
+            "description": "Runtime network identifier, such as the Docker network ID."
+          },
+          "endpoint_id": {
+            "type": "string",
+            "description": "Runtime endpoint identifier for this container attachment within the network."
+          },
+          "ip_address": {
+            "type": "string",
+            "description": "Container IP address assigned on this network."
+          },
+          "gateway": {
+            "type": "string",
+            "description": "Gateway address reported for this container network attachment."
+          },
+          "mac_address": {
+            "type": "string",
+            "description": "MAC address assigned to the container endpoint on this network."
+          }
+        }
+      },
+      "container-detail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/container-summary"
+          },
+          {
+            "type": "object",
+            "required": [
+              "mounts",
+              "networks",
+              "runtime_info"
+            ],
+            "properties": {
+              "command": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "entrypoint": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "working_dir": {
+                "type": "string"
+              },
+              "mounts": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/container-mount"
+                }
+              },
+              "networks": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/container-network"
+                }
+              },
+              "runtime_info": {
+                "$ref": "#/components/schemas/container-runtime-info"
+              },
+              "inspect_updated_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        ],
+        "description": "Container detail intentionally omits environment variables and raw inspect payload fields that may contain secrets.\n"
+      },
+      "enveloped-container-detail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/api-envelope"
+          },
+          {
+            "type": "object",
+            "required": [
+              "data"
+            ],
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/container-detail"
+              }
+            }
+          }
+        ]
+      },
+      "container-log-response": {
+        "type": "object",
+        "required": [
+          "id",
+          "runtime",
+          "tail",
+          "truncated",
+          "stdout",
+          "stderr",
+          "timestamps",
+          "lines"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "runtime": {
+            "type": "string",
+            "description": "Container runtime adapter key."
+          },
+          "tail": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2000,
+            "default": 200
+          },
+          "since": {
+            "type": "string",
+            "description": "Echoes the accepted since query when provided."
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "True when runtime output exceeded the bounded tail window."
+          },
+          "stdout": {
+            "type": "boolean"
+          },
+          "stderr": {
+            "type": "boolean"
+          },
+          "timestamps": {
+            "type": "boolean"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "enveloped-container-log-response": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/api-envelope"
+          },
+          {
+            "type": "object",
+            "required": [
+              "data"
+            ],
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/container-log-response"
+              }
+            }
+          }
+        ]
+      },
+      "container-action-response": {
+        "type": "object",
+        "required": [
+          "id",
+          "action",
+          "runtime",
+          "result",
+          "status_after"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "start",
+              "stop",
+              "restart"
+            ]
+          },
+          "runtime": {
+            "type": "string",
+            "description": "Container runtime adapter key."
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "accepted",
+              "completed",
+              "unchanged"
+            ]
+          },
+          "status_before": {
+            "type": "string"
+          },
+          "status_after": {
+            "type": "string"
+          },
+          "message_key": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "enveloped-container-action-response": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/api-envelope"
+          },
+          {
+            "type": "object",
+            "required": [
+              "data"
+            ],
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/container-action-response"
+              }
+            }
+          }
+        ]
+      },
+      "container-stop-error-response": {
+        "type": "object",
+        "required": [
+          "success",
+          "code",
+          "message",
+          "traceId"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              false
+            ],
+            "x-enum-varnames": [
+              "PostContainerStop500JSONResponseBodySuccessFalse"
+            ]
+          },
+          "code": {
+            "type": "string",
+            "description": "Existing canonical error response code."
+          },
+          "message": {
+            "type": "string",
+            "description": "Existing runtime fallback text paired with messageKey for compatibility."
+          },
+          "messageKey": {
+            "type": "string",
+            "description": "Stable error localization key. Consumers should prefer this key and use message only as fallback text."
+          },
+          "locale": {
+            "type": "string",
+            "description": "Locale used to resolve the fallback message text in this response."
+          },
+          "traceId": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Optional structured error details preserved from the current runtime."
+          }
+        }
+      },
       "dashboard-stat-group-payload": {
         "type": "object",
         "required": [
@@ -15044,6 +16120,97 @@
           "type": "integer",
           "format": "int64",
           "minimum": 1
+        }
+      },
+      "container-id-path": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Container id or name. Clients must call encodeURIComponent before placing this value in the path. The backend must PathUnescape the path parameter and reject empty values, slashes, and control characters with ops.container.error.invalidContainerRef.\n",
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        },
+        "examples": {
+          "containerId": {
+            "summary": "Container id prefix",
+            "value": "2c4f1a0b9e2d"
+          },
+          "encodedName": {
+            "summary": "Encoded container name",
+            "value": "web%2Dapi"
+          }
+        }
+      },
+      "container-logs-tail": {
+        "name": "tail",
+        "in": "query",
+        "required": false,
+        "description": "Number of log lines to return from the end of the stream.",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2000,
+          "default": 200
+        },
+        "examples": {
+          "defaultTail": {
+            "summary": "Default tail window",
+            "value": 200
+          },
+          "maxTail": {
+            "summary": "Maximum accepted tail window",
+            "value": 2000
+          }
+        }
+      },
+      "container-logs-since": {
+        "name": "since",
+        "in": "query",
+        "required": false,
+        "description": "Optional log lower bound. Accepts an RFC3339 timestamp or a duration such as 10m, 1h, or 24h. Invalid values must return a localized validation error.\n",
+        "schema": {
+          "type": "string"
+        },
+        "examples": {
+          "timestamp": {
+            "summary": "RFC3339 timestamp",
+            "value": "2026-06-14T08:00:00Z"
+          },
+          "duration": {
+            "summary": "Relative duration",
+            "value": "10m"
+          }
+        }
+      },
+      "container-logs-timestamps": {
+        "name": "timestamps",
+        "in": "query",
+        "required": false,
+        "description": "Whether each returned log line should include the runtime-provided timestamp.",
+        "schema": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "container-logs-stdout": {
+        "name": "stdout",
+        "in": "query",
+        "required": false,
+        "description": "Whether stdout stream lines should be included.",
+        "schema": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "container-logs-stderr": {
+        "name": "stderr",
+        "in": "query",
+        "required": false,
+        "description": "Whether stderr stream lines should be included.",
+        "schema": {
+          "type": "boolean",
+          "default": true
         }
       }
     },

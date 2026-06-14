@@ -111,103 +111,104 @@
           </template>
         </management-empty-state>
 
-        <t-table
-          v-else
-          row-key="id"
-          :data="pagedUsers"
-          :columns="visibleColumns"
-          :loading="loading"
-          table-layout="fixed"
-          :table-content-width="tableContentWidth"
-          :selected-row-keys="selectedRowKeys"
-          cell-empty-content="-"
-          @select-change="handleSelectChange"
-        >
-          <template #user="{ row }">
-            <div class="user-cell">
-              <div class="user-cell__avatar">{{ userInitial(row.display || row.username) }}</div>
-              <div class="user-cell__meta">
-                <span class="user-cell__display">{{ row.display || row.username }}</span>
-                <span class="user-cell__username">{{ row.email || `@${row.username}` }}</span>
+        <div v-else ref="tableHostRef" class="table-host" :data-table-mode="tableWidthPolicy.mode">
+          <t-table
+            row-key="id"
+            :data="pagedUsers"
+            :columns="visibleColumns"
+            :loading="loading"
+            table-layout="fixed"
+            :table-content-width="tableWidthPolicy.tableContentWidth"
+            :selected-row-keys="selectedRowKeys"
+            cell-empty-content="-"
+            @select-change="handleSelectChange"
+          >
+            <template #user="{ row }">
+              <div class="user-cell">
+                <div class="user-cell__avatar">{{ userInitial(row.display || row.username) }}</div>
+                <div class="user-cell__meta">
+                  <span class="user-cell__display">{{ row.display || row.username }}</span>
+                  <span class="user-cell__username">{{ row.email || `@${row.username}` }}</span>
+                </div>
               </div>
-            </div>
-          </template>
+            </template>
 
-          <template #status="{ row }">
-            <t-tag :theme="statusTheme(row.status)" variant="light">
-              {{ statusLabel(row.status) }}
-            </t-tag>
-          </template>
+            <template #status="{ row }">
+              <t-tag :theme="statusTheme(row.status)" variant="light">
+                {{ statusLabel(row.status) }}
+              </t-tag>
+            </template>
 
-          <template #roles="{ row }">
-            <div class="role-tag-list">
-              <template v-if="(row.roles ?? []).length > 0">
-                <t-tag
-                  v-for="role in (row.roles ?? []).slice(0, 2)"
-                  :key="role.id"
-                  theme="default"
-                  variant="light-outline"
-                  size="small"
-                >
-                  {{ role.display }}
-                </t-tag>
-                <t-tag v-if="(row.roles ?? []).length > 2" theme="default" variant="light-outline" size="small">
-                  +{{ (row.roles ?? []).length - 2 }}
-                </t-tag>
-              </template>
-              <span v-else class="table-muted">{{ t('user.userList.roleSummary.empty') }}</span>
-            </div>
-          </template>
-
-          <template #last_login_at="{ row }">
-            <span>{{ formatTimestamp(row.last_login_at) }}</span>
-          </template>
-
-          <template #created_at="{ row }">
-            <span>{{ formatTimestamp(row.created_at) }}</span>
-          </template>
-
-          <template #updated_at="{ row }">
-            <span>{{ formatTimestamp(row.updated_at) }}</span>
-          </template>
-
-          <template #operation="{ row }">
-            <table-action-menu
-              :actions="userRowActions(row)"
-              :more-label="t('user.userList.more')"
-              :more-label-fallback="t('user.userList.more')"
-              @action="(action) => handleUserRowAction(action, row)"
-            />
-          </template>
-
-          <template #empty>
-            <div class="table-empty-state">
-              <t-empty :title="t('user.userList.emptyTitle')" :description="t('user.userList.emptyDescription')">
-                <template #action>
-                  <div class="table-empty-state__actions">
-                    <t-button
-                      v-if="hasActiveFilters"
-                      theme="default"
-                      variant="outline"
-                      data-testid="user-empty-clear-filters"
-                      @click="resetFilters"
-                    >
-                      {{ t('user.userList.toolbar.clearFilters') }}
-                    </t-button>
-                    <t-button
-                      v-permission="userPermissionCodes.CREATE"
-                      theme="primary"
-                      data-testid="user-empty-create"
-                      @click="openUserDrawer('create')"
-                    >
-                      {{ t('user.userList.create') }}
-                    </t-button>
-                  </div>
+            <template #roles="{ row }">
+              <div class="role-tag-list">
+                <template v-if="(row.roles ?? []).length > 0">
+                  <t-tag
+                    v-for="role in (row.roles ?? []).slice(0, 2)"
+                    :key="role.id"
+                    theme="default"
+                    variant="light-outline"
+                    size="small"
+                  >
+                    {{ role.display }}
+                  </t-tag>
+                  <t-tag v-if="(row.roles ?? []).length > 2" theme="default" variant="light-outline" size="small">
+                    +{{ (row.roles ?? []).length - 2 }}
+                  </t-tag>
                 </template>
-              </t-empty>
-            </div>
-          </template>
-        </t-table>
+                <span v-else class="table-muted">{{ t('user.userList.roleSummary.empty') }}</span>
+              </div>
+            </template>
+
+            <template #last_login_at="{ row }">
+              <span>{{ formatTimestamp(row.last_login_at) }}</span>
+            </template>
+
+            <template #created_at="{ row }">
+              <span>{{ formatTimestamp(row.created_at) }}</span>
+            </template>
+
+            <template #updated_at="{ row }">
+              <span>{{ formatTimestamp(row.updated_at) }}</span>
+            </template>
+
+            <template #operation="{ row }">
+              <table-action-menu
+                :actions="userRowActions(row)"
+                :more-label="t('user.userList.more')"
+                :more-label-fallback="t('user.userList.more')"
+                @action="(action) => handleUserRowAction(action, row)"
+              />
+            </template>
+
+            <template #empty>
+              <div class="table-empty-state">
+                <t-empty :title="t('user.userList.emptyTitle')" :description="t('user.userList.emptyDescription')">
+                  <template #action>
+                    <div class="table-empty-state__actions">
+                      <t-button
+                        v-if="hasActiveFilters"
+                        theme="default"
+                        variant="outline"
+                        data-testid="user-empty-clear-filters"
+                        @click="resetFilters"
+                      >
+                        {{ t('user.userList.toolbar.clearFilters') }}
+                      </t-button>
+                      <t-button
+                        v-permission="userPermissionCodes.CREATE"
+                        theme="primary"
+                        data-testid="user-empty-create"
+                        @click="openUserDrawer('create')"
+                      >
+                        {{ t('user.userList.create') }}
+                      </t-button>
+                    </div>
+                  </template>
+                </t-empty>
+              </div>
+            </template>
+          </t-table>
+        </div>
 
         <template #footer>
           <management-table-pagination :summary="t('user.userList.footerTotal', { count: filteredUsers.length })">
@@ -468,7 +469,6 @@ import {
 } from '@/shared/components/assignment';
 import {
   buildVisibleColumns,
-  calculateTableContentWidth,
   createActionColumn,
   createStatusColumn,
   createTextColumn,
@@ -480,8 +480,10 @@ import {
   ManagementTableCard,
   ManagementTablePagination,
   ManagementToolbar,
+  resolveTableWidthPolicy,
   TableActionMenu,
   TableViewToolbar,
+  useTableHostWidth,
 } from '@/shared/components/management';
 import { useAssignmentSelection } from '@/shared/composables';
 import { formatHintedMessage, resolveErrorMessageWithCorrelation } from '@/shared/correlation';
@@ -992,7 +994,8 @@ const visibleColumns = computed(() => {
   return (columns.value ?? []).filter((column) => column?.colKey !== 'operation');
 });
 
-const tableContentWidth = computed(() => calculateTableContentWidth(visibleColumns.value));
+const { tableHostRef, tableHostWidth } = useTableHostWidth(() => visibleColumns.value);
+const tableWidthPolicy = computed(() => resolveTableWidthPolicy(visibleColumns.value, tableHostWidth.value));
 
 async function fetchUsers() {
   loading.value = true;

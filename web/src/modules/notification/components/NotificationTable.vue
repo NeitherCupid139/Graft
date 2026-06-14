@@ -4,80 +4,88 @@
 -->
 
 <template>
-  <t-card class="notification-table-card" :bordered="true">
-    <template #header>
-      <div class="notification-table-card__head">
-        <div>
-          <h2>{{ t('notification.table.title') }}</h2>
-          <p>{{ t('notification.table.summary', { count: total }) }}</p>
-        </div>
-      </div>
+  <management-table-card
+    class="notification-table-card"
+    :title="t('notification.table.title')"
+    :description="t('notification.table.summary', { count: total })"
+  >
+    <div ref="tableHostRef" class="notification-table-card__table-host">
+      <t-table
+        row-key="delivery_id"
+        :columns="columns"
+        :data="items"
+        :loading="loading"
+        table-layout="fixed"
+        :table-content-width="tableWidthPolicy.tableContentWidth"
+        cell-empty-content="-"
+        hover
+      >
+        <template #notification="{ row }">
+          <div
+            class="notification-title-cell"
+            :class="{ 'notification-title-cell--unread': notificationView(row).status === 'unread' }"
+          >
+            <strong>{{ notificationView(row).title }}</strong>
+            <span>{{ notificationView(row).message }}</span>
+          </div>
+        </template>
+
+        <template #severity="{ row }">
+          <t-tag :theme="notificationSeverityTheme(notificationRow(row).severity)" variant="light-outline" size="small">
+            {{ notificationView(row).levelLabel }}
+          </t-tag>
+        </template>
+
+        <template #category="{ row }">
+          <t-tag variant="light" size="small">
+            {{ notificationView(row).categoryLabel }}
+          </t-tag>
+        </template>
+
+        <template #source_module="{ row }">
+          {{ notificationView(row).sourceLabel }}
+        </template>
+
+        <template #status="{ row }">
+          <t-tag :theme="notificationStatusTheme(notificationRow(row).status)" variant="light" size="small">
+            {{ notificationView(row).statusLabel }}
+          </t-tag>
+        </template>
+
+        <template #occurred_at="{ row }">
+          {{ notificationView(row).occurredAtLabel }}
+        </template>
+
+        <template #operation="{ row }">
+          <t-space size="small">
+            <t-button size="small" theme="primary" variant="text" @click="$emit('detail', notificationRow(row))">
+              {{ t('notification.action.detail') }}
+            </t-button>
+            <t-button size="small" theme="danger" variant="text" @click="$emit('delete', notificationRow(row))">
+              {{ t('notification.action.delete') }}
+            </t-button>
+          </t-space>
+        </template>
+
+        <template #empty>
+          <t-empty :title="emptyTitle" :description="emptyDescription" />
+        </template>
+      </t-table>
+    </div>
+
+    <template #footer>
+      <management-table-pagination :summary="t('notification.table.summary', { count: total })">
+        <t-pagination
+          :current="current"
+          :page-size="pageSize"
+          :page-size-options="[10, 20, 50, 100]"
+          :show-page-number="true"
+          :total="total"
+          @change="handlePageChange"
+        />
+      </management-table-pagination>
     </template>
-
-    <t-table
-      row-key="delivery_id"
-      :columns="columns"
-      :data="items"
-      :loading="loading"
-      :pagination="paginationConfig"
-      table-layout="fixed"
-      :table-content-width="tableContentWidth"
-      cell-empty-content="-"
-      hover
-      @page-change="handlePageChange"
-    >
-      <template #notification="{ row }">
-        <div
-          class="notification-title-cell"
-          :class="{ 'notification-title-cell--unread': notificationView(row).status === 'unread' }"
-        >
-          <strong>{{ notificationView(row).title }}</strong>
-          <span>{{ notificationView(row).message }}</span>
-        </div>
-      </template>
-
-      <template #severity="{ row }">
-        <t-tag :theme="notificationSeverityTheme(notificationRow(row).severity)" variant="light-outline" size="small">
-          {{ notificationView(row).levelLabel }}
-        </t-tag>
-      </template>
-
-      <template #category="{ row }">
-        <t-tag variant="light" size="small">
-          {{ notificationView(row).categoryLabel }}
-        </t-tag>
-      </template>
-
-      <template #source_module="{ row }">
-        {{ notificationView(row).sourceLabel }}
-      </template>
-
-      <template #status="{ row }">
-        <t-tag :theme="notificationStatusTheme(notificationRow(row).status)" variant="light" size="small">
-          {{ notificationView(row).statusLabel }}
-        </t-tag>
-      </template>
-
-      <template #occurred_at="{ row }">
-        {{ notificationView(row).occurredAtLabel }}
-      </template>
-
-      <template #operation="{ row }">
-        <t-space size="small">
-          <t-button size="small" theme="primary" variant="text" @click="$emit('detail', notificationRow(row))">
-            {{ t('notification.action.detail') }}
-          </t-button>
-          <t-button size="small" theme="danger" variant="text" @click="$emit('delete', notificationRow(row))">
-            {{ t('notification.action.delete') }}
-          </t-button>
-        </t-space>
-      </template>
-
-      <template #empty>
-        <t-empty :title="emptyTitle" :description="emptyDescription" />
-      </template>
-    </t-table>
-  </t-card>
+  </management-table-card>
 </template>
 <script setup lang="ts">
 import type { PageInfo, TdBaseTableProps } from 'tdesign-vue-next';
@@ -85,15 +93,18 @@ import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import {
-  calculateTableContentWidth,
   createActionColumn,
   createConfiguredColumns,
+  ManagementTableCard,
+  ManagementTablePagination,
+  resolveTableWidthPolicy,
+  useTableHostWidth,
 } from '@/shared/components/management';
 
 import { notificationSeverityTheme, notificationStatusTheme, presentNotification } from '../shared/presentation';
 import type { NotificationItem } from '../types/notification';
 
-const props = defineProps<{
+defineProps<{
   current: number;
   emptyDescription: string;
   emptyTitle: string;
@@ -135,14 +146,8 @@ const columns = computed<TdBaseTableProps['columns']>(() => [
   createActionColumn(t('notification.columns.actions'), 160),
 ]);
 
-const tableContentWidth = computed(() => calculateTableContentWidth(columns.value));
-const paginationConfig = computed(() => ({
-  current: props.current,
-  pageSize: props.pageSize,
-  pageSizeOptions: [10, 20, 50],
-  showPageNumber: true,
-  total: props.total,
-}));
+const { tableHostRef, tableHostWidth } = useTableHostWidth(() => columns.value);
+const tableWidthPolicy = computed(() => resolveTableWidthPolicy(columns.value, tableHostWidth.value));
 
 function notificationRow(row: unknown) {
   return row as NotificationItem;
@@ -160,26 +165,11 @@ function handlePageChange(pageInfo: PageInfo) {
 }
 </script>
 <style scoped lang="less">
-.notification-table-card__head {
-  align-items: center;
-  display: flex;
-  justify-content: space-between;
-}
-
-.notification-table-card__head h2,
-.notification-table-card__head p {
-  margin: 0;
-}
-
-.notification-table-card__head h2 {
-  color: var(--td-text-color-primary);
-  font: var(--td-font-title-medium);
-}
-
-.notification-table-card__head p {
-  color: var(--td-text-color-secondary);
-  font: var(--td-font-body-medium);
-  margin-top: var(--graft-density-gap-4);
+.notification-table-card__table-host {
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+  width: 100%;
 }
 
 .notification-title-cell {

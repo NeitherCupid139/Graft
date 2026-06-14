@@ -1,0 +1,39 @@
+type: object
+required:
+  - id
+  - runtime
+  - tail
+  - truncated
+  - stdout
+  - stderr
+  - timestamps
+  - lines
+properties:
+  id:
+    type: string
+  name:
+    type: string
+  runtime:
+    type: string
+    description: Container runtime adapter key.
+  tail:
+    type: integer
+    minimum: 1
+    maximum: 2000
+    default: 200
+  since:
+    type: string
+    description: Echoes the accepted since query when provided.
+  truncated:
+    type: boolean
+    description: True when runtime output exceeded the bounded tail window.
+  stdout:
+    type: boolean
+  stderr:
+    type: boolean
+  timestamps:
+    type: boolean
+  lines:
+    type: array
+    items:
+      type: string
