@@ -1,0 +1,39 @@
+// Copyright (c) 2025-2026 GeWuYou
+// SPDX-License-Identifier: Apache-2.0
+
+package contract
+
+// MessageKey identifies a stable container management message key.
+type MessageKey string
+
+// String returns the canonical message key value.
+func (k MessageKey) String() string {
+	return string(k)
+}
+
+const (
+	// OperationsMenuTitle identifies the operations menu title.
+	OperationsMenuTitle MessageKey = "menu.ops.title"
+	// ContainerMenuTitle identifies the container management menu title.
+	ContainerMenuTitle MessageKey = "menu.ops.container.title"
+	// ContainerRuntimeDisabled identifies disabled runtime errors.
+	ContainerRuntimeDisabled MessageKey = "ops.container.error.runtimeDisabled"
+	// ContainerRuntimeSocketMissing identifies missing runtime socket errors.
+	ContainerRuntimeSocketMissing MessageKey = "ops.container.error.runtimeSocketMissing"
+	// ContainerRuntimePermissionDenied identifies runtime socket permission errors.
+	ContainerRuntimePermissionDenied MessageKey = "ops.container.error.runtimePermissionDenied"
+	// ContainerRuntimeDaemonUnavailable identifies unavailable runtime daemon errors.
+	ContainerRuntimeDaemonUnavailable MessageKey = "ops.container.error.runtimeDaemonUnavailable"
+	// ContainerNotFound identifies missing container errors.
+	ContainerNotFound MessageKey = "ops.container.error.containerNotFound"
+	// ContainerInvalidRef identifies invalid container reference errors.
+	ContainerInvalidRef MessageKey = "ops.container.error.invalidContainerRef"
+	// ContainerInvalidState identifies invalid action state errors.
+	ContainerInvalidState MessageKey = "ops.container.error.invalidState"
+	// ContainerLogsTooLarge identifies log limit errors.
+	ContainerLogsTooLarge MessageKey = "ops.container.error.logsTooLarge"
+	// ContainerTimeout identifies runtime timeout errors.
+	ContainerTimeout MessageKey = "ops.container.error.timeout"
+	// ContainerDangerousActionsDisabled identifies disabled action errors.
+	ContainerDangerousActionsDisabled MessageKey = "ops.container.error.dangerousActionsDisabled"
+)

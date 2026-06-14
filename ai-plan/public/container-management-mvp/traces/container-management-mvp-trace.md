@@ -24,6 +24,19 @@
 - Phase 1 未实现 runtime handlers、DockerRuntime adapter 业务逻辑或前端页面。
 - Phase 1 验证通过：`cd server && go test ./internal/contract/openapi/...`、`node scripts/openapi-bundle.mjs`、
   `cd web && bun run openapi:types`、`cd web && bun run openapi:types:check`、`git diff --check`。
+- Phase 2 新增 `server/modules/container` 后端模块骨架，并通过 `NewModuleSpec()` 接入
+  `server/internal/moduleregistry/generated.go`。
+- Phase 2 注册菜单 IA 为 `运维管理 -> 容器管理`，菜单路径 `/ops/containers`，未挂入“服务器管理”。
+- Phase 2 注册 MVP 权限：`ops.container.view`、`ops.container.detail`、`ops.container.logs`、
+  `ops.container.start`、`ops.container.stop`、`ops.container.restart`；未新增 `ops.docker`。
+- Phase 2 注册容器菜单、错误 key/message、route/config contract 常量和六个系统配置定义：
+  `ops.container.enabled`、`ops.container.runtime`、`ops.container.docker.endpoint`、
+  `ops.container.logs.default_tail`、`ops.container.logs.max_tail`、`ops.container.dangerous_actions_enabled`。
+- Phase 2 将 `ops.container.docker.endpoint` 声明为 `RestartRequired`；系统配置 schema 作为系统配置 UI 渲染 authority。
+- Phase 2 未实现 `DockerRuntime` adapter 业务逻辑、runtime API handlers、审计生产 service 行为或前端页面。
+- Phase 2 验证通过：`cd server && go generate ./internal/moduleregistry`、
+  `cd server && go test ./modules/container/...`、`cd server && go test ./internal/moduleregistry/... ./modules/container/...`、
+  `cd server && go run ./cmd/graft validate backend --stage lint`、`git diff --check`。
 
 ## Loop Batch State
 
@@ -32,16 +45,16 @@
   "loop_mode": "topic-completion-loop",
   "completed_batches": [
     "phase-0-design-topic-persistence",
-    "phase-1-openapi-contract-source"
+    "phase-1-openapi-contract-source",
+    "phase-2-server-module-foundation"
   ],
   "pending_batches": [
-    "phase-2-server-module-foundation",
     "phase-3-server-runtime-api-audit",
     "phase-4-web-container-management-ui",
     "phase-5-validation-governance-closeout"
   ],
-  "current_batch": "phase-1-openapi-contract-source",
-  "next_batch": "phase-2-server-module-foundation",
+  "current_batch": "phase-2-server-module-foundation",
+  "next_batch": "phase-3-server-runtime-api-audit",
   "closeout_status": "active"
 }
 ```

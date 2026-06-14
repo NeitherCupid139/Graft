@@ -6,7 +6,8 @@
 - 状态：`active`。
 - 任务分类为 `cross-boundary`，涉及 OpenAPI、server module、permission/menu/audit/system-config、web module 和 i18n。
 - Canonical design：`ai-plan/design/容器管理设计.md`。
-- 当前仅完成 Phase 0 设计与恢复入口持久化；尚未修改 OpenAPI source、后端模块或前端页面。
+- 当前已完成 Phase 0 设计与恢复入口、Phase 1 OpenAPI contract source、Phase 2 后端模块骨架。
+- 尚未实现后端运行时 API / `DockerRuntime` adapter 或前端页面。
 
 ## Recovery Receipt
 
@@ -52,7 +53,8 @@
 - 设计 authority 已落到 `ai-plan/design/容器管理设计.md`。
 - active topic 已落到 `ai-plan/public/container-management-mvp/`。
 - Phase 1 已完成：OpenAPI 与 generated contract artifacts。
-- 当前下一批次：Phase 2 后端模块骨架、菜单、权限、i18n、系统配置定义。
+- Phase 2 已完成：`server/modules/container` 后端模块骨架、菜单、权限、i18n、系统配置定义和 compile-time registry 接入。
+- 当前下一批次：Phase 3 后端 `DockerRuntime` adapter、API、权限、错误映射、审计。
 
 ## Validation Targets
 
