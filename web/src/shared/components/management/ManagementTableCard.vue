@@ -114,7 +114,9 @@ const hasHead = computed(() => Boolean(slots.head || slots.toolbar || props.titl
   --td-comp-paddingTB-m: 11px;
 
   display: block;
+  max-width: 100%;
   min-width: 0;
+  overflow-x: hidden;
   padding: 0 var(--graft-density-gap-20) var(--graft-density-gap-16);
   width: 100%;
 }
