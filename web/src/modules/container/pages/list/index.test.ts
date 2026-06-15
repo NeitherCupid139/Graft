@@ -126,7 +126,7 @@ const translations = vi.hoisted(
     'container.list.detail.command': '命令',
     'container.list.detail.entrypoint': '入口',
     'container.list.detail.environment': '环境变量',
-    'container.list.detail.environmentUnavailable': '当前安全详情契约不返回环境变量。',
+    'container.list.detail.environmentUnavailable': '当前容器无法查看环境变量。',
     'container.list.detail.identity': '基础信息',
     'container.list.detail.inspectUpdatedAt': '详情更新时间',
     'container.list.detail.loadFailed': '容器详情加载失败。',
@@ -449,7 +449,7 @@ describe('container list page', () => {
     expect(wrapper.text()).toContain('21.8%');
     expect(wrapper.text()).toContain('256.0 MiB');
     expect(wrapper.text()).toContain('未采集');
-    expect(wrapper.text()).toContain('stats_not_collected');
+    expect(wrapper.text()).not.toContain('stats_not_collected');
     expect(wrapper.text()).toContain('8080->80/tcp');
     expect(wrapper.text()).toContain('+1');
     expect(wrapper.text()).toContain('运行中');
@@ -929,8 +929,8 @@ function createContainerRows(count: number, startOrdinal = 1) {
               available: false,
               stats_available: false,
               stats_error_key: 'stats_not_collected',
-              stats_error_message: 'stats_not_collected',
-              unavailable_reason: 'stats_not_collected',
+              stats_error_message: '未采集',
+              unavailable_reason: '未采集',
             },
       compose_project: ordinal === 1 ? 'graft' : undefined,
       compose_service: ordinal === 1 ? 'web' : undefined,

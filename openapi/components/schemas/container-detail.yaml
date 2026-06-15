@@ -2,6 +2,7 @@ allOf:
   - $ref: ./container-summary.yaml
   - type: object
     required:
+      - environment_policy
       - mounts
       - networks
       - runtime_info

@@ -8617,6 +8617,11 @@
           },
           "400": {
             "description": "Invalid query parameter.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -15772,6 +15777,7 @@
       },
       "container-batch-action-response": {
         "type": "object",
+        "description": "Batch action result summary. The items array contains exactly one result item for each requested container id and preserves the request id order so callers can correlate each result by position as well as by id.\n",
         "required": [
           "total",
           "success_count",
@@ -15796,6 +15802,8 @@
           },
           "items": {
             "type": "array",
+            "description": "Per-container action results in the same order as the requested container ids, with one response item per requested id. OpenAPI cannot express equality with the request array length, so clients should rely on this contract text plus each item's id for correlation.\n",
+            "minItems": 0,
             "items": {
               "$ref": "#/components/schemas/container-batch-action-item"
             }
@@ -15891,6 +15899,7 @@
           {
             "type": "object",
             "required": [
+              "environment_policy",
               "mounts",
               "networks",
               "runtime_info"

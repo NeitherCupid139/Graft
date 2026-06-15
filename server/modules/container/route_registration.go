@@ -85,6 +85,7 @@ func registerRoutes(ctx *module.Context, moduleName string, service *service) er
 	)
 	group.POST(
 		containercontract.ContainerBatchActionsRoute,
+		// 批量操作路由先通过认证中间件建立请求身份，再由 handler 按 action 分派精确权限。
 		httpx.RequirePermission(ctx.I18n, authService, authorizer, "", publisher),
 		routes.handleBatchAction,
 	)
@@ -180,7 +181,7 @@ func (r routeRuntime) handleBatchAction(ginCtx *gin.Context) {
 		return
 	}
 	if !request.Action.Valid() {
-		r.writeRouteError(ginCtx, errInvalidListQuery)
+		r.writeRouteError(ginCtx, errInvalidBatchAction)
 		return
 	}
 	if !r.authorizeBatchAction(ginCtx, string(request.Action)) {
@@ -201,7 +202,7 @@ func (r routeRuntime) handleBatchAction(ginCtx *gin.Context) {
 func (r routeRuntime) authorizeBatchAction(ginCtx *gin.Context, action string) bool {
 	permission := permissionForAction(action)
 	if permission == "" {
-		r.writeRouteError(ginCtx, errInvalidListQuery)
+		r.writeRouteError(ginCtx, errInvalidBatchAction)
 		return false
 	}
 	authorizer, err := resolveAuthorizer(r.ctx)

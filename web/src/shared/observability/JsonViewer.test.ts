@@ -42,6 +42,19 @@ describe('JsonViewer', () => {
 
     expect(wrapper.text()).toContain('No JSON');
   });
+
+  it('renders an error state when JSON serialization fails', () => {
+    const circular: Record<string, unknown> = {
+      id: 'container-1',
+    };
+    circular.self = circular;
+
+    const wrapper = mountViewer(circular);
+
+    expect(wrapper.text()).toContain('Invalid JSON');
+    expect(wrapper.find('.json-viewer__source').exists()).toBe(false);
+    expect(wrapper.find('.json-viewer__node').exists()).toBe(false);
+  });
 });
 
 function mountViewer(value: unknown) {

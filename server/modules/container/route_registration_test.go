@@ -144,8 +144,8 @@ func TestRoutesRejectInvalidBatchAction(t *testing.T) {
 	if response.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d: %s", response.Code, response.Body.String())
 	}
-	if !strings.Contains(response.Body.String(), containercontract.ContainerInvalidListQuery.String()) {
-		t.Fatalf("expected invalid query message key, got %s", response.Body.String())
+	if !strings.Contains(response.Body.String(), containercontract.ContainerInvalidBatchAction.String()) {
+		t.Fatalf("expected invalid batch action message key, got %s", response.Body.String())
 	}
 }
 

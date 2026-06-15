@@ -28,10 +28,19 @@ const routerMocks = vi.hoisted(() => ({
   replace: vi.fn(),
 }));
 
-const routeState = vi.hoisted(() => ({
-  params: { id: 'container-1' },
-  query: { tab: 'config' as string | undefined },
-}));
+const routeState = vi.hoisted(
+  (): {
+    route: {
+      params: { id: string };
+      query: { tab?: string };
+    };
+  } => ({
+    route: {
+      params: { id: 'container-1' },
+      query: { tab: 'config' },
+    },
+  }),
+);
 
 const translations = vi.hoisted(
   (): Record<string, string> => ({
@@ -40,7 +49,7 @@ const translations = vi.hoisted(
     'container.detail.config.envPolicy': '策略',
     'container.detail.config.envValue': '值',
     'container.detail.config.environment': '环境变量',
-    'container.detail.config.environmentUnavailable': '当前详情契约未返回环境变量。',
+    'container.detail.config.environmentUnavailable': '当前容器无法查看环境变量。',
     'container.detail.config.hiddenValue': '已隐藏',
     'container.detail.config.maskedValue': '已脱敏',
     'container.detail.config.policy.hidden': '隐藏',
@@ -147,10 +156,14 @@ vi.mock('vue-i18n', () => ({
   }),
 }));
 
-vi.mock('vue-router', () => ({
-  useRoute: () => routeState,
-  useRouter: () => routerMocks,
-}));
+vi.mock('vue-router', async () => {
+  const { reactive } = await vi.importActual<typeof import('vue')>('vue');
+  routeState.route = reactive(routeState.route);
+  return {
+    useRoute: () => routeState.route,
+    useRouter: () => routerMocks,
+  };
+});
 
 vi.mock('@/shared/observability', async () => {
   const actual = await vi.importActual<typeof import('@/shared/observability')>('@/shared/observability');
@@ -164,8 +177,8 @@ vi.mock('@/shared/observability', async () => {
 describe('container detail page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    routeState.params.id = 'container-1';
-    routeState.query.tab = 'config';
+    routeState.route.params.id = 'container-1';
+    routeState.route.query.tab = 'config';
     Object.defineProperty(window, 'history', {
       configurable: true,
       value: { length: 1 },
@@ -248,6 +261,96 @@ describe('container detail page', () => {
 
     expect(copyText).toHaveBeenCalledWith('production');
     expect(messageMocks.success).toHaveBeenCalledWith('内容已复制。');
+  });
+
+  it('preserves raw environment values when copyable', async () => {
+    const { copyText } = await import('@/shared/observability');
+    apiMocks.getContainer.mockResolvedValue({
+      ...createContainerDetail(),
+      environment: [
+        {
+          key: 'PADDED_VALUE',
+          masked: false,
+          sensitive: false,
+          source: 'config',
+          value: '  keep surrounding spaces  ',
+        },
+      ],
+    });
+    const wrapper = mountPage();
+    await flushPromises();
+
+    await wrapper.get('[data-testid="env-copy"]').trigger('click');
+    await flushPromises();
+
+    expect(copyText).toHaveBeenCalledWith('  keep surrounding spaces  ');
+  });
+
+  it('clears stale detail and reloads logs when the route id changes on the logs tab', async () => {
+    routeState.route.query.tab = 'logs';
+    const wrapper = mountPage();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('graft-web');
+    expect(wrapper.text()).toContain('server started');
+
+    apiMocks.getContainer.mockResolvedValue({
+      ...createContainerDetail(),
+      id: 'container-2',
+      short_id: 'container-2',
+      name: 'graft-api',
+      names: ['graft-api'],
+      image: 'graft/api:latest',
+    });
+    apiMocks.getContainerLogs.mockResolvedValue({
+      id: 'container-2',
+      lines: ['api started'],
+      runtime: 'docker',
+      stderr: true,
+      stdout: true,
+      tail: 200,
+      timestamps: false,
+      truncated: false,
+    });
+
+    routeState.route.params.id = 'container-2';
+    await wrapper.vm.$nextTick();
+    expect(wrapper.text()).not.toContain('graft-web');
+    expect(wrapper.text()).not.toContain('server started');
+    await flushPromises();
+
+    expect(apiMocks.getContainer).toHaveBeenLastCalledWith('container-2');
+    expect(apiMocks.getContainerLogs).toHaveBeenLastCalledWith('container-2', {
+      tail: 200,
+      since: undefined,
+      stderr: true,
+      stdout: true,
+      timestamps: false,
+    });
+    expect(wrapper.text()).toContain('graft-api');
+    expect(wrapper.text()).toContain('api started');
+  });
+
+  it('clears stale detail on missing route id and load failure', async () => {
+    const wrapper = mountPage();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('graft-web');
+
+    routeState.route.params.id = '';
+    await wrapper.vm.$nextTick();
+    await flushPromises();
+
+    expect(wrapper.text()).not.toContain('graft-web');
+    expect(wrapper.text()).toContain('缺少容器标识。');
+
+    routeState.route.params.id = 'container-failed';
+    apiMocks.getContainer.mockRejectedValue(new Error('boom'));
+    await wrapper.vm.$nextTick();
+    await flushPromises();
+
+    expect(wrapper.text()).not.toContain('graft-web');
+    expect(wrapper.text()).toContain('boom');
   });
 
   it('copies full identifiers from the overview section', async () => {

@@ -188,7 +188,7 @@
         "mountEmpty": "No Mounts.",
         "networkEmpty": "No Network Information.",
         "metadataEmpty": "No Labels or Metadata.",
-        "environmentUnavailable": "The Current Sanitized Detail Contract Does Not Return Environment Variables.",
+        "environmentUnavailable": "Environment Variables Are Not Available For This Container.",
         "loadFailed": "Container Detail Could Not Be Loaded."
       },
       "logs": {
@@ -295,7 +295,7 @@
       },
       "config": {
         "environment": "Environment Variables",
-        "environmentUnavailable": "The Current Detail Contract Does Not Return Environment Variables.",
+        "environmentUnavailable": "Environment Variables Are Not Available For This Container.",
         "envName": "Name",
         "envValue": "Value",
         "envPolicy": "Policy",

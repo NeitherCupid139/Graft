@@ -16,6 +16,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -31,6 +32,7 @@ const (
 	dockerLogScannerInitSize = 64 * 1024
 	dockerLogScannerMaxSize  = 1024 * 1024
 	dockerStatsListTimeout   = 2 * time.Second
+	dockerStatsListWorkers   = 8
 	dockerStatsPercentScale  = 100.0
 	dockerEnvironmentSource  = "docker"
 )
@@ -87,10 +89,9 @@ func (r *DockerRuntime) List(ctx context.Context, _ ListQuery) ([]Summary, error
 	}
 	summaries := make([]Summary, 0, len(items))
 	for _, item := range items {
-		summary := dockerSummary(item)
-		summary.Resource = r.containerResourceSummary(ctx, summary.ID)
-		summaries = append(summaries, summary)
+		summaries = append(summaries, dockerSummary(item))
 	}
+	r.collectListResourceSummaries(ctx, summaries)
 	return summaries, nil
 }
 
@@ -289,6 +290,29 @@ func (r *DockerRuntime) containerResourceSummary(ctx context.Context, id string)
 	return dockerResourceSummary(stats)
 }
 
+func (r *DockerRuntime) collectListResourceSummaries(ctx context.Context, summaries []Summary) {
+	if len(summaries) == 0 {
+		return
+	}
+	workerCount := min(len(summaries), dockerStatsListWorkers)
+	jobs := make(chan int)
+	var wg sync.WaitGroup
+	wg.Add(workerCount)
+	for range workerCount {
+		go func() {
+			defer wg.Done()
+			for index := range jobs {
+				summaries[index].Resource = r.containerResourceSummary(ctx, summaries[index].ID)
+			}
+		}()
+	}
+	for index := range summaries {
+		jobs <- index
+	}
+	close(jobs)
+	wg.Wait()
+}
+
 func dockerResourceSummary(stats container.StatsResponse) ResourceSummary {
 	resource := ResourceSummary{
 		Available:      true,
@@ -369,7 +393,7 @@ func uint64ToInt64(value uint64) (int64, bool) {
 	if value > uint64(^uint64(0)>>1) {
 		return 0, false
 	}
-	return int64(value), value > 0
+	return int64(value), true
 }
 
 func dockerDetail(inspect container.InspectResponse, info RuntimeInfo) Detail {
@@ -502,7 +526,7 @@ func shortRuntimeID(id string) string {
 }
 
 func canStartState(state string) bool {
-	return state != "running" && state != "removing"
+	return state != "running" && state != "paused" && state != "removing"
 }
 
 func canStopState(state string) bool {
@@ -518,7 +542,7 @@ func canRemoveState(state string) bool {
 }
 
 func canRemoveWithoutForce(state string) bool {
-	return canRemoveState(state) && state != "running" && state != "restarting"
+	return canRemoveState(state) && state != "running" && state != "paused" && state != "restarting"
 }
 
 func dockerInfoToRuntimeInfo(info systemInfo, endpoint string) RuntimeInfo {

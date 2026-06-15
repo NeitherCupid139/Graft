@@ -310,7 +310,7 @@ func runWithRuntime(ctx context.Context, ref Ref, action string, options ActionO
 	case containerActionRestart:
 		return runtime.Restart(ctx, ref)
 	default:
-		return ActionResult{ID: ref.Value, Action: action, Runtime: runtimeNameDocker}, errInvalidListQuery
+		return ActionResult{ID: ref.Value, Action: action, Runtime: runtimeNameDocker}, errInvalidBatchAction
 	}
 }
 
@@ -340,15 +340,15 @@ func actionSuccessMessageKey(action string) containercontract.MessageKey {
 func normalizeBatchActionCommand(command BatchActionCommand) (BatchActionCommand, error) {
 	action := strings.TrimSpace(command.Action)
 	if !isSupportedAction(action) {
-		return BatchActionCommand{}, errInvalidListQuery
+		return BatchActionCommand{}, errInvalidBatchAction
 	}
 	if len(command.IDs) == 0 || len(command.IDs) > maxContainerBatchActionIDs {
-		return BatchActionCommand{}, errInvalidListQuery
+		return BatchActionCommand{}, errInvalidBatchAction
 	}
 	normalizedIDs := make([]string, 0, len(command.IDs))
 	for _, id := range command.IDs {
 		if strings.TrimSpace(id) == "" {
-			return BatchActionCommand{}, errInvalidListQuery
+			return BatchActionCommand{}, errInvalidBatchAction
 		}
 		normalizedIDs = append(normalizedIDs, strings.TrimSpace(id))
 	}
@@ -592,9 +592,9 @@ func summarizeContainers(items []Summary) ListSummary {
 		switch item.State {
 		case "running":
 			summary.Running++
-		case "created", "exited":
+		case "created", "exited", "paused", "restarting":
 			summary.Stopped++
-		case "dead", "unknown":
+		case "dead", "unknown", "removing":
 			summary.Error++
 		}
 		switch effectiveHealth(item) {

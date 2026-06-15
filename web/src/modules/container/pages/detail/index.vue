@@ -512,7 +512,11 @@ onMounted(() => {
 watch(
   () => route.params.id,
   () => {
+    resetDetailState();
     void loadDetail();
+    if (activeTab.value === 'logs') {
+      void loadLogs();
+    }
   },
 );
 
@@ -535,6 +539,8 @@ watch(logLineLimit, () => {
 
 async function loadDetail() {
   if (!containerId.value) {
+    detail.value = null;
+    logs.value = null;
     error.value = t('container.detail.missingId');
     return;
   }
@@ -544,6 +550,7 @@ async function loadDetail() {
   try {
     detail.value = await getContainer(containerId.value);
   } catch (loadError) {
+    detail.value = null;
     error.value = resolveLocalizedErrorMessage(t, loadError, t('container.list.detail.loadFailed'));
     logger.warn('failed to fetch container detail', loadError);
   } finally {
@@ -552,7 +559,10 @@ async function loadDetail() {
 }
 
 async function loadLogs() {
-  if (!containerId.value) return;
+  if (!containerId.value) {
+    logs.value = null;
+    return;
+  }
   logsLoading.value = true;
   logsError.value = '';
   try {
@@ -566,6 +576,13 @@ async function loadLogs() {
   } finally {
     logsLoading.value = false;
   }
+}
+
+function resetDetailState() {
+  detail.value = null;
+  error.value = '';
+  logs.value = null;
+  logsError.value = '';
 }
 
 function handleTabChange(value: string | number) {
@@ -626,7 +643,7 @@ function normalizeEnvironmentRows(nextDetail: ContainerDetail | null): Environme
 
     const rawPolicy = readString(record?.policy ?? record?.visibility ?? record?.state);
     const masked = record?.masked === true;
-    const rawValue = readString(record?.value);
+    const rawValue = readRawString(record?.value);
     const policy = normalizeEnvironmentPolicy(
       rawPolicy,
       readString(detailRecord?.environment_policy),
@@ -653,6 +670,10 @@ function readUnknownRecord(value: unknown): Record<string, unknown> | null {
 
 function readString(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function readRawString(value: unknown) {
+  return typeof value === 'string' ? value : '';
 }
 
 function normalizeEnvironmentPolicy(

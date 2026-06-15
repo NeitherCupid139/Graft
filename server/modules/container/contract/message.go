@@ -30,6 +30,8 @@ const (
 	ContainerInvalidRef MessageKey = "ops.container.error.invalidContainerRef"
 	// ContainerInvalidListQuery identifies invalid list query parameter errors.
 	ContainerInvalidListQuery MessageKey = "ops.container.error.invalidListQuery"
+	// ContainerInvalidBatchAction identifies invalid batch action request errors.
+	ContainerInvalidBatchAction MessageKey = "ops.container.error.invalidBatchAction"
 	// ContainerInvalidState identifies invalid action state errors.
 	ContainerInvalidState MessageKey = "ops.container.error.invalidState"
 	// ContainerLogsTooLarge identifies log limit errors.

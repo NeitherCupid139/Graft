@@ -29,6 +29,9 @@ get:
       $ref: ../components/responses/forbidden.yaml
     '400':
       description: Invalid query parameter.
+      headers:
+        X-Request-Id:
+          $ref: ../components/headers/request-id.yaml
       content:
         application/json:
           schema:

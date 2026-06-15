@@ -3870,11 +3870,13 @@ export interface components {
       message_key?: string;
       message?: string;
     };
+    /** @description Batch action result summary. The items array contains exactly one result item for each requested container id and preserves the request id order so callers can correlate each result by position as well as by id. */
     'container-batch-action-response': {
       total: number;
       success_count: number;
       failed_count: number;
       request_id?: string;
+      /** @description Per-container action results in the same order as the requested container ids, with one response item per requested id. OpenAPI cannot express equality with the request array length, so clients should rely on this contract text plus each item's id for correlation. */
       items: components['schemas']['container-batch-action-item'][];
     };
     'enveloped-container-batch-action-response': components['schemas']['api-envelope'] & {
@@ -3911,7 +3913,7 @@ export interface components {
        * @description Effective container environment variable display policy applied to this detail response.
        * @enum {string}
        */
-      environment_policy?: 'hidden' | 'masked' | 'plain';
+      environment_policy: 'hidden' | 'masked' | 'plain';
       working_dir?: string;
       mounts: components['schemas']['container-mount'][];
       networks: components['schemas']['container-network'][];
@@ -8512,6 +8514,7 @@ export interface operations {
       /** @description Invalid query parameter. */
       400: {
         headers: {
+          'X-Request-Id': components['headers']['request-id'];
           [name: string]: unknown;
         };
         content: {

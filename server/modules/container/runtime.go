@@ -53,6 +53,7 @@ var (
 	errContainerNotFound           = errors.New("container not found")
 	errInvalidRef                  = errors.New("invalid container reference")
 	errInvalidListQuery            = errors.New("invalid container list query")
+	errInvalidBatchAction          = errors.New("invalid container batch action")
 	errInvalidContainerState       = errors.New("invalid container state")
 	errLogsTooLarge                = errors.New("container logs tail exceeds limit")
 	errContainerRuntimeTimeout     = errors.New("container runtime timeout")

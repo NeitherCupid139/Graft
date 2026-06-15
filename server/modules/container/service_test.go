@@ -554,6 +554,28 @@ func TestServiceListFiltersHealth(t *testing.T) {
 	}
 }
 
+func TestSummarizeContainersAccountsForKnownRuntimeStates(t *testing.T) {
+	t.Parallel()
+
+	summary := summarizeContainers([]Summary{
+		{State: "running", Health: containerHealthHealthy},
+		{State: "created", Health: containerHealthUnavailable},
+		{State: "exited", Health: containerHealthUnavailable},
+		{State: "paused", Health: containerHealthUnavailable},
+		{State: "restarting", Health: containerHealthUnavailable},
+		{State: "dead", Health: containerHealthUnhealthy},
+		{State: "unknown", Health: containerHealthUnavailable},
+		{State: "removing", Health: containerHealthUnavailable},
+	})
+
+	if summary.Total != 8 || summary.Running != 1 || summary.Stopped != 4 || summary.Error != 3 {
+		t.Fatalf("unexpected state summary %#v", summary)
+	}
+	if summary.Healthy != 1 || summary.Unhealthy != 1 || summary.HealthUnavailable != 6 {
+		t.Fatalf("unexpected health summary %#v", summary)
+	}
+}
+
 func newListTestService(t *testing.T, dangerousActionsEnabled bool) *service {
 	t.Helper()
 

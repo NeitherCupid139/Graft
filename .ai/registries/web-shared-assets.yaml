@@ -85,8 +85,8 @@ assets:
       - "The metric carries module-private business semantics that need a local presenter or specialized layout."
     examples:
       - "web/src/modules/container/pages/detail/index.vue"
-    related_assets:
-      - "observability-helpers"
+    notes:
+      - "Metric components may be composed near observability helpers, but they do not depend on observability-helper APIs."
     validation_commands:
       - "cd web && bun run check"
 

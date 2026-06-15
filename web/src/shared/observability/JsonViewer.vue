@@ -24,6 +24,7 @@
 
     <div class="json-viewer__viewport">
       <t-empty v-if="isEmpty" size="small" :description="emptyLabel" />
+      <t-empty v-else-if="hasError" size="small" :description="errorLabel" />
       <pre v-else-if="sourceMode" class="json-viewer__source" v-html="highlightedSource"></pre>
       <json-node v-else :node-key="rootLabel" :value="maskedValue" root />
     </div>
@@ -52,8 +53,6 @@ const props = defineProps<{
 
 const sourceMode = ref(false);
 
-const maskedValue = computed(() => maskSensitiveJson(props.value));
-
 const isEmpty = computed(() => {
   const value = props.value;
   if (value === null || value === undefined || value === '') return true;
@@ -62,12 +61,35 @@ const isEmpty = computed(() => {
   return false;
 });
 
-const formattedJson = computed(() => {
-  if (isEmpty.value) return '';
-  return JSON.stringify(maskedValue.value, null, 2);
+const serializedJson = computed(() => {
+  if (isEmpty.value) {
+    return {
+      error: false,
+      json: '',
+      value: null,
+    };
+  }
+
+  try {
+    const value = maskSensitiveJson(props.value);
+    const json = JSON.stringify(value, null, 2);
+    return {
+      error: !json,
+      json: json ?? '',
+      value,
+    };
+  } catch {
+    return {
+      error: true,
+      json: '',
+      value: null,
+    };
+  }
 });
 
-const hasError = computed(() => !isEmpty.value && !formattedJson.value);
+const maskedValue = computed(() => serializedJson.value.value);
+const formattedJson = computed(() => serializedJson.value.json);
+const hasError = computed(() => !isEmpty.value && serializedJson.value.error);
 const highlightedSource = computed(() => highlightJson(formattedJson.value));
 
 function toggleSource() {

@@ -14,6 +14,7 @@ import (
 	"reflect"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
@@ -232,6 +233,49 @@ func TestDockerRuntimeListDegradesWhenStatsUnavailable(t *testing.T) {
 	}
 }
 
+func TestDockerRuntimeListCollectsStatsWithBoundedConcurrency(t *testing.T) {
+	t.Parallel()
+
+	client := &countingDockerClient{
+		stats: container.StatsResponse{
+			MemoryStats: container.MemoryStats{Usage: 64, Limit: 128},
+		},
+		statsDelay: 40 * time.Millisecond,
+	}
+	for _, id := range []string{"one123456789", "two123456789", "three12345678", "four123456789"} {
+		client.list = append(client.list, container.Summary{
+			ID:      id,
+			Names:   []string{"/" + id},
+			Image:   "nginx:latest",
+			State:   container.StateRunning,
+			Status:  "Up",
+			Created: 1781409600,
+		})
+	}
+	runtime := &DockerRuntime{client: client, endpoint: "unix:///var/run/docker.sock"}
+
+	items, err := runtime.List(context.Background(), ListQuery{})
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(items) != len(client.list) {
+		t.Fatalf("expected %d items, got %#v", len(client.list), items)
+	}
+	if calls := client.statsCalls.Load(); calls != int64(len(client.list)) {
+		t.Fatalf("expected one stats call per item, got %d", calls)
+	}
+	if maxConcurrent := client.maxConcurrentStats.Load(); maxConcurrent < 2 {
+		t.Fatalf("expected concurrent stats collection, got max concurrency %d", maxConcurrent)
+	}
+	for index, item := range items {
+		if item.ID != client.list[index].ID {
+			t.Fatalf("expected stable list order, got item %d as %#v", index, item)
+		}
+		assertInt64Ptr(t, item.Resource.MemoryUsageBytes, 64, "memory usage bytes")
+		assertInt64Ptr(t, item.Resource.MemoryLimitBytes, 128, "memory limit bytes")
+	}
+}
+
 func TestDockerRuntimeDetailCollectsResourceStats(t *testing.T) {
 	t.Parallel()
 
@@ -280,33 +324,6 @@ func TestDockerRuntimeDetailCollectsResourceStats(t *testing.T) {
 	}
 }
 
-func TestDockerRuntimeRemoveRejectsRunningWithoutForce(t *testing.T) {
-	t.Parallel()
-
-	client := &countingDockerClient{
-		inspect: container.InspectResponse{
-			ContainerJSONBase: &container.ContainerJSONBase{
-				ID:    "abc123",
-				Name:  "/web",
-				State: &container.State{Status: container.StateRunning},
-			},
-			Config: &container.Config{Image: "nginx:latest"},
-		},
-	}
-	runtime := &DockerRuntime{client: client, endpoint: "unix:///var/run/docker.sock"}
-
-	result, err := runtime.Remove(context.Background(), Ref{Value: "web"}, RemoveOptions{Force: false})
-	if !errors.Is(err, errInvalidContainerState) {
-		t.Fatalf("expected invalid state, got %v", err)
-	}
-	if result.StatusBefore != "running" || result.StatusAfter != "running" {
-		t.Fatalf("expected running status context, got %#v", result)
-	}
-	if calls := client.removeCalls.Load(); calls != 0 {
-		t.Fatalf("expected remove not to be called, got %d", calls)
-	}
-}
-
 func TestDockerRuntimeRejectsActionsWhenKnownStateDisallowsThem(t *testing.T) {
 	t.Parallel()
 
@@ -319,6 +336,16 @@ func TestDockerRuntimeRejectsActionsWhenKnownStateDisallowsThem(t *testing.T) {
 		{
 			name:  "start running",
 			state: container.StateRunning,
+			action: func(ctx context.Context, runtime *DockerRuntime) (ActionResult, error) {
+				return runtime.Start(ctx, Ref{Value: "web"})
+			},
+			calls: func(client *countingDockerClient) int64 {
+				return client.startCalls.Load()
+			},
+		},
+		{
+			name:  "start paused",
+			state: container.StatePaused,
 			action: func(ctx context.Context, runtime *DockerRuntime) (ActionResult, error) {
 				return runtime.Start(ctx, Ref{Value: "web"})
 			},
@@ -344,6 +371,26 @@ func TestDockerRuntimeRejectsActionsWhenKnownStateDisallowsThem(t *testing.T) {
 			},
 			calls: func(client *countingDockerClient) int64 {
 				return client.restartCalls.Load()
+			},
+		},
+		{
+			name:  "remove running without force",
+			state: container.StateRunning,
+			action: func(ctx context.Context, runtime *DockerRuntime) (ActionResult, error) {
+				return runtime.Remove(ctx, Ref{Value: "web"}, RemoveOptions{Force: false})
+			},
+			calls: func(client *countingDockerClient) int64 {
+				return client.removeCalls.Load()
+			},
+		},
+		{
+			name:  "remove paused without force",
+			state: container.StatePaused,
+			action: func(ctx context.Context, runtime *DockerRuntime) (ActionResult, error) {
+				return runtime.Remove(ctx, Ref{Value: "web"}, RemoveOptions{Force: false})
+			},
+			calls: func(client *countingDockerClient) int64 {
+				return client.removeCalls.Load()
 			},
 		},
 	}
@@ -376,6 +423,22 @@ func TestDockerRuntimeRejectsActionsWhenKnownStateDisallowsThem(t *testing.T) {
 				t.Fatalf("expected runtime action not to be called, got %d", calls)
 			}
 		})
+	}
+}
+
+func TestDockerResourceSummaryKeepsZeroMemoryValues(t *testing.T) {
+	t.Parallel()
+
+	resource := dockerResourceSummary(container.StatsResponse{
+		MemoryStats: container.MemoryStats{Usage: 0, Limit: 0},
+	})
+	if !resource.Available || !resource.StatsAvailable {
+		t.Fatalf("expected zero memory values to count as available stats, got %#v", resource)
+	}
+	assertInt64Ptr(t, resource.MemoryUsageBytes, 0, "memory usage bytes")
+	assertInt64Ptr(t, resource.MemoryLimitBytes, 0, "memory limit bytes")
+	if resource.MemoryPercent != nil {
+		t.Fatalf("expected zero limit to skip memory percent, got %#v", resource.MemoryPercent)
 	}
 }
 
@@ -518,21 +581,24 @@ func assertInt64Ptr(t *testing.T, actual *int64, expected int64, label string) {
 }
 
 type countingDockerClient struct {
-	infoCalls    atomic.Int64
-	inspectCalls atomic.Int64
-	logCalls     atomic.Int64
-	listCalls    atomic.Int64
-	statsCalls   atomic.Int64
-	startCalls   atomic.Int64
-	stopCalls    atomic.Int64
-	restartCalls atomic.Int64
-	removeCalls  atomic.Int64
-	removeForce  atomic.Bool
-	logReader    io.ReadCloser
-	inspect      container.InspectResponse
-	list         []container.Summary
-	stats        container.StatsResponse
-	statsErr     error
+	infoCalls          atomic.Int64
+	inspectCalls       atomic.Int64
+	logCalls           atomic.Int64
+	listCalls          atomic.Int64
+	statsCalls         atomic.Int64
+	startCalls         atomic.Int64
+	stopCalls          atomic.Int64
+	restartCalls       atomic.Int64
+	removeCalls        atomic.Int64
+	removeForce        atomic.Bool
+	logReader          io.ReadCloser
+	inspect            container.InspectResponse
+	list               []container.Summary
+	stats              container.StatsResponse
+	statsErr           error
+	statsDelay         time.Duration
+	activeStats        int64
+	maxConcurrentStats atomic.Int64
 }
 
 func (c *countingDockerClient) Info(context.Context) (systemInfo, error) {
@@ -560,6 +626,17 @@ func (c *countingDockerClient) ContainerLogs(context.Context, string, container.
 
 func (c *countingDockerClient) ContainerStatsOneShot(context.Context, string) (container.StatsResponseReader, error) {
 	c.statsCalls.Add(1)
+	active := atomic.AddInt64(&c.activeStats, 1)
+	for {
+		current := c.maxConcurrentStats.Load()
+		if active <= current || c.maxConcurrentStats.CompareAndSwap(current, active) {
+			break
+		}
+	}
+	if c.statsDelay > 0 {
+		time.Sleep(c.statsDelay)
+	}
+	defer atomic.AddInt64(&c.activeStats, -1)
 	if c.statsErr != nil {
 		return container.StatsResponseReader{}, c.statsErr
 	}
