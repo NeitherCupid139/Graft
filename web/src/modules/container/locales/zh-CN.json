@@ -32,14 +32,16 @@
       "runningCount": "运行中 {count}",
       "stoppedCount": "已停止 {count}",
       "errorCount": "异常 {count}",
-      "healthyCount": "健康 {count}",
+      "unhealthyCount": "不健康 {count}",
       "readOnlyMode": "只读模式",
-      "actionModeUnavailable": "操作未启用",
+      "actionModeEnabled": "操作已启用",
       "tableSummary": "共 {count} 个容器",
       "tableHint": "数据来自当前配置的容器运行时。",
       "resourceUnavailable": "不可用",
       "stats": {
-        "notCollected": "未采集"
+        "notCollected": "未采集",
+        "cpuTooltip": "CPU 使用率：{percent}",
+        "memoryTooltip": "内存：{usage} / {limit}，{percent}"
       },
       "columnSettings": "列设置",
       "resetColumns": "恢复默认列",

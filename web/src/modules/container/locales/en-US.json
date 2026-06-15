@@ -32,14 +32,16 @@
       "runningCount": "Running {count}",
       "stoppedCount": "Stopped {count}",
       "errorCount": "Attention {count}",
-      "healthyCount": "Healthy {count}",
+      "unhealthyCount": "Unhealthy {count}",
       "readOnlyMode": "Read-only Mode",
-      "actionModeUnavailable": "Actions Not Enabled",
+      "actionModeEnabled": "Actions Enabled",
       "tableSummary": "{count} Containers",
       "tableHint": "Data Comes from the Configured Container Runtime.",
       "resourceUnavailable": "Unavailable",
       "stats": {
-        "notCollected": "Not Collected"
+        "notCollected": "Not Collected",
+        "cpuTooltip": "CPU Usage: {percent}",
+        "memoryTooltip": "Memory: {usage} / {limit}, {percent}"
       },
       "columnSettings": "Column Settings",
       "resetColumns": "Reset Columns",

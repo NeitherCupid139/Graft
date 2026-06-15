@@ -29,8 +29,8 @@
           <t-tag theme="danger" variant="light-outline">
             {{ t('container.list.errorCount', { count: errorCount }) }}
           </t-tag>
-          <t-tag theme="success" variant="light-outline">
-            {{ t('container.list.healthyCount', { count: healthyCount }) }}
+          <t-tag theme="danger" variant="light-outline">
+            {{ t('container.list.unhealthyCount', { count: unhealthyCount }) }}
           </t-tag>
           <t-tag :theme="readOnlyMode ? 'warning' : 'default'" variant="light-outline">
             {{ readOnlyModeStatus }}
@@ -159,8 +159,15 @@
 
           <template #runtime_status="{ row }">
             <div class="container-runtime-status">
-              <span>{{ healthLabel(row.health) }}</span>
-              <span>{{ row.status || '-' }}</span>
+              <span class="container-runtime-status__text">{{ row.status || '-' }}</span>
+              <t-tag
+                v-if="shouldShowHealthTag(row.health)"
+                :theme="healthTheme(row.health)"
+                size="small"
+                variant="light"
+              >
+                {{ healthLabel(row.health) }}
+              </t-tag>
             </div>
           </template>
 
@@ -172,17 +179,47 @@
           </template>
 
           <template #cpu="{ row }">
-            <div class="container-resource-metric">
-              <span>{{ cpuSummary(row).primary }}</span>
-              <span v-if="cpuSummary(row).secondary">{{ cpuSummary(row).secondary }}</span>
-            </div>
+            <t-tooltip
+              v-for="metric in [cpuMetric(row)]"
+              :key="`cpu:${metric.value}`"
+              :content="metric.tooltip"
+              placement="top"
+            >
+              <div class="container-resource-meter" :data-available="metric.available">
+                <t-progress
+                  v-if="metric.available"
+                  theme="circle"
+                  :label="false"
+                  :percentage="metric.percentage"
+                  :size="36"
+                  :stroke-width="4"
+                />
+                <span v-else class="container-resource-meter__empty"></span>
+                <span>{{ metric.value }}</span>
+              </div>
+            </t-tooltip>
           </template>
 
           <template #memory="{ row }">
-            <div class="container-resource-metric">
-              <span>{{ memorySummary(row).primary }}</span>
-              <span v-if="memorySummary(row).secondary">{{ memorySummary(row).secondary }}</span>
-            </div>
+            <t-tooltip
+              v-for="metric in [memoryMetric(row)]"
+              :key="`memory:${metric.value}`"
+              :content="metric.tooltip"
+              placement="top"
+            >
+              <div class="container-resource-meter" :data-available="metric.available">
+                <t-progress
+                  v-if="metric.available"
+                  theme="circle"
+                  :label="false"
+                  :percentage="metric.percentage"
+                  :size="36"
+                  :stroke-width="4"
+                />
+                <span v-else class="container-resource-meter__empty"></span>
+                <span>{{ metric.value }}</span>
+              </div>
+            </t-tooltip>
           </template>
 
           <template #resource="{ row }">
@@ -210,24 +247,37 @@
           </template>
 
           <template #operation="{ row }">
-            <t-space class="container-actions" size="small" align="center">
+            <div class="container-actions" @click.stop>
               <t-button
                 v-permission="permissionCodes.DETAIL"
                 data-testid="container-action-detail"
-                theme="primary"
-                variant="text"
+                theme="default"
+                variant="outline"
                 size="small"
                 @click="openDetail(row)"
               >
                 {{ t('container.list.actions.detail') }}
               </t-button>
-              <table-action-menu
-                :actions="rowActions(row)"
-                :more-label="t('container.list.actions.more')"
-                more-label-fallback="container.list.actions.more"
-                @action="(action) => handleRowAction(action, row)"
-              />
-            </t-space>
+              <t-button
+                data-testid="container-action-logs"
+                theme="default"
+                variant="outline"
+                size="small"
+                @click="openLogs(row)"
+              >
+                {{ t('container.list.actions.logs') }}
+              </t-button>
+              <t-dropdown
+                v-if="moreRowActions(row).length"
+                :options="moreRowActionOptions(row)"
+                trigger="click"
+                @click="(payload, context) => handleMoreRowAction(payload, context, row)"
+              >
+                <t-button data-testid="container-action-more" theme="default" variant="outline" size="small">
+                  {{ t('container.list.actions.more') }}
+                </t-button>
+              </t-dropdown>
+            </div>
           </template>
 
           <template #empty>
@@ -543,7 +593,6 @@ import {
   ManagementTablePagination,
   ManagementToolbar,
   resolveTableWidthPolicy,
-  TableActionMenu,
   TableViewToolbar,
   useTableHostWidth,
 } from '@/shared/components/management';
@@ -552,7 +601,14 @@ import { resolveLocalizedErrorMessage } from '@/shared/localized-api-error';
 import { formatLocaleDateTime } from '@/shared/observability';
 import { createLogger } from '@/utils/logger';
 
-import { getContainer, getContainerLogs, getContainers } from '../../api/container';
+import {
+  getContainer,
+  getContainerLogs,
+  getContainers,
+  restartContainer,
+  startContainer,
+  stopContainer,
+} from '../../api/container';
 import { CONTAINER_PERMISSION_CODE } from '../../contract/permissions';
 import type {
   ContainerDetail,
@@ -629,17 +685,20 @@ const ALL_COLUMN_KEYS = [
 const CONTAINER_PORT_VISIBLE_LIMIT = 2;
 const CONTAINER_DEFAULT_PAGE_SIZE = 20;
 const BYTES_PER_MIB = 1024 * 1024;
-const DANGEROUS_CONTAINER_ACTIONS_ENABLED = false;
 
 type ListErrorState = {
   title: string;
   hint: string;
 };
-type RowAction = 'copy-id' | 'inspect' | 'logs' | 'view-env' | 'view-mounts' | 'view-networks';
-type ResourceMetricSummary = {
-  primary: string;
-  secondary: string;
+type RowAction = 'copy-id' | 'inspect' | 'restart' | 'start' | 'stop' | 'view-env' | 'view-mounts' | 'view-networks';
+type ResourceMetric = {
+  available: boolean;
+  percentage: number;
+  tooltip: string;
+  value: string;
 };
+type DropdownActionValue = { value?: string | number | Record<string, unknown> } | string | number;
+type DropdownActionContext = { e?: MouseEvent };
 
 const loading = ref(false);
 const listError = ref<ListErrorState>({ title: '', hint: '' });
@@ -718,7 +777,7 @@ const allColumns = computed<TdBaseTableProps['columns']>(() => [
   {
     title: t('container.list.columns.operation'),
     colKey: 'operation',
-    width: 176,
+    width: 192,
     fixed: 'right',
     align: 'center',
     ellipsis: false,
@@ -736,12 +795,8 @@ const totalCount = computed(() => listSummary.value?.total ?? listTotal.value);
 const runningCount = computed(() => listSummary.value?.running ?? 0);
 const stoppedCount = computed(() => listSummary.value?.stopped ?? 0);
 const errorCount = computed(() => listSummary.value?.error ?? 0);
-const healthyCount = computed(() => listSummary.value?.healthy ?? 0);
+const unhealthyCount = computed(() => listSummary.value?.unhealthy ?? 0);
 const readOnlyMode = computed(() => {
-  if (!DANGEROUS_CONTAINER_ACTIONS_ENABLED) {
-    return true;
-  }
-
   if (!rows.value.length) {
     return true;
   }
@@ -750,7 +805,7 @@ const readOnlyMode = computed(() => {
   return rows.value.every((row) => !row.can_start && !row.can_stop && !row.can_restart);
 });
 const readOnlyModeStatus = computed(() =>
-  readOnlyMode.value ? t('container.list.readOnlyMode') : t('container.list.actionModeUnavailable'),
+  readOnlyMode.value ? t('container.list.readOnlyMode') : t('container.list.actionModeEnabled'),
 );
 const runtimeStatusTheme = computed(() => {
   if (runtime.value?.status === 'enabled') return 'success';
@@ -1033,7 +1088,7 @@ async function copyDetailContainerId() {
   await copyContainerId(activeDetail.value);
 }
 
-function rowActions(_row: ContainerSummary) {
+function moreRowActions(row: ContainerSummary) {
   const actions: Array<{
     disabled?: boolean;
     fallbackLabel: string;
@@ -1041,13 +1096,6 @@ function rowActions(_row: ContainerSummary) {
     testId: string;
     value: RowAction;
   }> = [];
-
-  actions.push({
-    fallbackLabel: t('container.list.actions.logs'),
-    label: 'container.list.actions.logs',
-    testId: 'container-action-logs',
-    value: 'logs',
-  });
 
   actions.push({
     fallbackLabel: t('container.list.actions.copyId'),
@@ -1084,15 +1132,59 @@ function rowActions(_row: ContainerSummary) {
     value: 'view-env',
   });
 
+  if (row.can_start) {
+    actions.push({
+      fallbackLabel: t('container.list.actions.start'),
+      label: 'container.list.actions.start',
+      testId: 'container-action-start',
+      value: 'start',
+    });
+  }
+
+  if (row.can_stop) {
+    actions.push({
+      fallbackLabel: t('container.list.actions.stop'),
+      label: 'container.list.actions.stop',
+      testId: 'container-action-stop',
+      value: 'stop',
+    });
+  }
+
+  if (row.can_restart) {
+    actions.push({
+      fallbackLabel: t('container.list.actions.restart'),
+      label: 'container.list.actions.restart',
+      testId: 'container-action-restart',
+      value: 'restart',
+    });
+  }
+
   return actions;
 }
 
-function handleRowAction(action: string, row: ContainerSummary) {
-  if (action === 'logs') {
-    void openLogs(row);
-    return;
-  }
+function moreRowActionOptions(row: ContainerSummary) {
+  return moreRowActions(row).map((action) => ({
+    content: action.fallbackLabel,
+    disabled: action.disabled,
+    testId: action.testId,
+    value: action.value,
+  }));
+}
 
+function handleMoreRowAction(
+  payload: DropdownActionValue,
+  context: DropdownActionContext | undefined,
+  row: ContainerSummary,
+) {
+  context?.e?.stopPropagation();
+
+  const action = typeof payload === 'object' && payload ? payload.value : payload;
+  if (typeof action === 'string') {
+    handleRowAction(action, row);
+  }
+}
+
+function handleRowAction(action: string, row: ContainerSummary) {
   if (action === 'copy-id') {
     void copyContainerId(row);
     return;
@@ -1115,6 +1207,45 @@ function handleRowAction(action: string, row: ContainerSummary) {
 
   if (action === 'view-env') {
     void openDetailSection(row, 'environment');
+    return;
+  }
+
+  if (action === 'start' || action === 'stop' || action === 'restart') {
+    void performDangerousAction(row, action);
+  }
+}
+
+async function performDangerousAction(row: ContainerSummary, action: 'restart' | 'start' | 'stop') {
+  const allowedByRow = action === 'start' ? row.can_start : action === 'stop' ? row.can_stop : row.can_restart;
+  if (!allowedByRow) {
+    MessagePlugin.warning(t('container.list.actions.unavailable'));
+    return;
+  }
+
+  const name = displayName(row);
+  const confirmKey =
+    action === 'start'
+      ? 'container.list.actions.confirmStart'
+      : action === 'stop'
+        ? 'container.list.actions.confirmStop'
+        : 'container.list.actions.confirmRestart';
+  if (!window.confirm(t(confirmKey, { name }))) {
+    return;
+  }
+
+  try {
+    const response =
+      action === 'start'
+        ? await startContainer(row.id)
+        : action === 'stop'
+          ? await stopContainer(row.id)
+          : await restartContainer(row.id);
+    const messageKey = response.message_key;
+    MessagePlugin.success(messageKey ? t(messageKey) : response.message || t('container.list.actionSuccess'));
+    await refreshContainers();
+  } catch (error) {
+    logger.warn(`failed to ${action} container`, error);
+    MessagePlugin.error(resolveLocalizedErrorMessage(t, error, t('container.list.actionFailed')));
   }
 }
 
@@ -1175,35 +1306,53 @@ function resourceSummary(row: ContainerSummary) {
   return `${cpu} / ${memory}`;
 }
 
-function cpuSummary(row: ContainerSummary): ResourceMetricSummary {
+function cpuMetric(row: ContainerSummary): ResourceMetric {
   if (!isResourceStatsAvailable(row) || row.resource?.cpu_percent === undefined) {
     return {
-      primary: t('container.list.stats.notCollected'),
-      secondary: resourceUnavailableSummary(row),
+      available: false,
+      percentage: 0,
+      tooltip: resourceUnavailableSummary(row),
+      value: t('container.list.stats.notCollected'),
     };
   }
 
+  const value = `${row.resource.cpu_percent.toFixed(1)}%`;
   return {
-    primary: `${row.resource.cpu_percent.toFixed(1)}%`,
-    secondary: '',
+    available: true,
+    percentage: clampPercentage(row.resource.cpu_percent),
+    tooltip: t('container.list.stats.cpuTooltip', { percent: value }),
+    value,
   };
 }
 
-function memorySummary(row: ContainerSummary): ResourceMetricSummary {
+function memoryMetric(row: ContainerSummary): ResourceMetric {
   if (!isResourceStatsAvailable(row) || row.resource?.memory_percent === undefined) {
     return {
-      primary: t('container.list.stats.notCollected'),
-      secondary: resourceUnavailableSummary(row),
+      available: false,
+      percentage: 0,
+      tooltip: resourceUnavailableSummary(row),
+      value: t('container.list.stats.notCollected'),
     };
   }
 
   const usage = formatBytes(row.resource.memory_usage_bytes);
   const limit = formatBytes(row.resource.memory_limit_bytes);
+  const percent = `${row.resource.memory_percent.toFixed(1)}%`;
 
   return {
-    primary: `${row.resource.memory_percent.toFixed(1)}%`,
-    secondary: usage && limit ? `${usage} / ${limit}` : '',
+    available: true,
+    percentage: clampPercentage(row.resource.memory_percent),
+    tooltip: t('container.list.stats.memoryTooltip', {
+      limit: limit || '-',
+      percent,
+      usage: usage || '-',
+    }),
+    value: usage || '-',
   };
+}
+
+function clampPercentage(value: number) {
+  return Math.min(100, Math.max(0, Number.isFinite(value) ? value : 0));
 }
 
 function isResourceStatsAvailable(row: ContainerSummary) {
@@ -1241,6 +1390,17 @@ function stateLabel(state: ContainerState) {
 
 function healthLabel(health?: ContainerHealth | null) {
   return t(`container.list.health.${health || 'unavailable'}`);
+}
+
+function shouldShowHealthTag(health?: ContainerHealth | null) {
+  return health === 'healthy' || health === 'unhealthy' || health === 'starting';
+}
+
+function healthTheme(health?: ContainerHealth | null) {
+  if (health === 'healthy') return 'success';
+  if (health === 'unhealthy') return 'danger';
+  if (health === 'starting') return 'warning';
+  return 'default';
 }
 
 function stateTheme(state: ContainerState) {
@@ -1367,37 +1527,50 @@ function normalizeVisibleColumnKeys(keys: unknown[]) {
   min-width: 0;
 }
 
-.container-runtime-status span:first-child {
+.container-runtime-status__text {
   color: var(--td-text-color-primary);
   font: var(--td-font-body-medium);
-}
-
-.container-runtime-status span:last-child {
-  color: var(--td-text-color-secondary);
-  font: var(--td-font-body-small);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.container-resource-metric {
-  display: flex;
-  flex-direction: column;
-  gap: var(--graft-density-gap-4);
+.container-runtime-status .t-tag {
+  align-self: flex-start;
+}
+
+.container-resource-meter {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--graft-density-gap-8);
+  justify-content: center;
   min-width: 0;
+  white-space: nowrap;
 }
 
-.container-resource-metric span:first-child {
+.container-resource-meter > span:last-child {
   color: var(--td-text-color-primary);
-  font: var(--td-font-body-medium);
-}
-
-.container-resource-metric span:last-child {
-  color: var(--td-text-color-secondary);
   font: var(--td-font-body-small);
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+}
+
+.container-resource-meter[data-available='false'] > span:last-child {
+  color: var(--td-text-color-secondary);
+}
+
+.container-resource-meter__empty {
+  border: 1px dashed var(--td-component-stroke);
+  border-radius: 50%;
+  display: inline-block;
+  flex: 0 0 36px;
+  height: 36px;
+  width: 36px;
+}
+
+.container-actions {
+  flex-wrap: nowrap;
+  justify-content: center;
 }
 
 .container-alert {

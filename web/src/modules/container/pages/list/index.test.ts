@@ -11,6 +11,9 @@ const apiMocks = vi.hoisted(() => ({
   getContainer: vi.fn(),
   getContainerLogs: vi.fn(),
   getContainers: vi.fn(),
+  restartContainer: vi.fn(),
+  startContainer: vi.fn(),
+  stopContainer: vi.fn(),
 }));
 
 const messageMocks = vi.hoisted(() => ({
@@ -40,7 +43,7 @@ const translations = vi.hoisted(
     'container.list.actions.viewEnvironment': '查看环境变量',
     'container.list.actions.viewMounts': '查看挂载',
     'container.list.actions.viewNetworks': '查看网络',
-    'container.list.actionModeUnavailable': '操作未启用',
+    'container.list.actionModeEnabled': '操作已启用',
     'container.list.clearFilters': '清除筛选',
     'container.list.columnSettings': '列设置',
     'container.list.columns.cpu': 'CPU',
@@ -138,7 +141,7 @@ const translations = vi.hoisted(
     'container.list.pagination.summary': '第 {start}-{end} 条 / 共 {total} 条',
     'container.list.refresh': '刷新',
     'container.list.resourceUnavailable': '不可用',
-    'container.list.healthyCount': '健康 {count}',
+    'container.list.unhealthyCount': '不健康 {count}',
     'container.list.readOnlyMode': '只读模式',
     'container.list.resetColumns': '恢复默认列',
     'container.list.retry': '重试',
@@ -148,6 +151,8 @@ const translations = vi.hoisted(
     'container.list.runtimeUnavailable': '运行时不可用',
     'container.list.runningCount': '运行中 {count}',
     'container.list.stats.notCollected': '未采集',
+    'container.list.stats.cpuTooltip': 'CPU 使用率：{percent}',
+    'container.list.stats.memoryTooltip': '内存：{usage} / {limit}，{percent}',
     'container.list.states.created': '已创建',
     'container.list.states.dead': '异常',
     'container.list.states.exited': '已退出',
@@ -169,6 +174,8 @@ const translations = vi.hoisted(
     'ops.container.error.runtimeDisabled': '容器运行时访问未启用',
     'ops.container.error.runtimeUnavailable': '容器运行时连接不可用',
     'ops.container.action.start.completed': '容器启动操作已完成',
+    'ops.container.action.stop.completed': '容器停止操作已完成',
+    'ops.container.action.restart.completed': '容器重启操作已完成',
   }),
 );
 
@@ -176,6 +183,9 @@ vi.mock('../../api/container', () => ({
   getContainer: apiMocks.getContainer,
   getContainerLogs: apiMocks.getContainerLogs,
   getContainers: apiMocks.getContainers,
+  restartContainer: apiMocks.restartContainer,
+  startContainer: apiMocks.startContainer,
+  stopContainer: apiMocks.stopContainer,
 }));
 
 vi.mock('tdesign-vue-next', () => ({
@@ -292,6 +302,24 @@ describe('container list page', () => {
       timestamps: false,
       lines: ['server started'],
     });
+    apiMocks.startContainer.mockResolvedValue({
+      action: 'start',
+      id: 'container-2',
+      message_key: 'ops.container.action.start.completed',
+      result: 'completed',
+    });
+    apiMocks.stopContainer.mockResolvedValue({
+      action: 'stop',
+      id: 'container-1',
+      message_key: 'ops.container.action.stop.completed',
+      result: 'completed',
+    });
+    apiMocks.restartContainer.mockResolvedValue({
+      action: 'restart',
+      id: 'container-1',
+      message_key: 'ops.container.action.restart.completed',
+      result: 'completed',
+    });
   });
 
   it('loads and renders container rows with required operation buttons', async () => {
@@ -308,13 +336,12 @@ describe('container list page', () => {
     });
     expect(wrapper.text()).toContain('容器管理');
     expect(wrapper.text()).toContain('总数 25');
-    expect(wrapper.text()).toContain('健康 1');
-    expect(wrapper.text()).toContain('只读模式');
+    expect(wrapper.text()).toContain('不健康 0');
+    expect(wrapper.text()).toContain('操作已启用');
     expect(wrapper.text()).toContain('graft-web');
     expect(wrapper.text()).toContain('graft/web:latest');
     expect(wrapper.text()).toContain('21.8%');
-    expect(wrapper.text()).toContain('50.0%');
-    expect(wrapper.text()).toContain('256.0 MiB / 512.0 MiB');
+    expect(wrapper.text()).toContain('256.0 MiB');
     expect(wrapper.text()).toContain('未采集');
     expect(wrapper.text()).toContain('stats_not_collected');
     expect(wrapper.text()).toContain('8080->80/tcp');
@@ -327,9 +354,9 @@ describe('container list page', () => {
     expect(wrapper.text()).toContain('查看挂载');
     expect(wrapper.text()).toContain('查看网络');
     expect(wrapper.text()).toContain('查看环境变量');
-    expect(wrapper.find('[data-testid="container-action-start"]').exists()).toBe(false);
-    expect(wrapper.find('[data-testid="container-action-stop"]').exists()).toBe(false);
-    expect(wrapper.find('[data-testid="container-action-restart"]').exists()).toBe(false);
+    expect(wrapper.findAll('[data-testid="container-action-start"]').length).toBeGreaterThan(0);
+    expect(wrapper.find('[data-testid="container-action-stop"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="container-action-restart"]').exists()).toBe(true);
     expect(wrapper.text()).toContain('第 1-20 条 / 共 25 条');
     expect(wrapper.text()).not.toContain('graft-extra-21');
   });
@@ -478,14 +505,36 @@ describe('container list page', () => {
     expect(wrapper.get('[data-testid="container-table"]').attributes('data-size')).toBe('small');
   });
 
-  it('hides dangerous actions while read-only mode is active', async () => {
+  it('builds dangerous actions from row availability and submits confirmed runtime actions', async () => {
     const wrapper = mountPage();
     await flushPromises();
 
-    expect(wrapper.text()).toContain('只读模式');
-    expect(wrapper.find('[data-testid="container-action-start"]').exists()).toBe(false);
-    expect(wrapper.find('[data-testid="container-action-stop"]').exists()).toBe(false);
-    expect(wrapper.find('[data-testid="container-action-restart"]').exists()).toBe(false);
+    expect(wrapper.text()).toContain('操作已启用');
+    expect(wrapper.findAll('[data-testid="container-action-start"]').length).toBeGreaterThan(0);
+    expect(wrapper.find('[data-testid="container-action-stop"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="container-action-restart"]').exists()).toBe(true);
+
+    await wrapper.get('[data-testid="container-action-stop"]').trigger('click');
+    await flushPromises();
+
+    expect(window.confirm).toHaveBeenCalledWith('确认停止容器 graft-web？');
+    expect(apiMocks.stopContainer).toHaveBeenCalledWith('container-1');
+    expect(messageMocks.success).toHaveBeenCalledWith('容器停止操作已完成');
+    expect(apiMocks.getContainers).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps dangerous action events fail-closed when row flags are false', async () => {
+    const wrapper = mountPage();
+    await flushPromises();
+
+    const vm = wrapper.vm as unknown as {
+      handleRowAction: (action: string, row: ReturnType<typeof createContainerRows>[number]) => void;
+    };
+    vm.handleRowAction('start', createContainerRows(1)[0]);
+    await flushPromises();
+
+    expect(messageMocks.warning).toHaveBeenCalledWith('该操作当前不可用。');
+    expect(apiMocks.startContainer).not.toHaveBeenCalled();
     expect(window.confirm).not.toHaveBeenCalled();
   });
 
@@ -701,6 +750,26 @@ function mountPage() {
                   : null,
               ]),
         }),
+        't-dropdown': defineComponent({
+          props: ['options'],
+          emits: ['click'],
+          setup:
+            (props, { emit, slots }) =>
+            () =>
+              h('div', [
+                slots.default?.(),
+                ...(props.options as Array<{ content?: string; testId?: string; value?: string }>).map((option) =>
+                  h(
+                    'button',
+                    {
+                      'data-testid': option.testId,
+                      onClick: (event: MouseEvent) => emit('click', option, { e: event }),
+                    },
+                    option.content,
+                  ),
+                ),
+              ]),
+        }),
         't-alert': defineComponent({
           props: ['title'],
           setup:
@@ -867,6 +936,10 @@ function mountPage() {
             (_, { emit, slots }) =>
             () =>
               h('span', { onClick: () => emit('confirm') }, slots.default?.()),
+        }),
+        't-progress': defineComponent({
+          props: ['percentage'],
+          setup: (props) => () => h('span', { 'data-testid': 'resource-progress' }, String(props.percentage ?? 0)),
         }),
         't-select': defineComponent({
           props: ['modelValue'],
