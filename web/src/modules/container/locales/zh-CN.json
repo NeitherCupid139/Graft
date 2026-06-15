@@ -247,6 +247,10 @@
         "resources": "资源",
         "network": "网络"
       },
+      "overview": {
+        "basicInfo": "基础信息",
+        "runtimeInfo": "运行信息"
+      },
       "tabs": {
         "overview": "概览",
         "resources": "资源",

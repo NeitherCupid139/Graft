@@ -247,6 +247,10 @@
         "resources": "Resources",
         "network": "Network"
       },
+      "overview": {
+        "basicInfo": "Basic Information",
+        "runtimeInfo": "Runtime Information"
+      },
       "tabs": {
         "overview": "Overview",
         "resources": "Resources",

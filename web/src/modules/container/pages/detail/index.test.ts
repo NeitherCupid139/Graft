@@ -70,6 +70,8 @@ const translations = vi.hoisted(
     'container.detail.network.primaryIp': '主 IP',
     'container.detail.network.summary': '网络摘要',
     'container.detail.operation': '操作',
+    'container.detail.overview.basicInfo': '基础信息',
+    'container.detail.overview.runtimeInfo': '运行信息',
     'container.detail.raw.description': '敏感字段已脱敏，仅用于只读排查。',
     'container.detail.raw.empty': '暂无原始 JSON。',
     'container.detail.raw.error': '原始 JSON 无法格式化。',
@@ -154,6 +156,7 @@ vi.mock('@/shared/observability', async () => {
   const actual = await vi.importActual<typeof import('@/shared/observability')>('@/shared/observability');
   return {
     ...actual,
+    copyText: vi.fn().mockResolvedValue(true),
     formatLocaleDateTime: (value?: string | null) => value || '-',
   };
 });
@@ -195,6 +198,10 @@ describe('container detail page', () => {
     expect(wrapper.text()).toContain('21.8%');
     expect(wrapper.text()).toContain('31.25 GiB / 31.25 GiB');
     expect(wrapper.text()).toContain('8080:80/tcp');
+    expect(wrapper.text()).toContain('基础信息');
+    expect(wrapper.text()).toContain('运行信息');
+    expect(wrapper.text()).toContain('container-1');
+    expect(wrapper.text()).toContain('镜像 IDbbbbbbbbbbbbbbbbbb...bbbbbbbbbb复制');
     expect(wrapper.text()).toContain('环境变量');
     expect(wrapper.text()).toContain('APP_MODE');
     expect(wrapper.text()).toContain('production');
@@ -229,7 +236,7 @@ describe('container detail page', () => {
   });
 
   it('copies only available environment values', async () => {
-    const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined);
+    const { copyText } = await import('@/shared/observability');
     const wrapper = mountPage();
     await flushPromises();
 
@@ -239,7 +246,21 @@ describe('container detail page', () => {
     await copyButtons[0].trigger('click');
     await flushPromises();
 
-    expect(writeText).toHaveBeenCalledWith('production');
+    expect(copyText).toHaveBeenCalledWith('production');
+    expect(messageMocks.success).toHaveBeenCalledWith('内容已复制。');
+  });
+
+  it('copies full identifiers from the overview section', async () => {
+    const { copyText } = await import('@/shared/observability');
+    const wrapper = mountPage();
+    await flushPromises();
+
+    await wrapper.get('[data-testid="container-id-copy"]').trigger('click');
+    await wrapper.get('[data-testid="image-id-copy"]').trigger('click');
+    await flushPromises();
+
+    expect(copyText).toHaveBeenCalledWith('ff007d095ed9faafdf39957cf4e2134dc9644a935c0e8d94bc3e599bcc518edb');
+    expect(copyText).toHaveBeenCalledWith('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb');
     expect(messageMocks.success).toHaveBeenCalledWith('内容已复制。');
   });
 
@@ -262,12 +283,12 @@ describe('container detail page', () => {
 
 function createContainerDetail() {
   return {
-    id: 'container-1',
+    id: 'ff007d095ed9faafdf39957cf4e2134dc9644a935c0e8d94bc3e599bcc518edb',
     short_id: 'container-1',
     name: 'graft-web',
     names: ['graft-web'],
     image: 'graft/web:latest',
-    image_id: 'sha256:1',
+    image_id: 'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
     labels: { 'com.docker.compose.project': 'graft' },
     status: 'Up 10 minutes',
     state: 'running',
@@ -505,6 +526,12 @@ function mountPage() {
               ]),
         }),
         't-tag': defineComponent({
+          setup:
+            (_, { slots }) =>
+            () =>
+              h('span', slots.default?.()),
+        }),
+        't-tooltip': defineComponent({
           setup:
             (_, { slots }) =>
             () =>
