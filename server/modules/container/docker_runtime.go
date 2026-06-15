@@ -155,6 +155,9 @@ func (r *DockerRuntime) Logs(ctx context.Context, ref Ref, query LogQuery) (Logs
 // Start starts one Docker container by id or name.
 func (r *DockerRuntime) Start(ctx context.Context, ref Ref) (ActionResult, error) {
 	before, _ := r.Detail(ctx, ref)
+	if before.State != "" && !canStartState(before.State) {
+		return actionResultFromDetail(before, ref, containerActionStart, before.State), errInvalidContainerState
+	}
 	if err := r.client.ContainerStart(ctx, ref.Value, container.StartOptions{}); err != nil {
 		return actionResultFromDetail(before, ref, containerActionStart, ""), mapDockerError(err)
 	}
@@ -164,24 +167,31 @@ func (r *DockerRuntime) Start(ctx context.Context, ref Ref) (ActionResult, error
 
 // Stop stops one Docker container by id or name.
 func (r *DockerRuntime) Stop(ctx context.Context, ref Ref) (ActionResult, error) {
-	before, _ := r.Detail(ctx, ref)
-	timeout := 10
-	if err := r.client.ContainerStop(ctx, ref.Value, container.StopOptions{Timeout: &timeout}); err != nil {
-		return actionResultFromDetail(before, ref, containerActionStop, ""), mapDockerError(err)
-	}
-	after, _ := r.Detail(ctx, ref)
-	return actionResultFromDetail(after, ref, containerActionStop, before.State), nil
+	return r.runTimedStateAction(ctx, ref, containerActionStop, canStopState, r.client.ContainerStop)
 }
 
 // Restart restarts one Docker container by id or name.
 func (r *DockerRuntime) Restart(ctx context.Context, ref Ref) (ActionResult, error) {
+	return r.runTimedStateAction(ctx, ref, containerActionRestart, canRestartState, r.client.ContainerRestart)
+}
+
+func (r *DockerRuntime) runTimedStateAction(
+	ctx context.Context,
+	ref Ref,
+	action string,
+	allowed func(string) bool,
+	run func(context.Context, string, container.StopOptions) error,
+) (ActionResult, error) {
 	before, _ := r.Detail(ctx, ref)
+	if before.State != "" && !allowed(before.State) {
+		return actionResultFromDetail(before, ref, action, before.State), errInvalidContainerState
+	}
 	timeout := 10
-	if err := r.client.ContainerRestart(ctx, ref.Value, container.StopOptions{Timeout: &timeout}); err != nil {
-		return actionResultFromDetail(before, ref, containerActionRestart, ""), mapDockerError(err)
+	if err := run(ctx, ref.Value, container.StopOptions{Timeout: &timeout}); err != nil {
+		return actionResultFromDetail(before, ref, action, ""), mapDockerError(err)
 	}
 	after, _ := r.Detail(ctx, ref)
-	return actionResultFromDetail(after, ref, containerActionRestart, before.State), nil
+	return actionResultFromDetail(after, ref, action, before.State), nil
 }
 
 // Remove removes one Docker container by id or name.

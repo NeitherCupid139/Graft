@@ -72,6 +72,8 @@ const translations = vi.hoisted(
     'container.list.batch.confirmRemoveTitle': '确认批量删除',
     'container.list.batch.confirmRestart': '确认重启选中的 {count} 个容器？',
     'container.list.batch.confirmRestartTitle': '确认批量重启',
+    'container.list.batch.confirmScope':
+      '当前已选择 {selectedCount} 个容器，本次将处理 {actionableCount} 个可操作容器，跳过 {skippedCount} 个。',
     'container.list.batch.confirmStart': '确认启动选中的 {count} 个容器？',
     'container.list.batch.confirmStartTitle': '确认批量启动',
     'container.list.batch.confirmStop': '确认停止选中的 {count} 个容器？',
@@ -86,6 +88,7 @@ const translations = vi.hoisted(
     'container.list.batch.restart': '批量重启',
     'container.list.batch.restartHint': '重启选中的 {count} 个容器。',
     'container.list.batch.selected': '已选择 {count} 个容器',
+    'container.list.batch.skipInapplicable': '部分容器因当前状态或权限不适用，将被跳过。',
     'container.list.batch.start': '批量启动',
     'container.list.batch.startHint': '启动选中的 {count} 个容器。',
     'container.list.batch.stop': '批量停止',
@@ -636,6 +639,27 @@ describe('container list page', () => {
     expect(dialogMocks.instances.at(-1)?.hide).toHaveBeenCalled();
   });
 
+  it('keeps dangerous action confirmation dialogs idempotent while one is open', async () => {
+    const wrapper = mountPage();
+    await flushPromises();
+
+    await wrapper.get('[data-testid="container-action-stop"]').trigger('click');
+    await wrapper.get('[data-testid="container-action-stop"]').trigger('click');
+    await flushPromises();
+
+    expect(dialogMocks.confirm).toHaveBeenCalledTimes(1);
+
+    await dialogMocks.confirm.mock.calls.at(-1)?.[0].onCancel();
+    await flushPromises();
+
+    expect(dialogMocks.instances.at(-1)?.hide).toHaveBeenCalled();
+
+    await wrapper.get('[data-testid="container-action-stop"]').trigger('click');
+    await flushPromises();
+
+    expect(dialogMocks.confirm).toHaveBeenCalledTimes(2);
+  });
+
   it('keeps dangerous action events fail-closed when row flags are false', async () => {
     const wrapper = mountPage();
     await flushPromises();
@@ -674,7 +698,7 @@ describe('container list page', () => {
     expect(messageMocks.success).toHaveBeenCalledWith('容器删除操作已完成');
   });
 
-  it('shows batch bar, filters unsafe batch actions, and reports partial failures', async () => {
+  it('submits only actionable mixed selections and reports partial failures', async () => {
     apiMocks.batchContainerActions.mockResolvedValueOnce({
       failed_count: 1,
       items: [
@@ -701,7 +725,7 @@ describe('container list page', () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain('已选择 2 个容器');
-    expect(wrapper.get('[data-testid="container-batch-stop"]').attributes('disabled')).toBeDefined();
+    expect(wrapper.get('[data-testid="container-batch-stop"]').attributes('disabled')).toBeUndefined();
     expect(wrapper.get('[data-testid="container-batch-remove"]').attributes('disabled')).toBeUndefined();
 
     await wrapper.get('[data-testid="container-batch-restart"]').trigger('click');
@@ -712,6 +736,9 @@ describe('container list page', () => {
         header: '确认批量重启',
         theme: 'danger',
       }),
+    );
+    expect(renderDialogBodyText(dialogMocks.confirm.mock.calls.at(-1)?.[0].body)).toContain(
+      '当前已选择 2 个容器，本次将处理 2 个可操作容器，跳过 0 个。',
     );
 
     await dialogMocks.confirm.mock.calls.at(-1)?.[0].onConfirm();
@@ -730,6 +757,81 @@ describe('container list page', () => {
       }),
     );
     expect(dialogMocks.instances.at(-1)?.setConfirmLoading).toHaveBeenLastCalledWith(false);
+  });
+
+  it('enables batch actions when any selected row is actionable and skips inapplicable rows', async () => {
+    apiMocks.batchContainerActions.mockResolvedValue({
+      action: 'start',
+      failed_count: 0,
+      items: [{ action: 'start', id: 'container-2', name: 'graft-extra-2', success: true }],
+      success_count: 1,
+      total: 1,
+    });
+    const wrapper = mountPage();
+    await flushPromises();
+
+    await wrapper.get('[data-testid="container-table-select-first-two"]').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.get('[data-testid="container-batch-start"]').attributes('disabled')).toBeUndefined();
+    expect(wrapper.get('[data-testid="container-batch-stop"]').attributes('disabled')).toBeUndefined();
+
+    await wrapper.get('[data-testid="container-batch-start"]').trigger('click');
+    await flushPromises();
+
+    const startDialog = dialogMocks.confirm.mock.calls.at(-1)?.[0];
+    expect(startDialog).toEqual(
+      expect.objectContaining({
+        header: '确认批量启动',
+        theme: 'warning',
+      }),
+    );
+    expect(renderDialogBodyText(startDialog?.body)).toContain('确认启动选中的 1 个容器？');
+    expect(renderDialogBodyText(startDialog?.body)).toContain(
+      '当前已选择 2 个容器，本次将处理 1 个可操作容器，跳过 1 个。',
+    );
+    expect(renderDialogBodyText(startDialog?.body)).toContain('部分容器因当前状态或权限不适用，将被跳过。');
+
+    await startDialog?.onConfirm();
+    await flushPromises();
+
+    expect(apiMocks.batchContainerActions).toHaveBeenCalledWith({
+      action: 'start',
+      force: false,
+      ids: ['container-2'],
+    });
+    expect(messageMocks.success).toHaveBeenCalledWith('批量操作已完成，成功 1 个。');
+
+    await wrapper.get('[data-testid="container-batch-stop"]').trigger('click');
+    await flushPromises();
+    await dialogMocks.confirm.mock.calls.at(-1)?.[0].onCancel();
+
+    expect(dialogMocks.instances.at(-1)?.hide).toHaveBeenCalled();
+    expect(apiMocks.batchContainerActions).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps batch confirmation dialogs idempotent while one is open', async () => {
+    const wrapper = mountPage();
+    await flushPromises();
+
+    await wrapper.get('[data-testid="container-table-select-first-two"]').trigger('click');
+    await flushPromises();
+
+    await wrapper.get('[data-testid="container-batch-start"]').trigger('click');
+    await wrapper.get('[data-testid="container-batch-start"]').trigger('click');
+    await flushPromises();
+
+    expect(dialogMocks.confirm).toHaveBeenCalledTimes(1);
+
+    await dialogMocks.confirm.mock.calls.at(-1)?.[0].onClose();
+    await flushPromises();
+
+    expect(dialogMocks.instances.at(-1)?.hide).toHaveBeenCalled();
+
+    await wrapper.get('[data-testid="container-batch-start"]').trigger('click');
+    await flushPromises();
+
+    expect(dialogMocks.confirm).toHaveBeenCalledTimes(2);
   });
 
   it('opens sanitized detail sections from safe read-only more actions', async () => {

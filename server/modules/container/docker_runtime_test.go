@@ -259,6 +259,78 @@ func TestDockerRuntimeRemoveRejectsRunningWithoutForce(t *testing.T) {
 	}
 }
 
+func TestDockerRuntimeRejectsActionsWhenKnownStateDisallowsThem(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name   string
+		state  container.ContainerState
+		action func(context.Context, *DockerRuntime) (ActionResult, error)
+		calls  func(*countingDockerClient) int64
+	}{
+		{
+			name:  "start running",
+			state: container.StateRunning,
+			action: func(ctx context.Context, runtime *DockerRuntime) (ActionResult, error) {
+				return runtime.Start(ctx, Ref{Value: "web"})
+			},
+			calls: func(client *countingDockerClient) int64 {
+				return client.startCalls.Load()
+			},
+		},
+		{
+			name:  "stop exited",
+			state: container.StateExited,
+			action: func(ctx context.Context, runtime *DockerRuntime) (ActionResult, error) {
+				return runtime.Stop(ctx, Ref{Value: "web"})
+			},
+			calls: func(client *countingDockerClient) int64 {
+				return client.stopCalls.Load()
+			},
+		},
+		{
+			name:  "restart dead",
+			state: container.StateDead,
+			action: func(ctx context.Context, runtime *DockerRuntime) (ActionResult, error) {
+				return runtime.Restart(ctx, Ref{Value: "web"})
+			},
+			calls: func(client *countingDockerClient) int64 {
+				return client.restartCalls.Load()
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			client := &countingDockerClient{
+				inspect: container.InspectResponse{
+					ContainerJSONBase: &container.ContainerJSONBase{
+						ID:    "abc123",
+						Name:  "/web",
+						State: &container.State{Status: tc.state},
+					},
+					Config: &container.Config{Image: "nginx:latest"},
+				},
+			}
+			runtime := &DockerRuntime{client: client, endpoint: "unix:///var/run/docker.sock"}
+
+			result, err := tc.action(context.Background(), runtime)
+			if !errors.Is(err, errInvalidContainerState) {
+				t.Fatalf("expected invalid state, got %v", err)
+			}
+			if result.StatusBefore == "" || result.StatusAfter != result.StatusBefore {
+				t.Fatalf("expected status context, got %#v", result)
+			}
+			if calls := tc.calls(client); calls != 0 {
+				t.Fatalf("expected runtime action not to be called, got %d", calls)
+			}
+		})
+	}
+}
+
 func TestDockerRuntimeRemoveForceCallsDockerRemove(t *testing.T) {
 	t.Parallel()
 
@@ -362,6 +434,9 @@ type countingDockerClient struct {
 	logCalls     atomic.Int64
 	listCalls    atomic.Int64
 	statsCalls   atomic.Int64
+	startCalls   atomic.Int64
+	stopCalls    atomic.Int64
+	restartCalls atomic.Int64
 	removeCalls  atomic.Int64
 	removeForce  atomic.Bool
 	logReader    io.ReadCloser
@@ -407,14 +482,17 @@ func (c *countingDockerClient) ContainerStatsOneShot(context.Context, string) (c
 }
 
 func (c *countingDockerClient) ContainerStart(context.Context, string, container.StartOptions) error {
+	c.startCalls.Add(1)
 	return nil
 }
 
 func (c *countingDockerClient) ContainerStop(context.Context, string, container.StopOptions) error {
+	c.stopCalls.Add(1)
 	return nil
 }
 
 func (c *countingDockerClient) ContainerRestart(context.Context, string, container.StopOptions) error {
+	c.restartCalls.Add(1)
 	return nil
 }
 

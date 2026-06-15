@@ -651,7 +651,7 @@
 </template>
 <script setup lang="ts">
 import { SearchIcon } from 'tdesign-icons-vue-next';
-import type { DropdownOption, TdBaseTableProps } from 'tdesign-vue-next';
+import type { DialogInstance, DropdownOption, TdBaseTableProps } from 'tdesign-vue-next';
 import { DialogPlugin } from 'tdesign-vue-next/es/dialog';
 import { MessagePlugin } from 'tdesign-vue-next/es/message';
 import { NotifyPlugin } from 'tdesign-vue-next/es/notification';
@@ -814,6 +814,8 @@ const visibleColumnKeys = ref<string[]>(loadVisibleColumnKeys());
 const tableDensity = ref<'medium' | 'small'>('medium');
 const selectedRowKeys = ref<Array<string | number>>([]);
 const batchActionLoading = ref<DangerousContainerAction | ''>('');
+const activeDangerousDialog = ref<DialogInstance | null>(null);
+const dangerousDialogOpen = ref(false);
 const filters = reactive<ContainerFilters>({
   keyword: '',
   status: 'all',
@@ -1343,25 +1345,57 @@ async function performDangerousAction(row: ContainerSummary, action: DangerousCo
 }
 
 function confirmRuntimeAction(row: ContainerSummary, action: Exclude<DangerousContainerAction, 'remove'>) {
+  if (dangerousDialogOpen.value) {
+    return Promise.resolve(undefined);
+  }
+
   return new Promise<boolean | undefined>((resolve) => {
+    let resolved = false;
+    dangerousDialogOpen.value = true;
     const dialog = DialogPlugin.confirm({
       header: t(actionDialogTitleKey(action)),
       body: t(actionConfirmKey(action), { name: displayName(row) }),
       theme: action === 'start' ? 'warning' : 'danger',
       confirmBtn: t('container.list.actions.confirm'),
       cancelBtn: t('container.list.actions.cancel'),
-      onCancel: () => resolve(undefined),
-      onClose: () => resolve(undefined),
+      onCancel: () =>
+        closeConfirmDialog(
+          dialog,
+          resolve,
+          undefined,
+          () => resolved,
+          (value) => (resolved = value),
+        ),
+      onClose: () =>
+        closeConfirmDialog(
+          dialog,
+          resolve,
+          undefined,
+          () => resolved,
+          (value) => (resolved = value),
+        ),
       onConfirm: () => {
-        dialog.hide();
-        resolve(false);
+        closeConfirmDialog(
+          dialog,
+          resolve,
+          false,
+          () => resolved,
+          (value) => (resolved = value),
+        );
       },
     });
+    activeDangerousDialog.value = dialog;
   });
 }
 
 function confirmRemoveAction(row: ContainerSummary) {
+  if (dangerousDialogOpen.value) {
+    return Promise.resolve(undefined);
+  }
+
   return new Promise<boolean | undefined>((resolve) => {
+    let resolved = false;
+    dangerousDialogOpen.value = true;
     const force = ref(false);
     const running = row.state === 'running';
     const dialog = DialogPlugin.confirm({
@@ -1390,14 +1424,52 @@ function confirmRemoveAction(row: ContainerSummary) {
       theme: 'danger',
       confirmBtn: t('container.list.actions.remove'),
       cancelBtn: t('container.list.actions.cancel'),
-      onCancel: () => resolve(undefined),
-      onClose: () => resolve(undefined),
+      onCancel: () =>
+        closeConfirmDialog(
+          dialog,
+          resolve,
+          undefined,
+          () => resolved,
+          (value) => (resolved = value),
+        ),
+      onClose: () =>
+        closeConfirmDialog(
+          dialog,
+          resolve,
+          undefined,
+          () => resolved,
+          (value) => (resolved = value),
+        ),
       onConfirm: () => {
-        dialog.hide();
-        resolve(force.value);
+        closeConfirmDialog(
+          dialog,
+          resolve,
+          force.value,
+          () => resolved,
+          (value) => (resolved = value),
+        );
       },
     });
+    activeDangerousDialog.value = dialog;
   });
+}
+
+function closeConfirmDialog<T>(
+  dialog: DialogInstance,
+  resolve: (value: T) => void,
+  value: T,
+  isResolved: () => boolean,
+  setResolved: (value: boolean) => void,
+) {
+  dangerousDialogOpen.value = false;
+  if (activeDangerousDialog.value === dialog) {
+    activeDangerousDialog.value = null;
+  }
+  if (isResolved()) return;
+
+  setResolved(true);
+  dialog.hide();
+  resolve(value);
 }
 
 async function executeDangerousAction(row: ContainerSummary, action: DangerousContainerAction, force: boolean) {
@@ -1448,13 +1520,18 @@ function batchActionHint(action: DangerousContainerAction) {
     return t('container.list.batch.noSelection');
   }
 
+  const actionableCount = batchActionableRows(action).length;
   return isBatchActionDisabled(action)
     ? t('container.list.actions.dangerousDisabled')
-    : t(`container.list.batch.${action}Hint`, { count: selectedRows.value.length });
+    : t(`container.list.batch.${action}Hint`, { count: actionableCount });
 }
 
 function isBatchActionDisabled(action: DangerousContainerAction) {
-  return selectedRows.value.length === 0 || selectedRows.value.some((row) => isDangerousActionDisabled(row, action));
+  return batchActionableRows(action).length === 0;
+}
+
+function batchActionableRows(action: DangerousContainerAction) {
+  return selectedRows.value.filter((row) => !isDangerousActionDisabled(row, action));
 }
 
 function clearSelection() {
@@ -1470,16 +1547,33 @@ function confirmBatchAction(action: DangerousContainerAction) {
     MessagePlugin.warning(t('container.list.actions.dangerousDisabled'));
     return;
   }
+  if (dangerousDialogOpen.value) {
+    return;
+  }
 
+  dangerousDialogOpen.value = true;
   const force = ref(false);
   const selectedCount = selectedRows.value.length;
+  const actionableRows = batchActionableRows(action);
+  const actionableCount = actionableRows.length;
+  const skippedCount = selectedCount - actionableCount;
   const runningCountForRemove =
-    action === 'remove' ? selectedRows.value.filter((row) => row.state === 'running').length : 0;
+    action === 'remove' ? actionableRows.filter((row) => row.state === 'running').length : 0;
+  let resolved = false;
   const dialog = DialogPlugin.confirm({
     header: t(`container.list.batch.confirm${capitalizeAction(action)}Title`),
     body: () =>
       h('div', { class: 'container-remove-confirm' }, [
-        h('p', t(`container.list.batch.confirm${capitalizeAction(action)}`, { count: selectedCount })),
+        h('p', t(`container.list.batch.confirm${capitalizeAction(action)}`, { count: actionableCount })),
+        h(
+          'p',
+          t('container.list.batch.confirmScope', {
+            actionableCount,
+            selectedCount,
+            skippedCount,
+          }),
+        ),
+        skippedCount > 0 ? h('p', t('container.list.batch.skipInapplicable')) : null,
         action === 'remove' && runningCountForRemove > 0
           ? h('p', t('container.list.batch.confirmRemoveRunning', { count: runningCountForRemove }))
           : null,
@@ -1499,22 +1593,49 @@ function confirmBatchAction(action: DangerousContainerAction) {
     theme: action === 'start' ? 'warning' : 'danger',
     confirmBtn: t('container.list.actions.confirm'),
     cancelBtn: t('container.list.actions.cancel'),
+    onCancel: () =>
+      closeConfirmDialog(
+        dialog,
+        () => undefined,
+        undefined,
+        () => resolved,
+        (value) => (resolved = value),
+      ),
+    onClose: () =>
+      closeConfirmDialog(
+        dialog,
+        () => undefined,
+        undefined,
+        () => resolved,
+        (value) => (resolved = value),
+      ),
     onConfirm: async () => {
       dialog.setConfirmLoading(true);
       try {
-        const completed = await executeBatchAction(action, force.value);
+        const completed = await executeBatchAction(action, force.value, actionableRows);
         if (completed) {
-          dialog.hide();
+          closeConfirmDialog(
+            dialog,
+            () => undefined,
+            undefined,
+            () => resolved,
+            (value) => (resolved = value),
+          );
         }
       } finally {
         dialog.setConfirmLoading(false);
       }
     },
   });
+  activeDangerousDialog.value = dialog;
 }
 
-async function executeBatchAction(action: DangerousContainerAction, force: boolean) {
-  const ids = selectedRows.value.map((row) => row.id);
+async function executeBatchAction(
+  action: DangerousContainerAction,
+  force: boolean,
+  actionRows = batchActionableRows(action),
+) {
+  const ids = actionRows.map((row) => row.id);
   if (!ids.length) return false;
 
   batchActionLoading.value = action;
