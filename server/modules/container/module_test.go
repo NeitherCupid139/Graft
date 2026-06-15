@@ -72,6 +72,9 @@ func TestRouteAndConfigContractsStayCanonical(t *testing.T) {
 	if containercontract.ContainerDangerousActionsEnabledConfig.String() != "ops.container.actions.dangerous_enabled" {
 		t.Fatalf("unexpected dangerous actions config key")
 	}
+	if containercontract.ContainerEnvironmentPolicyConfig.String() != "ops.container.environment.policy" {
+		t.Fatalf("unexpected environment policy config key")
+	}
 	for _, permissionCode := range expectedPermissionCodes() {
 		if strings.Contains(permissionCode, "ops.docker") {
 			t.Fatalf("permission %s must not use ops.docker", permissionCode)
@@ -109,6 +112,7 @@ func expectedPermissionCodes() []string {
 	return []string{
 		containercontract.ContainerViewPermission.String(),
 		containercontract.ContainerDetailPermission.String(),
+		containercontract.ContainerEnvironmentPermission.String(),
 		containercontract.ContainerLogsPermission.String(),
 		containercontract.ContainerStartPermission.String(),
 		containercontract.ContainerStopPermission.String(),
@@ -204,6 +208,14 @@ func assertConfigDefinitions(t *testing.T, registry *configregistry.Registry, lo
 		t.Fatalf("container runtime endpoint must be restart-required")
 	}
 
+	assertRuntimeConfigSchema(t, registry)
+	assertMaxTailConfigSchema(t, registry)
+	assertEnvironmentPolicyConfigSchema(t, registry, localizer)
+}
+
+func assertRuntimeConfigSchema(t *testing.T, registry *configregistry.Registry) {
+	t.Helper()
+
 	runtime, _ := registry.Get(containercontract.ContainerRuntimeConfig.String())
 	var runtimeSchema struct {
 		Type string   `json:"type"`
@@ -215,6 +227,10 @@ func assertConfigDefinitions(t *testing.T, registry *configregistry.Registry, lo
 	if runtimeSchema.Type != "string" || !slices.Contains(runtimeSchema.Enum, defaultContainerRuntime) {
 		t.Fatalf("expected runtime enum schema, got %#v", runtimeSchema)
 	}
+}
+
+func assertMaxTailConfigSchema(t *testing.T, registry *configregistry.Registry) {
+	t.Helper()
 
 	maxTail, _ := registry.Get(containercontract.ContainerLogsMaxTailConfig.String())
 	var maxTailSchema struct {
@@ -230,6 +246,41 @@ func assertConfigDefinitions(t *testing.T, registry *configregistry.Registry, lo
 	}
 }
 
+func assertEnvironmentPolicyConfigSchema(t *testing.T, registry *configregistry.Registry, localizer *i18n.Service) {
+	t.Helper()
+
+	environmentPolicy, _ := registry.Get(containercontract.ContainerEnvironmentPolicyConfig.String())
+	var environmentPolicySchema struct {
+		Type  string   `json:"type"`
+		Enum  []string `json:"enum"`
+		XI18n struct {
+			TitleKey   string `json:"titleKey"`
+			EnumLabels map[string]struct {
+				LabelKey       string `json:"labelKey"`
+				DescriptionKey string `json:"descriptionKey"`
+			} `json:"enumLabels"`
+		} `json:"x-i18n"`
+	}
+	if err := json.Unmarshal(environmentPolicy.Schema, &environmentPolicySchema); err != nil {
+		t.Fatalf("decode environment policy schema: %v", err)
+	}
+	if environmentPolicySchema.Type != "string" ||
+		!slices.Contains(environmentPolicySchema.Enum, containercontract.ContainerEnvironmentPolicyHidden.String()) ||
+		!slices.Contains(environmentPolicySchema.Enum, containercontract.ContainerEnvironmentPolicyMasked.String()) ||
+		!slices.Contains(environmentPolicySchema.Enum, containercontract.ContainerEnvironmentPolicyPlain.String()) {
+		t.Fatalf("expected environment policy enum schema, got %#v", environmentPolicySchema)
+	}
+	for value, metadata := range environmentPolicySchema.XI18n.EnumLabels {
+		if strings.TrimSpace(metadata.LabelKey) == "" || strings.TrimSpace(metadata.DescriptionKey) == "" {
+			t.Fatalf("expected enum i18n metadata for %s, got %#v", value, metadata)
+		}
+		assertRegisteredMessage(t, localizer, i18n.LocaleZHCN, metadata.LabelKey)
+		assertRegisteredMessage(t, localizer, i18n.LocaleENUS, metadata.LabelKey)
+		assertRegisteredMessage(t, localizer, i18n.LocaleZHCN, metadata.DescriptionKey)
+		assertRegisteredMessage(t, localizer, i18n.LocaleENUS, metadata.DescriptionKey)
+	}
+}
+
 func expectedConfigKeys() []string {
 	return []string{
 		containercontract.ContainerRuntimeEnabledConfig.String(),
@@ -238,6 +289,7 @@ func expectedConfigKeys() []string {
 		containercontract.ContainerLogsDefaultTailConfig.String(),
 		containercontract.ContainerLogsMaxTailConfig.String(),
 		containercontract.ContainerDangerousActionsEnabledConfig.String(),
+		containercontract.ContainerEnvironmentPolicyConfig.String(),
 	}
 }
 

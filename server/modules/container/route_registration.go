@@ -111,7 +111,11 @@ func (r routeRuntime) handleDetail(ginCtx *gin.Context) {
 	if !ok {
 		return
 	}
-	detail, err := r.service.Detail(ginCtx.Request.Context(), ref)
+	requestCtx := ginCtx.Request.Context()
+	if r.authorizeEnvironmentPlainAccess(ginCtx) {
+		requestCtx = withEnvironmentPlainAccess(requestCtx)
+	}
+	detail, err := r.service.Detail(requestCtx, ref)
 	if err != nil {
 		r.writeRouteError(ginCtx, err)
 		return
@@ -217,6 +221,22 @@ func (r routeRuntime) authorizeBatchAction(ginCtx *gin.Context, action string) b
 		return false
 	}
 	return true
+}
+
+func (r routeRuntime) authorizeEnvironmentPlainAccess(ginCtx *gin.Context) bool {
+	authorizer, err := resolveAuthorizer(r.ctx)
+	if err != nil {
+		return false
+	}
+	requestAuth, ok := moduleapi.RequestAuthContextFromContext(ginCtx.Request.Context())
+	if !ok {
+		return false
+	}
+	return authorizer.Authorize(
+		ginCtx.Request.Context(),
+		requestAuth,
+		containercontract.ContainerEnvironmentPermission.String(),
+	) == nil
 }
 
 func permissionForAction(action string) string {

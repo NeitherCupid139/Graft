@@ -176,13 +176,15 @@ type Summary struct {
 // Detail is a sanitized container inspect view.
 type Detail struct {
 	Summary
-	Command          []string
-	Entrypoint       []string
-	Mounts           []Mount
-	Networks         []Network
-	RuntimeInfo      RuntimeInfo
-	InspectUpdatedAt string
-	WorkingDir       string
+	Command           []string
+	Entrypoint        []string
+	Environment       []EnvironmentVariable
+	EnvironmentPolicy string
+	Mounts            []Mount
+	Networks          []Network
+	RuntimeInfo       RuntimeInfo
+	InspectUpdatedAt  string
+	WorkingDir        string
 }
 
 // Port describes one exposed or published container port.
@@ -201,6 +203,15 @@ type Mount struct {
 	Destination string
 	Mode        string
 	ReadOnly    bool
+}
+
+// EnvironmentVariable describes one container environment entry after policy application.
+type EnvironmentVariable struct {
+	Key       string
+	Value     string
+	Masked    bool
+	Sensitive bool
+	Source    string
 }
 
 // Network describes one network attachment.

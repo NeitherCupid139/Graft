@@ -45,6 +45,18 @@ func TestRoutesRequireContainerPermissions(t *testing.T) {
 	}
 
 	response := httptest.NewRecorder()
+	engine.ServeHTTP(response, authorizedRequest(http.MethodGet, "/api/ops/containers/abc123"))
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected detail 200, got %d: %s", response.Code, response.Body.String())
+	}
+	if !slices.Contains(authorizer.permissions, containercontract.ContainerDetailPermission.String()) {
+		t.Fatalf("expected detail permission, got %#v", authorizer.permissions)
+	}
+	if !slices.Contains(authorizer.permissions, containercontract.ContainerEnvironmentPermission.String()) {
+		t.Fatalf("expected environment permission check, got %#v", authorizer.permissions)
+	}
+
+	response = httptest.NewRecorder()
 	engine.ServeHTTP(response, authorizedRequest(http.MethodGet, "/api/ops/containers/abc123/logs?tail=20&stdout=true"))
 	if response.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", response.Code, response.Body.String())

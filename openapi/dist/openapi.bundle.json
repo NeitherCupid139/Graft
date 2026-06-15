@@ -9807,6 +9807,9 @@
       "ContainerDetail": {
         "$ref": "#/components/schemas/container-detail"
       },
+      "ContainerEnvironmentEntry": {
+        "$ref": "#/components/schemas/container-environment-entry"
+      },
       "ContainerPort": {
         "$ref": "#/components/schemas/container-port"
       },
@@ -15818,6 +15821,38 @@
           }
         ]
       },
+      "container-environment-entry": {
+        "type": "object",
+        "required": [
+          "key",
+          "masked",
+          "sensitive",
+          "source"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "Environment variable name."
+          },
+          "value": {
+            "type": "string",
+            "description": "Environment variable value. Omitted when the active policy hides or masks the value."
+          },
+          "masked": {
+            "type": "boolean",
+            "description": "Whether the value is intentionally omitted by environment display policy."
+          },
+          "sensitive": {
+            "type": "boolean",
+            "description": "Whether the key matched the container module sensitive-key heuristic."
+          },
+          "source": {
+            "type": "string",
+            "description": "Runtime source of the environment variable entry."
+          }
+        },
+        "description": "Container environment variable entry after policy application."
+      },
       "container-mount": {
         "type": "object",
         "required": [
@@ -15873,6 +15908,21 @@
                   "type": "string"
                 }
               },
+              "environment": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/container-environment-entry"
+                }
+              },
+              "environment_policy": {
+                "type": "string",
+                "enum": [
+                  "hidden",
+                  "masked",
+                  "plain"
+                ],
+                "description": "Effective container environment variable display policy applied to this detail response."
+              },
               "working_dir": {
                 "type": "string"
               },
@@ -15898,7 +15948,7 @@
             }
           }
         ],
-        "description": "Container detail intentionally omits environment variables and raw inspect payload fields that may contain secrets.\n"
+        "description": "Container detail returns environment variables according to the configured display policy and omits raw inspect payload fields that may contain secrets.\n"
       },
       "enveloped-container-detail": {
         "allOf": [

@@ -343,6 +343,27 @@ func (e PostContainerBatchActions500JSONResponseBodySuccess) Valid() bool {
 	}
 }
 
+// Defines values for GetContainer200JSONResponseBodyDataEnvironmentPolicy.
+const (
+	Hidden GetContainer200JSONResponseBodyDataEnvironmentPolicy = "hidden"
+	Masked GetContainer200JSONResponseBodyDataEnvironmentPolicy = "masked"
+	Plain  GetContainer200JSONResponseBodyDataEnvironmentPolicy = "plain"
+)
+
+// Valid indicates whether the value is a known member of the GetContainer200JSONResponseBodyDataEnvironmentPolicy enum.
+func (e GetContainer200JSONResponseBodyDataEnvironmentPolicy) Valid() bool {
+	switch e {
+	case Hidden:
+		return true
+	case Masked:
+		return true
+	case Plain:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetContainer200JSONResponseBodyDataHealth.
 const (
 	GetContainer200JSONResponseBodyDataHealthHealthy     GetContainer200JSONResponseBodyDataHealth = "healthy"
@@ -1245,6 +1266,9 @@ type GetContainerParams struct {
 	// through the response header and envelope traceId field.
 	XRequestId *string `json:"X-Request-Id,omitempty"`
 }
+
+// GetContainer200JSONResponseBodyDataEnvironmentPolicy defines parameters for GetContainer.
+type GetContainer200JSONResponseBodyDataEnvironmentPolicy string
 
 // GetContainer200JSONResponseBodyDataHealth defines parameters for GetContainer.
 type GetContainer200JSONResponseBodyDataHealth string

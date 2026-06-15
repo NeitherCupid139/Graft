@@ -32,6 +32,7 @@ const (
 	dockerLogScannerMaxSize  = 1024 * 1024
 	dockerStatsListTimeout   = 2 * time.Second
 	dockerStatsPercentScale  = 100.0
+	dockerEnvironmentSource  = "docker"
 )
 
 var errInvalidLogQuery = errors.New("invalid log query parameter")
@@ -103,7 +104,9 @@ func (r *DockerRuntime) Detail(ctx context.Context, ref Ref) (Detail, error) {
 	if err != nil {
 		return Detail{}, err
 	}
-	return dockerDetail(inspect, info), nil
+	detail := dockerDetail(inspect, info)
+	detail.Resource = r.containerResourceSummary(ctx, firstNonEmpty(detail.ID, ref.Value))
+	return detail, nil
 }
 
 // Logs reads bounded Docker logs according to the module log guardrails.
@@ -410,12 +413,34 @@ func dockerDetail(inspect container.InspectResponse, info RuntimeInfo) Detail {
 	if inspect.Config != nil {
 		detail.Command = []string(inspect.Config.Cmd)
 		detail.Entrypoint = []string(inspect.Config.Entrypoint)
+		detail.Environment = dockerEnvironmentVariables(inspect.Config.Env)
 		detail.WorkingDir = strings.TrimSpace(inspect.Config.WorkingDir)
 	}
 	if inspect.HostConfig != nil {
 		detail.RestartPolicy = string(inspect.HostConfig.RestartPolicy.Name)
 	}
 	return detail
+}
+
+func dockerEnvironmentVariables(values []string) []EnvironmentVariable {
+	if len(values) == 0 {
+		return nil
+	}
+	environment := make([]EnvironmentVariable, 0, len(values))
+	for _, raw := range values {
+		key, value, ok := strings.Cut(raw, "=")
+		key = strings.TrimSpace(key)
+		if !ok || key == "" {
+			continue
+		}
+		environment = append(environment, EnvironmentVariable{
+			Key:       key,
+			Value:     value,
+			Sensitive: isSensitiveEnvironmentKey(key),
+			Source:    dockerEnvironmentSource,
+		})
+	}
+	return environment
 }
 
 func dockerSummaryNetworks(item container.Summary) []Network {

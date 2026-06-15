@@ -538,6 +538,8 @@ components:
       $ref: ./components/schemas/container-summary.yaml
     ContainerDetail:
       $ref: ./components/schemas/container-detail.yaml
+    ContainerEnvironmentEntry:
+      $ref: ./components/schemas/container-environment-entry.yaml
     ContainerPort:
       $ref: ./components/schemas/container-port.yaml
     ContainerMount:

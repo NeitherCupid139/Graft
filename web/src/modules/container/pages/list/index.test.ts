@@ -34,6 +34,10 @@ const notifyMocks = vi.hoisted(() => ({
   warning: vi.fn(),
 }));
 
+const routerMocks = vi.hoisted(() => ({
+  push: vi.fn(),
+}));
+
 const translations = vi.hoisted(
   (): Record<string, string> => ({
     'container.list.actionFailed': '容器操作失败。',
@@ -267,6 +271,10 @@ vi.mock('vue-i18n', () => ({
   }),
 }));
 
+vi.mock('vue-router', () => ({
+  useRouter: () => routerMocks,
+}));
+
 vi.mock('@/shared/observability', async () => {
   const actual = await vi.importActual<typeof import('@/shared/observability')>('@/shared/observability');
   return {
@@ -460,83 +468,54 @@ describe('container list page', () => {
     expect(wrapper.text()).not.toContain('graft-extra-21');
   });
 
-  it('opens detail and log drawers through module API actions', async () => {
+  it('navigates safe read actions to the container detail route tabs', async () => {
     const wrapper = mountPage();
     await flushPromises();
 
     await wrapper.get('[data-testid="container-action-detail"]').trigger('click');
     await flushPromises();
 
-    expect(apiMocks.getContainer).toHaveBeenCalledWith('container-1');
-    expect(wrapper.get('[data-testid="td-drawer-容器详情"]').attributes('data-size')).toBe('960px');
-    expect(wrapper.text()).toContain('容器详情');
-    expect(wrapper.text()).toContain('状态与生命周期');
-    expect(wrapper.text()).toContain('网络与端口');
-    expect(wrapper.text()).toContain('标签与元数据');
-    expect(wrapper.text()).toContain('npm run serve');
-    expect(wrapper.text()).toContain('docker-entrypoint.sh');
-    expect(wrapper.text()).toContain('172.18.0.2');
-    expect(wrapper.text()).toContain('/app');
-    expect(wrapper.text()).toContain('com.docker.compose.project=graft');
-    expect(wrapper.text()).toContain('"id": "container-1"');
+    expect(routerMocks.push).toHaveBeenCalledWith({
+      name: 'ContainerDetailIndex',
+      params: { id: 'container-1' },
+      query: { tab: 'overview' },
+    });
 
     await wrapper.get('[data-testid="container-action-logs"]').trigger('click');
     await flushPromises();
 
-    expect(apiMocks.getContainerLogs).toHaveBeenCalledWith('container-1', {
-      tail: 200,
-      since: undefined,
-      stderr: true,
-      stdout: true,
-      timestamps: false,
+    expect(routerMocks.push).toHaveBeenCalledWith({
+      name: 'ContainerDetailIndex',
+      params: { id: 'container-1' },
+      query: { tab: 'logs' },
     });
-    expect(wrapper.text()).toContain('server started');
-  });
 
-  it('copies container id from the detail drawer context', async () => {
-    Object.defineProperty(navigator, 'clipboard', {
-      configurable: true,
-      value: { writeText: vi.fn().mockResolvedValue(undefined) },
+    await wrapper.get('[data-testid="container-action-view-mounts"]').trigger('click');
+    await flushPromises();
+    expect(routerMocks.push).toHaveBeenCalledWith({
+      name: 'ContainerDetailIndex',
+      params: { id: 'container-1' },
+      query: { tab: 'storage' },
     });
-    const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined);
-    const wrapper = mountPage();
+
+    await wrapper.get('[data-testid="container-action-view-networks"]').trigger('click');
     await flushPromises();
+    expect(routerMocks.push).toHaveBeenCalledWith({
+      name: 'ContainerDetailIndex',
+      params: { id: 'container-1' },
+      query: { tab: 'network' },
+    });
 
-    await wrapper.get('[data-testid="container-action-detail"]').trigger('click');
+    await wrapper.get('[data-testid="container-action-view-env"]').trigger('click');
     await flushPromises();
+    expect(routerMocks.push).toHaveBeenCalledWith({
+      name: 'ContainerDetailIndex',
+      params: { id: 'container-1' },
+      query: { tab: 'config' },
+    });
 
-    await wrapper
-      .findAll('button')
-      .find((button) => button.text() === '复制 ID')
-      ?.trigger('click');
-    await flushPromises();
-
-    expect(writeText).toHaveBeenCalledWith('container-1');
-    expect(messageMocks.success).toHaveBeenCalledWith('容器 ID 已复制。');
-  });
-
-  it('auto-refreshes logs only after the logs drawer is opened and enabled', async () => {
-    vi.useFakeTimers();
-    const wrapper = mountPage();
-    await flushPromises();
-
+    expect(apiMocks.getContainer).not.toHaveBeenCalled();
     expect(apiMocks.getContainerLogs).not.toHaveBeenCalled();
-
-    await wrapper.get('[data-testid="container-action-logs"]').trigger('click');
-    await flushPromises();
-
-    expect(apiMocks.getContainerLogs).toHaveBeenCalledTimes(1);
-
-    const autoRefreshCheckbox = wrapper.findAll('input[type="checkbox"]').at(3);
-    expect(autoRefreshCheckbox).toBeTruthy();
-    await autoRefreshCheckbox?.setValue(true);
-
-    vi.advanceTimersByTime(10_000);
-    await flushPromises();
-
-    expect(apiMocks.getContainerLogs).toHaveBeenCalledTimes(2);
-
-    vi.useRealTimers();
   });
 
   it('uses optional column settings without showing started time and restart policy by default', async () => {
@@ -834,22 +813,19 @@ describe('container list page', () => {
     expect(dialogMocks.confirm).toHaveBeenCalledTimes(2);
   });
 
-  it('opens sanitized detail sections from safe read-only more actions', async () => {
+  it('navigates inspect action to the overview tab without loading details in the list', async () => {
     const wrapper = mountPage();
     await flushPromises();
-
-    await wrapper.get('[data-testid="container-action-view-env"]').trigger('click');
-    await flushPromises();
-
-    expect(apiMocks.getContainer).toHaveBeenCalledWith('container-1');
-    expect(wrapper.text()).toContain('环境变量');
-    expect(wrapper.text()).toContain('当前安全详情契约不返回环境变量。');
 
     await wrapper.get('[data-testid="container-action-inspect"]').trigger('click');
     await flushPromises();
 
-    expect(wrapper.text()).toContain('原始详情 JSON');
-    expect(wrapper.text()).toContain('"id": "container-1"');
+    expect(routerMocks.push).toHaveBeenCalledWith({
+      name: 'ContainerDetailIndex',
+      params: { id: 'container-1' },
+      query: { tab: 'overview' },
+    });
+    expect(apiMocks.getContainer).not.toHaveBeenCalled();
   });
 
   it('renders runtime disabled as an access configuration error with system config hint', async () => {

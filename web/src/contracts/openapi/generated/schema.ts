@@ -1923,6 +1923,7 @@ export interface components {
     EnvelopedAnnouncementReadAllResponse: components['schemas']['enveloped-announcement-read-all-response'];
     ContainerSummary: components['schemas']['container-summary'];
     ContainerDetail: components['schemas']['container-detail'];
+    ContainerEnvironmentEntry: components['schemas']['container-environment-entry'];
     ContainerPort: components['schemas']['container-port'];
     ContainerMount: components['schemas']['container-mount'];
     ContainerNetwork: components['schemas']['container-network'];
@@ -3879,6 +3880,19 @@ export interface components {
     'enveloped-container-batch-action-response': components['schemas']['api-envelope'] & {
       data: components['schemas']['container-batch-action-response'];
     };
+    /** @description Container environment variable entry after policy application. */
+    'container-environment-entry': {
+      /** @description Environment variable name. */
+      key: string;
+      /** @description Environment variable value. Omitted when the active policy hides or masks the value. */
+      value?: string;
+      /** @description Whether the value is intentionally omitted by environment display policy. */
+      masked: boolean;
+      /** @description Whether the key matched the container module sensitive-key heuristic. */
+      sensitive: boolean;
+      /** @description Runtime source of the environment variable entry. */
+      source: string;
+    };
     'container-mount': {
       /** @description Runtime mount type such as bind, volume, or tmpfs. */
       type: string;
@@ -3888,10 +3902,16 @@ export interface components {
       mode: string;
       read_only: boolean;
     };
-    /** @description Container detail intentionally omits environment variables and raw inspect payload fields that may contain secrets. */
+    /** @description Container detail returns environment variables according to the configured display policy and omits raw inspect payload fields that may contain secrets. */
     'container-detail': components['schemas']['container-summary'] & {
       command?: string[];
       entrypoint?: string[];
+      environment?: components['schemas']['container-environment-entry'][];
+      /**
+       * @description Effective container environment variable display policy applied to this detail response.
+       * @enum {string}
+       */
+      environment_policy?: 'hidden' | 'masked' | 'plain';
       working_dir?: string;
       mounts: components['schemas']['container-mount'][];
       networks: components['schemas']['container-network'][];

@@ -27,6 +27,8 @@ const (
 	containerOperationTTL = 30 * time.Second
 )
 
+type environmentPlainAccessContextKey struct{}
+
 type service struct {
 	runtimeMu               sync.Mutex
 	runtime                 Runtime
@@ -40,6 +42,7 @@ type service struct {
 	dangerousActionsEnabled bool
 	defaultTail             int
 	maxTail                 int
+	environmentPolicy       containercontract.EnvironmentPolicy
 }
 
 type containerServiceOptions struct {
@@ -54,6 +57,7 @@ type containerServiceOptions struct {
 	dangerousActionsEnabled bool
 	defaultTail             int
 	maxTail                 int
+	environmentPolicy       containercontract.EnvironmentPolicy
 }
 
 func newContainerService(ctx *module.Context, moduleName string) (*service, error) {
@@ -70,6 +74,7 @@ func newContainerService(ctx *module.Context, moduleName string) (*service, erro
 		dangerousActionsEnabled: options.dangerousActionsEnabled,
 		defaultTail:             options.defaultTail,
 		maxTail:                 options.maxTail,
+		environmentPolicy:       options.environmentPolicy,
 	})
 }
 
@@ -93,6 +98,7 @@ func newService(options containerServiceOptions) (*service, error) {
 	runtimeOptions.dangerousActionsEnabled = options.dangerousActionsEnabled
 	runtimeOptions.defaultTail = options.defaultTail
 	runtimeOptions.maxTail = options.maxTail
+	environmentPolicy := normalizeEnvironmentPolicy(options.environmentPolicy.String())
 	runtimeFactory := options.runtimeFactory
 	if runtimeFactory == nil {
 		runtimeFactory = newContainerRuntime
@@ -109,6 +115,7 @@ func newService(options containerServiceOptions) (*service, error) {
 		dangerousActionsEnabled: options.dangerousActionsEnabled,
 		defaultTail:             options.defaultTail,
 		maxTail:                 options.maxTail,
+		environmentPolicy:       environmentPolicy,
 	}, nil
 }
 
@@ -173,6 +180,7 @@ func (s *service) Detail(ctx context.Context, ref Ref) (Detail, error) {
 	if len(adjusted) == 1 {
 		detail.Summary = adjusted[0]
 	}
+	detail = s.applyEnvironmentPolicy(ctx, detail)
 	return detail, nil
 }
 
@@ -420,6 +428,116 @@ func requestIDFromContext(ctx context.Context) string {
 	return ""
 }
 
+func (s *service) applyEnvironmentPolicy(ctx context.Context, detail Detail) Detail {
+	policy := s.environmentDisplayPolicy(ctx)
+	if policy == containercontract.ContainerEnvironmentPolicyPlain && !environmentPlainAccessAllowed(ctx) {
+		policy = containercontract.ContainerEnvironmentPolicyMasked
+	}
+	detail.EnvironmentPolicy = policy.String()
+	detail.Environment = applyEnvironmentPolicy(detail.Environment, policy)
+	return detail
+}
+
+func withEnvironmentPlainAccess(ctx context.Context) context.Context {
+	return context.WithValue(ctx, environmentPlainAccessContextKey{}, true)
+}
+
+func environmentPlainAccessAllowed(ctx context.Context) bool {
+	allowed, _ := ctx.Value(environmentPlainAccessContextKey{}).(bool)
+	return allowed
+}
+
+type stringSystemConfigResolver interface {
+	ResolveDefaultConfig(ctx context.Context, key string) (string, error)
+}
+
+func (s *service) environmentDisplayPolicy(ctx context.Context) containercontract.EnvironmentPolicy {
+	fallback := defaultContainerEnvironmentPolicy
+	if s != nil && s.environmentPolicy != "" {
+		fallback = s.environmentPolicy
+	}
+	if s == nil || s.systemConfig == nil {
+		return fallback
+	}
+	resolver, ok := s.systemConfig.(stringSystemConfigResolver)
+	if !ok {
+		return fallback
+	}
+	raw, err := resolver.ResolveDefaultConfig(
+		ctx,
+		containercontract.ContainerEnvironmentPolicyConfig.String(),
+	)
+	if err != nil {
+		return fallback
+	}
+	var value string
+	if err := json.Unmarshal([]byte(raw), &value); err != nil {
+		return fallback
+	}
+	return normalizeEnvironmentPolicy(value)
+}
+
+func applyEnvironmentPolicy(environment []EnvironmentVariable, policy containercontract.EnvironmentPolicy) []EnvironmentVariable {
+	if len(environment) == 0 {
+		return nil
+	}
+	mapped := make([]EnvironmentVariable, 0, len(environment))
+	for _, item := range environment {
+		item.Sensitive = item.Sensitive || isSensitiveEnvironmentKey(item.Key)
+		switch policy {
+		case containercontract.ContainerEnvironmentPolicyHidden:
+			item.Value = ""
+			item.Masked = true
+		case containercontract.ContainerEnvironmentPolicyPlain:
+			item.Masked = false
+		default:
+			if item.Sensitive {
+				item.Value = ""
+				item.Masked = true
+			} else {
+				item.Masked = false
+			}
+		}
+		mapped = append(mapped, item)
+	}
+	return mapped
+}
+
+func normalizeEnvironmentPolicy(value string) containercontract.EnvironmentPolicy {
+	switch containercontract.EnvironmentPolicy(strings.ToLower(strings.TrimSpace(value))) {
+	case containercontract.ContainerEnvironmentPolicyHidden:
+		return containercontract.ContainerEnvironmentPolicyHidden
+	case containercontract.ContainerEnvironmentPolicyPlain:
+		return containercontract.ContainerEnvironmentPolicyPlain
+	default:
+		return containercontract.ContainerEnvironmentPolicyMasked
+	}
+}
+
+func isSensitiveEnvironmentKey(key string) bool {
+	normalized := strings.ToUpper(strings.TrimSpace(key))
+	for _, marker := range sensitiveEnvironmentKeyMarkers {
+		if strings.Contains(normalized, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+var sensitiveEnvironmentKeyMarkers = []string{
+	"PASSWORD",
+	"PASSWD",
+	"TOKEN",
+	"SECRET",
+	"KEY",
+	"AUTH",
+	"CREDENTIAL",
+	"PRIVATE",
+	"CERT",
+	"COOKIE",
+	"SESSION",
+}
+
 func (s *service) normalizeLogQuery(query LogQuery) (LogQuery, error) {
 	if query.Tail == 0 {
 		query.Tail = s.defaultTail
@@ -651,6 +769,7 @@ type containerRuntimeOptions struct {
 	dangerousActionsEnabled bool
 	defaultTail             int
 	maxTail                 int
+	environmentPolicy       containercontract.EnvironmentPolicy
 }
 
 func containerOptionsFromConfig(ctx *module.Context) containerRuntimeOptions {
@@ -661,6 +780,7 @@ func containerOptionsFromConfig(ctx *module.Context) containerRuntimeOptions {
 		dangerousActionsEnabled: defaultContainerDangerousActionsEnabled,
 		defaultTail:             defaultContainerLogsDefaultTail,
 		maxTail:                 defaultContainerLogsMaxTail,
+		environmentPolicy:       defaultContainerEnvironmentPolicy,
 	}
 	if ctx == nil {
 		return options
@@ -671,6 +791,7 @@ func containerOptionsFromConfig(ctx *module.Context) containerRuntimeOptions {
 	applyContainerIntDefault(ctx, containercontract.ContainerLogsDefaultTailConfig.String(), &options.defaultTail)
 	applyContainerIntDefault(ctx, containercontract.ContainerLogsMaxTailConfig.String(), &options.maxTail)
 	applyContainerBoolDefault(ctx, containercontract.ContainerDangerousActionsEnabledConfig.String(), &options.dangerousActionsEnabled)
+	applyContainerEnvironmentPolicyDefault(ctx, containercontract.ContainerEnvironmentPolicyConfig.String(), &options.environmentPolicy)
 	if ctx.Config != nil {
 		options.enabled = ctx.Config.Container.RuntimeEnabled
 		options.runtime = ctx.Config.Container.Runtime
@@ -680,6 +801,20 @@ func containerOptionsFromConfig(ctx *module.Context) containerRuntimeOptions {
 		options.dangerousActionsEnabled = ctx.Config.Container.DangerousActionsEnabled
 	}
 	return options
+}
+
+func applyContainerEnvironmentPolicyDefault(ctx *module.Context, key string, target *containercontract.EnvironmentPolicy) {
+	if target == nil {
+		return
+	}
+	raw, ok := containerDefaultValue(ctx, key)
+	if !ok {
+		return
+	}
+	var value string
+	if err := json.Unmarshal(raw, &value); err == nil {
+		*target = normalizeEnvironmentPolicy(value)
+	}
 }
 
 func applyContainerBoolDefault(ctx *module.Context, key string, target *bool) {

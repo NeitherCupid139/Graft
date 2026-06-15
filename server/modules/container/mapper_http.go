@@ -57,39 +57,64 @@ func toSummary(item Summary) containergen.ContainerSummary {
 
 func toDetail(detail Detail) containergen.ContainerDetail {
 	return containergen.ContainerDetail{
-		CanRemove:        optionalBool(detail.CanRemove),
-		CanRestart:       optionalBool(detail.CanRestart),
-		CanStart:         optionalBool(detail.CanStart),
-		CanStop:          optionalBool(detail.CanStop),
-		Command:          optionalStringSlice(detail.Command),
-		ComposeProject:   optionalString(detail.ComposeProject),
-		ComposeService:   optionalString(detail.ComposeService),
-		CreatedAt:        mustTime(detail.CreatedAt),
-		Entrypoint:       optionalStringSlice(detail.Entrypoint),
-		Health:           optionalDetailHealth(detail.Health),
-		Id:               detail.ID,
-		Image:            detail.Image,
-		ImageId:          optionalString(detail.ImageID),
-		InspectUpdatedAt: optionalTime(detail.InspectUpdatedAt),
-		Labels:           optionalStringMap(detail.Labels),
-		Mounts:           toMounts(detail.Mounts),
-		Name:             detail.Name,
-		Names:            detail.Names,
-		NetworkSummary:   optionalString(detail.NetworkSummary),
-		Networks:         toNetworks(detail.Networks),
-		Ports:            toPorts(detail.Ports),
-		PrimaryIp:        optionalString(detail.PrimaryIP),
-		Resource:         toResourceSummary(detail.Resource),
-		RestartCount:     detail.RestartCount,
-		RestartPolicy:    optionalString(detail.RestartPolicy),
-		Runtime:          detail.Runtime,
-		RuntimeInfo:      toRuntimeInfo(detail.RuntimeInfo),
-		ShortId:          detail.ShortID,
-		StartedAt:        optionalTime(detail.StartedAt),
-		State:            containergen.ContainerDetailState(detail.State),
-		Status:           detail.Status,
-		WorkingDir:       optionalString(detail.WorkingDir),
+		CanRemove:         optionalBool(detail.CanRemove),
+		CanRestart:        optionalBool(detail.CanRestart),
+		CanStart:          optionalBool(detail.CanStart),
+		CanStop:           optionalBool(detail.CanStop),
+		Command:           optionalStringSlice(detail.Command),
+		ComposeProject:    optionalString(detail.ComposeProject),
+		ComposeService:    optionalString(detail.ComposeService),
+		CreatedAt:         mustTime(detail.CreatedAt),
+		Entrypoint:        optionalStringSlice(detail.Entrypoint),
+		Environment:       optionalEnvironment(detail.Environment),
+		EnvironmentPolicy: optionalEnvironmentPolicy(detail.EnvironmentPolicy),
+		Health:            optionalDetailHealth(detail.Health),
+		Id:                detail.ID,
+		Image:             detail.Image,
+		ImageId:           optionalString(detail.ImageID),
+		InspectUpdatedAt:  optionalTime(detail.InspectUpdatedAt),
+		Labels:            optionalStringMap(detail.Labels),
+		Mounts:            toMounts(detail.Mounts),
+		Name:              detail.Name,
+		Names:             detail.Names,
+		NetworkSummary:    optionalString(detail.NetworkSummary),
+		Networks:          toNetworks(detail.Networks),
+		Ports:             toPorts(detail.Ports),
+		PrimaryIp:         optionalString(detail.PrimaryIP),
+		Resource:          toResourceSummary(detail.Resource),
+		RestartCount:      detail.RestartCount,
+		RestartPolicy:     optionalString(detail.RestartPolicy),
+		Runtime:           detail.Runtime,
+		RuntimeInfo:       toRuntimeInfo(detail.RuntimeInfo),
+		ShortId:           detail.ShortID,
+		StartedAt:         optionalTime(detail.StartedAt),
+		State:             containergen.ContainerDetailState(detail.State),
+		Status:            detail.Status,
+		WorkingDir:        optionalString(detail.WorkingDir),
 	}
+}
+
+func optionalEnvironment(environment []EnvironmentVariable) *[]containergen.ContainerEnvironmentEntry {
+	if len(environment) == 0 {
+		return nil
+	}
+	mapped := make([]containergen.ContainerEnvironmentEntry, 0, len(environment))
+	for _, item := range environment {
+		mapped = append(mapped, containergen.ContainerEnvironmentEntry{
+			Key:       item.Key,
+			Masked:    item.Masked,
+			Sensitive: item.Sensitive,
+			Source:    item.Source,
+			Value:     optionalString(item.Value),
+		})
+	}
+	return &mapped
+}
+
+func optionalEnvironmentPolicy(policy string) *containergen.ContainerDetailEnvironmentPolicy {
+	normalized := normalizeEnvironmentPolicy(policy)
+	value := containergen.ContainerDetailEnvironmentPolicy(normalized.String())
+	return &value
 }
 
 func toListSummary(summary ListSummary) containergen.ContainerListSummary {

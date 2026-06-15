@@ -21,6 +21,9 @@ const (
 	// ContainerDetailPermission identifies container detail access.
 	// Lifecycle: stable.
 	ContainerDetailPermission PermissionCode = "ops.container.detail"
+	// ContainerEnvironmentPermission identifies container environment variable value access.
+	// Lifecycle: stable.
+	ContainerEnvironmentPermission PermissionCode = "ops.container.environment"
 	// ContainerLogsPermission identifies container log access.
 	// Lifecycle: stable.
 	ContainerLogsPermission PermissionCode = "ops.container.logs"

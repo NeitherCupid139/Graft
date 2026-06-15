@@ -116,6 +116,15 @@ func permissionItems(moduleName string) []permission.Item {
 			Module:         moduleName,
 		},
 		{
+			Code:           containercontract.ContainerEnvironmentPermission.String(),
+			Name:           "Read Container Environment Values",
+			DisplayKey:     "rbac.permissionCatalog.containerEnvironment.display",
+			Description:    "Allows reading container environment variable values when the display policy permits them.",
+			DescriptionKey: "rbac.permissionCatalog.containerEnvironment.description",
+			Category:       "api",
+			Module:         moduleName,
+		},
+		{
 			Code:           containercontract.ContainerLogsPermission.String(),
 			Name:           "Read Container Logs",
 			DisplayKey:     "rbac.permissionCatalog.containerLogs.display",

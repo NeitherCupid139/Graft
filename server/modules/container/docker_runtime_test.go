@@ -232,6 +232,54 @@ func TestDockerRuntimeListDegradesWhenStatsUnavailable(t *testing.T) {
 	}
 }
 
+func TestDockerRuntimeDetailCollectsResourceStats(t *testing.T) {
+	t.Parallel()
+
+	client := &countingDockerClient{
+		inspect: container.InspectResponse{
+			ContainerJSONBase: &container.ContainerJSONBase{
+				ID:      "1234567890abcdef",
+				Name:    "/graft-web",
+				State:   &container.State{Status: container.StateRunning},
+				Created: "2026-06-14T00:00:00Z",
+			},
+			Config: &container.Config{Image: "graft/web:latest"},
+		},
+		stats: container.StatsResponse{
+			CPUStats: container.CPUStats{
+				CPUUsage:    container.CPUUsage{TotalUsage: 200, PercpuUsage: []uint64{100, 100}},
+				SystemUsage: 1000,
+				OnlineCPUs:  2,
+			},
+			PreCPUStats: container.CPUStats{
+				CPUUsage:    container.CPUUsage{TotalUsage: 100},
+				SystemUsage: 500,
+			},
+			MemoryStats: container.MemoryStats{Usage: 256, Limit: 1024},
+		},
+	}
+	runtime := &DockerRuntime{client: client, endpoint: "unix:///var/run/docker.sock"}
+
+	detail, err := runtime.Detail(context.Background(), Ref{Value: "graft-web"})
+	if err != nil {
+		t.Fatalf("detail: %v", err)
+	}
+
+	if !detail.Resource.Available || !detail.Resource.StatsAvailable {
+		t.Fatalf("expected available detail resource stats, got %#v", detail.Resource)
+	}
+	assertFloatPtr(t, detail.Resource.CPUPercent, 40, "detail CPU percent")
+	assertInt64Ptr(t, detail.Resource.MemoryUsageBytes, 256, "detail memory usage bytes")
+	assertInt64Ptr(t, detail.Resource.MemoryLimitBytes, 1024, "detail memory limit bytes")
+	assertFloatPtr(t, detail.Resource.MemoryPercent, 25, "detail memory percent")
+	if calls := client.inspectCalls.Load(); calls != 1 {
+		t.Fatalf("expected detail to inspect once, got %d", calls)
+	}
+	if calls := client.statsCalls.Load(); calls != 1 {
+		t.Fatalf("expected detail to collect stats once, got %d", calls)
+	}
+}
+
 func TestDockerRuntimeRemoveRejectsRunningWithoutForce(t *testing.T) {
 	t.Parallel()
 
@@ -328,6 +376,47 @@ func TestDockerRuntimeRejectsActionsWhenKnownStateDisallowsThem(t *testing.T) {
 				t.Fatalf("expected runtime action not to be called, got %d", calls)
 			}
 		})
+	}
+}
+
+func TestDockerDetailParsesEnvironmentVariables(t *testing.T) {
+	t.Parallel()
+
+	inspect := container.InspectResponse{
+		ContainerJSONBase: &container.ContainerJSONBase{
+			ID:      "abc123",
+			Name:    "/web",
+			State:   &container.State{Status: container.StateRunning},
+			Created: "2026-06-14T00:00:00Z",
+		},
+		Config: &container.Config{
+			Image: "nginx:latest",
+			Env: []string{
+				"APP_ENV=prod",
+				"PASSWORD=s3cr3t",
+				"EMPTY=",
+				"malformed",
+			},
+		},
+	}
+
+	detail := dockerDetail(inspect, RuntimeInfo{Runtime: runtimeNameDocker, Status: "enabled"})
+	if len(detail.Environment) != 3 {
+		t.Fatalf("expected three parsed env entries, got %#v", detail.Environment)
+	}
+	if detail.Environment[0].Key != "APP_ENV" || detail.Environment[0].Value != "prod" || detail.Environment[0].Sensitive {
+		t.Fatalf("unexpected non-sensitive env entry %#v", detail.Environment[0])
+	}
+	if detail.Environment[1].Key != "PASSWORD" || detail.Environment[1].Value != "s3cr3t" || !detail.Environment[1].Sensitive {
+		t.Fatalf("unexpected sensitive env entry %#v", detail.Environment[1])
+	}
+	if detail.Environment[2].Key != "EMPTY" || detail.Environment[2].Value != "" {
+		t.Fatalf("unexpected empty env entry %#v", detail.Environment[2])
+	}
+	for _, item := range detail.Environment {
+		if item.Source != dockerEnvironmentSource {
+			t.Fatalf("expected docker env source, got %#v", item)
+		}
 	}
 }
 

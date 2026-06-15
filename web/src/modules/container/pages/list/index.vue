@@ -333,7 +333,7 @@
                 theme="default"
                 variant="outline"
                 size="small"
-                @click="openLogs(row)"
+                @click="navigateToDetail(row, 'logs')"
               >
                 {{ t('container.list.actions.logs') }}
               </t-button>
@@ -390,263 +390,6 @@
       :reset-label="t('container.list.resetColumns')"
       :title="t('container.list.columnSettings')"
     />
-
-    <t-drawer
-      v-model:visible="detailDrawerVisible"
-      :header="t('container.list.detail.title')"
-      :footer="false"
-      attach="body"
-      destroy-on-close
-      size="960px"
-    >
-      <div class="container-drawer-panel">
-        <t-alert v-if="detailError" theme="error" :title="detailError">
-          <template #operation>
-            <t-button v-if="selectedContainer" theme="danger" variant="text" @click="loadDetail(selectedContainer.id)">
-              {{ t('container.list.retry') }}
-            </t-button>
-          </template>
-        </t-alert>
-        <t-loading :loading="detailLoading">
-          <section v-if="activeDetail" class="container-detail-stack">
-            <div class="container-detail-context">
-              <div class="container-detail-context__main">
-                <strong>{{ displayName(activeDetail) }}</strong>
-                <t-tooltip :content="activeDetail.id" placement="top-left">
-                  <span>{{ shortContainerId(activeDetail.id) }}</span>
-                </t-tooltip>
-              </div>
-              <t-button theme="default" variant="outline" @click="copyDetailContainerId">
-                {{ t('container.list.actions.copyId') }}
-              </t-button>
-            </div>
-
-            <t-descriptions
-              :title="t('container.list.detail.identity')"
-              :column="2"
-              item-layout="vertical"
-              bordered
-              table-layout="fixed"
-            >
-              <t-descriptions-item :label="t('container.list.fields.name')">
-                {{ displayName(activeDetail) }}
-              </t-descriptions-item>
-              <t-descriptions-item :label="t('container.list.fields.id')">
-                {{ activeDetail.id }}
-              </t-descriptions-item>
-              <t-descriptions-item :label="t('container.list.fields.image')">
-                {{ activeDetail.image }}
-              </t-descriptions-item>
-              <t-descriptions-item :label="t('container.list.fields.imageId')">
-                {{ activeDetail.image_id || '-' }}
-              </t-descriptions-item>
-            </t-descriptions>
-
-            <t-descriptions
-              :title="t('container.list.detail.state')"
-              :column="2"
-              item-layout="vertical"
-              bordered
-              table-layout="fixed"
-            >
-              <t-descriptions-item :label="t('container.list.fields.state')">
-                {{ stateLabel(activeDetail.state) }}
-              </t-descriptions-item>
-              <t-descriptions-item :label="t('container.list.fields.status')">{{
-                activeDetail.status
-              }}</t-descriptions-item>
-              <t-descriptions-item :label="t('container.list.fields.restartPolicy')">
-                {{ activeDetail.restart_policy || '-' }}
-              </t-descriptions-item>
-              <t-descriptions-item :label="t('container.list.fields.createdAt')">
-                {{ formatTime(activeDetail.created_at) }}
-              </t-descriptions-item>
-              <t-descriptions-item :label="t('container.list.fields.startedAt')">
-                {{ formatTime(activeDetail.started_at) }}
-              </t-descriptions-item>
-              <t-descriptions-item :label="t('container.list.detail.inspectUpdatedAt')">
-                {{ formatTime(activeDetail.inspect_updated_at) }}
-              </t-descriptions-item>
-            </t-descriptions>
-
-            <t-descriptions
-              :title="t('container.list.detail.runtime')"
-              :column="2"
-              item-layout="vertical"
-              bordered
-              table-layout="fixed"
-            >
-              <t-descriptions-item :label="t('container.list.fields.runtime')">
-                {{ activeDetail.runtime_info.runtime }}
-              </t-descriptions-item>
-              <t-descriptions-item :label="t('container.list.fields.endpoint')">
-                {{ activeDetail.runtime_info.endpoint || '-' }}
-              </t-descriptions-item>
-              <t-descriptions-item :label="t('container.list.fields.apiVersion')">
-                {{ activeDetail.runtime_info.api_version || '-' }}
-              </t-descriptions-item>
-              <t-descriptions-item :label="t('container.list.fields.serverVersion')">
-                {{ activeDetail.runtime_info.server_version || '-' }}
-              </t-descriptions-item>
-              <t-descriptions-item :label="t('container.list.fields.operatingSystem')">
-                {{ activeDetail.runtime_info.operating_system || '-' }}
-              </t-descriptions-item>
-              <t-descriptions-item :label="t('container.list.fields.architecture')">
-                {{ activeDetail.runtime_info.architecture || '-' }}
-              </t-descriptions-item>
-              <t-descriptions-item :label="t('container.list.detail.command')">
-                {{ joinList(activeDetail.command) }}
-              </t-descriptions-item>
-              <t-descriptions-item :label="t('container.list.detail.entrypoint')">
-                {{ joinList(activeDetail.entrypoint) }}
-              </t-descriptions-item>
-              <t-descriptions-item :label="t('container.list.detail.workingDir')">
-                {{ activeDetail.working_dir || '-' }}
-              </t-descriptions-item>
-            </t-descriptions>
-
-            <section class="container-detail-section">
-              <h3>{{ t('container.list.detail.networkPorts') }}</h3>
-              <div class="container-detail-grid">
-                <div :data-detail-focus="detailFocusSection === 'ports'">
-                  <h4>{{ t('container.list.detail.ports') }}</h4>
-                  <div v-if="activeDetail.ports.length" class="container-detail-list">
-                    <div v-for="port in formatPorts(activeDetail.ports)" :key="port" class="container-detail-item">
-                      <strong>{{ port }}</strong>
-                    </div>
-                  </div>
-                  <t-empty v-else size="small" :description="t('container.list.detail.portEmpty')" />
-                </div>
-                <div :data-detail-focus="detailFocusSection === 'networks'">
-                  <h4>{{ t('container.list.detail.networks') }}</h4>
-                  <div v-if="activeDetail.networks.length" class="container-detail-list">
-                    <div v-for="network in activeDetail.networks" :key="network.name" class="container-detail-item">
-                      <strong>{{ network.name }}</strong>
-                      <span>{{ network.ip_address || '-' }}</span>
-                      <span>{{ network.gateway || network.mac_address || '-' }}</span>
-                    </div>
-                  </div>
-                  <t-empty v-else size="small" :description="t('container.list.detail.networkEmpty')" />
-                </div>
-              </div>
-            </section>
-
-            <section class="container-detail-section" :data-detail-focus="detailFocusSection === 'mounts'">
-              <h3>{{ t('container.list.detail.mounts') }}</h3>
-              <div v-if="activeDetail.mounts.length" class="container-detail-list">
-                <div
-                  v-for="mount in activeDetail.mounts"
-                  :key="`${mount.type}:${mount.destination}`"
-                  class="container-detail-item"
-                >
-                  <strong>{{ mount.destination }}</strong>
-                  <span>{{ mount.type }} / {{ mount.mode || '-' }} / {{ mount.read_only ? 'ro' : 'rw' }}</span>
-                  <span>{{ mount.source || mount.name || '-' }}</span>
-                </div>
-              </div>
-              <t-empty v-else size="small" :description="t('container.list.detail.mountEmpty')" />
-            </section>
-
-            <section class="container-detail-section">
-              <h3>{{ t('container.list.detail.metadata') }}</h3>
-              <div v-if="detailLabelEntries.length" class="container-label-list">
-                <t-tag
-                  v-for="[labelKey, labelValue] in detailLabelEntries"
-                  :key="labelKey"
-                  theme="default"
-                  variant="light"
-                >
-                  {{ labelKey }}={{ labelValue }}
-                </t-tag>
-              </div>
-              <t-empty v-else size="small" :description="t('container.list.detail.metadataEmpty')" />
-            </section>
-
-            <section class="container-detail-section" :data-detail-focus="detailFocusSection === 'environment'">
-              <h3>{{ t('container.list.detail.environment') }}</h3>
-              <t-empty size="small" :description="t('container.list.detail.environmentUnavailable')" />
-            </section>
-
-            <t-collapse v-model:value="detailCollapseValues">
-              <t-collapse-panel value="raw" :header="t('container.list.detail.rawJson')">
-                <pre class="container-raw-json">{{ detailRawJson }}</pre>
-              </t-collapse-panel>
-            </t-collapse>
-          </section>
-        </t-loading>
-      </div>
-    </t-drawer>
-
-    <t-drawer
-      v-model:visible="logsDrawerVisible"
-      :header="logsDrawerTitle"
-      :footer="false"
-      attach="body"
-      destroy-on-close
-      size="800px"
-    >
-      <div class="container-drawer-panel container-logs-panel">
-        <section class="container-log-toolbar">
-          <t-form class="container-log-controls" layout="inline" label-align="top" :data="logQuery">
-            <t-form-item :label="t('container.list.logs.tail')" name="tail">
-              <t-input-number v-model:value="logQuery.tail" theme="normal" :min="1" :max="2000" :step="100" />
-            </t-form-item>
-            <t-form-item :label="t('container.list.logs.since')" name="since">
-              <t-input v-model="logQuery.since" clearable :placeholder="t('container.list.logs.sincePlaceholder')" />
-            </t-form-item>
-            <t-form-item name="streams">
-              <t-space break-line size="small">
-                <t-checkbox v-model="logQuery.timestamps">{{ t('container.list.logs.timestamps') }}</t-checkbox>
-                <t-checkbox v-model="logQuery.stdout">{{ t('container.list.logs.stdout') }}</t-checkbox>
-                <t-checkbox v-model="logQuery.stderr">{{ t('container.list.logs.stderr') }}</t-checkbox>
-              </t-space>
-            </t-form-item>
-            <t-form-item :label="t('container.list.logs.autoRefresh')" name="autoRefresh">
-              <t-space break-line size="small">
-                <t-checkbox v-model="logsAutoRefreshEnabled">{{ t('container.list.logs.enabled') }}</t-checkbox>
-                <t-input-number
-                  v-model:value="logsAutoRefreshSeconds"
-                  theme="normal"
-                  :disabled="!logsAutoRefreshEnabled"
-                  :min="5"
-                  :max="60"
-                  :step="5"
-                />
-              </t-space>
-            </t-form-item>
-          </t-form>
-          <div class="container-log-actions">
-            <t-space size="small">
-              <t-button theme="primary" :loading="logsLoading" @click="refreshLogs">
-                {{ t('container.list.logs.refresh') }}
-              </t-button>
-              <t-button theme="default" variant="outline" :disabled="!activeLogs?.lines.length" @click="copyLogs">
-                {{ t('container.list.logs.copy') }}
-              </t-button>
-            </t-space>
-            <span class="container-log-status">{{ logsRefreshStatus }}</span>
-          </div>
-        </section>
-
-        <t-alert v-if="logsError" class="container-alert" theme="error" :title="logsError" />
-        <t-alert
-          v-if="activeLogs?.truncated"
-          class="container-alert"
-          theme="warning"
-          :title="t('container.list.logs.truncated')"
-        />
-
-        <t-loading :loading="logsLoading">
-          <pre v-if="activeLogs?.lines.length" class="container-log-output">{{ activeLogs.lines.join('\n') }}</pre>
-          <t-empty
-            v-else
-            size="small"
-            :title="t('container.list.logs.emptyTitle')"
-            :description="logsError ? t('container.list.logs.errorEmpty') : t('container.list.logs.empty')"
-          />
-        </t-loading>
-      </div>
-    </t-drawer>
   </div>
 </template>
 <script setup lang="ts">
@@ -655,8 +398,9 @@ import type { DialogInstance, DropdownOption, TdBaseTableProps } from 'tdesign-v
 import { DialogPlugin } from 'tdesign-vue-next/es/dialog';
 import { MessagePlugin } from 'tdesign-vue-next/es/message';
 import { NotifyPlugin } from 'tdesign-vue-next/es/notification';
-import { computed, h, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
+import { computed, h, onMounted, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useRouter } from 'vue-router';
 
 import {
   buildVisibleColumns,
@@ -675,26 +419,22 @@ import { createLogger } from '@/utils/logger';
 
 import {
   batchContainerActions,
-  getContainer,
-  getContainerLogs,
   getContainers,
   removeContainer,
   restartContainer,
   startContainer,
   stopContainer,
 } from '../../api/container';
+import { CONTAINER_BOOTSTRAP_ROUTE } from '../../contract/bootstrap';
 import { CONTAINER_PERMISSION_CODE } from '../../contract/permissions';
 import type {
   ContainerAction,
   ContainerBatchActionItem,
   ContainerBatchActionResponse,
-  ContainerDetail,
   ContainerFilters,
   ContainerHealth,
   ContainerListQuery,
   ContainerListSummary,
-  ContainerLogQuery,
-  ContainerLogResponse,
   ContainerPort,
   ContainerRuntimeInfo,
   ContainerState,
@@ -706,6 +446,7 @@ defineOptions({
 });
 
 const { locale, t } = useI18n();
+const router = useRouter();
 const logger = createLogger('container.list');
 const permissionCodes = CONTAINER_PERMISSION_CODE;
 
@@ -720,13 +461,6 @@ const statusOptions: ContainerState[] = [
   'unknown',
 ];
 const healthOptions: ContainerHealth[] = ['healthy', 'unhealthy', 'starting', 'none', 'unavailable'];
-const DEFAULT_LOG_QUERY: Required<ContainerLogQuery> = {
-  tail: 200,
-  since: '',
-  timestamps: false,
-  stdout: true,
-  stderr: true,
-};
 const CONTAINER_RUNTIME_DISABLED_MESSAGE_KEY = 'ops.container.error.runtimeDisabled';
 const CONTAINER_COLUMN_STORAGE_KEY = 'graft.container.list.visibleColumns';
 const DEFAULT_VISIBLE_COLUMNS = [
@@ -795,21 +529,7 @@ const rows = ref<ContainerSummary[]>([]);
 const runtime = ref<ContainerRuntimeInfo | null>(null);
 const listSummary = ref<ContainerListSummary | null>(null);
 const listTotal = ref(0);
-const detailDrawerVisible = ref(false);
-const detailLoading = ref(false);
-const detailError = ref('');
-const selectedContainer = ref<ContainerSummary | null>(null);
-const activeDetail = ref<ContainerDetail | null>(null);
-const logsDrawerVisible = ref(false);
-const logsLoading = ref(false);
-const logsError = ref('');
-const activeLogs = ref<ContainerLogResponse | null>(null);
-const logsAutoRefreshEnabled = ref(false);
-const logsAutoRefreshSeconds = ref(10);
-const logsLastLoadedAt = ref('');
 const columnDrawerVisible = ref(false);
-const detailCollapseValues = ref<string[]>([]);
-const detailFocusSection = ref('');
 const visibleColumnKeys = ref<string[]>(loadVisibleColumnKeys());
 const tableDensity = ref<'medium' | 'small'>('medium');
 const selectedRowKeys = ref<Array<string | number>>([]);
@@ -821,7 +541,6 @@ const filters = reactive<ContainerFilters>({
   status: 'all',
   health: 'all',
 });
-const logQuery = reactive<Required<ContainerLogQuery>>({ ...DEFAULT_LOG_QUERY });
 const pagination = reactive({
   current: 1,
   pageSize: CONTAINER_DEFAULT_PAGE_SIZE,
@@ -945,34 +664,13 @@ const footerSummary = computed(() => {
     total: listTotal.value,
   });
 });
-const logsDrawerTitle = computed(() => {
-  const containerName = selectedContainer.value ? displayName(selectedContainer.value) : '';
-  return containerName ? `${t('container.list.logs.title')} - ${containerName}` : t('container.list.logs.title');
-});
-const logsRefreshStatus = computed(() => {
-  if (logsAutoRefreshEnabled.value) {
-    return t('container.list.logs.autoRefreshStatus', { seconds: logsAutoRefreshSeconds.value });
-  }
-  if (logsLastLoadedAt.value) {
-    return t('container.list.logs.lastLoadedAt', { time: formatTime(logsLastLoadedAt.value) });
-  }
-  return t('container.list.logs.notLoaded');
-});
-const detailLabelEntries = computed(() => Object.entries(activeDetail.value?.labels ?? {}));
-const detailRawJson = computed(() => (activeDetail.value ? JSON.stringify(activeDetail.value, null, 2) : ''));
 const selectedRows = computed(() => {
   const selectedKeySet = new Set(selectedRowKeys.value.map(String));
   return rows.value.filter((row) => selectedKeySet.has(row.id));
 });
 
-let logsAutoRefreshTimer: number | undefined;
-
 onMounted(() => {
   void refreshContainers();
-});
-
-onUnmounted(() => {
-  stopLogsAutoRefresh();
 });
 
 watch(
@@ -991,25 +689,6 @@ watch(
 watch(
   () => [pagination.current, pagination.pageSize],
   () => void refreshContainers(),
-);
-
-watch(
-  () => logsDrawerVisible.value,
-  (visible) => {
-    if (!visible) {
-      stopLogsAutoRefresh();
-      logsAutoRefreshEnabled.value = false;
-    } else {
-      syncLogsAutoRefresh();
-    }
-  },
-);
-
-watch(
-  () => [logsAutoRefreshEnabled.value, logsAutoRefreshSeconds.value],
-  () => {
-    syncLogsAutoRefresh();
-  },
 );
 
 async function refreshContainers() {
@@ -1087,95 +766,8 @@ function buildListQuery(): ContainerListQuery {
   };
 }
 
-async function openDetail(row: ContainerSummary) {
-  selectedContainer.value = row;
-  activeDetail.value = null;
-  detailCollapseValues.value = [];
-  detailFocusSection.value = '';
-  detailDrawerVisible.value = true;
-  await loadDetail(row.id);
-}
-
-async function loadDetail(containerId: string) {
-  detailLoading.value = true;
-  detailError.value = '';
-  try {
-    activeDetail.value = await getContainer(containerId);
-  } catch (error) {
-    detailError.value = resolveLocalizedErrorMessage(t, error, t('container.list.detail.loadFailed'));
-    logger.warn('failed to fetch container detail', error);
-  } finally {
-    detailLoading.value = false;
-  }
-}
-
-async function openLogs(row: ContainerSummary) {
-  selectedContainer.value = row;
-  activeLogs.value = null;
-  logsError.value = '';
-  logsLastLoadedAt.value = '';
-  logsAutoRefreshEnabled.value = false;
-  Object.assign(logQuery, DEFAULT_LOG_QUERY);
-  logsDrawerVisible.value = true;
-  await refreshLogs();
-}
-
-async function refreshLogs() {
-  if (!selectedContainer.value) return;
-  logsLoading.value = true;
-  logsError.value = '';
-  try {
-    activeLogs.value = await getContainerLogs(selectedContainer.value.id, normalizeLogQuery());
-    logsLastLoadedAt.value = new Date().toISOString();
-  } catch (error) {
-    logsError.value = resolveLocalizedErrorMessage(t, error, t('container.list.logs.loadFailed'));
-    logger.warn('failed to fetch container logs', error);
-  } finally {
-    logsLoading.value = false;
-  }
-}
-
-function syncLogsAutoRefresh() {
-  stopLogsAutoRefresh();
-  if (!logsDrawerVisible.value || !logsAutoRefreshEnabled.value) {
-    return;
-  }
-
-  const interval = Math.max(5, logsAutoRefreshSeconds.value) * 1000;
-  logsAutoRefreshTimer = window.setInterval(() => {
-    if (!logsLoading.value) {
-      void refreshLogs();
-    }
-  }, interval);
-}
-
-function stopLogsAutoRefresh() {
-  if (logsAutoRefreshTimer !== undefined) {
-    window.clearInterval(logsAutoRefreshTimer);
-    logsAutoRefreshTimer = undefined;
-  }
-}
-
-function normalizeLogQuery(): ContainerLogQuery {
-  return {
-    tail: logQuery.tail,
-    since: logQuery.since.trim() || undefined,
-    timestamps: logQuery.timestamps,
-    stdout: logQuery.stdout,
-    stderr: logQuery.stderr,
-  };
-}
-
-async function copyLogs() {
-  const text = activeLogs.value?.lines.join('\n') ?? '';
-  if (!text) return;
-  try {
-    await navigator.clipboard.writeText(text);
-    MessagePlugin.success(t('container.list.copySuccess'));
-  } catch (error) {
-    logger.warn('failed to copy container logs', error);
-    MessagePlugin.error(t('container.list.copyError'));
-  }
+function openDetail(row: ContainerSummary) {
+  void navigateToDetail(row, 'overview');
 }
 
 async function copyContainerId(row: ContainerSummary) {
@@ -1186,11 +778,6 @@ async function copyContainerId(row: ContainerSummary) {
     logger.warn('failed to copy container id', error);
     MessagePlugin.error(t('container.list.copyIdError'));
   }
-}
-
-async function copyDetailContainerId() {
-  if (!activeDetail.value) return;
-  await copyContainerId(activeDetail.value);
 }
 
 function moreRowActions(row: ContainerSummary) {
@@ -1308,22 +895,22 @@ function handleRowAction(action: string, row: ContainerSummary) {
   }
 
   if (action === 'inspect') {
-    void openDetailSection(row, 'raw');
+    void navigateToDetail(row, 'overview');
     return;
   }
 
   if (action === 'view-mounts') {
-    void openDetailSection(row, 'mounts');
+    void navigateToDetail(row, 'storage');
     return;
   }
 
   if (action === 'view-networks') {
-    void openDetailSection(row, 'networks');
+    void navigateToDetail(row, 'network');
     return;
   }
 
   if (action === 'view-env') {
-    void openDetailSection(row, 'environment');
+    void navigateToDetail(row, 'config');
     return;
   }
 
@@ -1690,10 +1277,12 @@ function batchFailureSummary(items: ContainerBatchActionItem[]) {
     .join('\n');
 }
 
-async function openDetailSection(row: ContainerSummary, section: string) {
-  await openDetail(row);
-  detailFocusSection.value = section;
-  detailCollapseValues.value = section === 'raw' ? ['raw'] : [];
+function navigateToDetail(row: ContainerSummary, tab: string) {
+  return router.push({
+    name: CONTAINER_BOOTSTRAP_ROUTE.DETAIL.pageRouteName,
+    params: { id: row.id },
+    query: { tab },
+  });
 }
 
 function handlePageChange(pageInfo: { current?: number; pageSize?: number }) {
@@ -1705,7 +1294,7 @@ function handlePageChange(pageInfo: { current?: number; pageSize?: number }) {
   }
 }
 
-function displayName(row: ContainerSummary | ContainerDetail) {
+function displayName(row: ContainerSummary) {
   return row.name || row.names[0] || row.id;
 }
 
@@ -1821,10 +1410,6 @@ function formatTime(value?: string | null) {
   return formatLocaleDateTime(value, locale);
 }
 
-function joinList(values?: string[]) {
-  return values?.length ? values.join(' ') : '-';
-}
-
 function stateLabel(state: ContainerState) {
   return t(`container.list.states.${state}`);
 }
@@ -1917,8 +1502,7 @@ function normalizeVisibleColumnKeys(keys: unknown[]) {
 
 .container-table-head,
 .container-image,
-.container-identity,
-.container-detail-item {
+.container-identity {
   display: flex;
   flex-direction: column;
   gap: var(--graft-density-gap-4);
@@ -1932,18 +1516,14 @@ function normalizeVisibleColumnKeys(keys: unknown[]) {
 }
 
 .container-table-head__summary,
-.container-identity__name,
-.container-detail-context__main strong,
-.container-detail-item strong {
+.container-identity__name {
   color: var(--td-text-color-primary);
   font: var(--td-font-title-small);
 }
 
 .container-table-head p:not(.container-table-head__summary),
 .container-identity__id,
-.container-detail-context__main span,
-.container-muted,
-.container-detail-item span {
+.container-muted {
   color: var(--td-text-color-secondary);
   font: var(--td-font-body-small);
 }
@@ -2073,139 +1653,9 @@ function normalizeVisibleColumnKeys(keys: unknown[]) {
   margin: var(--graft-density-gap-4) 0 0;
 }
 
-.container-drawer-panel,
-.container-detail-stack,
-.container-logs-panel,
-.container-detail-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--graft-density-gap-16);
-}
-
-.container-detail-section {
-  border: 1px solid var(--td-component-stroke);
-  border-radius: var(--td-radius-medium);
-  display: flex;
-  flex-direction: column;
-  gap: var(--graft-density-gap-12);
-  padding: var(--graft-density-gap-14);
-}
-
-.container-detail-section[data-detail-focus='true'],
-.container-detail-grid > div[data-detail-focus='true'] {
-  border-color: var(--td-brand-color);
-  box-shadow: inset 0 0 0 1px var(--td-brand-color);
-}
-
-.container-detail-context {
-  align-items: center;
-  background: var(--td-bg-color-container);
-  border: 1px solid var(--td-component-stroke);
-  border-radius: var(--td-radius-medium);
-  display: flex;
-  gap: var(--graft-density-gap-12);
-  justify-content: space-between;
-  padding: var(--graft-density-gap-14);
-}
-
-.container-detail-context__main {
-  display: flex;
-  flex-direction: column;
-  gap: var(--graft-density-gap-4);
-  min-width: 0;
-}
-
-.container-detail-grid {
-  display: grid;
-  gap: var(--graft-density-gap-14);
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.container-detail-grid > div {
-  display: flex;
-  flex-direction: column;
-  gap: var(--graft-density-gap-10);
-  min-width: 0;
-}
-
-.container-detail-list {
-  gap: var(--graft-density-gap-10);
-}
-
-.container-detail-item {
-  border-bottom: 1px solid var(--td-component-stroke);
-  padding-bottom: var(--graft-density-gap-10);
-}
-
-.container-detail-item:last-child {
-  border-bottom: 0;
-  padding-bottom: 0;
-}
-
-.container-label-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--graft-density-gap-8);
-}
-
-.container-raw-json,
-.container-log-output {
-  background: var(--td-bg-color-page);
-  border: 1px solid var(--td-component-stroke);
-  border-radius: var(--td-radius-medium);
-  color: var(--td-text-color-primary);
-  font-family: var(--td-font-family-monospace);
-  line-height: var(--td-line-height-body-medium);
-  margin: 0;
-  overflow: auto;
-  overflow-wrap: anywhere;
-  padding: var(--graft-density-gap-14);
-  white-space: pre-wrap;
-}
-
-.container-raw-json {
-  max-height: min(48vh, 520px);
-}
-
-.container-log-toolbar {
-  border: 1px solid var(--td-component-stroke);
-  border-radius: var(--td-radius-medium);
-  display: flex;
-  flex-direction: column;
-  gap: var(--graft-density-gap-12);
-  padding: var(--graft-density-gap-14);
-}
-
-.container-log-actions {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--graft-density-gap-10);
-  justify-content: space-between;
-}
-
-.container-log-status {
-  color: var(--td-text-color-secondary);
-  font: var(--td-font-body-small);
-}
-
-.container-log-output {
-  max-height: min(60vh, 640px);
-}
-
 @media (width <= 768px) {
   .container-actions {
     justify-content: flex-start;
-  }
-
-  .container-detail-context,
-  .container-log-actions {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .container-detail-grid {
-    grid-template-columns: 1fr;
   }
 }
 </style>

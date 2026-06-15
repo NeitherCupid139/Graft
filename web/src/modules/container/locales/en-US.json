@@ -12,6 +12,10 @@
       "list": {
         "title": "Operations - Container Management",
         "breadcrumb": "Container Management"
+      },
+      "detail": {
+        "title": "Container Detail",
+        "breadcrumb": "Container Detail"
       }
     },
     "list": {
@@ -225,6 +229,89 @@
         "operatingSystem": "Operating System",
         "architecture": "Architecture"
       }
+    },
+    "detail": {
+      "title": "Container Detail",
+      "description": "Review Container Runtime Details, Resources, Logs, Configuration, Network, and Mounts.",
+      "back": "Back",
+      "refresh": "Refresh",
+      "copy": "Copy",
+      "copySuccess": "Content Copied.",
+      "copyError": "Content Could Not Be Copied.",
+      "empty": "No Container Detail.",
+      "missingId": "Container ID Is Missing.",
+      "inspectUpdatedAt": "Detail Updated At",
+      "operation": "Operation",
+      "summary": {
+        "identity": "Container",
+        "resources": "Resources",
+        "network": "Network"
+      },
+      "tabs": {
+        "overview": "Overview",
+        "resources": "Resources",
+        "logs": "Logs",
+        "health": "Health",
+        "config": "Config",
+        "network": "Network",
+        "storage": "Storage",
+        "raw": "Raw JSON"
+      },
+      "resources": {
+        "cpu": "CPU",
+        "memory": "Memory",
+        "memoryUsage": "Memory Usage",
+        "memoryLimit": "Memory Limit",
+        "status": "Collection Status",
+        "available": "Collected"
+      },
+      "logs": {
+        "refresh": "Refresh Logs",
+        "empty": "No Logs.",
+        "truncated": "Logs Were Truncated by the Current Limit."
+      },
+      "health": {
+        "status": "Health",
+        "restartCount": "Restart Count"
+      },
+      "config": {
+        "environment": "Environment Variables",
+        "environmentUnavailable": "The Current Detail Contract Does Not Return Environment Variables.",
+        "envName": "Name",
+        "envValue": "Value",
+        "envPolicy": "Policy",
+        "maskedValue": "Masked",
+        "hiddenValue": "Hidden",
+        "policy": {
+          "plain": "Plain",
+          "masked": "Masked",
+          "hidden": "Hidden",
+          "unknown": "Unknown"
+        }
+      },
+      "network": {
+        "primaryIp": "Primary IP",
+        "summary": "Network Summary",
+        "name": "Network",
+        "ipAddress": "IP Address",
+        "gateway": "Gateway",
+        "macAddress": "MAC Address"
+      },
+      "storage": {
+        "destination": "Destination",
+        "source": "Source",
+        "type": "Type",
+        "mode": "Mode",
+        "access": "Access"
+      }
+    }
+  },
+  "rbac": {
+    "permissionCatalog": {
+      "containerEnvironment": {
+        "display": "Read Container Environment Variables",
+        "description": "Allows reading container environment variables after policy processing."
+      }
     }
   },
   "ops": {
@@ -253,9 +340,14 @@
         "runtimeUnavailable": "Container runtime connection is unavailable",
         "runtimeSocketMissing": "Container runtime socket is missing",
         "runtimePermissionDenied": "Permission denied for container runtime access",
+        "containerNotFound": "Container does not exist or has been removed",
+        "invalidContainerRef": "Invalid container identifier",
         "dangerousActionsDisabled": "Dangerous container actions are not enabled",
         "invalidState": "Container state does not allow this action",
-        "invalidListQuery": "Invalid container list query parameter"
+        "invalidListQuery": "Invalid container list query parameter",
+        "invalidLogQuery": "Invalid container log query parameter",
+        "logsTooLarge": "Container log request exceeds the allowed limit",
+        "timeout": "Container runtime request timed out"
       }
     }
   }

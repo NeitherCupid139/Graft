@@ -6,6 +6,7 @@ package container
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -217,6 +218,124 @@ func TestServiceRemoveResponseCarriesMessageKey(t *testing.T) {
 	}
 	if result.MessageKey != containercontract.ContainerActionRemoveCompleted.String() {
 		t.Fatalf("unexpected action message key %q", result.MessageKey)
+	}
+}
+
+func TestServiceAppliesEnvironmentDisplayPolicy(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name     string
+		policy   string
+		expected expectedEnvironmentPolicyResult
+	}{
+		{
+			name:   "hidden",
+			policy: containercontract.ContainerEnvironmentPolicyHidden.String(),
+			expected: expectedEnvironmentPolicyResult{
+				firstMasked:  true,
+				secondMasked: true,
+			},
+		},
+		{
+			name:   "masked",
+			policy: containercontract.ContainerEnvironmentPolicyMasked.String(),
+			expected: expectedEnvironmentPolicyResult{
+				firstValue:   "prod",
+				secondMasked: true,
+			},
+		},
+		{
+			name:   "plain",
+			policy: containercontract.ContainerEnvironmentPolicyPlain.String(),
+			expected: expectedEnvironmentPolicyResult{
+				policy:       containercontract.ContainerEnvironmentPolicyMasked.String(),
+				firstValue:   "prod",
+				secondMasked: true,
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			service := newEnvironmentPolicyTestService(t, tc.policy)
+
+			detail, err := service.Detail(context.Background(), Ref{Value: "web"})
+			if err != nil {
+				t.Fatalf("detail: %v", err)
+			}
+			assertEnvironmentPolicyResult(t, detail, tc.policy, tc.expected)
+		})
+	}
+}
+
+func TestServiceAppliesPlainEnvironmentPolicyWithPermissionContext(t *testing.T) {
+	t.Parallel()
+
+	service := newEnvironmentPolicyTestService(t, containercontract.ContainerEnvironmentPolicyPlain.String())
+	detail, err := service.Detail(withEnvironmentPlainAccess(context.Background()), Ref{Value: "web"})
+	if err != nil {
+		t.Fatalf("detail: %v", err)
+	}
+	assertEnvironmentPolicyResult(t, detail, containercontract.ContainerEnvironmentPolicyPlain.String(), expectedEnvironmentPolicyResult{
+		policy:      containercontract.ContainerEnvironmentPolicyPlain.String(),
+		firstValue:  "prod",
+		secondValue: "secret",
+	})
+}
+
+type expectedEnvironmentPolicyResult struct {
+	policy       string
+	firstValue   string
+	firstMasked  bool
+	secondValue  string
+	secondMasked bool
+}
+
+func newEnvironmentPolicyTestService(t *testing.T, policy string) *service {
+	t.Helper()
+
+	service, err := newService(containerServiceOptions{
+		runtime: fakeRuntime{},
+		systemConfig: serviceTestPolicyConfig{
+			serviceTestSystemConfig: serviceTestSystemConfig{values: map[string]bool{
+				containercontract.ContainerRuntimeEnabledConfig.String(): true,
+			}},
+			policy: policy,
+		},
+		enabled:     true,
+		defaultTail: defaultContainerLogsDefaultTail,
+		maxTail:     defaultContainerLogsMaxTail,
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	return service
+}
+
+func assertEnvironmentPolicyResult(
+	t *testing.T,
+	detail Detail,
+	policy string,
+	expected expectedEnvironmentPolicyResult,
+) {
+	t.Helper()
+
+	expectedPolicy := firstNonEmpty(expected.policy, policy)
+	if detail.EnvironmentPolicy != expectedPolicy {
+		t.Fatalf("expected policy %q, got %#v", expectedPolicy, detail)
+	}
+	if len(detail.Environment) != 2 {
+		t.Fatalf("expected two environment entries, got %#v", detail.Environment)
+	}
+	if detail.Environment[0].Value != expected.firstValue || detail.Environment[0].Masked != expected.firstMasked || detail.Environment[0].Sensitive {
+		t.Fatalf("unexpected first environment entry %#v", detail.Environment[0])
+	}
+	if detail.Environment[1].Value != expected.secondValue || detail.Environment[1].Masked != expected.secondMasked || !detail.Environment[1].Sensitive {
+		t.Fatalf("unexpected second environment entry %#v", detail.Environment[1])
 	}
 }
 
@@ -538,6 +657,8 @@ func newContainerConfigRegistry(t *testing.T) *configregistry.Registry {
 			definition.DefaultValue = mustRawJSON(500)
 		case containercontract.ContainerDangerousActionsEnabledConfig.String():
 			definition.DefaultValue = mustRawJSON(true)
+		case containercontract.ContainerEnvironmentPolicyConfig.String():
+			definition.DefaultValue = mustRawJSON(containercontract.ContainerEnvironmentPolicyPlain.String())
 		}
 		if err := registry.Register(definition); err != nil {
 			t.Fatalf("register config definition %s: %v", definition.Key, err)
@@ -609,6 +730,18 @@ func (r serviceTestSystemConfig) IsBooleanConfigEnabled(_ context.Context, key s
 }
 
 var _ moduleapi.SystemConfigResolver = serviceTestSystemConfig{}
+
+type serviceTestPolicyConfig struct {
+	serviceTestSystemConfig
+	policy string
+}
+
+func (r serviceTestPolicyConfig) ResolveDefaultConfig(_ context.Context, key string) (string, error) {
+	if key != containercontract.ContainerEnvironmentPolicyConfig.String() || strings.TrimSpace(r.policy) == "" {
+		return "", errors.New("config unavailable")
+	}
+	return string(mustRawJSON(r.policy)), nil
+}
 
 type countingRuntime struct {
 	calls atomic.Int64
@@ -807,7 +940,13 @@ func (fakeRuntime) List(context.Context, ListQuery) ([]Summary, error) {
 }
 
 func (fakeRuntime) Detail(context.Context, Ref) (Detail, error) {
-	return Detail{Summary: fakeSummary()}, nil
+	return Detail{
+		Summary: fakeSummary(),
+		Environment: []EnvironmentVariable{
+			{Key: "APP_ENV", Value: "prod", Source: dockerEnvironmentSource},
+			{Key: "API_TOKEN", Value: "secret", Source: dockerEnvironmentSource},
+		},
+	}, nil
 }
 
 func (fakeRuntime) Logs(_ context.Context, ref Ref, query LogQuery) (Logs, error) {

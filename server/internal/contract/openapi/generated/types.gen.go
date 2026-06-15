@@ -774,6 +774,27 @@ func (e ContainerBatchActionRequestAction) Valid() bool {
 	}
 }
 
+// Defines values for ContainerDetailEnvironmentPolicy.
+const (
+	ContainerDetailEnvironmentPolicyHidden ContainerDetailEnvironmentPolicy = "hidden"
+	ContainerDetailEnvironmentPolicyMasked ContainerDetailEnvironmentPolicy = "masked"
+	ContainerDetailEnvironmentPolicyPlain  ContainerDetailEnvironmentPolicy = "plain"
+)
+
+// Valid indicates whether the value is a known member of the ContainerDetailEnvironmentPolicy enum.
+func (e ContainerDetailEnvironmentPolicy) Valid() bool {
+	switch e {
+	case ContainerDetailEnvironmentPolicyHidden:
+		return true
+	case ContainerDetailEnvironmentPolicyMasked:
+		return true
+	case ContainerDetailEnvironmentPolicyPlain:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ContainerDetailHealth.
 const (
 	ContainerDetailHealthHealthy     ContainerDetailHealth = "healthy"
@@ -1295,16 +1316,16 @@ func (e ModuleRuntimeItemRuntimeStatus) Valid() bool {
 
 // Defines values for ModuleRuntimeMigrationStatusStatus.
 const (
-	Declared    ModuleRuntimeMigrationStatusStatus = "declared"
-	NotDeclared ModuleRuntimeMigrationStatusStatus = "not_declared"
+	ModuleRuntimeMigrationStatusStatusDeclared    ModuleRuntimeMigrationStatusStatus = "declared"
+	ModuleRuntimeMigrationStatusStatusNotDeclared ModuleRuntimeMigrationStatusStatus = "not_declared"
 )
 
 // Valid indicates whether the value is a known member of the ModuleRuntimeMigrationStatusStatus enum.
 func (e ModuleRuntimeMigrationStatusStatus) Valid() bool {
 	switch e {
-	case Declared:
+	case ModuleRuntimeMigrationStatusStatusDeclared:
 		return true
-	case NotDeclared:
+	case ModuleRuntimeMigrationStatusStatusNotDeclared:
 		return true
 	default:
 		return false
@@ -3003,9 +3024,13 @@ type ContainerDetail struct {
 	ComposeProject *string `json:"compose_project,omitempty"`
 
 	// ComposeService Docker Compose service label when present.
-	ComposeService *string   `json:"compose_service,omitempty"`
-	CreatedAt      time.Time `json:"created_at"`
-	Entrypoint     *[]string `json:"entrypoint,omitempty"`
+	ComposeService *string                      `json:"compose_service,omitempty"`
+	CreatedAt      time.Time                    `json:"created_at"`
+	Entrypoint     *[]string                    `json:"entrypoint,omitempty"`
+	Environment    *[]ContainerEnvironmentEntry `json:"environment,omitempty"`
+
+	// EnvironmentPolicy Effective container environment variable display policy applied to this detail response.
+	EnvironmentPolicy *ContainerDetailEnvironmentPolicy `json:"environment_policy,omitempty"`
 
 	// Health Nullable when the runtime cannot determine health on the list path without row-level inspect.
 	Health           *ContainerDetailHealth `json:"health,omitempty"`
@@ -3045,11 +3070,32 @@ type ContainerDetail struct {
 	WorkingDir *string `json:"working_dir,omitempty"`
 }
 
+// ContainerDetailEnvironmentPolicy Effective container environment variable display policy applied to this detail response.
+type ContainerDetailEnvironmentPolicy string
+
 // ContainerDetailHealth Nullable when the runtime cannot determine health on the list path without row-level inspect.
 type ContainerDetailHealth string
 
 // ContainerDetailState defines model for ContainerDetail.State.
 type ContainerDetailState string
+
+// ContainerEnvironmentEntry Container environment variable entry after policy application.
+type ContainerEnvironmentEntry struct {
+	// Key Environment variable name.
+	Key string `json:"key"`
+
+	// Masked Whether the value is intentionally omitted by environment display policy.
+	Masked bool `json:"masked"`
+
+	// Sensitive Whether the key matched the container module sensitive-key heuristic.
+	Sensitive bool `json:"sensitive"`
+
+	// Source Runtime source of the environment variable entry.
+	Source string `json:"source"`
+
+	// Value Environment variable value. Omitted when the active policy hides or masks the value.
+	Value *string `json:"value,omitempty"`
+}
 
 // ContainerListResponse defines model for container-list-response.
 type ContainerListResponse struct {
@@ -3742,7 +3788,7 @@ type EnvelopedContainerDetail struct {
 	// Code Existing canonical response code.
 	Code string `json:"code"`
 
-	// Data Container detail intentionally omits environment variables and raw inspect payload fields that may contain secrets.
+	// Data Container detail returns environment variables according to the configured display policy and omits raw inspect payload fields that may contain secrets.
 	Data ContainerDetail `json:"data"`
 
 	// Locale Present on localized error flows and omitted on normal success.
