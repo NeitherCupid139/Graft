@@ -22,6 +22,10 @@ allOf:
       environment_policy:
         type: string
         enum: [hidden, masked, plain]
+        x-enum-varnames:
+          - ContainerDetailEnvironmentPolicyHidden
+          - ContainerDetailEnvironmentPolicyMasked
+          - ContainerDetailEnvironmentPolicyPlain
         description: Effective container environment variable display policy applied to this detail response.
       working_dir:
         type: string

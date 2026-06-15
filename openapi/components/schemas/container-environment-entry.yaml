@@ -19,5 +19,8 @@ properties:
     description: Whether the key matched the container module sensitive-key heuristic.
   source:
     type: string
+    enum: [docker]
+    x-enum-varnames:
+      - ContainerEnvironmentEntrySourceDocker
     description: Runtime source of the environment variable entry.
 description: Container environment variable entry after policy application.

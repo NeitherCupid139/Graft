@@ -9,34 +9,34 @@ const (
 
 // Defines values for GetContainersParamsState.
 const (
-	GetContainersParamsStateCreated    GetContainersParamsState = "created"
-	GetContainersParamsStateDead       GetContainersParamsState = "dead"
-	GetContainersParamsStateExited     GetContainersParamsState = "exited"
-	GetContainersParamsStatePaused     GetContainersParamsState = "paused"
-	GetContainersParamsStateRemoving   GetContainersParamsState = "removing"
-	GetContainersParamsStateRestarting GetContainersParamsState = "restarting"
-	GetContainersParamsStateRunning    GetContainersParamsState = "running"
-	GetContainersParamsStateUnknown    GetContainersParamsState = "unknown"
+	ContainerListStateCreated    GetContainersParamsState = "created"
+	ContainerListStateDead       GetContainersParamsState = "dead"
+	ContainerListStateExited     GetContainersParamsState = "exited"
+	ContainerListStatePaused     GetContainersParamsState = "paused"
+	ContainerListStateRemoving   GetContainersParamsState = "removing"
+	ContainerListStateRestarting GetContainersParamsState = "restarting"
+	ContainerListStateRunning    GetContainersParamsState = "running"
+	ContainerListStateUnknown    GetContainersParamsState = "unknown"
 )
 
 // Valid indicates whether the value is a known member of the GetContainersParamsState enum.
 func (e GetContainersParamsState) Valid() bool {
 	switch e {
-	case GetContainersParamsStateCreated:
+	case ContainerListStateCreated:
 		return true
-	case GetContainersParamsStateDead:
+	case ContainerListStateDead:
 		return true
-	case GetContainersParamsStateExited:
+	case ContainerListStateExited:
 		return true
-	case GetContainersParamsStatePaused:
+	case ContainerListStatePaused:
 		return true
-	case GetContainersParamsStateRemoving:
+	case ContainerListStateRemoving:
 		return true
-	case GetContainersParamsStateRestarting:
+	case ContainerListStateRestarting:
 		return true
-	case GetContainersParamsStateRunning:
+	case ContainerListStateRunning:
 		return true
-	case GetContainersParamsStateUnknown:
+	case ContainerListStateUnknown:
 		return true
 	default:
 		return false
@@ -45,25 +45,25 @@ func (e GetContainersParamsState) Valid() bool {
 
 // Defines values for GetContainersParamsHealth.
 const (
-	GetContainersParamsHealthHealthy     GetContainersParamsHealth = "healthy"
-	GetContainersParamsHealthNone        GetContainersParamsHealth = "none"
-	GetContainersParamsHealthStarting    GetContainersParamsHealth = "starting"
-	GetContainersParamsHealthUnavailable GetContainersParamsHealth = "unavailable"
-	GetContainersParamsHealthUnhealthy   GetContainersParamsHealth = "unhealthy"
+	ContainerListHealthHealthy     GetContainersParamsHealth = "healthy"
+	ContainerListHealthNone        GetContainersParamsHealth = "none"
+	ContainerListHealthStarting    GetContainersParamsHealth = "starting"
+	ContainerListHealthUnavailable GetContainersParamsHealth = "unavailable"
+	ContainerListHealthUnhealthy   GetContainersParamsHealth = "unhealthy"
 )
 
 // Valid indicates whether the value is a known member of the GetContainersParamsHealth enum.
 func (e GetContainersParamsHealth) Valid() bool {
 	switch e {
-	case GetContainersParamsHealthHealthy:
+	case ContainerListHealthHealthy:
 		return true
-	case GetContainersParamsHealthNone:
+	case ContainerListHealthNone:
 		return true
-	case GetContainersParamsHealthStarting:
+	case ContainerListHealthStarting:
 		return true
-	case GetContainersParamsHealthUnavailable:
+	case ContainerListHealthUnavailable:
 		return true
-	case GetContainersParamsHealthUnhealthy:
+	case ContainerListHealthUnhealthy:
 		return true
 	default:
 		return false
@@ -72,25 +72,25 @@ func (e GetContainersParamsHealth) Valid() bool {
 
 // Defines values for GetContainers200JSONResponseBodyDataItemsHealth.
 const (
-	GetContainers200JSONResponseBodyDataItemsHealthHealthy     GetContainers200JSONResponseBodyDataItemsHealth = "healthy"
-	GetContainers200JSONResponseBodyDataItemsHealthNone        GetContainers200JSONResponseBodyDataItemsHealth = "none"
-	GetContainers200JSONResponseBodyDataItemsHealthStarting    GetContainers200JSONResponseBodyDataItemsHealth = "starting"
-	GetContainers200JSONResponseBodyDataItemsHealthUnavailable GetContainers200JSONResponseBodyDataItemsHealth = "unavailable"
-	GetContainers200JSONResponseBodyDataItemsHealthUnhealthy   GetContainers200JSONResponseBodyDataItemsHealth = "unhealthy"
+	GetContainers200JSONResponseBodyDataItemsHealthContainerSummaryHealthHealthy     GetContainers200JSONResponseBodyDataItemsHealth = "healthy"
+	GetContainers200JSONResponseBodyDataItemsHealthContainerSummaryHealthNone        GetContainers200JSONResponseBodyDataItemsHealth = "none"
+	GetContainers200JSONResponseBodyDataItemsHealthContainerSummaryHealthStarting    GetContainers200JSONResponseBodyDataItemsHealth = "starting"
+	GetContainers200JSONResponseBodyDataItemsHealthContainerSummaryHealthUnavailable GetContainers200JSONResponseBodyDataItemsHealth = "unavailable"
+	GetContainers200JSONResponseBodyDataItemsHealthContainerSummaryHealthUnhealthy   GetContainers200JSONResponseBodyDataItemsHealth = "unhealthy"
 )
 
 // Valid indicates whether the value is a known member of the GetContainers200JSONResponseBodyDataItemsHealth enum.
 func (e GetContainers200JSONResponseBodyDataItemsHealth) Valid() bool {
 	switch e {
-	case GetContainers200JSONResponseBodyDataItemsHealthHealthy:
+	case GetContainers200JSONResponseBodyDataItemsHealthContainerSummaryHealthHealthy:
 		return true
-	case GetContainers200JSONResponseBodyDataItemsHealthNone:
+	case GetContainers200JSONResponseBodyDataItemsHealthContainerSummaryHealthNone:
 		return true
-	case GetContainers200JSONResponseBodyDataItemsHealthStarting:
+	case GetContainers200JSONResponseBodyDataItemsHealthContainerSummaryHealthStarting:
 		return true
-	case GetContainers200JSONResponseBodyDataItemsHealthUnavailable:
+	case GetContainers200JSONResponseBodyDataItemsHealthContainerSummaryHealthUnavailable:
 		return true
-	case GetContainers200JSONResponseBodyDataItemsHealthUnhealthy:
+	case GetContainers200JSONResponseBodyDataItemsHealthContainerSummaryHealthUnhealthy:
 		return true
 	default:
 		return false
@@ -99,19 +99,19 @@ func (e GetContainers200JSONResponseBodyDataItemsHealth) Valid() bool {
 
 // Defines values for GetContainers200JSONResponseBodyDataItemsPortsType.
 const (
-	GetContainers200JSONResponseBodyDataItemsPortsTypeSctp GetContainers200JSONResponseBodyDataItemsPortsType = "sctp"
-	GetContainers200JSONResponseBodyDataItemsPortsTypeTcp  GetContainers200JSONResponseBodyDataItemsPortsType = "tcp"
-	GetContainers200JSONResponseBodyDataItemsPortsTypeUdp  GetContainers200JSONResponseBodyDataItemsPortsType = "udp"
+	GetContainers200JSONResponseBodyDataItemsPortsTypeContainerPortTypeValueSCTP GetContainers200JSONResponseBodyDataItemsPortsType = "sctp"
+	GetContainers200JSONResponseBodyDataItemsPortsTypeContainerPortTypeValueTCP  GetContainers200JSONResponseBodyDataItemsPortsType = "tcp"
+	GetContainers200JSONResponseBodyDataItemsPortsTypeContainerPortTypeValueUDP  GetContainers200JSONResponseBodyDataItemsPortsType = "udp"
 )
 
 // Valid indicates whether the value is a known member of the GetContainers200JSONResponseBodyDataItemsPortsType enum.
 func (e GetContainers200JSONResponseBodyDataItemsPortsType) Valid() bool {
 	switch e {
-	case GetContainers200JSONResponseBodyDataItemsPortsTypeSctp:
+	case GetContainers200JSONResponseBodyDataItemsPortsTypeContainerPortTypeValueSCTP:
 		return true
-	case GetContainers200JSONResponseBodyDataItemsPortsTypeTcp:
+	case GetContainers200JSONResponseBodyDataItemsPortsTypeContainerPortTypeValueTCP:
 		return true
-	case GetContainers200JSONResponseBodyDataItemsPortsTypeUdp:
+	case GetContainers200JSONResponseBodyDataItemsPortsTypeContainerPortTypeValueUDP:
 		return true
 	default:
 		return false
@@ -120,34 +120,34 @@ func (e GetContainers200JSONResponseBodyDataItemsPortsType) Valid() bool {
 
 // Defines values for GetContainers200JSONResponseBodyDataItemsState.
 const (
-	GetContainers200JSONResponseBodyDataItemsStateCreated    GetContainers200JSONResponseBodyDataItemsState = "created"
-	GetContainers200JSONResponseBodyDataItemsStateDead       GetContainers200JSONResponseBodyDataItemsState = "dead"
-	GetContainers200JSONResponseBodyDataItemsStateExited     GetContainers200JSONResponseBodyDataItemsState = "exited"
-	GetContainers200JSONResponseBodyDataItemsStatePaused     GetContainers200JSONResponseBodyDataItemsState = "paused"
-	GetContainers200JSONResponseBodyDataItemsStateRemoving   GetContainers200JSONResponseBodyDataItemsState = "removing"
-	GetContainers200JSONResponseBodyDataItemsStateRestarting GetContainers200JSONResponseBodyDataItemsState = "restarting"
-	GetContainers200JSONResponseBodyDataItemsStateRunning    GetContainers200JSONResponseBodyDataItemsState = "running"
-	GetContainers200JSONResponseBodyDataItemsStateUnknown    GetContainers200JSONResponseBodyDataItemsState = "unknown"
+	GetContainers200JSONResponseBodyDataItemsStateContainerSummaryStateCreated    GetContainers200JSONResponseBodyDataItemsState = "created"
+	GetContainers200JSONResponseBodyDataItemsStateContainerSummaryStateDead       GetContainers200JSONResponseBodyDataItemsState = "dead"
+	GetContainers200JSONResponseBodyDataItemsStateContainerSummaryStateExited     GetContainers200JSONResponseBodyDataItemsState = "exited"
+	GetContainers200JSONResponseBodyDataItemsStateContainerSummaryStatePaused     GetContainers200JSONResponseBodyDataItemsState = "paused"
+	GetContainers200JSONResponseBodyDataItemsStateContainerSummaryStateRemoving   GetContainers200JSONResponseBodyDataItemsState = "removing"
+	GetContainers200JSONResponseBodyDataItemsStateContainerSummaryStateRestarting GetContainers200JSONResponseBodyDataItemsState = "restarting"
+	GetContainers200JSONResponseBodyDataItemsStateContainerSummaryStateRunning    GetContainers200JSONResponseBodyDataItemsState = "running"
+	GetContainers200JSONResponseBodyDataItemsStateContainerSummaryStateUnknown    GetContainers200JSONResponseBodyDataItemsState = "unknown"
 )
 
 // Valid indicates whether the value is a known member of the GetContainers200JSONResponseBodyDataItemsState enum.
 func (e GetContainers200JSONResponseBodyDataItemsState) Valid() bool {
 	switch e {
-	case GetContainers200JSONResponseBodyDataItemsStateCreated:
+	case GetContainers200JSONResponseBodyDataItemsStateContainerSummaryStateCreated:
 		return true
-	case GetContainers200JSONResponseBodyDataItemsStateDead:
+	case GetContainers200JSONResponseBodyDataItemsStateContainerSummaryStateDead:
 		return true
-	case GetContainers200JSONResponseBodyDataItemsStateExited:
+	case GetContainers200JSONResponseBodyDataItemsStateContainerSummaryStateExited:
 		return true
-	case GetContainers200JSONResponseBodyDataItemsStatePaused:
+	case GetContainers200JSONResponseBodyDataItemsStateContainerSummaryStatePaused:
 		return true
-	case GetContainers200JSONResponseBodyDataItemsStateRemoving:
+	case GetContainers200JSONResponseBodyDataItemsStateContainerSummaryStateRemoving:
 		return true
-	case GetContainers200JSONResponseBodyDataItemsStateRestarting:
+	case GetContainers200JSONResponseBodyDataItemsStateContainerSummaryStateRestarting:
 		return true
-	case GetContainers200JSONResponseBodyDataItemsStateRunning:
+	case GetContainers200JSONResponseBodyDataItemsStateContainerSummaryStateRunning:
 		return true
-	case GetContainers200JSONResponseBodyDataItemsStateUnknown:
+	case GetContainers200JSONResponseBodyDataItemsStateContainerSummaryStateUnknown:
 		return true
 	default:
 		return false
@@ -156,19 +156,19 @@ func (e GetContainers200JSONResponseBodyDataItemsState) Valid() bool {
 
 // Defines values for GetContainers200JSONResponseBodyDataRuntimeStatus.
 const (
-	GetContainers200JSONResponseBodyDataRuntimeStatusDisabled    GetContainers200JSONResponseBodyDataRuntimeStatus = "disabled"
-	GetContainers200JSONResponseBodyDataRuntimeStatusEnabled     GetContainers200JSONResponseBodyDataRuntimeStatus = "enabled"
-	GetContainers200JSONResponseBodyDataRuntimeStatusUnavailable GetContainers200JSONResponseBodyDataRuntimeStatus = "unavailable"
+	GetContainers200JSONResponseBodyDataRuntimeStatusContainerRuntimeInfoStatusDisabled    GetContainers200JSONResponseBodyDataRuntimeStatus = "disabled"
+	GetContainers200JSONResponseBodyDataRuntimeStatusContainerRuntimeInfoStatusEnabled     GetContainers200JSONResponseBodyDataRuntimeStatus = "enabled"
+	GetContainers200JSONResponseBodyDataRuntimeStatusContainerRuntimeInfoStatusUnavailable GetContainers200JSONResponseBodyDataRuntimeStatus = "unavailable"
 )
 
 // Valid indicates whether the value is a known member of the GetContainers200JSONResponseBodyDataRuntimeStatus enum.
 func (e GetContainers200JSONResponseBodyDataRuntimeStatus) Valid() bool {
 	switch e {
-	case GetContainers200JSONResponseBodyDataRuntimeStatusDisabled:
+	case GetContainers200JSONResponseBodyDataRuntimeStatusContainerRuntimeInfoStatusDisabled:
 		return true
-	case GetContainers200JSONResponseBodyDataRuntimeStatusEnabled:
+	case GetContainers200JSONResponseBodyDataRuntimeStatusContainerRuntimeInfoStatusEnabled:
 		return true
-	case GetContainers200JSONResponseBodyDataRuntimeStatusUnavailable:
+	case GetContainers200JSONResponseBodyDataRuntimeStatusContainerRuntimeInfoStatusUnavailable:
 		return true
 	default:
 		return false
@@ -237,22 +237,22 @@ func (e GetContainers500JSONResponseBodySuccess) Valid() bool {
 
 // Defines values for PostContainerBatchActionsJSONBodyAction.
 const (
-	PostContainerBatchActionsJSONBodyActionRemove  PostContainerBatchActionsJSONBodyAction = "remove"
-	PostContainerBatchActionsJSONBodyActionRestart PostContainerBatchActionsJSONBodyAction = "restart"
-	PostContainerBatchActionsJSONBodyActionStart   PostContainerBatchActionsJSONBodyAction = "start"
-	PostContainerBatchActionsJSONBodyActionStop    PostContainerBatchActionsJSONBodyAction = "stop"
+	ContainerBatchActionRequestActionValueRemove  PostContainerBatchActionsJSONBodyAction = "remove"
+	ContainerBatchActionRequestActionValueRestart PostContainerBatchActionsJSONBodyAction = "restart"
+	ContainerBatchActionRequestActionValueStart   PostContainerBatchActionsJSONBodyAction = "start"
+	ContainerBatchActionRequestActionValueStop    PostContainerBatchActionsJSONBodyAction = "stop"
 )
 
 // Valid indicates whether the value is a known member of the PostContainerBatchActionsJSONBodyAction enum.
 func (e PostContainerBatchActionsJSONBodyAction) Valid() bool {
 	switch e {
-	case PostContainerBatchActionsJSONBodyActionRemove:
+	case ContainerBatchActionRequestActionValueRemove:
 		return true
-	case PostContainerBatchActionsJSONBodyActionRestart:
+	case ContainerBatchActionRequestActionValueRestart:
 		return true
-	case PostContainerBatchActionsJSONBodyActionStart:
+	case ContainerBatchActionRequestActionValueStart:
 		return true
-	case PostContainerBatchActionsJSONBodyActionStop:
+	case ContainerBatchActionRequestActionValueStop:
 		return true
 	default:
 		return false
@@ -261,22 +261,22 @@ func (e PostContainerBatchActionsJSONBodyAction) Valid() bool {
 
 // Defines values for PostContainerBatchActions200JSONResponseBodyDataItemsAction.
 const (
-	PostContainerBatchActions200JSONResponseBodyDataItemsActionRemove  PostContainerBatchActions200JSONResponseBodyDataItemsAction = "remove"
-	PostContainerBatchActions200JSONResponseBodyDataItemsActionRestart PostContainerBatchActions200JSONResponseBodyDataItemsAction = "restart"
-	PostContainerBatchActions200JSONResponseBodyDataItemsActionStart   PostContainerBatchActions200JSONResponseBodyDataItemsAction = "start"
-	PostContainerBatchActions200JSONResponseBodyDataItemsActionStop    PostContainerBatchActions200JSONResponseBodyDataItemsAction = "stop"
+	ContainerBatchActionItemActionRemove  PostContainerBatchActions200JSONResponseBodyDataItemsAction = "remove"
+	ContainerBatchActionItemActionRestart PostContainerBatchActions200JSONResponseBodyDataItemsAction = "restart"
+	ContainerBatchActionItemActionStart   PostContainerBatchActions200JSONResponseBodyDataItemsAction = "start"
+	ContainerBatchActionItemActionStop    PostContainerBatchActions200JSONResponseBodyDataItemsAction = "stop"
 )
 
 // Valid indicates whether the value is a known member of the PostContainerBatchActions200JSONResponseBodyDataItemsAction enum.
 func (e PostContainerBatchActions200JSONResponseBodyDataItemsAction) Valid() bool {
 	switch e {
-	case PostContainerBatchActions200JSONResponseBodyDataItemsActionRemove:
+	case ContainerBatchActionItemActionRemove:
 		return true
-	case PostContainerBatchActions200JSONResponseBodyDataItemsActionRestart:
+	case ContainerBatchActionItemActionRestart:
 		return true
-	case PostContainerBatchActions200JSONResponseBodyDataItemsActionStart:
+	case ContainerBatchActionItemActionStart:
 		return true
-	case PostContainerBatchActions200JSONResponseBodyDataItemsActionStop:
+	case ContainerBatchActionItemActionStop:
 		return true
 	default:
 		return false
@@ -343,21 +343,36 @@ func (e PostContainerBatchActions500JSONResponseBodySuccess) Valid() bool {
 	}
 }
 
+// Defines values for GetContainer200JSONResponseBodyDataEnvironmentSource.
+const (
+	ContainerEnvironmentEntrySourceDocker GetContainer200JSONResponseBodyDataEnvironmentSource = "docker"
+)
+
+// Valid indicates whether the value is a known member of the GetContainer200JSONResponseBodyDataEnvironmentSource enum.
+func (e GetContainer200JSONResponseBodyDataEnvironmentSource) Valid() bool {
+	switch e {
+	case ContainerEnvironmentEntrySourceDocker:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetContainer200JSONResponseBodyDataEnvironmentPolicy.
 const (
-	Hidden GetContainer200JSONResponseBodyDataEnvironmentPolicy = "hidden"
-	Masked GetContainer200JSONResponseBodyDataEnvironmentPolicy = "masked"
-	Plain  GetContainer200JSONResponseBodyDataEnvironmentPolicy = "plain"
+	ContainerDetailEnvironmentPolicyHidden GetContainer200JSONResponseBodyDataEnvironmentPolicy = "hidden"
+	ContainerDetailEnvironmentPolicyMasked GetContainer200JSONResponseBodyDataEnvironmentPolicy = "masked"
+	ContainerDetailEnvironmentPolicyPlain  GetContainer200JSONResponseBodyDataEnvironmentPolicy = "plain"
 )
 
 // Valid indicates whether the value is a known member of the GetContainer200JSONResponseBodyDataEnvironmentPolicy enum.
 func (e GetContainer200JSONResponseBodyDataEnvironmentPolicy) Valid() bool {
 	switch e {
-	case Hidden:
+	case ContainerDetailEnvironmentPolicyHidden:
 		return true
-	case Masked:
+	case ContainerDetailEnvironmentPolicyMasked:
 		return true
-	case Plain:
+	case ContainerDetailEnvironmentPolicyPlain:
 		return true
 	default:
 		return false
@@ -366,25 +381,25 @@ func (e GetContainer200JSONResponseBodyDataEnvironmentPolicy) Valid() bool {
 
 // Defines values for GetContainer200JSONResponseBodyDataHealth.
 const (
-	GetContainer200JSONResponseBodyDataHealthHealthy     GetContainer200JSONResponseBodyDataHealth = "healthy"
-	GetContainer200JSONResponseBodyDataHealthNone        GetContainer200JSONResponseBodyDataHealth = "none"
-	GetContainer200JSONResponseBodyDataHealthStarting    GetContainer200JSONResponseBodyDataHealth = "starting"
-	GetContainer200JSONResponseBodyDataHealthUnavailable GetContainer200JSONResponseBodyDataHealth = "unavailable"
-	GetContainer200JSONResponseBodyDataHealthUnhealthy   GetContainer200JSONResponseBodyDataHealth = "unhealthy"
+	GetContainer200JSONResponseBodyDataHealthContainerSummaryHealthHealthy     GetContainer200JSONResponseBodyDataHealth = "healthy"
+	GetContainer200JSONResponseBodyDataHealthContainerSummaryHealthNone        GetContainer200JSONResponseBodyDataHealth = "none"
+	GetContainer200JSONResponseBodyDataHealthContainerSummaryHealthStarting    GetContainer200JSONResponseBodyDataHealth = "starting"
+	GetContainer200JSONResponseBodyDataHealthContainerSummaryHealthUnavailable GetContainer200JSONResponseBodyDataHealth = "unavailable"
+	GetContainer200JSONResponseBodyDataHealthContainerSummaryHealthUnhealthy   GetContainer200JSONResponseBodyDataHealth = "unhealthy"
 )
 
 // Valid indicates whether the value is a known member of the GetContainer200JSONResponseBodyDataHealth enum.
 func (e GetContainer200JSONResponseBodyDataHealth) Valid() bool {
 	switch e {
-	case GetContainer200JSONResponseBodyDataHealthHealthy:
+	case GetContainer200JSONResponseBodyDataHealthContainerSummaryHealthHealthy:
 		return true
-	case GetContainer200JSONResponseBodyDataHealthNone:
+	case GetContainer200JSONResponseBodyDataHealthContainerSummaryHealthNone:
 		return true
-	case GetContainer200JSONResponseBodyDataHealthStarting:
+	case GetContainer200JSONResponseBodyDataHealthContainerSummaryHealthStarting:
 		return true
-	case GetContainer200JSONResponseBodyDataHealthUnavailable:
+	case GetContainer200JSONResponseBodyDataHealthContainerSummaryHealthUnavailable:
 		return true
-	case GetContainer200JSONResponseBodyDataHealthUnhealthy:
+	case GetContainer200JSONResponseBodyDataHealthContainerSummaryHealthUnhealthy:
 		return true
 	default:
 		return false
@@ -393,19 +408,19 @@ func (e GetContainer200JSONResponseBodyDataHealth) Valid() bool {
 
 // Defines values for GetContainer200JSONResponseBodyDataPortsType.
 const (
-	GetContainer200JSONResponseBodyDataPortsTypeSctp GetContainer200JSONResponseBodyDataPortsType = "sctp"
-	GetContainer200JSONResponseBodyDataPortsTypeTcp  GetContainer200JSONResponseBodyDataPortsType = "tcp"
-	GetContainer200JSONResponseBodyDataPortsTypeUdp  GetContainer200JSONResponseBodyDataPortsType = "udp"
+	GetContainer200JSONResponseBodyDataPortsTypeContainerPortTypeValueSCTP GetContainer200JSONResponseBodyDataPortsType = "sctp"
+	GetContainer200JSONResponseBodyDataPortsTypeContainerPortTypeValueTCP  GetContainer200JSONResponseBodyDataPortsType = "tcp"
+	GetContainer200JSONResponseBodyDataPortsTypeContainerPortTypeValueUDP  GetContainer200JSONResponseBodyDataPortsType = "udp"
 )
 
 // Valid indicates whether the value is a known member of the GetContainer200JSONResponseBodyDataPortsType enum.
 func (e GetContainer200JSONResponseBodyDataPortsType) Valid() bool {
 	switch e {
-	case GetContainer200JSONResponseBodyDataPortsTypeSctp:
+	case GetContainer200JSONResponseBodyDataPortsTypeContainerPortTypeValueSCTP:
 		return true
-	case GetContainer200JSONResponseBodyDataPortsTypeTcp:
+	case GetContainer200JSONResponseBodyDataPortsTypeContainerPortTypeValueTCP:
 		return true
-	case GetContainer200JSONResponseBodyDataPortsTypeUdp:
+	case GetContainer200JSONResponseBodyDataPortsTypeContainerPortTypeValueUDP:
 		return true
 	default:
 		return false
@@ -414,19 +429,19 @@ func (e GetContainer200JSONResponseBodyDataPortsType) Valid() bool {
 
 // Defines values for GetContainer200JSONResponseBodyDataRuntimeInfoStatus.
 const (
-	Disabled    GetContainer200JSONResponseBodyDataRuntimeInfoStatus = "disabled"
-	Enabled     GetContainer200JSONResponseBodyDataRuntimeInfoStatus = "enabled"
-	Unavailable GetContainer200JSONResponseBodyDataRuntimeInfoStatus = "unavailable"
+	GetContainer200JSONResponseBodyDataRuntimeInfoStatusContainerRuntimeInfoStatusDisabled    GetContainer200JSONResponseBodyDataRuntimeInfoStatus = "disabled"
+	GetContainer200JSONResponseBodyDataRuntimeInfoStatusContainerRuntimeInfoStatusEnabled     GetContainer200JSONResponseBodyDataRuntimeInfoStatus = "enabled"
+	GetContainer200JSONResponseBodyDataRuntimeInfoStatusContainerRuntimeInfoStatusUnavailable GetContainer200JSONResponseBodyDataRuntimeInfoStatus = "unavailable"
 )
 
 // Valid indicates whether the value is a known member of the GetContainer200JSONResponseBodyDataRuntimeInfoStatus enum.
 func (e GetContainer200JSONResponseBodyDataRuntimeInfoStatus) Valid() bool {
 	switch e {
-	case Disabled:
+	case GetContainer200JSONResponseBodyDataRuntimeInfoStatusContainerRuntimeInfoStatusDisabled:
 		return true
-	case Enabled:
+	case GetContainer200JSONResponseBodyDataRuntimeInfoStatusContainerRuntimeInfoStatusEnabled:
 		return true
-	case Unavailable:
+	case GetContainer200JSONResponseBodyDataRuntimeInfoStatusContainerRuntimeInfoStatusUnavailable:
 		return true
 	default:
 		return false
@@ -435,34 +450,34 @@ func (e GetContainer200JSONResponseBodyDataRuntimeInfoStatus) Valid() bool {
 
 // Defines values for GetContainer200JSONResponseBodyDataState.
 const (
-	Created    GetContainer200JSONResponseBodyDataState = "created"
-	Dead       GetContainer200JSONResponseBodyDataState = "dead"
-	Exited     GetContainer200JSONResponseBodyDataState = "exited"
-	Paused     GetContainer200JSONResponseBodyDataState = "paused"
-	Removing   GetContainer200JSONResponseBodyDataState = "removing"
-	Restarting GetContainer200JSONResponseBodyDataState = "restarting"
-	Running    GetContainer200JSONResponseBodyDataState = "running"
-	Unknown    GetContainer200JSONResponseBodyDataState = "unknown"
+	GetContainer200JSONResponseBodyDataStateContainerSummaryStateCreated    GetContainer200JSONResponseBodyDataState = "created"
+	GetContainer200JSONResponseBodyDataStateContainerSummaryStateDead       GetContainer200JSONResponseBodyDataState = "dead"
+	GetContainer200JSONResponseBodyDataStateContainerSummaryStateExited     GetContainer200JSONResponseBodyDataState = "exited"
+	GetContainer200JSONResponseBodyDataStateContainerSummaryStatePaused     GetContainer200JSONResponseBodyDataState = "paused"
+	GetContainer200JSONResponseBodyDataStateContainerSummaryStateRemoving   GetContainer200JSONResponseBodyDataState = "removing"
+	GetContainer200JSONResponseBodyDataStateContainerSummaryStateRestarting GetContainer200JSONResponseBodyDataState = "restarting"
+	GetContainer200JSONResponseBodyDataStateContainerSummaryStateRunning    GetContainer200JSONResponseBodyDataState = "running"
+	GetContainer200JSONResponseBodyDataStateContainerSummaryStateUnknown    GetContainer200JSONResponseBodyDataState = "unknown"
 )
 
 // Valid indicates whether the value is a known member of the GetContainer200JSONResponseBodyDataState enum.
 func (e GetContainer200JSONResponseBodyDataState) Valid() bool {
 	switch e {
-	case Created:
+	case GetContainer200JSONResponseBodyDataStateContainerSummaryStateCreated:
 		return true
-	case Dead:
+	case GetContainer200JSONResponseBodyDataStateContainerSummaryStateDead:
 		return true
-	case Exited:
+	case GetContainer200JSONResponseBodyDataStateContainerSummaryStateExited:
 		return true
-	case Paused:
+	case GetContainer200JSONResponseBodyDataStateContainerSummaryStatePaused:
 		return true
-	case Removing:
+	case GetContainer200JSONResponseBodyDataStateContainerSummaryStateRemoving:
 		return true
-	case Restarting:
+	case GetContainer200JSONResponseBodyDataStateContainerSummaryStateRestarting:
 		return true
-	case Running:
+	case GetContainer200JSONResponseBodyDataStateContainerSummaryStateRunning:
 		return true
-	case Unknown:
+	case GetContainer200JSONResponseBodyDataStateContainerSummaryStateUnknown:
 		return true
 	default:
 		return false
@@ -621,22 +636,22 @@ func (e GetContainerLogs500JSONResponseBodySuccess) Valid() bool {
 
 // Defines values for PostContainerRemove200JSONResponseBodyDataAction.
 const (
-	PostContainerRemove200JSONResponseBodyDataActionRemove  PostContainerRemove200JSONResponseBodyDataAction = "remove"
-	PostContainerRemove200JSONResponseBodyDataActionRestart PostContainerRemove200JSONResponseBodyDataAction = "restart"
-	PostContainerRemove200JSONResponseBodyDataActionStart   PostContainerRemove200JSONResponseBodyDataAction = "start"
-	PostContainerRemove200JSONResponseBodyDataActionStop    PostContainerRemove200JSONResponseBodyDataAction = "stop"
+	PostContainerRemove200JSONResponseBodyDataActionContainerActionResponseActionValueRemove  PostContainerRemove200JSONResponseBodyDataAction = "remove"
+	PostContainerRemove200JSONResponseBodyDataActionContainerActionResponseActionValueRestart PostContainerRemove200JSONResponseBodyDataAction = "restart"
+	PostContainerRemove200JSONResponseBodyDataActionContainerActionResponseActionValueStart   PostContainerRemove200JSONResponseBodyDataAction = "start"
+	PostContainerRemove200JSONResponseBodyDataActionContainerActionResponseActionValueStop    PostContainerRemove200JSONResponseBodyDataAction = "stop"
 )
 
 // Valid indicates whether the value is a known member of the PostContainerRemove200JSONResponseBodyDataAction enum.
 func (e PostContainerRemove200JSONResponseBodyDataAction) Valid() bool {
 	switch e {
-	case PostContainerRemove200JSONResponseBodyDataActionRemove:
+	case PostContainerRemove200JSONResponseBodyDataActionContainerActionResponseActionValueRemove:
 		return true
-	case PostContainerRemove200JSONResponseBodyDataActionRestart:
+	case PostContainerRemove200JSONResponseBodyDataActionContainerActionResponseActionValueRestart:
 		return true
-	case PostContainerRemove200JSONResponseBodyDataActionStart:
+	case PostContainerRemove200JSONResponseBodyDataActionContainerActionResponseActionValueStart:
 		return true
-	case PostContainerRemove200JSONResponseBodyDataActionStop:
+	case PostContainerRemove200JSONResponseBodyDataActionContainerActionResponseActionValueStop:
 		return true
 	default:
 		return false
@@ -645,19 +660,19 @@ func (e PostContainerRemove200JSONResponseBodyDataAction) Valid() bool {
 
 // Defines values for PostContainerRemove200JSONResponseBodyDataResult.
 const (
-	PostContainerRemove200JSONResponseBodyDataResultAccepted  PostContainerRemove200JSONResponseBodyDataResult = "accepted"
-	PostContainerRemove200JSONResponseBodyDataResultCompleted PostContainerRemove200JSONResponseBodyDataResult = "completed"
-	PostContainerRemove200JSONResponseBodyDataResultUnchanged PostContainerRemove200JSONResponseBodyDataResult = "unchanged"
+	PostContainerRemove200JSONResponseBodyDataResultContainerActionResponseResultValueAccepted  PostContainerRemove200JSONResponseBodyDataResult = "accepted"
+	PostContainerRemove200JSONResponseBodyDataResultContainerActionResponseResultValueCompleted PostContainerRemove200JSONResponseBodyDataResult = "completed"
+	PostContainerRemove200JSONResponseBodyDataResultContainerActionResponseResultValueUnchanged PostContainerRemove200JSONResponseBodyDataResult = "unchanged"
 )
 
 // Valid indicates whether the value is a known member of the PostContainerRemove200JSONResponseBodyDataResult enum.
 func (e PostContainerRemove200JSONResponseBodyDataResult) Valid() bool {
 	switch e {
-	case PostContainerRemove200JSONResponseBodyDataResultAccepted:
+	case PostContainerRemove200JSONResponseBodyDataResultContainerActionResponseResultValueAccepted:
 		return true
-	case PostContainerRemove200JSONResponseBodyDataResultCompleted:
+	case PostContainerRemove200JSONResponseBodyDataResultContainerActionResponseResultValueCompleted:
 		return true
-	case PostContainerRemove200JSONResponseBodyDataResultUnchanged:
+	case PostContainerRemove200JSONResponseBodyDataResultContainerActionResponseResultValueUnchanged:
 		return true
 	default:
 		return false
@@ -756,22 +771,22 @@ func (e PostContainerRemove500JSONResponseBodySuccess) Valid() bool {
 
 // Defines values for PostContainerRestart200JSONResponseBodyDataAction.
 const (
-	PostContainerRestart200JSONResponseBodyDataActionRemove  PostContainerRestart200JSONResponseBodyDataAction = "remove"
-	PostContainerRestart200JSONResponseBodyDataActionRestart PostContainerRestart200JSONResponseBodyDataAction = "restart"
-	PostContainerRestart200JSONResponseBodyDataActionStart   PostContainerRestart200JSONResponseBodyDataAction = "start"
-	PostContainerRestart200JSONResponseBodyDataActionStop    PostContainerRestart200JSONResponseBodyDataAction = "stop"
+	PostContainerRestart200JSONResponseBodyDataActionContainerActionResponseActionValueRemove  PostContainerRestart200JSONResponseBodyDataAction = "remove"
+	PostContainerRestart200JSONResponseBodyDataActionContainerActionResponseActionValueRestart PostContainerRestart200JSONResponseBodyDataAction = "restart"
+	PostContainerRestart200JSONResponseBodyDataActionContainerActionResponseActionValueStart   PostContainerRestart200JSONResponseBodyDataAction = "start"
+	PostContainerRestart200JSONResponseBodyDataActionContainerActionResponseActionValueStop    PostContainerRestart200JSONResponseBodyDataAction = "stop"
 )
 
 // Valid indicates whether the value is a known member of the PostContainerRestart200JSONResponseBodyDataAction enum.
 func (e PostContainerRestart200JSONResponseBodyDataAction) Valid() bool {
 	switch e {
-	case PostContainerRestart200JSONResponseBodyDataActionRemove:
+	case PostContainerRestart200JSONResponseBodyDataActionContainerActionResponseActionValueRemove:
 		return true
-	case PostContainerRestart200JSONResponseBodyDataActionRestart:
+	case PostContainerRestart200JSONResponseBodyDataActionContainerActionResponseActionValueRestart:
 		return true
-	case PostContainerRestart200JSONResponseBodyDataActionStart:
+	case PostContainerRestart200JSONResponseBodyDataActionContainerActionResponseActionValueStart:
 		return true
-	case PostContainerRestart200JSONResponseBodyDataActionStop:
+	case PostContainerRestart200JSONResponseBodyDataActionContainerActionResponseActionValueStop:
 		return true
 	default:
 		return false
@@ -780,19 +795,19 @@ func (e PostContainerRestart200JSONResponseBodyDataAction) Valid() bool {
 
 // Defines values for PostContainerRestart200JSONResponseBodyDataResult.
 const (
-	PostContainerRestart200JSONResponseBodyDataResultAccepted  PostContainerRestart200JSONResponseBodyDataResult = "accepted"
-	PostContainerRestart200JSONResponseBodyDataResultCompleted PostContainerRestart200JSONResponseBodyDataResult = "completed"
-	PostContainerRestart200JSONResponseBodyDataResultUnchanged PostContainerRestart200JSONResponseBodyDataResult = "unchanged"
+	PostContainerRestart200JSONResponseBodyDataResultContainerActionResponseResultValueAccepted  PostContainerRestart200JSONResponseBodyDataResult = "accepted"
+	PostContainerRestart200JSONResponseBodyDataResultContainerActionResponseResultValueCompleted PostContainerRestart200JSONResponseBodyDataResult = "completed"
+	PostContainerRestart200JSONResponseBodyDataResultContainerActionResponseResultValueUnchanged PostContainerRestart200JSONResponseBodyDataResult = "unchanged"
 )
 
 // Valid indicates whether the value is a known member of the PostContainerRestart200JSONResponseBodyDataResult enum.
 func (e PostContainerRestart200JSONResponseBodyDataResult) Valid() bool {
 	switch e {
-	case PostContainerRestart200JSONResponseBodyDataResultAccepted:
+	case PostContainerRestart200JSONResponseBodyDataResultContainerActionResponseResultValueAccepted:
 		return true
-	case PostContainerRestart200JSONResponseBodyDataResultCompleted:
+	case PostContainerRestart200JSONResponseBodyDataResultContainerActionResponseResultValueCompleted:
 		return true
-	case PostContainerRestart200JSONResponseBodyDataResultUnchanged:
+	case PostContainerRestart200JSONResponseBodyDataResultContainerActionResponseResultValueUnchanged:
 		return true
 	default:
 		return false
@@ -891,22 +906,22 @@ func (e PostContainerRestart500JSONResponseBodySuccess) Valid() bool {
 
 // Defines values for PostContainerStart200JSONResponseBodyDataAction.
 const (
-	PostContainerStart200JSONResponseBodyDataActionRemove  PostContainerStart200JSONResponseBodyDataAction = "remove"
-	PostContainerStart200JSONResponseBodyDataActionRestart PostContainerStart200JSONResponseBodyDataAction = "restart"
-	PostContainerStart200JSONResponseBodyDataActionStart   PostContainerStart200JSONResponseBodyDataAction = "start"
-	PostContainerStart200JSONResponseBodyDataActionStop    PostContainerStart200JSONResponseBodyDataAction = "stop"
+	PostContainerStart200JSONResponseBodyDataActionContainerActionResponseActionValueRemove  PostContainerStart200JSONResponseBodyDataAction = "remove"
+	PostContainerStart200JSONResponseBodyDataActionContainerActionResponseActionValueRestart PostContainerStart200JSONResponseBodyDataAction = "restart"
+	PostContainerStart200JSONResponseBodyDataActionContainerActionResponseActionValueStart   PostContainerStart200JSONResponseBodyDataAction = "start"
+	PostContainerStart200JSONResponseBodyDataActionContainerActionResponseActionValueStop    PostContainerStart200JSONResponseBodyDataAction = "stop"
 )
 
 // Valid indicates whether the value is a known member of the PostContainerStart200JSONResponseBodyDataAction enum.
 func (e PostContainerStart200JSONResponseBodyDataAction) Valid() bool {
 	switch e {
-	case PostContainerStart200JSONResponseBodyDataActionRemove:
+	case PostContainerStart200JSONResponseBodyDataActionContainerActionResponseActionValueRemove:
 		return true
-	case PostContainerStart200JSONResponseBodyDataActionRestart:
+	case PostContainerStart200JSONResponseBodyDataActionContainerActionResponseActionValueRestart:
 		return true
-	case PostContainerStart200JSONResponseBodyDataActionStart:
+	case PostContainerStart200JSONResponseBodyDataActionContainerActionResponseActionValueStart:
 		return true
-	case PostContainerStart200JSONResponseBodyDataActionStop:
+	case PostContainerStart200JSONResponseBodyDataActionContainerActionResponseActionValueStop:
 		return true
 	default:
 		return false
@@ -915,19 +930,19 @@ func (e PostContainerStart200JSONResponseBodyDataAction) Valid() bool {
 
 // Defines values for PostContainerStart200JSONResponseBodyDataResult.
 const (
-	PostContainerStart200JSONResponseBodyDataResultAccepted  PostContainerStart200JSONResponseBodyDataResult = "accepted"
-	PostContainerStart200JSONResponseBodyDataResultCompleted PostContainerStart200JSONResponseBodyDataResult = "completed"
-	PostContainerStart200JSONResponseBodyDataResultUnchanged PostContainerStart200JSONResponseBodyDataResult = "unchanged"
+	PostContainerStart200JSONResponseBodyDataResultContainerActionResponseResultValueAccepted  PostContainerStart200JSONResponseBodyDataResult = "accepted"
+	PostContainerStart200JSONResponseBodyDataResultContainerActionResponseResultValueCompleted PostContainerStart200JSONResponseBodyDataResult = "completed"
+	PostContainerStart200JSONResponseBodyDataResultContainerActionResponseResultValueUnchanged PostContainerStart200JSONResponseBodyDataResult = "unchanged"
 )
 
 // Valid indicates whether the value is a known member of the PostContainerStart200JSONResponseBodyDataResult enum.
 func (e PostContainerStart200JSONResponseBodyDataResult) Valid() bool {
 	switch e {
-	case PostContainerStart200JSONResponseBodyDataResultAccepted:
+	case PostContainerStart200JSONResponseBodyDataResultContainerActionResponseResultValueAccepted:
 		return true
-	case PostContainerStart200JSONResponseBodyDataResultCompleted:
+	case PostContainerStart200JSONResponseBodyDataResultContainerActionResponseResultValueCompleted:
 		return true
-	case PostContainerStart200JSONResponseBodyDataResultUnchanged:
+	case PostContainerStart200JSONResponseBodyDataResultContainerActionResponseResultValueUnchanged:
 		return true
 	default:
 		return false
@@ -1026,22 +1041,22 @@ func (e PostContainerStart500JSONResponseBodySuccess) Valid() bool {
 
 // Defines values for PostContainerStop200JSONResponseBodyDataAction.
 const (
-	PostContainerStop200JSONResponseBodyDataActionRemove  PostContainerStop200JSONResponseBodyDataAction = "remove"
-	PostContainerStop200JSONResponseBodyDataActionRestart PostContainerStop200JSONResponseBodyDataAction = "restart"
-	PostContainerStop200JSONResponseBodyDataActionStart   PostContainerStop200JSONResponseBodyDataAction = "start"
-	PostContainerStop200JSONResponseBodyDataActionStop    PostContainerStop200JSONResponseBodyDataAction = "stop"
+	PostContainerStop200JSONResponseBodyDataActionContainerActionResponseActionValueRemove  PostContainerStop200JSONResponseBodyDataAction = "remove"
+	PostContainerStop200JSONResponseBodyDataActionContainerActionResponseActionValueRestart PostContainerStop200JSONResponseBodyDataAction = "restart"
+	PostContainerStop200JSONResponseBodyDataActionContainerActionResponseActionValueStart   PostContainerStop200JSONResponseBodyDataAction = "start"
+	PostContainerStop200JSONResponseBodyDataActionContainerActionResponseActionValueStop    PostContainerStop200JSONResponseBodyDataAction = "stop"
 )
 
 // Valid indicates whether the value is a known member of the PostContainerStop200JSONResponseBodyDataAction enum.
 func (e PostContainerStop200JSONResponseBodyDataAction) Valid() bool {
 	switch e {
-	case PostContainerStop200JSONResponseBodyDataActionRemove:
+	case PostContainerStop200JSONResponseBodyDataActionContainerActionResponseActionValueRemove:
 		return true
-	case PostContainerStop200JSONResponseBodyDataActionRestart:
+	case PostContainerStop200JSONResponseBodyDataActionContainerActionResponseActionValueRestart:
 		return true
-	case PostContainerStop200JSONResponseBodyDataActionStart:
+	case PostContainerStop200JSONResponseBodyDataActionContainerActionResponseActionValueStart:
 		return true
-	case PostContainerStop200JSONResponseBodyDataActionStop:
+	case PostContainerStop200JSONResponseBodyDataActionContainerActionResponseActionValueStop:
 		return true
 	default:
 		return false
@@ -1050,19 +1065,19 @@ func (e PostContainerStop200JSONResponseBodyDataAction) Valid() bool {
 
 // Defines values for PostContainerStop200JSONResponseBodyDataResult.
 const (
-	PostContainerStop200JSONResponseBodyDataResultAccepted  PostContainerStop200JSONResponseBodyDataResult = "accepted"
-	PostContainerStop200JSONResponseBodyDataResultCompleted PostContainerStop200JSONResponseBodyDataResult = "completed"
-	PostContainerStop200JSONResponseBodyDataResultUnchanged PostContainerStop200JSONResponseBodyDataResult = "unchanged"
+	PostContainerStop200JSONResponseBodyDataResultContainerActionResponseResultValueAccepted  PostContainerStop200JSONResponseBodyDataResult = "accepted"
+	PostContainerStop200JSONResponseBodyDataResultContainerActionResponseResultValueCompleted PostContainerStop200JSONResponseBodyDataResult = "completed"
+	PostContainerStop200JSONResponseBodyDataResultContainerActionResponseResultValueUnchanged PostContainerStop200JSONResponseBodyDataResult = "unchanged"
 )
 
 // Valid indicates whether the value is a known member of the PostContainerStop200JSONResponseBodyDataResult enum.
 func (e PostContainerStop200JSONResponseBodyDataResult) Valid() bool {
 	switch e {
-	case PostContainerStop200JSONResponseBodyDataResultAccepted:
+	case PostContainerStop200JSONResponseBodyDataResultContainerActionResponseResultValueAccepted:
 		return true
-	case PostContainerStop200JSONResponseBodyDataResultCompleted:
+	case PostContainerStop200JSONResponseBodyDataResultContainerActionResponseResultValueCompleted:
 		return true
-	case PostContainerStop200JSONResponseBodyDataResultUnchanged:
+	case PostContainerStop200JSONResponseBodyDataResultContainerActionResponseResultValueUnchanged:
 		return true
 	default:
 		return false
@@ -1146,13 +1161,13 @@ func (e PostContainerStop409JSONResponseBodySuccess) Valid() bool {
 
 // Defines values for PostContainerStop500JSONResponseBodySuccess.
 const (
-	PostContainerStop500JSONResponseBodySuccessFalse PostContainerStop500JSONResponseBodySuccess = false
+	ContainerStopErrorResponseSuccessFalse PostContainerStop500JSONResponseBodySuccess = false
 )
 
 // Valid indicates whether the value is a known member of the PostContainerStop500JSONResponseBodySuccess enum.
 func (e PostContainerStop500JSONResponseBodySuccess) Valid() bool {
 	switch e {
-	case PostContainerStop500JSONResponseBodySuccessFalse:
+	case ContainerStopErrorResponseSuccessFalse:
 		return true
 	default:
 		return false
@@ -1266,6 +1281,9 @@ type GetContainerParams struct {
 	// through the response header and envelope traceId field.
 	XRequestId *string `json:"X-Request-Id,omitempty"`
 }
+
+// GetContainer200JSONResponseBodyDataEnvironmentSource defines parameters for GetContainer.
+type GetContainer200JSONResponseBodyDataEnvironmentSource string
 
 // GetContainer200JSONResponseBodyDataEnvironmentPolicy defines parameters for GetContainer.
 type GetContainer200JSONResponseBodyDataEnvironmentPolicy string

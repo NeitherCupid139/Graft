@@ -3892,8 +3892,11 @@ export interface components {
       masked: boolean;
       /** @description Whether the key matched the container module sensitive-key heuristic. */
       sensitive: boolean;
-      /** @description Runtime source of the environment variable entry. */
-      source: string;
+      /**
+       * @description Runtime source of the environment variable entry.
+       * @enum {string}
+       */
+      source: 'docker';
     };
     'container-mount': {
       /** @description Runtime mount type such as bind, volume, or tmpfs. */

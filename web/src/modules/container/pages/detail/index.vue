@@ -437,6 +437,7 @@ import {
 import { createLogger } from '@/utils/logger';
 
 import { getContainer, getContainerLogs } from '../../api/container';
+import { CONTAINER_BOOTSTRAP_ROUTE } from '../../contract/bootstrap';
 import type { ContainerDetail, ContainerHealth, ContainerLogResponse, ContainerState } from '../../types/container';
 
 defineOptions({
@@ -605,7 +606,7 @@ function goBack() {
     router.back();
     return;
   }
-  void router.push({ name: 'ContainerList' });
+  void router.push({ name: CONTAINER_BOOTSTRAP_ROUTE.LIST.routeName });
 }
 
 async function copyEnvironmentValue(row: EnvironmentRow) {

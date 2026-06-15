@@ -252,8 +252,14 @@ func containerRuntimeSchema() json.RawMessage {
 
 func containerEnvironmentPolicySchema() json.RawMessage {
 	key := containercontract.ContainerEnvironmentPolicyConfig.String()
+	hiddenPolicy := containercontract.ContainerEnvironmentPolicyHidden.String()
+	maskedPolicy := containercontract.ContainerEnvironmentPolicyMasked.String()
+	plainPolicy := containercontract.ContainerEnvironmentPolicyPlain.String()
 	return json.RawMessage(fmt.Sprintf(
-		`{"type":"string","enum":["hidden","masked","plain"],"default":%q,"title":%q,"description":%q,"x-i18n":{"titleKey":%q,"descriptionKey":%q,"enumLabels":{"hidden":{"labelKey":"systemConfig.container.%s.enum.hidden.label","descriptionKey":"systemConfig.container.%s.enum.hidden.description"},"masked":{"labelKey":"systemConfig.container.%s.enum.masked.label","descriptionKey":"systemConfig.container.%s.enum.masked.description"},"plain":{"labelKey":"systemConfig.container.%s.enum.plain.label","descriptionKey":"systemConfig.container.%s.enum.plain.description"}}}}`,
+		`{"type":"string","enum":[%q,%q,%q],"default":%q,"title":%q,"description":%q,"x-i18n":{"titleKey":%q,"descriptionKey":%q,"enumLabels":{"hidden":{"labelKey":"systemConfig.container.%s.enum.hidden.label","descriptionKey":"systemConfig.container.%s.enum.hidden.description"},"masked":{"labelKey":"systemConfig.container.%s.enum.masked.label","descriptionKey":"systemConfig.container.%s.enum.masked.description"},"plain":{"labelKey":"systemConfig.container.%s.enum.plain.label","descriptionKey":"systemConfig.container.%s.enum.plain.description"}}}}`,
+		hiddenPolicy,
+		maskedPolicy,
+		plainPolicy,
 		defaultContainerEnvironmentPolicy.String(),
 		containerConfigTitleFallback(key),
 		containerConfigDescriptionFallback(key),

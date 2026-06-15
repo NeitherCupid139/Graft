@@ -8,6 +8,7 @@ import { flushPromises, mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineComponent, h } from 'vue';
 
+import { CONTAINER_BOOTSTRAP_ROUTE } from '../../contract/bootstrap';
 import ContainerDetailPage from './index.vue';
 
 const sourceText = readFileSync(join(process.cwd(), 'src/modules/container/pages/detail/index.vue'), 'utf8');
@@ -374,7 +375,7 @@ describe('container detail page', () => {
     await wrapper.get('[data-testid="detail-back"]').trigger('click');
     await flushPromises();
 
-    expect(routerMocks.push).toHaveBeenCalledWith({ name: 'ContainerList' });
+    expect(routerMocks.push).toHaveBeenCalledWith({ name: CONTAINER_BOOTSTRAP_ROUTE.LIST.routeName });
   });
 
   it('uses shared log and JSON viewers instead of raw pre blocks', () => {

@@ -33,10 +33,25 @@ properties:
   state:
     type: string
     enum: [created, running, paused, restarting, removing, exited, dead, unknown]
+    x-enum-varnames:
+      - ContainerSummaryStateCreated
+      - ContainerSummaryStateRunning
+      - ContainerSummaryStatePaused
+      - ContainerSummaryStateRestarting
+      - ContainerSummaryStateRemoving
+      - ContainerSummaryStateExited
+      - ContainerSummaryStateDead
+      - ContainerSummaryStateUnknown
   health:
     type: string
     nullable: true
     enum: [healthy, unhealthy, starting, none, unavailable]
+    x-enum-varnames:
+      - ContainerSummaryHealthHealthy
+      - ContainerSummaryHealthUnhealthy
+      - ContainerSummaryHealthStarting
+      - ContainerSummaryHealthNone
+      - ContainerSummaryHealthUnavailable
     description: Nullable when the runtime cannot determine health on the list path without row-level inspect.
   runtime:
     type: string

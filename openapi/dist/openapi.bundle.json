@@ -15331,6 +15331,11 @@
               "tcp",
               "udp",
               "sctp"
+            ],
+            "x-enum-varnames": [
+              "ContainerPortTypeValueTCP",
+              "ContainerPortTypeValueUDP",
+              "ContainerPortTypeValueSCTP"
             ]
           }
         }
@@ -15471,6 +15476,16 @@
               "exited",
               "dead",
               "unknown"
+            ],
+            "x-enum-varnames": [
+              "ContainerSummaryStateCreated",
+              "ContainerSummaryStateRunning",
+              "ContainerSummaryStatePaused",
+              "ContainerSummaryStateRestarting",
+              "ContainerSummaryStateRemoving",
+              "ContainerSummaryStateExited",
+              "ContainerSummaryStateDead",
+              "ContainerSummaryStateUnknown"
             ]
           },
           "health": {
@@ -15482,6 +15497,13 @@
               "starting",
               "none",
               "unavailable"
+            ],
+            "x-enum-varnames": [
+              "ContainerSummaryHealthHealthy",
+              "ContainerSummaryHealthUnhealthy",
+              "ContainerSummaryHealthStarting",
+              "ContainerSummaryHealthNone",
+              "ContainerSummaryHealthUnavailable"
             ],
             "description": "Nullable when the runtime cannot determine health on the list path without row-level inspect."
           },
@@ -15621,6 +15643,11 @@
               "enabled",
               "disabled",
               "unavailable"
+            ],
+            "x-enum-varnames": [
+              "ContainerRuntimeInfoStatusEnabled",
+              "ContainerRuntimeInfoStatusDisabled",
+              "ContainerRuntimeInfoStatusUnavailable"
             ]
           },
           "endpoint": {
@@ -15718,6 +15745,12 @@
               "stop",
               "restart",
               "remove"
+            ],
+            "x-enum-varnames": [
+              "ContainerBatchActionRequestActionValueStart",
+              "ContainerBatchActionRequestActionValueStop",
+              "ContainerBatchActionRequestActionValueRestart",
+              "ContainerBatchActionRequestActionValueRemove"
             ]
           },
           "ids": {
@@ -15758,6 +15791,12 @@
               "stop",
               "restart",
               "remove"
+            ],
+            "x-enum-varnames": [
+              "ContainerBatchActionItemActionStart",
+              "ContainerBatchActionItemActionStop",
+              "ContainerBatchActionItemActionRestart",
+              "ContainerBatchActionItemActionRemove"
             ]
           },
           "success": {
@@ -15856,6 +15895,12 @@
           },
           "source": {
             "type": "string",
+            "enum": [
+              "docker"
+            ],
+            "x-enum-varnames": [
+              "ContainerEnvironmentEntrySourceDocker"
+            ],
             "description": "Runtime source of the environment variable entry."
           }
         },
@@ -15929,6 +15974,11 @@
                   "hidden",
                   "masked",
                   "plain"
+                ],
+                "x-enum-varnames": [
+                  "ContainerDetailEnvironmentPolicyHidden",
+                  "ContainerDetailEnvironmentPolicyMasked",
+                  "ContainerDetailEnvironmentPolicyPlain"
                 ],
                 "description": "Effective container environment variable display policy applied to this detail response."
               },
@@ -16072,6 +16122,12 @@
               "stop",
               "restart",
               "remove"
+            ],
+            "x-enum-varnames": [
+              "ContainerActionResponseActionValueStart",
+              "ContainerActionResponseActionValueStop",
+              "ContainerActionResponseActionValueRestart",
+              "ContainerActionResponseActionValueRemove"
             ]
           },
           "runtime": {
@@ -16084,6 +16140,11 @@
               "accepted",
               "completed",
               "unchanged"
+            ],
+            "x-enum-varnames": [
+              "ContainerActionResponseResultValueAccepted",
+              "ContainerActionResponseResultValueCompleted",
+              "ContainerActionResponseResultValueUnchanged"
             ]
           },
           "status_before": {
@@ -16133,7 +16194,7 @@
               false
             ],
             "x-enum-varnames": [
-              "PostContainerStop500JSONResponseBodySuccessFalse"
+              "ContainerStopErrorResponseSuccessFalse"
             ]
           },
           "code": {
@@ -16787,6 +16848,16 @@
             "exited",
             "dead",
             "unknown"
+          ],
+          "x-enum-varnames": [
+            "ContainerListStateCreated",
+            "ContainerListStateRunning",
+            "ContainerListStatePaused",
+            "ContainerListStateRestarting",
+            "ContainerListStateRemoving",
+            "ContainerListStateExited",
+            "ContainerListStateDead",
+            "ContainerListStateUnknown"
           ]
         }
       },
@@ -16803,6 +16874,13 @@
             "starting",
             "none",
             "unavailable"
+          ],
+          "x-enum-varnames": [
+            "ContainerListHealthHealthy",
+            "ContainerListHealthUnhealthy",
+            "ContainerListHealthStarting",
+            "ContainerListHealthNone",
+            "ContainerListHealthUnavailable"
           ]
         }
       },

@@ -5,3 +5,9 @@ description: Optional health filter. Containers whose list row cannot cheaply de
 schema:
   type: string
   enum: [healthy, unhealthy, starting, none, unavailable]
+  x-enum-varnames:
+    - ContainerListHealthHealthy
+    - ContainerListHealthUnhealthy
+    - ContainerListHealthStarting
+    - ContainerListHealthNone
+    - ContainerListHealthUnavailable
