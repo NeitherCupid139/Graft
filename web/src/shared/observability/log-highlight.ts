@@ -61,7 +61,7 @@ export function tokenizeLogLine(line: string, keyword = ''): LogToken[] {
   return tokens.length ? tokens : [{ text: line, type: 'text' }];
 }
 
-function normalizeLogLevel(value?: string | null): LogLevel | null {
+export function normalizeLogLevel(value?: string | null): LogLevel | null {
   if (!value) return null;
   const normalized = value.toUpperCase();
   if (normalized === 'WARNING') return 'WARN';
