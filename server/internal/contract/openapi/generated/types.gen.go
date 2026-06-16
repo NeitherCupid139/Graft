@@ -1331,16 +1331,16 @@ func (e ModuleRuntimeItemRuntimeStatus) Valid() bool {
 
 // Defines values for ModuleRuntimeMigrationStatusStatus.
 const (
-	Declared    ModuleRuntimeMigrationStatusStatus = "declared"
-	NotDeclared ModuleRuntimeMigrationStatusStatus = "not_declared"
+	ModuleRuntimeMigrationStatusStatusDeclared    ModuleRuntimeMigrationStatusStatus = "declared"
+	ModuleRuntimeMigrationStatusStatusNotDeclared ModuleRuntimeMigrationStatusStatus = "not_declared"
 )
 
 // Valid indicates whether the value is a known member of the ModuleRuntimeMigrationStatusStatus enum.
 func (e ModuleRuntimeMigrationStatusStatus) Valid() bool {
 	switch e {
-	case Declared:
+	case ModuleRuntimeMigrationStatusStatusDeclared:
 		return true
-	case NotDeclared:
+	case ModuleRuntimeMigrationStatusStatusNotDeclared:
 		return true
 	default:
 		return false
@@ -1736,19 +1736,19 @@ func (e ScheduledTaskRunItemJobCategory) Valid() bool {
 
 // Defines values for ScheduledTaskRunItemStatus.
 const (
-	Failed  ScheduledTaskRunItemStatus = "failed"
-	Running ScheduledTaskRunItemStatus = "running"
-	Success ScheduledTaskRunItemStatus = "success"
+	ScheduledTaskRunItemStatusFailed  ScheduledTaskRunItemStatus = "failed"
+	ScheduledTaskRunItemStatusRunning ScheduledTaskRunItemStatus = "running"
+	ScheduledTaskRunItemStatusSuccess ScheduledTaskRunItemStatus = "success"
 )
 
 // Valid indicates whether the value is a known member of the ScheduledTaskRunItemStatus enum.
 func (e ScheduledTaskRunItemStatus) Valid() bool {
 	switch e {
-	case Failed:
+	case ScheduledTaskRunItemStatusFailed:
 		return true
-	case Running:
+	case ScheduledTaskRunItemStatusRunning:
 		return true
-	case Success:
+	case ScheduledTaskRunItemStatusSuccess:
 		return true
 	default:
 		return false

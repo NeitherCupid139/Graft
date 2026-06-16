@@ -5,6 +5,9 @@ const BYTES_PER_MIB = 1024 * 1024;
 const BYTES_PER_GIB = 1024 * BYTES_PER_MIB;
 const NANOSECONDS_PER_MILLISECOND = 1_000_000;
 const NANOSECONDS_PER_SECOND = 1_000_000_000;
+const DEFAULT_NUMBER_LOCALE = 'en-US';
+
+export type ResourceNumberFormatLocale = string | readonly string[];
 
 export function formatBytes(value?: number | null, emptyText = '-') {
   const normalizedValue = finiteNumberOrNull(value);
@@ -30,7 +33,11 @@ export function formatPercent(value?: number | null, emptyText = '-') {
   return `${normalizedValue.toFixed(1)}%`;
 }
 
-export function formatNanosecondsAsDuration(value?: number | null, emptyText = '-') {
+export function formatNanosecondsAsDuration(
+  value?: number | null,
+  emptyText = '-',
+  locale: ResourceNumberFormatLocale = DEFAULT_NUMBER_LOCALE,
+) {
   const normalizedValue = finiteNumberOrNull(value);
   if (normalizedValue === null) {
     return emptyText;
@@ -38,10 +45,10 @@ export function formatNanosecondsAsDuration(value?: number | null, emptyText = '
 
   const absValue = Math.abs(normalizedValue);
   if (absValue >= NANOSECONDS_PER_SECOND) {
-    return `${formatNumber(normalizedValue / NANOSECONDS_PER_SECOND, 2)} s`;
+    return `${formatNumber(normalizedValue / NANOSECONDS_PER_SECOND, 2, locale)} s`;
   }
 
-  return `${formatNumber(normalizedValue / NANOSECONDS_PER_MILLISECOND, 2)} ms`;
+  return `${formatNumber(normalizedValue / NANOSECONDS_PER_MILLISECOND, 2, locale)} ms`;
 }
 
 export function toProgressPercent(value?: number | null) {
@@ -52,8 +59,8 @@ export function toProgressPercent(value?: number | null) {
   return Math.min(100, Math.max(0, value));
 }
 
-function formatNumber(value: number, maximumFractionDigits: number) {
-  return new Intl.NumberFormat(undefined, {
+function formatNumber(value: number, maximumFractionDigits: number, locale: ResourceNumberFormatLocale) {
+  return new Intl.NumberFormat(locale, {
     maximumFractionDigits,
     minimumFractionDigits: 0,
   }).format(value);

@@ -668,18 +668,22 @@ const resourceMetrics = computed(() => {
   };
 });
 const cpuDetailMetrics = computed(() =>
-  buildCpuDetailMetrics(detail.value?.resource, {
-    cpuLimit: t('container.detail.resources.cpuLimitWithOnline'),
-    cpuPercent: t('container.detail.resources.cpuPercent'),
-    kernelTime: t('container.detail.resources.cpuKernelTime'),
-    systemCpuTime: t('container.detail.resources.systemCpuTime'),
-    throttlingCount: t('container.detail.resources.throttlingCount'),
-    throttlingInactiveHint: t('container.detail.resources.throttlingInactiveHint'),
-    throttlingSignalHint: t('container.detail.resources.throttlingSignalHint'),
-    throttlingTime: t('container.detail.resources.throttlingTime'),
-    totalCpuTime: t('container.detail.resources.totalCpuTime'),
-    userTime: t('container.detail.resources.cpuUserTime'),
-  }),
+  buildCpuDetailMetrics(
+    detail.value?.resource,
+    {
+      cpuLimit: t('container.detail.resources.cpuLimitWithOnline'),
+      cpuPercent: t('container.detail.resources.cpuPercent'),
+      kernelTime: t('container.detail.resources.cpuKernelTime'),
+      systemCpuTime: t('container.detail.resources.systemCpuTime'),
+      throttlingCount: t('container.detail.resources.throttlingCount'),
+      throttlingInactiveHint: t('container.detail.resources.throttlingInactiveHint'),
+      throttlingSignalHint: t('container.detail.resources.throttlingSignalHint'),
+      throttlingTime: t('container.detail.resources.throttlingTime'),
+      totalCpuTime: t('container.detail.resources.totalCpuTime'),
+      userTime: t('container.detail.resources.cpuUserTime'),
+    },
+    locale.value,
+  ),
 );
 const resourceDetailGroups = computed<ResourceDetailGroup[]>(() => {
   const current = detail.value;
@@ -1233,11 +1237,11 @@ function readMetricText(key: ResourceMetricKey, format: ResourceMetricFormat) {
 }
 
 function readCpuSystemTimeText() {
-  return formatResourceValue(formatNanosecondsAsDuration(readResourceMetric('system_cpu_usage')));
+  return formatResourceValue(formatNanosecondsAsDuration(readResourceMetric('system_cpu_usage'), '-', locale.value));
 }
 
 function readCpuCountText() {
-  return formatResourceValue(formatCpuCountText(readResourceMetric('online_cpus')));
+  return formatResourceValue(formatCpuCountText(readResourceMetric('online_cpus'), locale.value));
 }
 
 function readResourceMetric(key: ResourceMetricKey) {

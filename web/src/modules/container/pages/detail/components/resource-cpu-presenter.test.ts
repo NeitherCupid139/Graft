@@ -26,6 +26,7 @@ describe('resource-cpu-presenter', () => {
 
   it('formats large system CPU counters as seconds', () => {
     expect(formatCpuSystemTime(50_468_370_000_000)).toBe('50,468.37 s');
+    expect(formatCpuSystemTime(50_468_370_000_000, 'de-DE')).toBe('50.468,37 s');
   });
 
   it('weakens throttling metrics when throttling is absent', () => {
@@ -82,6 +83,25 @@ describe('resource-cpu-presenter', () => {
       muted: false,
       value: '12 ms',
     });
+  });
+
+  it('formats CPU detail metrics with an explicit locale', () => {
+    const metrics = buildCpuDetailMetrics(
+      {
+        available: true,
+        online_cpus: 2800,
+        stats_available: true,
+        system_cpu_usage: 50_468_370_000_000,
+        throttling_throttled_periods: 3000,
+        throttling_throttled_time: 12_000_000,
+      },
+      labels,
+      'de-DE',
+    );
+
+    expect(metrics.find((metric) => metric.key === 'cpu-capacity')?.value).toBe('— / 2.800 CPU');
+    expect(metrics.find((metric) => metric.key === 'system-cpu-time')?.value).toBe('50.468,37 s');
+    expect(metrics.find((metric) => metric.key === 'throttling-count')?.value).toBe('3.000');
   });
 
   it('uses an explicit dash for missing CPU fields', () => {

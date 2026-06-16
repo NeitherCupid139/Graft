@@ -12748,6 +12748,10 @@
             "enum": [
               "declared",
               "not_declared"
+            ],
+            "x-enum-varnames": [
+              "ModuleRuntimeMigrationStatusStatusDeclared",
+              "ModuleRuntimeMigrationStatusStatusNotDeclared"
             ]
           }
         }
@@ -13532,6 +13536,11 @@
               "running",
               "success",
               "failed"
+            ],
+            "x-enum-varnames": [
+              "ScheduledTaskRunItemStatusRunning",
+              "ScheduledTaskRunItemStatusSuccess",
+              "ScheduledTaskRunItemStatusFailed"
             ]
           },
           "error_message": {

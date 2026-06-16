@@ -24,4 +24,8 @@ describe('resource-format', () => {
     expect(formatNanosecondsAsDuration(50_468_370_000_000)).toBe('50,468.37 s');
     expect(formatNanosecondsAsDuration(undefined)).toBe('-');
   });
+
+  it('formats duration numbers with an explicit locale', () => {
+    expect(formatNanosecondsAsDuration(50_468_370_000_000, '-', 'de-DE')).toBe('50.468,37 s');
+  });
 });

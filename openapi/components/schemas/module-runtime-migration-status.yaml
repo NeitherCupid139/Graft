@@ -8,3 +8,6 @@ properties:
   status:
     type: string
     enum: [declared, not_declared]
+    x-enum-varnames:
+      - ModuleRuntimeMigrationStatusStatusDeclared
+      - ModuleRuntimeMigrationStatusStatusNotDeclared
