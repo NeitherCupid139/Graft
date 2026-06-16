@@ -321,7 +321,7 @@ func dockerResourceSummary(stats container.StatsResponse) ResourceSummary {
 	if cpuPercent, ok := dockerCPUPercent(stats); ok {
 		resource.CPUPercent = &cpuPercent
 	}
-	resource.OnlineCPUs = uint32ToInt64Ptr(stats.CPUStats.OnlineCPUs)
+	resource.OnlineCPUs = dockerOnlineCPUs(stats)
 	resource.SystemCPUUsage = uint64ToInt64Ptr(stats.CPUStats.SystemUsage)
 	resource.TotalCPUUsage = uint64ToInt64Ptr(stats.CPUStats.CPUUsage.TotalUsage)
 	resource.CPUUsageInUsermode = uint64ToInt64Ptr(stats.CPUStats.CPUUsage.UsageInUsermode)
@@ -352,6 +352,13 @@ func dockerResourceSummary(stats container.StatsResponse) ResourceSummary {
 		return unavailableResourceSummary(containerStatsIncompleteReason)
 	}
 	return resource
+}
+
+func dockerOnlineCPUs(stats container.StatsResponse) *int64 {
+	if stats.CPUStats.OnlineCPUs == 0 {
+		return nil
+	}
+	return uint32ToInt64Ptr(stats.CPUStats.OnlineCPUs)
 }
 
 func dockerMemoryStat(stats container.StatsResponse, key string) *int64 {

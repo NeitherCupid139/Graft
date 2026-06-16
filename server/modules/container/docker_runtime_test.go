@@ -430,6 +430,23 @@ func TestDockerResourceSummaryKeepsZeroMemoryValues(t *testing.T) {
 	}
 }
 
+func TestDockerResourceSummarySkipsUnknownOnlineCPUs(t *testing.T) {
+	t.Parallel()
+
+	stats := richDockerStatsFixture()
+	stats.CPUStats.OnlineCPUs = 0
+
+	resource := dockerResourceSummary(stats)
+
+	if !resource.Available || !resource.StatsAvailable {
+		t.Fatalf("expected per-CPU stats to keep resource available, got %#v", resource)
+	}
+	assertFloatPtr(t, resource.CPUPercent, 40, "computed CPU percent")
+	if resource.OnlineCPUs != nil {
+		t.Fatalf("expected unknown online CPUs to stay absent, got %#v", resource.OnlineCPUs)
+	}
+}
+
 func TestDockerResourceSummarySkipsOverflowedNetworkTotals(t *testing.T) {
 	t.Parallel()
 
