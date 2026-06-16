@@ -12,6 +12,10 @@ import { CONTAINER_BOOTSTRAP_ROUTE } from '../../contract/bootstrap';
 import ContainerDetailPage from './index.vue';
 
 const sourceText = readFileSync(join(process.cwd(), 'src/modules/container/pages/detail/index.vue'), 'utf8');
+const overviewPanelSourceText = readFileSync(
+  join(process.cwd(), 'src/modules/container/pages/detail/components/ContainerOverviewPanel.vue'),
+  'utf8',
+);
 
 const apiMocks = vi.hoisted(() => ({
   getContainer: vi.fn(),
@@ -82,14 +86,11 @@ const translations = vi.hoisted(
     'container.detail.network.summary': '网络摘要',
     'container.detail.operation': '操作',
     'container.detail.overview.basicInfo': '基础信息',
-    'container.detail.overview.fullId': '完整 ID',
     'container.detail.overview.fields.containerId': '容器 ID',
     'container.detail.overview.fields.createdAt': '创建时间',
-    'container.detail.overview.fields.fullId': '完整 ID',
     'container.detail.overview.fields.health': '健康检查',
     'container.detail.overview.fields.image': '镜像',
     'container.detail.overview.fields.imageId': '镜像 ID',
-    'container.detail.overview.fields.memoryRatio': '内存占比',
     'container.detail.overview.fields.name': '名称',
     'container.detail.overview.fields.networkMode': '网络模式',
     'container.detail.overview.fields.networkName': '网络名称',
@@ -98,8 +99,7 @@ const translations = vi.hoisted(
     'container.detail.overview.fields.state': '状态码',
     'container.detail.overview.fields.status': '状态',
     'container.detail.overview.fields.updatedAt': '更新时间',
-    'container.detail.overview.networkSummary': '网络摘要',
-    'container.detail.overview.resourceSummary': '资源摘要',
+    'container.detail.overview.resourceNetwork': '资源与网络',
     'container.detail.overview.runtimeInfo': '运行信息',
     'container.detail.raw.description': '敏感字段已脱敏，仅用于只读排查。',
     'container.detail.raw.empty': '暂无原始 JSON。',
@@ -242,13 +242,12 @@ describe('container detail page', () => {
     expect(wrapper.text()).toContain('网络访问');
     expect(wrapper.text()).toContain('基础信息');
     expect(wrapper.text()).toContain('运行信息');
-    expect(wrapper.text()).toContain('资源摘要');
-    expect(wrapper.text()).toContain('网络摘要');
+    expect(wrapper.get('.container-overview-panel').text()).toContain('资源与网络');
+    expect(wrapper.get('.container-overview-panel').text()).not.toContain('资源摘要');
+    expect(wrapper.get('.container-overview-panel').text()).not.toContain('网络摘要');
     expect(wrapper.text()).toContain('容器 IDcontainer-1');
-    expect(wrapper.text()).toContain('完整 IDff007d095ed9faafdf...9bcc518edb');
     expect(wrapper.text()).toContain('镜像 IDbbbbbbbbbbbbbbbbbb...bbbbbbbbbb');
     expect(wrapper.text()).toContain('健康检查健康');
-    expect(wrapper.text()).toContain('内存占比100.0%');
     expect(wrapper.text()).toContain('网络模式bridge');
     expect(wrapper.text()).toContain('网络名称bridge');
     expect(wrapper.text()).toContain('环境变量');
@@ -443,6 +442,25 @@ describe('container detail page', () => {
     expect(sourceText).toContain('<json-viewer');
     expect(sourceText).not.toContain('container-detail-code');
   });
+
+  it('keeps overview as a single-column grouped information flow', () => {
+    const overviewStart = sourceText.indexOf('<container-overview-panel');
+    const overviewEnd = sourceText.indexOf('<t-tab-panel value="resources"', overviewStart);
+    const overviewSource = sourceText.slice(overviewStart, overviewEnd);
+
+    expect(overviewSource).not.toContain('<t-card');
+    expect(sourceText).not.toContain('container-overview-main-grid');
+    expect(sourceText).not.toContain('container-overview-summary-strip');
+    expect(overviewPanelSourceText).toContain('container-overview-panel container-detail-scrollbar');
+    expect(overviewPanelSourceText).toContain('container-info-section');
+    expect(overviewPanelSourceText).toContain('container-info-row');
+    expect(overviewPanelSourceText).toContain('width: 100%;');
+    expect(overviewPanelSourceText).toContain('grid-template-columns: 112px minmax(0, 1fr);');
+    expect(overviewPanelSourceText).toContain('overflow: hidden auto;');
+    expect(overviewPanelSourceText).toContain('scrollbar-color: var(--td-scrollbar-color) transparent;');
+    expect(overviewSource).not.toContain('container.detail.overview.resourceSummary');
+    expect(overviewSource).not.toContain('container.detail.overview.networkSummary');
+  });
 });
 
 function createContainerDetail() {
@@ -570,6 +588,7 @@ function mountPage() {
                       ? 'detail-back'
                       : undefined),
                   onClick: () => emit('click'),
+                  ...(attrs.onClick ? { onClick: attrs.onClick as () => void } : {}),
                 },
                 [slots.icon?.(), slots.default?.()],
               ),

@@ -251,17 +251,13 @@
       "overview": {
         "basicInfo": "基础信息",
         "runtimeInfo": "运行信息",
-        "resourceSummary": "资源摘要",
-        "networkSummary": "网络摘要",
-        "fullId": "完整 ID",
+        "resourceNetwork": "资源与网络",
         "fields": {
           "containerId": "容器 ID",
           "createdAt": "创建时间",
-          "fullId": "完整 ID",
           "health": "健康检查",
           "image": "镜像",
           "imageId": "镜像 ID",
-          "memoryRatio": "内存占比",
           "name": "名称",
           "networkMode": "网络模式",
           "networkName": "网络名称",

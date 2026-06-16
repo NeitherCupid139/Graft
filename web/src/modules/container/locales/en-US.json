@@ -251,17 +251,13 @@
       "overview": {
         "basicInfo": "Basic Information",
         "runtimeInfo": "Runtime Information",
-        "resourceSummary": "Resource Summary",
-        "networkSummary": "Network Summary",
-        "fullId": "Full ID",
+        "resourceNetwork": "Resources And Network",
         "fields": {
           "containerId": "Container ID",
           "createdAt": "Created At",
-          "fullId": "Full ID",
           "health": "Healthcheck",
           "image": "Image",
           "imageId": "Image ID",
-          "memoryRatio": "Memory Ratio",
           "name": "Name",
           "networkMode": "Network Mode",
           "networkName": "Network Name",

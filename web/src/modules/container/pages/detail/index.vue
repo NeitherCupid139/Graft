@@ -64,15 +64,22 @@
               </div>
               <div class="container-detail-kv">
                 <span>{{ t('container.list.fields.image') }}</span>
-                <copyable-detail-value :value="detail.image" :display-value="detail.image" />
+                <copyable-detail-value
+                  :copy-label="t('container.detail.copy')"
+                  :value="detail.image"
+                  :display-value="detail.image"
+                  @copy="copyDetailText"
+                />
               </div>
               <div class="container-detail-kv">
                 <span>{{ t('container.list.fields.id') }}</span>
                 <copyable-detail-value
                   :value="detail.id"
                   :display-value="shortContainerId(detail)"
+                  :copy-label="t('container.detail.copy')"
                   code
                   data-testid="summary-container-id-copy"
+                  @copy="copyDetailText"
                 />
               </div>
               <div class="container-detail-kv">
@@ -183,196 +190,12 @@
         <t-card class="container-detail-tabs-card" :bordered="true">
           <t-tabs v-model:value="activeTab" theme="card" @change="handleTabChange">
             <t-tab-panel value="overview" :label="t('container.detail.tabs.overview')" :destroy-on-hide="false">
-              <section class="container-detail-section">
-                <div class="container-detail-overview-grid">
-                  <t-card size="small" :bordered="false" :title="t('container.detail.overview.basicInfo')">
-                    <div class="container-overview-field-list">
-                      <div class="container-overview-field">
-                        <span class="container-overview-field__label">
-                          {{ t('container.detail.overview.fields.name') }}
-                        </span>
-                        <span class="container-overview-field__value">{{ displayName(detail) }}</span>
-                      </div>
-                      <div class="container-overview-field">
-                        <span class="container-overview-field__label">
-                          {{ t('container.detail.overview.fields.containerId') }}
-                        </span>
-                        <span class="container-overview-field__value">
-                          <copyable-detail-value
-                            :value="detail.id"
-                            :display-value="shortContainerId(detail)"
-                            code
-                            data-testid="container-id-copy"
-                          />
-                        </span>
-                      </div>
-                      <div class="container-overview-field">
-                        <span class="container-overview-field__label">
-                          {{ t('container.detail.overview.fields.fullId') }}
-                        </span>
-                        <span class="container-overview-field__value">
-                          <copyable-detail-value
-                            :value="detail.id"
-                            :display-value="shortIdentifier(detail.id)"
-                            code
-                            data-testid="container-full-id-copy"
-                          />
-                        </span>
-                      </div>
-                      <div class="container-overview-field">
-                        <span class="container-overview-field__label">
-                          {{ t('container.detail.overview.fields.image') }}
-                        </span>
-                        <span class="container-overview-field__value">
-                          <copyable-detail-value :value="detail.image" :display-value="detail.image" />
-                        </span>
-                      </div>
-                      <div class="container-overview-field">
-                        <span class="container-overview-field__label">
-                          {{ t('container.detail.overview.fields.imageId') }}
-                        </span>
-                        <span class="container-overview-field__value">
-                          <copyable-detail-value
-                            :value="readableImageId(detail.image_id)"
-                            :display-value="shortIdentifier(readableImageId(detail.image_id))"
-                            code
-                            data-testid="image-id-copy"
-                          />
-                        </span>
-                      </div>
-                      <div class="container-overview-field">
-                        <span class="container-overview-field__label">
-                          {{ t('container.detail.overview.fields.runtime') }}
-                        </span>
-                        <span class="container-overview-field__value">{{ runtimeLabel(detail) }}</span>
-                      </div>
-                    </div>
-                  </t-card>
-
-                  <t-card size="small" :bordered="false" :title="t('container.detail.overview.runtimeInfo')">
-                    <div class="container-overview-field-list">
-                      <div class="container-overview-field">
-                        <span class="container-overview-field__label">
-                          {{ t('container.detail.overview.fields.status') }}
-                        </span>
-                        <span class="container-overview-field__value">
-                          <t-tag :theme="stateTheme(detail.state)" variant="light-outline">
-                            {{ stateLabel(detail.state) }}
-                          </t-tag>
-                        </span>
-                      </div>
-                      <div class="container-overview-field">
-                        <span class="container-overview-field__label">
-                          {{ t('container.detail.overview.fields.state') }}
-                        </span>
-                        <span class="container-overview-field__value">{{ detail.state || '-' }}</span>
-                      </div>
-                      <div class="container-overview-field">
-                        <span class="container-overview-field__label">
-                          {{ t('container.detail.overview.fields.health') }}
-                        </span>
-                        <span class="container-overview-field__value">{{ healthLabel(detail.health) }}</span>
-                      </div>
-                      <div class="container-overview-field">
-                        <span class="container-overview-field__label">
-                          {{ t('container.detail.overview.fields.createdAt') }}
-                        </span>
-                        <span class="container-overview-field__value">{{ formatTime(detail.created_at) }}</span>
-                      </div>
-                      <div class="container-overview-field">
-                        <span class="container-overview-field__label">
-                          {{ t('container.detail.overview.fields.startedAt') }}
-                        </span>
-                        <span class="container-overview-field__value">{{ formatTime(detail.started_at) }}</span>
-                      </div>
-                      <div class="container-overview-field">
-                        <span class="container-overview-field__label">
-                          {{ t('container.detail.overview.fields.updatedAt') }}
-                        </span>
-                        <span class="container-overview-field__value">{{ formatTime(detail.inspect_updated_at) }}</span>
-                      </div>
-                    </div>
-                  </t-card>
-
-                  <t-card size="small" :bordered="false" :title="t('container.detail.overview.resourceSummary')">
-                    <div class="container-overview-field-list">
-                      <div class="container-overview-field">
-                        <span class="container-overview-field__label">
-                          {{ t('container.detail.resources.cpu') }}
-                        </span>
-                        <span class="container-overview-field__value">
-                          {{ formatPercent(detail.resource?.cpu_percent) }}
-                        </span>
-                      </div>
-                      <div class="container-overview-field">
-                        <span class="container-overview-field__label">
-                          {{ t('container.detail.resources.memoryUsage') }}
-                        </span>
-                        <span class="container-overview-field__value">
-                          {{ formatBytes(detail.resource?.memory_usage_bytes) }}
-                        </span>
-                      </div>
-                      <div class="container-overview-field">
-                        <span class="container-overview-field__label">
-                          {{ t('container.detail.resources.memoryLimit') }}
-                        </span>
-                        <span class="container-overview-field__value">
-                          {{ formatBytes(detail.resource?.memory_limit_bytes) }}
-                        </span>
-                      </div>
-                      <div class="container-overview-field">
-                        <span class="container-overview-field__label">
-                          {{ t('container.detail.overview.fields.memoryRatio') }}
-                        </span>
-                        <span class="container-overview-field__value">
-                          {{ formatPercent(detail.resource?.memory_percent) }}
-                        </span>
-                      </div>
-                    </div>
-                  </t-card>
-
-                  <t-card size="small" :bordered="false" :title="t('container.detail.overview.networkSummary')">
-                    <div class="container-overview-field-list">
-                      <div class="container-overview-field">
-                        <span class="container-overview-field__label">
-                          {{ t('container.detail.network.primaryIp') }}
-                        </span>
-                        <span class="container-overview-field__value">{{ detail.primary_ip || '-' }}</span>
-                      </div>
-                      <div class="container-overview-field">
-                        <span class="container-overview-field__label">
-                          {{ t('container.detail.overview.fields.networkMode') }}
-                        </span>
-                        <span class="container-overview-field__value">{{ networkSummary(detail) }}</span>
-                      </div>
-                      <div class="container-overview-field">
-                        <span class="container-overview-field__label">
-                          {{ t('container.detail.overview.fields.networkName') }}
-                        </span>
-                        <span class="container-overview-field__value">{{ primaryNetworkName(detail) }}</span>
-                      </div>
-                      <div class="container-overview-field">
-                        <span class="container-overview-field__label">
-                          {{ t('container.detail.network.ports') }}
-                        </span>
-                        <span class="container-overview-field__value">
-                          <span v-if="detail.ports.length" class="container-detail-port-list">
-                            <t-tag
-                              v-for="port in detail.ports"
-                              :key="portLabel(port)"
-                              class="container-detail-port-chip"
-                              theme="default"
-                              variant="light-outline"
-                            >
-                              {{ portLabel(port) }}
-                            </t-tag>
-                          </span>
-                          <span v-else>{{ t('container.detail.network.noPublicPorts') }}</span>
-                        </span>
-                      </div>
-                    </div>
-                  </t-card>
-                </div>
+              <section class="container-detail-section container-detail-section--overview">
+                <container-overview-panel
+                  :copy-label="t('container.detail.copy')"
+                  :sections="overviewSections"
+                  @copy="copyDetailText"
+                />
               </section>
             </t-tab-panel>
 
@@ -582,10 +405,9 @@
   </div>
 </template>
 <script setup lang="ts">
-import { CopyIcon } from 'tdesign-icons-vue-next';
 import type { TableProps } from 'tdesign-vue-next';
 import { MessagePlugin } from 'tdesign-vue-next/es/message';
-import { computed, defineComponent, h, onMounted, ref, resolveComponent, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 
@@ -606,6 +428,9 @@ import { createLogger } from '@/utils/logger';
 import { getContainer, getContainerLogs } from '../../api/container';
 import { CONTAINER_BOOTSTRAP_ROUTE } from '../../contract/bootstrap';
 import type { ContainerDetail, ContainerHealth, ContainerLogResponse, ContainerState } from '../../types/container';
+import ContainerOverviewPanel from './components/ContainerOverviewPanel.vue';
+import CopyableDetailValue from './components/CopyableDetailValue.vue';
+import type { ContainerOverviewInfoSection } from './components/overview';
 
 defineOptions({
   name: 'ContainerDetailIndex',
@@ -656,6 +481,147 @@ const pageTitle = computed(() => {
   return containerId.value || t('container.detail.title');
 });
 const environmentRows = computed(() => normalizeEnvironmentRows(detail.value));
+const overviewSections = computed<ContainerOverviewInfoSection[]>(() => {
+  const current = detail.value;
+  if (!current) {
+    return [];
+  }
+
+  const imageId = readableImageId(current.image_id);
+
+  return [
+    {
+      key: 'basic',
+      title: t('container.detail.overview.basicInfo'),
+      rows: [
+        {
+          displayValue: displayName(current),
+          key: 'name',
+          label: t('container.detail.overview.fields.name'),
+          type: 'text',
+        },
+        {
+          code: true,
+          copyValue: current.id,
+          displayValue: shortContainerId(current),
+          key: 'container-id',
+          label: t('container.detail.overview.fields.containerId'),
+          testId: 'container-id-copy',
+          type: 'copy',
+        },
+        {
+          copyValue: current.image,
+          displayValue: current.image || '-',
+          key: 'image',
+          label: t('container.detail.overview.fields.image'),
+          type: 'copy',
+        },
+        {
+          code: true,
+          copyValue: imageId,
+          displayValue: shortIdentifier(imageId),
+          key: 'image-id',
+          label: t('container.detail.overview.fields.imageId'),
+          testId: 'image-id-copy',
+          type: 'copy',
+        },
+        {
+          displayValue: runtimeLabel(current),
+          key: 'runtime',
+          label: t('container.detail.overview.fields.runtime'),
+          type: 'text',
+        },
+      ],
+    },
+    {
+      key: 'runtime',
+      title: t('container.detail.overview.runtimeInfo'),
+      rows: [
+        {
+          key: 'status',
+          label: t('container.detail.overview.fields.status'),
+          tagLabel: stateLabel(current.state),
+          tagTheme: stateTheme(current.state),
+          type: 'tag',
+        },
+        {
+          displayValue: current.state || '-',
+          key: 'state',
+          label: t('container.detail.overview.fields.state'),
+          type: 'text',
+        },
+        {
+          key: 'health',
+          label: t('container.detail.overview.fields.health'),
+          tagLabel: healthLabel(current.health),
+          tagTheme: healthTheme(current.health),
+          type: 'tag',
+        },
+        {
+          displayValue: formatTime(current.created_at),
+          key: 'created-at',
+          label: t('container.detail.overview.fields.createdAt'),
+          type: 'text',
+        },
+        {
+          displayValue: formatTime(current.started_at),
+          key: 'started-at',
+          label: t('container.detail.overview.fields.startedAt'),
+          type: 'text',
+        },
+        {
+          displayValue: formatTime(current.inspect_updated_at),
+          key: 'updated-at',
+          label: t('container.detail.overview.fields.updatedAt'),
+          type: 'text',
+        },
+      ],
+    },
+    {
+      key: 'resource-network',
+      title: t('container.detail.overview.resourceNetwork'),
+      rows: [
+        {
+          displayValue: formatPercent(current.resource?.cpu_percent),
+          key: 'cpu',
+          label: t('container.detail.resources.cpu'),
+          type: 'text',
+        },
+        {
+          displayValue: memorySummary(current),
+          key: 'memory',
+          label: t('container.detail.resources.memory'),
+          type: 'text',
+        },
+        {
+          displayValue: current.primary_ip || '-',
+          key: 'primary-ip',
+          label: t('container.detail.network.primaryIp'),
+          type: 'text',
+        },
+        {
+          displayValue: networkSummary(current),
+          key: 'network-mode',
+          label: t('container.detail.overview.fields.networkMode'),
+          type: 'text',
+        },
+        {
+          displayValue: primaryNetworkName(current),
+          key: 'network-name',
+          label: t('container.detail.overview.fields.networkName'),
+          type: 'text',
+        },
+        {
+          emptyLabel: t('container.detail.network.noPublicPorts'),
+          key: 'ports',
+          label: t('container.detail.network.ports'),
+          ports: current.ports.map((port) => portLabel(port)),
+          type: 'ports',
+        },
+      ],
+    },
+  ];
+});
 const environmentColumns = computed<TableProps['columns']>(() => [
   { colKey: 'name', title: t('container.detail.config.envName'), minWidth: 220, ellipsis: true },
   { colKey: 'value', title: t('container.detail.config.envValue'), minWidth: 260, ellipsis: true },
@@ -795,80 +761,6 @@ async function copyDetailText(text: string) {
   }
   MessagePlugin.error(t('container.detail.copyError'));
 }
-
-function copyableDetailValueTestId(attrs: Record<string, unknown>) {
-  const value = attrs['data-testid'];
-  return typeof value === 'string' ? value : undefined;
-}
-
-const CopyableDetailValue = defineComponent({
-  name: 'CopyableDetailValue',
-  inheritAttrs: false,
-  props: {
-    code: Boolean,
-    displayValue: {
-      default: '',
-      type: String,
-    },
-    value: {
-      default: '',
-      type: String,
-    },
-  },
-  setup(props, { attrs }) {
-    const displayValue = computed(() => props.displayValue || props.value || '-');
-    const copyValue = computed(() => {
-      const value = props.value?.trim() || '';
-      return value === '-' ? '' : value;
-    });
-    const testId = computed(() => copyableDetailValueTestId(attrs));
-
-    return () =>
-      h('span', { class: 'container-detail-copyable-value' }, [
-        h(
-          resolveComponent('t-tooltip'),
-          {
-            content: copyValue.value || displayValue.value,
-            placement: 'top-left',
-          },
-          {
-            default: () =>
-              h(props.code ? 'code' : 'span', { class: 'container-detail-copyable-value__text' }, displayValue.value),
-          },
-        ),
-        copyValue.value
-          ? h(
-              resolveComponent('t-tooltip'),
-              {
-                content: t('container.detail.copy'),
-                placement: 'top',
-              },
-              {
-                default: () =>
-                  h(
-                    resolveComponent('t-button'),
-                    {
-                      'aria-label': t('container.detail.copy'),
-                      class: 'container-detail-copyable-value__button',
-                      'data-testid': testId.value,
-                      shape: 'square',
-                      size: 'small',
-                      theme: 'default',
-                      variant: 'text',
-                      onClick: () => {
-                        void copyDetailText(copyValue.value);
-                      },
-                    },
-                    {
-                      icon: () => h(CopyIcon),
-                    },
-                  ),
-              },
-            )
-          : null,
-      ]);
-  },
-});
 
 function normalizeTab(value: unknown): DetailTab {
   const raw = Array.isArray(value) ? value[0] : value;
@@ -1253,119 +1145,6 @@ function portLabel(port: ContainerDetail['ports'][number]) {
   max-width: 100%;
 }
 
-.container-detail-overview-grid {
-  display: grid;
-  gap: var(--graft-density-gap-16);
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  min-width: 0;
-}
-
-.container-detail-overview-grid :deep(.t-card) {
-  background: color-mix(in srgb, var(--td-bg-color-container) 94%, transparent);
-  border: 1px solid color-mix(in srgb, var(--td-component-stroke) 64%, transparent);
-  height: 100%;
-  min-width: 0;
-}
-
-.container-detail-overview-grid :deep(.t-card__header) {
-  padding: var(--graft-density-gap-14) var(--graft-density-gap-20) 0;
-}
-
-.container-detail-overview-grid :deep(.t-card__title) {
-  color: var(--td-text-color-primary);
-  font: var(--td-font-title-small);
-  font-weight: 600;
-}
-
-.container-detail-overview-grid :deep(.t-card__body) {
-  padding: var(--graft-density-gap-12) var(--graft-density-gap-20) var(--graft-density-gap-18);
-}
-
-.container-overview-field-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--graft-density-gap-8);
-  min-width: 0;
-}
-
-.container-overview-field {
-  align-items: center;
-  column-gap: var(--graft-density-gap-16);
-  display: grid;
-  grid-template-columns: 96px minmax(0, 1fr);
-  min-height: 28px;
-  min-width: 0;
-}
-
-.container-overview-field__label {
-  color: var(--td-text-color-secondary);
-  font: var(--td-font-body-small);
-  line-height: 20px;
-  min-width: 0;
-}
-
-.container-overview-field__value {
-  color: var(--td-text-color-primary);
-  font: var(--td-font-body-small);
-  font-weight: 500;
-  line-height: 20px;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.container-overview-field__value .container-detail-port-list {
-  display: inline-flex;
-}
-
-.container-detail-copyable-value {
-  align-items: center;
-  display: inline-flex;
-  gap: var(--graft-density-gap-6);
-  max-width: 100%;
-  min-width: 0;
-  vertical-align: bottom;
-}
-
-.container-detail-copyable-value__text,
-.container-detail-copyable-value code {
-  color: var(--td-text-color-primary);
-  display: inline-block;
-  font-family: var(
-    --td-font-family-mono,
-    ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    Monaco,
-    Consolas,
-    'Liberation Mono',
-    monospace
-  );
-  max-width: 100%;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  vertical-align: bottom;
-  white-space: nowrap;
-}
-
-.container-detail-copyable-value > :first-child {
-  min-width: 0;
-}
-
-.container-detail-copyable-value__button {
-  flex: 0 0 auto;
-}
-
-.container-detail-overview-grid :deep(.t-descriptions__label) {
-  color: var(--td-text-color-placeholder);
-}
-
-.container-detail-overview-grid :deep(.t-descriptions__content) {
-  min-width: 0;
-}
-
 .container-detail-tabs-card {
   min-width: 0;
 }
@@ -1382,30 +1161,21 @@ function portLabel(port: ContainerDetail['ports'][number]) {
   padding: 0;
 }
 
+.container-detail-section--overview {
+  min-height: 0;
+  padding: 0 var(--graft-density-gap-16) var(--graft-density-gap-16);
+}
+
 @media (width <= 1360px) {
   .container-detail-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (width <= 1024px) {
-  .container-detail-overview-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (width <= 560px) {
-  .container-overview-field {
-    align-items: flex-start;
-    grid-template-columns: 84px minmax(0, 1fr);
-  }
-}
-
 @media (width <= 720px) {
   .container-detail-summary,
   .container-detail-summary__resource,
-  .container-detail-resource-grid,
-  .container-detail-overview-grid {
+  .container-detail-resource-grid {
     grid-template-columns: 1fr;
   }
 
