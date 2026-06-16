@@ -47,6 +47,10 @@ properties:
   status:
     type: string
     enum: [running, success, failed]
+    x-enum-varnames:
+      - ScheduledTaskRunItemStatusRunning
+      - ScheduledTaskRunItemStatusSuccess
+      - ScheduledTaskRunItemStatusFailed
   error_message:
     type: string
   result_summary:

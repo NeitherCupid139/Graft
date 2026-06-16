@@ -683,22 +683,22 @@ func (e AuditTargetKind) Valid() bool {
 
 // Defines values for ContainerActionResponseAction.
 const (
-	ContainerActionResponseActionRemove  ContainerActionResponseAction = "remove"
-	ContainerActionResponseActionRestart ContainerActionResponseAction = "restart"
-	ContainerActionResponseActionStart   ContainerActionResponseAction = "start"
-	ContainerActionResponseActionStop    ContainerActionResponseAction = "stop"
+	ContainerActionResponseActionValueRemove  ContainerActionResponseAction = "remove"
+	ContainerActionResponseActionValueRestart ContainerActionResponseAction = "restart"
+	ContainerActionResponseActionValueStart   ContainerActionResponseAction = "start"
+	ContainerActionResponseActionValueStop    ContainerActionResponseAction = "stop"
 )
 
 // Valid indicates whether the value is a known member of the ContainerActionResponseAction enum.
 func (e ContainerActionResponseAction) Valid() bool {
 	switch e {
-	case ContainerActionResponseActionRemove:
+	case ContainerActionResponseActionValueRemove:
 		return true
-	case ContainerActionResponseActionRestart:
+	case ContainerActionResponseActionValueRestart:
 		return true
-	case ContainerActionResponseActionStart:
+	case ContainerActionResponseActionValueStart:
 		return true
-	case ContainerActionResponseActionStop:
+	case ContainerActionResponseActionValueStop:
 		return true
 	default:
 		return false
@@ -707,19 +707,19 @@ func (e ContainerActionResponseAction) Valid() bool {
 
 // Defines values for ContainerActionResponseResult.
 const (
-	Accepted  ContainerActionResponseResult = "accepted"
-	Completed ContainerActionResponseResult = "completed"
-	Unchanged ContainerActionResponseResult = "unchanged"
+	ContainerActionResponseResultValueAccepted  ContainerActionResponseResult = "accepted"
+	ContainerActionResponseResultValueCompleted ContainerActionResponseResult = "completed"
+	ContainerActionResponseResultValueUnchanged ContainerActionResponseResult = "unchanged"
 )
 
 // Valid indicates whether the value is a known member of the ContainerActionResponseResult enum.
 func (e ContainerActionResponseResult) Valid() bool {
 	switch e {
-	case Accepted:
+	case ContainerActionResponseResultValueAccepted:
 		return true
-	case Completed:
+	case ContainerActionResponseResultValueCompleted:
 		return true
-	case Unchanged:
+	case ContainerActionResponseResultValueUnchanged:
 		return true
 	default:
 		return false
@@ -752,22 +752,22 @@ func (e ContainerBatchActionItemAction) Valid() bool {
 
 // Defines values for ContainerBatchActionRequestAction.
 const (
-	Remove  ContainerBatchActionRequestAction = "remove"
-	Restart ContainerBatchActionRequestAction = "restart"
-	Start   ContainerBatchActionRequestAction = "start"
-	Stop    ContainerBatchActionRequestAction = "stop"
+	ContainerBatchActionRequestActionValueRemove  ContainerBatchActionRequestAction = "remove"
+	ContainerBatchActionRequestActionValueRestart ContainerBatchActionRequestAction = "restart"
+	ContainerBatchActionRequestActionValueStart   ContainerBatchActionRequestAction = "start"
+	ContainerBatchActionRequestActionValueStop    ContainerBatchActionRequestAction = "stop"
 )
 
 // Valid indicates whether the value is a known member of the ContainerBatchActionRequestAction enum.
 func (e ContainerBatchActionRequestAction) Valid() bool {
 	switch e {
-	case Remove:
+	case ContainerBatchActionRequestActionValueRemove:
 		return true
-	case Restart:
+	case ContainerBatchActionRequestActionValueRestart:
 		return true
-	case Start:
+	case ContainerBatchActionRequestActionValueStart:
 		return true
-	case Stop:
+	case ContainerBatchActionRequestActionValueStop:
 		return true
 	default:
 		return false
@@ -797,25 +797,25 @@ func (e ContainerDetailEnvironmentPolicy) Valid() bool {
 
 // Defines values for ContainerDetailHealth.
 const (
-	ContainerDetailHealthHealthy     ContainerDetailHealth = "healthy"
-	ContainerDetailHealthNone        ContainerDetailHealth = "none"
-	ContainerDetailHealthStarting    ContainerDetailHealth = "starting"
-	ContainerDetailHealthUnavailable ContainerDetailHealth = "unavailable"
-	ContainerDetailHealthUnhealthy   ContainerDetailHealth = "unhealthy"
+	ContainerDetailHealthContainerSummaryHealthHealthy     ContainerDetailHealth = "healthy"
+	ContainerDetailHealthContainerSummaryHealthNone        ContainerDetailHealth = "none"
+	ContainerDetailHealthContainerSummaryHealthStarting    ContainerDetailHealth = "starting"
+	ContainerDetailHealthContainerSummaryHealthUnavailable ContainerDetailHealth = "unavailable"
+	ContainerDetailHealthContainerSummaryHealthUnhealthy   ContainerDetailHealth = "unhealthy"
 )
 
 // Valid indicates whether the value is a known member of the ContainerDetailHealth enum.
 func (e ContainerDetailHealth) Valid() bool {
 	switch e {
-	case ContainerDetailHealthHealthy:
+	case ContainerDetailHealthContainerSummaryHealthHealthy:
 		return true
-	case ContainerDetailHealthNone:
+	case ContainerDetailHealthContainerSummaryHealthNone:
 		return true
-	case ContainerDetailHealthStarting:
+	case ContainerDetailHealthContainerSummaryHealthStarting:
 		return true
-	case ContainerDetailHealthUnavailable:
+	case ContainerDetailHealthContainerSummaryHealthUnavailable:
 		return true
-	case ContainerDetailHealthUnhealthy:
+	case ContainerDetailHealthContainerSummaryHealthUnhealthy:
 		return true
 	default:
 		return false
@@ -824,34 +824,49 @@ func (e ContainerDetailHealth) Valid() bool {
 
 // Defines values for ContainerDetailState.
 const (
-	ContainerDetailStateCreated    ContainerDetailState = "created"
-	ContainerDetailStateDead       ContainerDetailState = "dead"
-	ContainerDetailStateExited     ContainerDetailState = "exited"
-	ContainerDetailStatePaused     ContainerDetailState = "paused"
-	ContainerDetailStateRemoving   ContainerDetailState = "removing"
-	ContainerDetailStateRestarting ContainerDetailState = "restarting"
-	ContainerDetailStateRunning    ContainerDetailState = "running"
-	ContainerDetailStateUnknown    ContainerDetailState = "unknown"
+	ContainerDetailStateContainerSummaryStateCreated    ContainerDetailState = "created"
+	ContainerDetailStateContainerSummaryStateDead       ContainerDetailState = "dead"
+	ContainerDetailStateContainerSummaryStateExited     ContainerDetailState = "exited"
+	ContainerDetailStateContainerSummaryStatePaused     ContainerDetailState = "paused"
+	ContainerDetailStateContainerSummaryStateRemoving   ContainerDetailState = "removing"
+	ContainerDetailStateContainerSummaryStateRestarting ContainerDetailState = "restarting"
+	ContainerDetailStateContainerSummaryStateRunning    ContainerDetailState = "running"
+	ContainerDetailStateContainerSummaryStateUnknown    ContainerDetailState = "unknown"
 )
 
 // Valid indicates whether the value is a known member of the ContainerDetailState enum.
 func (e ContainerDetailState) Valid() bool {
 	switch e {
-	case ContainerDetailStateCreated:
+	case ContainerDetailStateContainerSummaryStateCreated:
 		return true
-	case ContainerDetailStateDead:
+	case ContainerDetailStateContainerSummaryStateDead:
 		return true
-	case ContainerDetailStateExited:
+	case ContainerDetailStateContainerSummaryStateExited:
 		return true
-	case ContainerDetailStatePaused:
+	case ContainerDetailStateContainerSummaryStatePaused:
 		return true
-	case ContainerDetailStateRemoving:
+	case ContainerDetailStateContainerSummaryStateRemoving:
 		return true
-	case ContainerDetailStateRestarting:
+	case ContainerDetailStateContainerSummaryStateRestarting:
 		return true
-	case ContainerDetailStateRunning:
+	case ContainerDetailStateContainerSummaryStateRunning:
 		return true
-	case ContainerDetailStateUnknown:
+	case ContainerDetailStateContainerSummaryStateUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ContainerEnvironmentEntrySource.
+const (
+	ContainerEnvironmentEntrySourceDocker ContainerEnvironmentEntrySource = "docker"
+)
+
+// Valid indicates whether the value is a known member of the ContainerEnvironmentEntrySource enum.
+func (e ContainerEnvironmentEntrySource) Valid() bool {
+	switch e {
+	case ContainerEnvironmentEntrySourceDocker:
 		return true
 	default:
 		return false
@@ -860,19 +875,19 @@ func (e ContainerDetailState) Valid() bool {
 
 // Defines values for ContainerPortType.
 const (
-	Sctp ContainerPortType = "sctp"
-	Tcp  ContainerPortType = "tcp"
-	Udp  ContainerPortType = "udp"
+	ContainerPortTypeValueSCTP ContainerPortType = "sctp"
+	ContainerPortTypeValueTCP  ContainerPortType = "tcp"
+	ContainerPortTypeValueUDP  ContainerPortType = "udp"
 )
 
 // Valid indicates whether the value is a known member of the ContainerPortType enum.
 func (e ContainerPortType) Valid() bool {
 	switch e {
-	case Sctp:
+	case ContainerPortTypeValueSCTP:
 		return true
-	case Tcp:
+	case ContainerPortTypeValueTCP:
 		return true
-	case Udp:
+	case ContainerPortTypeValueUDP:
 		return true
 	default:
 		return false
@@ -902,13 +917,13 @@ func (e ContainerRuntimeInfoStatus) Valid() bool {
 
 // Defines values for ContainerStopErrorResponseSuccess.
 const (
-	PostContainerStop500JSONResponseBodySuccessFalse ContainerStopErrorResponseSuccess = false
+	ContainerStopErrorResponseSuccessFalse ContainerStopErrorResponseSuccess = false
 )
 
 // Valid indicates whether the value is a known member of the ContainerStopErrorResponseSuccess enum.
 func (e ContainerStopErrorResponseSuccess) Valid() bool {
 	switch e {
-	case PostContainerStop500JSONResponseBodySuccessFalse:
+	case ContainerStopErrorResponseSuccessFalse:
 		return true
 	default:
 		return false
@@ -917,25 +932,25 @@ func (e ContainerStopErrorResponseSuccess) Valid() bool {
 
 // Defines values for ContainerSummaryHealth.
 const (
-	ContainerSummaryHealthHealthy     ContainerSummaryHealth = "healthy"
-	ContainerSummaryHealthNone        ContainerSummaryHealth = "none"
-	ContainerSummaryHealthStarting    ContainerSummaryHealth = "starting"
-	ContainerSummaryHealthUnavailable ContainerSummaryHealth = "unavailable"
-	ContainerSummaryHealthUnhealthy   ContainerSummaryHealth = "unhealthy"
+	ContainerSummaryHealthContainerSummaryHealthHealthy     ContainerSummaryHealth = "healthy"
+	ContainerSummaryHealthContainerSummaryHealthNone        ContainerSummaryHealth = "none"
+	ContainerSummaryHealthContainerSummaryHealthStarting    ContainerSummaryHealth = "starting"
+	ContainerSummaryHealthContainerSummaryHealthUnavailable ContainerSummaryHealth = "unavailable"
+	ContainerSummaryHealthContainerSummaryHealthUnhealthy   ContainerSummaryHealth = "unhealthy"
 )
 
 // Valid indicates whether the value is a known member of the ContainerSummaryHealth enum.
 func (e ContainerSummaryHealth) Valid() bool {
 	switch e {
-	case ContainerSummaryHealthHealthy:
+	case ContainerSummaryHealthContainerSummaryHealthHealthy:
 		return true
-	case ContainerSummaryHealthNone:
+	case ContainerSummaryHealthContainerSummaryHealthNone:
 		return true
-	case ContainerSummaryHealthStarting:
+	case ContainerSummaryHealthContainerSummaryHealthStarting:
 		return true
-	case ContainerSummaryHealthUnavailable:
+	case ContainerSummaryHealthContainerSummaryHealthUnavailable:
 		return true
-	case ContainerSummaryHealthUnhealthy:
+	case ContainerSummaryHealthContainerSummaryHealthUnhealthy:
 		return true
 	default:
 		return false
@@ -944,34 +959,34 @@ func (e ContainerSummaryHealth) Valid() bool {
 
 // Defines values for ContainerSummaryState.
 const (
-	ContainerSummaryStateCreated    ContainerSummaryState = "created"
-	ContainerSummaryStateDead       ContainerSummaryState = "dead"
-	ContainerSummaryStateExited     ContainerSummaryState = "exited"
-	ContainerSummaryStatePaused     ContainerSummaryState = "paused"
-	ContainerSummaryStateRemoving   ContainerSummaryState = "removing"
-	ContainerSummaryStateRestarting ContainerSummaryState = "restarting"
-	ContainerSummaryStateRunning    ContainerSummaryState = "running"
-	ContainerSummaryStateUnknown    ContainerSummaryState = "unknown"
+	ContainerSummaryStateContainerSummaryStateCreated    ContainerSummaryState = "created"
+	ContainerSummaryStateContainerSummaryStateDead       ContainerSummaryState = "dead"
+	ContainerSummaryStateContainerSummaryStateExited     ContainerSummaryState = "exited"
+	ContainerSummaryStateContainerSummaryStatePaused     ContainerSummaryState = "paused"
+	ContainerSummaryStateContainerSummaryStateRemoving   ContainerSummaryState = "removing"
+	ContainerSummaryStateContainerSummaryStateRestarting ContainerSummaryState = "restarting"
+	ContainerSummaryStateContainerSummaryStateRunning    ContainerSummaryState = "running"
+	ContainerSummaryStateContainerSummaryStateUnknown    ContainerSummaryState = "unknown"
 )
 
 // Valid indicates whether the value is a known member of the ContainerSummaryState enum.
 func (e ContainerSummaryState) Valid() bool {
 	switch e {
-	case ContainerSummaryStateCreated:
+	case ContainerSummaryStateContainerSummaryStateCreated:
 		return true
-	case ContainerSummaryStateDead:
+	case ContainerSummaryStateContainerSummaryStateDead:
 		return true
-	case ContainerSummaryStateExited:
+	case ContainerSummaryStateContainerSummaryStateExited:
 		return true
-	case ContainerSummaryStatePaused:
+	case ContainerSummaryStateContainerSummaryStatePaused:
 		return true
-	case ContainerSummaryStateRemoving:
+	case ContainerSummaryStateContainerSummaryStateRemoving:
 		return true
-	case ContainerSummaryStateRestarting:
+	case ContainerSummaryStateContainerSummaryStateRestarting:
 		return true
-	case ContainerSummaryStateRunning:
+	case ContainerSummaryStateContainerSummaryStateRunning:
 		return true
-	case ContainerSummaryStateUnknown:
+	case ContainerSummaryStateContainerSummaryStateUnknown:
 		return true
 	default:
 		return false
@@ -1964,25 +1979,25 @@ func (e UpdateUserStatusRequestStatus) Valid() bool {
 
 // Defines values for ContainerListHealth.
 const (
-	ContainerListHealthHealthy     ContainerListHealth = "healthy"
-	ContainerListHealthNone        ContainerListHealth = "none"
-	ContainerListHealthStarting    ContainerListHealth = "starting"
-	ContainerListHealthUnavailable ContainerListHealth = "unavailable"
-	ContainerListHealthUnhealthy   ContainerListHealth = "unhealthy"
+	ContainerListHealthContainerListHealthHealthy     ContainerListHealth = "healthy"
+	ContainerListHealthContainerListHealthNone        ContainerListHealth = "none"
+	ContainerListHealthContainerListHealthStarting    ContainerListHealth = "starting"
+	ContainerListHealthContainerListHealthUnavailable ContainerListHealth = "unavailable"
+	ContainerListHealthContainerListHealthUnhealthy   ContainerListHealth = "unhealthy"
 )
 
 // Valid indicates whether the value is a known member of the ContainerListHealth enum.
 func (e ContainerListHealth) Valid() bool {
 	switch e {
-	case ContainerListHealthHealthy:
+	case ContainerListHealthContainerListHealthHealthy:
 		return true
-	case ContainerListHealthNone:
+	case ContainerListHealthContainerListHealthNone:
 		return true
-	case ContainerListHealthStarting:
+	case ContainerListHealthContainerListHealthStarting:
 		return true
-	case ContainerListHealthUnavailable:
+	case ContainerListHealthContainerListHealthUnavailable:
 		return true
-	case ContainerListHealthUnhealthy:
+	case ContainerListHealthContainerListHealthUnhealthy:
 		return true
 	default:
 		return false
@@ -1991,34 +2006,34 @@ func (e ContainerListHealth) Valid() bool {
 
 // Defines values for ContainerListState.
 const (
-	ContainerListStateCreated    ContainerListState = "created"
-	ContainerListStateDead       ContainerListState = "dead"
-	ContainerListStateExited     ContainerListState = "exited"
-	ContainerListStatePaused     ContainerListState = "paused"
-	ContainerListStateRemoving   ContainerListState = "removing"
-	ContainerListStateRestarting ContainerListState = "restarting"
-	ContainerListStateRunning    ContainerListState = "running"
-	ContainerListStateUnknown    ContainerListState = "unknown"
+	ContainerListStateContainerListStateCreated    ContainerListState = "created"
+	ContainerListStateContainerListStateDead       ContainerListState = "dead"
+	ContainerListStateContainerListStateExited     ContainerListState = "exited"
+	ContainerListStateContainerListStatePaused     ContainerListState = "paused"
+	ContainerListStateContainerListStateRemoving   ContainerListState = "removing"
+	ContainerListStateContainerListStateRestarting ContainerListState = "restarting"
+	ContainerListStateContainerListStateRunning    ContainerListState = "running"
+	ContainerListStateContainerListStateUnknown    ContainerListState = "unknown"
 )
 
 // Valid indicates whether the value is a known member of the ContainerListState enum.
 func (e ContainerListState) Valid() bool {
 	switch e {
-	case ContainerListStateCreated:
+	case ContainerListStateContainerListStateCreated:
 		return true
-	case ContainerListStateDead:
+	case ContainerListStateContainerListStateDead:
 		return true
-	case ContainerListStateExited:
+	case ContainerListStateContainerListStateExited:
 		return true
-	case ContainerListStatePaused:
+	case ContainerListStateContainerListStatePaused:
 		return true
-	case ContainerListStateRemoving:
+	case ContainerListStateContainerListStateRemoving:
 		return true
-	case ContainerListStateRestarting:
+	case ContainerListStateContainerListStateRestarting:
 		return true
-	case ContainerListStateRunning:
+	case ContainerListStateContainerListStateRunning:
 		return true
-	case ContainerListStateUnknown:
+	case ContainerListStateContainerListStateUnknown:
 		return true
 	default:
 		return false
@@ -2360,34 +2375,34 @@ func (e GetNotificationsParamsStatus) Valid() bool {
 
 // Defines values for GetContainersParamsState.
 const (
-	Created    GetContainersParamsState = "created"
-	Dead       GetContainersParamsState = "dead"
-	Exited     GetContainersParamsState = "exited"
-	Paused     GetContainersParamsState = "paused"
-	Removing   GetContainersParamsState = "removing"
-	Restarting GetContainersParamsState = "restarting"
-	Running    GetContainersParamsState = "running"
-	Unknown    GetContainersParamsState = "unknown"
+	GetContainersParamsStateContainerListStateCreated    GetContainersParamsState = "created"
+	GetContainersParamsStateContainerListStateDead       GetContainersParamsState = "dead"
+	GetContainersParamsStateContainerListStateExited     GetContainersParamsState = "exited"
+	GetContainersParamsStateContainerListStatePaused     GetContainersParamsState = "paused"
+	GetContainersParamsStateContainerListStateRemoving   GetContainersParamsState = "removing"
+	GetContainersParamsStateContainerListStateRestarting GetContainersParamsState = "restarting"
+	GetContainersParamsStateContainerListStateRunning    GetContainersParamsState = "running"
+	GetContainersParamsStateContainerListStateUnknown    GetContainersParamsState = "unknown"
 )
 
 // Valid indicates whether the value is a known member of the GetContainersParamsState enum.
 func (e GetContainersParamsState) Valid() bool {
 	switch e {
-	case Created:
+	case GetContainersParamsStateContainerListStateCreated:
 		return true
-	case Dead:
+	case GetContainersParamsStateContainerListStateDead:
 		return true
-	case Exited:
+	case GetContainersParamsStateContainerListStateExited:
 		return true
-	case Paused:
+	case GetContainersParamsStateContainerListStatePaused:
 		return true
-	case Removing:
+	case GetContainersParamsStateContainerListStateRemoving:
 		return true
-	case Restarting:
+	case GetContainersParamsStateContainerListStateRestarting:
 		return true
-	case Running:
+	case GetContainersParamsStateContainerListStateRunning:
 		return true
-	case Unknown:
+	case GetContainersParamsStateContainerListStateUnknown:
 		return true
 	default:
 		return false
@@ -2396,25 +2411,25 @@ func (e GetContainersParamsState) Valid() bool {
 
 // Defines values for GetContainersParamsHealth.
 const (
-	Healthy     GetContainersParamsHealth = "healthy"
-	None        GetContainersParamsHealth = "none"
-	Starting    GetContainersParamsHealth = "starting"
-	Unavailable GetContainersParamsHealth = "unavailable"
-	Unhealthy   GetContainersParamsHealth = "unhealthy"
+	GetContainersParamsHealthContainerListHealthHealthy     GetContainersParamsHealth = "healthy"
+	GetContainersParamsHealthContainerListHealthNone        GetContainersParamsHealth = "none"
+	GetContainersParamsHealthContainerListHealthStarting    GetContainersParamsHealth = "starting"
+	GetContainersParamsHealthContainerListHealthUnavailable GetContainersParamsHealth = "unavailable"
+	GetContainersParamsHealthContainerListHealthUnhealthy   GetContainersParamsHealth = "unhealthy"
 )
 
 // Valid indicates whether the value is a known member of the GetContainersParamsHealth enum.
 func (e GetContainersParamsHealth) Valid() bool {
 	switch e {
-	case Healthy:
+	case GetContainersParamsHealthContainerListHealthHealthy:
 		return true
-	case None:
+	case GetContainersParamsHealthContainerListHealthNone:
 		return true
-	case Starting:
+	case GetContainersParamsHealthContainerListHealthStarting:
 		return true
-	case Unavailable:
+	case GetContainersParamsHealthContainerListHealthUnavailable:
 		return true
-	case Unhealthy:
+	case GetContainersParamsHealthContainerListHealthUnhealthy:
 		return true
 	default:
 		return false
@@ -3003,9 +3018,11 @@ type ContainerBatchActionRequest struct {
 // ContainerBatchActionRequestAction defines model for ContainerBatchActionRequest.Action.
 type ContainerBatchActionRequestAction string
 
-// ContainerBatchActionResponse defines model for container-batch-action-response.
+// ContainerBatchActionResponse Batch action result summary. The items array contains exactly one result item for each requested container id and preserves the request id order so callers can correlate each result by position as well as by id.
 type ContainerBatchActionResponse struct {
-	FailedCount  int                        `json:"failed_count"`
+	FailedCount int `json:"failed_count"`
+
+	// Items Per-container action results in the same order as the requested container ids, with one response item per requested id. OpenAPI cannot express equality with the request array length, so clients should rely on this contract text plus each item's id for correlation.
 	Items        []ContainerBatchActionItem `json:"items"`
 	RequestId    *string                    `json:"request_id,omitempty"`
 	SuccessCount int                        `json:"success_count"`
@@ -3030,7 +3047,7 @@ type ContainerDetail struct {
 	Environment    *[]ContainerEnvironmentEntry `json:"environment,omitempty"`
 
 	// EnvironmentPolicy Effective container environment variable display policy applied to this detail response.
-	EnvironmentPolicy *ContainerDetailEnvironmentPolicy `json:"environment_policy,omitempty"`
+	EnvironmentPolicy ContainerDetailEnvironmentPolicy `json:"environment_policy"`
 
 	// Health Nullable when the runtime cannot determine health on the list path without row-level inspect.
 	Health           *ContainerDetailHealth `json:"health,omitempty"`
@@ -3091,11 +3108,14 @@ type ContainerEnvironmentEntry struct {
 	Sensitive bool `json:"sensitive"`
 
 	// Source Runtime source of the environment variable entry.
-	Source string `json:"source"`
+	Source ContainerEnvironmentEntrySource `json:"source"`
 
 	// Value Environment variable value. Omitted when the active policy hides or masks the value.
 	Value *string `json:"value,omitempty"`
 }
+
+// ContainerEnvironmentEntrySource Runtime source of the environment variable entry.
+type ContainerEnvironmentEntrySource string
 
 // ContainerListResponse defines model for container-list-response.
 type ContainerListResponse struct {
@@ -3191,11 +3211,26 @@ type ContainerRemoveRequest struct {
 // ContainerResourceSummary defines model for container-resource-summary.
 type ContainerResourceSummary struct {
 	// Available Compatibility mirror of stats_available for existing clients. New UI code should use stats_available.
-	Available        bool     `json:"available"`
-	CpuPercent       *float64 `json:"cpu_percent,omitempty"`
-	MemoryLimitBytes *int64   `json:"memory_limit_bytes,omitempty"`
-	MemoryPercent    *float64 `json:"memory_percent,omitempty"`
-	MemoryUsageBytes *int64   `json:"memory_usage_bytes,omitempty"`
+	Available            bool     `json:"available"`
+	CpuPercent           *float64 `json:"cpu_percent,omitempty"`
+	CpuUsageInKernelmode *int64   `json:"cpu_usage_in_kernelmode,omitempty"`
+	CpuUsageInUsermode   *int64   `json:"cpu_usage_in_usermode,omitempty"`
+	MemoryActiveFile     *int64   `json:"memory_active_file,omitempty"`
+	MemoryCache          *int64   `json:"memory_cache,omitempty"`
+	MemoryInactiveFile   *int64   `json:"memory_inactive_file,omitempty"`
+	MemoryLimitBytes     *int64   `json:"memory_limit_bytes,omitempty"`
+	MemoryPercent        *float64 `json:"memory_percent,omitempty"`
+	MemoryPgfault        *int64   `json:"memory_pgfault,omitempty"`
+	MemoryPgmajfault     *int64   `json:"memory_pgmajfault,omitempty"`
+	MemoryRss            *int64   `json:"memory_rss,omitempty"`
+	MemoryUsageBytes     *int64   `json:"memory_usage_bytes,omitempty"`
+	OnlineCpus           *int64   `json:"online_cpus,omitempty"`
+	PidsCurrent          *int64   `json:"pids_current,omitempty"`
+	PidsLimit            *int64   `json:"pids_limit,omitempty"`
+	RxBytes              *int64   `json:"rx_bytes,omitempty"`
+	RxDropped            *int64   `json:"rx_dropped,omitempty"`
+	RxErrors             *int64   `json:"rx_errors,omitempty"`
+	RxPackets            *int64   `json:"rx_packets,omitempty"`
 
 	// StatsAvailable True when Docker runtime CPU or memory stats were collected for this row.
 	StatsAvailable bool `json:"stats_available"`
@@ -3204,7 +3239,16 @@ type ContainerResourceSummary struct {
 	StatsErrorKey *string `json:"stats_error_key,omitempty"`
 
 	// StatsErrorMessage Sanitized display-safe stats collection message; raw Docker daemon errors are not exposed.
-	StatsErrorMessage *string `json:"stats_error_message,omitempty"`
+	StatsErrorMessage          *string `json:"stats_error_message,omitempty"`
+	SystemCpuUsage             *int64  `json:"system_cpu_usage,omitempty"`
+	ThrottlingPeriods          *int64  `json:"throttling_periods,omitempty"`
+	ThrottlingThrottledPeriods *int64  `json:"throttling_throttled_periods,omitempty"`
+	ThrottlingThrottledTime    *int64  `json:"throttling_throttled_time,omitempty"`
+	TotalCpuUsage              *int64  `json:"total_cpu_usage,omitempty"`
+	TxBytes                    *int64  `json:"tx_bytes,omitempty"`
+	TxDropped                  *int64  `json:"tx_dropped,omitempty"`
+	TxErrors                   *int64  `json:"tx_errors,omitempty"`
+	TxPackets                  *int64  `json:"tx_packets,omitempty"`
 
 	// UnavailableReason Compatibility mirror of stats_error_key for existing clients.
 	UnavailableReason *string `json:"unavailable_reason,omitempty"`
@@ -3766,7 +3810,9 @@ type EnvelopedContainerActionResponse struct {
 // EnvelopedContainerBatchActionResponse defines model for enveloped-container-batch-action-response.
 type EnvelopedContainerBatchActionResponse struct {
 	// Code Existing canonical response code.
-	Code string                       `json:"code"`
+	Code string `json:"code"`
+
+	// Data Batch action result summary. The items array contains exactly one result item for each requested container id and preserves the request id order so callers can correlate each result by position as well as by id.
 	Data ContainerBatchActionResponse `json:"data"`
 
 	// Locale Present on localized error flows and omitted on normal success.

@@ -627,19 +627,19 @@ func (e GetScheduledTaskRun200JSONResponseBodyDataJobCategory) Valid() bool {
 
 // Defines values for GetScheduledTaskRun200JSONResponseBodyDataStatus.
 const (
-	GetScheduledTaskRun200JSONResponseBodyDataStatusFailed  GetScheduledTaskRun200JSONResponseBodyDataStatus = "failed"
-	GetScheduledTaskRun200JSONResponseBodyDataStatusRunning GetScheduledTaskRun200JSONResponseBodyDataStatus = "running"
-	GetScheduledTaskRun200JSONResponseBodyDataStatusSuccess GetScheduledTaskRun200JSONResponseBodyDataStatus = "success"
+	GetScheduledTaskRun200JSONResponseBodyDataStatusScheduledTaskRunItemStatusFailed  GetScheduledTaskRun200JSONResponseBodyDataStatus = "failed"
+	GetScheduledTaskRun200JSONResponseBodyDataStatusScheduledTaskRunItemStatusRunning GetScheduledTaskRun200JSONResponseBodyDataStatus = "running"
+	GetScheduledTaskRun200JSONResponseBodyDataStatusScheduledTaskRunItemStatusSuccess GetScheduledTaskRun200JSONResponseBodyDataStatus = "success"
 )
 
 // Valid indicates whether the value is a known member of the GetScheduledTaskRun200JSONResponseBodyDataStatus enum.
 func (e GetScheduledTaskRun200JSONResponseBodyDataStatus) Valid() bool {
 	switch e {
-	case GetScheduledTaskRun200JSONResponseBodyDataStatusFailed:
+	case GetScheduledTaskRun200JSONResponseBodyDataStatusScheduledTaskRunItemStatusFailed:
 		return true
-	case GetScheduledTaskRun200JSONResponseBodyDataStatusRunning:
+	case GetScheduledTaskRun200JSONResponseBodyDataStatusScheduledTaskRunItemStatusRunning:
 		return true
-	case GetScheduledTaskRun200JSONResponseBodyDataStatusSuccess:
+	case GetScheduledTaskRun200JSONResponseBodyDataStatusScheduledTaskRunItemStatusSuccess:
 		return true
 	default:
 		return false
@@ -1692,19 +1692,19 @@ func (e PostScheduledTaskRun200JSONResponseBodyDataJobCategory) Valid() bool {
 
 // Defines values for PostScheduledTaskRun200JSONResponseBodyDataStatus.
 const (
-	PostScheduledTaskRun200JSONResponseBodyDataStatusFailed  PostScheduledTaskRun200JSONResponseBodyDataStatus = "failed"
-	PostScheduledTaskRun200JSONResponseBodyDataStatusRunning PostScheduledTaskRun200JSONResponseBodyDataStatus = "running"
-	PostScheduledTaskRun200JSONResponseBodyDataStatusSuccess PostScheduledTaskRun200JSONResponseBodyDataStatus = "success"
+	PostScheduledTaskRun200JSONResponseBodyDataStatusScheduledTaskRunItemStatusFailed  PostScheduledTaskRun200JSONResponseBodyDataStatus = "failed"
+	PostScheduledTaskRun200JSONResponseBodyDataStatusScheduledTaskRunItemStatusRunning PostScheduledTaskRun200JSONResponseBodyDataStatus = "running"
+	PostScheduledTaskRun200JSONResponseBodyDataStatusScheduledTaskRunItemStatusSuccess PostScheduledTaskRun200JSONResponseBodyDataStatus = "success"
 )
 
 // Valid indicates whether the value is a known member of the PostScheduledTaskRun200JSONResponseBodyDataStatus enum.
 func (e PostScheduledTaskRun200JSONResponseBodyDataStatus) Valid() bool {
 	switch e {
-	case PostScheduledTaskRun200JSONResponseBodyDataStatusFailed:
+	case PostScheduledTaskRun200JSONResponseBodyDataStatusScheduledTaskRunItemStatusFailed:
 		return true
-	case PostScheduledTaskRun200JSONResponseBodyDataStatusRunning:
+	case PostScheduledTaskRun200JSONResponseBodyDataStatusScheduledTaskRunItemStatusRunning:
 		return true
-	case PostScheduledTaskRun200JSONResponseBodyDataStatusSuccess:
+	case PostScheduledTaskRun200JSONResponseBodyDataStatusScheduledTaskRunItemStatusSuccess:
 		return true
 	default:
 		return false
@@ -1857,19 +1857,19 @@ func (e GetScheduledTaskRuns200JSONResponseBodyDataItemsJobCategory) Valid() boo
 
 // Defines values for GetScheduledTaskRuns200JSONResponseBodyDataItemsStatus.
 const (
-	Failed  GetScheduledTaskRuns200JSONResponseBodyDataItemsStatus = "failed"
-	Running GetScheduledTaskRuns200JSONResponseBodyDataItemsStatus = "running"
-	Success GetScheduledTaskRuns200JSONResponseBodyDataItemsStatus = "success"
+	ScheduledTaskRunItemStatusFailed  GetScheduledTaskRuns200JSONResponseBodyDataItemsStatus = "failed"
+	ScheduledTaskRunItemStatusRunning GetScheduledTaskRuns200JSONResponseBodyDataItemsStatus = "running"
+	ScheduledTaskRunItemStatusSuccess GetScheduledTaskRuns200JSONResponseBodyDataItemsStatus = "success"
 )
 
 // Valid indicates whether the value is a known member of the GetScheduledTaskRuns200JSONResponseBodyDataItemsStatus enum.
 func (e GetScheduledTaskRuns200JSONResponseBodyDataItemsStatus) Valid() bool {
 	switch e {
-	case Failed:
+	case ScheduledTaskRunItemStatusFailed:
 		return true
-	case Running:
+	case ScheduledTaskRunItemStatusRunning:
 		return true
-	case Success:
+	case ScheduledTaskRunItemStatusSuccess:
 		return true
 	default:
 		return false

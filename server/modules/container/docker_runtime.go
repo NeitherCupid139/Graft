@@ -321,6 +321,14 @@ func dockerResourceSummary(stats container.StatsResponse) ResourceSummary {
 	if cpuPercent, ok := dockerCPUPercent(stats); ok {
 		resource.CPUPercent = &cpuPercent
 	}
+	resource.OnlineCPUs = dockerOnlineCPUs(stats)
+	resource.SystemCPUUsage = uint64ToInt64Ptr(stats.CPUStats.SystemUsage)
+	resource.TotalCPUUsage = uint64ToInt64Ptr(stats.CPUStats.CPUUsage.TotalUsage)
+	resource.CPUUsageInUsermode = uint64ToInt64Ptr(stats.CPUStats.CPUUsage.UsageInUsermode)
+	resource.CPUUsageInKernelmode = uint64ToInt64Ptr(stats.CPUStats.CPUUsage.UsageInKernelmode)
+	resource.ThrottlingPeriods = uint64ToInt64Ptr(stats.CPUStats.ThrottlingData.Periods)
+	resource.ThrottlingThrottledPeriods = uint64ToInt64Ptr(stats.CPUStats.ThrottlingData.ThrottledPeriods)
+	resource.ThrottlingThrottledTime = uint64ToInt64Ptr(stats.CPUStats.ThrottlingData.ThrottledTime)
 	if usage, ok := uint64ToInt64(stats.MemoryStats.Usage); ok {
 		resource.MemoryUsageBytes = &usage
 	}
@@ -331,10 +339,86 @@ func dockerResourceSummary(stats container.StatsResponse) ResourceSummary {
 		memoryPercent := (float64(*resource.MemoryUsageBytes) / float64(*resource.MemoryLimitBytes)) * dockerStatsPercentScale
 		resource.MemoryPercent = &memoryPercent
 	}
+	resource.MemoryCache = dockerMemoryStat(stats, "cache")
+	resource.MemoryRSS = dockerMemoryStat(stats, "rss")
+	resource.MemoryActiveFile = dockerMemoryStat(stats, "active_file")
+	resource.MemoryInactiveFile = dockerMemoryStat(stats, "inactive_file")
+	resource.MemoryPgfault = dockerMemoryStat(stats, "pgfault")
+	resource.MemoryPgmajfault = dockerMemoryStat(stats, "pgmajfault")
+	applyDockerNetworkStats(stats, &resource)
+	resource.PIDsCurrent = uint64ToInt64Ptr(stats.PidsStats.Current)
+	resource.PIDsLimit = uint64ToInt64Ptr(stats.PidsStats.Limit)
 	if resource.CPUPercent == nil && resource.MemoryUsageBytes == nil && resource.MemoryLimitBytes == nil {
 		return unavailableResourceSummary(containerStatsIncompleteReason)
 	}
 	return resource
+}
+
+func dockerOnlineCPUs(stats container.StatsResponse) *int64 {
+	if stats.CPUStats.OnlineCPUs == 0 {
+		return nil
+	}
+	return uint32ToInt64Ptr(stats.CPUStats.OnlineCPUs)
+}
+
+func dockerMemoryStat(stats container.StatsResponse, key string) *int64 {
+	if len(stats.MemoryStats.Stats) == 0 {
+		return nil
+	}
+	value, ok := stats.MemoryStats.Stats[key]
+	if !ok {
+		return nil
+	}
+	return uint64ToInt64Ptr(value)
+}
+
+func applyDockerNetworkStats(stats container.StatsResponse, resource *ResourceSummary) {
+	if len(stats.Networks) == 0 || resource == nil {
+		return
+	}
+	var totals dockerNetworkTotals
+	for _, networkStats := range stats.Networks {
+		totals.add(networkStats)
+	}
+	resource.RxBytes = totals.int64Ptr(totals.rxBytes, totals.rxBytesOverflow)
+	resource.TxBytes = totals.int64Ptr(totals.txBytes, totals.txBytesOverflow)
+	resource.RxPackets = totals.int64Ptr(totals.rxPackets, totals.rxPacketsOverflow)
+	resource.TxPackets = totals.int64Ptr(totals.txPackets, totals.txPacketsOverflow)
+	resource.RxErrors = totals.int64Ptr(totals.rxErrors, totals.rxErrorsOverflow)
+	resource.TxErrors = totals.int64Ptr(totals.txErrors, totals.txErrorsOverflow)
+	resource.RxDropped = totals.int64Ptr(totals.rxDropped, totals.rxDroppedOverflow)
+	resource.TxDropped = totals.int64Ptr(totals.txDropped, totals.txDroppedOverflow)
+}
+
+type dockerNetworkTotals struct {
+	rxBytes, txBytes, rxPackets, txPackets, rxErrors, txErrors, rxDropped, txDropped uint64
+	rxBytesOverflow, txBytesOverflow, rxPacketsOverflow, txPacketsOverflow           bool
+	rxErrorsOverflow, txErrorsOverflow, rxDroppedOverflow, txDroppedOverflow         bool
+}
+
+func (t *dockerNetworkTotals) add(stats container.NetworkStats) {
+	t.rxBytes, t.rxBytesOverflow = addUint64(t.rxBytes, stats.RxBytes, t.rxBytesOverflow)
+	t.txBytes, t.txBytesOverflow = addUint64(t.txBytes, stats.TxBytes, t.txBytesOverflow)
+	t.rxPackets, t.rxPacketsOverflow = addUint64(t.rxPackets, stats.RxPackets, t.rxPacketsOverflow)
+	t.txPackets, t.txPacketsOverflow = addUint64(t.txPackets, stats.TxPackets, t.txPacketsOverflow)
+	t.rxErrors, t.rxErrorsOverflow = addUint64(t.rxErrors, stats.RxErrors, t.rxErrorsOverflow)
+	t.txErrors, t.txErrorsOverflow = addUint64(t.txErrors, stats.TxErrors, t.txErrorsOverflow)
+	t.rxDropped, t.rxDroppedOverflow = addUint64(t.rxDropped, stats.RxDropped, t.rxDroppedOverflow)
+	t.txDropped, t.txDroppedOverflow = addUint64(t.txDropped, stats.TxDropped, t.txDroppedOverflow)
+}
+
+func (dockerNetworkTotals) int64Ptr(value uint64, overflow bool) *int64 {
+	if overflow {
+		return nil
+	}
+	return uint64ToInt64Ptr(value)
+}
+
+func addUint64(total uint64, value uint64, overflow bool) (uint64, bool) {
+	if overflow || total > ^uint64(0)-value {
+		return 0, true
+	}
+	return total + value, false
 }
 
 func dockerCPUPercent(stats container.StatsResponse) (float64, bool) {
@@ -394,6 +478,19 @@ func uint64ToInt64(value uint64) (int64, bool) {
 		return 0, false
 	}
 	return int64(value), true
+}
+
+func uint64ToInt64Ptr(value uint64) *int64 {
+	converted, ok := uint64ToInt64(value)
+	if !ok {
+		return nil
+	}
+	return &converted
+}
+
+func uint32ToInt64Ptr(value uint32) *int64 {
+	converted := int64(value)
+	return &converted
 }
 
 func dockerDetail(inspect container.InspectResponse, info RuntimeInfo) Detail {
