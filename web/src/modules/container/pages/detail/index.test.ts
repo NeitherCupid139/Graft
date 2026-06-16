@@ -113,11 +113,14 @@ const translations = vi.hoisted(
     'container.detail.resources.collectedAt': '采集时间',
     'container.detail.resources.cpu': 'CPU',
     'container.detail.resources.currentSnapshot': '当前快照',
+    'container.detail.resources.detail': '资源明细',
     'container.detail.resources.memory': '内存',
     'container.detail.resources.memoryLimit': '内存上限',
     'container.detail.resources.memoryPercent': '内存百分比',
     'container.detail.resources.memoryUsage': '内存使用',
+    'container.detail.resources.noData': '无数据',
     'container.detail.resources.status': '采集状态',
+    'container.detail.resources.unavailable': '未采集',
     'container.detail.storage.access': '访问',
     'container.detail.storage.destination': '挂载点',
     'container.detail.storage.mode': '模式',
@@ -239,6 +242,7 @@ describe('container detail page', () => {
     expect(wrapper.text()).toContain('身份信息');
     expect(wrapper.text()).toContain('运行状态');
     expect(wrapper.text()).toContain('资源使用');
+    expect(wrapper.text()).toContain('资源明细');
     expect(wrapper.text()).toContain('网络访问');
     expect(wrapper.text()).toContain('基础信息');
     expect(wrapper.text()).toContain('运行信息');
@@ -443,7 +447,7 @@ describe('container detail page', () => {
     expect(sourceText).not.toContain('container-detail-code');
   });
 
-  it('keeps overview as a single-column grouped information flow', () => {
+  it('keeps overview as a single-column grouped information flow without nested scrolling', () => {
     const overviewStart = sourceText.indexOf('<container-overview-panel');
     const overviewEnd = sourceText.indexOf('<t-tab-panel value="resources"', overviewStart);
     const overviewSource = sourceText.slice(overviewStart, overviewEnd);
@@ -451,15 +455,32 @@ describe('container detail page', () => {
     expect(overviewSource).not.toContain('<t-card');
     expect(sourceText).not.toContain('container-overview-main-grid');
     expect(sourceText).not.toContain('container-overview-summary-strip');
-    expect(overviewPanelSourceText).toContain('container-overview-panel container-detail-scrollbar');
+    expect(overviewPanelSourceText).toContain('container-overview-panel');
+    expect(overviewPanelSourceText).not.toContain('container-detail-scrollbar');
     expect(overviewPanelSourceText).toContain('container-info-section');
     expect(overviewPanelSourceText).toContain('container-info-row');
     expect(overviewPanelSourceText).toContain('width: 100%;');
     expect(overviewPanelSourceText).toContain('grid-template-columns: 112px minmax(0, 1fr);');
-    expect(overviewPanelSourceText).toContain('overflow: hidden auto;');
-    expect(overviewPanelSourceText).toContain('scrollbar-color: var(--td-scrollbar-color) transparent;');
+    expect(overviewPanelSourceText).not.toContain('overflow: hidden auto;');
+    expect(overviewPanelSourceText).not.toContain('max-height: clamp');
+    expect(overviewPanelSourceText).not.toContain('calc(100vh');
+    expect(overviewPanelSourceText).not.toContain('scrollbar-color: var(--td-scrollbar-color) transparent;');
     expect(overviewSource).not.toContain('container.detail.overview.resourceSummary');
     expect(overviewSource).not.toContain('container.detail.overview.networkSummary');
+  });
+
+  it('renders resource details as a lightweight section instead of a bordered descriptions table', () => {
+    const resourcesStart = sourceText.indexOf('<t-tab-panel value="resources"');
+    const resourcesEnd = sourceText.indexOf('<t-tab-panel value="logs"', resourcesStart);
+    const resourcesSource = sourceText.slice(resourcesStart, resourcesEnd);
+
+    expect(resourcesSource).toContain('container-detail-resource-grid');
+    expect(resourcesSource).toContain('container-resource-detail-section');
+    expect(resourcesSource).toContain('container-resource-detail-row');
+    expect(resourcesSource).toContain('container.detail.resources.detail');
+    expect(resourcesSource).not.toContain('<t-descriptions');
+    expect(resourcesSource).not.toContain('<t-descriptions-item');
+    expect(resourcesSource).not.toContain('bordered');
   });
 });
 

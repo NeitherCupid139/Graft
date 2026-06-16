@@ -287,7 +287,10 @@
         "status": "Collection Status",
         "available": "Collected",
         "collectedAt": "Collected At",
-        "currentSnapshot": "Current Snapshot"
+        "currentSnapshot": "Current Snapshot",
+        "detail": "Resource Details",
+        "noData": "No Data",
+        "unavailable": "Not Collected"
       },
       "logs": {
         "refresh": "Refresh Logs",

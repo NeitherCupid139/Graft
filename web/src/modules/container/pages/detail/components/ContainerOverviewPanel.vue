@@ -1,5 +1,5 @@
 <template>
-  <div class="container-overview-panel container-detail-scrollbar">
+  <div class="container-overview-panel">
     <div class="container-overview-detail">
       <section v-for="section in sections" :key="section.key" class="container-info-section">
         <div class="container-info-section__title">{{ section.title }}</div>
@@ -70,34 +70,8 @@ const emit = defineEmits<{
 .container-overview-panel {
   display: flex;
   flex-direction: column;
-  max-height: clamp(360px, calc(100vh - 520px), 640px);
   min-width: 0;
-  overflow: hidden auto;
-  overscroll-behavior: contain;
-  padding-right: var(--graft-density-gap-6);
-  scrollbar-gutter: stable;
   width: 100%;
-}
-
-.container-detail-scrollbar {
-  scrollbar-color: var(--td-scrollbar-color) transparent;
-  scrollbar-width: thin;
-}
-
-.container-detail-scrollbar::-webkit-scrollbar {
-  background: transparent;
-  width: 8px;
-}
-
-.container-detail-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.container-detail-scrollbar::-webkit-scrollbar-thumb {
-  background-clip: content-box;
-  background-color: var(--td-scrollbar-color);
-  border: 2px solid transparent;
-  border-radius: 6px;
 }
 
 .container-overview-detail {
@@ -212,13 +186,6 @@ const emit = defineEmits<{
 
   .container-info-row__value {
     width: 100%;
-  }
-}
-
-@media (width <= 720px) {
-  .container-overview-panel {
-    max-height: clamp(420px, calc(100vh - 420px), 680px);
-    padding-right: 0;
   }
 }
 </style>

@@ -287,7 +287,10 @@
         "status": "采集状态",
         "available": "已采集",
         "collectedAt": "采集时间",
-        "currentSnapshot": "当前快照"
+        "currentSnapshot": "当前快照",
+        "detail": "资源明细",
+        "noData": "无数据",
+        "unavailable": "未采集"
       },
       "logs": {
         "refresh": "刷新日志",

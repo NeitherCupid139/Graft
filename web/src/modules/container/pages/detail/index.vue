@@ -204,50 +204,47 @@
                 <div class="container-detail-resource-grid">
                   <metric-card
                     :title="t('container.detail.resources.cpu')"
-                    :value="formatPercent(detail.resource?.cpu_percent)"
-                    :description="t('container.detail.resources.currentSnapshot')"
-                    :progress="toProgressPercent(detail.resource?.cpu_percent)"
-                    :progress-label="formatPercent(detail.resource?.cpu_percent)"
+                    :value="resourceMetrics.cpu.value"
+                    :description="resourceMetrics.cpu.description"
+                    :progress="resourceMetrics.cpu.progress"
+                    :progress-label="resourceMetrics.cpu.progressLabel"
                   />
                   <metric-card
                     :title="t('container.detail.resources.memory')"
-                    :value="memorySummary(detail)"
-                    :description="formatPercent(detail.resource?.memory_percent)"
-                    :progress="toProgressPercent(detail.resource?.memory_percent)"
-                    :progress-label="formatPercent(detail.resource?.memory_percent)"
+                    :value="resourceMetrics.memory.value"
+                    :description="resourceMetrics.memory.description"
+                    :progress="resourceMetrics.memory.progress"
+                    :progress-label="resourceMetrics.memory.progressLabel"
                   />
-                  <metric-card
-                    :title="t('container.detail.resources.status')"
-                    :value="resourceAvailability(detail)"
-                    :description="formatTime(detail.inspect_updated_at)"
-                  />
+                  <article class="container-detail-resource-status-card">
+                    <div class="container-detail-resource-status-card__content">
+                      <span class="container-detail-resource-status-card__title">
+                        {{ t('container.detail.resources.status') }}
+                      </span>
+                      <strong>{{ resourceMetrics.status.value }}</strong>
+                      <span>{{ resourceMetrics.status.description }}</span>
+                    </div>
+                    <t-tag :theme="resourceMetrics.status.theme" variant="light-outline">
+                      {{ resourceMetrics.status.value }}
+                    </t-tag>
+                  </article>
                 </div>
-                <t-descriptions
-                  class="container-detail-resource-descriptions"
-                  :column="2"
-                  item-layout="vertical"
-                  bordered
-                  table-layout="fixed"
-                >
-                  <t-descriptions-item :label="t('container.detail.resources.cpu')">
-                    {{ formatPercent(detail.resource?.cpu_percent) }}
-                  </t-descriptions-item>
-                  <t-descriptions-item :label="t('container.detail.resources.memoryUsage')">
-                    {{ formatBytes(detail.resource?.memory_usage_bytes) }}
-                  </t-descriptions-item>
-                  <t-descriptions-item :label="t('container.detail.resources.memoryLimit')">
-                    {{ formatBytes(detail.resource?.memory_limit_bytes) }}
-                  </t-descriptions-item>
-                  <t-descriptions-item :label="t('container.detail.resources.memoryPercent')">
-                    {{ formatPercent(detail.resource?.memory_percent) }}
-                  </t-descriptions-item>
-                  <t-descriptions-item :label="t('container.detail.resources.status')">
-                    {{ resourceAvailability(detail) }}
-                  </t-descriptions-item>
-                  <t-descriptions-item :label="t('container.detail.resources.collectedAt')">
-                    {{ formatTime(detail.inspect_updated_at) }}
-                  </t-descriptions-item>
-                </t-descriptions>
+                <section class="container-resource-detail-section">
+                  <div class="container-resource-detail-section__title">
+                    {{ t('container.detail.resources.detail') }}
+                  </div>
+                  <div class="container-resource-detail-section__body">
+                    <div v-for="row in resourceDetailRows" :key="row.key" class="container-resource-detail-row">
+                      <span class="container-resource-detail-row__label">{{ row.label }}</span>
+                      <span class="container-resource-detail-row__value">
+                        <t-tag v-if="row.type === 'tag'" :theme="row.theme" variant="light-outline">
+                          {{ row.value }}
+                        </t-tag>
+                        <span v-else>{{ row.value }}</span>
+                      </span>
+                    </div>
+                  </div>
+                </section>
               </section>
             </t-tab-panel>
 
@@ -445,6 +442,21 @@ type EnvironmentRow = {
   rawValue: string;
   value: string;
 };
+type ResourceStatusTheme = 'success' | 'warning' | 'default';
+type ResourceDetailRow =
+  | {
+      key: string;
+      label: string;
+      type: 'text';
+      value: string;
+    }
+  | {
+      key: string;
+      label: string;
+      theme: ResourceStatusTheme;
+      type: 'tag';
+      value: string;
+    };
 
 const DETAIL_TABS: DetailTab[] = ['overview', 'resources', 'logs', 'health', 'config', 'network', 'storage', 'raw'];
 const DEFAULT_LOG_QUERY = {
@@ -481,6 +493,78 @@ const pageTitle = computed(() => {
   return containerId.value || t('container.detail.title');
 });
 const environmentRows = computed(() => normalizeEnvironmentRows(detail.value));
+const resourceMetrics = computed(() => {
+  const current = detail.value;
+  const resource = current?.resource;
+  const cpuValue = formatPercent(resource?.cpu_percent);
+  const memoryPercent = formatPercent(resource?.memory_percent);
+  const status = current ? resourceStatus(current) : emptyResourceStatus();
+
+  return {
+    cpu: {
+      description:
+        cpuValue === '-' ? t('container.detail.resources.noData') : t('container.detail.resources.currentSnapshot'),
+      progress: toProgressPercent(resource?.cpu_percent),
+      progressLabel: cpuValue,
+      value: cpuValue,
+    },
+    memory: {
+      description: memoryPercent,
+      progress: toProgressPercent(resource?.memory_percent),
+      progressLabel: memoryPercent,
+      value: current ? memorySummary(current) : '-',
+    },
+    status,
+  };
+});
+const resourceDetailRows = computed<ResourceDetailRow[]>(() => {
+  const current = detail.value;
+  if (!current) {
+    return [];
+  }
+  const status = resourceStatus(current);
+  const resource = current.resource;
+
+  return [
+    {
+      key: 'cpu',
+      label: t('container.detail.resources.cpu'),
+      type: 'text',
+      value: formatPercent(resource?.cpu_percent),
+    },
+    {
+      key: 'memory-usage',
+      label: t('container.detail.resources.memoryUsage'),
+      type: 'text',
+      value: formatBytes(resource?.memory_usage_bytes),
+    },
+    {
+      key: 'memory-limit',
+      label: t('container.detail.resources.memoryLimit'),
+      type: 'text',
+      value: formatBytes(resource?.memory_limit_bytes),
+    },
+    {
+      key: 'memory-percent',
+      label: t('container.detail.resources.memoryPercent'),
+      type: 'text',
+      value: formatPercent(resource?.memory_percent),
+    },
+    {
+      key: 'status',
+      label: t('container.detail.resources.status'),
+      theme: status.theme,
+      type: 'tag',
+      value: status.value,
+    },
+    {
+      key: 'collected-at',
+      label: t('container.detail.resources.collectedAt'),
+      type: 'text',
+      value: status.collectedAt,
+    },
+  ];
+});
 const overviewSections = computed<ContainerOverviewInfoSection[]>(() => {
   const current = detail.value;
   if (!current) {
@@ -904,17 +988,44 @@ function primaryNetworkName(nextDetail: ContainerDetail) {
   return nextDetail.networks[0]?.name || '-';
 }
 
-function resourceAvailability(nextDetail: ContainerDetail) {
+function resourceStatus(nextDetail: ContainerDetail) {
   const resource = nextDetail.resource;
   if (resource?.stats_available || resource?.available) {
-    return t('container.detail.resources.available');
+    return {
+      collectedAt: formatTime(nextDetail.inspect_updated_at),
+      description: formatTime(nextDetail.inspect_updated_at),
+      theme: 'success' as const,
+      value: t('container.detail.resources.available'),
+    };
   }
-  return resource?.stats_error_message || resource?.stats_error_key || resource?.unavailable_reason || '-';
+  if (resource?.stats_error_message || resource?.stats_error_key || resource?.unavailable_reason) {
+    return {
+      collectedAt: '-',
+      description: resource.stats_error_message || resource.stats_error_key || resource.unavailable_reason || '-',
+      theme: 'warning' as const,
+      value: t('container.detail.resources.unavailable'),
+    };
+  }
+  return emptyResourceStatus();
+}
+
+function emptyResourceStatus() {
+  return {
+    collectedAt: '-',
+    description: '-',
+    theme: 'default' as const,
+    value: t('container.detail.resources.noData'),
+  };
 }
 
 function memorySummary(nextDetail: ContainerDetail) {
   const resource = nextDetail.resource;
-  return `${formatBytes(resource?.memory_usage_bytes)} / ${formatBytes(resource?.memory_limit_bytes)}`;
+  const usage = formatBytes(resource?.memory_usage_bytes);
+  const limit = formatBytes(resource?.memory_limit_bytes);
+  if (usage === '-' && limit === '-') {
+    return '-';
+  }
+  return `${usage} / ${limit}`;
 }
 
 function shortIdentifier(value?: string | null, preferred?: string | null, maxLength = 28) {
@@ -1058,10 +1169,6 @@ function portLabel(port: ContainerDetail['ports'][number]) {
   grid-template-columns: 1fr;
 }
 
-.container-detail-resource-descriptions {
-  margin-top: var(--graft-density-gap-12);
-}
-
 .container-detail-metric strong,
 .container-detail-subsection h3,
 .container-detail-overview-group h3 {
@@ -1157,6 +1264,10 @@ function portLabel(port: ContainerDetail['ports'][number]) {
   padding-top: var(--graft-density-gap-12);
 }
 
+/*
+ * Short detail tabs use the page scrollbar. Long-form tabs such as logs and raw JSON own
+ * their internal scrolling so the page does not fight a second nested scrollbar.
+ */
 .container-detail-section {
   padding: 0;
 }
@@ -1166,17 +1277,146 @@ function portLabel(port: ContainerDetail['ports'][number]) {
   padding: 0 var(--graft-density-gap-16) var(--graft-density-gap-16);
 }
 
+.container-detail-resource-status-card {
+  align-items: center;
+  background: var(--td-bg-color-container);
+  border: 1px solid var(--td-component-stroke);
+  border-radius: var(--td-radius-medium);
+  display: flex;
+  gap: var(--graft-density-gap-12);
+  justify-content: space-between;
+  min-width: 0;
+  padding: var(--graft-density-gap-14);
+}
+
+.container-detail-resource-status-card__content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--graft-density-gap-6);
+  min-width: 0;
+}
+
+.container-detail-resource-status-card__content strong {
+  color: var(--td-text-color-primary);
+  font: var(--td-font-title-medium);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.container-detail-resource-status-card__content span {
+  color: var(--td-text-color-secondary);
+  font: var(--td-font-body-small);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.container-detail-resource-status-card__title {
+  color: var(--td-text-color-secondary);
+}
+
+.container-resource-detail-section {
+  background: var(--td-bg-color-container);
+  border: 1px solid color-mix(in srgb, var(--td-component-stroke) 72%, transparent);
+  border-radius: var(--td-radius-medium);
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--graft-density-gap-12);
+  min-width: 0;
+  overflow: hidden;
+  width: 100%;
+}
+
+.container-resource-detail-section__title {
+  background: color-mix(in srgb, var(--td-bg-color-container) 86%, var(--td-bg-color-page));
+  border-bottom: 1px solid color-mix(in srgb, var(--td-component-stroke) 72%, transparent);
+  color: var(--td-text-color-primary);
+  font: var(--td-font-title-small);
+  font-weight: 600;
+  line-height: 22px;
+  padding: var(--graft-density-gap-12) var(--graft-density-gap-16);
+}
+
+.container-resource-detail-section__body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: var(--graft-density-gap-8) var(--graft-density-gap-16);
+}
+
+.container-resource-detail-row {
+  align-items: center;
+  column-gap: var(--graft-density-gap-16);
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  min-height: 36px;
+  min-width: 0;
+  width: 100%;
+}
+
+.container-resource-detail-row + .container-resource-detail-row {
+  border-top: 1px solid color-mix(in srgb, var(--td-component-stroke) 30%, transparent);
+}
+
+.container-resource-detail-row__label {
+  color: var(--td-text-color-secondary);
+  font: var(--td-font-body-small);
+  line-height: 20px;
+  min-width: 0;
+}
+
+.container-resource-detail-row__value {
+  align-items: center;
+  color: var(--td-text-color-primary);
+  display: inline-flex;
+  font: var(--td-font-body-small);
+  font-weight: 500;
+  gap: var(--graft-density-gap-6);
+  line-height: 22px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.container-resource-detail-row__value > span:not(.t-tag) {
+  display: inline-block;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 @media (width <= 1360px) {
   .container-detail-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
+@media (width <= 960px) {
+  .container-detail-resource-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (width <= 720px) {
   .container-detail-summary,
-  .container-detail-summary__resource,
+  .container-detail-summary__resource {
+    grid-template-columns: 1fr;
+  }
+
   .container-detail-resource-grid {
     grid-template-columns: 1fr;
+  }
+
+  .container-resource-detail-row {
+    align-items: flex-start;
+    gap: var(--graft-density-gap-4);
+    grid-template-columns: 1fr;
+    padding: var(--graft-density-gap-8) 0;
+  }
+
+  .container-resource-detail-row__value {
+    width: 100%;
   }
 
   .container-detail-header-meta {
