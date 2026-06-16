@@ -133,15 +133,39 @@ type ListSummary struct {
 
 // ResourceSummary is nullable-by-field runtime stats metadata for list rows.
 type ResourceSummary struct {
-	Available         bool
-	UnavailableReason string
-	StatsAvailable    bool
-	StatsErrorKey     string
-	StatsErrorMessage string
-	CPUPercent        *float64
-	MemoryUsageBytes  *int64
-	MemoryLimitBytes  *int64
-	MemoryPercent     *float64
+	Available                  bool
+	UnavailableReason          string
+	StatsAvailable             bool
+	StatsErrorKey              string
+	StatsErrorMessage          string
+	CPUPercent                 *float64
+	OnlineCPUs                 *int64
+	SystemCPUUsage             *int64
+	TotalCPUUsage              *int64
+	CPUUsageInUsermode         *int64
+	CPUUsageInKernelmode       *int64
+	ThrottlingPeriods          *int64
+	ThrottlingThrottledPeriods *int64
+	ThrottlingThrottledTime    *int64
+	MemoryUsageBytes           *int64
+	MemoryLimitBytes           *int64
+	MemoryPercent              *float64
+	MemoryCache                *int64
+	MemoryRSS                  *int64
+	MemoryActiveFile           *int64
+	MemoryInactiveFile         *int64
+	MemoryPgfault              *int64
+	MemoryPgmajfault           *int64
+	RxBytes                    *int64
+	TxBytes                    *int64
+	RxPackets                  *int64
+	TxPackets                  *int64
+	RxErrors                   *int64
+	TxErrors                   *int64
+	RxDropped                  *int64
+	TxDropped                  *int64
+	PIDsCurrent                *int64
+	PIDsLimit                  *int64
 }
 
 // Summary is a sanitized row for container list responses.

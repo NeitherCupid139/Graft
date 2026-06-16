@@ -229,20 +229,93 @@
                     </t-tag>
                   </article>
                 </div>
+
+                <section class="container-resource-dashboard-section">
+                  <div class="container-resource-dashboard-section__title">
+                    {{ t('container.detail.resources.dashboard') }}
+                  </div>
+                  <div class="container-resource-dashboard-grid">
+                    <article class="container-resource-dashboard-panel">
+                      <div class="container-resource-dashboard-panel__heading">
+                        <span>{{ t('container.detail.resources.cpuUsageRate') }}</span>
+                        <strong>{{ resourceMetrics.cpu.value }}</strong>
+                      </div>
+                      <t-progress theme="line" size="small" :label="false" :percentage="resourceMetrics.cpu.progress" />
+                      <div class="container-resource-dashboard-panel__meta">
+                        <span>
+                          {{ t('container.detail.resources.cpuLimit') }}
+                          <strong>{{ notCollectedLabel() }}</strong>
+                        </span>
+                        <span>
+                          {{ t('container.detail.resources.onlineCpus') }}
+                          <strong>{{ readMetricText('online_cpus', 'number') }}</strong>
+                        </span>
+                        <span>
+                          {{ t('container.detail.resources.systemCpuUsage') }}
+                          <strong>{{ readMetricText('system_cpu_usage', 'number') }}</strong>
+                        </span>
+                      </div>
+                    </article>
+
+                    <article class="container-resource-dashboard-panel">
+                      <div class="container-resource-dashboard-panel__heading">
+                        <span>{{ t('container.detail.resources.memoryUsageRate') }}</span>
+                        <strong>{{ resourceMetrics.memory.description }}</strong>
+                      </div>
+                      <t-progress
+                        theme="line"
+                        size="small"
+                        :label="false"
+                        :percentage="resourceMetrics.memory.progress"
+                      />
+                      <div class="container-resource-dashboard-panel__usage">
+                        {{ resourceMetrics.memory.value }}
+                      </div>
+                      <div class="container-resource-dashboard-panel__meta">
+                        <span>
+                          {{ t('container.detail.resources.memoryCache') }}
+                          <strong>{{ readMetricText('memory_cache', 'bytes') }}</strong>
+                        </span>
+                        <span>
+                          {{ t('container.detail.resources.memoryRss') }}
+                          <strong>{{ readMetricText('memory_rss', 'bytes') }}</strong>
+                        </span>
+                        <span>
+                          {{ t('container.detail.resources.memoryActiveFile') }}
+                          <strong>{{ readMetricText('memory_active_file', 'bytes') }}</strong>
+                        </span>
+                        <span>
+                          {{ t('container.detail.resources.memoryInactiveFile') }}
+                          <strong>{{ readMetricText('memory_inactive_file', 'bytes') }}</strong>
+                        </span>
+                      </div>
+                    </article>
+                  </div>
+                </section>
+
                 <section class="container-resource-detail-section">
                   <div class="container-resource-detail-section__title">
-                    {{ t('container.detail.resources.detail') }}
+                    {{ t('container.detail.resources.detailedMetrics') }}
                   </div>
-                  <div class="container-resource-detail-section__body">
-                    <div v-for="row in resourceDetailRows" :key="row.key" class="container-resource-detail-row">
-                      <span class="container-resource-detail-row__label">{{ row.label }}</span>
-                      <span class="container-resource-detail-row__value">
-                        <t-tag v-if="row.type === 'tag'" :theme="row.theme" variant="light-outline">
-                          {{ row.value }}
-                        </t-tag>
-                        <span v-else>{{ row.value }}</span>
-                      </span>
-                    </div>
+                  <div class="container-resource-detail-grid">
+                    <article
+                      v-for="group in resourceDetailGroups"
+                      :key="group.key"
+                      class="container-resource-detail-card"
+                    >
+                      <h3>{{ group.title }}</h3>
+                      <div class="container-resource-detail-card__body">
+                        <div v-for="row in group.rows" :key="row.key" class="container-resource-detail-row">
+                          <span class="container-resource-detail-row__label">{{ row.label }}</span>
+                          <span class="container-resource-detail-row__value">
+                            <t-tag v-if="row.type === 'tag'" :theme="row.theme" variant="light-outline">
+                              {{ row.value }}
+                            </t-tag>
+                            <span v-else>{{ row.value }}</span>
+                          </span>
+                        </div>
+                      </div>
+                    </article>
                   </div>
                 </section>
               </section>
@@ -443,6 +516,39 @@ type EnvironmentRow = {
   value: string;
 };
 type ResourceStatusTheme = 'success' | 'warning' | 'default';
+type ResourceMetricFormat = 'bytes' | 'number' | 'percent' | 'text';
+type ContainerResourceSummary = NonNullable<ContainerDetail['resource']>;
+type ResourceMetricKey = Extract<
+  keyof ContainerResourceSummary,
+  | 'cpu_percent'
+  | 'cpu_usage_in_kernelmode'
+  | 'cpu_usage_in_usermode'
+  | 'memory_active_file'
+  | 'memory_cache'
+  | 'memory_inactive_file'
+  | 'memory_limit_bytes'
+  | 'memory_percent'
+  | 'memory_pgfault'
+  | 'memory_pgmajfault'
+  | 'memory_rss'
+  | 'memory_usage_bytes'
+  | 'online_cpus'
+  | 'pids_current'
+  | 'pids_limit'
+  | 'rx_bytes'
+  | 'rx_dropped'
+  | 'rx_errors'
+  | 'rx_packets'
+  | 'system_cpu_usage'
+  | 'throttling_periods'
+  | 'throttling_throttled_periods'
+  | 'throttling_throttled_time'
+  | 'total_cpu_usage'
+  | 'tx_bytes'
+  | 'tx_dropped'
+  | 'tx_errors'
+  | 'tx_packets'
+>;
 type ResourceDetailRow =
   | {
       key: string;
@@ -457,6 +563,12 @@ type ResourceDetailRow =
       type: 'tag';
       value: string;
     };
+type ResourceDetailGroup = {
+  key: string;
+  rows: ResourceDetailRow[];
+  title: string;
+};
+type ResourceMetricDefinition = [ResourceMetricKey, string, ResourceMetricFormat];
 
 const DETAIL_TABS: DetailTab[] = ['overview', 'resources', 'logs', 'health', 'config', 'network', 'storage', 'raw'];
 const DEFAULT_LOG_QUERY = {
@@ -517,51 +629,80 @@ const resourceMetrics = computed(() => {
     status,
   };
 });
-const resourceDetailRows = computed<ResourceDetailRow[]>(() => {
+const resourceDetailGroups = computed<ResourceDetailGroup[]>(() => {
   const current = detail.value;
   if (!current) {
     return [];
   }
   const status = resourceStatus(current);
-  const resource = current.resource;
 
   return [
     {
+      key: 'memory',
+      title: t('container.detail.resources.memoryDetails'),
+      rows: metricRows([
+        ['memory_usage_bytes', t('container.detail.resources.memoryUsage'), 'bytes'],
+        ['memory_limit_bytes', t('container.detail.resources.memoryLimit'), 'bytes'],
+        ['memory_percent', t('container.detail.resources.memoryPercent'), 'percent'],
+        ['memory_cache', t('container.detail.resources.memoryCache'), 'bytes'],
+        ['memory_rss', t('container.detail.resources.memoryRss'), 'bytes'],
+        ['memory_active_file', t('container.detail.resources.memoryActiveFile'), 'bytes'],
+        ['memory_inactive_file', t('container.detail.resources.memoryInactiveFile'), 'bytes'],
+        ['memory_pgfault', t('container.detail.resources.memoryPgfault'), 'number'],
+        ['memory_pgmajfault', t('container.detail.resources.memoryPgmajfault'), 'number'],
+      ]),
+    },
+    {
       key: 'cpu',
-      label: t('container.detail.resources.cpu'),
-      type: 'text',
-      value: formatPercent(resource?.cpu_percent),
+      title: t('container.detail.resources.cpuDetails'),
+      rows: metricRows([
+        ['cpu_percent', t('container.detail.resources.cpuPercent'), 'percent'],
+        ['online_cpus', t('container.detail.resources.onlineCpus'), 'number'],
+        ['system_cpu_usage', t('container.detail.resources.systemCpuUsage'), 'number'],
+        ['total_cpu_usage', t('container.detail.resources.totalCpuUsage'), 'number'],
+        ['cpu_usage_in_usermode', t('container.detail.resources.cpuUsageInUsermode'), 'number'],
+        ['cpu_usage_in_kernelmode', t('container.detail.resources.cpuUsageInKernelmode'), 'number'],
+        ['throttling_periods', t('container.detail.resources.throttlingPeriods'), 'number'],
+        ['throttling_throttled_periods', t('container.detail.resources.throttlingThrottledPeriods'), 'number'],
+        ['throttling_throttled_time', t('container.detail.resources.throttlingThrottledTime'), 'number'],
+      ]),
     },
     {
-      key: 'memory-usage',
-      label: t('container.detail.resources.memoryUsage'),
-      type: 'text',
-      value: formatBytes(resource?.memory_usage_bytes),
+      key: 'network',
+      title: t('container.detail.resources.networkIo'),
+      rows: metricRows([
+        ['rx_bytes', t('container.detail.resources.rxBytes'), 'bytes'],
+        ['tx_bytes', t('container.detail.resources.txBytes'), 'bytes'],
+        ['rx_packets', t('container.detail.resources.rxPackets'), 'number'],
+        ['tx_packets', t('container.detail.resources.txPackets'), 'number'],
+        ['rx_errors', t('container.detail.resources.rxErrors'), 'number'],
+        ['tx_errors', t('container.detail.resources.txErrors'), 'number'],
+        ['rx_dropped', t('container.detail.resources.rxDropped'), 'number'],
+        ['tx_dropped', t('container.detail.resources.txDropped'), 'number'],
+      ]),
     },
     {
-      key: 'memory-limit',
-      label: t('container.detail.resources.memoryLimit'),
-      type: 'text',
-      value: formatBytes(resource?.memory_limit_bytes),
-    },
-    {
-      key: 'memory-percent',
-      label: t('container.detail.resources.memoryPercent'),
-      type: 'text',
-      value: formatPercent(resource?.memory_percent),
-    },
-    {
-      key: 'status',
-      label: t('container.detail.resources.status'),
-      theme: status.theme,
-      type: 'tag',
-      value: status.value,
-    },
-    {
-      key: 'collected-at',
-      label: t('container.detail.resources.collectedAt'),
-      type: 'text',
-      value: status.collectedAt,
+      key: 'process',
+      title: t('container.detail.resources.processInfo'),
+      rows: [
+        ...metricRows([
+          ['pids_current', t('container.detail.resources.pidsCurrent'), 'number'],
+          ['pids_limit', t('container.detail.resources.pidsLimit'), 'number'],
+        ]),
+        {
+          key: 'status',
+          label: t('container.detail.resources.status'),
+          theme: status.theme,
+          type: 'tag',
+          value: status.value,
+        },
+        {
+          key: 'collected-at',
+          label: t('container.detail.resources.collectedAt'),
+          type: 'text',
+          value: status.collectedAt === '-' ? notCollectedLabel() : status.collectedAt,
+        },
+      ],
     },
   ];
 });
@@ -1018,6 +1159,52 @@ function emptyResourceStatus() {
   };
 }
 
+function metricRows(definitions: ResourceMetricDefinition[]): ResourceDetailRow[] {
+  return definitions.map(([key, label, format]) => ({
+    key,
+    label,
+    type: 'text',
+    value: readMetricText(key, format),
+  }));
+}
+
+function readMetricText(key: ResourceMetricKey, format: ResourceMetricFormat) {
+  const value = readResourceMetric(key);
+  if (format === 'bytes') {
+    return formatResourceValue(formatBytes(value));
+  }
+  if (format === 'percent') {
+    return formatResourceValue(formatPercent(value));
+  }
+  if (format === 'number') {
+    return formatResourceValue(formatNumberMetric(value));
+  }
+  return formatResourceValue(readRawString(value));
+}
+
+function readResourceMetric(key: ResourceMetricKey) {
+  return detail.value?.resource?.[key];
+}
+
+function formatNumberMetric(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const currentLocale = typeof locale === 'string' ? locale : locale.value;
+    return new Intl.NumberFormat(currentLocale).format(value);
+  }
+  if (typeof value === 'string' && value.trim()) {
+    return value.trim();
+  }
+  return '-';
+}
+
+function formatResourceValue(value: string) {
+  return value && value !== '-' ? value : notCollectedLabel();
+}
+
+function notCollectedLabel() {
+  return t('container.detail.resources.notCollected');
+}
+
 function memorySummary(nextDetail: ContainerDetail) {
   const resource = nextDetail.resource;
   const usage = formatBytes(resource?.memory_usage_bytes);
@@ -1315,6 +1502,7 @@ function portLabel(port: ContainerDetail['ports'][number]) {
   color: var(--td-text-color-secondary);
 }
 
+.container-resource-dashboard-section,
 .container-resource-detail-section {
   background: var(--td-bg-color-container);
   border: 1px solid color-mix(in srgb, var(--td-component-stroke) 72%, transparent);
@@ -1327,29 +1515,136 @@ function portLabel(port: ContainerDetail['ports'][number]) {
   width: 100%;
 }
 
+.container-resource-dashboard-section {
+  gap: var(--graft-density-gap-14);
+  padding: var(--graft-density-gap-14) var(--graft-density-gap-16) var(--graft-density-gap-16);
+}
+
+.container-resource-dashboard-section__title,
 .container-resource-detail-section__title {
-  background: color-mix(in srgb, var(--td-bg-color-container) 86%, var(--td-bg-color-page));
-  border-bottom: 1px solid color-mix(in srgb, var(--td-component-stroke) 72%, transparent);
   color: var(--td-text-color-primary);
   font: var(--td-font-title-small);
   font-weight: 600;
   line-height: 22px;
+}
+
+.container-resource-detail-section__title {
+  background: color-mix(in srgb, var(--td-bg-color-container) 86%, var(--td-bg-color-page));
+  border-bottom: 1px solid color-mix(in srgb, var(--td-component-stroke) 72%, transparent);
   padding: var(--graft-density-gap-12) var(--graft-density-gap-16);
 }
 
-.container-resource-detail-section__body {
+.container-resource-dashboard-grid,
+.container-resource-detail-grid {
+  display: grid;
+  gap: var(--graft-density-gap-12);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 0;
+}
+
+.container-resource-dashboard-panel,
+.container-resource-detail-card {
+  background: color-mix(in srgb, var(--td-bg-color-container) 96%, var(--td-bg-color-page));
+  border: 1px solid color-mix(in srgb, var(--td-component-stroke) 56%, transparent);
+  border-radius: var(--td-radius-medium);
+  min-width: 0;
+}
+
+.container-resource-dashboard-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--graft-density-gap-12);
+  padding: var(--graft-density-gap-14);
+}
+
+.container-resource-dashboard-panel__heading {
+  align-items: center;
+  display: flex;
+  gap: var(--graft-density-gap-12);
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.container-resource-dashboard-panel__heading span {
+  color: var(--td-text-color-primary);
+  font: var(--td-font-body-medium);
+  font-weight: 600;
+  min-width: 0;
+}
+
+.container-resource-dashboard-panel__heading strong,
+.container-resource-dashboard-panel__usage {
+  color: var(--td-brand-color);
+  font: var(--td-font-title-small);
+  font-weight: 600;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.container-resource-dashboard-panel__usage {
+  color: var(--td-text-color-primary);
+}
+
+.container-resource-dashboard-panel :deep(.t-progress) {
+  width: 100%;
+}
+
+.container-resource-dashboard-panel__meta {
+  display: grid;
+  gap: var(--graft-density-gap-8) var(--graft-density-gap-12);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 0;
+}
+
+.container-resource-dashboard-panel__meta span {
+  color: var(--td-text-color-secondary);
+  display: flex;
+  flex-direction: column;
+  font: var(--td-font-body-small);
+  gap: var(--graft-density-gap-2);
+  min-width: 0;
+}
+
+.container-resource-dashboard-panel__meta strong {
+  color: var(--td-text-color-primary);
+  font-weight: 500;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.container-resource-detail-grid {
+  padding: var(--graft-density-gap-12) var(--graft-density-gap-16) var(--graft-density-gap-16);
+}
+
+.container-resource-detail-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.container-resource-detail-card h3 {
+  border-bottom: 1px solid color-mix(in srgb, var(--td-component-stroke) 44%, transparent);
+  color: var(--td-text-color-primary);
+  font: var(--td-font-body-medium);
+  font-weight: 600;
+  line-height: 22px;
+  margin: 0;
+  padding: var(--graft-density-gap-10) var(--graft-density-gap-12);
+}
+
+.container-resource-detail-card__body {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding: var(--graft-density-gap-8) var(--graft-density-gap-16);
+  padding: var(--graft-density-gap-6) var(--graft-density-gap-12);
 }
 
 .container-resource-detail-row {
   align-items: center;
-  column-gap: var(--graft-density-gap-16);
+  column-gap: var(--graft-density-gap-12);
   display: grid;
-  grid-template-columns: 112px minmax(0, 1fr);
-  min-height: 36px;
+  grid-template-columns: minmax(112px, 34%) minmax(0, 1fr);
+  min-height: 34px;
   min-width: 0;
   width: 100%;
 }
@@ -1372,9 +1667,11 @@ function portLabel(port: ContainerDetail['ports'][number]) {
   font: var(--td-font-body-small);
   font-weight: 500;
   gap: var(--graft-density-gap-6);
+  justify-content: flex-end;
   line-height: 22px;
   min-width: 0;
   overflow: hidden;
+  text-align: right;
 }
 
 .container-resource-detail-row__value > span:not(.t-tag) {
@@ -1393,7 +1690,9 @@ function portLabel(port: ContainerDetail['ports'][number]) {
 }
 
 @media (width <= 960px) {
-  .container-detail-resource-grid {
+  .container-detail-resource-grid,
+  .container-resource-dashboard-grid,
+  .container-resource-detail-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -1404,7 +1703,10 @@ function portLabel(port: ContainerDetail['ports'][number]) {
     grid-template-columns: 1fr;
   }
 
-  .container-detail-resource-grid {
+  .container-detail-resource-grid,
+  .container-resource-dashboard-grid,
+  .container-resource-detail-grid,
+  .container-resource-dashboard-panel__meta {
     grid-template-columns: 1fr;
   }
 
@@ -1416,6 +1718,8 @@ function portLabel(port: ContainerDetail['ports'][number]) {
   }
 
   .container-resource-detail-row__value {
+    justify-content: flex-start;
+    text-align: left;
     width: 100%;
   }
 

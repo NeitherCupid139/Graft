@@ -3764,11 +3764,59 @@ export interface components {
       /** Format: double */
       cpu_percent?: number;
       /** Format: int64 */
+      online_cpus?: number;
+      /** Format: int64 */
+      system_cpu_usage?: number;
+      /** Format: int64 */
+      total_cpu_usage?: number;
+      /** Format: int64 */
+      cpu_usage_in_usermode?: number;
+      /** Format: int64 */
+      cpu_usage_in_kernelmode?: number;
+      /** Format: int64 */
+      throttling_periods?: number;
+      /** Format: int64 */
+      throttling_throttled_periods?: number;
+      /** Format: int64 */
+      throttling_throttled_time?: number;
+      /** Format: int64 */
       memory_usage_bytes?: number;
       /** Format: int64 */
       memory_limit_bytes?: number;
       /** Format: double */
       memory_percent?: number;
+      /** Format: int64 */
+      memory_cache?: number;
+      /** Format: int64 */
+      memory_rss?: number;
+      /** Format: int64 */
+      memory_active_file?: number;
+      /** Format: int64 */
+      memory_inactive_file?: number;
+      /** Format: int64 */
+      memory_pgfault?: number;
+      /** Format: int64 */
+      memory_pgmajfault?: number;
+      /** Format: int64 */
+      rx_bytes?: number;
+      /** Format: int64 */
+      tx_bytes?: number;
+      /** Format: int64 */
+      rx_packets?: number;
+      /** Format: int64 */
+      tx_packets?: number;
+      /** Format: int64 */
+      rx_errors?: number;
+      /** Format: int64 */
+      tx_errors?: number;
+      /** Format: int64 */
+      rx_dropped?: number;
+      /** Format: int64 */
+      tx_dropped?: number;
+      /** Format: int64 */
+      pids_current?: number;
+      /** Format: int64 */
+      pids_limit?: number;
     };
     'container-summary': {
       id: string;

@@ -15406,6 +15406,46 @@
             "format": "double",
             "minimum": 0
           },
+          "online_cpus": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "system_cpu_usage": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "total_cpu_usage": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "cpu_usage_in_usermode": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "cpu_usage_in_kernelmode": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "throttling_periods": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "throttling_throttled_periods": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "throttling_throttled_time": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
           "memory_usage_bytes": {
             "type": "integer",
             "format": "int64",
@@ -15419,6 +15459,86 @@
           "memory_percent": {
             "type": "number",
             "format": "double",
+            "minimum": 0
+          },
+          "memory_cache": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "memory_rss": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "memory_active_file": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "memory_inactive_file": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "memory_pgfault": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "memory_pgmajfault": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "rx_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "tx_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "rx_packets": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "tx_packets": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "rx_errors": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "tx_errors": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "rx_dropped": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "tx_dropped": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "pids_current": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "pids_limit": {
+            "type": "integer",
+            "format": "int64",
             "minimum": 0
           }
         }

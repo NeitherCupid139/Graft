@@ -104,17 +104,17 @@ func optionalEnvironment(environment []EnvironmentVariable) *[]containergen.Cont
 			Key:       item.Key,
 			Masked:    item.Masked,
 			Sensitive: item.Sensitive,
-			Source:    item.Source,
+			Source:    containergen.ContainerEnvironmentEntrySource(item.Source),
 			Value:     optionalString(item.Value),
 		})
 	}
 	return &mapped
 }
 
-func optionalEnvironmentPolicy(policy string) *containergen.ContainerDetailEnvironmentPolicy {
+func optionalEnvironmentPolicy(policy string) containergen.ContainerDetailEnvironmentPolicy {
 	normalized := normalizeEnvironmentPolicy(policy)
 	value := containergen.ContainerDetailEnvironmentPolicy(normalized.String())
-	return &value
+	return value
 }
 
 func toListSummary(summary ListSummary) containergen.ContainerListSummary {
@@ -134,15 +134,39 @@ func toResourceSummary(resource ResourceSummary) *containergen.ContainerResource
 	statsErrorKey := optionalString(resource.StatsErrorKey)
 	statsErrorMessage := optionalString(resource.StatsErrorMessage)
 	return &containergen.ContainerResourceSummary{
-		Available:         resource.Available,
-		CpuPercent:        resource.CPUPercent,
-		MemoryLimitBytes:  resource.MemoryLimitBytes,
-		MemoryPercent:     resource.MemoryPercent,
-		MemoryUsageBytes:  resource.MemoryUsageBytes,
-		StatsAvailable:    resource.StatsAvailable,
-		StatsErrorKey:     statsErrorKey,
-		StatsErrorMessage: statsErrorMessage,
-		UnavailableReason: unavailableReason,
+		Available:                  resource.Available,
+		CpuPercent:                 resource.CPUPercent,
+		CpuUsageInKernelmode:       resource.CPUUsageInKernelmode,
+		CpuUsageInUsermode:         resource.CPUUsageInUsermode,
+		MemoryActiveFile:           resource.MemoryActiveFile,
+		MemoryCache:                resource.MemoryCache,
+		MemoryInactiveFile:         resource.MemoryInactiveFile,
+		MemoryLimitBytes:           resource.MemoryLimitBytes,
+		MemoryPercent:              resource.MemoryPercent,
+		MemoryPgfault:              resource.MemoryPgfault,
+		MemoryPgmajfault:           resource.MemoryPgmajfault,
+		MemoryRss:                  resource.MemoryRSS,
+		MemoryUsageBytes:           resource.MemoryUsageBytes,
+		OnlineCpus:                 resource.OnlineCPUs,
+		PidsCurrent:                resource.PIDsCurrent,
+		PidsLimit:                  resource.PIDsLimit,
+		RxBytes:                    resource.RxBytes,
+		RxDropped:                  resource.RxDropped,
+		RxErrors:                   resource.RxErrors,
+		RxPackets:                  resource.RxPackets,
+		StatsAvailable:             resource.StatsAvailable,
+		StatsErrorKey:              statsErrorKey,
+		StatsErrorMessage:          statsErrorMessage,
+		SystemCpuUsage:             resource.SystemCPUUsage,
+		ThrottlingPeriods:          resource.ThrottlingPeriods,
+		ThrottlingThrottledPeriods: resource.ThrottlingThrottledPeriods,
+		ThrottlingThrottledTime:    resource.ThrottlingThrottledTime,
+		TotalCpuUsage:              resource.TotalCPUUsage,
+		TxBytes:                    resource.TxBytes,
+		TxDropped:                  resource.TxDropped,
+		TxErrors:                   resource.TxErrors,
+		TxPackets:                  resource.TxPackets,
+		UnavailableReason:          unavailableReason,
 	}
 }
 

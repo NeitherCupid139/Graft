@@ -148,18 +148,7 @@ func TestDockerRuntimeListUsesCheapSummaryFields(t *testing.T) {
 				Created: 1781409600,
 			},
 		},
-		stats: container.StatsResponse{
-			CPUStats: container.CPUStats{
-				CPUUsage:    container.CPUUsage{TotalUsage: 200, PercpuUsage: []uint64{100, 100}},
-				SystemUsage: 1000,
-				OnlineCPUs:  2,
-			},
-			PreCPUStats: container.CPUStats{
-				CPUUsage:    container.CPUUsage{TotalUsage: 100},
-				SystemUsage: 500,
-			},
-			MemoryStats: container.MemoryStats{Usage: 256, Limit: 1024},
-		},
+		stats: richDockerStatsFixture(),
 	}
 	runtime := &DockerRuntime{client: client, endpoint: "unix:///var/run/docker.sock"}
 
@@ -176,10 +165,7 @@ func TestDockerRuntimeListUsesCheapSummaryFields(t *testing.T) {
 	if item.Health != containerHealthUnavailable || !item.Resource.Available || !item.Resource.StatsAvailable {
 		t.Fatalf("expected available resource stats semantics, got %#v", item)
 	}
-	assertFloatPtr(t, item.Resource.CPUPercent, 40, "computed CPU percent")
-	assertInt64Ptr(t, item.Resource.MemoryUsageBytes, 256, "memory usage bytes")
-	assertInt64Ptr(t, item.Resource.MemoryLimitBytes, 1024, "memory limit bytes")
-	assertFloatPtr(t, item.Resource.MemoryPercent, 25, "computed memory percent")
+	assertRichDockerResourceStats(t, item.Resource)
 	assertListCompose(t, item, "graft", "web")
 	assertListActions(t, item, false, true, true)
 	if calls := client.inspectCalls.Load(); calls != 0 {
@@ -444,6 +430,26 @@ func TestDockerResourceSummaryKeepsZeroMemoryValues(t *testing.T) {
 	}
 }
 
+func TestDockerResourceSummarySkipsOverflowedNetworkTotals(t *testing.T) {
+	t.Parallel()
+
+	resource := dockerResourceSummary(container.StatsResponse{
+		MemoryStats: container.MemoryStats{Usage: 1, Limit: 2},
+		Networks: map[string]container.NetworkStats{
+			"one": {RxBytes: ^uint64(0), TxBytes: 10},
+			"two": {RxBytes: 1, TxBytes: 20},
+		},
+	})
+
+	if !resource.Available || !resource.StatsAvailable {
+		t.Fatalf("expected memory stats to keep resource available, got %#v", resource)
+	}
+	if resource.RxBytes != nil {
+		t.Fatalf("expected overflowed rx bytes to stay absent, got %#v", resource.RxBytes)
+	}
+	assertInt64Ptr(t, resource.TxBytes, 30, "aggregated tx bytes")
+}
+
 func TestDockerDetailParsesEnvironmentVariables(t *testing.T) {
 	t.Parallel()
 
@@ -532,6 +538,118 @@ func dockerLogReadCloser(t *testing.T, chunks ...string) io.ReadCloser {
 	t.Helper()
 
 	return io.NopCloser(dockerLogStream(t, chunks...))
+}
+
+func richDockerStatsFixture() container.StatsResponse {
+	return container.StatsResponse{
+		CPUStats: container.CPUStats{
+			CPUUsage: container.CPUUsage{
+				TotalUsage:        200,
+				PercpuUsage:       []uint64{100, 100},
+				UsageInUsermode:   70,
+				UsageInKernelmode: 30,
+			},
+			SystemUsage: 1000,
+			OnlineCPUs:  2,
+			ThrottlingData: container.ThrottlingData{
+				Periods:          11,
+				ThrottledPeriods: 3,
+				ThrottledTime:    900,
+			},
+		},
+		PreCPUStats: container.CPUStats{
+			CPUUsage:    container.CPUUsage{TotalUsage: 100},
+			SystemUsage: 500,
+		},
+		MemoryStats: richDockerMemoryStatsFixture(),
+		Networks:    richDockerNetworkStatsFixture(),
+		PidsStats:   container.PidsStats{Current: 5, Limit: 128},
+	}
+}
+
+func richDockerMemoryStatsFixture() container.MemoryStats {
+	return container.MemoryStats{
+		Usage: 256,
+		Limit: 1024,
+		Stats: map[string]uint64{
+			"cache":         10,
+			"rss":           20,
+			"active_file":   30,
+			"inactive_file": 40,
+			"pgfault":       50,
+			"pgmajfault":    60,
+		},
+	}
+}
+
+func richDockerNetworkStatsFixture() map[string]container.NetworkStats {
+	return map[string]container.NetworkStats{
+		"bridge": {
+			RxBytes:   100,
+			TxBytes:   200,
+			RxPackets: 3,
+			TxPackets: 4,
+			RxErrors:  1,
+			TxErrors:  2,
+			RxDropped: 5,
+			TxDropped: 6,
+		},
+		"frontend": {
+			RxBytes:   7,
+			TxBytes:   8,
+			RxPackets: 9,
+			TxPackets: 10,
+			RxErrors:  11,
+			TxErrors:  12,
+			RxDropped: 13,
+			TxDropped: 14,
+		},
+	}
+}
+
+func assertRichDockerResourceStats(t *testing.T, resource ResourceSummary) {
+	t.Helper()
+
+	assertFloatPtr(t, resource.CPUPercent, 40, "computed CPU percent")
+	assertInt64Ptr(t, resource.OnlineCPUs, 2, "online CPUs")
+	assertInt64Ptr(t, resource.SystemCPUUsage, 1000, "system CPU usage")
+	assertInt64Ptr(t, resource.TotalCPUUsage, 200, "total CPU usage")
+	assertInt64Ptr(t, resource.CPUUsageInUsermode, 70, "CPU user mode usage")
+	assertInt64Ptr(t, resource.CPUUsageInKernelmode, 30, "CPU kernel mode usage")
+	assertInt64Ptr(t, resource.ThrottlingPeriods, 11, "CPU throttling periods")
+	assertInt64Ptr(t, resource.ThrottlingThrottledPeriods, 3, "CPU throttled periods")
+	assertInt64Ptr(t, resource.ThrottlingThrottledTime, 900, "CPU throttled time")
+	assertRichDockerMemoryStats(t, resource)
+	assertRichDockerNetworkStats(t, resource)
+	assertInt64Ptr(t, resource.PIDsCurrent, 5, "pids current")
+	assertInt64Ptr(t, resource.PIDsLimit, 128, "pids limit")
+}
+
+func assertRichDockerMemoryStats(t *testing.T, resource ResourceSummary) {
+	t.Helper()
+
+	assertInt64Ptr(t, resource.MemoryUsageBytes, 256, "memory usage bytes")
+	assertInt64Ptr(t, resource.MemoryLimitBytes, 1024, "memory limit bytes")
+	assertFloatPtr(t, resource.MemoryPercent, 25, "computed memory percent")
+	assertInt64Ptr(t, resource.MemoryCache, 10, "memory cache")
+	assertInt64Ptr(t, resource.MemoryRSS, 20, "memory rss")
+	assertInt64Ptr(t, resource.MemoryActiveFile, 30, "memory active file")
+	assertInt64Ptr(t, resource.MemoryInactiveFile, 40, "memory inactive file")
+	assertInt64Ptr(t, resource.MemoryPgfault, 50, "memory pgfault")
+	assertInt64Ptr(t, resource.MemoryPgmajfault, 60, "memory pgmajfault")
+}
+
+func assertRichDockerNetworkStats(t *testing.T, resource ResourceSummary) {
+	t.Helper()
+
+	assertInt64Ptr(t, resource.RxBytes, 107, "aggregated rx bytes")
+	assertInt64Ptr(t, resource.TxBytes, 208, "aggregated tx bytes")
+	assertInt64Ptr(t, resource.RxPackets, 12, "aggregated rx packets")
+	assertInt64Ptr(t, resource.TxPackets, 14, "aggregated tx packets")
+	assertInt64Ptr(t, resource.RxErrors, 12, "aggregated rx errors")
+	assertInt64Ptr(t, resource.TxErrors, 14, "aggregated tx errors")
+	assertInt64Ptr(t, resource.RxDropped, 18, "aggregated rx dropped")
+	assertInt64Ptr(t, resource.TxDropped, 20, "aggregated tx dropped")
 }
 
 func assertListIdentity(t *testing.T, item Summary, shortID string, name string) {

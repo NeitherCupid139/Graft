@@ -112,14 +112,49 @@ const translations = vi.hoisted(
     'container.detail.resources.available': '已采集',
     'container.detail.resources.collectedAt': '采集时间',
     'container.detail.resources.cpu': 'CPU',
+    'container.detail.resources.cpuDetails': 'CPU 详细信息',
+    'container.detail.resources.cpuLimit': 'CPU 限制',
+    'container.detail.resources.cpuPercent': 'CPU 使用率',
+    'container.detail.resources.cpuUsageInKernelmode': '内核模式',
+    'container.detail.resources.cpuUsageInUsermode': '用户模式',
+    'container.detail.resources.cpuUsageRate': 'CPU 使用率',
     'container.detail.resources.currentSnapshot': '当前快照',
+    'container.detail.resources.dashboard': '资源仪表盘',
     'container.detail.resources.detail': '资源明细',
+    'container.detail.resources.detailedMetrics': '详细指标',
     'container.detail.resources.memory': '内存',
+    'container.detail.resources.memoryActiveFile': '活跃文件',
+    'container.detail.resources.memoryCache': '缓存',
+    'container.detail.resources.memoryDetails': '内存详细信息',
+    'container.detail.resources.memoryInactiveFile': '非活跃文件',
     'container.detail.resources.memoryLimit': '内存上限',
     'container.detail.resources.memoryPercent': '内存百分比',
+    'container.detail.resources.memoryPgfault': '页面错误',
+    'container.detail.resources.memoryPgmajfault': '主页面错误',
+    'container.detail.resources.memoryRss': 'RSS',
     'container.detail.resources.memoryUsage': '内存使用',
+    'container.detail.resources.memoryUsageRate': '内存使用率',
+    'container.detail.resources.networkIo': '网络 I/O',
     'container.detail.resources.noData': '无数据',
+    'container.detail.resources.notCollected': '暂未采集',
+    'container.detail.resources.onlineCpus': '在线 CPU',
+    'container.detail.resources.pidsCurrent': 'PIDs 当前数',
+    'container.detail.resources.pidsLimit': 'PIDs 限制',
+    'container.detail.resources.processInfo': '进程信息',
+    'container.detail.resources.rxBytes': '接收',
+    'container.detail.resources.rxDropped': '接收丢包',
+    'container.detail.resources.rxErrors': '接收错误',
+    'container.detail.resources.rxPackets': '接收包',
     'container.detail.resources.status': '采集状态',
+    'container.detail.resources.systemCpuUsage': '系统 CPU',
+    'container.detail.resources.throttlingPeriods': 'CPU throttling 周期',
+    'container.detail.resources.throttlingThrottledPeriods': 'CPU throttling 次数',
+    'container.detail.resources.throttlingThrottledTime': 'CPU throttling 时间',
+    'container.detail.resources.totalCpuUsage': 'CPU 总用量',
+    'container.detail.resources.txBytes': '发送',
+    'container.detail.resources.txDropped': '发送丢包',
+    'container.detail.resources.txErrors': '发送错误',
+    'container.detail.resources.txPackets': '发送包',
     'container.detail.resources.unavailable': '未采集',
     'container.detail.storage.access': '访问',
     'container.detail.storage.destination': '挂载点',
@@ -242,7 +277,19 @@ describe('container detail page', () => {
     expect(wrapper.text()).toContain('身份信息');
     expect(wrapper.text()).toContain('运行状态');
     expect(wrapper.text()).toContain('资源使用');
-    expect(wrapper.text()).toContain('资源明细');
+    expect(wrapper.text()).toContain('资源仪表盘');
+    expect(wrapper.text()).toContain('详细指标');
+    expect(wrapper.text()).toContain('内存详细信息');
+    expect(wrapper.text()).toContain('CPU 详细信息');
+    expect(wrapper.text()).toContain('网络 I/O');
+    expect(wrapper.text()).toContain('进程信息');
+    expect(wrapper.text()).toContain('在线 CPU4');
+    expect(wrapper.text()).toContain('接收0.00 MiB');
+    expect(wrapper.text()).toContain('发送0.00 MiB');
+    expect(wrapper.text()).toContain('PIDs 当前数14');
+    expect(wrapper.text()).toContain('暂未采集');
+    expect(wrapper.text()).not.toContain('undefined');
+    expect(wrapper.text()).not.toContain('null');
     expect(wrapper.text()).toContain('网络访问');
     expect(wrapper.text()).toContain('基础信息');
     expect(wrapper.text()).toContain('运行信息');
@@ -475,9 +522,14 @@ describe('container detail page', () => {
     const resourcesSource = sourceText.slice(resourcesStart, resourcesEnd);
 
     expect(resourcesSource).toContain('container-detail-resource-grid');
+    expect(resourcesSource).toContain('container-resource-dashboard-section');
+    expect(resourcesSource).toContain('container-resource-dashboard-grid');
     expect(resourcesSource).toContain('container-resource-detail-section');
+    expect(resourcesSource).toContain('container-resource-detail-grid');
+    expect(resourcesSource).toContain('resourceDetailGroups');
     expect(resourcesSource).toContain('container-resource-detail-row');
-    expect(resourcesSource).toContain('container.detail.resources.detail');
+    expect(resourcesSource).toContain('container.detail.resources.dashboard');
+    expect(resourcesSource).toContain('container.detail.resources.detailedMetrics');
     expect(resourcesSource).not.toContain('<t-descriptions');
     expect(resourcesSource).not.toContain('<t-descriptions-item');
     expect(resourcesSource).not.toContain('bordered');
@@ -546,9 +598,21 @@ function createContainerDetail() {
       available: true,
       stats_available: true,
       cpu_percent: 21.8,
+      cpu_usage_in_kernelmode: 300000000,
+      cpu_usage_in_usermode: 700000000,
       memory_limit_bytes: 33557250099.2,
       memory_percent: 100,
       memory_usage_bytes: 33557250099.2,
+      memory_cache: 2048,
+      memory_rss: 1024,
+      online_cpus: 4,
+      pids_current: 14,
+      rx_bytes: 1536,
+      rx_packets: 25,
+      system_cpu_usage: 45563950,
+      total_cpu_usage: 1000000000,
+      tx_bytes: 126,
+      tx_packets: 3,
     },
     primary_ip: '172.18.0.2',
     network_summary: 'bridge',
