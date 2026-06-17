@@ -28,6 +28,8 @@ type routeRuntime struct {
 	service *service
 }
 
+// RegisterRoutes registers HTTP API endpoints for container operations with permission-based access control.
+// It returns an error if the service is unavailable, or if resolving auth service or authorizer fails; nil otherwise.
 func registerRoutes(ctx *module.Context, moduleName string, service *service) error {
 	if ctx == nil || ctx.Router == nil {
 		return nil

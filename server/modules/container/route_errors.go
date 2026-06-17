@@ -10,6 +10,7 @@ import (
 	containercontract "graft/server/modules/container/contract"
 )
 
+// Statusforerror returns the HTTP status code for the given error.
 func statusForError(err error) int {
 	switch {
 	case errors.Is(err, errInvalidRef), errors.Is(err, errInvalidListQuery), errors.Is(err, errInvalidBatchAction), errors.Is(err, errLogsTooLarge), errors.Is(err, errInvalidLogQuery), errors.Is(err, errMountUsageUnsupported):

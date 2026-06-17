@@ -527,6 +527,7 @@ func uint32ToInt64Ptr(value uint32) *int64 {
 	return &converted
 }
 
+// dockerDetail builds a Detail struct from Docker container inspect output and runtime metadata.
 func dockerDetail(inspect container.InspectResponse, info RuntimeInfo) Detail {
 	state, status, startedAt := dockerState(inspect)
 	summary := Summary{
@@ -633,6 +634,8 @@ func networkSummary(networks []Network) string {
 	return strings.Join(names, ", ")
 }
 
+// dockerHealth derives the container's normalized health status from inspection data.
+// It returns a constant representing no health check, starting, healthy, unhealthy, or unavailable.
 func dockerHealth(inspect container.InspectResponse) string {
 	if inspect.State == nil || inspect.State.Health == nil {
 		return containerHealthNone
@@ -651,6 +654,7 @@ func dockerHealth(inspect container.InspectResponse) string {
 	}
 }
 
+// health state is unavailable, status is set to unavailable.
 func dockerHealthcheck(inspect container.InspectResponse) *Healthcheck {
 	command := dockerHealthcheckCommand(inspect)
 	if len(command) == 0 {
@@ -688,6 +692,7 @@ func dockerHealthcheck(inspect container.InspectResponse) *Healthcheck {
 	return result
 }
 
+// dockerHealthcheckCommand extracts the healthcheck test command from a container's configuration, returning the trimmed command parts or nil if no healthcheck is configured, disabled, or contains only empty items.
 func dockerHealthcheckCommand(inspect container.InspectResponse) []string {
 	if inspect.Config == nil || inspect.Config.Healthcheck == nil {
 		return nil
@@ -712,6 +717,7 @@ func dockerHealthcheckCommand(inspect container.InspectResponse) []string {
 	return command
 }
 
+// dockerLastExitCode returns a pointer to the container's exit code from the inspection state, or nil if the state is unavailable.
 func dockerLastExitCode(inspect container.InspectResponse) *int {
 	if inspect.State == nil {
 		return nil
@@ -719,6 +725,7 @@ func dockerLastExitCode(inspect container.InspectResponse) *int {
 	return intPtrAllowZero(inspect.State.ExitCode)
 }
 
+// dockerOOMKilled returns a pointer to the OOMKilled flag from the container's state, or nil if the state is unavailable.
 func dockerOOMKilled(inspect container.InspectResponse) *bool {
 	if inspect.State == nil {
 		return nil
@@ -727,6 +734,7 @@ func dockerOOMKilled(inspect container.InspectResponse) *bool {
 	return &value
 }
 
+// ShortRuntimeID returns the runtime ID truncated to containerShortIDLength characters.
 func shortRuntimeID(id string) string {
 	value := strings.TrimSpace(id)
 	if len(value) <= containerShortIDLength {
@@ -941,6 +949,7 @@ func dockerPorts(ports []container.Port) []Port {
 	return mapped
 }
 
+// dockerMounts converts Docker mount points to Mount structures, computing a stable mount identifier for each mount.
 func dockerMounts(mounts []container.MountPoint) []Mount {
 	mapped := make([]Mount, 0, len(mounts))
 	for _, mount := range mounts {
@@ -958,6 +967,8 @@ func dockerMounts(mounts []container.MountPoint) []Mount {
 	return mapped
 }
 
+// findMountByID locates a mount by its stable ID.
+// It returns the mount and true if found, false otherwise.
 func findMountByID(mounts []Mount, mountID string) (Mount, bool) {
 	mountID = strings.TrimSpace(mountID)
 	for _, mount := range mounts {
@@ -968,6 +979,8 @@ func findMountByID(mounts []Mount, mountID string) (Mount, bool) {
 	return Mount{}, false
 }
 
+// mountUsageSupported reports whether a mount supports usage measurement.
+// It returns true if the mount type is bind or volume with a non-empty source.
 func mountUsageSupported(mount Mount) bool {
 	switch strings.TrimSpace(strings.ToLower(mount.Type)) {
 	case "bind", "volume":
@@ -977,6 +990,7 @@ func mountUsageSupported(mount Mount) bool {
 	}
 }
 
+// mountUsageFromMount constructs mount usage information from mount details and measurement metadata.
 func mountUsageFromMount(containerID string, mount Mount, status string, size int64, measuredAt string) MountUsage {
 	usage := MountUsage{
 		MountID:     mount.ID,
@@ -1001,6 +1015,9 @@ func mountUsageFromMount(containerID string, mount Mount, status string, size in
 	return usage
 }
 
+// mountUsageFromScanError maps mount scan errors into mount usage information with
+// appropriate status and message. The input error is translated to a MountUsage status
+// and message rather than being returned as a Go error.
 func mountUsageFromScanError(containerID string, mount Mount, err error) MountUsage {
 	status := containerMountUsageStatusError
 	message := "Mount usage measurement failed."
@@ -1020,6 +1037,7 @@ func mountUsageFromScanError(containerID string, mount Mount, err error) MountUs
 	return usage
 }
 
+// dockerNetworks converts networks from a Docker container inspection response into the module's Network format.
 func dockerNetworks(inspect container.InspectResponse) []Network {
 	if inspect.NetworkSettings == nil || len(inspect.NetworkSettings.Networks) == 0 {
 		return nil

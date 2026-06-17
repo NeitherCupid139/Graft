@@ -80,6 +80,7 @@ func newContainerService(ctx *module.Context, moduleName string) (*service, erro
 	})
 }
 
+// newService creates a container service from the provided options, normalizing configuration values and applying defaults for optional components.
 func newService(options containerServiceOptions) (*service, error) {
 	if options.defaultTail <= 0 {
 		options.defaultTail = defaultContainerLogsDefaultTail
@@ -567,6 +568,11 @@ type environmentPolicyOptions struct {
 	maskedCopyEnabled bool
 }
 
+// applyEnvironmentPolicy applies environment display and masking policy to variables.
+// Each variable is marked sensitive if its key matches known sensitive patterns. The
+// policy determines visibility: Hidden clears values, Plain keeps them visible, and the
+// default policy hides sensitive variables while optionally preserving the original
+// value in CopyValue. Returns nil if the input is empty.
 func applyEnvironmentPolicy(environment []EnvironmentVariable, options environmentPolicyOptions) []EnvironmentVariable {
 	if len(environment) == 0 {
 		return nil
@@ -1015,6 +1021,7 @@ func (s *service) maskedEnvironmentCopyEnabled(ctx context.Context) bool {
 	)
 }
 
+// It returns a disabled runtime if the container is disabled, a Docker runtime if enabled, or an error if the runtime type is unsupported.
 func newContainerRuntime(options containerRuntimeOptions) (Runtime, error) {
 	if !options.enabled {
 		return disabledRuntime{}, nil

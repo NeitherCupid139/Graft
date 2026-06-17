@@ -43,6 +43,7 @@ const (
 	defaultContainerEnvironmentMaskedCopy   = false
 )
 
+// registerConfig registers container configuration definitions and i18n messages.
 func registerConfig(localizer *i18n.Service, registry *configregistry.Registry) error {
 	if err := registerConfigMessages(localizer); err != nil {
 		return err
@@ -63,6 +64,7 @@ func registerConfigDefinitions(registry *configregistry.Registry) error {
 	return nil
 }
 
+// configDefinitions returns the list of all container configuration definitions in registration order.
 func configDefinitions() []configregistry.Definition {
 	return []configregistry.Definition{
 		containerBooleanDefinition(containerDefinitionSpec{
@@ -444,6 +446,7 @@ func enUSContainerEnvironmentPolicyEnumCopy() map[string][2]string {
 	}
 }
 
+// zhCNContainerConfigCopy returns the Chinese localization strings for container configuration items.
 func zhCNContainerConfigCopy() map[string][2]string {
 	return map[string][2]string{
 		containercontract.ContainerRuntimeEnabledConfig.String():          {"启用容器运行时访问", "是否允许容器管理访问已配置的容器运行时。"},
@@ -460,6 +463,7 @@ func zhCNContainerConfigCopy() map[string][2]string {
 	}
 }
 
+// enUSContainerConfigCopy returns English-US localization text for container configuration items.
 func enUSContainerConfigCopy() map[string][2]string {
 	return map[string][2]string{
 		containercontract.ContainerRuntimeEnabledConfig.String():          {"Container Runtime Access Enabled", "Whether container management may access the configured runtime."},

@@ -13,12 +13,23 @@ const FIELD_PATTERN = /\b([A-Za-z_][\w.-]*)=("[^"]*"|'[^']*'|\S*)/g;
 const LEVEL_PATTERN = /\blevel=(?:"|')?(fatal|error|err|warn|warning|info|debug|trace|log|unknown)(?:"|')?\b/i;
 const STANDALONE_LEVEL_PATTERN = /\b(fatal|error|err|warn|warning|info|debug|trace|log|unknown)\b/i;
 
+/**
+ * Detects the log level in a line of text.
+ *
+ * @returns The detected log level, or `null` if no level was found.
+ */
 export function detectLogLevel(line: string): LogLevel | null {
   const fieldMatch = LEVEL_PATTERN.exec(line);
   const rawLevel = fieldMatch?.[1] ?? STANDALONE_LEVEL_PATTERN.exec(line)?.[1];
   return normalizeLogLevel(rawLevel);
 }
 
+/**
+ * Maps a log level to a visual tone indicating severity.
+ *
+ * @param level - The log level to map
+ * @returns The tone string corresponding to the log level: 'danger', 'warning', 'info', 'muted', or 'default'
+ */
 export function getLogLevelTone(level: LogLevel | null) {
   if (level === 'FATAL' || level === 'ERROR') return 'danger';
   if (level === 'WARN') return 'warning';
@@ -27,6 +38,13 @@ export function getLogLevelTone(level: LogLevel | null) {
   return 'default';
 }
 
+/**
+ * Breaks a log line into tokens for highlighting and semantic analysis, extracting field pairs and identifying log levels.
+ *
+ * @param line - The log line text to tokenize
+ * @param keyword - An optional keyword to highlight within the line
+ * @returns An array of log tokens; if no tokens are generated, returns a single token containing the entire line
+ */
 export function tokenizeLogLine(line: string, keyword = ''): LogToken[] {
   const tokens: LogToken[] = [];
   const normalizedKeyword = keyword.trim();
@@ -61,6 +79,13 @@ export function tokenizeLogLine(line: string, keyword = ''): LogToken[] {
   return tokens.length ? tokens : [{ text: line, type: 'text' }];
 }
 
+/**
+ * Normalizes a log level string to a standard LogLevel value.
+ *
+ * Maps common aliases such as 'err' to 'error' and 'warning' to 'warn'.
+ *
+ * @returns A standard LogLevel if the input matches a recognized level, or null otherwise.
+ */
 export function normalizeLogLevel(value?: string | null): LogLevel | null {
   if (!value) return null;
   const normalized = value.toUpperCase();

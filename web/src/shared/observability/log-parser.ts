@@ -85,6 +85,11 @@ const FIELD_PRIORITY = [
 const MAX_IMPORTANT_FIELDS = 10;
 const LOW_SIGNAL_METADATA_PATTERNS = [/^legacy_/i, /^service$/i, /^env$/i];
 
+/**
+ * Parses a raw container log line with automatic format detection.
+ *
+ * @returns A parsed log with detected format, extracted fields, and computed metadata.
+ */
 export function parseContainerLogLine(rawLine: string): ParsedContainerLog {
   const raw = rawLine ?? '';
   const trimmed = raw.trim();
@@ -108,6 +113,13 @@ export function parseContainerLogLine(rawLine: string): ParsedContainerLog {
   return buildParsedLog({ raw, level: 'LOG', message: trimmed, format: 'plain', fields: {} });
 }
 
+/**
+ * Parses a log line and extracts its level, message, metadata, and source.
+ *
+ * @param raw - The raw log line text
+ * @param lineNo - The line number in the source
+ * @returns A parsed log line with extracted fields and computed tone
+ */
 export function parseLogLine(raw: string, lineNo: number): ParsedLogLine {
   const parsed = parseContainerLogLine(raw);
   const level = parsed.level ?? null;
@@ -126,10 +138,21 @@ export function parseLogLine(raw: string, lineNo: number): ParsedLogLine {
   };
 }
 
+/**
+ * Parses multiple raw log lines into structured log objects.
+ *
+ * @returns An array of parsed log lines.
+ */
 export function parseLogLines(lines: string[]): ParsedLogLine[] {
   return lines.map((line, index) => parseLogLine(line, index + 1));
 }
 
+/**
+ * Extends a parsed log line with tokenization and search match information.
+ *
+ * @param keyword - Optional search term for highlighting and match counting
+ * @returns A `DisplayLogLine` with added message and raw tokens, plus keyword match count
+ */
 export function buildDisplayLogLine(line: ParsedLogLine, keyword = ''): DisplayLogLine {
   return {
     ...line,
@@ -139,6 +162,14 @@ export function buildDisplayLogLine(line: ParsedLogLine, keyword = ''): DisplayL
   };
 }
 
+/**
+ * Summarizes metadata by selecting important fields and counting excluded ones.
+ *
+ * Filters out low-signal fields and returns only the most important ones up to the specified limit.
+ *
+ * @param maxVisible - Maximum number of important fields to include in the summary
+ * @returns An object containing `hiddenCount` (number of excluded fields) and `tags` (array of visible metadata pairs)
+ */
 export function summarizeMetadata(metadata: ParsedLogMetadata | null, maxVisible = 3) {
   if (!metadata) {
     return { hiddenCount: 0, tags: [] as Array<[string, unknown]> };
@@ -153,6 +184,11 @@ export function summarizeMetadata(metadata: ParsedLogMetadata | null, maxVisible
   };
 }
 
+/**
+ * Converts a metadata value to a display string.
+ *
+ * @returns The value converted to a display string.
+ */
 export function formatLogMetadataValue(value: unknown) {
   if (value === null) return 'null';
   if (value === undefined) return '';
@@ -165,6 +201,13 @@ export function formatLogMetadataValue(value: unknown) {
   }
 }
 
+/**
+ * Parses a JSON log line and extracts standard log fields.
+ *
+ * @param raw - The original log line
+ * @param trimmed - The whitespace-trimmed version of the log line
+ * @returns A parsed container log with extracted fields, or `null` if parsing fails or the JSON is not a plain object
+ */
 function parseJsonLine(raw: string, trimmed: string): ParsedContainerLog | null {
   if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) {
     return null;
@@ -190,6 +233,12 @@ function parseJsonLine(raw: string, trimmed: string): ParsedContainerLog | null 
   }
 }
 
+/**
+ * Parses a logfmt-formatted log line.
+ *
+ * @param raw - The raw log line to parse
+ * @returns A parsed container log if the input is valid logfmt, `null` otherwise.
+ */
 function parseLogfmtLine(raw: string): ParsedContainerLog | null {
   const parsedPairs = parseLogfmt(raw);
   if (!parsedPairs) {
@@ -210,6 +259,15 @@ function parseLogfmtLine(raw: string): ParsedContainerLog | null {
   });
 }
 
+/**
+ * Parses a log line in structured text format.
+ *
+ * Attempts to match the input against standard log format or generic structured format patterns,
+ * extracting timestamp, level, source, and message components. Also extracts any trailing JSON
+ * object as metadata.
+ *
+ * @returns A parsed container log with extracted components, or null if no structured format is detected.
+ */
 function parseStructuredTextLine(raw: string): ParsedContainerLog | null {
   const metadataResult = extractTrailingMetadata(raw);
   const body = metadataResult.body.trim();
@@ -256,6 +314,11 @@ function parseStructuredTextLine(raw: string): ParsedContainerLog | null {
   });
 }
 
+/**
+ * Assembles a parsed container log from extracted fields and metadata.
+ *
+ * @returns A `ParsedContainerLog` with normalized fields, computed important fields, and display data.
+ */
 function buildParsedLog({
   raw,
   level,
@@ -303,6 +366,18 @@ function buildParsedLog({
   };
 }
 
+/**
+ * Selects and prioritizes metadata fields for display.
+ *
+ * Filters out empty values, optionally removes low-signal fields, assigns priority ranks based on a predefined field list, and returns up to `maxVisible` fields sorted by priority or in original order.
+ *
+ * @param fields - The metadata to process
+ * @param maxVisible - Maximum number of fields to return
+ * @param options.hideLowSignal - If true, excludes fields identified as low-signal
+ * @param options.includeAll - If true, includes all fields; if false, only fields with known priorities are included
+ * @param options.preserveFieldOrder - If true, preserves input order; if false, sorts by priority
+ * @returns Array of selected metadata fields with formatted values and priority ranks, limited to `maxVisible` items
+ */
 function buildImportantFields(
   fields: ParsedLogMetadata,
   maxVisible = MAX_IMPORTANT_FIELDS,
@@ -325,6 +400,13 @@ function buildImportantFields(
   return prioritized.slice(0, maxVisible);
 }
 
+/**
+ * Extracts a trailing JSON object from a string as metadata.
+ *
+ * Searches the input for a valid JSON object at the end and separates it from the message body.
+ *
+ * @returns An object with the message body and extracted metadata object, or the entire input with `null` metadata if no valid trailing JSON is found
+ */
 function extractTrailingMetadata(raw: string): { body: string; metadata: ParsedLogMetadata | null } {
   const jsonStart = findTrailingJsonStart(raw);
   if (jsonStart >= 0) {
@@ -345,6 +427,11 @@ function extractTrailingMetadata(raw: string): { body: string; metadata: ParsedL
   return { body: raw, metadata: null };
 }
 
+/**
+ * Parses logfmt-formatted key-value pairs from raw text.
+ *
+ * @returns An object containing parsed metadata fields, or `null` if the input is not valid logfmt.
+ */
 function parseLogfmt(raw: string): { fields: ParsedLogMetadata } | null {
   const matches = [...raw.matchAll(LOGFMT_PAIR_PATTERN)];
   if (!matches.length) {
@@ -373,6 +460,12 @@ function parseLogfmt(raw: string): { fields: ParsedLogMetadata } | null {
   return { fields };
 }
 
+/**
+ * Finds the index where a valid trailing JSON object begins in a string.
+ *
+ * @param raw - The string to search
+ * @returns The index of the JSON start position, or `-1` if no valid JSON suffix is found
+ */
 function findTrailingJsonStart(raw: string) {
   let cursor = raw.lastIndexOf('{');
   while (cursor >= 0) {
@@ -388,6 +481,13 @@ function findTrailingJsonStart(raw: string) {
   return -1;
 }
 
+/**
+ * Counts occurrences of a keyword in text using case-insensitive matching.
+ *
+ * @param text - The text to search within
+ * @param keyword - The string to search for; empty or whitespace-only values return 0
+ * @returns The number of non-overlapping occurrences of the keyword in the text
+ */
 function countKeywordMatches(text: string, keyword = '') {
   const normalizedKeyword = keyword.trim().toLowerCase();
   if (!normalizedKeyword) {
@@ -404,6 +504,11 @@ function countKeywordMatches(text: string, keyword = '') {
   return count;
 }
 
+/**
+ * Returns the first non-empty string or number/boolean value from the specified keys in a metadata object.
+ *
+ * @returns The first matching value as a string, or an empty string if none is found.
+ */
 function readFirstString(fields: ParsedLogMetadata, keys: string[]) {
   for (const key of keys) {
     const value = fields[key];
@@ -417,27 +522,62 @@ function readFirstString(fields: ParsedLogMetadata, keys: string[]) {
   return '';
 }
 
+/**
+ * Normalizes a string by trimming whitespace and filtering out empty values.
+ *
+ * @param value - An optional string value
+ * @returns The trimmed string if non-empty, `undefined` otherwise
+ */
 function normalizeOptionalString(value?: string) {
   const normalized = value?.trim();
   return normalized || undefined;
 }
 
+/**
+ * Validates whether a value is a plain object.
+ *
+ * @returns `true` if the value is a non-null object that is not an array, `false` otherwise.
+ */
 function isPlainRecord(value: unknown): value is ParsedLogMetadata {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+/**
+ * Checks if the metadata object has any fields.
+ *
+ * @returns `true` if metadata has any fields, `false` otherwise.
+ */
 function hasFields(fields: ParsedLogMetadata) {
   return Object.keys(fields).length > 0;
 }
 
+/**
+ * Determines if a value is empty.
+ *
+ * @returns `true` if the value is `undefined`, `null`, or an empty string, `false` otherwise.
+ */
 function isEmptyFieldValue(value: unknown) {
   return value === undefined || value === null || value === '';
 }
 
+/**
+ * Determines if a log line resembles a stack trace.
+ *
+ * @returns `true` if the line matches stack trace patterns, `false` otherwise.
+ */
 function isStackTraceLike(trimmed: string, raw: string) {
   return STACK_SYMBOL_PATTERN.test(trimmed) || STACK_FILE_PATTERN.test(raw);
 }
 
+/**
+ * Extracts a shortened identifier from a log source string.
+ *
+ * Handles space-separated sources by using the last part. Returns the basename from file paths.
+ * For the specific file `logger.go:61`, includes the parent directory in the result.
+ *
+ * @param source - The log source string to shorten
+ * @returns The shortened source identifier, or an empty string if the source is empty
+ */
 function shortenLogSource(source: string) {
   if (!source) return '';
   const parts = source.split(/\s+/);
@@ -453,6 +593,16 @@ function shortenLogSource(source: string) {
   return basename;
 }
 
+/**
+ * Determines whether a metadata field should be filtered as low-signal.
+ *
+ * Fields with well-known importance (request IDs, trace IDs, status codes, duration, path, method, component)
+ * are never low-signal. Other fields may be considered low-signal based on their name or value.
+ *
+ * @param key - The metadata field name
+ * @param value - The metadata field value
+ * @returns `true` if the field is low-signal, `false` otherwise
+ */
 function isLowSignalMetadata(key: string, value: unknown) {
   if (
     key === 'request_id' ||
@@ -480,6 +630,9 @@ function isLowSignalMetadata(key: string, value: unknown) {
   return LOW_SIGNAL_METADATA_PATTERNS.some((pattern) => pattern.test(key));
 }
 
+/**
+ * Removes a pair of surrounding quotes and converts escaped quotes to literal characters.
+ */
 function stripQuotes(value: string) {
   const stripped = value.replace(/^["']|["']$/g, '');
   return stripped.replace(/\\"/g, '"').replace(/\\'/g, "'");

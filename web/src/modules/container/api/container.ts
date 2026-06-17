@@ -109,6 +109,13 @@ export function getContainer(containerId: GetContainerPathParams['id']) {
   }) as Promise<ContainerDetail>;
 }
 
+/**
+ * Retrieves logs for a container.
+ *
+ * @param containerId - The ID of the container
+ * @param query - Query parameters to filter or paginate the logs
+ * @returns The container's log response data
+ */
 export function getContainerLogs(containerId: GetContainerLogsPathParams['id'], query: ContainerLogQuery) {
   return request.get<GetContainerLogsData>({
     url: buildContainerLogsApiPath(containerId),
@@ -116,12 +123,24 @@ export function getContainerLogs(containerId: GetContainerLogsPathParams['id'], 
   }) as Promise<ContainerLogResponse>;
 }
 
+/**
+ * Retrieves mount usage information for a container.
+ *
+ * @returns A list of mount usage data for the container.
+ */
 export function getContainerMountUsage(containerId: ContainerMountUsagePathParams['id']) {
   return request.get<GetContainerMountUsageData>({
     url: buildContainerMountUsageApiPath(containerId),
   }) as Promise<ContainerMountUsageListResponse>;
 }
 
+/**
+ * Refreshes the mount usage data for a specific container mount.
+ *
+ * @param containerId - The container ID
+ * @param mountId - The mount ID
+ * @returns The refreshed mount usage information
+ */
 export function postContainerMountUsageRefresh(
   containerId: ContainerMountUsageRefreshPathParams['id'],
   mountId: ContainerMountUsageRefreshPathParams['mountId'],
@@ -131,6 +150,11 @@ export function postContainerMountUsageRefresh(
   }) as Promise<ContainerMountUsage>;
 }
 
+/**
+ * Starts a container.
+ *
+ * @returns The action response.
+ */
 export function startContainer(containerId: PostContainerStartPathParams['id']) {
   return request.post<PostContainerStartData>({
     url: buildContainerStartApiPath(containerId),

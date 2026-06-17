@@ -14,6 +14,9 @@ let maxTimer: ReturnType<typeof setTimeout> | undefined;
 
 export const routeLoading = readonly(loading);
 
+/**
+ * Clears all pending route loading timers.
+ */
 function clearTimers() {
   if (minTimer) {
     clearTimeout(minTimer);
@@ -26,6 +29,11 @@ function clearTimers() {
   }
 }
 
+/**
+ * Waits for the next animation frame.
+ *
+ * @returns Resolves on the next animation frame, or in the next macrotask if `requestAnimationFrame` is unavailable.
+ */
 function requestNextFrame() {
   return new Promise<void>((resolve) => {
     if (typeof requestAnimationFrame === 'function') {
@@ -37,11 +45,17 @@ function requestNextFrame() {
   });
 }
 
+/**
+ * Immediately stops the route loading indicator.
+ */
 function stopRouteLoadingNow() {
   clearTimers();
   loading.value = false;
 }
 
+/**
+ * Starts the route loading indicator, automatically stopping it after the maximum configured duration.
+ */
 export function startRouteLoading() {
   loadingToken += 1;
   loadingStartedAt = Date.now();
@@ -50,6 +64,9 @@ export function startRouteLoading() {
   maxTimer = setTimeout(stopRouteLoadingNow, ROUTE_LOADING_MAX_MS);
 }
 
+/**
+ * Completes route loading after the next render, maintaining the minimum display duration.
+ */
 export async function finishRouteLoadingAfterRender() {
   const token = loadingToken;
   await nextTick();
@@ -68,6 +85,9 @@ export async function finishRouteLoadingAfterRender() {
   minTimer = setTimeout(stopRouteLoadingNow, remaining);
 }
 
+/**
+ * Stops the route loading indicator and cancels any pending completion.
+ */
 export function hideRouteLoading() {
   loadingToken += 1;
   stopRouteLoadingNow();

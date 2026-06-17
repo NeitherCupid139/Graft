@@ -55,6 +55,7 @@ func toSummary(item Summary) containergen.ContainerSummary {
 	}
 }
 
+// ToDetail converts the internal Detail domain model into an OpenAPI container detail response.
 func toDetail(detail Detail) containergen.ContainerDetail {
 	return containergen.ContainerDetail{
 		CanRemove:         optionalBool(detail.CanRemove),
@@ -97,6 +98,8 @@ func toDetail(detail Detail) containergen.ContainerDetail {
 	}
 }
 
+// optionalHealthcheck converts a healthcheck into its generated response type.
+// It returns nil if the input is nil or the healthcheck is not configured.
 func optionalHealthcheck(healthcheck *Healthcheck) *containergen.ContainerHealthcheck {
 	if healthcheck == nil || !healthcheck.Configured {
 		return nil
@@ -113,6 +116,7 @@ func optionalHealthcheck(healthcheck *Healthcheck) *containergen.ContainerHealth
 	}
 }
 
+// optionalEnvironment maps a slice of environment variables to a slice of container environment entries, returning nil if the input is empty.
 func optionalEnvironment(environment []EnvironmentVariable) *[]containergen.ContainerEnvironmentEntry {
 	if len(environment) == 0 {
 		return nil
@@ -190,6 +194,7 @@ func toResourceSummary(resource ResourceSummary) *containergen.ContainerResource
 	}
 }
 
+// toLogs converts a Logs domain model into a ContainerLogResponse.
 func toLogs(logs Logs) containergen.ContainerLogResponse {
 	return containergen.ContainerLogResponse{
 		Id:         logs.ID,
@@ -223,6 +228,7 @@ type mountUsageResponse struct {
 	SharedHint  *string `json:"shared_hint,omitempty"`
 }
 
+// toMountUsageList converts a slice of mount usage items into a response list.
 func toMountUsageList(items []MountUsage) mountUsageListResponse {
 	mapped := make([]mountUsageResponse, 0, len(items))
 	for _, item := range items {
@@ -231,6 +237,7 @@ func toMountUsageList(items []MountUsage) mountUsageListResponse {
 	return mountUsageListResponse{Items: mapped}
 }
 
+// toMountUsage converts a MountUsage into a mountUsageResponse. The SizeBytes field is populated only when the usage status indicates the value has been measured.
 func toMountUsage(usage MountUsage) mountUsageResponse {
 	var sizeBytes *int64
 	if usage.Status == containerMountUsageStatusMeasured {
@@ -251,6 +258,7 @@ func toMountUsage(usage MountUsage) mountUsageResponse {
 	}
 }
 
+// toContainerAction converts an action result to its OpenAPI response representation.
 func toContainerAction(result ActionResult) containergen.ContainerActionResponse {
 	return containergen.ContainerActionResponse{
 		Action:       containergen.ContainerActionResponseAction(result.Action),
@@ -314,6 +322,7 @@ func toPorts(ports []Port) []containergen.ContainerPort {
 	return mapped
 }
 
+// ToMounts maps a slice of internal Mount objects to OpenAPI-generated ContainerMount response objects.
 func toMounts(mounts []Mount) []containergen.ContainerMount {
 	mapped := make([]containergen.ContainerMount, 0, len(mounts))
 	for _, mount := range mounts {
@@ -331,6 +340,7 @@ func toMounts(mounts []Mount) []containergen.ContainerMount {
 	return mapped
 }
 
+// toGeneratedMountUsage converts a MountUsage into a ContainerMountUsage response. The SizeBytes field is populated only when the usage status indicates a measurement is available.
 func toGeneratedMountUsage(usage *MountUsage) *containergen.ContainerMountUsage {
 	if usage == nil {
 		return nil
@@ -354,6 +364,7 @@ func toGeneratedMountUsage(usage *MountUsage) *containergen.ContainerMountUsage 
 	}
 }
 
+// toNetworks converts a slice of networks into generated container network response types.
 func toNetworks(networks []Network) []containergen.ContainerNetwork {
 	mapped := make([]containergen.ContainerNetwork, 0, len(networks))
 	for _, network := range networks {

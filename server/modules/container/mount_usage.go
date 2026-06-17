@@ -57,6 +57,7 @@ func (filesystemMountUsageScanner) ScanUsage(ctx context.Context, root string) (
 	return total, nil
 }
 
+// MapMountUsageScanError translates filesystem and context errors to container runtime errors.
 func mapMountUsageScanError(err error) error {
 	switch {
 	case err == nil:
@@ -84,6 +85,7 @@ type mountUsageCacheEntry struct {
 	expiresAt time.Time
 }
 
+newMountUsageCache creates a new mount usage cache with the specified TTL, or the default TTL if the provided value is zero or negative.
 func newMountUsageCache(ttl time.Duration) *mountUsageCache {
 	if ttl <= 0 {
 		ttl = containerMountUsageCacheTTL
@@ -127,10 +129,12 @@ func (c *mountUsageCache) set(key string, usage MountUsage) {
 	}
 }
 
+mountUsageCacheKey produces a cache key for mount usage lookup using the given reference and mount ID.
 func mountUsageCacheKey(ref Ref, mountID string) string {
 	return strings.TrimSpace(ref.Value) + "\x00" + strings.TrimSpace(mountID)
 }
 
+// formatIECBytes formats a byte count as a human-readable IEC binary string using KiB, MiB, or GiB units as appropriate. Negative sizes are treated as zero.
 func formatIECBytes(size int64) string {
 	if size < 0 {
 		size = 0
@@ -146,6 +150,7 @@ func formatIECBytes(size int64) string {
 	}
 }
 
+// formatIECValue formats a numeric value to a string, using zero decimal places for integers and one decimal place for non-integers, followed by the provided suffix.
 func formatIECValue(value float64, suffix string) string {
 	if value == float64(int64(value)) {
 		return fmt.Sprintf("%.0f %s", value, suffix)

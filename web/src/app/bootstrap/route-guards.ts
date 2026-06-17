@@ -19,6 +19,11 @@ import { PAGE_NOT_FOUND_ROUTE } from '@/utils/route/constant';
 
 NProgress.configure({ showSpinner: false });
 
+/**
+ * Checks if the target route is in the same state as the source route.
+ *
+ * @returns `true` if both routes represent the same state, `false` otherwise.
+ */
 function isSameRouteStateNavigation(to: { name?: unknown; path: string }, from?: { name?: unknown; path?: string }) {
   if (!from?.path || to.path !== from.path) {
     return false;
@@ -31,6 +36,11 @@ function isSameRouteStateNavigation(to: { name?: unknown; path: string }, from?:
   return true;
 }
 
+/**
+ * Extracts all route names from the given routes and their children.
+ *
+ * @returns An array of route name strings.
+ */
 function collectBootstrapRouteNames(routes: RouteRecordRaw[]): string[] {
   const routeNames: string[] = [];
 
@@ -58,7 +68,11 @@ function removeMountedBootstrapRoutes(targetRouter: Router, routes: RouteRecordR
   });
 }
 
-// registerRouteGuards wires shell-owned auth/bootstrap recovery into the single router runtime.
+/**
+ * Registers route guards to handle authentication, bootstrap recovery, and dynamic route initialization.
+ *
+ * @param targetRouter - The Vue Router instance to register guards on. Defaults to the application's root router.
+ */
 export function registerRouteGuards(targetRouter: Router = router) {
   targetRouter.beforeEach(async (to, from, next) => {
     if (!isSameRouteStateNavigation(to, from)) {

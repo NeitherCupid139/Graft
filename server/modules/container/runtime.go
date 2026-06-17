@@ -416,6 +416,7 @@ func isValidContainerState(state string) bool {
 	return slices.Contains([]string{"created", "running", "paused", "restarting", "removing", "exited", "dead", "unknown"}, state)
 }
 
+// isValidContainerHealth reports whether a health state is valid.
 func isValidContainerHealth(health string) bool {
 	return slices.Contains([]string{
 		containerHealthHealthy,
@@ -426,10 +427,12 @@ func isValidContainerHealth(health string) bool {
 	}, health)
 }
 
+// isValidMountID reports whether value is a valid mount ID.
 func isValidMountID(value string) bool {
 	return mountIDPattern.MatchString(strings.TrimSpace(value))
 }
 
+// stableMountID generates a stable identifier for a mount based on its destination, source, and type.
 func stableMountID(mount Mount) string {
 	parts := []string{
 		strings.TrimSpace(mount.Destination),
