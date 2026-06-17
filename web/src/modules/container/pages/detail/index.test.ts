@@ -194,10 +194,13 @@ const translations = vi.hoisted(
     'container.detail.network.name': '网络',
     'container.detail.network.networkId': 'Network ID',
     'container.detail.network.noData': '暂无数据',
+    'container.detail.network.allInterfaces': '全部地址',
     'container.detail.network.aliasDnsEmpty': '暂无额外网络别名或自定义 DNS 配置',
+    'container.detail.network.internalOnlyFull': '未发布到宿主机，仅容器网络内部可访问',
     'container.detail.network.internalOnly': '仅容器网络内部可访问',
     'container.detail.network.notPublished': '未发布到宿主机',
     'container.detail.network.noPublicPorts': '无公开端口',
+    'container.detail.network.publishedMapping': '宿主机 {hostPort} → 容器 {privatePort}/{protocol}',
     'container.detail.network.publishedToHost': '已发布到宿主机',
     'container.detail.network.portCount': '{count} 个端口映射',
     'container.detail.network.ports': '端口映射',
@@ -625,12 +628,64 @@ describe('container detail page', () => {
     expect(wrapper.text()).toContain('d2:13:55:9f:0b:21');
     expect(wrapper.text()).toContain('network-id-1...k-id-1');
     expect(wrapper.text()).toContain('endpoint-id-...t-id-1');
-    expect(wrapper.text()).toContain('容器端口');
-    expect(wrapper.text()).toContain('0.0.0.0:8080->80/tcp');
+    expect(wrapper.text()).toContain('映射');
+    expect(wrapper.text()).toContain('宿主机 8080 → 容器 80/tcp');
+    expect(wrapper.text()).toContain('监听地址');
+    expect(wrapper.text()).toContain('0.0.0.0');
+    expect(wrapper.text()).not.toContain('网络arcane_default');
+    expect(wrapper.text()).not.toContain('0.0.0.0:8080->80/tcp');
     expect(wrapper.find('.container-port-mapping-card').exists()).toBe(true);
     expect(wrapper.text()).toContain('已发布到宿主机');
     expect(wrapper.text()).toContain('网络别名 / DNS');
     expect(wrapper.text()).toContain('暂无额外网络别名或自定义 DNS 配置');
+  });
+
+  it('aggregates IPv4 and IPv6 bindings for the same published port', async () => {
+    const { copyText } = await import('@/shared/observability');
+    routeState.route.query.tab = 'network';
+    apiMocks.getContainer.mockResolvedValue({
+      ...createContainerDetail(),
+      ports: [
+        { ip: '0.0.0.0', private_port: 3552, public_port: 3552, type: 'tcp' },
+        { ip: '::', private_port: 3552, public_port: 3552, type: 'tcp' },
+      ],
+    });
+
+    const wrapper = mountPage();
+    await flushPromises();
+
+    expect(wrapper.find('.container-port-mapping-card').exists()).toBe(true);
+    expect(wrapper.findAll('[data-testid^="port-mapping-copy-"]')).toHaveLength(1);
+    expect(wrapper.text()).toContain('宿主机 3552 → 容器 3552/tcp');
+    expect(wrapper.text()).toContain('0.0.0.0, ::');
+    expect(wrapper.text()).not.toContain(':::3552->3552/tcp');
+
+    await wrapper.get('[data-testid="port-mapping-copy-0"]').trigger('click');
+    await flushPromises();
+
+    expect(copyText).toHaveBeenCalledWith('0.0.0.0:3552->3552/tcp\n:::3552->3552/tcp');
+  });
+
+  it('renders a single IPv4 host binding as one semantic mapping', async () => {
+    const { copyText } = await import('@/shared/observability');
+    routeState.route.query.tab = 'network';
+    apiMocks.getContainer.mockResolvedValue({
+      ...createContainerDetail(),
+      ports: [{ ip: '127.0.0.1', private_port: 8080, public_port: 18080, type: 'tcp' }],
+    });
+
+    const wrapper = mountPage();
+    await flushPromises();
+
+    expect(wrapper.findAll('[data-testid^="port-mapping-copy-"]')).toHaveLength(1);
+    expect(wrapper.text()).toContain('宿主机 18080 → 容器 8080/tcp');
+    expect(wrapper.text()).toContain('127.0.0.1');
+    expect(wrapper.text()).not.toContain('127.0.0.1:18080->8080/tcp');
+
+    await wrapper.get('[data-testid="port-mapping-copy-0"]').trigger('click');
+    await flushPromises();
+
+    expect(copyText).toHaveBeenCalledWith('127.0.0.1:18080->8080/tcp');
   });
 
   it('renders multiple networks in the network table', async () => {
@@ -687,8 +742,9 @@ describe('container detail page', () => {
     await flushPromises();
 
     expect(wrapper.find('.container-port-mapping-card').exists()).toBe(true);
-    expect(wrapper.text()).toContain('8082/tcp / 未发布到宿主机');
+    expect(wrapper.text()).toContain('未发布到宿主机，仅容器网络内部可访问');
     expect(wrapper.text()).toContain('仅容器网络内部可访问');
+    expect(wrapper.text()).not.toContain('8082/tcp / 未发布到宿主机');
     expect(wrapper.text()).not.toContain('暂无数据->8082/tcp');
     expect(wrapper.text()).not.toContain('暂无数据 -> 8082/tcp');
   });
@@ -703,7 +759,8 @@ describe('container detail page', () => {
     const wrapper = mountPage();
     await flushPromises();
 
-    expect(wrapper.text()).toContain('8080->80/tcp');
+    expect(wrapper.text()).toContain('宿主机 8080 → 容器 80/tcp');
+    expect(wrapper.text()).toContain('全部地址');
     expect(wrapper.text()).toContain('已发布到宿主机');
     expect(wrapper.text()).not.toContain('暂无数据:8080->80/tcp');
   });
@@ -723,8 +780,10 @@ describe('container detail page', () => {
 
     expect(wrapper.find('.container-port-mapping-card').exists()).toBe(false);
     expect(wrapper.text()).toContain('容器端口');
-    expect(wrapper.text()).toContain('127.0.0.1:8080->80/tcp');
-    expect(wrapper.text()).toContain('8082/tcp / 未发布到宿主机');
+    expect(wrapper.text()).toContain('宿主机 8080 → 容器 80/tcp');
+    expect(wrapper.text()).toContain('127.0.0.1');
+    expect(wrapper.text()).toContain('未发布到宿主机，仅容器网络内部可访问');
+    expect(wrapper.text()).not.toContain('127.0.0.1:8080->80/tcp');
   });
 
   it('shows fallback text for missing optional network fields', async () => {

@@ -491,7 +491,10 @@
         "listenAddress": "Listen Address",
         "mapping": "Mapping",
         "noData": "No Data",
+        "allInterfaces": "All Interfaces",
+        "publishedMapping": "Host {hostPort} → Container {privatePort}/{protocol}",
         "notPublished": "Not Published To Host",
+        "internalOnlyFull": "Not Published To Host, Only Accessible Inside Container Network",
         "internalOnly": "Only Accessible Inside Container Network",
         "publishedToHost": "Published To Host",
         "aliasDnsEmpty": "No Extra Network Aliases Or Custom DNS Configuration"

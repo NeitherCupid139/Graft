@@ -491,7 +491,10 @@
         "listenAddress": "监听地址",
         "mapping": "映射",
         "noData": "暂无数据",
+        "allInterfaces": "全部地址",
+        "publishedMapping": "宿主机 {hostPort} → 容器 {privatePort}/{protocol}",
         "notPublished": "未发布到宿主机",
+        "internalOnlyFull": "未发布到宿主机，仅容器网络内部可访问",
         "internalOnly": "仅容器网络内部可访问",
         "publishedToHost": "已发布到宿主机",
         "aliasDnsEmpty": "暂无额外网络别名或自定义 DNS 配置"

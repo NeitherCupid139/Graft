@@ -698,9 +698,6 @@
                   <template v-if="networkConnections.length">
                     <article v-if="networkConnections.length === 1" class="container-network-connection-card">
                       <header class="container-network-connection-card__header">
-                        <span class="container-network-connection-card__label">
-                          {{ t('container.detail.network.name') }}
-                        </span>
                         <copyable-detail-value
                           class="container-network-connection-card__name"
                           :copy-label="t('container.detail.copy')"
@@ -811,7 +808,7 @@
                   >
                     <div class="container-port-mapping-card__main">
                       <span class="container-port-mapping-card__label">
-                        {{ t('container.detail.network.containerPort') }}
+                        {{ t('container.detail.network.mapping') }}
                       </span>
                       <copyable-detail-value
                         :copy-label="t('container.detail.copy')"
@@ -821,6 +818,10 @@
                         data-testid="port-mapping-copy-0"
                         @copy="copyDetailText"
                       />
+                    </div>
+                    <div v-if="portMappingRows[0].hasHostBinding" class="container-port-mapping-card__listen">
+                      <span>{{ t('container.detail.network.listenAddress') }}</span>
+                      <code class="container-network-code">{{ portMappingRows[0].listenAddress }}</code>
                     </div>
                     <span class="container-port-mapping-card__description">
                       {{ portMappingRows[0].description }}
@@ -1009,6 +1010,7 @@ type PortMappingRow = {
   description: string;
   hasHostBinding: boolean;
   key: string;
+  listenAddresses: string[];
   listenAddress: string;
   mapping: string;
   privatePort: string;
@@ -1191,30 +1193,7 @@ const singleNetworkFields = computed<NetworkField[]>(() => {
     ),
   ];
 });
-const portMappingRows = computed<PortMappingRow[]>(() =>
-  (safeDetail.value?.ports ?? []).map((port, index) => {
-    const privatePort = formatPortNumber(port.private_port);
-    const publicPort = formatPortNumber(port.public_port);
-    const protocol = port.type || '-';
-    const hasHostBinding = hasPublishedHostBinding(port);
-    const listenAddress = hasHostBinding ? displayOptionalValue(port.ip) : t('container.detail.network.notPublished');
-    const mapping = portMappingLabel(port);
-
-    return {
-      copyValue: mapping,
-      description: hasHostBinding
-        ? t('container.detail.network.publishedToHost')
-        : t('container.detail.network.internalOnly'),
-      hasHostBinding,
-      key: `${listenAddress}:${publicPort}:${privatePort}/${protocol}:${index}`,
-      listenAddress,
-      mapping,
-      privatePort,
-      protocol,
-      publicPort,
-    };
-  }),
-);
+const portMappingRows = computed<PortMappingRow[]>(() => buildPortMappingRows(safeDetail.value?.ports ?? []));
 const networkMetadataFields = computed<NetworkField[]>(() => {
   const current = safeDetail.value;
   if (!current) {
@@ -1597,11 +1576,11 @@ const networkColumns = computed<TableProps['columns']>(() => [
   { colKey: 'endpoint_id', title: t('container.detail.network.endpointId'), minWidth: 180, ellipsis: true },
 ]);
 const portColumns = computed<TableProps['columns']>(() => [
-  { colKey: 'privatePort', title: t('container.detail.network.containerPort'), minWidth: 140, ellipsis: true },
   { colKey: 'publicPort', title: t('container.detail.network.hostPort'), minWidth: 140, ellipsis: true },
-  { colKey: 'protocol', title: t('container.detail.network.protocol'), width: 120, align: 'center' },
+  { colKey: 'privatePort', title: t('container.detail.network.containerPort'), minWidth: 140, ellipsis: true },
+  { colKey: 'protocol', title: t('container.detail.network.protocol'), width: 112, align: 'center' },
   { colKey: 'listenAddress', title: t('container.detail.network.listenAddress'), minWidth: 160, ellipsis: true },
-  { colKey: 'mapping', title: t('container.detail.network.mapping'), minWidth: 220, ellipsis: true },
+  { colKey: 'mapping', title: t('container.detail.network.mapping'), minWidth: 260, ellipsis: true },
 ]);
 const mountColumns = computed<TableProps['columns']>(() => [
   { colKey: 'destination', title: t('container.detail.storage.destination'), minWidth: 240, ellipsis: true },
@@ -2237,7 +2216,86 @@ function hasPublishedHostBinding(port: ContainerDetail['ports'][number]) {
   return typeof port.public_port === 'number' && Number.isFinite(port.public_port);
 }
 
-function portMappingLabel(port: ContainerDetail['ports'][number]) {
+function buildPortMappingRows(ports: ContainerDetail['ports']): PortMappingRow[] {
+  const groups = new Map<
+    string,
+    {
+      hasHostBinding: boolean;
+      listenAddresses: string[];
+      privatePort: string;
+      protocol: string;
+      publicPort: string;
+      rawBindings: string[];
+    }
+  >();
+
+  for (const port of ports) {
+    const privatePort = formatPortNumber(port.private_port);
+    const publicPort = formatPortNumber(port.public_port);
+    const protocol = port.type || '-';
+    const hasHostBinding = hasPublishedHostBinding(port);
+    const groupKey = `${privatePort}:${publicPort}:${protocol}`;
+    const existing = groups.get(groupKey) ?? {
+      hasHostBinding,
+      listenAddresses: [],
+      privatePort,
+      protocol,
+      publicPort,
+      rawBindings: [],
+    };
+
+    if (hasHostBinding) {
+      const listenAddress = port.ip?.trim() || t('container.detail.network.allInterfaces');
+      if (!existing.listenAddresses.includes(listenAddress)) {
+        existing.listenAddresses.push(listenAddress);
+      }
+    }
+    existing.hasHostBinding = existing.hasHostBinding || hasHostBinding;
+    existing.rawBindings.push(portMappingRawLabel(port));
+    groups.set(groupKey, existing);
+  }
+
+  return Array.from(groups.values()).map((group) => {
+    const listenAddress = group.hasHostBinding
+      ? formatListenAddresses(group.listenAddresses)
+      : t('container.detail.network.notPublished');
+    const mapping = group.hasHostBinding
+      ? t('container.detail.network.publishedMapping', {
+          hostPort: group.publicPort,
+          privatePort: group.privatePort,
+          protocol: group.protocol,
+        })
+      : t('container.detail.network.internalOnlyFull');
+
+    return {
+      copyValue: group.rawBindings.join('\n'),
+      description: group.hasHostBinding
+        ? t('container.detail.network.publishedToHost')
+        : t('container.detail.network.internalOnly'),
+      hasHostBinding: group.hasHostBinding,
+      key: `${group.privatePort}:${group.publicPort}:${group.protocol}:${listenAddress}`,
+      listenAddresses: group.listenAddresses,
+      listenAddress,
+      mapping,
+      privatePort: group.privatePort,
+      protocol: group.protocol,
+      publicPort: group.publicPort,
+    };
+  });
+}
+
+function formatListenAddresses(addresses: string[]) {
+  const unique = addresses.filter(Boolean);
+  if (!unique.length) {
+    return t('container.detail.network.allInterfaces');
+  }
+  if (unique.includes('0.0.0.0') && unique.includes('::') && unique.length === 2) {
+    return '0.0.0.0, ::';
+  }
+  return unique.join(', ');
+}
+
+function portMappingRawLabel(port: ContainerDetail['ports'][number]) {
   const privatePort = formatPortNumber(port.private_port);
   const containerEndpoint = `${privatePort}/${port.type || '-'}`;
   if (!hasPublishedHostBinding(port)) {
@@ -2705,6 +2763,7 @@ function portLabel(port: ContainerDetail['ports'][number]) {
   display: flex;
   flex-wrap: wrap;
   gap: var(--graft-density-gap-8);
+  justify-content: space-between;
   min-width: 0;
 }
 
@@ -2725,11 +2784,13 @@ function portLabel(port: ContainerDetail['ports'][number]) {
   display: grid;
   gap: var(--graft-density-gap-12);
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: 880px;
   min-width: 0;
 }
 
 .container-network-field-grid--metadata {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  max-width: 980px;
 }
 
 .container-network-field {
@@ -2808,8 +2869,30 @@ function portLabel(port: ContainerDetail['ports'][number]) {
   min-width: 0;
 }
 
+.container-port-mapping-card__listen {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 1 auto;
+  gap: var(--graft-density-gap-6);
+  min-width: 0;
+}
+
+.container-port-mapping-card__listen > span {
+  color: var(--td-text-color-placeholder);
+  font: var(--td-font-body-small);
+}
+
 .container-network-metadata-empty {
   align-items: flex-start;
+  color: var(--td-text-color-secondary);
+  font: var(--td-font-body-small);
+  min-height: auto;
+  padding: 0;
+  text-align: left;
+}
+
+.container-network-metadata-empty :deep(.t-empty__image) {
+  display: none;
 }
 
 .container-config-section {
