@@ -33,21 +33,32 @@
           <t-button theme="default" variant="outline" @click="goBack">
             {{ t('container.detail.back') }}
           </t-button>
-          <t-button theme="primary" :loading="loading" @click="loadDetail">
-            {{ t('container.detail.refresh') }}
-          </t-button>
+          <div class="container-detail-refresh-controls">
+            <span class="container-detail-refresh-controls__label">{{ t('container.detail.autoRefresh') }}</span>
+            <t-select
+              v-model="selectedAutoRefreshInterval"
+              class="container-detail-refresh-controls__select"
+              size="small"
+              :options="autoRefreshOptions"
+            />
+          </div>
+          <t-tooltip :content="t('container.detail.refreshTooltip')">
+            <t-button theme="primary" :loading="detailRefreshing" @click="refreshContainerDetail">
+              {{ t('container.detail.refreshNow') }}
+            </t-button>
+          </t-tooltip>
         </t-space>
       </template>
     </management-page-header>
 
     <section class="container-detail-body">
-      <t-loading v-if="loading && !safeDetail && !error" class="container-detail-state" :loading="true">
+      <t-loading v-if="detailRefreshing && !safeDetail && !error" class="container-detail-state" :loading="true">
         <t-skeleton animation="gradient" theme="article" />
       </t-loading>
 
       <t-alert v-else-if="error" class="container-detail-state-alert" theme="error" :title="error">
         <template #operation>
-          <t-button theme="danger" variant="text" @click="loadDetail">
+          <t-button theme="danger" variant="text" @click="refreshContainerDetail">
             {{ t('container.list.retry') }}
           </t-button>
         </template>
@@ -610,7 +621,12 @@
                       </template>
                       {{ t('container.detail.config.copyEnvFile') }}
                     </t-button>
-                    <t-button theme="default" variant="outline" :loading="loading" @click="loadDetail">
+                    <t-button
+                      theme="default"
+                      variant="outline"
+                      :loading="detailRefreshing"
+                      @click="refreshContainerDetail"
+                    >
                       <template #icon>
                         <t-icon name="refresh" />
                       </template>
@@ -921,21 +937,6 @@
                         <t-tag :theme="mount.accessTheme" variant="light-outline" size="small">
                           {{ mount.accessLabel }}
                         </t-tag>
-                        <t-tooltip :content="t('container.detail.storage.refreshMount')">
-                          <t-button
-                            shape="square"
-                            size="small"
-                            theme="default"
-                            variant="text"
-                            :loading="refreshingMountKey === mount.key"
-                            :data-testid="`mount-refresh-${mount.index}`"
-                            @click="refreshMountUsage(mount)"
-                          >
-                            <template #icon>
-                              <t-icon name="refresh" />
-                            </template>
-                          </t-button>
-                        </t-tooltip>
                       </div>
                     </template>
 
@@ -960,9 +961,29 @@
                       <div class="container-mount-usage" :class="`container-mount-usage--${mount.usageTone}`">
                         <div class="container-mount-usage__header">
                           <span>{{ t('container.detail.storage.usage') }}</span>
-                          <t-tag :theme="mount.usageTheme" variant="light-outline" size="small">
-                            {{ mount.usageLabel }}
-                          </t-tag>
+                          <t-button
+                            v-if="!mount.usageRefreshDisabled"
+                            size="small"
+                            theme="default"
+                            variant="outline"
+                            :loading="mount.usageRefreshing"
+                            :disabled="mount.usageRefreshing"
+                            :data-testid="`mount-refresh-${mount.index}`"
+                            @click="refreshMountUsage(mount)"
+                          >
+                            {{ mount.usageRefreshLabel }}
+                          </t-button>
+                          <t-tooltip v-else :content="mount.usageRefreshTooltip">
+                            <t-button
+                              size="small"
+                              theme="default"
+                              variant="outline"
+                              disabled
+                              :data-testid="`mount-refresh-unsupported-${mount.index}`"
+                            >
+                              {{ mount.usageRefreshLabel }}
+                            </t-button>
+                          </t-tooltip>
                         </div>
                         <strong>{{ mount.usageSize }}</strong>
                         <span v-if="mount.measuredAt" class="container-mount-usage__time">
@@ -1016,7 +1037,7 @@
 <script setup lang="ts">
 import type { TableProps } from 'tdesign-vue-next';
 import { MessagePlugin } from 'tdesign-vue-next/es/message';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 
@@ -1037,7 +1058,12 @@ import {
 import { useTabsRouterStore } from '@/store';
 import { createLogger } from '@/utils/logger';
 
-import { getContainer, getContainerLogs, postContainerMountUsageRefresh } from '../../api/container';
+import {
+  getContainer,
+  getContainerLogs,
+  getContainerMountUsage,
+  postContainerMountUsageRefresh,
+} from '../../api/container';
 import { CONTAINER_BOOTSTRAP_ROUTE } from '../../contract/bootstrap';
 import type {
   ContainerDetail,
@@ -1045,6 +1071,7 @@ import type {
   ContainerHealthcheck,
   ContainerLogResponse,
   ContainerMount,
+  ContainerMountUsage,
   ContainerState,
 } from '../../types/container';
 import ContainerOverviewPanel from './components/ContainerOverviewPanel.vue';
@@ -1115,6 +1142,10 @@ type MountCard = {
   typeLabel: string;
   typeTheme: MountTagTheme;
   usageLabel: string;
+  usageRefreshDisabled: boolean;
+  usageRefreshLabel: string;
+  usageRefreshTooltip: string;
+  usageRefreshing: boolean;
   usageSize: string;
   usageTheme: MountTagTheme;
   usageTone: MountCardUsageTone;
@@ -1189,8 +1220,10 @@ type ResourceDetailGroup = {
   title: string;
 };
 type ResourceMetricDefinition = [ResourceMetricKey, string, ResourceMetricFormat];
+type AutoRefreshInterval = 0 | 5 | 10 | 30;
 
 const DETAIL_TABS: DetailTab[] = ['overview', 'resources', 'logs', 'health', 'config', 'network', 'storage', 'raw'];
+const AUTO_REFRESH_INTERVALS: AutoRefreshInterval[] = [0, 5, 10, 30];
 const DEFAULT_LOG_QUERY = {
   tail: 200,
   since: undefined,
@@ -1206,7 +1239,7 @@ const tabsRouterStore = useTabsRouterStore();
 const logger = createLogger('container.detail');
 
 const detail = ref<ContainerDetail | null>(null);
-const loading = ref(false);
+const detailRefreshing = ref(false);
 const error = ref('');
 const logs = ref<ContainerLogResponse | null>(null);
 const logsLoading = ref(false);
@@ -1215,7 +1248,11 @@ const logLineLimit = ref(DEFAULT_LOG_QUERY.tail);
 const activeTab = ref<DetailTab>(normalizeTab(route.query.tab));
 const environmentKeyword = ref('');
 const environmentPolicyFilter = ref<EnvironmentPolicyFilter>('all');
-const refreshingMountKey = ref('');
+const refreshingMountKeys = ref<Set<string>>(new Set());
+const selectedAutoRefreshInterval = ref<AutoRefreshInterval>(0);
+const isPageVisible = ref(typeof document === 'undefined' ? true : document.visibilityState === 'visible');
+let autoRefreshTimer: number | null = null;
+let detailRefreshSeq = 0;
 
 const containerId = computed(() => String(route.params.id ?? '').trim());
 const shortContainerIdFallback = computed(() => shortIdentifier(containerId.value, undefined, 12));
@@ -1243,6 +1280,15 @@ const fallbackDisplayName = computed(() => {
   return '';
 });
 const fallbackTitle = computed(() => buildDetailTitle(fallbackDisplayName.value));
+const autoRefreshOptions = computed(() =>
+  AUTO_REFRESH_INTERVALS.map((value) => ({
+    label:
+      value === 0
+        ? t('container.detail.autoRefreshOff')
+        : t('container.detail.autoRefreshSeconds', { seconds: String(value) }),
+    value,
+  })),
+);
 const detailBreadcrumb = computed(() => [
   { labelKey: 'container.list.eyebrow', fallback: t('container.list.eyebrow') },
   { labelKey: 'container.detail.title', fallback: fallbackTitle.value[LOCALE.ZH_CN] },
@@ -1689,17 +1735,24 @@ const portColumns = computed<TableProps['columns']>(() => [
 
 onMounted(() => {
   updateCurrentTabTitle(fallbackTitle.value);
-  void loadDetail();
+  void refreshContainerDetail();
   if (activeTab.value === 'logs') {
     void loadLogs();
   }
+  document.addEventListener('visibilitychange', handleVisibilityChange, false);
+  scheduleAutoRefresh();
+});
+
+onUnmounted(() => {
+  stopAutoRefresh();
+  document.removeEventListener('visibilitychange', handleVisibilityChange);
 });
 
 watch(
   () => route.params.id,
   () => {
     resetDetailState();
-    void loadDetail();
+    void refreshContainerDetail();
     if (activeTab.value === 'logs') {
       void loadLogs();
     }
@@ -1723,29 +1776,112 @@ watch(logLineLimit, () => {
   }
 });
 
-async function loadDetail() {
-  if (!containerId.value) {
+watch(selectedAutoRefreshInterval, () => {
+  scheduleAutoRefresh();
+});
+
+function handleVisibilityChange() {
+  isPageVisible.value = document.visibilityState === 'visible';
+  if (!isPageVisible.value) {
+    stopAutoRefresh();
+    return;
+  }
+  if (selectedAutoRefreshInterval.value > 0) {
+    void refreshContainerDetail();
+    scheduleAutoRefresh();
+  }
+}
+
+function scheduleAutoRefresh() {
+  stopAutoRefresh();
+  if (!isPageVisible.value || selectedAutoRefreshInterval.value <= 0) {
+    return;
+  }
+  autoRefreshTimer = window.setInterval(() => {
+    void refreshContainerDetail();
+  }, selectedAutoRefreshInterval.value * 1000);
+}
+
+function stopAutoRefresh() {
+  if (autoRefreshTimer !== null) {
+    window.clearInterval(autoRefreshTimer);
+    autoRefreshTimer = null;
+  }
+}
+
+async function refreshContainerDetail() {
+  const currentContainerId = containerId.value;
+  if (!currentContainerId) {
     detail.value = null;
     logs.value = null;
     error.value = t('container.detail.missingId');
     return;
   }
 
-  loading.value = true;
+  const requestSeq = ++detailRefreshSeq;
+  detailRefreshing.value = true;
   error.value = '';
   try {
-    detail.value = await getContainer(containerId.value);
+    const nextDetail = await getContainer(currentContainerId);
+    if (requestSeq !== detailRefreshSeq || currentContainerId !== containerId.value) {
+      return;
+    }
+    detail.value = mergeDetailWithLocalMountUsage(nextDetail);
     const current = safeDetail.value;
     if (current) {
       updateCurrentTabTitle(buildDetailTitle(displayName(current)));
     }
+    await fetchMountUsage(currentContainerId, requestSeq);
   } catch (loadError) {
+    if (requestSeq !== detailRefreshSeq || currentContainerId !== containerId.value) {
+      return;
+    }
     detail.value = null;
     error.value = resolveLocalizedErrorMessage(t, loadError, t('container.list.detail.loadFailed'));
     logger.warn('failed to fetch container detail', loadError);
   } finally {
-    loading.value = false;
+    if (requestSeq === detailRefreshSeq) {
+      detailRefreshing.value = false;
+    }
   }
+}
+
+async function fetchMountUsage(currentContainerId = containerId.value, requestSeq = detailRefreshSeq) {
+  if (!currentContainerId || !detail.value) {
+    return;
+  }
+  try {
+    const usageList = await getContainerMountUsage(currentContainerId);
+    if (requestSeq !== detailRefreshSeq || currentContainerId !== containerId.value) {
+      return;
+    }
+    mergeMountUsage(usageList.items ?? []);
+  } catch (loadError) {
+    logger.warn('failed to fetch cached container mount usage', loadError);
+  }
+}
+
+function mergeDetailWithLocalMountUsage(nextDetail: ContainerDetail): ContainerDetail {
+  const currentMounts = safeDetail.value?.mounts ?? [];
+  if (currentMounts.length === 0 || !Array.isArray(nextDetail.mounts)) {
+    return nextDetail;
+  }
+  const currentUsageByKey = new Map<string, ContainerMountUsage>();
+  currentMounts.forEach((mount, index) => {
+    if (shouldKeepLocalMountUsage(mount, index) && mount.usage) {
+      currentUsageByKey.set(mountKey(mount, index), mount.usage);
+    }
+  });
+  if (currentUsageByKey.size === 0) {
+    return nextDetail;
+  }
+  return {
+    ...nextDetail,
+    mounts: nextDetail.mounts.map((mount, index) => {
+      const usage = currentUsageByKey.get(mountKey(mount, index));
+      return usage ? { ...mount, usage } : mount;
+    }),
+  };
 }
 
 async function loadLogs() {
@@ -1798,6 +1934,7 @@ function resetDetailState() {
   error.value = '';
   logs.value = null;
   logsError.value = '';
+  refreshingMountKeys.value = new Set();
   updateCurrentTabTitle(fallbackTitle.value);
 }
 
@@ -1857,31 +1994,95 @@ async function copyDetailText(text: string) {
 }
 
 async function refreshMountUsage(mount: MountCard) {
-  if (!containerId.value || refreshingMountKey.value) {
+  if (!containerId.value || mount.usageRefreshDisabled || refreshingMountKeys.value.has(mount.key)) {
     return;
   }
 
-  refreshingMountKey.value = mount.key;
+  setMountRefreshing(mount.key, true);
+  mergeOneMountUsage(
+    mount.key,
+    {
+      container_id: containerId.value,
+      destination: mount.destination,
+      mount_id: mount.mountId,
+      source: mount.source,
+      status: 'pending',
+      type: mount.raw.type,
+      message: t('container.detail.storage.pendingMessage'),
+    },
+    { force: true },
+  );
   try {
     const refreshedUsage = await postContainerMountUsageRefresh(containerId.value, mount.mountId);
-    const currentDetail = detail.value;
-    if (!currentDetail) {
-      MessagePlugin.error(t('container.detail.storage.refreshError'));
-      return;
-    }
-    detail.value = {
-      ...currentDetail,
-      mounts: (safeDetail.value?.mounts ?? []).map((item, index) =>
-        mountKey(item, index) === mount.key ? { ...item, usage: refreshedUsage } : item,
-      ),
-    };
+    mergeOneMountUsage(mount.key, refreshedUsage, { force: true });
     MessagePlugin.success(t('container.detail.storage.refreshSuccess'));
   } catch (refreshError) {
     logger.warn('failed to refresh container mount usage', refreshError);
     MessagePlugin.error(resolveLocalizedErrorMessage(t, refreshError, t('container.detail.storage.refreshError')));
   } finally {
-    refreshingMountKey.value = '';
+    setMountRefreshing(mount.key, false);
   }
+}
+
+function setMountRefreshing(key: string, refreshing: boolean) {
+  const nextKeys = new Set(refreshingMountKeys.value);
+  if (refreshing) {
+    nextKeys.add(key);
+  } else {
+    nextKeys.delete(key);
+  }
+  refreshingMountKeys.value = nextKeys;
+}
+
+function mergeMountUsage(usages: ContainerMountUsage[]) {
+  if (!detail.value || usages.length === 0) {
+    return;
+  }
+  const byMountID = new Map<string, ContainerMountUsage>();
+  usages.forEach((usage) => {
+    const record = readUnknownRecord(usage);
+    const mountID = readString(record?.mount_id);
+    if (mountID) {
+      byMountID.set(mountID, usage);
+    }
+  });
+  detail.value = {
+    ...detail.value,
+    mounts: (safeDetail.value?.mounts ?? []).map((mount, index) => {
+      const usage = byMountID.get(mount.mount_id);
+      if (!usage || shouldKeepLocalMountUsage(mount, index)) {
+        return mount;
+      }
+      return { ...mount, usage };
+    }),
+  };
+}
+
+function mergeOneMountUsage(key: string, usage: ContainerMountUsage, options: { force?: boolean } = {}) {
+  if (!detail.value) {
+    return;
+  }
+  detail.value = {
+    ...detail.value,
+    mounts: (safeDetail.value?.mounts ?? []).map((item, index) => {
+      if (mountKey(item, index) !== key) {
+        return item;
+      }
+      if (!options.force && shouldKeepLocalMountUsage(item, index)) {
+        return item;
+      }
+      return { ...item, usage };
+    }),
+  };
+}
+
+function shouldKeepLocalMountUsage(mount: ContainerMount, index: number) {
+  const key = mountKey(mount, index);
+  if (refreshingMountKeys.value.has(key)) {
+    return true;
+  }
+  const status = readMountUsage(mount).status;
+  return status === 'pending';
 }
 
 function normalizeTab(value: unknown): DetailTab {
@@ -2437,13 +2638,15 @@ function buildMountCards(mounts: ContainerMount[]): MountCard[] {
     const usage = readMountUsage(mount);
     const status = usage.status || 'not_measured';
     const message = usage.message || mountUsageMessage(status);
+    const key = mountKey(mount, index);
+    const refreshing = refreshingMountKeys.value.has(key) || status === 'pending';
     return {
       accessLabel: mountAccessLabel(mount),
       accessTheme: mount.read_only ? 'warning' : 'success',
       destination: mount.destination || '',
       destinationDisplay: displayMountPath(mount.destination),
       index,
-      key: mountKey(mount, index),
+      key,
       mountId: mount.mount_id,
       measuredAt: formatMountMeasuredAt(usage.measuredAt),
       message,
@@ -2455,6 +2658,10 @@ function buildMountCards(mounts: ContainerMount[]): MountCard[] {
       typeLabel: mountTypeLabel(mount.type),
       typeTheme: mountTypeTheme(mount.type),
       usageLabel: mountUsageStatusLabel(status),
+      usageRefreshDisabled: status === 'unsupported',
+      usageRefreshLabel: mountUsageRefreshLabel(status),
+      usageRefreshTooltip: mountUsageRefreshTooltip(status),
+      usageRefreshing: refreshing,
       usageSize: usage.sizeBytes === null ? mountUsageSizeFallback(status) : formatBytes(usage.sizeBytes),
       usageTheme: mountUsageTheme(status),
       usageTone: mountUsageTone(status),
@@ -2543,6 +2750,7 @@ function mountUsageTone(status: string): MountCardUsageTone {
 }
 
 function mountUsageMessage(status: string) {
+  if (status === 'pending') return t('container.detail.storage.pendingMessage');
   if (status === 'unsupported') return t('container.detail.storage.unsupportedMessage');
   if (status === 'permission_denied' || status === 'not_found' || status === 'timeout' || status === 'error') {
     return t('container.detail.storage.errorMessage');
@@ -2552,8 +2760,22 @@ function mountUsageMessage(status: string) {
 }
 
 function mountUsageSizeFallback(status: string) {
+  if (status === 'pending') return t('container.detail.storage.pendingSize');
   if (status === 'measured') return '0 B';
   return '-';
+}
+
+function mountUsageRefreshLabel(status: string) {
+  if (status === 'pending') return t('container.detail.storage.refreshPending');
+  if (status === 'permission_denied' || status === 'not_found' || status === 'timeout' || status === 'error') {
+    return t('container.detail.storage.retryUsage');
+  }
+  return t('container.detail.storage.refreshMount');
+}
+
+function mountUsageRefreshTooltip(status: string) {
+  if (status === 'unsupported') return t('container.detail.storage.unsupportedTooltip');
+  return t('container.detail.storage.refreshMountTooltip');
 }
 
 function formatMountMeasuredAt(value: string) {
@@ -2727,6 +2949,23 @@ function portLabel(port: ContainerDetail['ports'][number]) {
   gap: var(--graft-density-gap-16);
   min-height: 420px;
   min-width: 0;
+}
+
+.container-detail-refresh-controls {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--graft-density-gap-6);
+  min-width: 0;
+}
+
+.container-detail-refresh-controls__label {
+  color: var(--td-text-color-secondary);
+  font: var(--td-font-body-small);
+  white-space: nowrap;
+}
+
+.container-detail-refresh-controls__select {
+  width: 104px;
 }
 
 .container-detail-state {
@@ -3086,6 +3325,10 @@ function portLabel(port: ContainerDetail['ports'][number]) {
   gap: var(--graft-density-gap-8);
   justify-content: space-between;
   min-width: 0;
+}
+
+.container-mount-usage__header > :deep(.t-button) {
+  flex: 0 0 auto;
 }
 
 .container-mount-usage__header > span,
