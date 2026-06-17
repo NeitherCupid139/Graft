@@ -51,8 +51,39 @@ const TransitionStub = defineComponent({
   },
 });
 
+const LoadingStub = defineComponent({
+  name: 'TLoading',
+  props: {
+    loading: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  setup(props, { slots }) {
+    return () =>
+      h(
+        'div',
+        {
+          'data-testid': 'route-loading',
+          'data-loading': String(props.loading),
+        },
+        slots.default?.(),
+      );
+  },
+});
+
 vi.mock('vue-router', () => ({
   useRoute: () => routeState,
+}));
+
+vi.mock('@/locales', () => ({
+  t: (key: string) => key,
+}));
+
+vi.mock('@/router/route-loading', () => ({
+  routeLoading: {
+    value: false,
+  },
 }));
 
 vi.mock('@/store', async () => {
@@ -102,7 +133,7 @@ describe('Content', () => {
             template: '<div data-testid="keep-alive" :data-include="include"><slot /></div>',
           },
           FramePage: true,
-          TLoading: true,
+          TLoading: LoadingStub,
         },
       },
     });
@@ -145,7 +176,7 @@ describe('Content', () => {
             template: '<div data-testid="keep-alive" :data-include="include"><slot /></div>',
           },
           FramePage: true,
-          TLoading: true,
+          TLoading: LoadingStub,
         },
       },
     });
@@ -182,7 +213,7 @@ describe('Content', () => {
             template: '<div data-testid="keep-alive" :data-include="include"><slot /></div>',
           },
           FramePage: true,
-          TLoading: true,
+          TLoading: LoadingStub,
         },
       },
     });
@@ -215,11 +246,43 @@ describe('Content', () => {
             template: '<div data-testid="keep-alive" :data-include="include"><slot /></div>',
           },
           FramePage: true,
-          TLoading: true,
+          TLoading: LoadingStub,
         },
       },
     });
 
     expect(wrapper.emitted('page-surface-enter')).toEqual([['paged-table']]);
+  });
+
+  it('keeps a loading host mounted while a tab refresh removes route content', async () => {
+    tabStoreState.refreshing = true;
+
+    const wrapper = mount(Content, {
+      global: {
+        stubs: {
+          RouterView: {
+            template: '<slot :Component="Component" :route="route" />',
+            data() {
+              return {
+                Component: RouteContentProbe,
+                route: routeState,
+              };
+            },
+          },
+          transition: TransitionStub,
+          KeepAlive: {
+            props: ['include'],
+            template: '<div data-testid="keep-alive" :data-include="include"><slot /></div>',
+          },
+          FramePage: true,
+          TLoading: LoadingStub,
+        },
+      },
+    });
+
+    expect(wrapper.get('[data-testid="route-loading"]').attributes('data-loading')).toBe('true');
+    expect(wrapper.find('.route-loading-host').exists()).toBe(true);
+    expect(wrapper.find('.route-refresh-placeholder').exists()).toBe(true);
+    expect(wrapper.findComponent({ name: 'RouteContentProbe' }).exists()).toBe(false);
   });
 });

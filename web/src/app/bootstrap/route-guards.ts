@@ -11,6 +11,7 @@ import { t } from '@/locales';
 import { AUTH_ROUTE_NAME, AUTH_ROUTE_PATH } from '@/modules/auth/contract/routes';
 import { useAuthSessionStore } from '@/modules/auth/store';
 import router from '@/router';
+import { finishRouteLoadingAfterRender, hideRouteLoading, startRouteLoading } from '@/router/route-loading';
 import { resolveLocalizedErrorMessage } from '@/shared/localized-api-error';
 import { getPermissionStore } from '@/store';
 import { isRootEntryPath, resolveRuntimeHomePath, RUNTIME_ENTRY_FALLBACK_PATH } from '@/utils/route';
@@ -48,6 +49,7 @@ function removeMountedBootstrapRoutes(targetRouter: Router, routes: RouteRecordR
 // registerRouteGuards wires shell-owned auth/bootstrap recovery into the single router runtime.
 export function registerRouteGuards(targetRouter: Router = router) {
   targetRouter.beforeEach(async (to, from, next) => {
+    startRouteLoading();
     NProgress.start();
 
     const permissionStore = getPermissionStore();
@@ -211,5 +213,11 @@ export function registerRouteGuards(targetRouter: Router = router) {
       permissionStore.restoreRoutes();
     }
     NProgress.done();
+    void finishRouteLoadingAfterRender();
+  });
+
+  targetRouter.onError(() => {
+    NProgress.done();
+    hideRouteLoading();
   });
 }
