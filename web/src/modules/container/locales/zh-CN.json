@@ -382,9 +382,12 @@
         "stability": "运行稳定性",
         "healthcheck": "Healthcheck",
         "exitCode": "Exit Code",
+        "exitCodeValue": "Exit Code: {code}",
         "checkCommand": "检查命令",
+        "copyCommand": "复制检查命令",
         "lastOutput": "最近输出",
         "lastCheck": "最近检查",
+        "lastCheckValue": "最近检查：{time}",
         "uptime": "已运行",
         "lastExitCode": "最近退出码",
         "oomKilled": "OOMKilled",
@@ -400,6 +403,12 @@
         "healthcheckUnavailableEmpty": "未配置 Docker Healthcheck",
         "uptimeHoursMinutes": "{hours} 小时 {minutes} 分钟",
         "uptimeMinutes": "{minutes} 分钟",
+        "stabilityStatus": {
+          "stable": "状态稳定",
+          "restart": "存在重启",
+          "oom": "发生 OOM",
+          "exit": "异常退出"
+        },
         "diagnosis": {
           "healthy": "健康",
           "unhealthy": "异常",

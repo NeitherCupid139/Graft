@@ -382,9 +382,12 @@
         "stability": "Runtime Stability",
         "healthcheck": "Healthcheck",
         "exitCode": "Exit Code",
+        "exitCodeValue": "Exit Code: {code}",
         "checkCommand": "Check Command",
+        "copyCommand": "Copy Check Command",
         "lastOutput": "Recent Output",
         "lastCheck": "Recent Check",
+        "lastCheckValue": "Recent Check: {time}",
         "uptime": "Uptime",
         "lastExitCode": "Last Exit Code",
         "oomKilled": "OOMKilled",
@@ -400,6 +403,12 @@
         "healthcheckUnavailableEmpty": "Docker Healthcheck Is Not Configured",
         "uptimeHoursMinutes": "{hours} h {minutes} min",
         "uptimeMinutes": "{minutes} min",
+        "stabilityStatus": {
+          "stable": "Stable",
+          "restart": "Restart Detected",
+          "oom": "OOM Detected",
+          "exit": "Abnormal Exit"
+        },
         "diagnosis": {
           "healthy": "Healthy",
           "unhealthy": "Unhealthy",

@@ -84,6 +84,7 @@ const translations = vi.hoisted(
     'container.detail.health.diagnosis.unhealthy': '异常',
     'container.detail.health.diagnosisTitle': '健康诊断',
     'container.detail.health.exitCode': 'Exit Code',
+    'container.detail.health.exitCodeValue': 'Exit Code: {code}',
     'container.detail.health.healthcheck': 'Healthcheck',
     'container.detail.health.healthcheckStatus.failed': '失败',
     'container.detail.health.healthcheckStatus.passed': '通过',
@@ -94,6 +95,7 @@ const translations = vi.hoisted(
       '当前容器未提供 Docker Healthcheck 明细，仅能根据运行状态判断基础可用性。',
     'container.detail.health.healthcheckUnavailableEmpty': '未配置 Docker Healthcheck',
     'container.detail.health.lastCheck': '最近检查',
+    'container.detail.health.lastCheckValue': '最近检查：{time}',
     'container.detail.health.lastExitCode': '最近退出码',
     'container.detail.health.lastOutput': '最近输出',
     'container.detail.health.noOutput': '无异常输出',
@@ -107,6 +109,10 @@ const translations = vi.hoisted(
     'container.detail.health.restartUnknown': '重启次数未提供',
     'container.detail.health.status': '健康状态',
     'container.detail.health.stability': '运行稳定性',
+    'container.detail.health.stabilityStatus.exit': '异常退出',
+    'container.detail.health.stabilityStatus.oom': '发生 OOM',
+    'container.detail.health.stabilityStatus.restart': '存在重启',
+    'container.detail.health.stabilityStatus.stable': '状态稳定',
     'container.detail.health.updatedFromHealthcheck': '来自最近健康检查',
     'container.detail.health.updatedFromInspect': '来自详情更新时间',
     'container.detail.health.uptime': '已运行',
@@ -558,17 +564,18 @@ describe('container detail page', () => {
     expect(wrapper.text()).toContain('当前状态');
     expect(wrapper.text()).toContain('健康检查通过，容器运行中。');
     expect(wrapper.text()).toContain('重启次数');
-    expect(wrapper.text()).toContain('2 次');
-    expect(wrapper.text()).toContain('已记录 2 次重启');
+    expect(wrapper.text()).toContain('0 次');
+    expect(wrapper.text()).toContain('无异常重启');
     expect(wrapper.text()).toContain('健康检查结果');
     expect(wrapper.text()).toContain('Healthcheck');
     expect(wrapper.text()).toContain('通过');
-    expect(wrapper.text()).toContain('Exit Code');
+    expect(wrapper.text()).toContain('Exit Code: 0');
     expect(wrapper.text()).toContain('0');
     expect(wrapper.text()).toContain('CMD-SHELL curl -f http://localhost:8080/health || exit 1');
     expect(wrapper.text()).toContain('无异常');
-    expect(wrapper.text()).toContain('2026-06-14T01:07:00Z');
+    expect(wrapper.text()).toContain('最近检查：2026-06-14T01:07:00Z');
     expect(wrapper.text()).toContain('运行稳定性');
+    expect(wrapper.text()).toContain('状态稳定');
     expect(wrapper.text()).toContain('最近退出码');
     expect(wrapper.text()).toContain('OOMKilled');
     expect(wrapper.text()).toContain('否');
@@ -614,6 +621,7 @@ describe('container detail page', () => {
     expect(wrapper.text()).toContain('容器运行中，但未配置 Docker Healthcheck。');
     expect(wrapper.text()).toContain('当前容器未提供 Docker Healthcheck 明细，仅能根据运行状态判断基础可用性。');
     expect(wrapper.text()).toContain('未配置 Docker Healthcheck');
+    expect(wrapper.text()).not.toContain('Exit Code: 0');
   });
 
   it('marks exited containers as not running in health diagnostics', async () => {
@@ -634,6 +642,31 @@ describe('container detail page', () => {
     expect(wrapper.text()).toContain('0');
   });
 
+  it('shows starting healthcheck as in progress without marking it passed', async () => {
+    routeState.route.query.tab = 'health';
+    apiMocks.getContainer.mockResolvedValue({
+      ...createContainerDetail(),
+      health: 'starting',
+      healthcheck: {
+        configured: true,
+        status: 'starting',
+        command: ['CMD', 'wget', '-q', '-T', '5', '-O', '/dev/null', 'http://localhost:8080/health'],
+        exit_code: undefined,
+        output: '',
+        checked_at: '',
+        failing_streak: 0,
+      },
+    });
+    const wrapper = mountPage();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('启动中');
+    expect(wrapper.text()).toContain('健康检查仍在启动观察期。');
+    expect(wrapper.text()).toContain('Exit Code: -');
+    expect(wrapper.text()).toContain('无异常输出');
+    expect(wrapper.text()).not.toContain('健康检查通过，容器运行中。');
+  });
+
   it('surfaces non-zero restart counts as runtime stability signal', async () => {
     routeState.route.query.tab = 'health';
     apiMocks.getContainer.mockResolvedValue({
@@ -645,8 +678,40 @@ describe('container detail page', () => {
 
     expect(wrapper.text()).toContain('5 次');
     expect(wrapper.text()).toContain('已记录 5 次重启');
+    expect(wrapper.text()).toContain('存在重启');
     expect(wrapper.text()).toContain('重启策略');
     expect(wrapper.text()).toContain('unless-stopped');
+  });
+
+  it('prioritizes OOMKilled in runtime stability conclusion', async () => {
+    routeState.route.query.tab = 'health';
+    apiMocks.getContainer.mockResolvedValue({
+      ...createContainerDetail(),
+      last_exit_code: 137,
+      oom_killed: true,
+      restart_count: 3,
+    });
+    const wrapper = mountPage();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('发生 OOM');
+    expect(wrapper.text()).toContain('137');
+    expect(wrapper.text()).toContain('是');
+  });
+
+  it('shows abnormal exit when the latest exit code is non-zero', async () => {
+    routeState.route.query.tab = 'health';
+    apiMocks.getContainer.mockResolvedValue({
+      ...createContainerDetail(),
+      last_exit_code: 2,
+      oom_killed: false,
+      restart_count: 0,
+    });
+    const wrapper = mountPage();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('异常退出');
+    expect(wrapper.text()).toContain('2');
   });
 
   it('uses short identifiers and renders an explicit empty port state', async () => {
@@ -905,7 +970,7 @@ function createContainerDetail() {
     },
     primary_ip: '172.18.0.2',
     network_summary: 'bridge',
-    restart_count: 2,
+    restart_count: 0,
     restart_policy: 'unless-stopped',
     last_exit_code: 0,
     oom_killed: false,
@@ -974,7 +1039,7 @@ function mountPage() {
           setup:
             (props, { slots }) =>
             () =>
-              h('section', [h('h2', String(props.title ?? '')), slots.default?.()]),
+              h('section', [h('h2', String(props.title ?? '')), slots.actions?.(), slots.default?.()]),
         }),
         't-descriptions': defineComponent({
           setup:

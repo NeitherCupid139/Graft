@@ -455,8 +455,23 @@
                     :title="t('container.detail.health.checkResult')"
                     data-testid="healthcheck-result-card"
                   >
+                    <template #actions>
+                      <div v-if="healthcheckDetails.configured" class="container-health-card-actions">
+                        <t-tag :theme="healthcheckDetails.theme" variant="light-outline" size="small">
+                          {{ healthcheckDetails.statusLabel }}
+                        </t-tag>
+                        <span>{{
+                          t('container.detail.health.exitCodeValue', { code: healthcheckDetails.exitCode })
+                        }}</span>
+                      </div>
+                    </template>
                     <template v-if="healthcheckDetails.configured">
-                      <t-descriptions :column="2" item-layout="vertical" table-layout="auto">
+                      <t-descriptions
+                        class="container-health-inline-descriptions"
+                        :column="2"
+                        size="small"
+                        table-layout="auto"
+                      >
                         <t-descriptions-item :label="t('container.detail.health.healthcheck')">
                           <t-tag :theme="healthcheckDetails.theme" variant="light-outline">
                             {{ healthcheckDetails.statusLabel }}
@@ -465,16 +480,36 @@
                         <t-descriptions-item :label="t('container.detail.health.exitCode')">
                           {{ healthcheckDetails.exitCode }}
                         </t-descriptions-item>
-                        <t-descriptions-item :label="t('container.detail.health.checkCommand')" :span="2">
-                          <code class="container-health-code">{{ healthcheckDetails.command }}</code>
-                        </t-descriptions-item>
-                        <t-descriptions-item :label="t('container.detail.health.lastOutput')" :span="2">
-                          <pre class="container-health-output">{{ healthcheckDetails.output }}</pre>
-                        </t-descriptions-item>
-                        <t-descriptions-item :label="t('container.detail.health.lastCheck')" :span="2">
-                          {{ healthcheckDetails.lastCheckedAt }}
-                        </t-descriptions-item>
                       </t-descriptions>
+                      <div class="container-health-block">
+                        <div class="container-health-block__label">
+                          <span>{{ t('container.detail.health.checkCommand') }}</span>
+                          <t-tooltip :content="t('container.detail.health.copyCommand')">
+                            <t-button
+                              size="small"
+                              variant="text"
+                              :disabled="healthcheckDetails.command === '-'"
+                              @click="copyHealthcheckCommand"
+                            >
+                              {{ t('container.detail.copy') }}
+                            </t-button>
+                          </t-tooltip>
+                        </div>
+                        <code class="container-health-code">{{ healthcheckDetails.command }}</code>
+                      </div>
+                      <div class="container-health-block">
+                        <span class="container-health-block__label">{{ t('container.detail.health.lastOutput') }}</span>
+                        <pre
+                          class="container-health-output"
+                          :class="{ 'container-health-output--error': healthcheckDetails.hasFailure }"
+                          >{{ healthcheckDetails.output }}</pre
+                        >
+                      </div>
+                      <p class="container-health-last-check">
+                        {{
+                          t('container.detail.health.lastCheckValue', { time: healthcheckDetails.lastCheckedAt || '-' })
+                        }}
+                      </p>
                     </template>
                     <div v-else class="container-health-empty">
                       <t-alert theme="info">
@@ -490,7 +525,17 @@
                     :title="t('container.detail.health.stability')"
                     data-testid="runtime-stability-card"
                   >
-                    <t-descriptions :column="2" item-layout="vertical" table-layout="auto">
+                    <template #actions>
+                      <t-tag :theme="runtimeStability.theme" variant="light-outline" size="small">
+                        {{ runtimeStability.label }}
+                      </t-tag>
+                    </template>
+                    <t-descriptions
+                      class="container-health-stability-grid"
+                      :column="2"
+                      size="small"
+                      table-layout="auto"
+                    >
                       <t-descriptions-item :label="t('container.list.fields.startedAt')">
                         {{ formatTime(detail.started_at) }}
                       </t-descriptions-item>
@@ -794,7 +839,9 @@ const inspectUpdatedRelative = computed(() => {
 });
 const runtimeStability = computed(() => {
   const current = detail.value;
+  const risk = resolveRuntimeStability(current);
   return {
+    ...risk,
     lastExitCode: formatNullableNumber(current?.last_exit_code),
     oomKilled: formatNullableBoolean(current?.oom_killed),
   };
@@ -1153,6 +1200,19 @@ async function loadLogs() {
   }
 }
 
+async function copyHealthcheckCommand() {
+  if (!healthcheckDetails.value.configured || healthcheckDetails.value.command === '-') {
+    return;
+  }
+  try {
+    await copyTextToClipboard(healthcheckDetails.value.command);
+    MessagePlugin.success(t('container.detail.copySuccess'));
+  } catch (copyError) {
+    MessagePlugin.error(t('container.detail.copyError'));
+    logger.warn('failed to copy healthcheck command', copyError);
+  }
+}
+
 function resetDetailState() {
   detail.value = null;
   error.value = '';
@@ -1346,6 +1406,7 @@ function resolveHealthcheckDetails(healthcheck?: ContainerHealthcheck) {
       command: '-',
       configured: false,
       exitCode: '-',
+      hasFailure: false,
       lastCheckedAt: '',
       output: '-',
       relativeCheckedAt: '',
@@ -1357,6 +1418,8 @@ function resolveHealthcheckDetails(healthcheck?: ContainerHealthcheck) {
     command: joinList(healthcheck.command),
     configured: true,
     exitCode: formatNullableNumber(healthcheck.exit_code),
+    hasFailure:
+      healthcheck.status === 'unhealthy' || (typeof healthcheck.exit_code === 'number' && healthcheck.exit_code !== 0),
     lastCheckedAt: formatTime(healthcheck.checked_at),
     output: healthcheck.output || healthcheck.failure_message || t('container.detail.health.noOutput'),
     relativeCheckedAt: healthcheck.checked_at
@@ -1364,6 +1427,31 @@ function resolveHealthcheckDetails(healthcheck?: ContainerHealthcheck) {
       : t('container.detail.health.noRecentCheck'),
     statusLabel: healthcheckStatusLabel(healthcheck.status),
     theme: healthTheme(healthcheck.status),
+  };
+}
+
+function resolveRuntimeStability(current?: ContainerDetail | null) {
+  if (current?.oom_killed) {
+    return {
+      label: t('container.detail.health.stabilityStatus.oom'),
+      theme: 'danger' as const,
+    };
+  }
+  if (typeof current?.last_exit_code === 'number' && current.last_exit_code !== 0) {
+    return {
+      label: t('container.detail.health.stabilityStatus.exit'),
+      theme: 'danger' as const,
+    };
+  }
+  if (typeof current?.restart_count === 'number' && current.restart_count > 0) {
+    return {
+      label: t('container.detail.health.stabilityStatus.restart'),
+      theme: 'warning' as const,
+    };
+  }
+  return {
+    label: t('container.detail.health.stabilityStatus.stable'),
+    theme: 'success' as const,
   };
 }
 
@@ -1819,7 +1907,7 @@ function portLabel(port: ContainerDetail['ports'][number]) {
 .container-health-diagnostics {
   display: flex;
   flex-direction: column;
-  gap: var(--graft-density-gap-12);
+  gap: var(--graft-density-gap-10);
   min-width: 0;
 }
 
@@ -1832,7 +1920,7 @@ function portLabel(port: ContainerDetail['ports'][number]) {
 
 .container-health-summary-grid {
   display: grid;
-  gap: var(--graft-density-gap-12);
+  gap: var(--graft-density-gap-10);
   grid-template-columns: repeat(3, minmax(0, 1fr));
   min-width: 0;
 }
@@ -1847,8 +1935,9 @@ function portLabel(port: ContainerDetail['ports'][number]) {
 .container-health-summary-card :deep(.t-card__body) {
   display: flex;
   flex-direction: column;
-  gap: var(--graft-density-gap-8);
-  min-height: 118px;
+  gap: var(--graft-density-gap-6);
+  min-height: 86px;
+  padding: var(--graft-density-gap-12);
 }
 
 .container-health-summary-card__label {
@@ -1860,9 +1949,9 @@ function portLabel(port: ContainerDetail['ports'][number]) {
   align-items: center;
   color: var(--td-text-color-primary);
   display: flex;
-  font: var(--td-font-title-medium);
+  font: var(--td-font-title-small);
   font-weight: 600;
-  min-height: 28px;
+  min-height: 24px;
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -1879,18 +1968,65 @@ function portLabel(port: ContainerDetail['ports'][number]) {
 .container-health-info-card :deep(.t-card__body) {
   display: flex;
   flex-direction: column;
-  gap: var(--graft-density-gap-12);
+  gap: var(--graft-density-gap-10);
   min-width: 0;
+  padding: var(--graft-density-gap-14) var(--graft-density-gap-16);
+}
+
+.container-health-info-card :deep(.t-card__header) {
+  align-items: center;
+  min-height: var(--td-comp-size-xxl);
+  padding: 0 var(--graft-density-gap-16);
 }
 
 .container-health-info-card :deep(.t-descriptions__body) {
   table-layout: auto;
 }
 
+.container-health-card-actions {
+  align-items: center;
+  color: var(--td-text-color-secondary);
+  display: flex;
+  flex-wrap: wrap;
+  font: var(--td-font-body-small);
+  gap: var(--graft-density-gap-8);
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.container-health-inline-descriptions,
+.container-health-stability-grid {
+  max-width: 920px;
+}
+
+.container-health-inline-descriptions :deep(.t-descriptions__label),
+.container-health-stability-grid :deep(.t-descriptions__label) {
+  color: var(--td-text-color-placeholder);
+  white-space: nowrap;
+}
+
+.container-health-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--graft-density-gap-6);
+  min-width: 0;
+}
+
+.container-health-block__label {
+  align-items: center;
+  color: var(--td-text-color-placeholder);
+  display: flex;
+  font: var(--td-font-body-small);
+  gap: var(--graft-density-gap-8);
+  justify-content: space-between;
+  min-height: var(--td-comp-size-xs);
+  min-width: 0;
+}
+
 .container-health-code,
 .container-health-output {
-  background: color-mix(in srgb, var(--td-bg-color-page) 72%, var(--td-bg-color-container));
-  border: 1px solid color-mix(in srgb, var(--td-component-stroke) 48%, transparent);
+  background: color-mix(in srgb, var(--td-bg-color-page) 82%, var(--td-bg-color-container));
+  border: 1px solid color-mix(in srgb, var(--td-component-stroke) 62%, transparent);
   border-radius: var(--td-radius-default);
   color: var(--td-text-color-primary);
   display: block;
@@ -1910,9 +2046,30 @@ function portLabel(port: ContainerDetail['ports'][number]) {
   margin: 0;
   max-width: 100%;
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow: auto;
   padding: var(--graft-density-gap-8) var(--graft-density-gap-10);
+  scrollbar-width: thin;
+}
+
+.container-health-code {
+  overflow-wrap: anywhere;
   white-space: pre-wrap;
+}
+
+.container-health-output {
+  max-height: 144px;
+  white-space: pre-wrap;
+}
+
+.container-health-output--error {
+  background: color-mix(in srgb, var(--td-error-color-1) 36%, var(--td-bg-color-container));
+  border-color: color-mix(in srgb, var(--td-error-color) 34%, var(--td-component-stroke));
+}
+
+.container-health-last-check {
+  color: var(--td-text-color-secondary);
+  font: var(--td-font-body-small);
+  margin: 0;
 }
 
 .container-health-empty {
