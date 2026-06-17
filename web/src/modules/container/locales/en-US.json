@@ -346,6 +346,7 @@
         "allLevels": "All",
         "matchCount": "{count} Matches",
         "detailTitle": "Log Detail",
+        "importantFields": "Key Fields",
         "basicInfo": "Basic Info",
         "time": "Time",
         "level": "Level",

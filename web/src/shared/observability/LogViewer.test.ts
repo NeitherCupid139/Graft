@@ -31,6 +31,7 @@ const labels = {
   downloadLabel: '下载',
   emptyLabel: '暂无日志',
   detailTitleLabel: '日志详情',
+  importantFieldsLabel: '关键字段',
   levelLabel: '级别',
   levelFilterLabel: '级别',
   matchCountLabel: '{count} 个匹配',
@@ -144,7 +145,7 @@ describe('LogViewer', () => {
       props: {
         ...labels,
         lines: [
-          '2026-06-17T06:31:42.585+0800 ERROR middleware/logger.go:61 http request failed {"service":"sub2api","status":500}',
+          '2026-06-17T06:31:42.585+0800 ERROR middleware/logger.go:61 http request failed {"service":"sub2api","request_id":"abc","path":"/v1/responses","method":"POST","user_id":1,"group_id":6,"model":"gpt-5.5","status_code":500}',
         ],
       },
       global: { stubs: tdesignStubs },
@@ -155,13 +156,20 @@ describe('LogViewer', () => {
     expect(wrapper.find('.log-viewer__line-detail').exists()).toBe(false);
     expect(wrapper.text()).toContain('日志详情');
     expect(wrapper.find('.log-viewer__summary').text()).toContain('http request failed');
-    expect(wrapper.find('.log-viewer__basic-info').text()).toContain('级别');
+    expect(wrapper.find('.log-viewer__summary-title').text()).toContain('ERROR');
+    expect(wrapper.find('.log-viewer__field-chips').text()).toContain('request_idabc');
+    expect(wrapper.find('.log-viewer__field-chips').text()).toContain('path/v1/responses');
+    expect(wrapper.find('.log-viewer__field-chips').text()).toContain('modelgpt-5.5');
+    expect(wrapper.find('.log-viewer__basic').text()).toContain('级别');
+    expect(wrapper.find('.log-viewer__level-value').text()).toBe('ERROR');
     expect(wrapper.find('.log-viewer__detail-drawer').text()).toContain('http request failed');
-    expect(wrapper.findAll('.log-viewer__code-block')[0].text()).toContain('"status": 500');
+    expect(wrapper.findAll('.log-viewer__code-block')[0].text()).toContain('"status_code": 500');
     expect(wrapper.findAll('.log-viewer__code-block')[1].text()).toContain('http request failed');
+    expect(wrapper.find('.log-viewer__basic-info').exists()).toBe(false);
     expect(wrapper.find('.log-viewer__line--danger').exists()).toBe(true);
     expect(wrapper.find('.log-viewer__line--active').exists()).toBe(true);
     expect(wrapper.find('.log-viewer__drawer-actions').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('复制消息');
   });
 
   it('keeps row actions visually weak until hover or focus reveals them', () => {

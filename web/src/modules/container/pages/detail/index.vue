@@ -372,6 +372,7 @@
                   :empty-label="t('container.detail.logs.empty')"
                   :truncated-label="t('container.detail.logs.truncated')"
                   :detail-title-label="t('container.detail.logs.detailTitle')"
+                  :important-fields-label="t('container.detail.logs.importantFields')"
                   :basic-info-label="t('container.detail.logs.basicInfo')"
                   :time-label="t('container.detail.logs.time')"
                   :level-label="t('container.detail.logs.level')"

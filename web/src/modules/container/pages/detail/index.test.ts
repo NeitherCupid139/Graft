@@ -81,6 +81,7 @@ const translations = vi.hoisted(
     'container.detail.logs.levelFilter': '级别',
     'container.detail.logs.matchCount': '{count} 个匹配',
     'container.detail.logs.metadata': 'Metadata',
+    'container.detail.logs.importantFields': '关键字段',
     'container.detail.logs.message': '完整消息',
     'container.detail.logs.raw': '原始日志',
     'container.detail.logs.copyMessage': '复制消息',

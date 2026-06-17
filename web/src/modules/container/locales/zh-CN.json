@@ -346,6 +346,7 @@
         "allLevels": "全部",
         "matchCount": "{count} 个匹配",
         "detailTitle": "日志详情",
+        "importantFields": "关键字段",
         "basicInfo": "基础信息",
         "time": "时间",
         "level": "级别",

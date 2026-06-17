@@ -174,16 +174,18 @@
     >
       <div v-if="selectedLine" class="log-viewer__detail-drawer">
         <section class="log-viewer__summary">
-          <t-tag
-            class="log-viewer__summary-level"
-            :theme="levelTheme(selectedLine.level)"
-            size="small"
-            variant="light-outline"
-          >
-            {{ selectedLine.level ?? 'LOG' }}
-          </t-tag>
           <div class="log-viewer__summary-main">
-            <div class="log-viewer__summary-message">{{ selectedLine.message }}</div>
+            <div class="log-viewer__summary-title">
+              <t-tag
+                class="log-viewer__summary-level"
+                :theme="levelTheme(selectedLine.level)"
+                size="small"
+                variant="light-outline"
+              >
+                {{ selectedLine.level ?? 'LOG' }}
+              </t-tag>
+              <span class="log-viewer__summary-message">{{ selectedLine.message }}</span>
+            </div>
             <div class="log-viewer__summary-meta">
               <span>{{ selectedLine.timestamp || '-' }}</span>
               <span aria-hidden="true">·</span>
@@ -195,16 +197,27 @@
           </div>
         </section>
 
+        <section v-if="importantFields.length" class="log-viewer__drawer-section">
+          <div class="log-viewer__drawer-section-title">{{ importantFieldsLabel }}</div>
+          <div class="log-viewer__field-chips">
+            <span v-for="field in importantFields" :key="field.key" class="log-viewer__field-chip">
+              <span class="log-viewer__field-key">{{ field.key }}</span>
+              <t-tooltip :content="field.value" placement="top-left" theme="light">
+                <span class="log-viewer__field-value">{{ field.value }}</span>
+              </t-tooltip>
+            </span>
+          </div>
+        </section>
+
         <section class="log-viewer__drawer-section">
-          <h3>{{ basicInfoLabel }}</h3>
-          <dl class="log-viewer__basic-info">
-            <div>
-              <dt>{{ timeLabel }}</dt>
-              <dd>{{ selectedLine.timestamp || '-' }}</dd>
-            </div>
-            <div>
-              <dt>{{ levelLabel }}</dt>
-              <dd>
+          <div class="log-viewer__drawer-section-title">{{ basicInfoLabel }}</div>
+          <div class="log-viewer__basic">
+            <div class="log-viewer__descriptions">
+              <div class="log-viewer__description-label">{{ timeLabel }}</div>
+              <div class="log-viewer__description-value">{{ selectedLine.timestamp || '-' }}</div>
+
+              <div class="log-viewer__description-label">{{ levelLabel }}</div>
+              <div class="log-viewer__description-value log-viewer__level-value">
                 <t-tag
                   class="log-viewer__detail-level"
                   :theme="levelTheme(selectedLine.level)"
@@ -213,26 +226,24 @@
                 >
                   {{ selectedLine.level ?? 'LOG' }}
                 </t-tag>
-              </dd>
+              </div>
+
+              <div class="log-viewer__description-label">{{ sourceLabel }}</div>
+              <div class="log-viewer__description-value">{{ selectedLine.source || '-' }}</div>
+
+              <div class="log-viewer__description-label">{{ messageLabel }}</div>
+              <div class="log-viewer__description-value">{{ selectedLine.message }}</div>
             </div>
-            <div>
-              <dt>{{ sourceLabel }}</dt>
-              <dd>{{ selectedLine.source || '-' }}</dd>
-            </div>
-            <div>
-              <dt>{{ messageLabel }}</dt>
-              <dd>{{ selectedLine.message }}</dd>
-            </div>
-          </dl>
+          </div>
         </section>
 
         <section class="log-viewer__drawer-section">
           <div class="log-viewer__drawer-section-header">
-            <h3>{{ metadataLabel }}</h3>
+            <div class="log-viewer__drawer-section-title">{{ metadataLabel }}</div>
             <t-button
               size="small"
               theme="default"
-              variant="outline"
+              variant="text"
               :disabled="!selectedLine.metadata"
               @click="copySelectedJson"
             >
@@ -246,17 +257,12 @@
 
         <section class="log-viewer__drawer-section">
           <div class="log-viewer__drawer-section-header">
-            <h3>{{ rawLabel }}</h3>
-            <t-button size="small" theme="default" variant="outline" @click="copySelectedLine">
+            <div class="log-viewer__drawer-section-title">{{ rawLabel }}</div>
+            <t-button size="small" theme="default" variant="text" @click="copySelectedLine">
               {{ copyLineLabel }}
             </t-button>
           </div>
-          <pre class="log-viewer__code-block log-viewer__code-block--raw"><code><span
-            v-for="(token, tokenIndex) in selectedLine.rawTokens"
-            :key="`${selectedLine.lineNo}-drawer-raw-${tokenIndex}`"
-            :class="tokenClass(token)"
-            >{{ token.text }}</span
-          ></code></pre>
+          <pre class="log-viewer__code-block log-viewer__code-block--raw"><code>{{ selectedLine.raw }}</code></pre>
         </section>
       </div>
     </t-drawer>
@@ -300,6 +306,7 @@ const props = withDefaults(
     emptyLabel: string;
     truncatedLabel: string;
     detailTitleLabel: string;
+    importantFieldsLabel: string;
     basicInfoLabel: string;
     timeLabel: string;
     levelLabel: string;
@@ -331,6 +338,28 @@ const emit = defineEmits<{
 
 type SelectOption = NonNullable<SelectProps['options']>[number];
 type LevelFilter = 'ALL' | LogLevel;
+type ImportantField = {
+  key: string;
+  value: string;
+};
+
+const IMPORTANT_METADATA_KEYS = [
+  'request_id',
+  'client_request_id',
+  'path',
+  'method',
+  'status_code',
+  'latency_ms',
+  'user_id',
+  'api_key_id',
+  'group_id',
+  'group_name',
+  'model',
+  'provider',
+  'endpoint',
+  'protocol',
+  'error',
+] as const;
 
 const searchKeyword = ref('');
 const wrapLines = ref(true);
@@ -368,6 +397,17 @@ const displayLines = computed(() =>
 );
 const searchMatchCount = computed(() => displayLines.value.reduce((total, line) => total + line.searchMatchCount, 0));
 const selectedLine = computed(() => displayLines.value.find((line) => line.lineNo === selectedLineNo.value) ?? null);
+const importantFields = computed<ImportantField[]>(() => {
+  const metadata = selectedLine.value?.metadata;
+  if (!metadata) return [];
+
+  return IMPORTANT_METADATA_KEYS.flatMap((key) => {
+    if (!Object.prototype.hasOwnProperty.call(metadata, key)) return [];
+    const value = metadata[key];
+    if (value === undefined || value === null || value === '') return [];
+    return [{ key, value: formatLogMetadataValue(value) }];
+  });
+});
 const detailDrawerVisible = computed({
   get: () => selectedLine.value !== null,
   set: (visible: boolean) => {
@@ -668,13 +708,16 @@ async function copyTextWithFeedback(value: string) {
 }
 
 .log-viewer__level {
-  max-width: 56px;
+  flex: 0 0 auto;
+  max-width: max-content;
   width: auto;
 }
 
-.log-viewer__level :deep(.t-tag) {
-  max-width: 56px;
+.log-viewer__level-cell :deep(.t-tag) {
+  flex: 0 0 auto;
+  max-width: max-content;
   padding-inline: var(--graft-density-gap-4);
+  width: auto;
 }
 
 .log-viewer__message-row {
@@ -790,39 +833,48 @@ async function copyTextWithFeedback(value: string) {
   padding: var(--graft-density-gap-24);
 }
 
+.log-viewer :deep(.log-viewer__drawer .t-drawer__content-wrapper) {
+  max-width: min(720px, 100vw);
+}
+
 .log-viewer__detail-drawer {
   display: flex;
   flex-direction: column;
-  gap: var(--graft-density-gap-18);
   min-width: 0;
 }
 
 .log-viewer__summary {
-  align-items: flex-start;
   border-bottom: 1px solid var(--td-component-stroke);
-  column-gap: var(--graft-density-gap-12);
-  display: flex;
+  margin-bottom: var(--graft-density-gap-18);
   min-width: 0;
-  padding-bottom: var(--graft-density-gap-18);
+  padding-bottom: var(--graft-density-gap-16);
 }
 
 .log-viewer__summary-level,
 .log-viewer__detail-level {
   flex: 0 0 auto;
+  max-width: max-content;
   width: fit-content;
+}
+
+.log-viewer__summary-title {
+  align-items: center;
+  display: flex;
+  gap: var(--graft-density-gap-8);
+  min-width: 0;
 }
 
 .log-viewer__summary-main {
   display: flex;
-  flex: 1 1 auto;
   flex-direction: column;
-  gap: var(--graft-density-gap-6);
   min-width: 0;
 }
 
 .log-viewer__summary-message {
   color: var(--td-text-color-primary);
-  font: var(--td-font-title-small);
+  font: var(--td-font-body-medium);
+  font-weight: 600;
+  min-width: 0;
   overflow-wrap: anywhere;
 }
 
@@ -833,6 +885,7 @@ async function copyTextWithFeedback(value: string) {
   display: flex;
   flex-wrap: wrap;
   font: var(--td-font-body-small);
+  margin-top: var(--graft-density-gap-6);
   min-width: 0;
 }
 
@@ -849,61 +902,114 @@ async function copyTextWithFeedback(value: string) {
 .log-viewer__drawer-section-header {
   align-items: center;
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--graft-density-gap-8);
+  gap: var(--graft-density-gap-12);
   justify-content: space-between;
+  margin-bottom: var(--graft-density-gap-8);
+  min-width: 0;
 }
 
 .log-viewer__drawer-section {
   display: flex;
   flex-direction: column;
-  gap: var(--graft-density-gap-6);
+  margin-top: var(--graft-density-gap-18);
   min-width: 0;
 }
 
-.log-viewer__drawer-section h3 {
+.log-viewer__drawer-section-title {
   color: var(--td-text-color-primary);
-  font: var(--td-font-title-small);
-  margin: 0;
+  font: var(--td-font-body-small);
+  font-weight: 600;
 }
 
-.log-viewer__basic-info {
-  background: color-mix(in srgb, var(--td-bg-color-secondarycontainer) 72%, transparent);
-  border: 1px solid color-mix(in srgb, var(--td-component-stroke) 72%, transparent);
+.log-viewer__field-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--graft-density-gap-8);
+  margin-top: var(--graft-density-gap-8);
+  min-width: 0;
+}
+
+.log-viewer__field-chip {
+  align-items: center;
+  background: var(--td-bg-color-secondarycontainer);
+  border-radius: var(--td-radius-small);
+  color: var(--td-text-color-secondary);
+  display: inline-flex;
+  font: var(--td-font-body-small);
+  gap: var(--graft-density-gap-4);
+  max-width: 100%;
+  min-width: 0;
+  padding: var(--graft-density-gap-4) var(--graft-density-gap-8);
+}
+
+.log-viewer__field-key {
+  color: var(--td-text-color-placeholder);
+  flex: 0 0 auto;
+}
+
+.log-viewer__field-value {
+  color: var(--td-text-color-primary);
+  display: inline-block;
+  max-width: 260px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+  white-space: nowrap;
+}
+
+.log-viewer__basic {
+  background: var(--td-bg-color-container);
+  border: 1px solid var(--td-border-level-1-color);
   border-radius: var(--td-radius-medium);
-  margin: 0;
+  margin-top: var(--graft-density-gap-8);
   padding: var(--graft-density-gap-12) var(--graft-density-gap-14);
 }
 
-.log-viewer__basic-info div {
+.log-viewer__descriptions {
   display: grid;
-  gap: var(--graft-density-gap-4) var(--graft-density-gap-12);
+  gap: var(--graft-density-gap-8) var(--graft-density-gap-12);
   grid-template-columns: 72px minmax(0, 1fr);
-  padding-block: var(--graft-density-gap-5);
 }
 
-.log-viewer__basic-info dt {
+.log-viewer__description-label {
   color: var(--td-text-color-secondary);
-  margin: 0;
+  font: var(--td-font-body-small);
 }
 
-.log-viewer__basic-info dd {
-  margin: 0;
+.log-viewer__description-value {
+  color: var(--td-text-color-primary);
+  font: var(--td-font-body-small);
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.log-viewer__level-value {
+  align-items: center;
+  display: inline-flex;
+  justify-self: start;
+  max-width: max-content;
+  width: fit-content;
+}
+
+.log-viewer__summary-title :deep(.t-tag),
+.log-viewer__level-value :deep(.t-tag) {
+  flex: 0 0 auto;
+  max-width: max-content;
+  width: auto;
 }
 
 .log-viewer__code-block {
   background: var(--td-bg-color-secondarycontainer);
   border: 1px solid var(--td-border-level-1-color);
-  border-radius: 6px;
+  border-radius: var(--td-radius-medium);
   font: var(--td-font-body-small);
   font-family: var(--td-font-family-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
   line-height: 1.7;
   margin: 0;
   max-height: 260px;
   overflow: auto;
-  padding: var(--graft-density-gap-12);
+  padding: var(--graft-density-gap-12) var(--graft-density-gap-14);
   scrollbar-color: var(--td-scrollbar-color) transparent;
   scrollbar-width: thin;
   white-space: pre;
@@ -914,13 +1020,27 @@ async function copyTextWithFeedback(value: string) {
 }
 
 .log-viewer__code-block--raw {
+  max-height: 180px;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
+  word-break: normal;
 }
 
 .log-viewer__code-block::-webkit-scrollbar {
+  background: transparent;
   height: 8px;
   width: 8px;
+}
+
+.log-viewer__code-block::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.log-viewer__code-block::-webkit-scrollbar-thumb {
+  background-clip: content-box;
+  background-color: var(--td-scrollbar-color);
+  border: 2px solid transparent;
+  border-radius: 6px;
 }
 
 .log-viewer__token--keyword {
