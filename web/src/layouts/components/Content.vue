@@ -65,7 +65,14 @@ const isRefreshing = computed(() => {
 
 const activeViewKey = computed(() => {
   const tabsRouterStore = useTabsRouterStore();
-  return tabsRouterStore.activeTabKey || route.fullPath || route.path;
+  const activeTabRoute = tabsRouterStore.tabRouters.find(
+    (tabRoute) => tabRoute.tabKey === tabsRouterStore.activeTabKey,
+  );
+  if (activeTabRoute?.path === route.path || activeTabRoute?.fullPath === route.fullPath) {
+    return tabsRouterStore.activeTabKey;
+  }
+
+  return route.fullPath || route.path;
 });
 
 const route = useRoute(); // 这个不能放到computed中，切换页面时会导致被缓存

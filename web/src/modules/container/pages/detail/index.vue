@@ -1587,9 +1587,10 @@ function updateCurrentTabTitle(current: ContainerDetail | null) {
     [LOCALE.ZH_CN]: `${t('container.detail.title')} - ${name}`,
     [LOCALE.EN_US]: `Container Detail - ${name}`,
   };
-  const tabKey = route.path;
+  const routePath = route.path;
+  const routeFullPath = route.fullPath;
   tabsRouterStore.tabRouterList = tabsRouterStore.tabRouterList.map((tab) =>
-    tab.tabKey === tabKey || tab.path === tabKey ? { ...tab, title } : tab,
+    tab.tabKey === routePath || tab.path === routePath || tab.fullPath === routeFullPath ? { ...tab, title } : tab,
   );
 }
 

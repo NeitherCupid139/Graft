@@ -114,6 +114,17 @@ function normalizeRouteState(route: TRouterInfo, pinnedKeys = readPinnedTabKeys(
   };
 }
 
+function resolveNextTabTitle(current: TRouterInfo, next: TRouterInfo) {
+  if (!next.title) {
+    return current.title;
+  }
+  if (current.fullPath === next.fullPath && current.title) {
+    return current.title;
+  }
+
+  return next.title;
+}
+
 function sortTabs(routes: TRouterInfo[]) {
   const homeRoutes = routes.filter((route) => route.isHome);
   const pinnedRoutes = routes.filter((route) => !route.isHome && route.isPinned);
@@ -240,7 +251,7 @@ export const useTabsRouterStore = defineStore('tabsRouter', {
                   fullPath: normalized.fullPath,
                   query: normalized.query,
                   params: normalized.params,
-                  title: normalized.title,
+                  title: resolveNextTabTitle(route, normalized),
                   name: normalized.name,
                   meta: normalized.meta,
                   isAlive: normalized.isAlive,
@@ -381,7 +392,9 @@ export const useTabsRouterStore = defineStore('tabsRouter', {
 
       const activeTab =
         this.tabRouterList.find((tab) => !tab.isDuplicate && tab.fullPath === route.fullPath) ??
-        this.tabRouterList.find((tab) => tab.fullPath === route.fullPath);
+        this.tabRouterList.find((tab) => tab.fullPath === route.fullPath) ??
+        this.tabRouterList.find((tab) => !tab.isDuplicate && tab.path === route.path) ??
+        this.tabRouterList.find((tab) => tab.path === route.path);
       this.activeTabKey = activeTab ? getTabKey(activeTab) : route.path;
     },
     setActiveTabKey(tabKey: string) {

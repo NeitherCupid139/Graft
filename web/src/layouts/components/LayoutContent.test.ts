@@ -1,6 +1,9 @@
 // Copyright (c) 2025-2026 GeWuYou
 // SPDX-License-Identifier: Apache-2.0
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineComponent, h, nextTick, reactive } from 'vue';
@@ -8,6 +11,8 @@ import { defineComponent, h, nextTick, reactive } from 'vue';
 import { LOCALE } from '@/contracts/i18n/locales';
 
 import LayoutContent from './LayoutContent.vue';
+
+const layoutStyleSource = readFileSync(join(process.cwd(), 'src/style/layout.less'), 'utf8');
 
 type DropdownPopupProps = {
   onVisibleChange: (visible: boolean, context: { trigger: string }) => void;
@@ -338,6 +343,27 @@ describe('LayoutContent', () => {
     await nextTick();
 
     expect(wrapper.get('[data-testid="page-container"]').attributes('data-surface')).toBe('form-detail');
+  });
+
+  it('renders non-cached route tabs even when their page instance is not alive', () => {
+    storeState.tabsRouterStore.tabRouters = [
+      createTab('/', 'RootEntry', true),
+      {
+        ...createTab('/ops/containers/container-1', 'ContainerDetail'),
+        isAlive: false,
+      },
+    ];
+    storeState.tabsRouterStore.activeTabKey = '/ops/containers/container-1';
+
+    const wrapper = mountLayoutContent();
+
+    expect(wrapper.findAll('[data-testid="tab-panel"]')).toHaveLength(2);
+    expect(wrapper.text()).toContain('ContainerDetail');
+  });
+
+  it('keeps the page main surface from collapsing while route content transitions', () => {
+    expect(layoutStyleSource).toContain('&__main {');
+    expect(layoutStyleSource).toContain('flex: 1 0 auto;');
   });
 
   it('keeps close-all disabled when no tabs can be closed', async () => {

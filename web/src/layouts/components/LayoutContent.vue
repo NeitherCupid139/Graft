@@ -152,7 +152,7 @@ const router = useRouter();
 
 const settingStore = useSettingStore();
 const tabsRouterStore = useTabsRouterStore();
-const tabRouters = computed(() => tabsRouterStore.tabRouters.filter((route) => route.isAlive || route.isHome));
+const tabRouters = computed(() => tabsRouterStore.tabRouters);
 const activeTabKeyForMenu = ref<string | null>('');
 const closeAllDialogVisible = ref(false);
 const pendingCloseAllDialog = ref(false);

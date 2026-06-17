@@ -17,7 +17,9 @@ const tabStoreState = vi.hoisted(() => ({
   refreshing: false,
   tabRouters: [
     {
+      fullPath: '/access-control/roles',
       tabKey: '/access-control/roles',
+      path: '/access-control/roles',
       isAlive: true,
       meta: {},
       name: 'RoleListIndex',
@@ -71,7 +73,9 @@ describe('Content', () => {
     tabStoreState.refreshing = false;
     tabStoreState.tabRouters = [
       {
+        fullPath: '/access-control/roles',
         tabKey: '/access-control/roles',
+        path: '/access-control/roles',
         isAlive: true,
         meta: {},
         name: 'RoleListIndex',
@@ -110,6 +114,8 @@ describe('Content', () => {
       ...tabStoreProxy.value!.tabRouters,
       {
         tabKey: '/access-control/roles#copy-1',
+        path: '/access-control/roles',
+        fullPath: '/access-control/roles',
         isAlive: true,
         meta: {},
         name: 'RoleListIndex',
@@ -118,6 +124,40 @@ describe('Content', () => {
     await wrapper.vm.$nextTick();
 
     expect(wrapper.findComponent({ name: 'RouteContentProbe' }).vm.$.vnode.key).toBe('/access-control/roles#copy-1');
+  });
+
+  it('uses the entering route key when the active tab still points at the leaving route', async () => {
+    const wrapper = mount(Content, {
+      global: {
+        stubs: {
+          RouterView: {
+            template: '<slot :Component="Component" :route="route" />',
+            data() {
+              return {
+                Component: RouteContentProbe,
+                route: routeState,
+              };
+            },
+          },
+          transition: TransitionStub,
+          KeepAlive: {
+            props: ['include'],
+            template: '<div data-testid="keep-alive" :data-include="include"><slot /></div>',
+          },
+          FramePage: true,
+          TLoading: true,
+        },
+      },
+    });
+
+    routeState.path = '/ops/containers/container-1';
+    routeState.fullPath = '/ops/containers/container-1?tab=overview';
+    tabStoreProxy.value!.activeTabKey = '/access-control/roles#leaving';
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.findComponent({ name: 'RouteContentProbe' }).vm.$.vnode.key).toBe(
+      '/ops/containers/container-1?tab=overview',
+    );
   });
 
   it('does not restrict keep-alive by route name', () => {
