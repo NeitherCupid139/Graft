@@ -113,7 +113,7 @@ func registerSchedulerMenu(registry *menu.Registry, moduleName string) error {
 
 	registry.Register(menu.Item{
 		Code:       "scheduled-task.list",
-		Title:      "定时任务",
+		Title:      "",
 		TitleKey:   schedulercontract.ScheduledTaskMenuTitle.String(),
 		Path:       schedulercontract.ScheduledTaskMenuPath,
 		Icon:       "time",

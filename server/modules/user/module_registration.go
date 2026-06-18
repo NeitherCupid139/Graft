@@ -33,7 +33,7 @@ func registerUserPermissions(registry *permission.Registry, moduleName string) {
 func registerUserMenu(registry *menu.Registry, moduleName string) {
 	registry.Register(menu.Item{
 		Code:       "user.list",
-		Title:      "用户管理",
+		Title:      "",
 		TitleKey:   usercontract.UserListMenuTitle.String(),
 		Path:       "/access-control/users",
 		Icon:       "usergroup",

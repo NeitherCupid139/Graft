@@ -133,7 +133,7 @@ func assertMenu(t *testing.T, registry *menu.Registry) {
 	}
 	assertMenuItem(t, items, expectedMenuItem{
 		code:                     "ops.root",
-		title:                    "运维管理",
+		title:                    "",
 		titleKey:                 containercontract.OperationsMenuTitle.String(),
 		path:                     "/ops",
 		permission:               "",
@@ -141,7 +141,7 @@ func assertMenu(t *testing.T, registry *menu.Registry) {
 	})
 	assertMenuItem(t, items, expectedMenuItem{
 		code:                     "container.list",
-		title:                    "容器管理",
+		title:                    "",
 		titleKey:                 containercontract.ContainerMenuTitle.String(),
 		path:                     "/ops/containers",
 		permission:               containercontract.ContainerViewPermission.String(),

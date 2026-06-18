@@ -60,6 +60,41 @@
   - permission code、menu code、module key、route/path、job name、action key、resource name、operation name、query key、状态枚举与内部日志消息。
 - 临时例外：无。
 
+## 2026-06-18 Slice 4 residual server visible-copy cleanup
+
+- 删除以下 Go 用户可见 fallback，改为仅保留 locale key authority：
+  - `server/modules/rbac/route_registration.go`：菜单 `Title`。
+  - `server/internal/moduleruntime/registration.go`：菜单 `Title`。
+  - `server/modules/monitor/module.go`：菜单 `Title`、unavailable evidence link `Title`。
+  - `server/modules/system-config/module_registration.go`：菜单 `Title`。
+  - `server/modules/container/module_registration.go`：菜单 `Title`。
+  - `server/modules/announcement/module_registration.go`：菜单 `Title`。
+  - `server/modules/user/module_registration.go`：菜单 `Title`。
+  - `server/modules/scheduler/module_registration.go`：菜单 `Title`。
+  - `server/modules/rbac/dashboard_widget.go`：QuickLink `Title`。
+  - `server/modules/monitor/dashboard_widget.go`：Widget / QuickLink / summary / health-item label fallback。
+  - `server/modules/system-config/dashboard_widget.go`：QuickLink `Title`。
+  - `server/modules/scheduler/dashboard_widget.go`：Widget / QuickLink / action `Title` / `Description` / `Label` fallback。
+  - `server/internal/dashboard/quick_actions_config.go`：config definition `DomainLabel` / `GroupLabel` / `GroupDescription` / `Title` / `Description` 与 schema 内嵌 title/description fallback。
+  - `server/modules/container/config.go`：config definition `DomainLabel` / `GroupLabel` / `GroupDescription` / `Title` / `Description` 与 schema 内嵌 title/description fallback。
+- 新增 locale authority：
+  - `server/internal/i18n/locales/display.{zh-CN,en-US}.yaml`：`dashboard.widget.monitorSystemHealth.*`。
+- 本轮明确保留在 Go 的技术或非用户可见字符串：
+  - permission `Name` / `Description` 当前仍是 RBAC 管理数据与 seeded metadata 的英文稳定文本，不属于本批 residual visible-copy owner。
+  - `monitor` health `Detail`、anomaly `Summary`、reason 文本属于运行时动态诊断文本；当前未建立独立 locale resource owner，不在本批直接迁移。
+  - route/path、menu code、module key、config key、resource key、event type、dedupe key、enum/status、log message 继续作为技术标识保留。
+- 临时例外：
+  - `server/modules/scheduler/notification_integration.go`
+    - 字段：`PublishNotificationInput.Message`、`PublishNotificationInput.ActionLabel`，以及失败通知的动态拼接 message。
+    - 原因：`server/modules/notification/publisher.go` 目前对 `PublishNotificationInput` 强制校验 `Title` 与 `Message` 非空，通知消费链也仍持久化 fallback 文本；本批不允许改 notification wire / facade。
+    - 移除条件：后续由 notification authority 批次把发布/持久化/消费链升级为 key-first，可接受空 fallback 或由 source-module locale lookup 生成最终文本。
+    - 验证范围：`cd server && go test ./modules/scheduler -run 'TestSchedulerRunSuccessNotifierPublishesLocalizedDisplay|TestSchedulerRunFailureNotifierPublishesFailureNotification'`
+  - `server/modules/audit/storeent/repository.go`
+    - 字段：`displayTargetLabel()` 返回的 `用户/角色/权限/审计/服务器状态/认证`。
+    - 原因：当前需先确认该标签的 canonical consumer authority 是 audit read-model 展示文案还是内部 evidence 分类标签；本批只做分类，不冒然改变 audit evidence 输出。
+    - 移除条件：final archive-readiness 批次完成 consumer trace，若判定为用户可见文案则迁移到 locale resource；若判定为内部技术标签则在治理文档中正式归类。
+    - 验证范围：依赖后续 audit owner 审计结论。
+
 ## Loop Batch State
 
 ```json

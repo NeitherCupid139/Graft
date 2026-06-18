@@ -95,10 +95,9 @@ func registerAnnouncementMenu(registry *menu.Registry, moduleName string) error 
 	if registry == nil {
 		return errors.New("menu registry is unavailable")
 	}
-	// Title 仅作为旧消费方的展示兜底，长期标题真相由 TitleKey 对接 i18n。
 	registry.Register(menu.Item{
 		Code:       "announcement.list",
-		Title:      "公告管理",
+		Title:      "",
 		TitleKey:   announcementcontract.AnnouncementMenuTitle.String(),
 		Path:       announcementcontract.AnnouncementMenuPath,
 		Icon:       "notification",

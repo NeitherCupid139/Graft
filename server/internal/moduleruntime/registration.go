@@ -114,7 +114,7 @@ func registerMenu(registry *menu.Registry) {
 	if !hasMenuPath(registry.Items(), menuRootPath) {
 		registry.Register(menu.Item{
 			Code:       menuCodeRoot,
-			Title:      "服务管理",
+			Title:      "",
 			TitleKey:   menuServerTitleKey,
 			Path:       menuRootPath,
 			Icon:       "server",
@@ -126,7 +126,7 @@ func registerMenu(registry *menu.Registry) {
 
 	registry.Register(menu.Item{
 		Code:       menuCodeRuntime,
-		Title:      "模块运行时",
+		Title:      "",
 		TitleKey:   menuModulesRuntimeTitleKey,
 		Path:       menuRuntimePath,
 		Icon:       "module",

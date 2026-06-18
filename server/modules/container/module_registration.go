@@ -167,7 +167,7 @@ func registerMenu(registry *menu.Registry, moduleName string) error {
 
 	registry.Register(menu.Item{
 		Code:       "ops.root",
-		Title:      "运维管理",
+		Title:      "",
 		TitleKey:   containercontract.OperationsMenuTitle.String(),
 		Path:       containercontract.ContainerMenuRootPath,
 		Icon:       "tools",
@@ -177,7 +177,7 @@ func registerMenu(registry *menu.Registry, moduleName string) error {
 	})
 	registry.Register(menu.Item{
 		Code:                     "container.list",
-		Title:                    "容器管理",
+		Title:                    "",
 		TitleKey:                 containercontract.ContainerMenuTitle.String(),
 		Path:                     containercontract.ContainerMenuPath,
 		Icon:                     "server",

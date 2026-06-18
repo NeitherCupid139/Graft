@@ -70,8 +70,8 @@ func configDefinitions() []configregistry.Definition {
 		containerBooleanDefinition(containerDefinitionSpec{
 			key:                 containercontract.ContainerRuntimeEnabledConfig.String(),
 			group:               containerConfigGeneralGroup,
-			fallbackTitle:       "Container runtime access enabled",
-			fallbackDescription: "Whether container management may access the configured runtime.",
+			fallbackTitle:       "",
+			fallbackDescription: "",
 			defaultValue:        mustRawJSON(defaultContainerEnabled),
 		}),
 		containerRuntimeDefinition(),
@@ -80,8 +80,8 @@ func configDefinitions() []configregistry.Definition {
 			containerDefinitionSpec: containerDefinitionSpec{
 				key:                 containercontract.ContainerLogsDefaultTailConfig.String(),
 				group:               containerConfigLogsGroup,
-				fallbackTitle:       "Default log tail",
-				fallbackDescription: "Default number of log lines returned by container log reads.",
+				fallbackTitle:       "",
+				fallbackDescription: "",
 				defaultValue:        mustRawJSON(defaultContainerLogsDefaultTail),
 			},
 			defaultNumber: defaultContainerLogsDefaultTail,
@@ -92,8 +92,8 @@ func configDefinitions() []configregistry.Definition {
 			containerDefinitionSpec: containerDefinitionSpec{
 				key:                 containercontract.ContainerLogsMaxTailConfig.String(),
 				group:               containerConfigLogsGroup,
-				fallbackTitle:       "Maximum log tail",
-				fallbackDescription: "Maximum number of log lines allowed for container log reads.",
+				fallbackTitle:       "",
+				fallbackDescription: "",
 				defaultValue:        mustRawJSON(defaultContainerLogsMaxTail),
 			},
 			defaultNumber: defaultContainerLogsMaxTail,
@@ -103,16 +103,16 @@ func configDefinitions() []configregistry.Definition {
 		containerBooleanDefinition(containerDefinitionSpec{
 			key:                 containercontract.ContainerDangerousActionsEnabledConfig.String(),
 			group:               containerConfigActionsGroup,
-			fallbackTitle:       "Dangerous actions enabled",
-			fallbackDescription: "Whether start, stop, and restart actions are enabled.",
+			fallbackTitle:       "",
+			fallbackDescription: "",
 			defaultValue:        mustRawJSON(defaultContainerDangerousActionsEnabled),
 		}),
 		containerEnvironmentPolicyDefinition(),
 		containerBooleanDefinition(containerDefinitionSpec{
 			key:                 containercontract.ContainerEnvironmentMaskedCopyEnabledConfig.String(),
 			group:               containerConfigGeneralGroup,
-			fallbackTitle:       "Masked environment copy enabled",
-			fallbackDescription: "Whether masked environment values may expose copy-only raw values to authorized users.",
+			fallbackTitle:       "",
+			fallbackDescription: "",
 			defaultValue:        mustRawJSON(defaultContainerEnvironmentMaskedCopy),
 		}),
 	}
@@ -122,8 +122,8 @@ func containerRuntimeDefinition() configregistry.Definition {
 	return baseContainerDefinition(containerDefinitionSpec{
 		key:                 containercontract.ContainerRuntimeConfig.String(),
 		group:               containerConfigRuntimeGroup,
-		fallbackTitle:       "Container runtime",
-		fallbackDescription: "Runtime adapter used by container management.",
+		fallbackTitle:       "",
+		fallbackDescription: "",
 		valueType:           configregistry.ValueTypeString,
 		defaultValue:        mustRawJSON(defaultContainerRuntime),
 		schema:              containerRuntimeSchema(),
@@ -134,8 +134,8 @@ func containerEndpointDefinition() configregistry.Definition {
 	definition := baseContainerDefinition(containerDefinitionSpec{
 		key:                 containercontract.ContainerDockerEndpointConfig.String(),
 		group:               containerConfigRuntimeGroup,
-		fallbackTitle:       "Container runtime endpoint",
-		fallbackDescription: "Local runtime endpoint used by the first container adapter.",
+		fallbackTitle:       "",
+		fallbackDescription: "",
 		valueType:           configregistry.ValueTypeString,
 		defaultValue:        mustRawJSON(defaultContainerDockerEndpoint),
 		schema:              containerStringSchema(containercontract.ContainerDockerEndpointConfig.String(), 1, maxDockerEndpointLength),
@@ -148,8 +148,8 @@ func containerEnvironmentPolicyDefinition() configregistry.Definition {
 	return baseContainerDefinition(containerDefinitionSpec{
 		key:                 containercontract.ContainerEnvironmentPolicyConfig.String(),
 		group:               containerConfigGeneralGroup,
-		fallbackTitle:       "Environment value display policy",
-		fallbackDescription: "Controls how container environment variable values are returned by detail reads.",
+		fallbackTitle:       "",
+		fallbackDescription: "",
 		valueType:           configregistry.ValueTypeString,
 		defaultValue:        mustRawJSON(defaultContainerEnvironmentPolicy.String()),
 		schema:              containerEnvironmentPolicySchema(),
@@ -193,10 +193,10 @@ func baseContainerDefinition(spec containerDefinitionSpec) configregistry.Defini
 		Module:              moduleID,
 		Domain:              containerConfigDomain,
 		DomainKey:           containerConfigDomainKey,
-		DomainLabel:         "Operations",
+		DomainLabel:         "",
 		Group:               spec.group,
 		GroupKey:            metadata.key,
-		GroupLabel:          metadata.label,
+		GroupLabel:          "",
 		GroupDescription:    metadata.description,
 		GroupDescriptionKey: metadata.descriptionKey,
 		Title:               spec.fallbackTitle,
@@ -223,37 +223,37 @@ func containerConfigGroupMetadata(group string) containerConfigGroupInfo {
 	case containerConfigRuntimeGroup:
 		return containerConfigGroupInfo{
 			key:            containerConfigRuntimeGroupKey,
-			label:          "Container runtime",
+			label:          "",
 			descriptionKey: containerConfigRuntimeDescKey,
-			description:    "Control the local container runtime adapter.",
+			description:    "",
 		}
 	case containerConfigLogsGroup:
 		return containerConfigGroupInfo{
 			key:            containerConfigLogsGroupKey,
-			label:          "Container logs",
+			label:          "",
 			descriptionKey: containerConfigLogsDescKey,
-			description:    "Control bounded container log reads.",
+			description:    "",
 		}
 	case containerConfigActionsGroup:
 		return containerConfigGroupInfo{
 			key:            containerConfigActionsGroupKey,
-			label:          "Container actions",
+			label:          "",
 			descriptionKey: containerConfigActionsDescKey,
-			description:    "Control high-risk container operations.",
+			description:    "",
 		}
 	default:
 		return containerConfigGroupInfo{
 			key:            containerConfigGeneralGroupKey,
-			label:          "Container management",
+			label:          "",
 			descriptionKey: containerConfigGeneralDescKey,
-			description:    "Control the container management baseline.",
+			description:    "",
 		}
 	}
 }
 
 func containerRuntimeSchema() json.RawMessage {
 	return json.RawMessage(fmt.Sprintf(
-		`{"type":"string","enum":["first-adapter"],"default":%q,"title":"Container runtime","description":"Runtime adapter used by container management.","x-i18n":{"titleKey":%q,"descriptionKey":%q}}`,
+		`{"type":"string","enum":["first-adapter"],"default":%q,"x-i18n":{"titleKey":%q,"descriptionKey":%q}}`,
 		defaultContainerRuntime,
 		containerConfigTitleKey(containercontract.ContainerRuntimeConfig.String()),
 		containerConfigDescriptionKey(containercontract.ContainerRuntimeConfig.String()),
@@ -266,13 +266,11 @@ func containerEnvironmentPolicySchema() json.RawMessage {
 	maskedPolicy := containercontract.ContainerEnvironmentPolicyMasked.String()
 	plainPolicy := containercontract.ContainerEnvironmentPolicyPlain.String()
 	return json.RawMessage(fmt.Sprintf(
-		`{"type":"string","enum":[%q,%q,%q],"default":%q,"title":%q,"description":%q,"x-i18n":{"titleKey":%q,"descriptionKey":%q,"enumLabels":{"hidden":{"labelKey":"systemConfig.container.%s.enum.hidden.label","descriptionKey":"systemConfig.container.%s.enum.hidden.description"},"masked":{"labelKey":"systemConfig.container.%s.enum.masked.label","descriptionKey":"systemConfig.container.%s.enum.masked.description"},"plain":{"labelKey":"systemConfig.container.%s.enum.plain.label","descriptionKey":"systemConfig.container.%s.enum.plain.description"}}}}`,
+		`{"type":"string","enum":[%q,%q,%q],"default":%q,"x-i18n":{"titleKey":%q,"descriptionKey":%q,"enumLabels":{"hidden":{"labelKey":"systemConfig.container.%s.enum.hidden.label","descriptionKey":"systemConfig.container.%s.enum.hidden.description"},"masked":{"labelKey":"systemConfig.container.%s.enum.masked.label","descriptionKey":"systemConfig.container.%s.enum.masked.description"},"plain":{"labelKey":"systemConfig.container.%s.enum.plain.label","descriptionKey":"systemConfig.container.%s.enum.plain.description"}}}}`,
 		hiddenPolicy,
 		maskedPolicy,
 		plainPolicy,
 		defaultContainerEnvironmentPolicy.String(),
-		containerConfigTitleFallback(key),
-		containerConfigDescriptionFallback(key),
 		containerConfigTitleKey(key),
 		containerConfigDescriptionKey(key),
 		key,
@@ -286,9 +284,7 @@ func containerEnvironmentPolicySchema() json.RawMessage {
 
 func containerBooleanSchema(key string) json.RawMessage {
 	return json.RawMessage(fmt.Sprintf(
-		`{"type":"boolean","title":%q,"description":%q,"x-i18n":{"titleKey":%q,"descriptionKey":%q}}`,
-		containerConfigTitleFallback(key),
-		containerConfigDescriptionFallback(key),
+		`{"type":"boolean","x-i18n":{"titleKey":%q,"descriptionKey":%q}}`,
 		containerConfigTitleKey(key),
 		containerConfigDescriptionKey(key),
 	))
@@ -296,12 +292,10 @@ func containerBooleanSchema(key string) json.RawMessage {
 
 func containerIntegerSchema(key string, defaultValue int, minimum int, maximum int) json.RawMessage {
 	return json.RawMessage(fmt.Sprintf(
-		`{"type":"integer","minimum":%d,"maximum":%d,"default":%d,"title":%q,"description":%q,"x-i18n":{"titleKey":%q,"descriptionKey":%q,"unitKey":"systemConfig.units.rows"}}`,
+		`{"type":"integer","minimum":%d,"maximum":%d,"default":%d,"x-i18n":{"titleKey":%q,"descriptionKey":%q,"unitKey":"systemConfig.units.rows"}}`,
 		minimum,
 		maximum,
 		defaultValue,
-		containerConfigTitleFallback(key),
-		containerConfigDescriptionFallback(key),
 		containerConfigTitleKey(key),
 		containerConfigDescriptionKey(key),
 	))
@@ -309,60 +303,12 @@ func containerIntegerSchema(key string, defaultValue int, minimum int, maximum i
 
 func containerStringSchema(key string, minimumLength int, maximumLength int) json.RawMessage {
 	return json.RawMessage(fmt.Sprintf(
-		`{"type":"string","minLength":%d,"maxLength":%d,"title":%q,"description":%q,"x-i18n":{"titleKey":%q,"descriptionKey":%q}}`,
+		`{"type":"string","minLength":%d,"maxLength":%d,"x-i18n":{"titleKey":%q,"descriptionKey":%q}}`,
 		minimumLength,
 		maximumLength,
-		containerConfigTitleFallback(key),
-		containerConfigDescriptionFallback(key),
 		containerConfigTitleKey(key),
 		containerConfigDescriptionKey(key),
 	))
-}
-
-func containerConfigTitleFallback(key string) string {
-	switch key {
-	case containercontract.ContainerRuntimeEnabledConfig.String():
-		return "Container Runtime Access Enabled"
-	case containercontract.ContainerRuntimeConfig.String():
-		return "Container Runtime"
-	case containercontract.ContainerDockerEndpointConfig.String():
-		return "Container Runtime Endpoint"
-	case containercontract.ContainerLogsDefaultTailConfig.String():
-		return "Default Log Tail"
-	case containercontract.ContainerLogsMaxTailConfig.String():
-		return "Maximum Log Tail"
-	case containercontract.ContainerDangerousActionsEnabledConfig.String():
-		return "Dangerous Container Actions Enabled"
-	case containercontract.ContainerEnvironmentPolicyConfig.String():
-		return "Environment Value Display Policy"
-	case containercontract.ContainerEnvironmentMaskedCopyEnabledConfig.String():
-		return "Masked Environment Copy Enabled"
-	default:
-		return key
-	}
-}
-
-func containerConfigDescriptionFallback(key string) string {
-	switch key {
-	case containercontract.ContainerRuntimeEnabledConfig.String():
-		return "Whether container management may access the configured runtime."
-	case containercontract.ContainerRuntimeConfig.String():
-		return "Runtime adapter used by container management."
-	case containercontract.ContainerDockerEndpointConfig.String():
-		return "Local runtime endpoint used by the first container adapter."
-	case containercontract.ContainerLogsDefaultTailConfig.String():
-		return "Default number of log lines returned by container log reads."
-	case containercontract.ContainerLogsMaxTailConfig.String():
-		return "Maximum number of log lines allowed for container log reads."
-	case containercontract.ContainerDangerousActionsEnabledConfig.String():
-		return "Whether start, stop, restart, and future high-risk actions are enabled."
-	case containercontract.ContainerEnvironmentPolicyConfig.String():
-		return "Controls how container environment variable values are returned by detail reads."
-	case containercontract.ContainerEnvironmentMaskedCopyEnabledConfig.String():
-		return "Allows authorized users to copy raw values for masked environment variables."
-	default:
-		return key
-	}
 }
 
 func containerConfigTitleKey(key string) string {

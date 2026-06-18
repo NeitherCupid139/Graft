@@ -273,7 +273,7 @@ func registerMonitorMenu(registry *menu.Registry, moduleName string) {
 
 	registry.Register(menu.Item{
 		Code:       "monitor.section",
-		Title:      "服务器管理",
+		Title:      "",
 		TitleKey:   monitorcontract.ServerStatusMenuTitle.String(),
 		Path:       monitorcontract.ServerStatusMenuPath,
 		Icon:       "server",
@@ -284,7 +284,7 @@ func registerMonitorMenu(registry *menu.Registry, moduleName string) {
 
 	registry.Register(menu.Item{
 		Code:       "monitor.server-status.overview",
-		Title:      "概览",
+		Title:      "",
 		TitleKey:   monitorcontract.ServerStatusOverviewMenuTitle.String(),
 		Path:       monitorcontract.ServerStatusOverviewMenuPath,
 		Icon:       "dashboard",
@@ -295,7 +295,7 @@ func registerMonitorMenu(registry *menu.Registry, moduleName string) {
 
 	registry.Register(menu.Item{
 		Code:       "monitor.server-status.runtime",
-		Title:      "运行时",
+		Title:      "",
 		TitleKey:   monitorcontract.ServerStatusRuntimeMenuTitle.String(),
 		Path:       monitorcontract.ServerStatusRuntimeMenuPath,
 		Icon:       "time",
@@ -306,7 +306,7 @@ func registerMonitorMenu(registry *menu.Registry, moduleName string) {
 
 	registry.Register(menu.Item{
 		Code:       "monitor.server-status.dependencies",
-		Title:      "依赖服务",
+		Title:      "",
 		TitleKey:   monitorcontract.ServerStatusDependenciesMenuTitle.String(),
 		Path:       monitorcontract.ServerStatusDependenciesMenuPath,
 		Icon:       "data-base",
@@ -807,7 +807,7 @@ func unavailableEvidenceLink(windowStart time.Time, windowEnd time.Time, reason 
 		TargetKind: generated.EvidenceLinkTargetKind(evidenceTargetAudit),
 		LinkState:  generated.EvidenceLinkLinkState(evidenceStateUnavailable),
 		TitleKey:   stringPointer(monitorcontract.AuditEvidenceUnavailableTitle.String()),
-		Title:      "Audit evidence is unavailable",
+		Title:      "",
 		Reason:     stringPointer(reason),
 		TimeWindow: &generated.EvidenceLinkTimeWindow{
 			CreatedFrom: windowStart,

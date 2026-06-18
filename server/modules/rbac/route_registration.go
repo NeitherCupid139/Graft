@@ -43,7 +43,7 @@ func registerRBACPermissions(registry *permission.Registry, moduleName string) {
 func registerRBACMenu(registry *menu.Registry, moduleName string) {
 	registry.Register(menu.Item{
 		Code:       "access-control.root",
-		Title:      "访问控制",
+		Title:      "",
 		TitleKey:   rbaccontract.AccessControlMenuTitle.String(),
 		Path:       "/access-control",
 		Icon:       "secured",
@@ -53,7 +53,7 @@ func registerRBACMenu(registry *menu.Registry, moduleName string) {
 	})
 	registry.Register(menu.Item{
 		Code:       "access-control.overview",
-		Title:      "概览",
+		Title:      "",
 		TitleKey:   rbaccontract.AccessControlOverviewMenuTitle.String(),
 		Path:       "/access-control/overview",
 		Icon:       "dashboard",
@@ -63,7 +63,7 @@ func registerRBACMenu(registry *menu.Registry, moduleName string) {
 	})
 	registry.Register(menu.Item{
 		Code:       "role.list",
-		Title:      "角色管理",
+		Title:      "",
 		TitleKey:   rbaccontract.RoleListMenuTitle.String(),
 		Path:       "/access-control/roles",
 		Icon:       "secured",
@@ -73,7 +73,7 @@ func registerRBACMenu(registry *menu.Registry, moduleName string) {
 	})
 	registry.Register(menu.Item{
 		Code:       "permission.list",
-		Title:      "权限管理",
+		Title:      "",
 		TitleKey:   rbaccontract.PermissionListMenuTitle.String(),
 		Path:       "/access-control/permissions",
 		Icon:       "lock-on",

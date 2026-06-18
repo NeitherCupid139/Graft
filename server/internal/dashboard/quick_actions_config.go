@@ -39,7 +39,7 @@ const (
 )
 
 const (
-	quickActionsConfigSchema = `{"type":"object","title":"Dashboard quick actions","description":"Dashboard home quick-action visibility and ranking defaults.","properties":{"enabled":{"type":"boolean","default":true,"title":"Enabled","description":"Controls whether personalized dashboard quick actions are shown.","x-i18n":{"titleKey":"systemConfig.fields.dashboardQuickActions.enabled.title","descriptionKey":"systemConfig.fields.dashboardQuickActions.enabled.description"}},"maxItems":{"type":"integer","minimum":1,"maximum":24,"default":4,"title":"Maximum quick actions","description":"Maximum personalized entries shown on the dashboard home page.","x-i18n":{"titleKey":"systemConfig.fields.dashboardQuickActions.maxItems.title","descriptionKey":"systemConfig.fields.dashboardQuickActions.maxItems.description"}},"strategy":{"type":"string","enum":["most_used","recent","hybrid"],"default":"hybrid","title":"Quick action strategy","description":"Personalized quick action ranking strategy.","x-i18n":{"titleKey":"systemConfig.fields.dashboardQuickActions.strategy.title","descriptionKey":"systemConfig.fields.dashboardQuickActions.strategy.description","enumLabels":{"most_used":{"labelKey":"systemConfig.options.dashboardQuickActionStrategy.mostUsed","descriptionKey":"systemConfig.options.dashboardQuickActionStrategyDescriptions.mostUsed"},"recent":{"labelKey":"systemConfig.options.dashboardQuickActionStrategy.recent","descriptionKey":"systemConfig.options.dashboardQuickActionStrategyDescriptions.recent"},"hybrid":{"labelKey":"systemConfig.options.dashboardQuickActionStrategy.hybrid","descriptionKey":"systemConfig.options.dashboardQuickActionStrategyDescriptions.hybrid"}}}}},"required":["enabled","maxItems","strategy"],"additionalProperties":false,"x-i18n":{"titleKey":"systemConfig.items.dashboardQuickActions.title","descriptionKey":"systemConfig.items.dashboardQuickActions.description"}}`
+	quickActionsConfigSchema = `{"type":"object","properties":{"enabled":{"type":"boolean","default":true,"x-i18n":{"titleKey":"systemConfig.fields.dashboardQuickActions.enabled.title","descriptionKey":"systemConfig.fields.dashboardQuickActions.enabled.description"}},"maxItems":{"type":"integer","minimum":1,"maximum":24,"default":4,"x-i18n":{"titleKey":"systemConfig.fields.dashboardQuickActions.maxItems.title","descriptionKey":"systemConfig.fields.dashboardQuickActions.maxItems.description"}},"strategy":{"type":"string","enum":["most_used","recent","hybrid"],"default":"hybrid","x-i18n":{"titleKey":"systemConfig.fields.dashboardQuickActions.strategy.title","descriptionKey":"systemConfig.fields.dashboardQuickActions.strategy.description","enumLabels":{"most_used":{"labelKey":"systemConfig.options.dashboardQuickActionStrategy.mostUsed","descriptionKey":"systemConfig.options.dashboardQuickActionStrategyDescriptions.mostUsed"},"recent":{"labelKey":"systemConfig.options.dashboardQuickActionStrategy.recent","descriptionKey":"systemConfig.options.dashboardQuickActionStrategyDescriptions.recent"},"hybrid":{"labelKey":"systemConfig.options.dashboardQuickActionStrategy.hybrid","descriptionKey":"systemConfig.options.dashboardQuickActionStrategyDescriptions.hybrid"}}}}},"required":["enabled","maxItems","strategy"],"additionalProperties":false,"x-i18n":{"titleKey":"systemConfig.items.dashboardQuickActions.title","descriptionKey":"systemConfig.items.dashboardQuickActions.description"}}`
 )
 
 // RegisterQuickActionsConfigDefinitions exposes dashboard quick-action defaults as config-center authority.
@@ -54,15 +54,15 @@ func RegisterQuickActionsConfigDefinitions(registry *configregistry.Registry) er
 			Module:              moduleKeyCore,
 			Domain:              quickActionsConfigDomain,
 			DomainKey:           quickActionsConfigDomainKey,
-			DomainLabel:         "Dashboard",
+			DomainLabel:         "",
 			Group:               quickActionsConfigGroup,
 			GroupKey:            quickActionsConfigGroupKey,
-			GroupLabel:          "Quick actions",
-			GroupDescription:    "Manage dashboard home quick-action visibility and ranking.",
+			GroupLabel:          "",
+			GroupDescription:    "",
 			GroupDescriptionKey: quickActionsConfigGroupDescKey,
-			Title:               "Dashboard quick actions",
+			Title:               "",
 			TitleKey:            quickActionsConfigTitleKey,
-			Description:         "Dashboard home quick-action visibility and ranking defaults.",
+			Description:         "",
 			DescriptionKey:      quickActionsConfigDescKey,
 			Tags:                []string{"dashboard", "quick_actions"},
 			Type:                configregistry.ValueTypeObject,

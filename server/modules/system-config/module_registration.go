@@ -68,7 +68,7 @@ func registerSystemConfigMenu(registry *menu.Registry, moduleName string) error 
 
 	registry.Register(menu.Item{
 		Code:       "system-config.list",
-		Title:      "系统配置",
+		Title:      "",
 		TitleKey:   systemconfigcontract.SystemConfigMenuTitle.String(),
 		Path:       systemconfigcontract.SystemConfigMenuPath,
 		Icon:       "setting",
