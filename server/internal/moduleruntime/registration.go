@@ -97,9 +97,9 @@ func registerPermissions(registry *permission.Registry) {
 
 	registry.Register(permission.Item{
 		Code:           PermissionRead,
-		Name:           "Read Module Runtime",
+		Name:           "",
 		DisplayKey:     "rbac.permissionCatalog.moduleRuntimeRead.display",
-		Description:    "Allows reading the core module runtime snapshot.",
+		Description:    "",
 		DescriptionKey: "rbac.permissionCatalog.moduleRuntimeRead.description",
 		Category:       "api",
 		Module:         moduleOwner,

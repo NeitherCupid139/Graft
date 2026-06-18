@@ -103,6 +103,39 @@
   - docs / trace / tracking / skill 已同步，无未登记 drift；
   - 当前无新的未声明 Go business-localization hardcoding 残留。
 
+## 2026-06-18 P0 residual cleanup and cross-boundary governance sync
+
+- 重新执行 root `AGENTS.md` startup preflight，并将 task class 提升为 `cross-boundary`，因为 residual cleanup 同时涉及 server、web、scanner 与治理文档。
+- backend P0 收口：
+  - 清空以下注册源中的 `permission.Item{Name, Description}` 英文用户可见 fallback，仅保留 stable key：
+    - `server/modules/scheduler/module_registration.go`
+    - `server/modules/notification/module_registration.go`
+    - `server/modules/system-config/module_registration.go`
+    - `server/modules/container/module_registration.go`
+    - `server/modules/monitor/module.go`
+    - `server/modules/user/module_registration.go`
+    - `server/modules/rbac/route_registration.go`
+    - `server/modules/announcement/module_registration.go`
+    - `server/internal/moduleruntime/registration.go`
+  - `server/modules/user/bootstrap_admin.go` 改为在 seed 生成时通过 `i18n.Service` 严格解析 `DisplayKey` / `DescriptionKey`，不再接受 Go 英文 fallback。
+  - `server/modules/user/dev_reset.go` 与 `server/internal/cli/dev_reset.go` 对齐同一 locale authority，避免 dev reset 路径重新引入可见 fallback。
+  - `server/internal/app/runtime.go` 移除 `Module Runtime`、`Current module runtime health.`、`View details`、`Access Logs`、`Request Attention`、`App Logs` 等 core dashboard/runtime 英文硬编码，统一改为 embedded locale YAML lookup。
+  - `server/internal/dashboard/service.go` 删除框架级默认 `View details` fallback；缺值时应补 locale key，而不是回退英文。
+- locale 资源同步：
+  - `server/internal/i18n/locales/modules/rbac.{zh-CN,en-US}.yaml` 补齐缺失的 permission catalog key。
+  - `server/internal/i18n/locales/display.{zh-CN,en-US}.yaml` 补齐 module runtime widget / summary / status 文案。
+- frontend P0 收口：
+  - `web/src/store/modules/tabs-router.ts` 删除 home tab 的 `工作台 / Workspace` 双语对象，改为 `localizeRouteTitleKey('app.home.title')`。
+  - `web/src/store/modules/tabs-router.test.ts` 同步到 key-based 断言。
+- scanner 治理补强：
+  - `web/scripts/i18n-governance/rules/no-hardcoded-ui-prop.ts` 新增对 `[LOCALE.ZH_CN]` / `[LOCALE.EN_US]` computed property 双语硬编码的识别。
+  - 保持原有 `'zh-CN': '...'` / `'en-US': '...'` 检测能力。
+  - 为避免误报纯插值组合表达式，本轮明确跳过不携带自身可见字面量的 template literal 组合。
+  - `web/scripts/check-i18n-governance.test.ts` 与 `invalid-computed-locale-title-object` fixture 为该形态补齐直接测试。
+- governance sync：
+  - `ai-plan/public/localization-governance/README.md`、tracking、trace、design、skill 均更新为当前 cross-boundary 事实。
+  - 明确：archive-ready 只能建立在当前代码与验证事实上；若重新引入未登记 fallback，不得沿用旧 closeout 结论。
+
 ## Loop Batch State
 
 ```json

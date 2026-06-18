@@ -42,18 +42,18 @@ func registerSystemConfigPermissions(registry *permission.Registry, moduleName s
 
 	registry.Register(permission.Item{
 		Code:           systemconfigcontract.SystemConfigReadPermission.String(),
-		Name:           "Read System Configuration",
+		Name:           "",
 		DisplayKey:     "rbac.permissionCatalog.systemConfigRead.display",
-		Description:    "Allows reading registered system configuration definitions and effective values.",
+		Description:    "",
 		DescriptionKey: "rbac.permissionCatalog.systemConfigRead.description",
 		Category:       "api",
 		Module:         moduleName,
 	})
 	registry.Register(permission.Item{
 		Code:           systemconfigcontract.SystemConfigWritePermission.String(),
-		Name:           "Update System Configuration",
+		Name:           "",
 		DisplayKey:     "rbac.permissionCatalog.systemConfigWrite.display",
-		Description:    "Allows writing and resetting user configuration overrides.",
+		Description:    "",
 		DescriptionKey: "rbac.permissionCatalog.systemConfigWrite.description",
 		Category:       "api",
 		Module:         moduleName,

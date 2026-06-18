@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"graft/server/internal/config"
+	"graft/server/internal/i18n"
 	"graft/server/internal/moduleapi"
 	rbacstore "graft/server/modules/rbac/store"
 	userstore "graft/server/modules/user/store"
@@ -29,6 +31,7 @@ func TestResetDefaultAdminForDevelopmentResetsCredentialAndRole(t *testing.T) {
 	if err := ResetDefaultAdminForDevelopment(
 		context.Background(),
 		state.authRepo,
+		newDevResetLocalizer(t),
 		devResetRBACBootstrapStub{state: state},
 	); err != nil {
 		t.Fatalf("reset default admin: %v", err)
@@ -44,6 +47,7 @@ func TestResetDefaultAdminForDevelopmentRejectsNonDevelopmentEnv(t *testing.T) {
 	err := ResetDefaultAdminForDevelopment(
 		context.Background(),
 		state.authRepo,
+		newDevResetLocalizer(t),
 		devResetRBACBootstrapStub{state: state},
 	)
 	if err == nil {
@@ -114,6 +118,16 @@ func devResetStringPtrOrNil(value string) *string {
 	}
 	result := value
 	return &result
+}
+
+func newDevResetLocalizer(t *testing.T) *i18n.Service {
+	t.Helper()
+
+	return i18n.MustNew(config.I18nConfig{
+		DefaultLocale:    "zh-CN",
+		FallbackLocale:   "en-US",
+		SupportedLocales: []string{"zh-CN", "en-US"},
+	})
 }
 
 func newDevResetState(t *testing.T, currentHash string) *devResetState {

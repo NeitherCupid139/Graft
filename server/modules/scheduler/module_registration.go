@@ -51,54 +51,54 @@ func registerSchedulerPermissions(registry *permission.Registry, moduleName stri
 
 	registry.Register(permission.Item{
 		Code:           schedulercontract.ScheduledTaskReadPermission.String(),
-		Name:           "Read Scheduled Tasks",
+		Name:           "",
 		DisplayKey:     "rbac.permissionCatalog.scheduledTaskRead.display",
-		Description:    "Allows reading scheduled task runtime data and run history.",
+		Description:    "",
 		DescriptionKey: "rbac.permissionCatalog.scheduledTaskRead.description",
 		Category:       "api",
 		Module:         moduleName,
 	})
 	registry.Register(permission.Item{
 		Code:           schedulercontract.ScheduledTaskCreatePermission.String(),
-		Name:           "Create Scheduled Tasks",
+		Name:           "",
 		DisplayKey:     "rbac.permissionCatalog.scheduledTaskCreate.display",
-		Description:    "Allows creating user-managed scheduled task instances.",
+		Description:    "",
 		DescriptionKey: "rbac.permissionCatalog.scheduledTaskCreate.description",
 		Category:       "api",
 		Module:         moduleName,
 	})
 	registry.Register(permission.Item{
 		Code:           schedulercontract.ScheduledTaskUpdatePermission.String(),
-		Name:           "Update Scheduled Tasks",
+		Name:           "",
 		DisplayKey:     "rbac.permissionCatalog.scheduledTaskUpdate.display",
-		Description:    "Allows updating scheduled task definitions.",
+		Description:    "",
 		DescriptionKey: "rbac.permissionCatalog.scheduledTaskUpdate.description",
 		Category:       "api",
 		Module:         moduleName,
 	})
 	registry.Register(permission.Item{
 		Code:           schedulercontract.ScheduledTaskDeletePermission.String(),
-		Name:           "Delete Scheduled Tasks",
+		Name:           "",
 		DisplayKey:     "rbac.permissionCatalog.scheduledTaskDelete.display",
-		Description:    "Allows deleting user-managed scheduled task instances.",
+		Description:    "",
 		DescriptionKey: "rbac.permissionCatalog.scheduledTaskDelete.description",
 		Category:       "api",
 		Module:         moduleName,
 	})
 	registry.Register(permission.Item{
 		Code:           schedulercontract.ScheduledTaskRunPermission.String(),
-		Name:           "Run Scheduled Tasks",
+		Name:           "",
 		DisplayKey:     "rbac.permissionCatalog.scheduledTaskRun.display",
-		Description:    "Allows manually running scheduled task runtime jobs.",
+		Description:    "",
 		DescriptionKey: "rbac.permissionCatalog.scheduledTaskRun.description",
 		Category:       "api",
 		Module:         moduleName,
 	})
 	registry.Register(permission.Item{
 		Code:           schedulercontract.ScheduledTaskEnablePermission.String(),
-		Name:           "Enable Scheduled Tasks",
+		Name:           "",
 		DisplayKey:     "rbac.permissionCatalog.scheduledTaskEnable.display",
-		Description:    "Allows enabling and disabling scheduled tasks.",
+		Description:    "",
 		DescriptionKey: "rbac.permissionCatalog.scheduledTaskEnable.description",
 		Category:       "api",
 		Module:         moduleName,

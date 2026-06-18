@@ -35,7 +35,10 @@ Treat root `AGENTS.md` as startup truth. This skill does not define a second val
 - Prefer stable keys over server-provided final text for menus, errors, permissions, system config metadata, and schema
   labels.
 - Treat fallback text as a temporary exception only; register file, field, reason, removal condition, and validation scope when direct authority repair cannot be completed in the same slice.
-- 2026-06-18 当前 server 侧已无登记中的生产 Go 用户可见本地化硬编码例外；除显式登记项外，不应再接受新的 Go 用户可见本地化硬编码。
+- Do not keep `permission.Item{Name, Description}` user-visible fallback text in registration sources; if display text is still required by current APIs, resolve it from locale keys through `i18n.Service`.
+- Do not keep core dashboard/runtime visible copy as raw Go strings when a stable title/description/label key already exists.
+- Do not keep production TS/Vue bilingual locale objects such as `[LOCALE.ZH_CN]: '工作台'` / `[LOCALE.EN_US]: 'Workspace'`; locale catalogs are the only canonical truth for visible UI copy.
+- 2026-06-18 当前无登记中的生产 Go 用户可见本地化硬编码例外，也无登记中的生产 TS/Vue 双语 UI 硬编码例外；除显式登记项外，不应再接受新的用户可见硬编码本地化 copy。
 
 ## Server Workflow
 
@@ -59,6 +62,7 @@ Treat root `AGENTS.md` as startup truth. This skill does not define a second val
 3. Put module-owned copy in `web/src/modules/<name>/locales/**`.
 4. Do not use backend final text as the primary UI truth when a stable key or stable code exists.
 5. Keep visible time formatting locale-aware and do not change wire contracts into localized strings.
+6. Treat `[LOCALE.ZH_CN]` / `[LOCALE.EN_US]` computed property bilingual objects the same as plain `'zh-CN'` / `'en-US'` hardcoded copy; they must be moved into locale catalogs.
 
 ## Phase Defaults
 

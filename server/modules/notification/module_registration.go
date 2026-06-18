@@ -36,27 +36,27 @@ func registerNotificationPermissions(registry *permission.Registry, moduleName s
 
 	registry.Register(permission.Item{
 		Code:           notificationcontract.NotificationViewPermission.String(),
-		Name:           "View Notifications",
+		Name:           "",
 		DisplayKey:     "rbac.permissionCatalog.notificationView.display",
-		Description:    "Allows reading current-user notifications and unread counts.",
+		Description:    "",
 		DescriptionKey: "rbac.permissionCatalog.notificationView.description",
 		Category:       "api",
 		Module:         moduleName,
 	})
 	registry.Register(permission.Item{
 		Code:           notificationcontract.NotificationReadPermission.String(),
-		Name:           "Read Notifications",
+		Name:           "",
 		DisplayKey:     "rbac.permissionCatalog.notificationRead.display",
-		Description:    "Allows marking current-user notifications as read or deleting current-user deliveries.",
+		Description:    "",
 		DescriptionKey: "rbac.permissionCatalog.notificationRead.description",
 		Category:       "api",
 		Module:         moduleName,
 	})
 	registry.Register(permission.Item{
 		Code:           notificationcontract.NotificationManagePermission.String(),
-		Name:           "Manage Notifications",
+		Name:           "",
 		DisplayKey:     "rbac.permissionCatalog.notificationManage.display",
-		Description:    "Reserved for future global notification delivery management.",
+		Description:    "",
 		DescriptionKey: "rbac.permissionCatalog.notificationManage.description",
 		Category:       "api",
 		Module:         moduleName,

@@ -43,6 +43,9 @@ const (
 	coreModuleRuntimeHealthWidgetOrder = 10
 	coreModuleRuntimeQuickLinkID       = "core.module-runtime"
 	coreModuleRuntimeQuickLinkOrder    = 105
+	moduleRuntimeHealthTitleKey        = "dashboard.widget.moduleRuntimeHealth.title"
+	moduleRuntimeHealthDescriptionKey  = "dashboard.widget.moduleRuntimeHealth.description"
+	moduleRuntimeHealthSummaryKey      = "dashboard.widget.moduleRuntimeHealth.summary"
 )
 
 type runtimeCoreDeps struct {
@@ -544,10 +547,10 @@ func (r *Runtime) registerCoreModuleRuntimeDashboard() error {
 	if err := r.dashboardRegistry.Register(dashboard.WidgetDefinition{
 		ID:             "core.module-runtime-health",
 		ModuleKey:      "core",
-		TitleKey:       "dashboard.widget.moduleRuntimeHealth.title",
-		Title:          "Module Runtime",
-		DescriptionKey: "dashboard.widget.moduleRuntimeHealth.description",
-		Description:    "Current module runtime health.",
+		TitleKey:       moduleRuntimeHealthTitleKey,
+		Title:          r.mustLookupCoreDisplay(moduleRuntimeHealthTitleKey),
+		DescriptionKey: moduleRuntimeHealthDescriptionKey,
+		Description:    r.mustLookupCoreDisplay(moduleRuntimeHealthDescriptionKey),
 		Type:           dashboard.WidgetTypeHealth,
 		Size:           dashboard.WidgetSizeMedium,
 		Category:       dashboard.WidgetCategorySystem,
@@ -556,7 +559,7 @@ func (r *Runtime) registerCoreModuleRuntimeDashboard() error {
 		RouteLocation:  moduleruntime.MenuRuntimePath(),
 		Action: dashboard.WidgetAction{
 			LabelKey: "dashboard.actions.details",
-			Label:    "View details",
+			Label:    r.mustLookupCoreDisplay("dashboard.actions.details"),
 			Route:    moduleruntime.MenuRuntimePath(),
 		},
 		RequiredPermissions: []string{moduleruntime.PermissionRead},
@@ -596,8 +599,8 @@ func (r *Runtime) registerCoreModuleRuntimeDashboard() error {
 			return dashboard.WidgetPayload{
 				"summary": dashboard.HealthSummaryItem{
 					Status:   summaryStatus,
-					LabelKey: "dashboard.widget.moduleRuntimeHealth.summary",
-					Label:    "Module health",
+					LabelKey: moduleRuntimeHealthSummaryKey,
+					Label:    r.mustLookupCoreDisplay(moduleRuntimeHealthSummaryKey),
 				},
 				"items":             items,
 				"healthy_modules":   snapshot.Summary.HealthyModules,
@@ -615,7 +618,7 @@ func (r *Runtime) registerCoreModuleRuntimeDashboard() error {
 		ID:                  coreModuleRuntimeQuickLinkID,
 		ModuleKey:           "core",
 		TitleKey:            moduleruntime.MenuRuntimeTitleKey(),
-		Title:               "Module Runtime",
+		Title:               r.mustLookupCoreDisplay(moduleruntime.MenuRuntimeTitleKey()),
 		Icon:                "module",
 		RouteLocation:       moduleruntime.MenuRuntimePath(),
 		RequiredPermissions: []string{moduleruntime.PermissionRead},
@@ -633,7 +636,7 @@ func (r *Runtime) registerCoreAccessLogDashboard() error {
 			ID:                  httpx.AccessLogDashboardQuickLinkID,
 			ModuleKey:           httpx.AccessLogDashboardModuleKey(),
 			TitleKey:            httpx.AccessLogDashboardTitleKey(),
-			Title:               "Access Logs",
+			Title:               r.mustLookupCoreDisplay(httpx.AccessLogDashboardTitleKey()),
 			Icon:                "search",
 			RouteLocation:       httpx.AccessLogDashboardRouteLocation(),
 			RequiredPermissions: []string{httpx.AccessLogReadPermission},
@@ -646,9 +649,9 @@ func (r *Runtime) registerCoreAccessLogDashboard() error {
 			ID:             httpx.AccessLogDashboardWidgetID,
 			ModuleKey:      httpx.AccessLogDashboardModuleKey(),
 			TitleKey:       "dashboard.widget.accessLogRequestAttention.title",
-			Title:          "Request Attention",
+			Title:          r.mustLookupCoreDisplay("dashboard.widget.accessLogRequestAttention.title"),
 			DescriptionKey: "dashboard.widget.accessLogRequestAttention.description",
-			Description:    "Recent error and slow HTTP requests.",
+			Description:    r.mustLookupCoreDisplay("dashboard.widget.accessLogRequestAttention.description"),
 			Type:           dashboard.WidgetTypeAlertList,
 			Size:           dashboard.WidgetSizeMedium,
 			Category:       dashboard.WidgetCategoryOperation,
@@ -657,7 +660,7 @@ func (r *Runtime) registerCoreAccessLogDashboard() error {
 			RouteLocation:  httpx.AccessLogDashboardRouteLocation(),
 			Action: dashboard.WidgetAction{
 				LabelKey: "dashboard.actions.details",
-				Label:    "View details",
+				Label:    r.mustLookupCoreDisplay("dashboard.actions.details"),
 				Route:    httpx.AccessLogDashboardRouteLocation(),
 			},
 			RequiredPermissions: []string{httpx.AccessLogReadPermission},
@@ -677,7 +680,7 @@ func (r *Runtime) registerCoreAppLogDashboard() error {
 			ID:                  logger.AppLogDashboardQuickLinkID,
 			ModuleKey:           logger.AppLogDashboardModuleKey(),
 			TitleKey:            logger.AppLogDashboardTitleKey(),
-			Title:               "App Logs",
+			Title:               r.mustLookupCoreDisplay(logger.AppLogDashboardTitleKey()),
 			Icon:                "file-search",
 			RouteLocation:       logger.AppLogDashboardRouteLocation(),
 			RequiredPermissions: []string{logger.AppLogReadPermission},
@@ -687,6 +690,20 @@ func (r *Runtime) registerCoreAppLogDashboard() error {
 		}
 	}
 	return nil
+}
+
+func (r *Runtime) mustLookupCoreDisplay(key string) string {
+	if r == nil || r.i18n == nil {
+		panic("core display localization requires i18n service")
+	}
+	if len(r.i18n.RegisteredMessageResources(i18n.LocaleTag(r.i18n.DefaultLocale()), i18n.MessageKey(key))) == 0 {
+		panic("core display localization key missing: " + key)
+	}
+
+	return r.i18n.Lookup(i18n.LookupRequest{
+		Locale: i18n.LocaleTag(r.i18n.DefaultLocale()),
+		Key:    i18n.MessageKey(key),
+	})
 }
 
 func moduleRuntimeStatusDescriptionKey(status generated.ModuleRuntimeItemRuntimeStatus) string {

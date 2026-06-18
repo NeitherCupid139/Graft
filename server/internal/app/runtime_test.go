@@ -529,6 +529,7 @@ func TestRegisterCoreDashboardWidgetsIncludesAccessLogSystemCapability(t *testin
 	repo := &runtimeAccessLogRecorderRepo{}
 	runtime := &Runtime{
 		config:            &config.Config{},
+		i18n:              i18n.MustNew(config.I18nConfig{DefaultLocale: "zh-CN", FallbackLocale: "en-US", SupportedLocales: []string{"zh-CN", "en-US"}}),
 		server:            httpx.NewServer(zap.NewNop(), repo),
 		dashboardRegistry: dashboard.NewRegistry(),
 	}
@@ -671,7 +672,7 @@ func TestRunPassesEventBusIntoModuleContext(t *testing.T) {
 			HTTP: config.HTTPConfig{Addr: "127.0.0.1:0"},
 		},
 		logger:             zap.NewNop(),
-		i18n:               i18n.MustNew(config.I18nConfig{DefaultLocale: "zh-CN", FallbackLocale: "zh-CN", SupportedLocales: []string{"zh-CN"}}),
+		i18n:               i18n.MustNew(config.I18nConfig{DefaultLocale: "zh-CN", FallbackLocale: "en-US", SupportedLocales: []string{"zh-CN", "en-US"}}),
 		server:             httpx.NewServer(zap.NewNop()),
 		eventBus:           runtimeEventBus,
 		services:           container.New(),
@@ -711,7 +712,7 @@ func TestRunPassesLifecycleContextIntoModulePhases(t *testing.T) {
 			HTTP: config.HTTPConfig{Addr: "127.0.0.1:0"},
 		},
 		logger:             zap.NewNop(),
-		i18n:               i18n.MustNew(config.I18nConfig{DefaultLocale: "zh-CN", FallbackLocale: "zh-CN", SupportedLocales: []string{"zh-CN"}}),
+		i18n:               i18n.MustNew(config.I18nConfig{DefaultLocale: "zh-CN", FallbackLocale: "en-US", SupportedLocales: []string{"zh-CN", "en-US"}}),
 		server:             httpx.NewServer(zap.NewNop()),
 		eventBus:           eventbus.New(zap.NewNop()),
 		services:           container.New(),
@@ -760,7 +761,7 @@ func TestRunStopsBeforeBootWhenLifecycleContextAlreadyCanceled(t *testing.T) {
 			HTTP: config.HTTPConfig{Addr: "127.0.0.1:0"},
 		},
 		logger:             zap.NewNop(),
-		i18n:               i18n.MustNew(config.I18nConfig{DefaultLocale: "zh-CN", FallbackLocale: "zh-CN", SupportedLocales: []string{"zh-CN"}}),
+		i18n:               i18n.MustNew(config.I18nConfig{DefaultLocale: "zh-CN", FallbackLocale: "en-US", SupportedLocales: []string{"zh-CN", "en-US"}}),
 		server:             httpx.NewServer(zap.NewNop()),
 		eventBus:           eventbus.New(zap.NewNop()),
 		services:           container.New(),

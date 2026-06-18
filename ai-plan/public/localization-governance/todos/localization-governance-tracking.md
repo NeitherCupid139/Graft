@@ -6,7 +6,7 @@ Localization Governance
 
 ## Scope
 
-建立前后端本地化治理规范，新增 AI 执行 skill，并分批把 server 侧硬编码 i18n 注册点迁移到集中 locale 资源文件。
+建立前后端本地化治理规范，新增 AI 执行 skill，并分批把 server / web 的用户可见本地化文案迁移到集中 locale 资源与受治理的 locale catalog。
 
 ## Repository Truth
 
@@ -39,6 +39,7 @@ Localization Governance
 - [x] slice-3：delete legacy fallbacks and switch to locale resource
 - [x] slice-4：residual server visible-copy cleanup
 - [x] final：archive readiness and governance sync
+- [x] P0 follow-up：permission display fallback cleanup、runtime/dashboard fallback cleanup、web tabs title cleanup、scanner computed-locale coverage
 
 ## Final Closeout Notes
 
@@ -46,4 +47,8 @@ Localization Governance
 - canonical truth 迁移到 `server/internal/i18n/locales/modules/audit.zh-CN.yaml` 与 `server/internal/i18n/locales/modules/audit.en-US.yaml`。
 - repository 仅保留 `TargetType -> stable locale key` 技术映射，并通过 `server/internal/i18n.Service` 按请求 locale 解析 `target_label`。
 - API wire shape 保持不变；未新增 `target_label_key`。
-- 当前 server 侧已无登记中的生产 Go 用户可见本地化硬编码临时例外。
+- `permission.Item{Name, Description}` 不再以注册源中的英文文案作为真相；当前由 locale key 经 `i18n.Service` 解析后生成 seeded display text。
+- core dashboard/runtime 不再以内嵌 Go 英文文案作为 Widget / QuickLink / Action 展示真相；当前由 embedded locale YAML 解析。
+- `web/src/store/modules/tabs-router.ts` 不再内嵌 `工作台 / Workspace` 双语对象；当前复用 `app.home.title`。
+- `web/scripts/i18n-governance/rules/no-hardcoded-ui-prop.ts` 已覆盖 `[LOCALE.ZH_CN]` / `[LOCALE.EN_US]` computed property 双语硬编码。
+- 当前无登记中的生产 Go 用户可见本地化硬编码临时例外；当前无登记中的生产 TS/Vue 双语 UI 硬编码例外。

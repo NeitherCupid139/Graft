@@ -2,18 +2,18 @@
 
 ## 当前状态摘要
 
-- 当前主题目标是建立 `Graft` 前后端本地化长期治理，并分阶段把 server 硬编码 i18n 文案迁移到资源文件。
-- 当前 loop 状态：`slice-3-delete-legacy-fallbacks-and-switch-to-locale-resource` 已完成，剩余 `final-archive-readiness-and-governance-sync`。
-- 任务分类为 `server`；当前主题只处理 backend locale authority 与治理收口，不触达 web。
+- 当前主题目标是建立 `Graft` 前后端本地化长期治理，并分阶段把 server / web 的用户可见文案收敛到受治理的 locale 资源。
+- 当前 loop 状态：P0 residual cleanup 与 governance sync 已完成；当前结论以本轮代码与验证事实为准。
+- 任务分类为 `cross-boundary`；当前主题同时处理 backend locale authority、web locale catalog 与 scanner 治理收口。
 - Canonical design：`ai-plan/design/本地化与i18n治理规范.md`。
 - AI 执行 skill：`.agents/skills/graft-localization-governance/SKILL.md`。
 
 ## Recovery Receipt
 
 - governance source：root `AGENTS.md`
-- task class：`server`
+- task class：`cross-boundary`
 - recovery source：`parent topic`
-- authority summary：`ai-plan/design/本地化与i18n治理规范.md` + `server/internal/i18n.Service` facade + embedded locale YAML under `server/internal/i18n/locales/**`
+- authority summary：`ai-plan/design/本地化与i18n治理规范.md` + `server/internal/i18n.Service` facade + embedded locale YAML under `server/internal/i18n/locales/**` + web locale catalogs under `web/src/locales/**`
 
 ## Owned Scope
 
@@ -23,7 +23,7 @@
 - `ai-plan/public/localization-governance/**`
 - `ai-plan/public/README.md`
 - `.agents/skills/graft-localization-governance/**`
-- 当前 topic 允许修改 `server/internal/i18n/**`、相关 server 调用点、治理文档与其直接测试，用于完成 backend locale authority 迁移与治理收口。
+- 当前 topic 允许修改 `server/internal/i18n/**`、相关 server 调用点、`web/src/locales/**`、相关 web 调用点、scanner 规则、治理文档与其直接测试，用于完成 locale authority 迁移与治理收口。
 
 禁止误触：
 
@@ -32,8 +32,9 @@
 - 不得删除 JSON Schema 现有 `x-i18n` key。
 - 不得把 web 长期 UI 文案所有权迁到 server。
 - 不得把 Go 硬编码用户可见文案继续表述为可接受的长期 authority。
+- 不得把 TS/Vue 中的双语字面量对象继续表述为可接受的长期 authority。
 - 不得允许业务模块自行 embed、load、validate 或 freeze locale 文件。
-- 不得一次性迁移所有 `defaultCatalogEntries`。
+- 不得为了兼容旧逻辑继续保留新的用户可见 fallback 或兼容桥。
 
 ## Phase Plan
 
@@ -42,7 +43,7 @@
 - slice-1：module registration resource migration。已完成。
 - slice-2：core default catalog migration。已完成。
 - slice-3：delete legacy fallbacks and switch to locale resource。已完成。
-- final：archive readiness and governance sync。
+- final：archive readiness and governance sync。已完成。
 
 ## Current Recovery Point
 
@@ -51,14 +52,17 @@
   - backend 面向用户可见本地化文案的 canonical truth 是 embedded locale YAML。
   - locale 资源的 embed、load、validate、freeze 与 registry construction 只能集中在 `server/internal/i18n`。
   - module 只拥有 namespace/key 语义和调用 `i18n.Service` 的注册边界，不拥有独立 locale 文件加载器。
-  - 生产 Go 不得新增用户可见硬编码本地化文案；菜单、Widget、Retention、Explorer、Cron Action 等可见字段默认必须来自 locale resource。
+  - web 面向用户可见 UI 文案的 canonical truth 是 locale catalog；`tabs-router` 等壳层状态不得内嵌双语字面量对象。
+  - 生产 Go 不得新增用户可见硬编码本地化文案；菜单、Widget、Retention、Explorer、Cron Action、permission display metadata 等可见字段默认必须来自 locale resource。
+  - 生产 TS/Vue 不得新增 `工作台 / Workspace` 这类 computed locale object 双语硬编码；locale 文案必须进入 catalog，再通过 key 或 lookup 使用。
   - 仅技术标识可保留在 Go：稳定 key、模块名、资源名、action key、route/path、permission code、job name 等。
   - 临时例外必须显式登记文件、字段、原因、移除条件与验证范围。
-- 当前剩余 batch 的目标：
-  - 执行 final archive readiness and governance sync 检查。
-  - 确认 docs / skill / trace / tracking / code 不再存在 localization authority drift。
-  - 确认无未登记的 Go 用户可见 fallback 残留。
-  - 当前 server 侧已无登记中的生产 Go 用户可见本地化硬编码例外；`audit` TargetLabel 临时例外已关闭。
+- 当前结论：
+  - `audit` TargetLabel 临时例外已关闭。
+  - backend `permission.Item{Name, Description}` 与 core dashboard/runtime 不再保留未登记的 Go 用户可见 fallback。
+  - frontend `tabs-router` 不再内嵌 `工作台 / Workspace`。
+  - `bun run lint:i18n` 规则已覆盖 `[LOCALE.ZH_CN]` / `[LOCALE.EN_US]` computed property 双语硬编码。
+  - 当前 topic 的 archive-ready 结论仅在本轮验证通过时成立；若后续代码重新引入未登记 fallback，必须重新打开 topic。
 
 ## Validation Targets
 
@@ -72,4 +76,10 @@ python3 /root/.codex/skills/.system/skill-creator/scripts/quick_validate.py .age
 ```bash
 cd server && go test ./internal/i18n/...
 cd server && go build ./cmd/graft
+```
+
+若本轮触达 web locale 或 scanner：
+
+```bash
+cd web && bun run lint:i18n
 ```

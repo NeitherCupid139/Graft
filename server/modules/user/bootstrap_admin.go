@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 
+	"graft/server/internal/i18n"
 	"golang.org/x/crypto/bcrypt"
 
 	"graft/server/internal/moduleapi"
@@ -18,6 +19,7 @@ import (
 // ensureDefaultAdmin 幂等确保默认管理员存在且具备当前 MVP 所需的最小后台可见性。
 func (s authService) ensureDefaultAdmin(
 	ctx context.Context,
+	localizer *i18n.Service,
 	rbac moduleapi.RBACBootstrapService,
 	permissions []permission.Item,
 ) error {
@@ -32,7 +34,7 @@ func (s authService) ensureDefaultAdmin(
 	if err != nil {
 		return err
 	}
-	return rbac.EnsureDefaultAdminAccess(ctx, credential.UserID, permissionSeedsFromItems(permissions))
+	return rbac.EnsureDefaultAdminAccess(ctx, credential.UserID, permissionSeedsFromItems(localizer, permissions))
 }
 
 func (s authService) ensureAdminCredential(ctx context.Context) (userstore.UserCredential, error) {
@@ -90,18 +92,35 @@ func (s authService) reconcileDefaultAdminCredential(
 	return credential, nil
 }
 
-func permissionSeedsFromItems(items []permission.Item) []moduleapi.PermissionSeed {
+func permissionSeedsFromItems(localizer *i18n.Service, items []permission.Item) []moduleapi.PermissionSeed {
 	seeds := make([]moduleapi.PermissionSeed, 0, len(items))
 	for _, item := range items {
 		seeds = append(seeds, moduleapi.PermissionSeed{
 			Code:           item.Code,
-			Display:        item.Name,
+			Display:        lookupPermissionText(localizer, item.DisplayKey, item.Code),
 			DisplayKey:     item.DisplayKey,
-			Description:    item.Description,
+			Description:    lookupPermissionText(localizer, item.DescriptionKey, item.Code),
 			DescriptionKey: item.DescriptionKey,
 			Category:       item.Category,
 		})
 	}
 
 	return seeds
+}
+
+func lookupPermissionText(localizer *i18n.Service, key string, permissionCode string) string {
+	if localizer == nil {
+		panic("permission seed localization requires i18n service")
+	}
+	if key == "" {
+		panic("permission seed localization requires stable locale key for " + permissionCode)
+	}
+	if len(localizer.RegisteredMessageResources(i18n.LocaleTag(localizer.DefaultLocale()), i18n.MessageKey(key))) == 0 {
+		panic("permission seed localization key missing for " + permissionCode + ": " + key)
+	}
+
+	return localizer.Lookup(i18n.LookupRequest{
+		Locale: i18n.LocaleTag(localizer.DefaultLocale()),
+		Key:    i18n.MessageKey(key),
+	})
 }
