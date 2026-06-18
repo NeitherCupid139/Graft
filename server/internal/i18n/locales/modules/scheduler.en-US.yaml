@@ -1,0 +1,7 @@
+scheduled_task.not_found: Scheduled task not found
+scheduled_task.already_running: Scheduled task is already running
+scheduled_task.invalid_request: Invalid scheduled task request
+scheduledTask.notification.runFailed.title: Scheduled Task Failed
+scheduledTask.notification.runFailed.message: Scheduled task failed.
+scheduledTask.notification.runSucceeded.title: Scheduled Task Succeeded
+scheduledTask.notification.runSucceeded.message: Manual scheduled task succeeded.

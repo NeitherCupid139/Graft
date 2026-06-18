@@ -107,24 +107,10 @@ func registerMessages(localizer *i18n.Service) error {
 		return errors.New("i18n service is unavailable")
 	}
 
-	for _, registration := range []i18n.Registration{
-		{
-			Namespace: "user",
-			Locale:    i18n.LocaleZHCN,
-			Messages: []i18n.MessageResource{
-				{Key: i18n.MessageKey(usercontract.UserListMenuTitle.String()), Text: "用户管理"},
-			},
-		},
-		{
-			Namespace: "user",
-			Locale:    i18n.LocaleENUS,
-			Messages: []i18n.MessageResource{
-				{Key: i18n.MessageKey(usercontract.UserListMenuTitle.String()), Text: "User Management"},
-			},
-		},
-	} {
-		if err := localizer.RegisterMessages(registration); err != nil {
-			return fmt.Errorf("register user module messages: %w", err)
+	for _, locale := range []i18n.LocaleTag{i18n.LocaleZHCN, i18n.LocaleENUS} {
+		matches := localizer.RegisteredMessageResources(locale, i18n.MessageKey(usercontract.UserListMenuTitle.String()))
+		if len(matches) == 0 {
+			return fmt.Errorf("register user module messages: locale resource %s missing key %s", locale, usercontract.UserListMenuTitle.String())
 		}
 	}
 

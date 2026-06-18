@@ -23,71 +23,53 @@ func registerMessages(localizer *i18n.Service) error {
 		return errors.New("i18n service is unavailable")
 	}
 
-	for _, registration := range []i18n.Registration{
-		containerMessageRegistration(i18n.LocaleZHCN, zhCNCopyIndex),
-		containerMessageRegistration(i18n.LocaleENUS, enUSCopyIndex),
-	} {
-		if err := localizer.RegisterMessages(registration); err != nil {
-			return fmt.Errorf("register container module messages: %w", err)
+	for _, locale := range []i18n.LocaleTag{i18n.LocaleZHCN, i18n.LocaleENUS} {
+		for _, key := range containerLocaleBackedMessageKeys() {
+			matches := localizer.RegisteredMessageResources(locale, i18n.MessageKey(key))
+			if len(matches) == 0 {
+				return fmt.Errorf("register container module messages: locale resource %s missing key %s", locale, key)
+			}
 		}
 	}
 	return nil
 }
 
-func containerMessageRegistration(locale i18n.LocaleTag, copyIndex int) i18n.Registration {
-	return i18n.Registration{
-		Namespace: "container",
-		Locale:    locale,
-		Messages:  containerMessageResources(copyIndex),
-	}
-}
-
-func containerMessageResources(copyIndex int) []i18n.MessageResource {
-	messages := make([]i18n.MessageResource, 0, len(containerMessageCopyRows))
-	for _, row := range containerMessageCopyRows {
-		if row.key == containercontract.OperationsMenuTitle.String() || row.key == containercontract.ContainerMenuTitle.String() {
+func containerLocaleBackedMessageKeys() []string {
+	keys := make([]string, 0, len(containerMessageKeys))
+	for _, key := range containerMessageKeys {
+		if key == containercontract.OperationsMenuTitle.String() || key == containercontract.ContainerMenuTitle.String() {
 			continue
 		}
-		messages = append(messages, i18n.MessageResource{Key: i18n.MessageKey(row.key), Text: row.copy[copyIndex]})
+		keys = append(keys, key)
 	}
-	return messages
+	return keys
 }
 
-type containerMessageCopyRow struct {
-	key  string
-	copy [2]string
-}
-
-const (
-	zhCNCopyIndex = iota
-	enUSCopyIndex
-)
-
-var containerMessageCopyRows = []containerMessageCopyRow{
-	{key: containercontract.OperationsMenuTitle.String(), copy: [2]string{"运维管理", "Operations"}},
-	{key: containercontract.ContainerMenuTitle.String(), copy: [2]string{"容器管理", "Container Management"}},
-	{key: containercontract.ContainerRuntimeDisabled.String(), copy: [2]string{"容器运行时访问未启用", "Container runtime access is not enabled"}},
-	{key: containercontract.ContainerRuntimeSocketMissing.String(), copy: [2]string{"容器运行时 socket 不存在", "Container runtime socket is missing"}},
-	{key: containercontract.ContainerRuntimePermissionDenied.String(), copy: [2]string{"当前进程无权访问容器运行时", "The current process cannot access the container runtime"}},
-	{key: containercontract.ContainerRuntimeUnavailable.String(), copy: [2]string{"容器运行时不可用", "Container runtime is unavailable"}},
-	{key: containercontract.ContainerNotFound.String(), copy: [2]string{"容器不存在", "Container not found"}},
-	{key: containercontract.ContainerMountNotFound.String(), copy: [2]string{"容器挂载不存在", "Container mount not found"}},
-	{key: containercontract.ContainerInvalidRef.String(), copy: [2]string{"容器标识不合法", "Invalid container reference"}},
-	{key: containercontract.ContainerInvalidListQuery.String(), copy: [2]string{"容器列表查询参数不合法", "Invalid container list query parameter"}},
-	{key: containercontract.ContainerInvalidBatchAction.String(), copy: [2]string{"批量容器操作请求不合法", "Invalid container batch action request"}},
-	{key: containercontract.ContainerInvalidState.String(), copy: [2]string{"容器当前状态不允许执行该操作", "The container state does not allow this action"}},
-	{key: containercontract.ContainerLogsTooLarge.String(), copy: [2]string{"日志读取数量超过限制", "Requested log tail exceeds the configured limit"}},
-	{key: containercontract.ContainerInvalidLogQuery.String(), copy: [2]string{"日志查询参数不合法", "Invalid container log query parameter"}},
-	{key: containercontract.ContainerTimeout.String(), copy: [2]string{"容器运行时操作超时", "Container runtime operation timed out"}},
-	{key: containercontract.ContainerMountUsageUnsupported.String(), copy: [2]string{"该挂载不支持用量统计", "Mount usage is not supported for this mount"}},
-	{key: containercontract.ContainerDangerousActionsDisabled.String(), copy: [2]string{"高危容器操作未启用", "Dangerous container actions are disabled"}},
-	{key: containercontract.ContainerActionStartCompleted.String(), copy: [2]string{"容器启动操作已完成", "Container start action completed"}},
-	{key: containercontract.ContainerActionStopCompleted.String(), copy: [2]string{"容器停止操作已完成", "Container stop action completed"}},
-	{key: containercontract.ContainerActionRestartCompleted.String(), copy: [2]string{"容器重启操作已完成", "Container restart action completed"}},
-	{key: containercontract.ContainerActionRemoveCompleted.String(), copy: [2]string{"容器删除操作已完成", "Container remove action completed"}},
-	{key: containercontract.ContainerBatchActionCompleted.String(), copy: [2]string{"批量容器操作已完成", "Container batch action completed"}},
-	{key: containercontract.ContainerBatchActionPartial.String(), copy: [2]string{"批量容器操作部分完成", "Container batch action partially completed"}},
-	{key: containercontract.ContainerBatchActionFailed.String(), copy: [2]string{"批量容器操作全部失败", "Container batch action failed"}},
+var containerMessageKeys = []string{
+	containercontract.OperationsMenuTitle.String(),
+	containercontract.ContainerMenuTitle.String(),
+	containercontract.ContainerRuntimeDisabled.String(),
+	containercontract.ContainerRuntimeSocketMissing.String(),
+	containercontract.ContainerRuntimePermissionDenied.String(),
+	containercontract.ContainerRuntimeUnavailable.String(),
+	containercontract.ContainerNotFound.String(),
+	containercontract.ContainerMountNotFound.String(),
+	containercontract.ContainerInvalidRef.String(),
+	containercontract.ContainerInvalidListQuery.String(),
+	containercontract.ContainerInvalidBatchAction.String(),
+	containercontract.ContainerInvalidState.String(),
+	containercontract.ContainerLogsTooLarge.String(),
+	containercontract.ContainerInvalidLogQuery.String(),
+	containercontract.ContainerTimeout.String(),
+	containercontract.ContainerMountUsageUnsupported.String(),
+	containercontract.ContainerDangerousActionsDisabled.String(),
+	containercontract.ContainerActionStartCompleted.String(),
+	containercontract.ContainerActionStopCompleted.String(),
+	containercontract.ContainerActionRestartCompleted.String(),
+	containercontract.ContainerActionRemoveCompleted.String(),
+	containercontract.ContainerBatchActionCompleted.String(),
+	containercontract.ContainerBatchActionPartial.String(),
+	containercontract.ContainerBatchActionFailed.String(),
 }
 
 func registerPermissions(registry *permission.Registry, moduleName string) error {

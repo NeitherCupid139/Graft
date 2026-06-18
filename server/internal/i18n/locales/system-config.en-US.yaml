@@ -1,3 +1,6 @@
+menu.server.system_config.title: System Configuration
+system_config.not_found: System Configuration Not Found
+system_config.invalid_request: Invalid System Configuration Request
 systemConfig.domains.dashboard: Dashboard Configuration
 systemConfig.groups.dashboardQuickActions: Dashboard Quick Actions
 systemConfig.groupDescriptions.dashboardQuickActions: Manage dashboard home quick-action visibility and ranking.

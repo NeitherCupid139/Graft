@@ -20,35 +20,19 @@ func registerMessages(localizer *i18n.Service) error {
 		return errors.New("i18n service is unavailable")
 	}
 
-	for _, registration := range []i18n.Registration{
-		{
-			Namespace: "system-config",
-			Locale:    i18n.LocaleZHCN,
-			Messages: systemConfigBaseMessages("系统配置", "系统配置不存在", "系统配置请求无效"),
-		},
-		{
-			Namespace: "system-config",
-			Locale:    i18n.LocaleENUS,
-			Messages: systemConfigBaseMessages(
-				"System Configuration",
-				"System Configuration Not Found",
-				"Invalid System Configuration Request",
-			),
-		},
-	} {
-		if err := localizer.RegisterMessages(registration); err != nil {
-			return fmt.Errorf("register system-config module messages: %w", err)
+	for _, locale := range []i18n.LocaleTag{i18n.LocaleZHCN, i18n.LocaleENUS} {
+		for _, key := range []systemconfigcontract.MessageKey{
+			systemconfigcontract.SystemConfigMenuTitle,
+			systemconfigcontract.SystemConfigNotFound,
+			systemconfigcontract.SystemConfigInvalidRequest,
+		} {
+			matches := localizer.RegisteredMessageResources(locale, i18n.MessageKey(key.String()))
+			if len(matches) == 0 {
+				return fmt.Errorf("register system-config module messages: locale resource %s missing key %s", locale, key)
+			}
 		}
 	}
 	return nil
-}
-
-func systemConfigBaseMessages(menuTitle, notFound, invalidRequest string) []i18n.MessageResource {
-	return []i18n.MessageResource{
-		{Key: i18n.MessageKey(systemconfigcontract.SystemConfigMenuTitle.String()), Text: menuTitle},
-		{Key: i18n.MessageKey(systemconfigcontract.SystemConfigNotFound.String()), Text: notFound},
-		{Key: i18n.MessageKey(systemconfigcontract.SystemConfigInvalidRequest.String()), Text: invalidRequest},
-	}
 }
 
 func registerSystemConfigPermissions(registry *permission.Registry, moduleName string) error {

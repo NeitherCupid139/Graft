@@ -1,3 +1,6 @@
+menu.server.system_config.title: 系统配置
+system_config.not_found: 系统配置不存在
+system_config.invalid_request: 系统配置请求无效
 systemConfig.domains.dashboard: 工作台配置
 systemConfig.groups.dashboardQuickActions: 工作台快捷入口
 systemConfig.groupDescriptions.dashboardQuickActions: 管理首页快捷入口的显示与排序策略。

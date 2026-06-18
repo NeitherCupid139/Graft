@@ -47,6 +47,20 @@ func TestModuleRegistersAnnouncementMetadata(t *testing.T) {
 	assertAnnouncementMenuRegistered(t, ctx.MenuRegistry)
 	assertAnnouncementMessageRegistered(t, ctx.I18n, i18n.LocaleZHCN, "公告管理")
 	assertAnnouncementMessageRegistered(t, ctx.I18n, i18n.LocaleENUS, "Announcements")
+	assertRegisteredAnnouncementErrorMessage(
+		t,
+		ctx.I18n,
+		i18n.LocaleZHCN,
+		announcementcontract.AnnouncementPublishedDeleteForbidden.String(),
+		"已发布公告需先归档后删除",
+	)
+	assertRegisteredAnnouncementErrorMessage(
+		t,
+		ctx.I18n,
+		i18n.LocaleENUS,
+		announcementcontract.AnnouncementPublishedDeleteForbidden.String(),
+		"Archive the published announcement before deleting it",
+	)
 }
 
 func TestNewModuleSpecDeclaresMigrationAndDependencies(t *testing.T) {
@@ -818,6 +832,21 @@ func assertAnnouncementMessageRegistered(t *testing.T, localizer *i18n.Service, 
 	matches := localizer.RegisteredMessageResources(locale, i18n.MessageKey(announcementcontract.AnnouncementMenuTitle.String()))
 	if len(matches) != 1 || matches[0].Text != expected {
 		t.Fatalf("expected announcement menu title %q for %s, got %#v", expected, locale, matches)
+	}
+}
+
+func assertRegisteredAnnouncementErrorMessage(
+	t *testing.T,
+	localizer *i18n.Service,
+	locale i18n.LocaleTag,
+	key string,
+	expected string,
+) {
+	t.Helper()
+
+	matches := localizer.RegisteredMessageResources(locale, i18n.MessageKey(key))
+	if len(matches) != 1 || matches[0].Text != expected {
+		t.Fatalf("expected announcement message %q for %s %q, got %#v", expected, locale, key, matches)
 	}
 }
 

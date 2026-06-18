@@ -170,32 +170,18 @@ func registerMessages(localizer *i18n.Service) error {
 		return errors.New("i18n service is unavailable")
 	}
 
-	for _, registration := range []i18n.Registration{
-		{
-			Namespace: "monitor",
-			Locale:    i18n.LocaleZHCN,
-			Messages: []i18n.MessageResource{
-				{Key: i18n.MessageKey(monitorcontract.ServerStatusMenuTitle.String()), Text: "服务器管理"},
-				{Key: i18n.MessageKey(monitorcontract.ServerStatusOverviewMenuTitle.String()), Text: "概览"},
-				{Key: i18n.MessageKey(monitorcontract.ServerStatusRuntimeMenuTitle.String()), Text: "运行时"},
-				{Key: i18n.MessageKey(monitorcontract.ServerStatusDependenciesMenuTitle.String()), Text: "依赖服务"},
-				{Key: i18n.MessageKey(monitorcontract.AuditEvidenceUnavailableTitle.String()), Text: "审计证据不可用"},
-			},
-		},
-		{
-			Namespace: "monitor",
-			Locale:    i18n.LocaleENUS,
-			Messages: []i18n.MessageResource{
-				{Key: i18n.MessageKey(monitorcontract.ServerStatusMenuTitle.String()), Text: "Server Management"},
-				{Key: i18n.MessageKey(monitorcontract.ServerStatusOverviewMenuTitle.String()), Text: "Overview"},
-				{Key: i18n.MessageKey(monitorcontract.ServerStatusRuntimeMenuTitle.String()), Text: "Runtime"},
-				{Key: i18n.MessageKey(monitorcontract.ServerStatusDependenciesMenuTitle.String()), Text: "Dependencies"},
-				{Key: i18n.MessageKey(monitorcontract.AuditEvidenceUnavailableTitle.String()), Text: "Audit evidence is unavailable"},
-			},
-		},
-	} {
-		if err := localizer.RegisterMessages(registration); err != nil {
-			return fmt.Errorf("register monitor module messages: %w", err)
+	for _, locale := range []i18n.LocaleTag{i18n.LocaleZHCN, i18n.LocaleENUS} {
+		for _, key := range []monitorcontract.MessageKey{
+			monitorcontract.ServerStatusMenuTitle,
+			monitorcontract.ServerStatusOverviewMenuTitle,
+			monitorcontract.ServerStatusRuntimeMenuTitle,
+			monitorcontract.ServerStatusDependenciesMenuTitle,
+			monitorcontract.AuditEvidenceUnavailableTitle,
+		} {
+			matches := localizer.RegisteredMessageResources(locale, i18n.MessageKey(key.String()))
+			if len(matches) == 0 {
+				return fmt.Errorf("register monitor module messages: locale resource %s missing key %s", locale, key)
+			}
 		}
 	}
 

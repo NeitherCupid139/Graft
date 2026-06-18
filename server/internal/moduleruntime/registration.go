@@ -80,24 +80,10 @@ func registerMessages(localizer *i18n.Service) error {
 		return errors.New("i18n service is unavailable")
 	}
 
-	for _, registration := range []i18n.Registration{
-		{
-			Namespace: "module-runtime",
-			Locale:    i18n.LocaleZHCN,
-			Messages: []i18n.MessageResource{
-				{Key: menuModulesRuntimeTitleKey, Text: "模块运行时"},
-			},
-		},
-		{
-			Namespace: "module-runtime",
-			Locale:    i18n.LocaleENUS,
-			Messages: []i18n.MessageResource{
-				{Key: menuModulesRuntimeTitleKey, Text: "Module Runtime"},
-			},
-		},
-	} {
-		if err := localizer.RegisterMessages(registration); err != nil {
-			return fmt.Errorf("register module runtime messages: %w", err)
+	for _, locale := range []i18n.LocaleTag{i18n.LocaleZHCN, i18n.LocaleENUS} {
+		matches := localizer.RegisteredMessageResources(locale, i18n.MessageKey(menuModulesRuntimeTitleKey))
+		if len(matches) == 0 {
+			return fmt.Errorf("register module runtime messages: locale resource %s missing key %s", locale, menuModulesRuntimeTitleKey)
 		}
 	}
 

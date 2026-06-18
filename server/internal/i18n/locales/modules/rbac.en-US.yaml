@@ -1,0 +1,6 @@
+menu.access_control.title: Access Control
+menu.access_control.roles.title: Role Management
+menu.access_control.permissions.title: Permission Management
+menu.access_control.overview.title: Access Control Overview
+rbac.audit.rolePermissionsAdded: Role permissions added
+rbac.audit.rolePermissionsRemoved: Role permissions removed

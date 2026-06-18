@@ -19,24 +19,17 @@ func registerMessages(localizer *i18n.Service) error {
 	if localizer == nil {
 		return errors.New("i18n service is unavailable")
 	}
-	for _, registration := range []i18n.Registration{
-		{
-			Namespace: "announcement",
-			Locale:    i18n.LocaleZHCN,
-			Messages: []i18n.MessageResource{
-				{Key: i18n.MessageKey(announcementcontract.AnnouncementPublishedDeleteForbidden.String()), Text: "已发布公告需先归档后删除"},
-			},
-		},
-		{
-			Namespace: "announcement",
-			Locale:    i18n.LocaleENUS,
-			Messages: []i18n.MessageResource{
-				{Key: i18n.MessageKey(announcementcontract.AnnouncementPublishedDeleteForbidden.String()), Text: "Archive the published announcement before deleting it"},
-			},
-		},
-	} {
-		if err := localizer.RegisterMessages(registration); err != nil {
-			return fmt.Errorf("register announcement module messages: %w", err)
+	for _, locale := range []i18n.LocaleTag{i18n.LocaleZHCN, i18n.LocaleENUS} {
+		matches := localizer.RegisteredMessageResources(
+			locale,
+			i18n.MessageKey(announcementcontract.AnnouncementPublishedDeleteForbidden.String()),
+		)
+		if len(matches) == 0 {
+			return fmt.Errorf(
+				"register announcement module messages: locale resource %s missing key %s",
+				locale,
+				announcementcontract.AnnouncementPublishedDeleteForbidden.String(),
+			)
 		}
 	}
 	return nil

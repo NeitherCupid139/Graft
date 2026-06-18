@@ -2411,7 +2411,7 @@ func TestBootstrapLocaleSnapshotDeduplicatesFallbackLocales(t *testing.T) {
 		i18n.MustNew(config.I18nConfig{
 			DefaultLocale:    "zh-CN",
 			FallbackLocale:   "zh-CN",
-			SupportedLocales: []string{"zh-CN"},
+			SupportedLocales: []string{"zh-CN", "en-US"},
 		}),
 		nil,
 		nil,

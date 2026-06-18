@@ -237,38 +237,19 @@ func TestLookupUsesModuleNamespaceAndFallbackMessage(t *testing.T) {
 func TestRegisteredMessageKeyIDsFindsBareKeyAcrossNamespaces(t *testing.T) {
 	service := newTestService()
 
-	if err := service.RegisterMessages(Registration{
-		Namespace: "module-runtime",
-		Locale:    LocaleENUS,
-		Messages: []MessageResource{
-			{Key: "menu.modulesRuntime.title", Text: "Module Runtime"},
-		},
-	}); err != nil {
-		t.Fatalf("register module runtime message: %v", err)
-	}
-
 	matches := service.RegisteredMessageKeyIDs(LocaleENUS, "menu.modulesRuntime.title")
 	if len(matches) != 1 || matches[0] != "module-runtime.menu.modulesRuntime.title" {
 		t.Fatalf("expected module runtime canonical key, got %v", matches)
 	}
 
-	if matches := service.RegisteredMessageKeyIDs(LocaleZHCN, "menu.modulesRuntime.title"); len(matches) != 0 {
-		t.Fatalf("expected no zh-CN matches, got %v", matches)
+	if matches := service.RegisteredMessageKeyIDs(LocaleZHCN, "menu.modulesRuntime.title"); len(matches) != 1 ||
+		matches[0] != "module-runtime.menu.modulesRuntime.title" {
+		t.Fatalf("expected zh-CN canonical key match, got %v", matches)
 	}
 }
 
 func TestRegisteredMessageResourcesFindsRegisteredTextAcrossNamespaces(t *testing.T) {
 	service := newTestService()
-
-	if err := service.RegisterMessages(Registration{
-		Namespace: "module-runtime",
-		Locale:    LocaleENUS,
-		Messages: []MessageResource{
-			{Key: "menu.modulesRuntime.title", Text: "Module Runtime"},
-		},
-	}); err != nil {
-		t.Fatalf("register module runtime message: %v", err)
-	}
 
 	matches := service.RegisteredMessageResources(LocaleENUS, "menu.modulesRuntime.title")
 	if len(matches) != 1 ||
