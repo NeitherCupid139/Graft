@@ -160,6 +160,9 @@ func New(cfg config.I18nConfig) (*Service, error) {
 	if err := service.registerDefaultCatalogs(); err != nil {
 		return nil, fmt.Errorf("register default i18n catalogs: %w", err)
 	}
+	if err := service.registerEmbeddedCatalogs(); err != nil {
+		return nil, fmt.Errorf("register embedded i18n catalogs: %w", err)
+	}
 	return service, nil
 }
 

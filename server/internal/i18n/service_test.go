@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"testing/fstest"
 
 	"graft/server/internal/config"
 )
@@ -274,5 +275,114 @@ func TestRegisteredMessageResourcesFindsRegisteredTextAcrossNamespaces(t *testin
 		matches[0].Key != "module-runtime.menu.modulesRuntime.title" ||
 		matches[0].Text != "Module Runtime" {
 		t.Fatalf("expected module runtime message resource, got %v", matches)
+	}
+}
+
+func TestParseLocaleResourceName(t *testing.T) {
+	namespace, locale, err := parseLocaleResourceName("system-config.zh-CN.yaml")
+	if err != nil {
+		t.Fatalf("parse locale resource name: %v", err)
+	}
+	if namespace != "system-config" {
+		t.Fatalf("expected system-config namespace, got %q", namespace)
+	}
+	if locale != LocaleZHCN {
+		t.Fatalf("expected zh-CN locale, got %q", locale)
+	}
+}
+
+func TestParseLocaleResourceNameRejectsInvalidFormat(t *testing.T) {
+	if _, _, err := parseLocaleResourceName("system-config.yaml"); err == nil {
+		t.Fatal("expected invalid locale resource name to fail")
+	}
+}
+
+func TestLoadLocaleRegistrationsParsesFlatYAML(t *testing.T) {
+	registrations, err := loadLocaleRegistrations(fstest.MapFS{
+		"locales/system-config.en-US.yaml": {
+			Data: []byte("systemConfig.domains.dashboard: Dashboard\nsystemConfig.groups.quickActions: Quick Actions\n"),
+		},
+		"locales/system-config.zh-CN.yaml": {
+			Data: []byte("systemConfig.domains.dashboard: 工作台配置\n"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("load locale registrations: %v", err)
+	}
+	if len(registrations) != 2 {
+		t.Fatalf("expected 2 registrations, got %d", len(registrations))
+	}
+	if registrations[0].Namespace != "system-config" || registrations[0].Locale != LocaleENUS {
+		t.Fatalf("expected sorted en-US registration first, got %+v", registrations[0])
+	}
+	if len(registrations[0].Messages) != 2 {
+		t.Fatalf("expected 2 messages, got %d", len(registrations[0].Messages))
+	}
+	if registrations[0].Messages[0].Key != "systemConfig.domains.dashboard" ||
+		registrations[0].Messages[0].Text != "Dashboard" {
+		t.Fatalf("unexpected first message: %+v", registrations[0].Messages[0])
+	}
+}
+
+func TestLoadLocaleRegistrationsRejectsDuplicateKeys(t *testing.T) {
+	_, err := loadLocaleRegistrations(fstest.MapFS{
+		"locales/system-config.en-US.yaml": {
+			Data: []byte("systemConfig.domains.dashboard: Dashboard\nsystemConfig.domains.dashboard: Dashboard Duplicate\n"),
+		},
+	})
+	if err == nil {
+		t.Fatal("expected duplicate key validation to fail")
+	}
+}
+
+func TestLoadLocaleRegistrationsRejectsNestedValues(t *testing.T) {
+	_, err := loadLocaleRegistrations(fstest.MapFS{
+		"locales/system-config.en-US.yaml": {
+			Data: []byte("systemConfig:\n  domains.dashboard: Dashboard\n"),
+		},
+	})
+	if err == nil {
+		t.Fatal("expected nested mapping validation to fail")
+	}
+}
+
+func TestRegisterLocaleResourcesReusesRegisterMessagesValidation(t *testing.T) {
+	service := newTestService()
+	if err := service.Freeze(); err != nil {
+		t.Fatalf("freeze service: %v", err)
+	}
+
+	err := service.registerLocaleResources(fstest.MapFS{
+		"locales/system-config.en-US.yaml": {
+			Data: []byte("systemConfig.domains.dashboard: Dashboard\n"),
+		},
+	})
+	if err == nil {
+		t.Fatal("expected frozen registry validation to fail")
+	}
+}
+
+func TestNewRegistersEmbeddedLocaleResources(t *testing.T) {
+	previousFS := embeddedLocaleFS
+	embeddedLocaleFS = fstest.MapFS{
+		"locales/dashboard.en-US.yaml": {
+			Data: []byte("dashboard.quickActions.title: Quick Actions\n"),
+		},
+		"locales/dashboard.zh-CN.yaml": {
+			Data: []byte("dashboard.quickActions.title: 快捷入口\n"),
+		},
+	}
+	t.Cleanup(func() {
+		embeddedLocaleFS = previousFS
+	})
+
+	service := newTestService()
+	message := service.Lookup(LookupRequest{
+		Namespace: "dashboard",
+		Locale:    LocaleENUS,
+		Key:       "dashboard.quickActions.title",
+	})
+	if message != "Quick Actions" {
+		t.Fatalf("expected embedded locale resource to be registered, got %q", message)
 	}
 }
