@@ -30,6 +30,7 @@ describe('buildDashboardQuickActionLinks', () => {
             meta: {
               icon: 'secured',
               orderNo: 20,
+              permission: 'rbac.role.read',
               breadcrumbTitle: {
                 'zh-CN': '角色管理',
                 'en-US': 'Role Management',
@@ -151,7 +152,7 @@ describe('buildDashboardQuickActionLinks', () => {
         group_key: 'container.route.list.title',
         icon: 'layers',
         id: 'ContainerList',
-        module_key: 'ops',
+        module_key: 'container',
         order: 10,
         route_location: '/ops/containers',
         title: '容器管理',
@@ -165,6 +166,7 @@ describe('buildDashboardQuickActionLinks', () => {
         id: 'RoleListIndex',
         module_key: 'rbac',
         order: 20,
+        required_permissions: ['rbac.role.read'],
         route_location: '/access-control/roles',
         title: '角色管理',
         title_key: 'rbac.role.list.title',
@@ -253,8 +255,70 @@ describe('buildDashboardQuickActionLinks', () => {
         group_key: 'container.route.list.title',
         icon: 'layers',
         id: 'ContainerList',
-        module_key: 'ops',
+        module_key: 'container',
         order: 10,
+        route_location: '/ops/containers',
+        title: 'Container Management',
+        title_key: 'container.route.list.title',
+      },
+    ]);
+  });
+
+  it('keeps a single route as the quick action even when it has visible child routes', () => {
+    const routes = [
+      asRouteRecordRaw({
+        path: '/ops/containers',
+        name: 'ContainerList',
+        meta: {
+          icon: 'layers',
+          orderNo: 10,
+          single: true,
+          title: {
+            'zh-CN': '运维管理',
+            'en-US': 'Operations',
+          },
+          breadcrumbTitle: {
+            'zh-CN': '容器管理',
+            'en-US': 'Container Management',
+          },
+          tabTitle: {
+            'zh-CN': '运维管理 - 容器管理',
+            'en-US': 'Operations - Container Management',
+          },
+          titleKey: 'container.route.list.title',
+          permission: 'container.read',
+        },
+        children: [
+          asRouteRecordRaw({
+            path: 'runtime',
+            name: 'ContainerRuntimeIndex',
+            meta: {
+              orderNo: 20,
+              breadcrumbTitle: {
+                'zh-CN': '运行时',
+                'en-US': 'Runtime',
+              },
+              tabTitle: {
+                'zh-CN': '运维管理 - 运行时',
+                'en-US': 'Operations - Runtime',
+              },
+              titleKey: 'container.route.runtime.title',
+            },
+          }),
+        ],
+      }),
+    ] as RouteRecordRaw[];
+
+    expect(buildDashboardQuickActionLinks(routes, 'en-US')).toEqual([
+      {
+        full_label: 'Operations - Container Management',
+        group: 'Operations',
+        group_key: 'container.route.list.title',
+        icon: 'layers',
+        id: 'ContainerList',
+        module_key: 'container',
+        order: 10,
+        required_permissions: ['container.read'],
         route_location: '/ops/containers',
         title: 'Container Management',
         title_key: 'container.route.list.title',

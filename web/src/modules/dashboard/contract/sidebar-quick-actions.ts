@@ -11,9 +11,14 @@ import type { DashboardQuickActionLink } from './quick-action-links';
 import { normalizeDashboardRoutePath, normalizeJoinedDashboardRoutePath } from './route-paths';
 
 type QuickActionSource = Pick<RouteRecordRaw, 'path' | 'children' | 'name' | 'meta'>;
-type QuickActionParent = {
+interface QuickActionParent {
   groupKey?: string;
   groupLabel?: string;
+}
+type QuickActionRouteMeta = AppRouteMeta & {
+  permission?: string;
+  required_permissions?: string[];
+  requiredPermissions?: string[];
 };
 
 /**
@@ -45,6 +50,10 @@ function collectLeafLinks(
     }
 
     const nextParent = resolveParent(routeMeta, locale, parent);
+    if (routeMeta?.single && isQuickActionLeaf(route, fullPath)) {
+      return [buildQuickActionLink(route, routeMeta, fullPath, locale, parent)];
+    }
+
     const visibleChildren = collectLeafLinks(route.children ?? [], locale, fullPath, nextParent);
     if (visibleChildren.length > 0) {
       return visibleChildren;
@@ -54,29 +63,7 @@ function collectLeafLinks(
       return [];
     }
 
-    const title =
-      renderLocalizedTitle(resolveRouteLocalizedTitle(routeMeta, 'breadcrumb'), locale) ||
-      renderLocalizedTitle(resolveRouteLocalizedTitle(routeMeta, 'page'), locale) ||
-      fullPath;
-    const fullLabel = renderLocalizedTitle(resolveRouteLocalizedTitle(routeMeta, 'tab'), locale) || title;
-    const routeGroup =
-      renderLocalizedTitle(resolveRouteLocalizedTitle(routeMeta, 'page'), locale) || parent?.groupLabel;
-    const isSingleLeaf = Boolean(routeMeta?.single);
-
-    return [
-      {
-        id: String(route.name ?? fullPath),
-        full_label: fullLabel,
-        group: isSingleLeaf ? routeGroup : parent?.groupLabel,
-        group_key: isSingleLeaf ? routeMeta?.titleKey : parent?.groupKey,
-        module_key: inferModuleKey(fullPath),
-        icon: typeof routeMeta?.icon === 'string' ? routeMeta.icon : undefined,
-        order: routeMeta?.orderNo ?? 0,
-        route_location: fullPath,
-        title,
-        title_key: routeMeta?.titleKey,
-      },
-    ];
+    return [buildQuickActionLink(route, routeMeta, fullPath, locale, parent)];
   });
 }
 
@@ -109,7 +96,37 @@ function isQuickActionLeaf(route: QuickActionSource, fullPath: string) {
  * @returns The metadata as `AppRouteMeta`, or `undefined` if the input was nullish
  */
 function toRouteMeta(meta: unknown) {
-  return (meta ?? undefined) as AppRouteMeta | undefined;
+  return (meta ?? undefined) as QuickActionRouteMeta | undefined;
+}
+
+function buildQuickActionLink(
+  route: QuickActionSource,
+  routeMeta: QuickActionRouteMeta | undefined,
+  fullPath: string,
+  locale: SupportedLocale,
+  parent?: QuickActionParent,
+): DashboardQuickActionLink {
+  const title =
+    renderLocalizedTitle(resolveRouteLocalizedTitle(routeMeta, 'breadcrumb'), locale) ||
+    renderLocalizedTitle(resolveRouteLocalizedTitle(routeMeta, 'page'), locale) ||
+    fullPath;
+  const fullLabel = renderLocalizedTitle(resolveRouteLocalizedTitle(routeMeta, 'tab'), locale) || title;
+  const routeGroup = renderLocalizedTitle(resolveRouteLocalizedTitle(routeMeta, 'page'), locale) || parent?.groupLabel;
+  const isSingleLeaf = Boolean(routeMeta?.single);
+
+  return {
+    id: String(route.name ?? fullPath),
+    full_label: fullLabel,
+    group: isSingleLeaf ? routeGroup : parent?.groupLabel,
+    group_key: isSingleLeaf ? routeMeta?.titleKey : parent?.groupKey,
+    icon: typeof routeMeta?.icon === 'string' ? routeMeta.icon : undefined,
+    module_key: inferModuleKey(route, fullPath, routeMeta),
+    order: routeMeta?.orderNo ?? 0,
+    required_permissions: resolveRequiredPermissions(routeMeta),
+    route_location: fullPath,
+    title,
+    title_key: routeMeta?.titleKey,
+  };
 }
 
 /**
@@ -117,7 +134,11 @@ function toRouteMeta(meta: unknown) {
  *
  * @returns A grouping context with `groupLabel` and `groupKey`, or the parent context if no new values are available
  */
-function resolveParent(routeMeta: AppRouteMeta | undefined, locale: SupportedLocale, parent?: QuickActionParent) {
+function resolveParent(
+  routeMeta: QuickActionRouteMeta | undefined,
+  locale: SupportedLocale,
+  parent?: QuickActionParent,
+) {
   const groupLabel =
     renderLocalizedTitle(resolveRouteLocalizedTitle(routeMeta, 'page'), locale) ||
     renderLocalizedTitle(routeMeta?.title, locale) ||
@@ -134,37 +155,84 @@ function resolveParent(routeMeta: AppRouteMeta | undefined, locale: SupportedLoc
   };
 }
 
+function resolveRequiredPermissions(routeMeta: QuickActionRouteMeta | undefined) {
+  const requiredPermissions = routeMeta?.required_permissions ?? routeMeta?.requiredPermissions;
+  if (Array.isArray(requiredPermissions) && requiredPermissions.length > 0) {
+    return [...requiredPermissions];
+  }
+
+  if (typeof routeMeta?.permission === 'string' && routeMeta.permission.trim()) {
+    return [routeMeta.permission];
+  }
+
+  return undefined;
+}
+
 /**
- * Derives a module key from a dashboard route path.
+ * Derives a module key from dashboard route authority.
  *
- * Maps route paths to module keys based on path structure:
- * - 'access-control/overview' → 'access-control'
- * - 'access-control/*' → 'rbac'
- * - 'logs/access' → 'access-log'
- * - 'logs/app' → 'app-log'
- * - 'logs/*' → 'logs'
- * - Other paths → first path component
- * - Empty path → 'dashboard'
+ * Prefers route authority that is already stable in the frontend contract:
+ * `titleKey`, then route name, then the normalized path as the last fallback.
  *
- * @param path - The dashboard route path
- * @returns The module key derived from the path
+ * @param route - The quick-action source route
+ * @param path - The normalized dashboard route path
+ * @param routeMeta - The typed route metadata
+ * @returns The module key derived from the best available authority source
  */
-function inferModuleKey(path: string) {
+function inferModuleKey(route: QuickActionSource, path: string, routeMeta: QuickActionRouteMeta | undefined) {
+  const byTitleKey = inferModuleKeyFromTitleKey(routeMeta?.titleKey);
+  if (byTitleKey) {
+    return byTitleKey;
+  }
+
+  const byRouteName = inferModuleKeyFromRouteName(route.name);
+  if (byRouteName) {
+    return byRouteName;
+  }
   const segments = normalizeDashboardRoutePath(path).split('/').filter(Boolean);
   if (segments.length === 0) {
     return 'dashboard';
   }
 
-  const [first, second] = segments;
-  if (first === 'access-control') {
-    return second === 'overview' ? 'access-control' : 'rbac';
+  if (segments[0] === 'logs' && segments[1]) {
+    return `${segments[1]}-log`;
   }
 
-  if (first === 'logs') {
-    return second === 'access' ? 'access-log' : second === 'app' ? 'app-log' : first;
+  return segments[0];
+}
+
+function inferModuleKeyFromTitleKey(titleKey?: string) {
+  if (!titleKey) {
+    return '';
   }
 
-  return first;
+  const [prefix] = titleKey.split('.');
+  if (!prefix || prefix === 'menu') {
+    return '';
+  }
+
+  return normalizeModuleKey(prefix);
+}
+
+function inferModuleKeyFromRouteName(name: QuickActionSource['name']) {
+  if (typeof name !== 'string' || !name.trim()) {
+    return '';
+  }
+
+  const tokens = name.match(/[A-Z][a-z0-9]*/g) ?? [];
+  const meaningfulTokens = tokens.filter((token) => !ROUTE_NAME_NOISE_TOKENS.has(token));
+  if (meaningfulTokens.length === 0) {
+    return '';
+  }
+
+  return normalizeModuleKey(meaningfulTokens.join('-'));
+}
+
+function normalizeModuleKey(value: string) {
+  return value
+    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+    .replace(/[_\s]+/g, '-')
+    .toLowerCase();
 }
 
 /**
@@ -179,3 +247,16 @@ function compareQuickActions(left: DashboardQuickActionLink, right: DashboardQui
 
   return left.id.localeCompare(right.id);
 }
+
+const ROUTE_NAME_NOISE_TOKENS = new Set([
+  'Bootstrap',
+  'Group',
+  'Index',
+  'List',
+  'Overview',
+  'Detail',
+  'Runtime',
+  'Dependencies',
+  'Management',
+  'Page',
+]);
