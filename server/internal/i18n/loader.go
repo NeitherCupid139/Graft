@@ -16,7 +16,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const localeResourcePattern = "locales/*.yaml"
+var localeResourcePatterns = [...]string{
+	"locales/*.yaml",
+	"locales/modules/*.yaml",
+}
 const yamlMappingPairWidth = 2
 
 func (s *Service) registerEmbeddedCatalogs() error {
@@ -48,9 +51,13 @@ func loadLocaleRegistrations(fsys fs.FS) ([]Registration, error) {
 		return nil, nil
 	}
 
-	matches, err := fs.Glob(fsys, localeResourcePattern)
-	if err != nil {
-		return nil, fmt.Errorf("glob locale resources: %w", err)
+	var matches []string
+	for _, pattern := range localeResourcePatterns {
+		patternMatches, err := fs.Glob(fsys, pattern)
+		if err != nil {
+			return nil, fmt.Errorf("glob locale resources %q: %w", pattern, err)
+		}
+		matches = append(matches, patternMatches...)
 	}
 	slices.Sort(matches)
 

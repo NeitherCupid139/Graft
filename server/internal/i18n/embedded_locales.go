@@ -8,7 +8,7 @@ import (
 	"io/fs"
 )
 
-//go:embed locales/*.yaml
+//go:embed locales/*.yaml locales/modules/*
 var embeddedLocaleFiles embed.FS
 
 var embeddedLocaleFS fs.FS = embeddedLocaleFiles

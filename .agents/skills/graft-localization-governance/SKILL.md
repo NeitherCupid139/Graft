@@ -24,13 +24,16 @@ Treat root `AGENTS.md` as startup truth. This skill does not define a second val
 ## Authority Rules
 
 - Keep `server/internal/i18n.Service` as the only server i18n facade.
+- Treat embedded locale YAML under `server/internal/i18n/locales/**` as the canonical backend truth for user-visible localized copy.
+- Keep locale resource embed, load, validate, freeze, and registry construction centralized in `server/internal/i18n`.
 - Do not let business modules, `configregistry`, `httpx`, or `moduleapi` import `go-i18n`, loader internals, or provider
   internals.
+- Do not let business modules embed or load locale files themselves, even for module-owned namespaces.
 - Keep `web/src/locales/**` as the web locale state and aggregation boundary.
 - Keep module web messages in `web/src/modules/<name>/locales/**`; do not copy module keys into root catalog.
 - Prefer stable keys over server-provided final text for menus, errors, permissions, system config metadata, and schema
   labels.
-- Keep fallback text as compatibility only; do not create a second long-term text truth.
+- Keep fallback text as compatibility only; do not create a second long-term text truth or describe hardcoded Go copy as an acceptable steady-state authority.
 
 ## Server Workflow
 
@@ -39,9 +42,12 @@ Treat root `AGENTS.md` as startup truth. This skill does not define a second val
    `LookupRequest`.
 3. For resource-file work, convert flat YAML entries into `i18n.Registration` and register through
    `Service.RegisterMessages`; do not bypass duplicate-key, unsupported-locale, or freeze rules.
-4. Do not migrate all `defaultCatalogEntries` in an early phase. Treat core HTTP error copy as high blast radius.
-5. Keep JSON Schema `x-i18n.titleKey`, `descriptionKey`, and `enumLabels` intact.
-6. Keep `LookupRequest.TemplateData` as the future template bridge; do not expose provider-specific template types.
+4. Keep backend locale resources centralized under `server/internal/i18n/locales/*.yaml` and
+   `server/internal/i18n/locales/modules/*.yaml`; module ownership is semantic, not a license to add per-module loaders.
+5. Keep centralized loader coverage for both root and nested module locale files without changing facade or provider exposure.
+6. Do not migrate all `defaultCatalogEntries` in an early phase. Treat core HTTP error copy as high blast radius.
+7. Keep JSON Schema `x-i18n.titleKey`, `descriptionKey`, and `enumLabels` intact.
+8. Keep `LookupRequest.TemplateData` as the future template bridge; do not expose provider-specific template types.
 
 ## Web Workflow
 
@@ -53,7 +59,7 @@ Treat root `AGENTS.md` as startup truth. This skill does not define a second val
 
 ## Phase Defaults
 
-- Phase 1: add server embedded YAML loader and tests; keep map catalog and facade.
+- Phase 1: add server embedded YAML loader and tests; keep map catalog and facade, and centralize the locale directory strategy in `server/internal/i18n`.
 - Phase 2: migrate dashboard quick actions system-config copy as the first sample.
 - Phase 3: migrate system-config copy in batches.
 - Phase 4: migrate menu, notification, announcement, scheduler, container, and log explorer display copy.
@@ -96,4 +102,3 @@ Localization governance:
 - resource_format: flat-yaml | not-applicable
 - validation: <commands and results>
 ```
-

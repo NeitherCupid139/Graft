@@ -29,7 +29,19 @@
 - 当前决策：不引入 `go-i18n`。
   - 原因是当前收益未被真实需求证明，而 provider 切换会增加实现分叉、测试矩阵和 provider 泄漏风险。
   - 未来只有在 plural、命名模板、翻译平台工作流或新增 locale 成为真实需求时，才重新开启 bounded provider 评估。
-- 本主题当前进入 `ready-for-archive-check`，等待外层 loop 根据 commits、验证证据和 pending batch 状态做最终 archive-ready 判断。
+
+## 2026-06-18 Batch 0 authority reset and locale directory strategy
+
+- 识别到 public README、tracking、trace 和 skill 仍保留 `ready-for-archive-check` 与过时 locale ownership 语言，属于 authority drift。
+- 本轮将 design/topic/skill 统一重置为以下 backend authority：
+  - embedded locale YAML 是 backend 用户可见本地化文案的 canonical truth。
+  - `server/internal/i18n` 独占 locale 资源的 embed、load、validate、freeze 与 registry construction。
+  - module 不得自持 locale 文件 embed/load 逻辑，也不得在 `server/internal/i18n` 外维护平行 registry。
+- 目录策略落定为：
+  - `server/internal/i18n/locales/*.yaml` 承载 core-owned namespace。
+  - `server/internal/i18n/locales/modules/*.yaml` 承载 module-owned namespace。
+  - 两类资源都只能由 `server/internal/i18n` 编译期 embed 并在启动期集中加载。
+- 若实现侧仍只支持 `locales/*.yaml`，本轮同步补齐 `locales/modules/*.yaml` loader 支持，但不改 facade、provider exposure 或 wire contract。
 
 ## Loop Batch State
 
@@ -37,16 +49,16 @@
 {
   "loop_mode": "topic-completion-loop",
   "completed_batches": [
-    "phase-0-design-topic-skill-persistence",
-    "phase-1-server-loader-foundation",
-    "phase-2-dashboard-quick-actions-sample",
-    "phase-3-system-config-bulk-migration",
-    "phase-4-display-message-migration-governance",
-    "phase-5-go-i18n-provider-evaluation"
+    "batch-0-authority-reset-and-locale-directory-strategy"
   ],
-  "pending_batches": [],
-  "current_batch": "phase-5-go-i18n-provider-evaluation",
-  "next_batch": null,
-  "closeout_status": "ready-for-archive-check"
+  "pending_batches": [
+    "slice-1-module-registration-resource-migration",
+    "slice-2-core-default-catalog-migration",
+    "slice-3-delete-legacy-fallbacks-and-switch-to-locale-resource",
+    "final-archive-readiness-and-governance-sync"
+  ],
+  "current_batch": "batch-0-authority-reset-and-locale-directory-strategy",
+  "next_batch": "slice-1-module-registration-resource-migration",
+  "closeout_status": "batch-0-in-progress"
 }
 ```

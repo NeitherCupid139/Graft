@@ -6,7 +6,7 @@ Localization Governance
 
 ## Scope
 
-建立前后端本地化治理规范，新增 AI 执行 skill，并分阶段把 server 侧硬编码 i18n 注册点迁移到资源文件。
+建立前后端本地化治理规范，新增 AI 执行 skill，并分批把 server 侧硬编码 i18n 注册点迁移到集中 locale 资源文件。
 
 ## Repository Truth
 
@@ -21,19 +21,20 @@ Localization Governance
 
 ## Current Recovery Point
 
-- Phase 0-5 已全部完成。
-- 当前恢复点：等待外层 loop 执行 archive-readiness check。
-- 若未来出现 plural、复杂模板渲染、翻译平台导入导出或新增 locale 的真实需求，再以新 bounded batch 重开 provider 评估。
+- 旧 recovery 口径中的 `Phase 0-5 已全部完成 / ready-for-archive-check` 已确认失真。
+- 当前恢复点是 `batch-0-authority-reset-and-locale-directory-strategy`。
+- 本轮必须先重置 authority：
+  - embedded locale YAML 是 backend 用户可见本地化文案的 canonical truth。
+  - `server/internal/i18n` 独占 locale 资源的 embed、load、validate、freeze 与 registry construction。
+  - module 不得自持 locale 文件加载逻辑。
+- 后续 pending batch 仍包括 module registration resource migration、core default catalog migration、legacy fallback 清理和最终 archive readiness。
 
 ## Task Checklist
 
-- [x] Phase 0：探索和迁移计划
-- [x] Phase 0：设计规范持久化
-- [x] Phase 0：public topic 建立
-- [x] Phase 0：AI skill 建立
-- [x] Phase 1：server embedded YAML loader
-- [x] Phase 1：loader 单测
-- [x] Phase 2：dashboard quick actions 样例迁移
-- [x] Phase 3：system-config 批量迁移
-- [x] Phase 4：展示文案迁移和治理测试
-- [x] Phase 5：go-i18n provider 评估
+- [ ] batch-0：authority reset、README/skill/topic 状态纠偏
+- [ ] batch-0：集中 locale 目录策略落定
+- [ ] batch-0：`server/internal/i18n` nested module locale loader 支持
+- [ ] slice-1：module registration resource migration
+- [ ] slice-2：core default catalog migration
+- [ ] slice-3：delete legacy fallbacks and switch to locale resource
+- [ ] final：archive readiness and governance sync

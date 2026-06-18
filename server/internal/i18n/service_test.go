@@ -359,6 +359,35 @@ func TestLoadLocaleRegistrationsParsesFlatYAML(t *testing.T) {
 	}
 }
 
+func TestLoadLocaleRegistrationsIncludesNestedModuleResources(t *testing.T) {
+	registrations, err := loadLocaleRegistrations(fstest.MapFS{
+		"locales/core.en-US.yaml": {
+			Data: []byte("core.errors.unknown: Unknown error\n"),
+		},
+		"locales/modules/rbac.en-US.yaml": {
+			Data: []byte("rbac.permissionCatalog.users.display: Users\n"),
+		},
+		"locales/modules/rbac.zh-CN.yaml": {
+			Data: []byte("rbac.permissionCatalog.users.display: 用户\n"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("load locale registrations: %v", err)
+	}
+	if len(registrations) != 3 {
+		t.Fatalf("expected 3 registrations, got %d", len(registrations))
+	}
+	if registrations[0].Namespace != "core" || registrations[0].Locale != LocaleENUS {
+		t.Fatalf("expected core en-US registration first, got %+v", registrations[0])
+	}
+	if registrations[1].Namespace != "rbac" || registrations[1].Locale != LocaleENUS {
+		t.Fatalf("expected nested module en-US registration second, got %+v", registrations[1])
+	}
+	if registrations[2].Namespace != "rbac" || registrations[2].Locale != LocaleZHCN {
+		t.Fatalf("expected nested module zh-CN registration third, got %+v", registrations[2])
+	}
+}
+
 func TestLoadLocaleRegistrationsRejectsDuplicateKeys(t *testing.T) {
 	_, err := loadLocaleRegistrations(fstest.MapFS{
 		"locales/system-config.en-US.yaml": {
@@ -406,6 +435,9 @@ func TestNewRegistersEmbeddedLocaleResources(t *testing.T) {
 		"locales/dashboard.zh-CN.yaml": {
 			Data: []byte("dashboard.quickActions.title: 快捷入口\n"),
 		},
+		"locales/modules/rbac.en-US.yaml": {
+			Data: []byte("rbac.permissionCatalog.users.display: Users\n"),
+		},
 	}
 	t.Cleanup(func() {
 		embeddedLocaleFS = previousFS
@@ -419,5 +451,12 @@ func TestNewRegistersEmbeddedLocaleResources(t *testing.T) {
 	})
 	if message != "Quick Actions" {
 		t.Fatalf("expected embedded locale resource to be registered, got %q", message)
+	}
+	if nested := service.Lookup(LookupRequest{
+		Namespace: "rbac",
+		Locale:    LocaleENUS,
+		Key:       "rbac.permissionCatalog.users.display",
+	}); nested != "Users" {
+		t.Fatalf("expected nested embedded locale resource to be registered, got %q", nested)
 	}
 }
