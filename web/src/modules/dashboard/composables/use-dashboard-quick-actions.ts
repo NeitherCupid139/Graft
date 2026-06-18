@@ -5,6 +5,7 @@ import { computed, ref } from 'vue';
 
 import { createLogger } from '@/utils/logger';
 
+import type { DashboardQuickActionLink } from '../contract/quick-action-links';
 import {
   DASHBOARD_QUICK_ACTION_STORAGE_KEY,
   DASHBOARD_QUICK_ACTION_STRATEGY,
@@ -13,7 +14,6 @@ import {
   type DashboardQuickActionUsageRecord,
   type DashboardQuickActionViewModel,
 } from '../contract/quick-actions';
-import type { DashboardQuickLink } from '../types/dashboard';
 
 const INVALID_LAST_ACCESS_TIME = 0;
 const logger = createLogger('dashboard.quickActions');
@@ -120,7 +120,10 @@ function score(
   return normalizedAccess * 0.7 + normalizedRecent * 0.3;
 }
 
-export function useDashboardQuickActions(links: () => DashboardQuickLink[], config: () => DashboardQuickActionConfig) {
+export function useDashboardQuickActions(
+  links: () => DashboardQuickActionLink[],
+  config: () => DashboardQuickActionConfig,
+) {
   const usage = ref<DashboardQuickActionUsageMap>(readUsageMap());
 
   const rankedLinks = computed<DashboardQuickActionViewModel[]>(() => {

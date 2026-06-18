@@ -5,8 +5,8 @@ import { mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineComponent, h } from 'vue';
 
+import type { DashboardQuickActionLink } from '../contract/quick-action-links';
 import type { DashboardQuickActionConfig } from '../contract/quick-actions';
-import type { DashboardQuickLink } from '../types/dashboard';
 import DashboardQuickActions from './DashboardQuickActions.vue';
 
 vi.mock('@/locales', () => ({
@@ -150,7 +150,7 @@ const drawerStub = defineComponent({
   },
 });
 
-function quickLink(index: number, partial: Partial<DashboardQuickLink> = {}): DashboardQuickLink {
+function quickLink(index: number, partial: Partial<DashboardQuickActionLink> = {}): DashboardQuickActionLink {
   return {
     id: `link-${index}`,
     module_key: index % 2 === 0 ? 'core' : 'audit',
@@ -161,7 +161,7 @@ function quickLink(index: number, partial: Partial<DashboardQuickLink> = {}): Da
   };
 }
 
-function mountQuickActions(links: DashboardQuickLink[], config?: DashboardQuickActionConfig) {
+function mountQuickActions(links: DashboardQuickActionLink[], config?: DashboardQuickActionConfig) {
   return mount(DashboardQuickActions, {
     props: {
       config,

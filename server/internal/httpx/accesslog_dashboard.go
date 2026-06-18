@@ -16,10 +16,6 @@ const (
 	AccessLogDashboardWidgetID = "core.httpx.access-log.request-attention"
 	// AccessLogDashboardWidgetOrder keeps access-log attention after module health widgets.
 	AccessLogDashboardWidgetOrder = 130
-	// AccessLogDashboardQuickLinkID identifies the access-log dashboard quick entry.
-	AccessLogDashboardQuickLinkID = "core.httpx.access-log"
-	// AccessLogDashboardQuickLinkOrder places the access-log entry with log-center quick links.
-	AccessLogDashboardQuickLinkOrder = 210
 	accessLogSlowRequestThresholdMS  = int64(1000)
 	accessLogWidgetRecentLimit       = 2
 	accessLogWidgetSourceCount       = 3
@@ -35,11 +31,6 @@ func AccessLogDashboardModuleKey() string {
 // AccessLogDashboardRouteLocation returns the canonical access-log explorer route.
 func AccessLogDashboardRouteLocation() string {
 	return accessLogMenuListPath
-}
-
-// AccessLogDashboardTitleKey returns the access-log explorer title message key.
-func AccessLogDashboardTitleKey() string {
-	return "menu.accessLog.title"
 }
 
 // LoadAccessLogRequestAttentionPayload returns access-log attention data without depending on dashboard internals.

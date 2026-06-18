@@ -2,12 +2,20 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { flushPromises, mount } from '@vue/test-utils';
+import { createPinia, setActivePinia } from 'pinia';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { defineComponent, h } from 'vue';
+import { defineComponent, h, ref } from 'vue';
+import type { RouteRecordRaw } from 'vue-router';
+
+import { usePermissionStore } from '@/store/modules/permission';
 
 import type { DashboardQuickActionConfig } from '../contract/quick-actions';
 import type { DashboardSummaryResponse, DashboardWidget } from '../types/dashboard';
 import DashboardHomePage from './index.vue';
+
+function asRouteRecordRaw<T extends object>(route: T) {
+  return route as unknown as RouteRecordRaw;
+}
 
 const dashboardApiMocks = vi.hoisted(() => ({
   getDashboardSummary: vi.fn(),
@@ -35,8 +43,78 @@ vi.mock('../api/quick-actions-config', () => ({
   getDashboardSystemConfigs: quickActionConfigApiMocks.getDashboardSystemConfigs,
 }));
 
+vi.mock('../components/DashboardRenderer.vue', () => ({
+  default: defineComponent({
+    name: 'DashboardRendererStub',
+    props: {
+      widgets: {
+        type: Array,
+        default: () => [],
+      },
+    },
+    emits: ['refresh-widget'],
+    setup(props, { emit }) {
+      return () =>
+        h('div', { class: 'renderer-stub' }, [
+          (props.widgets as DashboardWidget[]).map((widget) => h('span', { class: 'widget-id' }, widget.id)),
+          h('button', { class: 'refresh-widget', onClick: () => emit('refresh-widget', 'core.module-runtime-health') }),
+        ]);
+    },
+  }),
+}));
+
+vi.mock('../components/DashboardQuickActions.vue', () => ({
+  default: defineComponent({
+    name: 'DashboardQuickActions',
+    props: {
+      config: {
+        type: Object,
+        default: () => ({ enabled: true, maxItems: 8, strategy: 'hybrid' }),
+      },
+      links: {
+        type: Array,
+        default: () => [],
+      },
+    },
+    setup(props) {
+      return () => {
+        const config = props.config as DashboardQuickActionConfig;
+        const links = [
+          ...(props.links as Array<{ id: string; order: number; route_location: string; title?: string }>),
+        ].sort((left, right) => {
+          if (left.order !== right.order) {
+            return left.order - right.order;
+          }
+          return left.id.localeCompare(right.id);
+        });
+        return h(
+          'section',
+          {
+            class: 'quick-actions-stub',
+            'data-enabled': String(config.enabled),
+            'data-max-items': String(config.maxItems),
+            'data-strategy': config.strategy,
+          },
+          config.enabled
+            ? links.slice(0, config.maxItems).map((link) =>
+                h(
+                  'button',
+                  {
+                    class: 'dashboard-quick-actions__item',
+                    onClick: () => routerMocks.push(link.route_location),
+                  },
+                  [h('strong', link.title), null],
+                ),
+              )
+            : [],
+        );
+      };
+    },
+  }),
+}));
+
 vi.mock('@/locales', () => ({
-  currentLocale: 'en-US',
+  currentLocale: ref('en-US'),
   i18n: {
     global: {
       getLocaleMessage: () => ({}),
@@ -84,8 +162,22 @@ vi.mock('@/locales', () => ({
   },
 }));
 
+vi.mock('@/shared/components/page', () => ({
+  PageHeader: defineComponent({
+    name: 'PageHeaderStub',
+    setup(_props, { slots }) {
+      return () => h('section', { class: 'page-header-stub' }, [slots.default?.(), slots.actions?.()]);
+    },
+  }),
+}));
+
 vi.mock('@/utils/logger', () => ({
   createLogger: () => loggerMocks,
+}));
+
+vi.mock('@/shared/observability', () => ({
+  MEDIUM_DATE_TIME_WITH_SECONDS_FORMAT_OPTIONS: {},
+  formatLocaleDateTime: (value: string) => value,
 }));
 
 vi.mock('vue-router', () => ({
@@ -107,47 +199,6 @@ const rendererStub = defineComponent({
         (props.widgets as DashboardWidget[]).map((widget) => h('span', { class: 'widget-id' }, widget.id)),
         h('button', { class: 'refresh-widget', onClick: () => emit('refresh-widget', 'core.module-runtime-health') }),
       ]);
-  },
-});
-
-const quickActionsStub = defineComponent({
-  name: 'DashboardQuickActions',
-  props: {
-    config: {
-      type: Object,
-      default: () => ({ enabled: true, maxItems: 8, strategy: 'hybrid' }),
-    },
-    links: {
-      type: Array,
-      default: () => [],
-    },
-  },
-  setup(props) {
-    return () => {
-      const config = props.config as DashboardQuickActionConfig;
-      const links = summaryQuickLinks(props.links);
-      return h(
-        'section',
-        {
-          class: 'quick-actions-stub',
-          'data-enabled': String(config.enabled),
-          'data-max-items': String(config.maxItems),
-          'data-strategy': config.strategy,
-        },
-        config.enabled
-          ? links.slice(0, config.maxItems).map((link) =>
-              h(
-                'button',
-                {
-                  class: 'dashboard-quick-actions__item',
-                  onClick: () => routerMocks.push(link.route_location),
-                },
-                [h('strong', link.title), link.description ? h('small', link.description) : null],
-              ),
-            )
-          : [],
-      );
-    };
   },
 });
 
@@ -232,23 +283,7 @@ function summaryResponse(): DashboardSummaryResponse {
       },
       visible_widgets: 1,
     },
-    quick_links: [
-      {
-        id: 'rbac.roles',
-        module_key: 'rbac',
-        order: 20,
-        route_location: '/rbac/roles',
-        title: 'Roles',
-      },
-      {
-        description: 'Review events',
-        id: 'audit.logs',
-        module_key: 'audit',
-        order: 10,
-        route_location: '/audit/events?level=warning',
-        title: 'Audit Logs',
-      },
-    ],
+    quick_links: [],
     widgets: [
       {
         category: 'system',
@@ -290,15 +325,6 @@ function summaryResponse(): DashboardSummaryResponse {
   };
 }
 
-function summaryQuickLinks(value: unknown) {
-  return [...(value as DashboardSummaryResponse['quick_links'])].sort((left, right) => {
-    if (left.order !== right.order) {
-      return left.order - right.order;
-    }
-    return left.id.localeCompare(right.id);
-  });
-}
-
 function quickActionsConfigItem(effectiveValue: string) {
   return {
     config_schema: {},
@@ -320,7 +346,6 @@ function mountPage() {
   return mount(DashboardHomePage, {
     global: {
       stubs: {
-        DashboardQuickActions: quickActionsStub,
         DashboardRenderer: rendererStub,
         TAlert: passthroughStub,
         TBadge: passthroughStub,
@@ -348,13 +373,100 @@ function mountPage() {
   });
 }
 
+function buildSidebarRoutes() {
+  return [
+    {
+      path: '/audit',
+      name: 'BootstrapGroupAudit',
+      meta: {
+        titleKey: 'audit.route.group.title',
+      },
+      children: [
+        asRouteRecordRaw({
+          path: 'events',
+          name: 'AuditEventListIndex',
+          meta: {
+            icon: 'secured',
+            orderNo: 10,
+            tabTitle: {
+              'zh-CN': '审计中心 - 事件',
+              'en-US': 'Audit - Events',
+            },
+            titleKey: 'audit.route.events.title',
+          },
+        }),
+      ],
+    },
+    {
+      path: '/ops/containers',
+      name: 'ContainerList',
+      meta: {
+        icon: 'layers',
+        orderNo: 15,
+        single: true,
+        tabTitle: {
+          'zh-CN': '容器管理',
+          'en-US': 'Container Management',
+        },
+        titleKey: 'container.route.list.title',
+      },
+      children: [
+        asRouteRecordRaw({
+          path: 'index',
+          name: 'ContainerListIndex',
+          meta: {
+            hidden: true,
+            titleKey: 'container.route.list.title',
+          },
+        }),
+      ],
+    },
+    {
+      path: '/access-control',
+      name: 'BootstrapGroupAccessControl',
+      meta: {
+        titleKey: 'accessControl.route.group.title',
+      },
+      children: [
+        asRouteRecordRaw({
+          path: 'roles',
+          name: 'RoleListIndex',
+          meta: {
+            orderNo: 20,
+            tabTitle: {
+              'zh-CN': '访问控制 - 角色管理',
+              'en-US': 'Access Control - Roles',
+            },
+            titleKey: 'rbac.role.list.title',
+          },
+        }),
+        asRouteRecordRaw({
+          path: 'permissions',
+          name: 'PermissionListIndex',
+          meta: {
+            hiddenMenu: true,
+            orderNo: 25,
+            tabTitle: {
+              'zh-CN': '访问控制 - 权限管理',
+              'en-US': 'Access Control - Permissions',
+            },
+            titleKey: 'rbac.permission.list.title',
+          },
+        }),
+      ],
+    },
+  ] as RouteRecordRaw[];
+}
+
 describe('DashboardHomePage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    setActivePinia(createPinia());
     quickActionConfigApiMocks.getDashboardSystemConfigs.mockResolvedValue({ items: [] });
+    usePermissionStore().routers = buildSidebarRoutes();
   });
 
-  it('loads and renders the fixed system summary plus API-provided quick links and widgets', async () => {
+  it('loads and renders the fixed system summary plus sidebar-derived quick links and widgets', async () => {
     dashboardApiMocks.getDashboardSummary.mockResolvedValueOnce(summaryResponse());
 
     const wrapper = mountPage();
@@ -366,25 +478,26 @@ describe('DashboardHomePage', () => {
     expect(wrapper.text()).toContain('Abnormal services');
     expect(wrapper.text()).toContain('Failed tasks');
     expect(wrapper.text()).toContain('High-risk events');
-    expect(wrapper.text()).toContain('Audit Logs');
-    expect(wrapper.text()).toContain('Review events');
-    expect(wrapper.text()).toContain('Roles');
+    expect(wrapper.text()).toContain('Audit - Events');
+    expect(wrapper.text()).toContain('Container Management');
+    expect(wrapper.text()).toContain('Access Control - Roles');
+    expect(wrapper.text()).not.toContain('Access Control - Permissions');
     expect(wrapper.text()).toContain('core.module-runtime-health');
     expect(wrapper.text()).toContain('monitor.system-health');
   });
 
-  it('opens the API-provided route when a quick action is clicked', async () => {
+  it('opens the sidebar-derived route when a quick action is clicked', async () => {
     dashboardApiMocks.getDashboardSummary.mockResolvedValueOnce(summaryResponse());
 
     const wrapper = mountPage();
     await flushPromises();
 
     const quickActionButtons = wrapper.findAll('button.dashboard-quick-actions__item');
-    expect(quickActionButtons).toHaveLength(2);
+    expect(quickActionButtons).toHaveLength(3);
 
     await quickActionButtons[0].trigger('click');
 
-    expect(routerMocks.push).toHaveBeenCalledWith('/audit/events?level=warning');
+    expect(routerMocks.push).toHaveBeenCalledWith('/audit/events');
   });
 
   it('passes disabled quick-action config from system config to the dashboard section', async () => {
@@ -413,8 +526,8 @@ describe('DashboardHomePage', () => {
     const quickActions = wrapper.find('.quick-actions-stub');
     expect(quickActions.attributes('data-max-items')).toBe('1');
     expect(wrapper.findAll('button.dashboard-quick-actions__item')).toHaveLength(1);
-    expect(wrapper.text()).toContain('Audit Logs');
-    expect(wrapper.text()).not.toContain('Roles');
+    expect(wrapper.text()).toContain('Audit - Events');
+    expect(wrapper.text()).not.toContain('Container Management');
   });
 
   it('refreshes one widget through the focused widget endpoint', async () => {

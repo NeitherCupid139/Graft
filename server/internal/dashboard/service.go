@@ -71,10 +71,8 @@ func NewService(options ServiceOptions) *Service {
 
 // Summary returns the dashboard system summary and all visible contributions.
 func (s *Service) Summary(ctx context.Context, requestAuth moduleapi.RequestAuthContext) generated.DashboardSummaryResponse {
-	quickLinks := s.visibleQuickLinks(ctx, requestAuth, s.registry.QuickLinks())
 	widgets := s.visibleWidgets(ctx, requestAuth, s.registry.Items())
 	return generated.DashboardSummaryResponse{
-		QuickLinks:    quickLinks,
 		SystemSummary: s.systemSummary(requestAuth, widgets),
 		Widgets:       widgets,
 	}
@@ -91,21 +89,6 @@ func (s *Service) Widget(ctx context.Context, requestAuth moduleapi.RequestAuthC
 		return generated.DashboardWidget{}, false
 	}
 	return widget, true
-}
-
-func (s *Service) visibleQuickLinks(
-	ctx context.Context,
-	requestAuth moduleapi.RequestAuthContext,
-	definitions []QuickLinkDefinition,
-) []generated.DashboardQuickLink {
-	quickLinks := make([]generated.DashboardQuickLink, 0, len(definitions))
-	for _, definition := range definitions {
-		if !s.canReadPermissions(ctx, requestAuth, definition.RequiredPermissions) {
-			continue
-		}
-		quickLinks = append(quickLinks, quickLinkFromDefinition(definition))
-	}
-	return quickLinks
 }
 
 func (s *Service) visibleWidgets(
@@ -468,34 +451,6 @@ func summaryAbnormalServices(widgets []generated.DashboardWidget) int {
 		total += intMetricValue(widget.Payload["abnormal_services"])
 	}
 	return total
-}
-
-func quickLinkFromDefinition(definition QuickLinkDefinition) generated.DashboardQuickLink {
-	quickLink := generated.DashboardQuickLink{
-		Id:            definition.ID,
-		ModuleKey:     definition.ModuleKey,
-		Order:         definition.Order,
-		RouteLocation: definition.RouteLocation,
-	}
-	if definition.TitleKey != "" {
-		quickLink.TitleKey = &definition.TitleKey
-	}
-	if definition.Title != "" {
-		quickLink.Title = &definition.Title
-	}
-	if definition.DescriptionKey != "" {
-		quickLink.DescriptionKey = &definition.DescriptionKey
-	}
-	if definition.Description != "" {
-		quickLink.Description = &definition.Description
-	}
-	if definition.Icon != "" {
-		quickLink.Icon = &definition.Icon
-	}
-	if len(definition.RequiredPermissions) > 0 {
-		quickLink.RequiredPermissions = ptr(append([]string(nil), definition.RequiredPermissions...))
-	}
-	return quickLink
 }
 
 func payloadMap(payload WidgetPayload) map[string]interface{} {

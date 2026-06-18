@@ -106,13 +106,14 @@ import { renderLocalizedTitle, resolveRouteLocalizedTitle } from '@/utils/route/
 import type { AppRouteMeta } from '@/utils/types';
 
 import { useDashboardQuickActions } from '../composables/use-dashboard-quick-actions';
+import type { DashboardQuickActionLink } from '../contract/quick-action-links';
 import { type DashboardQuickActionConfig, DEFAULT_DASHBOARD_QUICK_ACTION_CONFIG } from '../contract/quick-actions';
-import type { DashboardQuickLink } from '../types/dashboard';
+import { normalizeDashboardRoutePath, normalizeJoinedDashboardRoutePath } from '../contract/route-paths';
 import { openDashboardRoute } from './widgets/widget-actions';
 import { resolveDashboardText } from './widgets/widget-i18n';
 
 const props = defineProps<{
-  links: DashboardQuickLink[];
+  links: DashboardQuickActionLink[];
   config?: DashboardQuickActionConfig;
 }>();
 
@@ -135,7 +136,7 @@ const MODULE_COLOR_PREFIXES = [
   { prefixes: ['system-config'], color: 'var(--td-success-color-6)' },
 ] as const;
 
-function linkTitle(link: DashboardQuickLink) {
+function linkTitle(link: DashboardQuickActionLink) {
   const routeTitle = resolveQuickLinkRouteTitle(link);
   if (routeTitle) {
     return routeTitle;
@@ -144,7 +145,7 @@ function linkTitle(link: DashboardQuickLink) {
   return resolveDashboardText(link.title_key, link.title || link.id);
 }
 
-function resolveQuickLinkRouteTitle(link: DashboardQuickLink) {
+function resolveQuickLinkRouteTitle(link: DashboardQuickActionLink) {
   const routeMeta =
     resolveRuntimeRouteMeta(link.route_location) ?? getBootstrapRouteRegistration(link.route_location)?.meta;
   const title = renderLocalizedTitle(
@@ -157,7 +158,7 @@ function resolveQuickLinkRouteTitle(link: DashboardQuickLink) {
 }
 
 function resolveRuntimeRouteMeta(routeLocation: string) {
-  const targetPath = normalizeRoutePath(routeLocation);
+  const targetPath = normalizeDashboardRoutePath(routeLocation);
   if (!targetPath) {
     return undefined;
   }
@@ -167,7 +168,7 @@ function resolveRuntimeRouteMeta(routeLocation: string) {
 
 function findRouteMetaByPath(routes: RouteRecordRaw[], targetPath: string, parentPath = ''): AppRouteMeta | undefined {
   for (const route of routes) {
-    const routePath = normalizeJoinedRoutePath(parentPath, String(route.path));
+    const routePath = normalizeJoinedDashboardRoutePath(parentPath, String(route.path));
     if (routePath === targetPath) {
       return route.meta as AppRouteMeta | undefined;
     }
@@ -181,30 +182,7 @@ function findRouteMetaByPath(routes: RouteRecordRaw[], targetPath: string, paren
   return undefined;
 }
 
-function normalizeJoinedRoutePath(parentPath: string, routePath: string) {
-  if (routePath.startsWith('/')) {
-    return normalizeRoutePath(routePath);
-  }
-
-  if (!routePath) {
-    return normalizeRoutePath(parentPath);
-  }
-
-  return normalizeRoutePath(`${parentPath}/${routePath}`);
-}
-
-function normalizeRoutePath(path: string) {
-  const trimmed = path.trim();
-  if (!trimmed) {
-    return '';
-  }
-
-  const pathOnly = trimmed.split(/[?#]/, 1)[0] ?? '';
-  const withLeadingSlash = pathOnly.startsWith('/') ? pathOnly : `/${pathOnly}`;
-  return withLeadingSlash === '/' ? withLeadingSlash : withLeadingSlash.replace(/\/+$/, '');
-}
-
-function linkDescription(link: DashboardQuickLink) {
+function linkDescription(link: DashboardQuickActionLink) {
   return resolveDashboardText(link.description_key, link.description);
 }
 

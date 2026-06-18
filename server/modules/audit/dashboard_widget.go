@@ -24,21 +24,11 @@ const (
 	auditLogsQueryBusiness      = "business_category"
 	auditLogsQueryResults       = "results"
 	auditLogsQueryRiskLevels    = "risk_levels"
-	auditOverviewQuickLinkID    = "audit.overview"
-	auditLogsQuickLinkID        = "audit.logs"
-	auditOverviewQuickLinkOrder = 140
-	auditLogsQuickLinkOrder     = 150
 )
 
 func registerAuditDashboardWidget(ctx *module.Context, reader *Service) error {
 	if ctx == nil || ctx.DashboardRegistry == nil {
 		return nil
-	}
-
-	for _, link := range auditQuickLinks() {
-		if err := ctx.DashboardRegistry.RegisterQuickLink(link); err != nil {
-			return fmt.Errorf("register audit dashboard quick link: %w", err)
-		}
 	}
 
 	if err := ctx.DashboardRegistry.Register(dashboard.WidgetDefinition{
@@ -66,31 +56,6 @@ func registerAuditDashboardWidget(ctx *module.Context, reader *Service) error {
 
 	return nil
 }
-
-func auditQuickLinks() []dashboard.QuickLinkDefinition {
-	requiredPermissions := []string{auditcontract.AuditReadPermission.String()}
-	return []dashboard.QuickLinkDefinition{
-		{
-			ID:                  auditOverviewQuickLinkID,
-			ModuleKey:           moduleID,
-			TitleKey:            auditcontract.AuditOverviewMenuTitle.String(),
-			Icon:                "dashboard",
-			RouteLocation:       auditcontract.AuditOverviewMenuPath,
-			RequiredPermissions: append([]string(nil), requiredPermissions...),
-			Order:               auditOverviewQuickLinkOrder,
-		},
-		{
-			ID:                  auditLogsQuickLinkID,
-			ModuleKey:           moduleID,
-			TitleKey:            auditcontract.AuditLogMenuTitle.String(),
-			Icon:                "history",
-			RouteLocation:       auditcontract.AuditLogsMenuPath,
-			RequiredPermissions: append([]string(nil), requiredPermissions...),
-			Order:               auditLogsQuickLinkOrder,
-		},
-	}
-}
-
 func loadAuditRiskEventsWidget(ctx context.Context, reader *Service) (dashboard.WidgetPayload, error) {
 	overview, err := reader.Overview(ctx, auditstore.AuditTimePresetLast24Hours)
 	if err != nil {

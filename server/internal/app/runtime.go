@@ -42,8 +42,6 @@ const moduleShutdownTimeout = 5 * time.Second
 const appRuntimeLogComponent = "internal.app.runtime"
 const (
 	coreModuleRuntimeHealthWidgetOrder = 10
-	coreModuleRuntimeQuickLinkID       = "core.module-runtime"
-	coreModuleRuntimeQuickLinkOrder    = 105
 	moduleRuntimeHealthTitleKey        = "dashboard.widget.moduleRuntimeHealth.title"
 	moduleRuntimeHealthDescriptionKey  = "dashboard.widget.moduleRuntimeHealth.description"
 	moduleRuntimeHealthSummaryKey      = "dashboard.widget.moduleRuntimeHealth.summary"
@@ -669,37 +667,11 @@ func (r *Runtime) registerCoreModuleRuntimeDashboard() error {
 		return fmt.Errorf("register core dashboard widget: %w", err)
 	}
 
-	if err := r.dashboardRegistry.RegisterQuickLink(dashboard.QuickLinkDefinition{
-		ID:                  coreModuleRuntimeQuickLinkID,
-		ModuleKey:           "core",
-		TitleKey:            moduleruntime.MenuRuntimeTitleKey(),
-		Title:               r.mustLookupCoreDisplay(moduleruntime.MenuRuntimeTitleKey()),
-		Icon:                "module",
-		RouteLocation:       moduleruntime.MenuRuntimePath(),
-		RequiredPermissions: []string{moduleruntime.PermissionRead},
-		Order:               coreModuleRuntimeQuickLinkOrder,
-	}); err != nil {
-		return fmt.Errorf("register module-runtime dashboard quick link: %w", err)
-	}
-
 	return nil
 }
 
 func (r *Runtime) registerCoreAccessLogDashboard() error {
 	if repo := r.server.AccessLogRepository(); repo != nil {
-		if err := r.dashboardRegistry.RegisterQuickLink(dashboard.QuickLinkDefinition{
-			ID:                  httpx.AccessLogDashboardQuickLinkID,
-			ModuleKey:           httpx.AccessLogDashboardModuleKey(),
-			TitleKey:            httpx.AccessLogDashboardTitleKey(),
-			Title:               r.mustLookupCoreDisplay(httpx.AccessLogDashboardTitleKey()),
-			Icon:                "search",
-			RouteLocation:       httpx.AccessLogDashboardRouteLocation(),
-			RequiredPermissions: []string{httpx.AccessLogReadPermission},
-			Order:               httpx.AccessLogDashboardQuickLinkOrder,
-		}); err != nil {
-			return fmt.Errorf("register access-log dashboard quick link: %w", err)
-		}
-
 		if err := r.dashboardRegistry.Register(dashboard.WidgetDefinition{
 			ID:             httpx.AccessLogDashboardWidgetID,
 			ModuleKey:      httpx.AccessLogDashboardModuleKey(),
@@ -730,20 +702,6 @@ func (r *Runtime) registerCoreAccessLogDashboard() error {
 }
 
 func (r *Runtime) registerCoreAppLogDashboard() error {
-	if r.appLogRepository != nil {
-		if err := r.dashboardRegistry.RegisterQuickLink(dashboard.QuickLinkDefinition{
-			ID:                  logger.AppLogDashboardQuickLinkID,
-			ModuleKey:           logger.AppLogDashboardModuleKey(),
-			TitleKey:            logger.AppLogDashboardTitleKey(),
-			Title:               r.mustLookupCoreDisplay(logger.AppLogDashboardTitleKey()),
-			Icon:                "file-search",
-			RouteLocation:       logger.AppLogDashboardRouteLocation(),
-			RequiredPermissions: []string{logger.AppLogReadPermission},
-			Order:               logger.AppLogDashboardQuickLinkOrder,
-		}); err != nil {
-			return fmt.Errorf("register app-log dashboard quick link: %w", err)
-		}
-	}
 	return nil
 }
 
