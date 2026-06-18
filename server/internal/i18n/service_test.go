@@ -4,10 +4,10 @@
 package i18n
 
 import (
-	"strings"
 	"net/http"
 	"net/http/httptest"
 	"slices"
+	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -96,6 +96,29 @@ func newTestServiceWithModuleLocales(t *testing.T) *Service {
 	}
 	if err := service.RegisterEmbeddedLocaleResources(resources); err != nil {
 		t.Fatalf("register synthetic module locale resources: %v", err)
+	}
+	return service
+}
+
+func newTestServiceWithModuleRuntimeLocale(t *testing.T) *Service {
+	t.Helper()
+
+	service := newTestService()
+	if err := service.RegisterEmbeddedLocaleResources([]EmbeddedLocaleResource{
+		{
+			Namespace: "module-runtime",
+			Locale:    LocaleZHCN,
+			Source:    "module-runtime/zh-CN.yaml",
+			Data:      []byte("menu.modulesRuntime.title: 模块运行时\n"),
+		},
+		{
+			Namespace: "module-runtime",
+			Locale:    LocaleENUS,
+			Source:    "module-runtime/en-US.yaml",
+			Data:      []byte("menu.modulesRuntime.title: Module Runtime\n"),
+		},
+	}); err != nil {
+		t.Fatalf("register synthetic module-runtime locale resources: %v", err)
 	}
 	return service
 }
@@ -315,7 +338,7 @@ func TestLookupUsesModuleNamespaceAndFallbackMessage(t *testing.T) {
 }
 
 func TestRegisteredMessageKeyIDsFindsBareKeyAcrossNamespaces(t *testing.T) {
-	service := newTestService()
+	service := newTestServiceWithModuleRuntimeLocale(t)
 
 	matches := service.RegisteredMessageKeyIDs(LocaleENUS, "menu.modulesRuntime.title")
 	if len(matches) != 1 || matches[0] != "module-runtime.menu.modulesRuntime.title" {
@@ -329,7 +352,7 @@ func TestRegisteredMessageKeyIDsFindsBareKeyAcrossNamespaces(t *testing.T) {
 }
 
 func TestRegisteredMessageResourcesFindsRegisteredTextAcrossNamespaces(t *testing.T) {
-	service := newTestService()
+	service := newTestServiceWithModuleRuntimeLocale(t)
 
 	matches := service.RegisteredMessageResources(LocaleENUS, "menu.modulesRuntime.title")
 	if len(matches) != 1 ||

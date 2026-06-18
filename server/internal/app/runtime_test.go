@@ -552,7 +552,7 @@ func TestRegisterCoreDashboardWidgetsIncludesAccessLogSystemCapability(t *testin
 	repo := &runtimeAccessLogRecorderRepo{}
 	runtime := &Runtime{
 		config:            &config.Config{},
-		i18n:              i18n.MustNew(config.I18nConfig{DefaultLocale: "zh-CN", FallbackLocale: "en-US", SupportedLocales: []string{"zh-CN", "en-US"}}),
+		i18n:              mustNewRuntimeTestLocalizer(t),
 		server:            httpx.NewServer(zap.NewNop(), repo),
 		dashboardRegistry: dashboard.NewRegistry(),
 	}
@@ -582,6 +582,22 @@ func TestRegisterCoreDashboardWidgetsIncludesAccessLogSystemCapability(t *testin
 	if len(accessLogWidget.RequiredPermissions) != 1 || accessLogWidget.RequiredPermissions[0] != httpx.AccessLogReadPermission {
 		t.Fatalf("unexpected access-log permissions: %#v", accessLogWidget.RequiredPermissions)
 	}
+}
+
+func mustNewRuntimeTestLocalizer(t *testing.T) *i18n.Service {
+	t.Helper()
+
+	localizer := i18n.MustNew(config.I18nConfig{
+		DefaultLocale:    "zh-CN",
+		FallbackLocale:   "en-US",
+		SupportedLocales: []string{"zh-CN", "en-US"},
+	})
+
+	if err := localizer.RegisterEmbeddedLocaleResources(runtimeEmbeddedLocaleResources()); err != nil {
+		t.Fatalf("register runtime embedded locale resources: %v", err)
+	}
+
+	return localizer
 }
 
 func TestAccessLogIsNotRegisteredAsModule(t *testing.T) {

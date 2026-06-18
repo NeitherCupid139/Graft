@@ -8,14 +8,11 @@ import (
 
 	"graft/server/internal/config"
 	"graft/server/internal/i18n"
+	moduleruntimelocales "graft/server/internal/moduleruntime/locales"
 )
 
 func TestRegisterMessagesUsesEmbeddedLocaleResources(t *testing.T) {
-	localizer := i18n.MustNew(config.I18nConfig{
-		DefaultLocale:    "zh-CN",
-		FallbackLocale:   "zh-CN",
-		SupportedLocales: []string{"zh-CN", "en-US"},
-	})
+	localizer := mustNewModuleRuntimeTestLocalizer(t)
 
 	if err := registerMessages(localizer); err != nil {
 		t.Fatalf("register module runtime messages: %v", err)
@@ -41,4 +38,24 @@ func assertRegisteredRuntimeMessage(
 	if matches[0].Text != expected {
 		t.Fatalf("expected module-runtime message %q for %s %q, got %#v", expected, locale, key, matches[0])
 	}
+}
+
+func mustNewModuleRuntimeTestLocalizer(t *testing.T) *i18n.Service {
+	t.Helper()
+
+	localizer := i18n.MustNew(config.I18nConfig{
+		DefaultLocale:    "zh-CN",
+		FallbackLocale:   "en-US",
+		SupportedLocales: []string{"zh-CN", "en-US"},
+	})
+
+	resources, err := moduleruntimelocales.EmbeddedLocaleResources()
+	if err != nil {
+		t.Fatalf("load module-runtime locale resources: %v", err)
+	}
+	if err := localizer.RegisterEmbeddedLocaleResources(resources); err != nil {
+		t.Fatalf("register module-runtime locale resources: %v", err)
+	}
+
+	return localizer
 }

@@ -33,6 +33,7 @@ import (
 	"graft/server/internal/moduleapi"
 	"graft/server/internal/moduleregistry"
 	"graft/server/internal/moduleruntime"
+	moduleruntimelocales "graft/server/internal/moduleruntime/locales"
 	"graft/server/internal/permission"
 	"graft/server/internal/redisx"
 )
@@ -60,7 +61,16 @@ var defaultRuntimeCoreDeps = runtimeCoreDeps{
 	openRedisClient:        redisx.Open,
 }
 
-var runtimeEmbeddedLocaleResources = moduleregistry.EmbeddedLocaleResources
+var runtimeEmbeddedLocaleResources = func() []i18n.EmbeddedLocaleResource {
+	resources := moduleregistry.EmbeddedLocaleResources()
+
+	moduleRuntimeResources, err := moduleruntimelocales.EmbeddedLocaleResources()
+	if err != nil {
+		panic(fmt.Sprintf("load module-runtime embedded locale resources: %v", err))
+	}
+
+	return append(resources, moduleRuntimeResources...)
+}
 
 // Runtime 持有 MVP 运行时的核心资源与模块生命周期执行入口。
 //
