@@ -13,11 +13,15 @@ function asRouteRecordRaw<T extends object>(route: T) {
 describe('buildDashboardQuickActionLinks', () => {
   it('keeps only visible sidebar leaf routes and preserves route title/icon truth', () => {
     const routes = [
-      {
+      asRouteRecordRaw({
         path: '/access-control',
         name: 'BootstrapGroupAccessControl',
         meta: {
           titleKey: 'menu.accessControl',
+          title: {
+            'zh-CN': '访问控制',
+            'en-US': 'Access Control',
+          },
         },
         children: [
           asRouteRecordRaw({
@@ -26,9 +30,13 @@ describe('buildDashboardQuickActionLinks', () => {
             meta: {
               icon: 'secured',
               orderNo: 20,
+              breadcrumbTitle: {
+                'zh-CN': '角色管理',
+                'en-US': 'Role Management',
+              },
               tabTitle: {
                 'zh-CN': '访问控制 - 角色管理',
-                'en-US': 'Access Control - Roles',
+                'en-US': 'Access Control - Role Management',
               },
               titleKey: 'rbac.role.list.title',
             },
@@ -47,17 +55,25 @@ describe('buildDashboardQuickActionLinks', () => {
             },
           }),
         ],
-      },
-      {
+      }),
+      asRouteRecordRaw({
         path: '/ops/containers',
         name: 'ContainerList',
         meta: {
           icon: 'layers',
           orderNo: 10,
           single: true,
-          tabTitle: {
+          title: {
+            'zh-CN': '运维管理',
+            'en-US': 'Operations',
+          },
+          breadcrumbTitle: {
             'zh-CN': '容器管理',
             'en-US': 'Container Management',
+          },
+          tabTitle: {
+            'zh-CN': '运维管理 - 容器管理',
+            'en-US': 'Operations - Container Management',
           },
           titleKey: 'container.route.list.title',
         },
@@ -71,12 +87,17 @@ describe('buildDashboardQuickActionLinks', () => {
             },
           }),
         ],
-      },
-      {
+      }),
+      asRouteRecordRaw({
         path: '/monitor',
         name: 'BootstrapGroupMonitor',
         meta: {
+          titleKey: 'menu.server.title',
           orderNo: 5,
+          title: {
+            'zh-CN': '服务管理',
+            'en-US': 'Service Management',
+          },
         },
         children: [
           asRouteRecordRaw({
@@ -84,16 +105,20 @@ describe('buildDashboardQuickActionLinks', () => {
             name: 'MonitorOverviewIndex',
             meta: {
               orderNo: 5,
+              breadcrumbTitle: {
+                'zh-CN': '服务概览',
+                'en-US': 'Overview',
+              },
               tabTitle: {
-                'zh-CN': '监控中心 - 服务概览',
-                'en-US': 'Monitor - Overview',
+                'zh-CN': '服务管理 - 概览',
+                'en-US': 'Service Management - Overview',
               },
               titleKey: 'monitor.route.overview.title',
             },
           }),
         ],
-      },
-      {
+      }),
+      asRouteRecordRaw({
         path: '/notifications',
         name: 'NotificationList',
         meta: {
@@ -104,20 +129,26 @@ describe('buildDashboardQuickActionLinks', () => {
           },
           titleKey: 'notification.route.list.title',
         },
-      },
+      }),
     ] as RouteRecordRaw[];
 
     expect(buildDashboardQuickActionLinks(routes, 'zh-CN')).toEqual([
       {
+        full_label: '服务管理 - 概览',
+        group: '服务管理',
+        group_key: 'menu.server.title',
         icon: undefined,
         id: 'MonitorOverviewIndex',
         module_key: 'monitor',
         order: 5,
         route_location: '/monitor/overview',
-        title: '监控中心 - 服务概览',
+        title: '服务概览',
         title_key: 'monitor.route.overview.title',
       },
       {
+        full_label: '运维管理 - 容器管理',
+        group: '运维管理',
+        group_key: 'container.route.list.title',
         icon: 'layers',
         id: 'ContainerList',
         module_key: 'ops',
@@ -127,12 +158,15 @@ describe('buildDashboardQuickActionLinks', () => {
         title_key: 'container.route.list.title',
       },
       {
+        full_label: '访问控制 - 角色管理',
+        group: '访问控制',
+        group_key: 'menu.accessControl',
         icon: 'secured',
         id: 'RoleListIndex',
         module_key: 'rbac',
         order: 20,
         route_location: '/access-control/roles',
-        title: '访问控制 - 角色管理',
+        title: '角色管理',
         title_key: 'rbac.role.list.title',
       },
     ]);
@@ -140,34 +174,90 @@ describe('buildDashboardQuickActionLinks', () => {
 
   it('uses the requested locale instead of hard-coding english titles', () => {
     const routes = [
-      {
+      asRouteRecordRaw({
         path: '/monitor',
         name: 'BootstrapGroupMonitor',
+        meta: {
+          titleKey: 'menu.server.title',
+          title: {
+            'zh-CN': '服务管理',
+            'en-US': 'Service Management',
+          },
+        },
         children: [
           asRouteRecordRaw({
             path: 'overview',
             name: 'MonitorOverviewIndex',
             meta: {
+              breadcrumbTitle: {
+                'zh-CN': '概览',
+                'en-US': 'Overview',
+              },
               tabTitle: {
-                'zh-CN': '监控中心 - 服务概览',
-                'en-US': 'Monitor - Overview',
+                'zh-CN': '服务管理 - 概览',
+                'en-US': 'Service Management - Overview',
               },
               titleKey: 'monitor.route.overview.title',
             },
           }),
         ],
-      },
+      }),
     ] as RouteRecordRaw[];
 
     expect(buildDashboardQuickActionLinks(routes, 'en-US')).toEqual([
       {
+        full_label: 'Service Management - Overview',
+        group: 'Service Management',
+        group_key: 'menu.server.title',
         icon: undefined,
         id: 'MonitorOverviewIndex',
         module_key: 'monitor',
         order: 0,
         route_location: '/monitor/overview',
-        title: 'Monitor - Overview',
+        title: 'Overview',
         title_key: 'monitor.route.overview.title',
+      },
+    ]);
+  });
+
+  it('derives split title and group from a single top-level route without string splitting', () => {
+    const routes = [
+      asRouteRecordRaw({
+        path: '/ops/containers',
+        name: 'ContainerList',
+        meta: {
+          icon: 'layers',
+          orderNo: 10,
+          single: true,
+          title: {
+            'zh-CN': '运维管理',
+            'en-US': 'Operations',
+          },
+          breadcrumbTitle: {
+            'zh-CN': '容器管理',
+            'en-US': 'Container Management',
+          },
+          tabTitle: {
+            'zh-CN': '运维管理 - 容器管理',
+            'en-US': 'Operations - Container Management',
+          },
+          titleKey: 'container.route.list.title',
+        },
+      }),
+    ] as RouteRecordRaw[];
+
+    expect(buildDashboardQuickActionLinks(routes, 'en-US')).toEqual([
+      {
+        full_label: 'Operations - Container Management',
+        group: 'Operations',
+        group_key: 'container.route.list.title',
+        icon: 'layers',
+        id: 'ContainerList',
+        module_key: 'ops',
+        order: 10,
+        route_location: '/ops/containers',
+        title: 'Container Management',
+        title_key: 'container.route.list.title',
       },
     ]);
   });

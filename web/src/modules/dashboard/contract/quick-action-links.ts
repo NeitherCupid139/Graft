@@ -6,6 +6,10 @@ export type DashboardQuickActionLink = {
   module_key: string;
   title_key?: string;
   title?: string;
+  group_key?: string;
+  group?: string;
+  full_label_key?: string;
+  full_label?: string;
   description_key?: string;
   description?: string;
   icon?: string;

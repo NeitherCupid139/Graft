@@ -80,7 +80,14 @@ vi.mock('../components/DashboardQuickActions.vue', () => ({
       return () => {
         const config = props.config as DashboardQuickActionConfig;
         const links = [
-          ...(props.links as Array<{ id: string; order: number; route_location: string; title?: string }>),
+          ...(props.links as Array<{
+            id: string;
+            order: number;
+            route_location: string;
+            title?: string;
+            group?: string;
+            full_label?: string;
+          }>),
         ].sort((left, right) => {
           if (left.order !== right.order) {
             return left.order - right.order;
@@ -101,9 +108,10 @@ vi.mock('../components/DashboardQuickActions.vue', () => ({
                   'button',
                   {
                     class: 'dashboard-quick-actions__item',
+                    title: link.full_label || link.title,
                     onClick: () => routerMocks.push(link.route_location),
                   },
-                  [h('strong', link.title), null],
+                  [h('strong', link.title), h('small', link.group || '')],
                 ),
               )
             : [],
@@ -375,11 +383,15 @@ function mountPage() {
 
 function buildSidebarRoutes() {
   return [
-    {
+    asRouteRecordRaw({
       path: '/audit',
       name: 'BootstrapGroupAudit',
       meta: {
         titleKey: 'audit.route.group.title',
+        title: {
+          'zh-CN': '安全审计',
+          'en-US': 'Security Audit',
+        },
       },
       children: [
         asRouteRecordRaw({
@@ -390,25 +402,37 @@ function buildSidebarRoutes() {
             orderNo: 10,
             tabTitle: {
               'zh-CN': '审计中心 - 事件',
-              'en-US': 'Audit - Events',
+              'en-US': 'Security Audit - Events',
+            },
+            breadcrumbTitle: {
+              'zh-CN': '事件',
+              'en-US': 'Events',
             },
             titleKey: 'audit.route.events.title',
           },
         }),
       ],
-    },
-    {
+    }),
+    asRouteRecordRaw({
       path: '/ops/containers',
       name: 'ContainerList',
       meta: {
         icon: 'layers',
         orderNo: 15,
         single: true,
+        title: {
+          'zh-CN': '运维管理',
+          'en-US': 'Operations',
+        },
+        titleKey: 'container.route.list.title',
         tabTitle: {
+          'zh-CN': '运维管理 - 容器管理',
+          'en-US': 'Operations - Container Management',
+        },
+        breadcrumbTitle: {
           'zh-CN': '容器管理',
           'en-US': 'Container Management',
         },
-        titleKey: 'container.route.list.title',
       },
       children: [
         asRouteRecordRaw({
@@ -420,12 +444,16 @@ function buildSidebarRoutes() {
           },
         }),
       ],
-    },
-    {
+    }),
+    asRouteRecordRaw({
       path: '/access-control',
       name: 'BootstrapGroupAccessControl',
       meta: {
         titleKey: 'accessControl.route.group.title',
+        title: {
+          'zh-CN': '访问控制',
+          'en-US': 'Access Control',
+        },
       },
       children: [
         asRouteRecordRaw({
@@ -435,7 +463,11 @@ function buildSidebarRoutes() {
             orderNo: 20,
             tabTitle: {
               'zh-CN': '访问控制 - 角色管理',
-              'en-US': 'Access Control - Roles',
+              'en-US': 'Access Control - Role Management',
+            },
+            breadcrumbTitle: {
+              'zh-CN': '角色管理',
+              'en-US': 'Role Management',
             },
             titleKey: 'rbac.role.list.title',
           },
@@ -448,13 +480,17 @@ function buildSidebarRoutes() {
             orderNo: 25,
             tabTitle: {
               'zh-CN': '访问控制 - 权限管理',
-              'en-US': 'Access Control - Permissions',
+              'en-US': 'Access Control - Permission Management',
+            },
+            breadcrumbTitle: {
+              'zh-CN': '权限管理',
+              'en-US': 'Permission Management',
             },
             titleKey: 'rbac.permission.list.title',
           },
         }),
       ],
-    },
+    }),
   ] as RouteRecordRaw[];
 }
 
@@ -478,9 +514,12 @@ describe('DashboardHomePage', () => {
     expect(wrapper.text()).toContain('Abnormal services');
     expect(wrapper.text()).toContain('Failed tasks');
     expect(wrapper.text()).toContain('High-risk events');
-    expect(wrapper.text()).toContain('Audit - Events');
+    expect(wrapper.text()).toContain('Events');
+    expect(wrapper.text()).toContain('Security Audit');
     expect(wrapper.text()).toContain('Container Management');
-    expect(wrapper.text()).toContain('Access Control - Roles');
+    expect(wrapper.text()).toContain('Operations');
+    expect(wrapper.text()).toContain('Role Management');
+    expect(wrapper.text()).toContain('Access Control');
     expect(wrapper.text()).not.toContain('Access Control - Permissions');
     expect(wrapper.text()).toContain('core.module-runtime-health');
     expect(wrapper.text()).toContain('monitor.system-health');
@@ -526,7 +565,8 @@ describe('DashboardHomePage', () => {
     const quickActions = wrapper.find('.quick-actions-stub');
     expect(quickActions.attributes('data-max-items')).toBe('1');
     expect(wrapper.findAll('button.dashboard-quick-actions__item')).toHaveLength(1);
-    expect(wrapper.text()).toContain('Audit - Events');
+    expect(wrapper.text()).toContain('Events');
+    expect(wrapper.text()).toContain('Security Audit');
     expect(wrapper.text()).not.toContain('Container Management');
   });
 

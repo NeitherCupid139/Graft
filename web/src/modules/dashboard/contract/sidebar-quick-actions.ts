@@ -11,6 +11,10 @@ import type { DashboardQuickActionLink } from './quick-action-links';
 import { normalizeDashboardRoutePath, normalizeJoinedDashboardRoutePath } from './route-paths';
 
 type QuickActionSource = Pick<RouteRecordRaw, 'path' | 'children' | 'name' | 'meta'>;
+type QuickActionParent = {
+  groupKey?: string;
+  groupLabel?: string;
+};
 
 export function buildDashboardQuickActionLinks(routes: RouteRecordRaw[], locale: SupportedLocale = getDefaultLocale()) {
   return collectLeafLinks(routes, locale).sort(compareQuickActions);
@@ -20,6 +24,7 @@ function collectLeafLinks(
   routes: QuickActionSource[],
   locale: SupportedLocale,
   parentPath = '',
+  parent?: QuickActionParent,
 ): DashboardQuickActionLink[] {
   return routes.flatMap((route) => {
     const routeMeta = toRouteMeta(route.meta);
@@ -28,7 +33,8 @@ function collectLeafLinks(
       return [];
     }
 
-    const visibleChildren = collectLeafLinks(route.children ?? [], locale, fullPath);
+    const nextParent = resolveParent(routeMeta, locale, parent);
+    const visibleChildren = collectLeafLinks(route.children ?? [], locale, fullPath, nextParent);
     if (visibleChildren.length > 0) {
       return visibleChildren;
     }
@@ -38,14 +44,20 @@ function collectLeafLinks(
     }
 
     const title =
-      renderLocalizedTitle(resolveRouteLocalizedTitle(routeMeta, 'tab'), locale) ||
-      renderLocalizedTitle(resolveRouteLocalizedTitle(routeMeta, 'page'), locale) ||
       renderLocalizedTitle(resolveRouteLocalizedTitle(routeMeta, 'breadcrumb'), locale) ||
+      renderLocalizedTitle(resolveRouteLocalizedTitle(routeMeta, 'page'), locale) ||
       fullPath;
+    const fullLabel = renderLocalizedTitle(resolveRouteLocalizedTitle(routeMeta, 'tab'), locale) || title;
+    const routeGroup =
+      renderLocalizedTitle(resolveRouteLocalizedTitle(routeMeta, 'page'), locale) || parent?.groupLabel;
+    const isSingleLeaf = Boolean(routeMeta?.single);
 
     return [
       {
         id: String(route.name ?? fullPath),
+        full_label: fullLabel,
+        group: isSingleLeaf ? routeGroup : parent?.groupLabel,
+        group_key: isSingleLeaf ? routeMeta?.titleKey : parent?.groupKey,
         module_key: inferModuleKey(fullPath),
         icon: typeof routeMeta?.icon === 'string' ? routeMeta.icon : undefined,
         order: routeMeta?.orderNo ?? 0,
@@ -76,6 +88,23 @@ function isQuickActionLeaf(route: QuickActionSource, fullPath: string) {
 
 function toRouteMeta(meta: unknown) {
   return (meta ?? undefined) as AppRouteMeta | undefined;
+}
+
+function resolveParent(routeMeta: AppRouteMeta | undefined, locale: SupportedLocale, parent?: QuickActionParent) {
+  const groupLabel =
+    renderLocalizedTitle(resolveRouteLocalizedTitle(routeMeta, 'page'), locale) ||
+    renderLocalizedTitle(routeMeta?.title, locale) ||
+    parent?.groupLabel;
+  const groupKey = routeMeta?.titleKey || parent?.groupKey;
+
+  if (!groupLabel && !groupKey) {
+    return parent;
+  }
+
+  return {
+    groupKey,
+    groupLabel,
+  };
 }
 
 function inferModuleKey(path: string) {
