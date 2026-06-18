@@ -199,6 +199,7 @@ func newRuntimeCore(cfg *config.Config) (*Runtime, error) {
 	return newRuntimeCoreWithDeps(cfg, defaultRuntimeCoreDeps)
 }
 
+// newRuntimeCoreWithDeps constructs a Runtime instance by opening core resources, initializing services, and pre-registering locale resources.
 func newRuntimeCoreWithDeps(cfg *config.Config, deps runtimeCoreDeps) (*Runtime, error) {
 	deps = normalizeRuntimeCoreDeps(deps)
 	applyGinMode(cfg)
@@ -275,6 +276,7 @@ func newRuntimeCoreWithDeps(cfg *config.Config, deps runtimeCoreDeps) (*Runtime,
 	return runtime, nil
 }
 
+// normalizeRuntimeCoreDeps replaces nil constructor functions with default implementations.
 func normalizeRuntimeCoreDeps(deps runtimeCoreDeps) runtimeCoreDeps {
 	if deps.newAccessLogRepository == nil {
 		deps.newAccessLogRepository = httpx.NewAccessLogRepository

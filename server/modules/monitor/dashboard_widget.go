@@ -18,6 +18,7 @@ const (
 	monitorSystemHealthWidgetOrder = 90
 )
 
+// registerMonitorDashboardWidget registers a system health monitoring widget with the dashboard registry. It returns an error if registration fails, or nil if the module context or dashboard registry is unavailable.
 func registerMonitorDashboardWidget(moduleCtx *module.Context, instance *Module) error {
 	if moduleCtx == nil || moduleCtx.DashboardRegistry == nil {
 		return nil
@@ -51,6 +52,7 @@ func registerMonitorDashboardWidget(moduleCtx *module.Context, instance *Module)
 
 	return nil
 }
+// LoadMonitorSystemHealthWidget builds a dashboard widget payload containing system health status and anomaly information.
 func loadMonitorSystemHealthWidget(ctx context.Context, moduleCtx *module.Context, instance *Module) (dashboard.WidgetPayload, error) {
 	response, err := buildServerStatusResponse(ctx, moduleCtx, instance, monitorcontract.TrendRange10Minutes)
 	if err != nil {

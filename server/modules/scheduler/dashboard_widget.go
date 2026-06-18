@@ -20,6 +20,7 @@ const (
 	schedulerTaskAttentionListLimit   = 100
 )
 
+// registerSchedulerDashboardWidget registers a dashboard widget for displaying scheduler task attention metrics. It returns nil if the dashboard registry is unavailable, or an error if registration fails.
 func registerSchedulerDashboardWidget(ctx *module.Context, instance *Module) error {
 	if ctx == nil || ctx.DashboardRegistry == nil {
 		return nil
@@ -57,6 +58,7 @@ func registerSchedulerDashboardWidget(ctx *module.Context, instance *Module) err
 
 	return nil
 }
+// LoadSchedulerTaskAttentionWidget builds the dashboard widget payload for scheduler task attention statistics.
 func loadSchedulerTaskAttentionWidget(ctx context.Context, runtime schedulercore.Runtime) (dashboard.WidgetPayload, error) {
 	counts, err := schedulerAttentionCounts(ctx, runtime)
 	if err != nil {

@@ -26,6 +26,9 @@ const (
 	auditLogsQueryRiskLevels    = "risk_levels"
 )
 
+// Registers an audit risk events dashboard widget.
+// It returns nil if ctx or ctx.DashboardRegistry is nil.
+// It returns an error if widget registration fails.
 func registerAuditDashboardWidget(ctx *module.Context, reader *Service) error {
 	if ctx == nil || ctx.DashboardRegistry == nil {
 		return nil
@@ -56,6 +59,7 @@ func registerAuditDashboardWidget(ctx *module.Context, reader *Service) error {
 
 	return nil
 }
+// LoadAuditRiskEventsWidget builds the audit risk events dashboard widget payload for the last 24 hours, including alert items for high-risk events, failed operations, and failed authentications.
 func loadAuditRiskEventsWidget(ctx context.Context, reader *Service) (dashboard.WidgetPayload, error) {
 	overview, err := reader.Overview(ctx, auditstore.AuditTimePresetLast24Hours)
 	if err != nil {

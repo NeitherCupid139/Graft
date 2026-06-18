@@ -89,6 +89,7 @@ func (r *Registry) storeWidgetDefinition(definition WidgetDefinition) error {
 	return nil
 }
 
+// sortWidgetDefinitions sorts widget definitions in-place by order, then by ID.
 func sortWidgetDefinitions(items []WidgetDefinition) {
 	slices.SortStableFunc(items, func(left, right WidgetDefinition) int {
 		if left.Order != right.Order {
@@ -98,6 +99,7 @@ func sortWidgetDefinitions(items []WidgetDefinition) {
 	})
 }
 
+// normalizeDefinition normalizes fields and validates the widget definition. It returns the normalized definition and nil on success, or an error if validation fails.
 func normalizeDefinition(definition WidgetDefinition) (WidgetDefinition, error) {
 	normalized := normalizeDefinitionStrings(definition)
 	normalized = normalizeDefinitionDefaults(normalized)
@@ -185,12 +187,14 @@ func validateDefinitionFramework(definition WidgetDefinition) error {
 	return nil
 }
 
+// cloneDefinition returns a copy of the definition with a separately copied RequiredPermissions slice.
 func cloneDefinition(definition WidgetDefinition) WidgetDefinition {
 	cloned := definition
 	cloned.RequiredPermissions = append([]string(nil), definition.RequiredPermissions...)
 	return cloned
 }
 
+// validWidgetType reports whether widgetType is a valid widget type.
 func validWidgetType(widgetType WidgetType) bool {
 	switch widgetType {
 	case WidgetTypeStatGroup, WidgetTypeAlertList, WidgetTypeLinkList, WidgetTypeTimeline, WidgetTypeHealth:

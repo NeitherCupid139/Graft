@@ -445,6 +445,7 @@ func summaryMetric(widgets []generated.DashboardWidget, metric func(generated.Da
 	return total
 }
 
+// summaryAbnormalServices sums the abnormal services count across all dashboard widgets.
 func summaryAbnormalServices(widgets []generated.DashboardWidget) int {
 	total := 0
 	for _, widget := range widgets {
@@ -453,6 +454,7 @@ func summaryAbnormalServices(widgets []generated.DashboardWidget) int {
 	return total
 }
 
+// payloadMap converts a WidgetPayload into a map, returning an empty map if the payload is nil.
 func payloadMap(payload WidgetPayload) map[string]interface{} {
 	if payload == nil {
 		return map[string]interface{}{}

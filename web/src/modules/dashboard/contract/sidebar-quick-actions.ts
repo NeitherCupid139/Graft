@@ -16,10 +16,21 @@ type QuickActionParent = {
   groupLabel?: string;
 };
 
+/**
+ * Builds a sorted list of dashboard quick action links from Vue Router routes.
+ *
+ * @param routes - The array of Vue Router route records to extract quick action links from.
+ * @returns An array of DashboardQuickActionLink objects sorted by order (ascending), then by id (lexicographically).
+ */
 export function buildDashboardQuickActionLinks(routes: RouteRecordRaw[], locale: SupportedLocale = getDefaultLocale()) {
   return collectLeafLinks(routes, locale).sort(compareQuickActions);
 }
 
+/**
+ * Recursively collects visible leaf routes and transforms them into dashboard quick action links.
+ *
+ * @returns An array of dashboard quick action links for visible leaf routes
+ */
 function collectLeafLinks(
   routes: QuickActionSource[],
   locale: SupportedLocale,
@@ -69,6 +80,11 @@ function collectLeafLinks(
   });
 }
 
+/**
+ * Determines if a route is eligible as a quick-action leaf node.
+ *
+ * @returns `true` if the route has a name and valid path, is not hidden, and either is marked as single or has no children, `false` otherwise.
+ */
 function isQuickActionLeaf(route: QuickActionSource, fullPath: string) {
   const routeMeta = toRouteMeta(route.meta);
   if (!route.name || !fullPath) {
@@ -86,10 +102,21 @@ function isQuickActionLeaf(route: QuickActionSource, fullPath: string) {
   return !routeMeta?.hidden && !routeMeta?.hiddenMenu;
 }
 
+/**
+ * Types route metadata as AppRouteMeta.
+ *
+ * @param meta - The raw metadata value
+ * @returns The metadata as `AppRouteMeta`, or `undefined` if the input was nullish
+ */
 function toRouteMeta(meta: unknown) {
   return (meta ?? undefined) as AppRouteMeta | undefined;
 }
 
+/**
+ * Resolves grouping context for a route based on its metadata and locale.
+ *
+ * @returns A grouping context with `groupLabel` and `groupKey`, or the parent context if no new values are available
+ */
 function resolveParent(routeMeta: AppRouteMeta | undefined, locale: SupportedLocale, parent?: QuickActionParent) {
   const groupLabel =
     renderLocalizedTitle(resolveRouteLocalizedTitle(routeMeta, 'page'), locale) ||
@@ -107,6 +134,21 @@ function resolveParent(routeMeta: AppRouteMeta | undefined, locale: SupportedLoc
   };
 }
 
+/**
+ * Derives a module key from a dashboard route path.
+ *
+ * Maps route paths to module keys based on path structure:
+ * - 'access-control/overview' → 'access-control'
+ * - 'access-control/*' → 'rbac'
+ * - 'logs/access' → 'access-log'
+ * - 'logs/app' → 'app-log'
+ * - 'logs/*' → 'logs'
+ * - Other paths → first path component
+ * - Empty path → 'dashboard'
+ *
+ * @param path - The dashboard route path
+ * @returns The module key derived from the path
+ */
 function inferModuleKey(path: string) {
   const segments = normalizeDashboardRoutePath(path).split('/').filter(Boolean);
   if (segments.length === 0) {
@@ -125,6 +167,11 @@ function inferModuleKey(path: string) {
   return first;
 }
 
+/**
+ * Orders two dashboard quick action links by their order field, then by their ID.
+ *
+ * @returns A negative number if `left` should come before `right`, zero if equal, positive otherwise.
+ */
 function compareQuickActions(left: DashboardQuickActionLink, right: DashboardQuickActionLink) {
   if (left.order !== right.order) {
     return left.order - right.order;

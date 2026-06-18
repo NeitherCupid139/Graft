@@ -33,7 +33,9 @@ func AccessLogDashboardRouteLocation() string {
 	return accessLogMenuListPath
 }
 
-// LoadAccessLogRequestAttentionPayload returns access-log attention data without depending on dashboard internals.
+// LoadAccessLogRequestAttentionPayload loads access log attention data (4xx errors, 5xx errors, and slow requests) for dashboard display.
+//
+// Returns a map containing the aggregated attention items with visibility and severity metadata.
 func LoadAccessLogRequestAttentionPayload(ctx context.Context, repo AccessLogRepository) (map[string]any, error) {
 	clientErrorsResult, err := repo.ListAccessLogs(ctx, AccessLogListQuery{
 		Page:         1,

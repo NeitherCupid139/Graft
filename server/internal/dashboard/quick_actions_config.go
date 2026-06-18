@@ -80,7 +80,7 @@ func RegisterQuickActionsConfigDefinitions(registry *configregistry.Registry) er
 	return nil
 }
 
-// RegisterQuickActionsConfigMessages registers system-config display metadata for dashboard quick actions.
+// RegisterQuickActionsConfigMessages verifies that all required i18n message keys are registered in the provided localizer for dashboard quick-actions configuration display across supported locales. It returns an error if any required key is missing for any locale.
 func RegisterQuickActionsConfigMessages(localizer *i18n.Service) error {
 	if localizer == nil {
 		return errors.New("i18n service is required")
@@ -96,6 +96,7 @@ func RegisterQuickActionsConfigMessages(localizer *i18n.Service) error {
 	return nil
 }
 
+// quickActionsConfigMessageKeys returns the list of message keys required for i18n configuration of dashboard quick actions.
 func quickActionsConfigMessageKeys() []string {
 	return []string{
 		quickActionsConfigGroupKey,
