@@ -278,6 +278,41 @@ func TestRegisteredMessageResourcesFindsRegisteredTextAcrossNamespaces(t *testin
 	}
 }
 
+func TestEmbeddedLocaleResourcesIncludePhase4DisplayKeys(t *testing.T) {
+	service := newTestService()
+
+	keys := []string{
+		"menu.server.announcements.title",
+		"menu.notification.title",
+		"menu.audit.title",
+		"menu.server.scheduled_tasks.title",
+		"menu.ops.title",
+		"menu.ops.container.title",
+		"menu.logCenter.title",
+		"menu.accessLog.title",
+		"menu.appLog.title",
+		"dashboard.widget.accessLogRequestAttention.title",
+		"dashboard.widget.schedulerTaskAttention.title",
+		"dashboard.widget.auditRiskEvents.title",
+		"scheduler.job.auditLogRetentionCleanup.title",
+		"scheduler.job.accessLogRetentionCleanup.title",
+		"scheduler.job.appLogRetentionCleanup.title",
+		"scheduledTask.action.dryRun.title",
+	}
+
+	for _, locale := range []LocaleTag{LocaleZHCN, LocaleENUS} {
+		for _, key := range keys {
+			matches := service.RegisteredMessageResources(locale, MessageKey(key))
+			if len(matches) != 1 {
+				t.Fatalf("expected one embedded message for %s %q, got %#v", locale, key, matches)
+			}
+			if matches[0].Text == "" {
+				t.Fatalf("expected non-empty embedded message for %s %q", locale, key)
+			}
+		}
+	}
+}
+
 func TestParseLocaleResourceName(t *testing.T) {
 	namespace, locale, err := parseLocaleResourceName("system-config.zh-CN.yaml")
 	if err != nil {

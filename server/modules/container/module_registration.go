@@ -45,6 +45,9 @@ func containerMessageRegistration(locale i18n.LocaleTag, copyIndex int) i18n.Reg
 func containerMessageResources(copyIndex int) []i18n.MessageResource {
 	messages := make([]i18n.MessageResource, 0, len(containerMessageCopyRows))
 	for _, row := range containerMessageCopyRows {
+		if row.key == containercontract.OperationsMenuTitle.String() || row.key == containercontract.ContainerMenuTitle.String() {
+			continue
+		}
 		messages = append(messages, i18n.MessageResource{Key: i18n.MessageKey(row.key), Text: row.copy[copyIndex]})
 	}
 	return messages

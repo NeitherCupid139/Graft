@@ -24,7 +24,6 @@ func registerMessages(localizer *i18n.Service) error {
 			Namespace: "announcement",
 			Locale:    i18n.LocaleZHCN,
 			Messages: []i18n.MessageResource{
-				{Key: i18n.MessageKey(announcementcontract.AnnouncementMenuTitle.String()), Text: "公告管理"},
 				{Key: i18n.MessageKey(announcementcontract.AnnouncementPublishedDeleteForbidden.String()), Text: "已发布公告需先归档后删除"},
 			},
 		},
@@ -32,7 +31,6 @@ func registerMessages(localizer *i18n.Service) error {
 			Namespace: "announcement",
 			Locale:    i18n.LocaleENUS,
 			Messages: []i18n.MessageResource{
-				{Key: i18n.MessageKey(announcementcontract.AnnouncementMenuTitle.String()), Text: "Announcements"},
 				{Key: i18n.MessageKey(announcementcontract.AnnouncementPublishedDeleteForbidden.String()), Text: "Archive the published announcement before deleting it"},
 			},
 		},

@@ -5,7 +5,6 @@ package notification
 
 import (
 	"errors"
-	"fmt"
 
 	"graft/server/internal/i18n"
 	"graft/server/internal/module"
@@ -27,28 +26,6 @@ func registerNotificationMessages(localizer *i18n.Service) error {
 	if localizer == nil {
 		return errors.New("i18n service is unavailable")
 	}
-
-	for _, registration := range []i18n.Registration{
-		{
-			Namespace: "notification",
-			Locale:    i18n.LocaleZHCN,
-			Messages: []i18n.MessageResource{
-				{Key: i18n.MessageKey(notificationcontract.NotificationMenuTitle.String()), Text: "通知中心"},
-			},
-		},
-		{
-			Namespace: "notification",
-			Locale:    i18n.LocaleENUS,
-			Messages: []i18n.MessageResource{
-				{Key: i18n.MessageKey(notificationcontract.NotificationMenuTitle.String()), Text: "Notification Center"},
-			},
-		},
-	} {
-		if err := localizer.RegisterMessages(registration); err != nil {
-			return fmt.Errorf("register notification module messages: %w", err)
-		}
-	}
-
 	return nil
 }
 

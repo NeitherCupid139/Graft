@@ -82,32 +82,6 @@ func registerAuditMessages(localizer *i18n.Service) error {
 	if localizer == nil {
 		return errors.New("i18n service is unavailable")
 	}
-
-	for _, registration := range []i18n.Registration{
-		{
-			Namespace: "audit",
-			Locale:    i18n.LocaleZHCN,
-			Messages: []i18n.MessageResource{
-				{Key: i18n.MessageKey(auditcontract.AuditRootMenuTitle.String()), Text: "安全审计"},
-				{Key: i18n.MessageKey(auditcontract.AuditOverviewMenuTitle.String()), Text: "概览"},
-				{Key: i18n.MessageKey(auditcontract.AuditLogMenuTitle.String()), Text: "审计日志"},
-			},
-		},
-		{
-			Namespace: "audit",
-			Locale:    i18n.LocaleENUS,
-			Messages: []i18n.MessageResource{
-				{Key: i18n.MessageKey(auditcontract.AuditRootMenuTitle.String()), Text: "Security Audit"},
-				{Key: i18n.MessageKey(auditcontract.AuditOverviewMenuTitle.String()), Text: "Overview"},
-				{Key: i18n.MessageKey(auditcontract.AuditLogMenuTitle.String()), Text: "Audit Logs"},
-			},
-		},
-	} {
-		if err := localizer.RegisterMessages(registration); err != nil {
-			return fmt.Errorf("register audit module messages: %w", err)
-		}
-	}
-
 	return nil
 }
 

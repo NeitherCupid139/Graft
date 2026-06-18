@@ -1,0 +1,47 @@
+menu.server.announcements.title: Announcements
+menu.notification.title: Notification Center
+menu.audit.title: Security Audit
+menu.audit.overview.title: Overview
+menu.audit.logs.title: Audit Logs
+menu.server.scheduled_tasks.title: Scheduled Tasks
+menu.ops.title: Operations
+menu.ops.container.title: Container Management
+menu.logCenter.title: Log Center
+menu.accessLog.title: Access Logs
+menu.appLog.title: App Logs
+dashboard.widget.accessLogRequestAttention.title: Access Log Request Attention
+dashboard.widget.accessLogRequestAttention.description: Recent error and slow requests that may need operator attention.
+dashboard.widget.accessLogRequestAttention.error: HTTP Error Requests
+dashboard.widget.accessLogRequestAttention.slow: Slow HTTP Requests
+dashboard.widget.accessLogRequestAttention.empty: No recent error or slow requests.
+dashboard.widget.schedulerTaskAttention.title: Scheduled Task Attention
+dashboard.widget.schedulerTaskAttention.description: Failed, running, and disabled scheduled tasks that need operator attention.
+dashboard.widget.schedulerTaskAttention.failed: Failed Tasks
+dashboard.widget.schedulerTaskAttention.failedDescription: Last run failed.
+dashboard.widget.schedulerTaskAttention.running: Running Tasks
+dashboard.widget.schedulerTaskAttention.runningDescription: Currently executing tasks.
+dashboard.widget.schedulerTaskAttention.disabled: Disabled Tasks
+dashboard.widget.schedulerTaskAttention.disabledDescription: Tasks disabled from execution.
+dashboard.widget.auditRiskEvents.title: Audit Risk Events
+dashboard.widget.auditRiskEvents.description: Recent high-risk audit and security events.
+dashboard.widget.auditRiskEvents.highRisk.title: High-Risk Audit Events
+dashboard.widget.auditRiskEvents.highRisk.description: Review recent high-risk audit and security events.
+dashboard.widget.auditRiskEvents.highRisk.action: View Events
+dashboard.widget.auditRiskEvents.failedOperations.title: Failed Operations
+dashboard.widget.auditRiskEvents.failedOperations.description: Review recent failed or denied operations.
+dashboard.widget.auditRiskEvents.failedOperations.action: View Failures
+dashboard.widget.auditRiskEvents.authFailures.description: Review recent authentication failures.
+dashboard.widget.auditRiskEvents.authFailures.action: View Authentication Failures
+dashboard.widget.auditRiskEvents.empty: No audit risk events in the last 24 hours.
+audit.overview.riskGroups.authFailures: Authentication Failures
+scheduler.job.auditLogRetentionCleanup.title: Audit Log Retention Cleanup
+scheduler.job.shortTitle.auditLog: Audit Logs
+scheduledTask.auditLogRetention.description: Deletes audit logs beyond the configured retention window.
+scheduler.job.accessLogRetentionCleanup.title: Access Log Retention Cleanup
+scheduler.job.shortTitle.accessLog: Access Logs
+scheduledTask.accessLogRetention.description: Deletes access logs beyond the configured retention window.
+scheduler.job.appLogRetentionCleanup.title: App Log Retention Cleanup
+scheduler.job.shortTitle.appLog: App Logs
+scheduledTask.appLogRetention.description: Deletes app logs beyond the configured retention window.
+scheduledTask.action.dryRun.title: Dry Run
+scheduledTask.action.dryRun.description: Estimate cleanup impact without deleting records.

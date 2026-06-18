@@ -25,7 +25,6 @@ func registerMessages(localizer *i18n.Service) error {
 			Namespace: "scheduler",
 			Locale:    i18n.LocaleZHCN,
 			Messages: schedulerMessageResources([]string{
-				"定时任务",
 				"定时任务不存在",
 				"定时任务正在运行",
 				"定时任务请求无效",
@@ -39,7 +38,6 @@ func registerMessages(localizer *i18n.Service) error {
 			Namespace: "scheduler",
 			Locale:    i18n.LocaleENUS,
 			Messages: schedulerMessageResources([]string{
-				"Scheduled Tasks",
 				"Scheduled task not found",
 				"Scheduled task is already running",
 				"Invalid scheduled task request",
@@ -60,7 +58,6 @@ func registerMessages(localizer *i18n.Service) error {
 
 func schedulerMessageResources(texts []string) []i18n.MessageResource {
 	keys := []schedulercontract.MessageKey{
-		schedulercontract.ScheduledTaskMenuTitle,
 		schedulercontract.ScheduledTaskNotFound,
 		schedulercontract.ScheduledTaskAlreadyRunning,
 		schedulercontract.ScheduledTaskInvalidRequest,

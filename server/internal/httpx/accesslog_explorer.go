@@ -5,7 +5,6 @@ package httpx
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -46,37 +45,6 @@ type AccessLogExplorerRegistration struct {
 	MenuRegistry       *menu.Registry
 	PermissionRegistry *permission.Registry
 	EventBus           eventbus.Bus
-}
-
-func registerAccessLogExplorerMessages(localizer *i18n.Service) error {
-	if localizer == nil {
-		return errors.New("i18n service is unavailable")
-	}
-
-	for _, registration := range []i18n.Registration{
-		{
-			Namespace: "access-log",
-			Locale:    i18n.LocaleZHCN,
-			Messages: []i18n.MessageResource{
-				{Key: "menu.logCenter.title", Text: "日志中心"},
-				{Key: "menu.accessLog.title", Text: "访问日志"},
-			},
-		},
-		{
-			Namespace: "access-log",
-			Locale:    i18n.LocaleENUS,
-			Messages: []i18n.MessageResource{
-				{Key: "menu.logCenter.title", Text: "Log Center"},
-				{Key: "menu.accessLog.title", Text: "Access Logs"},
-			},
-		},
-	} {
-		if err := localizer.RegisterMessages(registration); err != nil {
-			return fmt.Errorf("register access log messages: %w", err)
-		}
-	}
-
-	return nil
 }
 
 func registerAccessLogExplorerPermissions(registry *permission.Registry) {
@@ -152,9 +120,6 @@ func RegisterAccessLogExplorer(
 	authService moduleapi.AuthService,
 	authorizer moduleapi.Authorizer,
 ) error {
-	if err := registerAccessLogExplorerMessages(ctx.I18n); err != nil {
-		return err
-	}
 	registerAccessLogExplorerPermissions(ctx.PermissionRegistry)
 	registerAccessLogExplorerMenu(ctx.MenuRegistry)
 	registerAccessLogExplorerRoutes(router, ctx.I18n, repo, authService, authorizer, ctx.EventBus)
