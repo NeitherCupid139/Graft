@@ -6,6 +6,7 @@ package i18n
 import (
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
 	"testing/fstest"
 
@@ -289,6 +290,47 @@ func TestEmbeddedLocaleResourcesIncludePhase4DisplayKeys(t *testing.T) {
 			}
 			if matches[0].Text == "" {
 				t.Fatalf("expected non-empty embedded message for %s %q", locale, key)
+			}
+		}
+	}
+}
+
+func TestEmbeddedCoreLocaleResourcesProvideDefaultCatalogMessages(t *testing.T) {
+	service := newTestService()
+
+	expectedKeys := []string{
+		"core.auth.invalid_credentials",
+		"core.auth.token_missing",
+		"core.auth.token_expired",
+		"core.auth.token_invalid",
+		"core.auth.forbidden",
+		"core.auth.invalid_refresh_session",
+		"core.auth.password_policy_violation",
+		"core.auth.password_reuse_forbidden",
+		"core.auth.current_password_invalid",
+		"core.auth.missing_actor",
+		"core.auth.missing_permission",
+		"core.auth.session_not_found",
+		"core.common.conjunction",
+		"core.common.copyright",
+		"core.common.internal_error",
+		"core.common.invalid_argument",
+		"core.menu.server.title",
+		"core.rbac.cannot_remove_own_admin_role",
+		"core.rbac.builtin_admin_permissions_immutable",
+		"core.permission.not_found",
+		"core.role.not_found",
+		"core.user.not_found",
+	}
+
+	for _, locale := range []LocaleTag{LocaleZHCN, LocaleENUS} {
+		coreMatches := service.RegisteredMessageKeys(CoreNamespace, locale)
+		if len(coreMatches) < len(expectedKeys) {
+			t.Fatalf("expected at least %d core keys for %s, got %d", len(expectedKeys), locale, len(coreMatches))
+		}
+		for _, key := range expectedKeys {
+			if !slices.Contains(coreMatches, key) {
+				t.Fatalf("expected core namespace to include %s for %s, got %v", key, locale, coreMatches)
 			}
 		}
 	}
