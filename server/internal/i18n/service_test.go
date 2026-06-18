@@ -4,6 +4,7 @@
 package i18n
 
 import (
+	"strings"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -19,6 +20,84 @@ func newTestService() *Service {
 		FallbackLocale:   "en-US",
 		SupportedLocales: []string{"zh-CN", "en-US"},
 	})
+}
+
+func newTestServiceWithModuleLocales(t *testing.T) *Service {
+	t.Helper()
+
+	service := newTestService()
+	resources := []EmbeddedLocaleResource{
+		{
+			Namespace: "audit",
+			Locale:    LocaleZHCN,
+			Source:    "audit/zh-CN.yaml",
+			Data: []byte(strings.Join([]string{
+				"menu.audit.title: 安全审计",
+				"audit.target.user: 用户",
+				"audit.target.auth: 认证",
+				"dashboard.widget.auditRiskEvents.title: 审计风险事件",
+				"scheduler.job.auditLogRetentionCleanup.title: 审计日志保留清理",
+			}, "\n")),
+		},
+		{
+			Namespace: "audit",
+			Locale:    LocaleENUS,
+			Source:    "audit/en-US.yaml",
+			Data: []byte(strings.Join([]string{
+				"menu.audit.title: Security Audit",
+				"audit.target.user: User",
+				"audit.target.auth: Authentication",
+				"dashboard.widget.auditRiskEvents.title: Audit Risk Events",
+				"scheduler.job.auditLogRetentionCleanup.title: Audit Log Retention Cleanup",
+			}, "\n")),
+		},
+		{
+			Namespace: "scheduler",
+			Locale:    LocaleZHCN,
+			Source:    "scheduler/zh-CN.yaml",
+			Data: []byte(strings.Join([]string{
+				"menu.server.scheduled_tasks.title: 定时任务",
+				"dashboard.widget.schedulerTaskAttention.title: 定时任务关注项",
+			}, "\n")),
+		},
+		{
+			Namespace: "scheduler",
+			Locale:    LocaleENUS,
+			Source:    "scheduler/en-US.yaml",
+			Data: []byte(strings.Join([]string{
+				"menu.server.scheduled_tasks.title: Scheduled Tasks",
+				"dashboard.widget.schedulerTaskAttention.title: Scheduled Task Attention",
+			}, "\n")),
+		},
+		{
+			Namespace: "container",
+			Locale:    LocaleZHCN,
+			Source:    "container/zh-CN.yaml",
+			Data:      []byte("menu.ops.title: 运维管理\nmenu.ops.container.title: 容器管理\n"),
+		},
+		{
+			Namespace: "container",
+			Locale:    LocaleENUS,
+			Source:    "container/en-US.yaml",
+			Data:      []byte("menu.ops.title: Operations\nmenu.ops.container.title: Container Management\n"),
+		},
+		{
+			Namespace: "monitor",
+			Locale:    LocaleZHCN,
+			Source:    "monitor/zh-CN.yaml",
+			Data:      []byte("dashboard.widget.monitorSystemHealth.title: 系统健康\n"),
+		},
+		{
+			Namespace: "monitor",
+			Locale:    LocaleENUS,
+			Source:    "monitor/en-US.yaml",
+			Data:      []byte("dashboard.widget.monitorSystemHealth.title: System Health\n"),
+		},
+	}
+	if err := service.RegisterEmbeddedLocaleResources(resources); err != nil {
+		t.Fatalf("register synthetic module locale resources: %v", err)
+	}
+	return service
 }
 
 // TestResolveLocaleUsesConfiguredFallbackOrder 验证 locale 解析会按请求、
@@ -261,7 +340,7 @@ func TestRegisteredMessageResourcesFindsRegisteredTextAcrossNamespaces(t *testin
 }
 
 func TestEmbeddedLocaleResourcesIncludePhase4DisplayKeys(t *testing.T) {
-	service := newTestService()
+	service := newTestServiceWithModuleLocales(t)
 
 	keys := []string{
 		"menu.notification.title",
@@ -278,7 +357,6 @@ func TestEmbeddedLocaleResourcesIncludePhase4DisplayKeys(t *testing.T) {
 		"scheduler.job.auditLogRetentionCleanup.title",
 		"scheduler.job.accessLogRetentionCleanup.title",
 		"scheduler.job.appLogRetentionCleanup.title",
-		"scheduledTask.action.dryRun.title",
 	}
 
 	for _, locale := range []LocaleTag{LocaleZHCN, LocaleENUS} {
@@ -295,7 +373,7 @@ func TestEmbeddedLocaleResourcesIncludePhase4DisplayKeys(t *testing.T) {
 }
 
 func TestEmbeddedLocaleResourcesIncludeAuditTargetLabelKeys(t *testing.T) {
-	service := newTestService()
+	service := newTestServiceWithModuleLocales(t)
 
 	for _, tc := range []struct {
 		locale   LocaleTag

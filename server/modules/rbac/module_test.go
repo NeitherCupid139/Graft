@@ -30,6 +30,7 @@ import (
 	"graft/server/internal/permission"
 	"graft/server/internal/testassert"
 	rbaccontract "graft/server/modules/rbac/contract"
+	rbaclocales "graft/server/modules/rbac/locales"
 	store "graft/server/modules/rbac/store"
 	usercontract "graft/server/modules/user/contract"
 )
@@ -68,6 +69,13 @@ type testUserService struct {
 
 func TestRegisterMessagesIncludesRolePermissionAuditKeys(t *testing.T) {
 	localizer := i18n.MustNew(config.I18nConfig{DefaultLocale: "zh-CN", FallbackLocale: "zh-CN", SupportedLocales: []string{"zh-CN", "en-US"}})
+	resources, err := rbaclocales.EmbeddedLocaleResources()
+	if err != nil {
+		t.Fatalf("load rbac locale resources: %v", err)
+	}
+	if err := localizer.RegisterEmbeddedLocaleResources(resources); err != nil {
+		t.Fatalf("register rbac locale resources: %v", err)
+	}
 
 	if err := registerMessages(localizer); err != nil {
 		t.Fatalf("register rbac messages: %v", err)
@@ -335,11 +343,19 @@ func newModuleTestContext(t *testing.T, repo store.Repository) (*module.Context,
 
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
+	localizer := i18n.MustNew(config.I18nConfig{DefaultLocale: "zh-CN", FallbackLocale: "zh-CN", SupportedLocales: []string{"zh-CN", "en-US"}})
+	resources, err := rbaclocales.EmbeddedLocaleResources()
+	if err != nil {
+		t.Fatalf("load rbac locale resources: %v", err)
+	}
+	if err := localizer.RegisterEmbeddedLocaleResources(resources); err != nil {
+		t.Fatalf("register rbac locale resources: %v", err)
+	}
 	ctx := &module.Context{
 		LifecycleContext:   context.Background(),
 		Logger:             zap.NewNop(),
 		Config:             &config.Config{},
-		I18n:               i18n.MustNew(config.I18nConfig{DefaultLocale: "zh-CN", FallbackLocale: "zh-CN", SupportedLocales: []string{"zh-CN", "en-US"}}),
+		I18n:               localizer,
 		Router:             engine.Group("/api"),
 		Services:           container.New(),
 		MenuRegistry:       menu.NewRegistry(),

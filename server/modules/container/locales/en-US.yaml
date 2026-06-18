@@ -1,3 +1,5 @@
+menu.ops.title: Operations
+menu.ops.container.title: Container Management
 ops.container.error.runtimeDisabled: Container runtime access is not enabled
 ops.container.error.runtimeSocketMissing: Container runtime socket is missing
 ops.container.error.runtimePermissionDenied: The current process cannot access the container runtime

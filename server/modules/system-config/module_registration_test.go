@@ -9,6 +9,7 @@ import (
 	"graft/server/internal/config"
 	"graft/server/internal/i18n"
 	systemconfigcontract "graft/server/modules/system-config/contract"
+	systemconfiglocales "graft/server/modules/system-config/locales"
 )
 
 func TestRegisterMessagesUsesEmbeddedLocaleResources(t *testing.T) {
@@ -17,6 +18,13 @@ func TestRegisterMessagesUsesEmbeddedLocaleResources(t *testing.T) {
 		FallbackLocale:   "zh-CN",
 		SupportedLocales: []string{"zh-CN", "en-US"},
 	})
+	resources, err := systemconfiglocales.EmbeddedLocaleResources()
+	if err != nil {
+		t.Fatalf("load system-config locale resources: %v", err)
+	}
+	if err := localizer.RegisterEmbeddedLocaleResources(resources); err != nil {
+		t.Fatalf("register system-config locale resources: %v", err)
+	}
 
 	if err := registerMessages(localizer); err != nil {
 		t.Fatalf("register system-config messages: %v", err)

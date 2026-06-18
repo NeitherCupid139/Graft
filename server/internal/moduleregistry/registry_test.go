@@ -13,16 +13,31 @@ import (
 	"graft/server/internal/i18n"
 )
 
-func TestEmbeddedLocaleResourcesIncludesAnnouncementPilot(t *testing.T) {
+func TestEmbeddedLocaleResourcesIncludeMigratedModuleProviders(t *testing.T) {
 	got := EmbeddedLocaleResources()
-	if len(got) != 2 {
-		t.Fatalf("expected 2 announcement locale resources, got %#v", got)
+	if len(got) != 16 {
+		t.Fatalf("expected 16 module locale resources, got %#v", got)
 	}
-	if got[0].Namespace != i18n.Namespace("announcement") || got[0].Locale != i18n.LocaleENUS {
-		t.Fatalf("unexpected first locale resource %#v", got[0])
+
+	expected := map[string]map[i18n.LocaleTag]struct{}{
+		"announcement":  {i18n.LocaleENUS: {}, i18n.LocaleZHCN: {}},
+		"audit":         {i18n.LocaleENUS: {}, i18n.LocaleZHCN: {}},
+		"container":     {i18n.LocaleENUS: {}, i18n.LocaleZHCN: {}},
+		"monitor":       {i18n.LocaleENUS: {}, i18n.LocaleZHCN: {}},
+		"rbac":          {i18n.LocaleENUS: {}, i18n.LocaleZHCN: {}},
+		"scheduler":     {i18n.LocaleENUS: {}, i18n.LocaleZHCN: {}},
+		"system-config": {i18n.LocaleENUS: {}, i18n.LocaleZHCN: {}},
+		"user":          {i18n.LocaleENUS: {}, i18n.LocaleZHCN: {}},
 	}
-	if got[1].Namespace != i18n.Namespace("announcement") || got[1].Locale != i18n.LocaleZHCN {
-		t.Fatalf("unexpected second locale resource %#v", got[1])
+
+	for _, resource := range got {
+		locales, ok := expected[string(resource.Namespace)]
+		if !ok {
+			t.Fatalf("unexpected locale resource namespace %#v", resource)
+		}
+		if _, ok := locales[resource.Locale]; !ok {
+			t.Fatalf("unexpected locale resource locale %#v", resource)
+		}
 	}
 }
 

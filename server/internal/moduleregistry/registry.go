@@ -10,6 +10,13 @@ import (
 	"graft/server/internal/i18n"
 	"graft/server/internal/module"
 	announcementlocales "graft/server/modules/announcement/locales"
+	auditlocales "graft/server/modules/audit/locales"
+	containerlocales "graft/server/modules/container/locales"
+	monitorlocales "graft/server/modules/monitor/locales"
+	rbaclocales "graft/server/modules/rbac/locales"
+	schedulerlocales "graft/server/modules/scheduler/locales"
+	systemconfiglocales "graft/server/modules/system-config/locales"
+	userlocales "graft/server/modules/user/locales"
 )
 
 // DefaultMigrationDir 是 `graft migrate` 默认链路使用的 owner-aligned 选择器。
@@ -26,10 +33,38 @@ const drilldownMigrationDir = "internal/drilldown/migrations"
 // Slice 1 only establishes the runtime slot, so later module migrations can
 // populate this without changing the registration flow again.
 func EmbeddedLocaleResources() []i18n.EmbeddedLocaleResource {
-	resources, err := announcementlocales.EmbeddedLocaleResources()
-	if err != nil {
-		panic(fmt.Sprintf("load announcement embedded locale resources: %v", err))
+	providers := []struct {
+		name string
+		load func() ([]i18n.EmbeddedLocaleResource, error)
+	}{
+		{name: "announcement", load: announcementlocales.EmbeddedLocaleResources},
+		{name: "audit", load: auditlocales.EmbeddedLocaleResources},
+		{name: "container", load: containerlocales.EmbeddedLocaleResources},
+		{name: "monitor", load: monitorlocales.EmbeddedLocaleResources},
+		{name: "rbac", load: rbaclocales.EmbeddedLocaleResources},
+		{name: "scheduler", load: schedulerlocales.EmbeddedLocaleResources},
+		{name: "system-config", load: systemconfiglocales.EmbeddedLocaleResources},
+		{name: "user", load: userlocales.EmbeddedLocaleResources},
 	}
+
+	capacity := 0
+	for _, provider := range providers {
+		items, err := provider.load()
+		if err != nil {
+			panic(fmt.Sprintf("load %s embedded locale resources: %v", provider.name, err))
+		}
+		capacity += len(items)
+	}
+
+	resources := make([]i18n.EmbeddedLocaleResource, 0, capacity)
+	for _, provider := range providers {
+		items, err := provider.load()
+		if err != nil {
+			panic(fmt.Sprintf("load %s embedded locale resources: %v", provider.name, err))
+		}
+		resources = append(resources, items...)
+	}
+
 	return resources
 }
 

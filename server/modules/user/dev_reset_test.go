@@ -12,6 +12,7 @@ import (
 	"graft/server/internal/config"
 	"graft/server/internal/i18n"
 	"graft/server/internal/moduleapi"
+	rbaclocales "graft/server/modules/rbac/locales"
 	rbacstore "graft/server/modules/rbac/store"
 	userstore "graft/server/modules/user/store"
 )
@@ -123,11 +124,19 @@ func devResetStringPtrOrNil(value string) *string {
 func newDevResetLocalizer(t *testing.T) *i18n.Service {
 	t.Helper()
 
-	return i18n.MustNew(config.I18nConfig{
+	localizer := i18n.MustNew(config.I18nConfig{
 		DefaultLocale:    "zh-CN",
 		FallbackLocale:   "en-US",
 		SupportedLocales: []string{"zh-CN", "en-US"},
 	})
+	resources, err := rbaclocales.EmbeddedLocaleResources()
+	if err != nil {
+		t.Fatalf("load rbac locale resources: %v", err)
+	}
+	if err := localizer.RegisterEmbeddedLocaleResources(resources); err != nil {
+		t.Fatalf("register rbac locale resources: %v", err)
+	}
+	return localizer
 }
 
 func newDevResetState(t *testing.T, currentHash string) *devResetState {

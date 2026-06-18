@@ -43,8 +43,10 @@ import (
 	"graft/server/internal/testassert"
 	authmodule "graft/server/modules/auth"
 	"graft/server/modules/rbac"
+	rbaclocales "graft/server/modules/rbac/locales"
 	rbacstore "graft/server/modules/rbac/store"
 	usercontract "graft/server/modules/user/contract"
+	userlocales "graft/server/modules/user/locales"
 	store "graft/server/modules/user/store"
 )
 
@@ -74,6 +76,34 @@ func adaptTestAuthRepository(repo store.AuthRepository) userstoreAuthPair {
 type userstoreAuthPair struct {
 	auth            store.AuthRepository
 	passwordChanges store.PasswordChangeRepository
+}
+
+func mustNewUserModuleTestLocalizer(t *testing.T) *i18n.Service {
+	t.Helper()
+	return mustNewUserModuleLocalizerOrPanic(func(format string, args ...any) {
+		t.Fatalf(format, args...)
+	})
+}
+
+func mustNewUserModuleLocalizerOrPanic(fail func(format string, args ...any)) *i18n.Service {
+	localizer := i18n.MustNew(config.I18nConfig{DefaultLocale: "zh-CN", FallbackLocale: "zh-CN", SupportedLocales: []string{"zh-CN", "en-US"}})
+	for _, provider := range []struct {
+		name string
+		load func() ([]i18n.EmbeddedLocaleResource, error)
+	}{
+		{name: "user", load: userlocales.EmbeddedLocaleResources},
+		{name: "rbac", load: rbaclocales.EmbeddedLocaleResources},
+	} {
+		resources, err := provider.load()
+		if err != nil {
+			fail("load %s locale resources: %v", provider.name, err)
+		}
+		if err := localizer.RegisterEmbeddedLocaleResources(resources); err != nil {
+			fail("register %s locale resources: %v", provider.name, err)
+		}
+	}
+
+	return localizer
 }
 
 // moduleTestAuthRepository 以内存状态模拟认证仓储的最小行为。
@@ -662,6 +692,21 @@ func newModuleTestContextWithLoggerAndPermissions(
 
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
+	localizer := i18n.MustNew(config.I18nConfig{DefaultLocale: "zh-CN", FallbackLocale: "zh-CN", SupportedLocales: []string{"zh-CN", "en-US"}})
+	userResources, err := userlocales.EmbeddedLocaleResources()
+	if err != nil {
+		t.Fatalf("load user locale resources: %v", err)
+	}
+	if err := localizer.RegisterEmbeddedLocaleResources(userResources); err != nil {
+		t.Fatalf("register user locale resources: %v", err)
+	}
+	rbacResources, err := rbaclocales.EmbeddedLocaleResources()
+	if err != nil {
+		t.Fatalf("load rbac locale resources: %v", err)
+	}
+	if err := localizer.RegisterEmbeddedLocaleResources(rbacResources); err != nil {
+		t.Fatalf("register rbac locale resources: %v", err)
+	}
 	ctx := &module.Context{
 		LifecycleContext: context.Background(),
 		Logger:           logger,
@@ -677,7 +722,7 @@ func newModuleTestContextWithLoggerAndPermissions(
 			FallbackLocale:   "zh-CN",
 			SupportedLocales: []string{"zh-CN", "en-US"},
 		}},
-		I18n:               i18n.MustNew(config.I18nConfig{DefaultLocale: "zh-CN", FallbackLocale: "zh-CN", SupportedLocales: []string{"zh-CN", "en-US"}}),
+		I18n:               localizer,
 		Router:             engine.Group("/api"),
 		Services:           container.New(),
 		MenuRegistry:       menu.NewRegistry(),
@@ -1231,6 +1276,9 @@ func newDefaultAdminBootAuthRepository(t *testing.T, ensuredDefaultAdmin *bool) 
 func newDefaultAdminBootModuleContext(_ store.AuthRepository, _ rbacstore.Repository) *module.Context {
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
+	localizer := mustNewUserModuleLocalizerOrPanic(func(format string, args ...any) {
+		panic(fmt.Sprintf(format, args...))
+	})
 
 	return &module.Context{
 		LifecycleContext: context.Background(),
@@ -1243,7 +1291,7 @@ func newDefaultAdminBootModuleContext(_ store.AuthRepository, _ rbacstore.Reposi
 			RefreshCookieSameSite: "lax",
 			RefreshCookiePath:     "/",
 		}},
-		I18n:               i18n.MustNew(config.I18nConfig{DefaultLocale: "zh-CN", FallbackLocale: "zh-CN", SupportedLocales: []string{"zh-CN", "en-US"}}),
+		I18n:               localizer,
 		Router:             engine.Group(testAPIBasePath),
 		Services:           container.New(),
 		MenuRegistry:       menu.NewRegistry(),
@@ -2408,11 +2456,7 @@ func TestBootstrapLocaleSnapshotDeduplicatesFallbackLocales(t *testing.T) {
 			FallbackLocale:   "zh-CN",
 			SupportedLocales: nil,
 		},
-		i18n.MustNew(config.I18nConfig{
-			DefaultLocale:    "zh-CN",
-			FallbackLocale:   "zh-CN",
-			SupportedLocales: []string{"zh-CN", "en-US"},
-		}),
+		mustNewUserModuleTestLocalizer(t),
 		nil,
 		nil,
 		nil,

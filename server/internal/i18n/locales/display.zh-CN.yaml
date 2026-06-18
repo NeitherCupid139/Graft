@@ -1,10 +1,4 @@
 menu.notification.title: 通知中心
-menu.audit.title: 安全审计
-menu.audit.overview.title: 概览
-menu.audit.logs.title: 审计日志
-menu.server.scheduled_tasks.title: 定时任务
-menu.ops.title: 运维管理
-menu.ops.container.title: 容器管理
 menu.logCenter.title: 日志中心
 menu.accessLog.title: 访问日志
 menu.appLog.title: 应用日志
@@ -21,49 +15,9 @@ dashboard.widget.accessLogRequestAttention.description: 最近的错误请求和
 dashboard.widget.accessLogRequestAttention.error: HTTP 错误请求
 dashboard.widget.accessLogRequestAttention.slow: 慢请求
 dashboard.widget.accessLogRequestAttention.empty: 最近没有错误请求或慢请求。
-dashboard.widget.schedulerTaskAttention.title: 定时任务关注项
-dashboard.widget.schedulerTaskAttention.description: 失败、运行中或已禁用的定时任务，需要运维关注。
-dashboard.widget.schedulerTaskAttention.failed: 失败任务
-dashboard.widget.schedulerTaskAttention.failedDescription: 最近一次执行失败。
-dashboard.widget.schedulerTaskAttention.running: 运行中任务
-dashboard.widget.schedulerTaskAttention.runningDescription: 当前正在执行的任务。
-dashboard.widget.schedulerTaskAttention.disabled: 已禁用任务
-dashboard.widget.schedulerTaskAttention.disabledDescription: 当前被禁用的任务。
-dashboard.widget.monitorSystemHealth.title: 系统健康
-dashboard.widget.monitorSystemHealth.description: 当前服务健康度、依赖状态和活跃异常。
-dashboard.widget.monitorSystemHealth.database: 数据库
-dashboard.widget.monitorSystemHealth.databaseHealthyDescription: 数据库状态正常。
-dashboard.widget.monitorSystemHealth.databaseDegradedDescription: 数据库状态降级。
-dashboard.widget.monitorSystemHealth.databaseDisabledDescription: 数据库可观测性未启用。
-dashboard.widget.monitorSystemHealth.databaseUnknownDescription: 数据库状态未知。
-dashboard.widget.monitorSystemHealth.redis: Redis
-dashboard.widget.monitorSystemHealth.redisHealthyDescription: Redis 状态正常。
-dashboard.widget.monitorSystemHealth.redisDegradedDescription: Redis 状态降级。
-dashboard.widget.monitorSystemHealth.redisDisabledDescription: Redis 可观测性未启用。
-dashboard.widget.monitorSystemHealth.redisUnknownDescription: Redis 状态未知。
-dashboard.widget.monitorSystemHealth.anomalies: 活跃异常
-dashboard.widget.monitorSystemHealth.anomaliesDescription: 当前监控窗口内的活跃异常数量。
-dashboard.widget.monitorSystemHealth.summary: 系统健康
-dashboard.widget.auditRiskEvents.title: 审计风险事件
-dashboard.widget.auditRiskEvents.description: 最近的高风险审计与安全事件。
-dashboard.widget.auditRiskEvents.highRisk.title: 高风险审计事件
-dashboard.widget.auditRiskEvents.highRisk.description: 查看最近的高风险审计与安全事件。
-dashboard.widget.auditRiskEvents.highRisk.action: 查看事件
-dashboard.widget.auditRiskEvents.failedOperations.title: 失败操作
-dashboard.widget.auditRiskEvents.failedOperations.description: 查看最近失败或被拒绝的操作。
-dashboard.widget.auditRiskEvents.failedOperations.action: 查看失败记录
-dashboard.widget.auditRiskEvents.authFailures.description: 查看最近的认证失败事件。
-dashboard.widget.auditRiskEvents.authFailures.action: 查看认证失败
-dashboard.widget.auditRiskEvents.empty: 最近 24 小时内没有审计风险事件。
-audit.overview.riskGroups.authFailures: 认证失败
-scheduler.job.auditLogRetentionCleanup.title: 审计日志保留清理
-scheduler.job.shortTitle.auditLog: 审计日志
-scheduledTask.auditLogRetention.description: 删除超过保留周期的审计日志。
 scheduler.job.accessLogRetentionCleanup.title: 访问日志保留清理
 scheduler.job.shortTitle.accessLog: 访问日志
 scheduledTask.accessLogRetention.description: 删除超过保留周期的访问日志。
 scheduler.job.appLogRetentionCleanup.title: 应用日志保留清理
 scheduler.job.shortTitle.appLog: 应用日志
 scheduledTask.appLogRetention.description: 删除超过保留周期的应用日志。
-scheduledTask.action.dryRun.title: 试运行
-scheduledTask.action.dryRun.description: 仅估算清理影响，不实际删除记录。

@@ -9,6 +9,7 @@ import (
 	"graft/server/internal/config"
 	"graft/server/internal/i18n"
 	usercontract "graft/server/modules/user/contract"
+	userlocales "graft/server/modules/user/locales"
 )
 
 func TestRegisterMessagesUsesEmbeddedLocaleResources(t *testing.T) {
@@ -17,6 +18,13 @@ func TestRegisterMessagesUsesEmbeddedLocaleResources(t *testing.T) {
 		FallbackLocale:   "zh-CN",
 		SupportedLocales: []string{"zh-CN", "en-US"},
 	})
+	resources, err := userlocales.EmbeddedLocaleResources()
+	if err != nil {
+		t.Fatalf("load user locale resources: %v", err)
+	}
+	if err := localizer.RegisterEmbeddedLocaleResources(resources); err != nil {
+		t.Fatalf("register user locale resources: %v", err)
+	}
 
 	if err := registerMessages(localizer); err != nil {
 		t.Fatalf("register user messages: %v", err)

@@ -20,6 +20,7 @@ import (
 	"graft/server/internal/i18n"
 	"graft/server/internal/moduleapi"
 	auditcontract "graft/server/modules/audit/contract"
+	auditlocales "graft/server/modules/audit/locales"
 	auditstore "graft/server/modules/audit/store"
 )
 
@@ -89,11 +90,19 @@ func openTestDB(t *testing.T) *sql.DB {
 }
 
 func newTestLocalizer() *i18n.Service {
-	return i18n.MustNew(config.I18nConfig{
+	localizer := i18n.MustNew(config.I18nConfig{
 		DefaultLocale:    "zh-CN",
 		FallbackLocale:   "zh-CN",
 		SupportedLocales: []string{"zh-CN", "en-US"},
 	})
+	resources, err := auditlocales.EmbeddedLocaleResources()
+	if err != nil {
+		panic(err)
+	}
+	if err := localizer.RegisterEmbeddedLocaleResources(resources); err != nil {
+		panic(err)
+	}
+	return localizer
 }
 
 func TestRepositoryCreateAndListAuditLogs(t *testing.T) {
