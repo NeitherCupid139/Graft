@@ -58,6 +58,8 @@ const (
 	ContainerShellCommandNotFound MessageKey = "ops.container.error.shellCommandNotFound"
 	// ContainerShellSessionFailed identifies generic shell session failures.
 	ContainerShellSessionFailed MessageKey = "ops.container.error.shellSessionFailed"
+	// ContainerShellUnsupportedControlMessage identifies unsupported terminal control payload errors.
+	ContainerShellUnsupportedControlMessage MessageKey = "ops.container.error.shellUnsupportedControlMessage"
 	// ContainerTimeout identifies runtime timeout errors.
 	ContainerTimeout MessageKey = "ops.container.error.timeout"
 	// ContainerMountUsageUnsupported identifies unsupported mount usage errors.

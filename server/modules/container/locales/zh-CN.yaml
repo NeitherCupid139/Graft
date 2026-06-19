@@ -21,6 +21,7 @@ ops.container.error.shellOriginDenied: 当前请求来源不允许建立容器 S
 ops.container.error.shellContainerNotRunning: 当前容器未运行，无法建立 Shell 会话
 ops.container.error.shellCommandNotFound: 所选 Shell 命令在容器内不存在
 ops.container.error.shellSessionFailed: 容器 Shell 会话建立失败
+ops.container.error.shellUnsupportedControlMessage: 当前终端控制消息不受支持
 ops.container.error.timeout: 容器运行时操作超时
 ops.container.error.mountUsageUnsupported: 该挂载不支持用量统计
 ops.container.error.dangerousActionsDisabled: 高危容器操作未启用

@@ -38,10 +38,6 @@ export function buildContainerShellSessionsApiPath(containerId: string) {
   return CONTAINER_API_PATH.SHELL_SESSIONS.replace('{id}', encodeContainerPathParam(containerId));
 }
 
-export function buildContainerShellWebSocketApiPath(containerId: string) {
-  return CONTAINER_API_PATH.SHELL_WS.replace('{id}', encodeContainerPathParam(containerId));
-}
-
 /**
  * Constructs the API path for retrieving mount usage information for a container.
  *

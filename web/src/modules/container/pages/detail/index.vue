@@ -395,6 +395,18 @@
               </section>
             </t-tab-panel>
 
+            <t-tab-panel value="shell" :label="t('container.detail.tabs.shell')" :destroy-on-hide="false">
+              <section
+                class="container-detail-section container-detail-section--shell container-detail-tab-body container-detail-tab-body--short"
+              >
+                <container-shell-panel
+                  :active="activeTab === 'shell'"
+                  :container-id="containerId"
+                  :container-state="safeDetail.state"
+                />
+              </section>
+            </t-tab-panel>
+
             <t-tab-panel value="health" :label="t('container.detail.tabs.health')" :destroy-on-hide="false">
               <section class="container-detail-section container-detail-section--health">
                 <div class="container-health-diagnostics">
@@ -1129,6 +1141,7 @@ import {
   postContainerMountUsageRefresh,
 } from '../../api/container';
 import ContainerRawJsonPanel from '../../components/ContainerRawJsonPanel.vue';
+import ContainerShellPanel from '../../components/ContainerShellPanel.vue';
 import type {
   ContainerDetail,
   ContainerHealth,
@@ -1147,7 +1160,7 @@ defineOptions({
   name: 'ContainerDetailIndex',
 });
 
-type DetailTab = 'overview' | 'resources' | 'logs' | 'health' | 'config' | 'network' | 'storage' | 'raw';
+type DetailTab = 'overview' | 'resources' | 'logs' | 'shell' | 'health' | 'config' | 'network' | 'storage' | 'raw';
 type EnvironmentPolicy = 'plain' | 'masked' | 'hidden' | 'unknown';
 type EnvironmentPolicyFilter = EnvironmentPolicy | 'all' | 'sensitive';
 type EnvironmentRow = {
@@ -1293,7 +1306,17 @@ type ResourceDetailGroup = {
 type ResourceMetricDefinition = [ResourceMetricKey, string, ResourceMetricFormat];
 type AutoRefreshInterval = 0 | 5 | 10 | 30;
 
-const DETAIL_TABS: DetailTab[] = ['overview', 'resources', 'logs', 'health', 'config', 'network', 'storage', 'raw'];
+const DETAIL_TABS: DetailTab[] = [
+  'overview',
+  'resources',
+  'logs',
+  'shell',
+  'health',
+  'config',
+  'network',
+  'storage',
+  'raw',
+];
 const AUTO_REFRESH_INTERVALS: AutoRefreshInterval[] = [0, 5, 10, 30];
 const DEFAULT_LOG_QUERY = {
   tail: 200,
@@ -3626,6 +3649,11 @@ function portLabel(port: ContainerDetail['ports'][number]) {
 }
 
 .container-detail-section--health {
+  padding: 0 var(--graft-density-gap-16) var(--graft-density-gap-16);
+}
+
+.container-detail-section--shell {
+  min-height: var(--container-detail-tab-body-min-height);
   padding: 0 var(--graft-density-gap-16) var(--graft-density-gap-16);
 }
 

@@ -69,6 +69,7 @@ var containerMessageKeys = []string{
 	containercontract.ContainerShellContainerNotRunning.String(),
 	containercontract.ContainerShellCommandNotFound.String(),
 	containercontract.ContainerShellSessionFailed.String(),
+	containercontract.ContainerShellUnsupportedControlMessage.String(),
 	containercontract.ContainerTimeout.String(),
 	containercontract.ContainerMountUsageUnsupported.String(),
 	containercontract.ContainerDangerousActionsDisabled.String(),

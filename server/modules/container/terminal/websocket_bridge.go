@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+
+	containercontract "graft/server/modules/container/contract"
 )
 
 const (
@@ -44,10 +46,11 @@ type ClientMessage struct {
 }
 
 type ServerMessage struct {
-	Type    ServerMessageType `json:"type"`
-	Data    string            `json:"data,omitempty"`
-	State   string            `json:"state,omitempty"`
-	Message string            `json:"message,omitempty"`
+	Type       ServerMessageType `json:"type"`
+	Data       string            `json:"data,omitempty"`
+	State      string            `json:"state,omitempty"`
+	Message    string            `json:"message,omitempty"`
+	MessageKey string            `json:"messageKey,omitempty"`
 }
 
 // Bridge binds one websocket connection to one terminal session.
@@ -131,7 +134,11 @@ func (b *Bridge) readLoop(ctx context.Context, errCh chan<- error) {
 				return
 			}
 		default:
-			if err := b.writeJSON(ServerMessage{Type: ServerMessageError, Message: "unsupported terminal control message"}); err != nil {
+			if err := b.writeJSON(ServerMessage{
+				Type:       ServerMessageError,
+				Message:    "unsupported terminal control message",
+				MessageKey: containercontract.ContainerShellUnsupportedControlMessage.String(),
+			}); err != nil {
 				errCh <- err
 				return
 			}

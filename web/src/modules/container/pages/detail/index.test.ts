@@ -451,6 +451,19 @@ vi.mock('../../api/container', () => ({
   postContainerMountUsageRefresh: apiMocks.postContainerMountUsageRefresh,
 }));
 
+vi.mock('../../components/ContainerShellPanel.vue', () => ({
+  default: defineComponent({
+    props: ['active', 'containerId', 'containerState'],
+    setup: (props) => () =>
+      h('div', {
+        'data-testid': 'container-shell-panel-stub',
+        'data-active': String(Boolean(props.active)),
+        'data-container-id': String(props.containerId ?? ''),
+        'data-container-state': String(props.containerState ?? ''),
+      }),
+  }),
+}));
+
 vi.mock('tdesign-vue-next/es/message', () => ({
   MessagePlugin: messageMocks,
 }));
@@ -1177,6 +1190,34 @@ describe('container detail page', () => {
 
     expect(apiMocks.getContainer).toHaveBeenCalledTimes(2);
     vi.useRealTimers();
+  });
+
+  it('renders the shell panel through the existing route query tab lifecycle', async () => {
+    routeState.route.query.tab = 'shell';
+    const wrapper = mountPage();
+    await flushPromises();
+
+    const shellPanel = wrapper.get('[data-testid="container-shell-panel-stub"]');
+    expect(shellPanel.attributes('data-active')).toBe('true');
+    expect(shellPanel.attributes('data-container-id')).toBe('container-1');
+    expect(shellPanel.attributes('data-container-state')).toBe('running');
+  });
+
+  it('activates the shell panel when the existing tab header switches route query to shell', async () => {
+    routeState.route.query.tab = 'config';
+    const wrapper = mountPage();
+    await flushPromises();
+
+    expect(wrapper.get('[data-testid="container-shell-panel-stub"]').attributes('data-active')).toBe('false');
+
+    await wrapper.get('[data-testid="tab-shell"]').trigger('click');
+    await flushPromises();
+
+    expect(routerMocks.replace).toHaveBeenCalledWith({
+      params: { id: 'container-1' },
+      query: { tab: 'shell' },
+    });
+    expect(wrapper.get('[data-testid="container-shell-panel-stub"]').attributes('data-active')).toBe('true');
   });
 
   it('pauses auto refresh while hidden and refreshes once when visible again', async () => {
@@ -2624,9 +2665,7 @@ function mountPage() {
             (_props, { emit, slots }) =>
             () =>
               h('div', { 'data-testid': 'container-detail-tabs' }, [
-                h(
-                  'div',
-                  { 'data-testid': 'container-detail-tabs-header' },
+                h('div', { 'data-testid': 'container-detail-tabs-header' }, [
                   h(
                     'button',
                     {
@@ -2638,7 +2677,18 @@ function mountPage() {
                     },
                     'logs',
                   ),
-                ),
+                  h(
+                    'button',
+                    {
+                      'data-testid': 'tab-shell',
+                      onClick: () => {
+                        emit('update:value', 'shell');
+                        emit('change', 'shell');
+                      },
+                    },
+                    'shell',
+                  ),
+                ]),
                 slots.default?.(),
               ]),
         }),
