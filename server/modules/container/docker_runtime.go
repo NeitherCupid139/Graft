@@ -196,6 +196,7 @@ func (r *DockerRuntime) Logs(ctx context.Context, ref Ref, query LogQuery) (Logs
 	}, nil
 }
 
+// Shell opens one interactive exec session inside the target container.
 func (r *DockerRuntime) Shell(ctx context.Context, ref Ref, command string) (terminal.Session, error) {
 	inspect, err := r.client.ContainerInspect(ctx, ref.Value)
 	if err != nil {

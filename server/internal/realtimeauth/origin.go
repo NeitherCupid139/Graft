@@ -1,6 +1,7 @@
 // Copyright (c) 2025-2026 GeWuYou
 // SPDX-License-Identifier: Apache-2.0
 
+// Package realtimeauth issues and validates short-lived realtime access tickets.
 package realtimeauth
 
 import (
@@ -9,8 +10,10 @@ import (
 	"strings"
 )
 
+// ErrOriginDenied indicates that the websocket request origin is not allowlisted.
 var ErrOriginDenied = errors.New("websocket origin denied")
 
+// ValidateOrigin ensures the websocket Origin header matches one configured allowlist entry.
 func ValidateOrigin(requestOrigin string, allowedOrigins []string) error {
 	origin := strings.TrimSpace(requestOrigin)
 	if origin == "" {

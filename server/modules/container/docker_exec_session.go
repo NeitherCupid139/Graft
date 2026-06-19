@@ -16,6 +16,12 @@ import (
 	"graft/server/modules/container/terminal"
 )
 
+const (
+	dockerExecOutputBuffer = 32
+	dockerExecErrorBuffer  = 2
+	dockerExecReadBuffer   = 8192
+)
+
 type dockerExecClient interface {
 	ContainerExecCreate(context.Context, string, container.ExecOptions) (container.ExecCreateResponse, error)
 	ContainerExecAttach(context.Context, string, container.ExecAttachOptions) (dockertypes.HijackedResponse, error)
@@ -27,13 +33,13 @@ type dockerExecSession struct {
 	containerID string
 	command     string
 
-	mu       sync.Mutex
-	started  bool
-	execID   string
-	stream   *dockertypes.HijackedResponse
-	outputCh chan []byte
-	errorCh  chan error
-	closeCh  chan struct{}
+	mu        sync.Mutex
+	started   bool
+	execID    string
+	stream    *dockertypes.HijackedResponse
+	outputCh  chan []byte
+	errorCh   chan error
+	closeCh   chan struct{}
 	closeOnce sync.Once
 	done      chan struct{}
 }
@@ -43,8 +49,8 @@ func newDockerExecSession(client dockerExecClient, containerID string, command s
 		client:      client,
 		containerID: strings.TrimSpace(containerID),
 		command:     strings.TrimSpace(command),
-		outputCh:    make(chan []byte, 32),
-		errorCh:     make(chan error, 2),
+		outputCh:    make(chan []byte, dockerExecOutputBuffer),
+		errorCh:     make(chan error, dockerExecErrorBuffer),
 		closeCh:     make(chan struct{}),
 		done:        make(chan struct{}),
 	}
@@ -162,7 +168,7 @@ func (s *dockerExecSession) copyOutput() {
 		s.pushError(errShellSessionFailed)
 		return
 	}
-	buffer := make([]byte, 8192)
+	buffer := make([]byte, dockerExecReadBuffer)
 	for {
 		n, err := stream.Reader.Read(buffer)
 		if n > 0 {

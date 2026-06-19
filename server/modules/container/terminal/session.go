@@ -1,6 +1,7 @@
 // Copyright (c) 2025-2026 GeWuYou
 // SPDX-License-Identifier: Apache-2.0
 
+// Package terminal defines the stable shell session contract shared by container runtimes and websocket bridges.
 package terminal
 
 import "context"
@@ -20,4 +21,3 @@ type Session interface {
 	Errors() <-chan error
 	Close(ctx context.Context) error
 }
-

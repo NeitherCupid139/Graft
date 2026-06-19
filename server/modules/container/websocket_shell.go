@@ -21,36 +21,63 @@ import (
 	"graft/server/modules/container/terminal"
 )
 
+const shellWebSocketBufferSize = 4096
+
 var shellWebSocketUpgrader = websocket.Upgrader{
-	ReadBufferSize:  4096,
-	WriteBufferSize: 4096,
+	ReadBufferSize:  shellWebSocketBufferSize,
+	WriteBufferSize: shellWebSocketBufferSize,
 	CheckOrigin:     func(*http.Request) bool { return true },
 }
 
 func (r routeRuntime) handleShellWebSocket(ginCtx *gin.Context) {
-	ref, ok := readRef(ginCtx, r)
-	if !ok {
-		return
-	}
 	requestCtx, requestAuth, handled := r.authenticateShellWebSocketRequest(ginCtx)
 	if handled {
 		return
 	}
+	ref, handshake, ok := r.resolveShellWebSocketContext(ginCtx, requestAuth)
+	if !ok {
+		return
+	}
+	r.runShellWebSocketBridge(requestCtx, ginCtx, ref, handshake)
+}
+
+func shellHandshakeFromContext(ginCtx *gin.Context) (ShellHandshake, bool) {
 	handshakeValue, exists := ginCtx.Get("container.shell.handshake")
 	if !exists {
-		r.writeRouteError(ginCtx, errShellSessionFailed)
-		return
+		return ShellHandshake{}, false
 	}
 	handshake, ok := handshakeValue.(ShellHandshake)
 	if !ok {
-		r.writeRouteError(ginCtx, errShellSessionFailed)
-		return
+		return ShellHandshake{}, false
+	}
+	return handshake, true
+}
+
+func (r routeRuntime) resolveShellWebSocketContext(
+	ginCtx *gin.Context,
+	requestAuth moduleapi.RequestAuthContext,
+) (Ref, ShellHandshake, bool) {
+	ref, ok := readRef(ginCtx, r)
+	if !ok {
+		return Ref{}, ShellHandshake{}, false
+	}
+	handshake, ok := shellHandshakeFromContext(ginCtx)
+	if !ok {
+		return Ref{}, ShellHandshake{}, false
 	}
 	if requestAuth.User == nil || requestAuth.User.ID != handshake.UserID {
 		r.writeRouteError(ginCtx, errShellForbidden)
-		return
+		return Ref{}, ShellHandshake{}, false
 	}
+	return ref, handshake, true
+}
 
+func (r routeRuntime) runShellWebSocketBridge(
+	requestCtx context.Context,
+	ginCtx *gin.Context,
+	ref Ref,
+	handshake ShellHandshake,
+) {
 	conn, err := shellWebSocketUpgrader.Upgrade(ginCtx.Writer, ginCtx.Request, nil)
 	if err != nil {
 		r.service.publishShellSessionFailed(

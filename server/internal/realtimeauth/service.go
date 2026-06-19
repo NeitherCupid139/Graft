@@ -18,22 +18,31 @@ import (
 )
 
 const (
-	defaultTicketTTL      = 30 * time.Second
-	minTicketSecretBytes  = 24
-	defaultResourceType   = "unknown"
-	defaultConsumeLeeway  = 0 * time.Second
+	defaultTicketTTL     = 30 * time.Second
+	minTicketSecretBytes = 24
+	defaultResourceType  = "unknown"
+	defaultConsumeLeeway = 0 * time.Second
+	ticketPartCount      = 2
 )
 
 var (
-	ErrInvalidTicket     = errors.New("realtime ticket invalid")
-	ErrExpiredTicket     = errors.New("realtime ticket expired")
-	ErrUsedTicket        = errors.New("realtime ticket already used")
-	ErrScopeMismatch     = errors.New("realtime ticket scope mismatch")
-	ErrResourceMismatch  = errors.New("realtime ticket resource mismatch")
-	ErrTicketRequired    = errors.New("realtime ticket required")
+	// ErrInvalidTicket indicates the supplied realtime ticket is malformed or unknown.
+	ErrInvalidTicket = errors.New("realtime ticket invalid")
+	// ErrExpiredTicket indicates the supplied realtime ticket has expired.
+	ErrExpiredTicket = errors.New("realtime ticket expired")
+	// ErrUsedTicket indicates the supplied realtime ticket was already consumed.
+	ErrUsedTicket = errors.New("realtime ticket already used")
+	// ErrScopeMismatch indicates the ticket scope does not match the requested scope.
+	ErrScopeMismatch = errors.New("realtime ticket scope mismatch")
+	// ErrResourceMismatch indicates the ticket resource binding does not match the request.
+	ErrResourceMismatch = errors.New("realtime ticket resource mismatch")
+	// ErrTicketRequired indicates a realtime ticket value is required.
+	ErrTicketRequired = errors.New("realtime ticket required")
+	// ErrInvalidTicketSpec indicates a ticket issue or consume request failed validation.
 	ErrInvalidTicketSpec = errors.New("realtime ticket request invalid")
 )
 
+// Clock provides the current time for ticket issuance and consumption.
 type Clock interface {
 	Now() time.Time
 }
@@ -42,11 +51,13 @@ type systemClock struct{}
 
 func (systemClock) Now() time.Time { return time.Now().UTC() }
 
+// Service issues and consumes short-lived realtime tickets.
 type Service interface {
 	Issue(ctx context.Context, req IssueRequest) (IssuedTicket, error)
 	Consume(ctx context.Context, req ConsumeRequest) (ConsumedTicket, error)
 }
 
+// IssueRequest describes the fields captured in a newly issued realtime ticket.
 type IssueRequest struct {
 	UserID       uint64
 	ResourceType string
@@ -61,6 +72,7 @@ type IssueRequest struct {
 	TTL          time.Duration
 }
 
+// ConsumeRequest identifies the ticket and resource binding expected during consumption.
 type ConsumeRequest struct {
 	Ticket       string
 	ResourceType string
@@ -68,20 +80,22 @@ type ConsumeRequest struct {
 	Scope        string
 }
 
+// IssuedTicket is the caller-visible ticket payload returned after issue succeeds.
 type IssuedTicket struct {
-	TicketID    string
-	Ticket      string
-	SessionID   string
-	ExpiresAt   time.Time
-	UserID      uint64
+	TicketID     string
+	Ticket       string
+	SessionID    string
+	ExpiresAt    time.Time
+	UserID       uint64
 	ResourceType string
-	ResourceID  string
-	Scope       string
-	Command     string
-	Cols        int
-	Rows        int
+	ResourceID   string
+	Scope        string
+	Command      string
+	Cols         int
+	Rows         int
 }
 
+// ConsumedTicket is the server-side ticket payload returned after one successful consume.
 type ConsumedTicket struct {
 	TicketID     string
 	SessionID    string
@@ -120,6 +134,7 @@ type memoryService struct {
 	store map[string]storedTicket
 }
 
+// NewMemoryService creates an in-memory realtime ticket service backed by the system clock.
 func NewMemoryService() Service {
 	return &memoryService{
 		clock: systemClock{},
@@ -127,6 +142,7 @@ func NewMemoryService() Service {
 	}
 }
 
+// NewMemoryServiceWithClock creates an in-memory realtime ticket service using the supplied clock.
 func NewMemoryServiceWithClock(clock Clock) Service {
 	if clock == nil {
 		clock = systemClock{}
@@ -220,21 +236,11 @@ func (s *memoryService) Consume(_ context.Context, req ConsumeRequest) (Consumed
 	if !ok {
 		return ConsumedTicket{}, ErrInvalidTicket
 	}
-	if record.expiresAt.Before(now) {
-		delete(s.store, ticketID)
-		return ConsumedTicket{}, ErrExpiredTicket
-	}
-	if record.usedAt != nil {
-		return ConsumedTicket{}, ErrUsedTicket
-	}
-	if record.secretHash != hashTicketSecret(secret) {
-		return ConsumedTicket{}, ErrInvalidTicket
-	}
-	if record.scope != scope {
-		return ConsumedTicket{}, ErrScopeMismatch
-	}
-	if record.resourceID != resourceID || record.resourceType != resourceType {
-		return ConsumedTicket{}, ErrResourceMismatch
+	if err := validateStoredTicket(record, now, secret, scope, resourceType, resourceID); err != nil {
+		if errors.Is(err, ErrExpiredTicket) {
+			delete(s.store, ticketID)
+		}
+		return ConsumedTicket{}, err
 	}
 	usedAt := now
 	record.usedAt = &usedAt
@@ -284,9 +290,35 @@ func splitTicket(raw string) (string, string, error) {
 	if raw == "" {
 		return "", "", ErrTicketRequired
 	}
-	parts := strings.SplitN(raw, ".", 2)
-	if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" || strings.TrimSpace(parts[1]) == "" {
+	parts := strings.SplitN(raw, ".", ticketPartCount)
+	if len(parts) != ticketPartCount || strings.TrimSpace(parts[0]) == "" || strings.TrimSpace(parts[1]) == "" {
 		return "", "", ErrInvalidTicket
 	}
 	return strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]), nil
+}
+
+func validateStoredTicket(
+	record storedTicket,
+	now time.Time,
+	secret string,
+	scope string,
+	resourceType string,
+	resourceID string,
+) error {
+	if record.expiresAt.Before(now) {
+		return ErrExpiredTicket
+	}
+	if record.usedAt != nil {
+		return ErrUsedTicket
+	}
+	if record.secretHash != hashTicketSecret(secret) {
+		return ErrInvalidTicket
+	}
+	if record.scope != scope {
+		return ErrScopeMismatch
+	}
+	if record.resourceID != resourceID || record.resourceType != resourceType {
+		return ErrResourceMismatch
+	}
+	return nil
 }

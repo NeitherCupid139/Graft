@@ -20,24 +20,38 @@ const (
 	readLimitBytes  = 1024 * 1024
 	writeWait       = 10 * time.Second
 	pongWait        = 60 * time.Second
-	pingPeriod      = (pongWait * 9) / 10
+	pingPeriodRatio = 9
+	pingPeriodBase  = 10
+	pingPeriod      = (pongWait * pingPeriodRatio) / pingPeriodBase
 	closeGrace      = 2 * time.Second
+	bridgeErrBuffer = 3
 )
 
+// ClientMessageType identifies one client-to-server websocket terminal message kind.
 type ClientMessageType string
+
+// ServerMessageType identifies one server-to-client websocket terminal message kind.
 type ServerMessageType string
 
 const (
-	ClientMessageInput  ClientMessageType = "input"
+	// ClientMessageInput streams terminal stdin bytes.
+	ClientMessageInput ClientMessageType = "input"
+	// ClientMessageResize updates the terminal geometry.
 	ClientMessageResize ClientMessageType = "resize"
-	ClientMessagePing   ClientMessageType = "ping"
+	// ClientMessagePing requests an application-level pong frame.
+	ClientMessagePing ClientMessageType = "ping"
 
+	// ServerMessageOutput streams terminal stdout/stderr bytes.
 	ServerMessageOutput ServerMessageType = "output"
+	// ServerMessageStatus reports high-level bridge state changes.
 	ServerMessageStatus ServerMessageType = "status"
-	ServerMessageError  ServerMessageType = "error"
-	ServerMessagePong   ServerMessageType = "pong"
+	// ServerMessageError reports a terminal or protocol error.
+	ServerMessageError ServerMessageType = "error"
+	// ServerMessagePong acknowledges a client ping request.
+	ServerMessagePong ServerMessageType = "pong"
 )
 
+// ClientMessage is the JSON control envelope accepted from the websocket client.
 type ClientMessage struct {
 	Type ClientMessageType `json:"type"`
 	Data string            `json:"data,omitempty"`
@@ -45,6 +59,7 @@ type ClientMessage struct {
 	Rows int               `json:"rows,omitempty"`
 }
 
+// ServerMessage is the JSON control envelope emitted to the websocket client.
 type ServerMessage struct {
 	Type       ServerMessageType `json:"type"`
 	Data       string            `json:"data,omitempty"`
@@ -55,16 +70,18 @@ type ServerMessage struct {
 
 // Bridge binds one websocket connection to one terminal session.
 type Bridge struct {
-	conn   *websocket.Conn
+	conn    *websocket.Conn
 	session Session
-	once   sync.Once
-	closed chan struct{}
+	once    sync.Once
+	closed  chan struct{}
 }
 
+// NewBridge binds one websocket connection to one terminal session.
 func NewBridge(conn *websocket.Conn, session Session) *Bridge {
 	return &Bridge{conn: conn, session: session, closed: make(chan struct{})}
 }
 
+// Run starts the websocket bridge and blocks until the bridge or caller context finishes.
 func (b *Bridge) Run(ctx context.Context, initialSize Size) error {
 	if b == nil || b.conn == nil || b.session == nil {
 		return errors.New("terminal bridge is unavailable")
@@ -78,7 +95,7 @@ func (b *Bridge) Run(ctx context.Context, initialSize Size) error {
 		return err
 	}
 
-	errCh := make(chan error, 3)
+	errCh := make(chan error, bridgeErrBuffer)
 	go b.readLoop(ctx, errCh)
 	go b.writeLoop(ctx, errCh)
 	go b.pingLoop(ctx, errCh)
@@ -114,34 +131,9 @@ func (b *Bridge) readLoop(ctx context.Context, errCh chan<- error) {
 			errCh <- err
 			return
 		}
-		switch message.Type {
-		case ClientMessageInput:
-			if err := b.session.Write(ctx, []byte(message.Data)); err != nil {
-				errCh <- err
-				return
-			}
-		case ClientMessageResize:
-			if err := b.session.Resize(ctx, Size{
-				Cols: positiveUint(message.Cols),
-				Rows: positiveUint(message.Rows),
-			}); err != nil {
-				errCh <- err
-				return
-			}
-		case ClientMessagePing:
-			if err := b.writeJSON(ServerMessage{Type: ServerMessagePong}); err != nil {
-				errCh <- err
-				return
-			}
-		default:
-			if err := b.writeJSON(ServerMessage{
-				Type:       ServerMessageError,
-				Message:    "unsupported terminal control message",
-				MessageKey: containercontract.ContainerShellUnsupportedControlMessage.String(),
-			}); err != nil {
-				errCh <- err
-				return
-			}
+		if err := b.handleClientMessage(ctx, message); err != nil {
+			errCh <- err
+			return
 		}
 	}
 }
@@ -214,6 +206,26 @@ func (b *Bridge) close(ctx context.Context) {
 		_ = b.session.Close(closeCtx)
 		_ = b.conn.Close()
 	})
+}
+
+func (b *Bridge) handleClientMessage(ctx context.Context, message ClientMessage) error {
+	switch message.Type {
+	case ClientMessageInput:
+		return b.session.Write(ctx, []byte(message.Data))
+	case ClientMessageResize:
+		return b.session.Resize(ctx, Size{
+			Cols: positiveUint(message.Cols),
+			Rows: positiveUint(message.Rows),
+		})
+	case ClientMessagePing:
+		return b.writeJSON(ServerMessage{Type: ServerMessagePong})
+	default:
+		return b.writeJSON(ServerMessage{
+			Type:       ServerMessageError,
+			Message:    "unsupported terminal control message",
+			MessageKey: containercontract.ContainerShellUnsupportedControlMessage.String(),
+		})
+	}
 }
 
 func positiveUint(value int) uint {

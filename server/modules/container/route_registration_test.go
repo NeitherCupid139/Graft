@@ -421,7 +421,9 @@ func TestShellWebSocketRouteConnectsWithoutAuthorizationHeaderAfterTicketIssue(t
 	if err != nil {
 		t.Fatalf("dial websocket: %v", err)
 	}
-	defer conn.Close()
+	defer func() {
+		_ = conn.Close()
+	}()
 	if response == nil || response.StatusCode != http.StatusSwitchingProtocols {
 		t.Fatalf("expected websocket upgrade 101, got %#v", response)
 	}
@@ -582,8 +584,8 @@ func newRouteTestContextWithOptions(options routeTestContextOptions) (*module.Co
 		}
 	}
 	return &module.Context{
-		Logger: zap.NewNop(),
-		I18n:    localizer,
+		Logger:   zap.NewNop(),
+		I18n:     localizer,
 		EventBus: eventbus.New(zap.NewNop()),
 		Router:   engine.Group("/api"),
 		Services: services,

@@ -27,8 +27,8 @@ import (
 )
 
 const (
-	containerResourceType = "container"
-	containerOperationTTL = 30 * time.Second
+	containerResourceType        = "container"
+	containerOperationTTL        = 30 * time.Second
 	maskedEnvironmentPlaceholder = "*****"
 )
 
@@ -1100,12 +1100,14 @@ func (s *service) runtimeForRequest() (Runtime, error) {
 	return runtime, nil
 }
 
+// ShellSessionRequest describes one requested interactive container shell session.
 type ShellSessionRequest struct {
 	Command string
 	Cols    int
 	Rows    int
 }
 
+// ShellSession contains the issued shell ticket and websocket bootstrap data.
 type ShellSession struct {
 	SessionID    string
 	Ticket       string
@@ -1116,6 +1118,7 @@ type ShellSession struct {
 	WebSocketURL string
 }
 
+// ShellHandshake contains the validated ticket payload used to open a terminal session.
 type ShellHandshake struct {
 	SessionID    string
 	Command      string
@@ -1126,12 +1129,22 @@ type ShellHandshake struct {
 	UserID       uint64
 }
 
+// ShellSessionCloseSummary carries audit-safe shell session close details.
 type ShellSessionCloseSummary struct {
 	SessionID    string
 	ResourceID   string
 	ResourceName string
 	Command      string
 	UserID       uint64
+}
+
+type shellAuditPayload struct {
+	action  string
+	detail  Detail
+	issued  *realtimeauth.IssuedTicket
+	command string
+	reason  string
+	err     error
 }
 
 const (
@@ -1165,7 +1178,11 @@ func (s *service) IssueShellSession(ctx context.Context, ref Ref, request ShellS
 	if !ok || requestAuth.User == nil {
 		return ShellSession{}, errShellForbidden
 	}
-	s.publishShellAudit(ctx, containercontract.ContainerAuditActionShellSessionRequested, detail, nil, normalized.Command, "", nil)
+	s.publishShellAudit(ctx, shellAuditPayload{
+		action:  containercontract.ContainerAuditActionShellSessionRequested.String(),
+		detail:  detail,
+		command: normalized.Command,
+	})
 	issued, err := s.realtimeTickets.Issue(ctx, realtimeauth.IssueRequest{
 		UserID:       requestAuth.User.ID,
 		ResourceType: containerShellResourceType,
@@ -1179,10 +1196,21 @@ func (s *service) IssueShellSession(ctx context.Context, ref Ref, request ShellS
 		TTL:          containerOperationTTL,
 	})
 	if err != nil {
-		s.publishShellAudit(ctx, containercontract.ContainerAuditActionShellTicketRejected, detail, nil, normalized.Command, "ticket_issue_failed", errShellSessionFailed)
+		s.publishShellAudit(ctx, shellAuditPayload{
+			action:  containercontract.ContainerAuditActionShellTicketRejected.String(),
+			detail:  detail,
+			command: normalized.Command,
+			reason:  "ticket_issue_failed",
+			err:     errShellSessionFailed,
+		})
 		return ShellSession{}, errShellSessionFailed
 	}
-	s.publishShellAudit(ctx, containercontract.ContainerAuditActionShellTicketIssued, detail, &issued, normalized.Command, "", nil)
+	s.publishShellAudit(ctx, shellAuditPayload{
+		action:  containercontract.ContainerAuditActionShellTicketIssued.String(),
+		detail:  detail,
+		issued:  &issued,
+		command: normalized.Command,
+	})
 	return ShellSession{
 		SessionID:    issued.SessionID,
 		Ticket:       issued.Ticket,
@@ -1222,10 +1250,20 @@ func (s *service) ConsumeShellSessionTicket(ctx context.Context, ref Ref, ticket
 		return ShellHandshake{}, err
 	}
 	if strings.TrimSpace(strings.ToLower(detail.State)) != "running" {
-		s.publishShellAudit(ctx, containercontract.ContainerAuditActionShellTicketRejected, detail, nil, consumed.Command, "container_not_running", errContainerNotRunning)
+		s.publishShellAudit(ctx, shellAuditPayload{
+			action:  containercontract.ContainerAuditActionShellTicketRejected.String(),
+			detail:  detail,
+			command: consumed.Command,
+			reason:  "container_not_running",
+			err:     errContainerNotRunning,
+		})
 		return ShellHandshake{}, errContainerNotRunning
 	}
-	s.publishShellAudit(ctx, containercontract.ContainerAuditActionShellSessionStarted, detail, nil, consumed.Command, "", nil)
+	s.publishShellAudit(ctx, shellAuditPayload{
+		action:  containercontract.ContainerAuditActionShellSessionStarted.String(),
+		detail:  detail,
+		command: consumed.Command,
+	})
 	return ShellHandshake{
 		SessionID:    consumed.SessionID,
 		Command:      consumed.Command,
@@ -1416,31 +1454,23 @@ func (s *service) publishShellSessionFailed(ctx context.Context, handshake Shell
 	}
 }
 
-func (s *service) publishShellAudit(
-	ctx context.Context,
-	action containercontract.AuditAction,
-	detail Detail,
-	issued *realtimeauth.IssuedTicket,
-	command string,
-	reason string,
-	err error,
-) {
+func (s *service) publishShellAudit(ctx context.Context, payload shellAuditPayload) {
 	if s == nil || s.auditBus == nil {
 		return
 	}
 	metadata := map[string]any{
-		"container_id":   detail.ID,
-		"container_name": detail.Name,
-		"command":        strings.TrimSpace(command),
-		"result":         auditResult(err),
+		"container_id":   payload.detail.ID,
+		"container_name": payload.detail.Name,
+		"command":        strings.TrimSpace(payload.command),
+		"result":         auditResult(payload.err),
 	}
-	if reason != "" {
-		metadata["reason"] = reason
+	if payload.reason != "" {
+		metadata["reason"] = payload.reason
 	}
-	if issued != nil {
-		metadata["session_id"] = issued.SessionID
-		metadata["ticket_id"] = issued.TicketID
-		metadata["expires_at"] = issued.ExpiresAt.UTC().Format(time.RFC3339)
+	if payload.issued != nil {
+		metadata["session_id"] = payload.issued.SessionID
+		metadata["ticket_id"] = payload.issued.TicketID
+		metadata["expires_at"] = payload.issued.ExpiresAt.UTC().Format(time.RFC3339)
 	}
 	if requestAudit, ok := httpx.RequestAuditContextFromContext(ctx); ok {
 		metadata["requestId"] = requestAudit.RequestID
@@ -1452,17 +1482,17 @@ func (s *service) publishShellAudit(
 	event := moduleapi.AuditEvent{
 		Kind:         moduleapi.AuditEventKindDomain,
 		Operator:     currentAuditOperator(ctx),
-		Action:       action.String(),
+		Action:       payload.action,
 		ResourceType: containerResourceType,
-		ResourceID:   firstNonEmpty(detail.ID, detail.Name),
-		ResourceName: detail.Name,
-		StatusCode:   auditStatusCode(err),
-		Success:      err == nil,
+		ResourceID:   firstNonEmpty(payload.detail.ID, payload.detail.Name),
+		ResourceName: payload.detail.Name,
+		StatusCode:   auditStatusCode(payload.err),
+		Success:      payload.err == nil,
 		Metadata:     metadata,
 	}
-	if err != nil {
-		event.MessageKey = messageKeyForError(err).String()
-		event.Message = fallbackMessageForError(err)
+	if payload.err != nil {
+		event.MessageKey = messageKeyForError(payload.err).String()
+		event.Message = fallbackMessageForError(payload.err)
 	}
 	if publishErr := s.auditBus.Publish(ctx, eventbus.Event{
 		Name:    string(moduleapi.AuditRecordEventName),
@@ -1471,7 +1501,7 @@ func (s *service) publishShellAudit(
 	}); publishErr != nil && s.logger != nil {
 		s.logger.Warn("publish container shell audit event failed",
 			zap.String("module", s.moduleName),
-			zap.String("action", action.String()),
+			zap.String("action", payload.action),
 			zap.Error(publishErr),
 		)
 	}
