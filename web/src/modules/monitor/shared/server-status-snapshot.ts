@@ -5,6 +5,7 @@ import type { Ref } from 'vue';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
+import type { RefreshControlStatus } from '@/shared/components/refresh';
 import { resolveLocalizedErrorMessage } from '@/shared/localized-api-error';
 import { formatLocaleDateTime } from '@/shared/observability';
 
@@ -83,6 +84,18 @@ export function useServerStatusSnapshot() {
     return t('monitor.serverStatus.nextRefreshIn', {
       seconds: String(remainingRefreshSeconds.value),
     });
+  });
+
+  const refreshControlStatus = computed<RefreshControlStatus>(() => {
+    if (!autoRefreshEnabled.value) {
+      return 'paused';
+    }
+
+    if (!isPageVisible.value) {
+      return 'paused';
+    }
+
+    return 'running';
   });
 
   function handleVisibilityChange() {
@@ -169,6 +182,8 @@ export function useServerStatusSnapshot() {
     initialized,
     errorMessage,
     refreshCountdownText,
+    remainingRefreshSeconds,
+    refreshControlStatus,
     refreshIntervalOptions,
     selectedRefreshInterval,
     serverStatus,

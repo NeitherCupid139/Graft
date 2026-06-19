@@ -4,8 +4,8 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { flushPromises, mount } from '@vue/test-utils';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineComponent, h } from 'vue';
 
 import type { ContainerMountUsage } from '../../types/container';
@@ -69,6 +69,8 @@ const routeState = vi.hoisted(
   }),
 );
 
+const mountedWrappers: VueWrapper[] = [];
+
 function deferred<T>() {
   let resolve: (value: T) => void = () => undefined;
   let reject: (reason?: unknown) => void = () => undefined;
@@ -81,6 +83,20 @@ function deferred<T>() {
 
 const translations = vi.hoisted(
   (): Record<string, string> => ({
+    'app.refreshControl.labels.interval': '自动刷新：',
+    'app.refreshControl.labels.trendWindow': '趋势窗口：',
+    'app.refreshControl.status.running': '自动刷新：{interval}',
+    'app.refreshControl.status.paused': '自动刷新已暂停',
+    'app.refreshControl.status.off': '自动刷新关闭',
+    'app.refreshControl.countdown': '{countdown} 后刷新',
+    'app.refreshControl.pending': '等待下次刷新',
+    'app.refreshControl.actions.refresh': '立即刷新',
+    'app.refreshControl.actions.pause': '暂停自动刷新',
+    'app.refreshControl.actions.resume': '恢复自动刷新',
+    'app.refreshControl.actions.enable': '开启自动刷新',
+    'app.refreshControl.actions.pauseCompact': '暂停',
+    'app.refreshControl.actions.resumeCompact': '恢复',
+    'app.refreshControl.actions.enableCompact': '开启',
     'container.detail.back': '返回',
     'container.detail.config.envName': '变量名',
     'container.detail.config.envPolicy': '安全策略',
@@ -122,6 +138,11 @@ const translations = vi.hoisted(
     'container.detail.autoRefresh': '自动刷新',
     'container.detail.autoRefreshOff': '关闭',
     'container.detail.autoRefreshPaused': '已暂停',
+    'container.detail.autoRefreshOffSummary': '自动刷新关闭',
+    'container.detail.autoRefreshPausedSummary': '自动刷新已暂停',
+    'container.detail.enableAutoRefresh': '开启自动刷新',
+    'container.detail.nextRefresh': '下次刷新',
+    'container.detail.refreshIn': '后刷新',
     'container.detail.autoRefreshSeconds': '{seconds} 秒',
     'container.detail.pauseAutoRefresh': '暂停自动刷新',
     'container.detail.refreshSuccess': '容器详情已刷新',
@@ -488,6 +509,10 @@ describe('container detail page', () => {
       configurable: true,
       value: { length: 1 },
     });
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: 'visible',
+    });
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
       value: { writeText: vi.fn().mockResolvedValue(undefined) },
@@ -508,6 +533,13 @@ describe('container detail page', () => {
       timestamps: false,
       truncated: true,
     });
+  });
+
+  afterEach(() => {
+    while (mountedWrappers.length > 0) {
+      mountedWrappers.pop()?.unmount();
+    }
+    vi.useRealTimers();
   });
 
   it('loads detail from the route id and renders the container overview workbench', async () => {
@@ -855,15 +887,72 @@ describe('container detail page', () => {
     expect(messageMocks.success).toHaveBeenCalledWith('容器详情已刷新');
   });
 
-  it('renders manual refresh status through RefreshControlBar when auto refresh is off', async () => {
+  it('defaults container detail auto refresh to 5 seconds', async () => {
     routeState.route.query.tab = 'storage';
     const wrapper = mountPage();
     await flushPromises();
 
-    expect(wrapper.get('[data-refresh-countdown="true"]').text()).toContain('关闭');
-    expect(wrapper.find('[data-refresh-toggle-auto="true"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="container-detail-refresh-row"]').exists()).toBe(true);
+    expect(wrapper.get('[data-refresh-control-bar="true"]').attributes('data-refresh-variant')).toBe('compact');
+    expect(wrapper.get('[data-refresh-control-bar="true"]').attributes('data-refresh-appearance')).toBe('plain');
+    expect(wrapper.find('[data-refresh-interval-select="true"]').exists()).toBe(true);
+    expect(wrapper.get('[data-refresh-countdown="true"]').text()).toContain('5s 后刷新');
+    expect(wrapper.get('[data-refresh-toggle-auto="true"]').text()).toContain('暂停');
     expect(wrapper.find('[data-testid="detail-back"]').exists()).toBe(false);
     expect(wrapper.text()).not.toContain('返回');
+  });
+
+  it('keeps auto refresh out of the header and tabs extra area, and renders it in the summary-to-tabs row', async () => {
+    const wrapper = mountPage();
+    await flushPromises();
+
+    const headerMeta = wrapper.get('[data-testid="container-detail-header-meta-slot"]');
+    const refreshRow = wrapper.get('[data-testid="container-detail-refresh-row"]');
+
+    expect(headerMeta.find('[data-refresh-control-bar="true"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="container-detail-header-actions-slot"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="container-detail-tabs-action-slot"]').exists()).toBe(false);
+    expect(refreshRow.find('[data-refresh-control-bar="true"]').exists()).toBe(true);
+    expect(wrapper.findAll('[data-refresh-control-bar="true"]')).toHaveLength(1);
+  });
+
+  it('renders header meta as identity tags plus a separate updated-at line', async () => {
+    const wrapper = mountPage();
+    await flushPromises();
+
+    const headerMeta = wrapper.get('[data-testid="container-detail-header-meta"]');
+    expect(headerMeta.text()).toContain('container-1');
+    expect(headerMeta.text()).toContain('运行中');
+    expect(headerMeta.text()).toContain('健康');
+    expect(headerMeta.text()).toContain('docker');
+    expect(headerMeta.text()).toContain('详情更新时间');
+    expect(headerMeta.find('[data-refresh-control-bar="true"]').exists()).toBe(false);
+  });
+
+  it('renders paused auto refresh without countdown and with resume action', async () => {
+    const wrapper = mountPage();
+    await flushPromises();
+
+    await wrapper.get('[data-refresh-toggle-auto="true"]').trigger('click');
+    await flushPromises();
+
+    const refreshBar = wrapper.get('[data-refresh-control-bar="true"]');
+    expect(refreshBar.text()).toContain('自动刷新已暂停');
+    expect(refreshBar.text()).toContain('恢复');
+    expect(refreshBar.find('[data-refresh-countdown="true"]').exists()).toBe(false);
+  });
+
+  it('renders auto refresh off state without countdown and with enable action', async () => {
+    const wrapper = mountPage();
+    await flushPromises();
+
+    await wrapper.get('[data-refresh-interval-select="true"]').setValue('0');
+    await flushPromises();
+
+    const refreshBar = wrapper.get('[data-refresh-control-bar="true"]');
+    expect(refreshBar.text()).toContain('自动刷新关闭');
+    expect(refreshBar.text()).toContain('开启');
+    expect(refreshBar.find('[data-refresh-countdown="true"]').exists()).toBe(false);
   });
 
   it('sorts mount cards by destination, source, and type instead of API order', async () => {
@@ -1066,7 +1155,7 @@ describe('container detail page', () => {
 
     await wrapper.get('[data-refresh-interval-select="true"]').setValue('5');
     await wrapper.vm.$nextTick();
-    expect(wrapper.get('[data-refresh-countdown="true"]').text()).toContain('自动刷新5s');
+    expect(wrapper.get('[data-refresh-countdown="true"]').text()).toContain('5s 后刷新');
 
     await vi.advanceTimersByTimeAsync(5000);
     await flushPromises();
@@ -1074,7 +1163,7 @@ describe('container detail page', () => {
     expect(apiMocks.getContainer).toHaveBeenCalledTimes(1);
     expect(apiMocks.getContainerMountUsage).toHaveBeenCalledTimes(1);
     expect(apiMocks.postContainerMountUsageRefresh).not.toHaveBeenCalled();
-    expect(wrapper.get('[data-refresh-countdown="true"]').text()).toContain('自动刷新5s');
+    expect(wrapper.get('[data-refresh-countdown="true"]').text()).toContain('5s 后刷新');
 
     await wrapper.get('[data-testid="tab-logs"]').trigger('click');
     await wrapper.get('[data-testid="tab-logs"]').trigger('click');
@@ -2267,7 +2356,7 @@ function createContainerDetail() {
 }
 
 function mountPage() {
-  return mount(ContainerDetailPage, {
+  const wrapper = mount(ContainerDetailPage, {
     global: {
       stubs: {
         'management-page-header': defineComponent({
@@ -2275,11 +2364,13 @@ function mountPage() {
           setup:
             (props, { slots }) =>
             () =>
-              h('header', [
+              h('header', { 'data-testid': 'container-detail-header' }, [
                 h('h1', props.title as string),
                 h('p', props.description as string),
-                slots.meta?.(),
-                slots.actions?.(),
+                h('div', { 'data-testid': 'container-detail-header-meta-slot' }, slots.meta?.()),
+                slots.actions?.()
+                  ? h('div', { 'data-testid': 'container-detail-header-actions-slot' }, slots.actions?.())
+                  : null,
               ]),
         }),
         't-alert': defineComponent({
@@ -2463,17 +2554,21 @@ function mountPage() {
           setup:
             (_props, { emit, slots }) =>
             () =>
-              h('div', [
+              h('div', { 'data-testid': 'container-detail-tabs' }, [
                 h(
-                  'button',
-                  {
-                    'data-testid': 'tab-logs',
-                    onClick: () => {
-                      emit('update:value', 'logs');
-                      emit('change', 'logs');
+                  'div',
+                  { 'data-testid': 'container-detail-tabs-header' },
+                  h(
+                    'button',
+                    {
+                      'data-testid': 'tab-logs',
+                      onClick: () => {
+                        emit('update:value', 'logs');
+                        emit('change', 'logs');
+                      },
                     },
-                  },
-                  'logs',
+                    'logs',
+                  ),
                 ),
                 slots.default?.(),
               ]),
@@ -2516,6 +2611,8 @@ function mountPage() {
       },
     },
   });
+  mountedWrappers.push(wrapper);
+  return wrapper;
 }
 
 function readMountDestinationOrder(wrapper: ReturnType<typeof mountPage>) {

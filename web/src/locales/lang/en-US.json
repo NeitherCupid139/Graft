@@ -308,6 +308,28 @@
     }
   },
   "app": {
+    "refreshControl": {
+      "labels": {
+        "interval": "Auto refresh:",
+        "trendWindow": "Trend window:"
+      },
+      "status": {
+        "running": "Auto refresh: {interval}",
+        "paused": "Auto refresh paused",
+        "off": "Auto refresh off"
+      },
+      "countdown": "Refresh in {countdown}",
+      "pending": "Waiting for next refresh",
+      "actions": {
+        "refresh": "Refresh now",
+        "pause": "Pause auto refresh",
+        "resume": "Resume auto refresh",
+        "enable": "Enable auto refresh",
+        "pauseCompact": "Pause",
+        "resumeCompact": "Resume",
+        "enableCompact": "Enable"
+      }
+    },
     "request": {
       "failed": "Request Failed"
     },

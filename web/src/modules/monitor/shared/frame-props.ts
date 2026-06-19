@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { PageHeaderSource } from '@/shared/components/page';
+import type { RefreshControlStatus } from '@/shared/components/refresh';
 
 import type { ServerStatusTone } from '../components/server-status-ui';
 import type { RefreshIntervalOption } from '../composables/use-monitor-refresh-preferences';
@@ -21,17 +22,13 @@ export type MonitorStatusPageFrameProps = {
   descriptionKey?: string;
   source?: PageHeaderSource;
   compactHeader?: boolean;
-  autoRefreshEnabled: boolean;
+  refreshControlStatus: RefreshControlStatus;
+  remainingRefreshSeconds: number | null;
   loading: boolean;
-  pauseAutoRefreshLabel: string;
-  refreshIntervalLabel: string;
   refreshIntervalOptions: RefreshIntervalOption[];
   refreshIntervalValue: number | string;
-  refreshNowLabel: string;
-  resumeAutoRefreshLabel: string;
   status: ServerStatusTone;
   statusLabel: string;
-  trendRangeLabelPlaceholder: string;
   summaryItems: MonitorSummaryItem[];
   errorTitle: string;
   errorMessage?: string;
@@ -57,7 +54,8 @@ type MonitorStatusFramePageCopy = Pick<
 
 type MonitorStatusFrameSharedState = Pick<
   MonitorStatusPageFrameProps,
-  | 'autoRefreshEnabled'
+  | 'refreshControlStatus'
+  | 'remainingRefreshSeconds'
   | 'loading'
   | 'refreshIntervalOptions'
   | 'refreshIntervalValue'
@@ -66,15 +64,7 @@ type MonitorStatusFrameSharedState = Pick<
   | 'hasServerStatus'
 >;
 
-type MonitorStatusFrameCommonLabels = Pick<
-  MonitorStatusPageFrameProps,
-  | 'pauseAutoRefreshLabel'
-  | 'refreshIntervalLabel'
-  | 'refreshNowLabel'
-  | 'resumeAutoRefreshLabel'
-  | 'trendRangeLabelPlaceholder'
-  | 'errorTitle'
->;
+type MonitorStatusFrameCommonLabels = Pick<MonitorStatusPageFrameProps, 'errorTitle'>;
 
 function buildMonitorStatusFrameBaseProps(args: {
   page: MonitorStatusFramePageCopy;
@@ -89,7 +79,8 @@ function buildMonitorStatusFrameBaseProps(args: {
 }
 
 type MonitorStatusFrameSharedRefs = {
-  autoRefreshEnabled: boolean;
+  refreshControlStatus: RefreshControlStatus;
+  remainingRefreshSeconds: number | null;
   loading: boolean;
   refreshIntervalOptions: RefreshIntervalOption[];
   refreshIntervalValue: number | string;
@@ -112,11 +103,6 @@ export function buildStandardMonitorStatusFrameProps(args: {
     },
     state: args.snapshot,
     labels: {
-      pauseAutoRefreshLabel: args.t('monitor.serverStatus.pauseRefresh'),
-      refreshIntervalLabel: args.t('monitor.serverStatus.refreshIntervalLabel'),
-      refreshNowLabel: args.t('monitor.serverStatus.refreshNow'),
-      resumeAutoRefreshLabel: args.t('monitor.serverStatus.resumeRefresh'),
-      trendRangeLabelPlaceholder: args.t('monitor.serverStatus.trendWindowLabel'),
       errorTitle: args.t('monitor.shared.errorTitle'),
     },
   });

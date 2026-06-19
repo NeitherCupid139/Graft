@@ -12,47 +12,23 @@
       :source="{ labelKey: 'container.list.eyebrow', fallback: t('container.list.eyebrow') }"
     >
       <template #meta>
-        <t-space class="container-detail-header-meta" break-line size="small">
-          <span v-if="safeDetail" class="container-detail-header-id">{{ shortContainerId(safeDetail) }}</span>
-          <t-tag v-if="safeDetail" :theme="stateTheme(safeDetail.state)" variant="light-outline">
-            {{ stateLabel(safeDetail.state) }}
-          </t-tag>
-          <t-tag v-if="safeDetail" :theme="healthTheme(safeDetail.health)" variant="light-outline">
-            {{ healthLabel(safeDetail.health) }}
-          </t-tag>
-          <t-tag v-if="safeDetail?.runtime" theme="default" variant="light-outline">
-            {{ safeDetail.runtime }}
-          </t-tag>
-          <t-tag v-if="safeDetail?.inspect_updated_at" theme="default" variant="light-outline">
+        <div class="container-detail-header-meta" data-testid="container-detail-header-meta">
+          <t-space class="container-detail-header-meta__tags" break-line size="small">
+            <span v-if="safeDetail" class="container-detail-header-id">{{ shortContainerId(safeDetail) }}</span>
+            <t-tag v-if="safeDetail" :theme="stateTheme(safeDetail.state)" variant="light-outline">
+              {{ stateLabel(safeDetail.state) }}
+            </t-tag>
+            <t-tag v-if="safeDetail" :theme="healthTheme(safeDetail.health)" variant="light-outline">
+              {{ healthLabel(safeDetail.health) }}
+            </t-tag>
+            <t-tag v-if="safeDetail?.runtime" theme="default" variant="light-outline">
+              {{ safeDetail.runtime }}
+            </t-tag>
+          </t-space>
+          <div v-if="safeDetail?.inspect_updated_at" class="container-detail-header-meta__updated-at">
             {{ t('container.detail.inspectUpdatedAt') }}: {{ formatTime(safeDetail.inspect_updated_at) }}
-          </t-tag>
-        </t-space>
-      </template>
-      <template #actions>
-        <t-space break-line size="small">
-          <t-tooltip :content="t('container.detail.refreshTooltip')">
-            <refresh-control-bar
-              :auto-refresh-enabled="autoRefreshAvailable"
-              :countdown-label="t('container.detail.autoRefresh')"
-              :countdown-seconds="remainingAutoRefreshSeconds"
-              :interval="selectedAutoRefreshInterval"
-              :interval-label="t('container.detail.autoRefresh')"
-              :interval-options="autoRefreshOptions"
-              :manual-label="t('container.detail.autoRefreshOff')"
-              :paused="autoRefreshPaused"
-              :pause-label="t('container.detail.pauseAutoRefresh')"
-              :paused-label="t('container.detail.autoRefreshPaused')"
-              :refresh-label="t('container.detail.refreshNow')"
-              :refreshing="detailRefreshing"
-              :resume-label="t('container.detail.resumeAutoRefresh')"
-              :show-countdown="true"
-              @pause="setAutoRefreshEnabled(false)"
-              @refresh="handleManualRefresh"
-              @resume="setAutoRefreshEnabled(true)"
-              @update:interval="handleAutoRefreshIntervalChange"
-            />
-          </t-tooltip>
-        </t-space>
+          </div>
+        </div>
       </template>
     </management-page-header>
 
@@ -194,6 +170,25 @@
             </div>
           </t-card>
         </section>
+
+        <div class="container-detail-refresh-row" data-testid="container-detail-refresh-row">
+          <t-tooltip :content="t('container.detail.refreshTooltip')">
+            <refresh-control-bar
+              :status="refreshControlStatus"
+              :countdown-seconds="remainingAutoRefreshSeconds"
+              :interval="selectedAutoRefreshInterval"
+              :interval-options="autoRefreshOptions"
+              :refreshing="detailRefreshing"
+              :show-countdown="true"
+              appearance="plain"
+              variant="compact"
+              @pause="setAutoRefreshEnabled(false)"
+              @refresh="handleManualRefresh"
+              @resume="setAutoRefreshEnabled(true)"
+              @update:interval="handleAutoRefreshIntervalChange"
+            />
+          </t-tooltip>
+        </div>
 
         <t-card class="container-detail-tabs-card" :bordered="true">
           <t-tabs v-model:value="activeTab" theme="card" @change="handleTabChange">
@@ -1326,8 +1321,8 @@ const activeTab = ref<DetailTab>(normalizeTab(route.query.tab));
 const environmentKeyword = ref('');
 const environmentPolicyFilter = ref<EnvironmentPolicyFilter>('all');
 const refreshingMountKeys = ref<Set<string>>(new Set());
-const selectedAutoRefreshInterval = ref<AutoRefreshInterval>(0);
-const autoRefreshEnabled = ref(false);
+const selectedAutoRefreshInterval = ref<AutoRefreshInterval>(5);
+const autoRefreshEnabled = ref(true);
 const remainingAutoRefreshSeconds = ref<number | null>(null);
 const isPageVisible = ref(typeof document === 'undefined' ? true : document.visibilityState === 'visible');
 let autoRefreshTimer: number | null = null;
@@ -1373,6 +1368,15 @@ const autoRefreshAvailable = computed(() => selectedAutoRefreshInterval.value > 
 const autoRefreshPaused = computed(
   () => autoRefreshAvailable.value && (!autoRefreshEnabled.value || !isPageVisible.value),
 );
+const refreshControlStatus = computed(() => {
+  if (!autoRefreshAvailable.value) {
+    return 'off' as const;
+  }
+  if (autoRefreshPaused.value) {
+    return 'paused' as const;
+  }
+  return 'running' as const;
+});
 const detailBreadcrumb = computed(() => [
   { labelKey: 'container.list.eyebrow', fallback: t('container.list.eyebrow') },
   { labelKey: 'container.detail.title', fallback: fallbackTitle.value[LOCALE.ZH_CN] },
@@ -3418,15 +3422,28 @@ function portLabel(port: ContainerDetail['ports'][number]) {
 }
 
 .container-detail-header-meta {
+  display: grid;
+  gap: var(--graft-density-gap-6);
   max-width: min(100%, 680px);
   min-width: 0;
 }
 
-.container-detail-header-meta :deep(.t-space-item) {
+.container-detail-header-meta__tags {
   min-width: 0;
 }
 
-.container-detail-header-meta :deep(.t-tag) {
+.container-detail-header-meta__updated-at {
+  color: var(--td-text-color-secondary);
+  font: var(--td-font-body-small);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.container-detail-header-meta__tags :deep(.t-space-item) {
+  min-width: 0;
+}
+
+.container-detail-header-meta__tags :deep(.t-tag) {
   max-width: 100%;
 }
 
@@ -3535,6 +3552,33 @@ function portLabel(port: ContainerDetail['ports'][number]) {
 
 .container-detail-tabs-card :deep(.t-card__body) {
   padding: 0;
+}
+
+.container-detail-refresh-row {
+  align-items: center;
+  display: flex;
+  justify-content: flex-end;
+  margin: var(--graft-density-gap-8) 0 var(--graft-density-gap-10);
+  min-height: 40px;
+  min-width: 0;
+  padding-inline: var(--graft-density-gap-12);
+}
+
+.container-detail-refresh-row :deep(.refresh-control-bar) {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.container-detail-refresh-row :deep(.refresh-control-bar--compact) {
+  justify-content: flex-end;
+}
+
+.container-detail-refresh-row :deep(.refresh-control-bar__summary) {
+  justify-content: flex-end;
+}
+
+.container-detail-refresh-row :deep(.refresh-control-bar__items) {
+  justify-content: flex-end;
 }
 
 .container-detail-tabs-card :deep(.t-tabs__content) {
@@ -4676,12 +4720,26 @@ function portLabel(port: ContainerDetail['ports'][number]) {
     max-width: 100%;
   }
 
-  .container-detail-header-meta :deep(.t-space) {
+  .container-detail-header-meta__tags :deep(.t-space) {
     width: 100%;
   }
 
-  .container-detail-header-meta :deep(.t-space-item) {
+  .container-detail-header-meta__tags :deep(.t-space-item) {
     max-width: 100%;
+  }
+
+  .container-detail-refresh-row {
+    margin-block: var(--graft-density-gap-8);
+  }
+}
+
+@media (width <= 767px) {
+  .container-detail-refresh-row {
+    padding-inline: var(--graft-density-gap-12);
+  }
+
+  .container-detail-refresh-row :deep(.refresh-control-bar--compact) {
+    justify-content: flex-end;
   }
 }
 </style>
