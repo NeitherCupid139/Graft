@@ -41,6 +41,10 @@ export function useTerminalSession(options: UseTerminalSessionOptions) {
     options.onStateChange?.(nextState);
   }
 
+  function isActiveSocket(nextSocket: WebSocket, connectionId: number) {
+    return connectionId === activeConnectionId && socket.value === nextSocket;
+  }
+
   async function connect(initialSize: TerminalResizePayload) {
     disconnect('manual_disconnect');
     setState('connecting');
@@ -67,6 +71,10 @@ export function useTerminalSession(options: UseTerminalSessionOptions) {
           return;
         }
         didClose = true;
+        nextSocket.onopen = null;
+        nextSocket.onmessage = null;
+        nextSocket.onerror = null;
+        nextSocket.onclose = null;
         if (socket.value === nextSocket) {
           socket.value = null;
         }
@@ -85,7 +93,7 @@ export function useTerminalSession(options: UseTerminalSessionOptions) {
       activeClose = finalizeClose;
 
       nextSocket.onopen = () => {
-        if (connectionId !== activeConnectionId || socket.value !== nextSocket) {
+        if (!isActiveSocket(nextSocket, connectionId)) {
           return;
         }
         setState('connected');
@@ -93,7 +101,7 @@ export function useTerminalSession(options: UseTerminalSessionOptions) {
       };
 
       nextSocket.onmessage = (event) => {
-        if (connectionId !== activeConnectionId || socket.value !== nextSocket) {
+        if (!isActiveSocket(nextSocket, connectionId)) {
           return;
         }
         const payload = parseServerMessage(event.data);
@@ -110,7 +118,7 @@ export function useTerminalSession(options: UseTerminalSessionOptions) {
       };
 
       nextSocket.onerror = () => {
-        if (connectionId !== activeConnectionId || socket.value !== nextSocket) {
+        if (!isActiveSocket(nextSocket, connectionId)) {
           return;
         }
         const error = new Error('Terminal transport error');
@@ -121,12 +129,15 @@ export function useTerminalSession(options: UseTerminalSessionOptions) {
       };
 
       nextSocket.onclose = () => {
-        if (connectionId !== activeConnectionId && socket.value !== nextSocket) {
+        if (!isActiveSocket(nextSocket, connectionId)) {
           return;
         }
         finalizeClose(closeReason === 'remote_close' && state.value === 'error' ? 'session_error' : closeReason);
       };
     } catch (error) {
+      if (connectionId !== activeConnectionId) {
+        return;
+      }
       const normalized = normalizeError(error, 'Failed to create terminal session');
       lastError.value = normalized.message;
       setState('error');
@@ -137,11 +148,22 @@ export function useTerminalSession(options: UseTerminalSessionOptions) {
   }
 
   function disconnect(reason: TerminalLifecycleCloseReason = 'manual_disconnect') {
+    if (state.value === 'connecting') {
+      activeConnectionId += 1;
+    }
     const current = socket.value;
     socket.value = null;
     if (current && current.readyState === WebSocket.OPEN) {
+      current.onopen = null;
+      current.onmessage = null;
+      current.onerror = null;
+      current.onclose = null;
       current.close(1000, reason);
     } else if (current && current.readyState < WebSocket.CLOSING) {
+      current.onopen = null;
+      current.onmessage = null;
+      current.onerror = null;
+      current.onclose = null;
       current.close();
     }
     if (current) {

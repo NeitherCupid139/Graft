@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { nextTick } from 'vue';
 
 import type { TerminalResizePayload, TerminalSessionConnector } from './terminal-types';
 import { useTerminalSession } from './useTerminalSession';
@@ -73,22 +74,20 @@ describe('useTerminalSession', () => {
 
   beforeEach(() => {
     MockWebSocket.instances = [];
-    vi.stubGlobal(
-      'WebSocket',
-      Object.assign(MockWebSocket, {
-        CONNECTING: MockWebSocket.CONNECTING,
-        OPEN: MockWebSocket.OPEN,
-        CLOSING: MockWebSocket.CLOSING,
-        CLOSED: MockWebSocket.CLOSED,
-      }) as unknown as typeof WebSocket,
-    );
+    globalThis.WebSocket = Object.assign(MockWebSocket, {
+      CONNECTING: MockWebSocket.CONNECTING,
+      OPEN: MockWebSocket.OPEN,
+      CLOSING: MockWebSocket.CLOSING,
+      CLOSED: MockWebSocket.CLOSED,
+    }) as unknown as typeof WebSocket;
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
     if (originalWebSocket) {
       globalThis.WebSocket = originalWebSocket;
+      return;
     }
+    Reflect.deleteProperty(globalThis, 'WebSocket');
   });
 
   it('ignores stale socket close events after reconnect', async () => {
@@ -136,6 +135,43 @@ describe('useTerminalSession', () => {
     expect(session.state.value).toBe('disconnected');
   });
 
+  it('cancels an in-flight connect when disconnected before connector resolves', async () => {
+    const deferredOpen: { resolve?: (value: { url: string }) => void } = {};
+    const connector: TerminalSessionConnector = {
+      open: vi.fn().mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            deferredOpen.resolve = resolve;
+          }),
+      ),
+    };
+    const onClose = vi.fn();
+    const onTransportError = vi.fn();
+    const session = useTerminalSession({
+      connector,
+      onClose,
+      onTransportError,
+    });
+
+    const connecting = session.connect(createSize());
+    expect(session.state.value).toBe('connecting');
+
+    session.disconnect('component_unmount');
+    expect(session.state.value).toBe('idle');
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledWith('component_unmount');
+
+    if (typeof deferredOpen.resolve === 'function') {
+      deferredOpen.resolve({ url: 'ws://terminal.example/ws' });
+    }
+    await connecting;
+    await nextTick();
+
+    expect(MockWebSocket.instances).toHaveLength(0);
+    expect(onTransportError).not.toHaveBeenCalled();
+    expect(session.state.value).toBe('idle');
+  });
+
   it('emits connect_error when connector open rejects', async () => {
     const connector: TerminalSessionConnector = {
       open: vi.fn().mockRejectedValue(new Error('connect failed')),
@@ -153,6 +189,46 @@ describe('useTerminalSession', () => {
     expect(onClose).toHaveBeenCalledWith('connect_error');
     expect(onTransportError).toHaveBeenCalledTimes(1);
     expect(session.state.value).toBe('error');
+  });
+
+  it('ignores stale connector errors after a new connect starts', async () => {
+    const deferredReject: { reject?: (reason?: unknown) => void } = {};
+    const connector: TerminalSessionConnector = {
+      open: vi
+        .fn()
+        .mockImplementationOnce(
+          () =>
+            new Promise((_, reject) => {
+              deferredReject.reject = reject;
+            }),
+        )
+        .mockResolvedValueOnce({
+          url: 'ws://terminal.example/ws',
+        }),
+    };
+    const onClose = vi.fn();
+    const onTransportError = vi.fn();
+    const session = useTerminalSession({
+      connector,
+      onClose,
+      onTransportError,
+    });
+
+    const firstConnect = session.connect(createSize());
+    const secondConnect = session.connect(createSize({ cols: 140 }));
+    if (typeof deferredReject.reject === 'function') {
+      deferredReject.reject(new Error('stale connect failed'));
+    }
+
+    await expect(firstConnect).resolves.toBeUndefined();
+    await secondConnect;
+
+    const socket = MockWebSocket.instances[0];
+    socket.emitOpen();
+
+    expect(onTransportError).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalledWith('connect_error');
+    expect(session.state.value).toBe('connected');
   });
 
   it('emits session_error when the socket closes after a transport error', async () => {
