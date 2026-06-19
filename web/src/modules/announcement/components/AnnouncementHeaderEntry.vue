@@ -136,12 +136,4 @@ async function markCurrentRead() {
   justify-content: center;
   width: var(--td-comp-size-m);
 }
-
-.announcement-header-entry :deep(.t-badge) {
-  align-items: center;
-  display: inline-flex;
-  height: var(--td-comp-size-m);
-  justify-content: center;
-  width: var(--td-comp-size-m);
-}
 </style>
