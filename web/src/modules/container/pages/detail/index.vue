@@ -1039,17 +1039,32 @@
             </t-tab-panel>
 
             <t-tab-panel value="raw" :label="t('container.detail.tabs.raw')" :destroy-on-hide="false">
-              <section class="container-detail-section">
-                <json-viewer
+              <section class="container-detail-section container-detail-section--raw container-detail-tab-body">
+                <container-raw-json-panel
                   :value="safeDetail"
                   :title="t('container.detail.raw.title')"
                   :description="t('container.detail.raw.description')"
+                  :search-placeholder="t('container.detail.raw.searchPlaceholder')"
                   :root-label="t('container.detail.raw.root')"
                   :source-label="t('container.detail.raw.source')"
                   :tree-label="t('container.detail.raw.tree')"
                   :copy-label="t('container.detail.copy')"
                   :copy-success-label="t('container.detail.copySuccess')"
                   :copy-error-label="t('container.detail.copyError')"
+                  :expand-all-label="t('container.detail.raw.expandAll')"
+                  :collapse-all-label="t('container.detail.raw.collapseAll')"
+                  :format-label="t('container.detail.raw.format')"
+                  :field-count-label="t('container.detail.raw.fieldCount')"
+                  :sensitive-field-label="t('container.detail.raw.sensitiveFieldCount')"
+                  :environment-label="t('container.detail.raw.environmentCount')"
+                  :port-label="t('container.detail.raw.portCount')"
+                  :mounted-label="t('container.detail.raw.mountCount')"
+                  :network-label="t('container.detail.raw.networkCount')"
+                  :updated-at-label="t('container.detail.raw.updatedAt')"
+                  :collapse-tree-node-label="t('container.detail.raw.collapseNode')"
+                  :expand-tree-node-label="t('container.detail.raw.expandNode')"
+                  :search-empty-label="t('container.detail.raw.noMatches')"
+                  :sensitive-label="t('container.detail.raw.sensitive')"
                   :empty-label="t('container.detail.raw.empty')"
                   :error-label="t('container.detail.raw.error')"
                 />
@@ -1081,7 +1096,6 @@ import {
   formatLocaleDateTime,
   formatNanosecondsAsDuration,
   formatPercent,
-  JsonViewer,
   LogViewer,
   toProgressPercent,
 } from '@/shared/observability';
@@ -1095,6 +1109,7 @@ import {
   getContainerMountUsage,
   postContainerMountUsageRefresh,
 } from '../../api/container';
+import ContainerRawJsonPanel from '../../components/ContainerRawJsonPanel.vue';
 import type {
   ContainerDetail,
   ContainerHealth,
@@ -3369,6 +3384,11 @@ function portLabel(port: ContainerDetail['ports'][number]) {
 
 .container-detail-section--storage {
   padding: 0 var(--graft-density-gap-16) var(--graft-density-gap-16);
+}
+
+.container-detail-section--raw {
+  min-height: var(--container-detail-tab-body-min-height);
+  padding: 0;
 }
 
 .container-detail-empty-state {

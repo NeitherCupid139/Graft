@@ -375,11 +375,26 @@
       "raw": {
         "title": "Raw JSON",
         "description": "Sensitive Fields Are Masked for Read-only Troubleshooting.",
+        "searchPlaceholder": "Search Keys Or Values",
         "root": "Container",
         "source": "Source View",
         "tree": "Tree View",
-        "empty": "No Raw JSON.",
-        "error": "Raw JSON Could Not Be Formatted."
+        "expandAll": "Expand All",
+        "collapseAll": "Collapse All",
+        "format": "Format",
+        "expandNode": "Expand Node",
+        "collapseNode": "Collapse Node",
+        "fieldCount": "Fields",
+        "sensitiveFieldCount": "Sensitive Fields",
+        "environmentCount": "Environment",
+        "portCount": "Port Mappings",
+        "mountCount": "Mounts",
+        "networkCount": "Networks",
+        "updatedAt": "Updated At",
+        "sensitive": "Sensitive",
+        "empty": "No Raw JSON Data Is Available",
+        "error": "Raw JSON Could Not Be Formatted.",
+        "noMatches": "No Matches Found"
       },
       "health": {
         "status": "Health",

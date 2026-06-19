@@ -246,8 +246,23 @@ const translations = vi.hoisted(
     'container.detail.overview.resourceNetwork': '资源与网络',
     'container.detail.overview.runtimeInfo': '运行信息',
     'container.detail.raw.description': '敏感字段已脱敏，仅用于只读排查。',
-    'container.detail.raw.empty': '暂无原始 JSON。',
+    'container.detail.raw.searchPlaceholder': '搜索字段或内容',
+    'container.detail.raw.empty': '暂无原始 JSON 数据',
     'container.detail.raw.error': '原始 JSON 无法格式化。',
+    'container.detail.raw.expandAll': '展开全部',
+    'container.detail.raw.collapseAll': '折叠全部',
+    'container.detail.raw.format': '格式化',
+    'container.detail.raw.expandNode': '展开节点',
+    'container.detail.raw.collapseNode': '折叠节点',
+    'container.detail.raw.fieldCount': '字段数',
+    'container.detail.raw.sensitiveFieldCount': '敏感字段',
+    'container.detail.raw.environmentCount': '环境变量',
+    'container.detail.raw.portCount': '端口映射',
+    'container.detail.raw.mountCount': '挂载',
+    'container.detail.raw.networkCount': '网络',
+    'container.detail.raw.updatedAt': '更新时间',
+    'container.detail.raw.sensitive': '敏感',
+    'container.detail.raw.noMatches': '未找到匹配内容',
     'container.detail.raw.root': 'container',
     'container.detail.raw.source': '源码视图',
     'container.detail.raw.title': '原始 JSON',
@@ -510,9 +525,13 @@ describe('container detail page', () => {
     expect(wrapper.text()).toContain('Throttling 次数0');
     expect(wrapper.text()).toContain('Throttling 时间0 ms');
     expect(wrapper.text()).toContain('未发生 CPU throttling');
-    expect(wrapper.text()).not.toContain('50,468,370,000,000');
-    expect(wrapper.text()).not.toContain('40401700');
-    expect(wrapper.text()).not.toContain('10000000');
+    const resourceDetailText = wrapper
+      .findAll('.container-resource-detail-card, .container-resource-dashboard-panel')
+      .map((node) => node.text())
+      .join('\n');
+    expect(resourceDetailText).not.toContain('50,468,370,000,000');
+    expect(resourceDetailText).not.toContain('40401700');
+    expect(resourceDetailText).not.toContain('10000000');
     expect(wrapper.text()).toContain('接收0.00 MiB');
     expect(wrapper.text()).toContain('发送0.00 MiB');
     expect(wrapper.text()).toContain('PIDs 当前数14');
@@ -737,8 +756,9 @@ describe('container detail page', () => {
     const wrapper = mountPage();
     await flushPromises();
 
-    expect(wrapper.text()).toContain('/srv/graft/releases...uration/application');
-    expect(wrapper.text()).not.toContain(fullSource);
+    const mountCardText = findMountCardByDestination(wrapper, '/app').text();
+    expect(mountCardText).toContain('/srv/graft/releases...uration/application');
+    expect(mountCardText).not.toContain(fullSource);
 
     await wrapper.get('[data-testid="mount-source-copy-0"]').trigger('click');
     await wrapper.get('[data-testid="mount-destination-copy-0"]').trigger('click');
@@ -1341,10 +1361,11 @@ describe('container detail page', () => {
     const wrapper = mountPage();
     await flushPromises();
 
-    expect(wrapper.text()).toContain('68e6eb2631f4...a0a9fb');
-    expect(wrapper.text()).toContain('d7fc919985a5...1547b8');
-    expect(wrapper.text()).not.toContain(networkId);
-    expect(wrapper.text()).not.toContain(endpointId);
+    const networkSectionText = wrapper.find('.container-detail-section--network').text();
+    expect(networkSectionText).toContain('68e6eb2631f4...a0a9fb');
+    expect(networkSectionText).toContain('d7fc919985a5...1547b8');
+    expect(networkSectionText).not.toContain(networkId);
+    expect(networkSectionText).not.toContain(endpointId);
 
     await wrapper.get('[data-testid="network-id-copy-0"]').trigger('click');
     await wrapper.get('[data-testid="network-endpoint-copy-0"]').trigger('click');
@@ -1780,7 +1801,7 @@ describe('container detail page', () => {
 
   it('uses shared log and JSON viewers instead of raw pre blocks', () => {
     expect(sourceText).toContain('<log-viewer');
-    expect(sourceText).toContain('<json-viewer');
+    expect(sourceText).toContain('<container-raw-json-panel');
     expect(sourceText).not.toContain('container-detail-code');
   });
 
@@ -1870,9 +1891,10 @@ describe('container detail page', () => {
     await wrapper.get('input[placeholder="搜索变量名 / 值"]').setValue('APP');
     await flushPromises();
 
-    expect(wrapper.text()).toContain('APP_MODE');
-    expect(wrapper.text()).not.toContain('API_TOKEN');
-    expect(wrapper.text()).not.toContain('SECRET_KEY');
+    const configSectionText = wrapper.find('.container-detail-section--config').text();
+    expect(configSectionText).toContain('APP_MODE');
+    expect(configSectionText).not.toContain('API_TOKEN');
+    expect(configSectionText).not.toContain('SECRET_KEY');
 
     const select = wrapper.findAll('select').find((item) => item.text().includes('脱敏'));
     expect(select).toBeTruthy();
@@ -1884,8 +1906,9 @@ describe('container detail page', () => {
     await wrapper.get('input[placeholder="搜索变量名 / 值"]').setValue('');
     await flushPromises();
 
-    expect(wrapper.text()).toContain('API_TOKEN');
-    expect(wrapper.text()).not.toContain('SECRET_KEY');
+    const configSectionTextAfterReset = wrapper.find('.container-detail-section--config').text();
+    expect(configSectionTextAfterReset).toContain('API_TOKEN');
+    expect(configSectionTextAfterReset).not.toContain('SECRET_KEY');
   });
 
   it('copies the filtered environment as safe dotenv content', async () => {
@@ -1904,6 +1927,55 @@ describe('container detail page', () => {
     expect(copyText).toHaveBeenCalledWith('API_TOKEN=******');
     expect(copyText).not.toHaveBeenCalledWith(expect.stringContaining('undefined'));
     expect(messageMocks.success).toHaveBeenCalledWith('已复制 .env 内容');
+  });
+
+  it('renders the raw json tab as a debugger-style viewer with source view, chips, and sensitive hint', async () => {
+    routeState.route.query.tab = 'raw';
+
+    const wrapper = mountPage();
+    await flushPromises();
+    const rawPanel = wrapper.get('.container-raw-json-panel');
+
+    expect(rawPanel.text()).toContain('原始 JSON');
+    expect(rawPanel.text()).toContain('敏感字段已脱敏，仅用于只读排查。');
+    expect(rawPanel.text()).toContain('字段数 34');
+    expect(rawPanel.text()).toContain('敏感字段 2');
+    expect(rawPanel.text()).toContain('环境变量 3');
+    expect(rawPanel.text()).toContain('端口映射 1');
+    expect(rawPanel.text()).toContain('挂载 5');
+    expect(rawPanel.text()).toContain('网络 1');
+    expect(rawPanel.text()).toContain('更新时间 2026-06-14T01:08:00Z');
+    expect(rawPanel.get('input[placeholder="搜索字段或内容"]').attributes('placeholder')).toBe('搜索字段或内容');
+    expect(rawPanel.text()).toContain('源码视图');
+    expect(rawPanel.text()).toContain('树形视图');
+    expect(rawPanel.text()).toContain('折叠全部');
+    expect(rawPanel.text()).toContain('container');
+    expect(rawPanel.text()).toContain('Object(34)');
+  });
+
+  it('keeps raw json tab route state stable while using the local viewer controls', async () => {
+    routeState.route.query.tab = 'raw';
+
+    const wrapper = mountPage();
+    await flushPromises();
+
+    const routeBefore = { ...routeState.route.query };
+    await wrapper.get('.container-raw-json-panel input[placeholder="搜索字段或内容"]').setValue('masked');
+    await flushPromises();
+
+    expect(routeState.route.query).toEqual(routeBefore);
+  });
+
+  it('shows empty search feedback when raw json search has no matches', async () => {
+    routeState.route.query.tab = 'raw';
+
+    const wrapper = mountPage();
+    await flushPromises();
+
+    await wrapper.get('.container-raw-json-panel input[placeholder="搜索字段或内容"]').setValue('missing-keyword');
+    await flushPromises();
+
+    expect(wrapper.get('.container-raw-json-panel').text()).toContain('未找到匹配内容');
   });
 
   it('keeps detailed metric cards in a full-width memory and CPU flow before the lower two-column cards', () => {
@@ -2157,11 +2229,11 @@ function mountPage() {
               ]),
         }),
         't-alert': defineComponent({
-          props: ['title'],
+          props: ['message', 'title'],
           setup:
             (props, { slots }) =>
             () =>
-              h('div', [String(props.title ?? ''), slots.default?.(), slots.operation?.()]),
+              h('div', [String(props.title ?? props.message ?? ''), slots.default?.(), slots.operation?.()]),
         }),
         't-button': defineComponent({
           props: ['disabled', 'loading'],
@@ -2254,6 +2326,28 @@ function mountPage() {
                 value: String(props.modelValue ?? ''),
                 onInput: (event: Event) => emit('update:modelValue', (event.target as HTMLInputElement).value),
               }),
+        }),
+        't-radio-group': defineComponent({
+          props: ['modelValue', 'options', 'value'],
+          emits: ['update:modelValue', 'update:value', 'change'],
+          setup:
+            (props, { emit }) =>
+            () =>
+              h(
+                'select',
+                {
+                  value: String(props.value ?? props.modelValue ?? ''),
+                  onChange: (event: Event) => {
+                    const value = (event.target as HTMLSelectElement).value;
+                    emit('update:modelValue', value);
+                    emit('update:value', value);
+                    emit('change', value);
+                  },
+                },
+                (props.options as Array<{ label: string; value: string }> | undefined)?.map((option) =>
+                  h('option', { value: option.value }, option.label),
+                ) ?? [],
+              ),
         }),
         't-loading': defineComponent({
           setup:
@@ -2350,10 +2444,11 @@ function mountPage() {
             },
         }),
         't-tag': defineComponent({
+          props: ['theme'],
           setup:
-            (_, { slots }) =>
+            (props, { slots }) =>
             () =>
-              h('span', { 'data-testid': 't-tag' }, slots.default?.()),
+              h('span', { 'data-testid': 't-tag', 'data-theme': String(props.theme ?? '') }, slots.default?.()),
         }),
         't-tooltip': defineComponent({
           setup:

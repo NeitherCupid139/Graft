@@ -375,11 +375,26 @@
       "raw": {
         "title": "原始 JSON",
         "description": "敏感字段已脱敏，仅用于只读排查。",
+        "searchPlaceholder": "搜索字段或内容",
         "root": "container",
         "source": "源码视图",
         "tree": "树形视图",
-        "empty": "暂无原始 JSON。",
-        "error": "原始 JSON 无法格式化。"
+        "expandAll": "展开全部",
+        "collapseAll": "折叠全部",
+        "format": "格式化",
+        "expandNode": "展开节点",
+        "collapseNode": "折叠节点",
+        "fieldCount": "字段数",
+        "sensitiveFieldCount": "敏感字段",
+        "environmentCount": "环境变量",
+        "portCount": "端口映射",
+        "mountCount": "挂载",
+        "networkCount": "网络",
+        "updatedAt": "更新时间",
+        "sensitive": "敏感",
+        "empty": "暂无原始 JSON 数据",
+        "error": "原始 JSON 无法格式化。",
+        "noMatches": "未找到匹配内容"
       },
       "health": {
         "status": "健康状态",
