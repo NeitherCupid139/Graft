@@ -4,7 +4,11 @@
 -->
 
 <template>
-  <t-breadcrumb max-item-width="150" class="tdesign-breadcrumb">
+  <t-breadcrumb
+    v-if="showBreadcrumb && crumbs.length > 0"
+    max-item-width="150"
+    class="tdesign-breadcrumb shell-breadcrumb"
+  >
     <t-breadcrumbItem v-for="item in crumbs" :key="item.to" :to="item.to">
       {{ item.title }}
     </t-breadcrumbItem>
@@ -15,10 +19,13 @@ import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 
 import { useLocale } from '@/locales/useLocale';
+import { useSettingStore } from '@/store';
 import { renderLocalizedTitle, resolveRouteLocalizedTitle } from '@/utils/route/meta';
 
 const { locale } = useLocale();
 const route = useRoute();
+const settingStore = useSettingStore();
+const showBreadcrumb = computed(() => settingStore.showBreadcrumb);
 
 interface BreadcrumbItem {
   to: string;

@@ -6,7 +6,6 @@
 <template>
   <div class="container-detail-page" data-page-type="operations-detail">
     <management-page-header
-      :breadcrumb="detailBreadcrumb"
       :title="pageTitle"
       :description="safeDetail ? safeDetail.image : t('container.detail.description')"
       :source="{ labelKey: 'container.list.eyebrow', fallback: t('container.list.eyebrow') }"
@@ -1377,10 +1376,6 @@ const refreshControlStatus = computed(() => {
   }
   return 'running' as const;
 });
-const detailBreadcrumb = computed(() => [
-  { labelKey: 'container.list.eyebrow', fallback: t('container.list.eyebrow') },
-  { labelKey: 'container.detail.title', fallback: fallbackTitle.value[LOCALE.ZH_CN] },
-]);
 const pageTitle = computed(() => {
   if (safeDetail.value) {
     return displayName(safeDetail.value);

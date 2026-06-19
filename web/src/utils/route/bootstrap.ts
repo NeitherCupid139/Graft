@@ -44,6 +44,8 @@ export function transformGlobalRegistrationsToRoutes(registrations: GlobalRouteR
       component: LAYOUT,
       meta: {
         ...registration.meta,
+        breadcrumbTitle:
+          registration.meta?.domainTitle ?? registration.meta?.breadcrumbTitle ?? registration.meta?.title,
         hiddenMenu: true,
         single: true,
       },
@@ -55,7 +57,7 @@ export function transformGlobalRegistrationsToRoutes(registrations: GlobalRouteR
           meta: {
             ...registration.meta,
             hiddenMenu: true,
-            hiddenBreadcrumb: true,
+            hiddenBreadcrumb: !registration.meta?.domainTitle,
           },
         }),
       ],
