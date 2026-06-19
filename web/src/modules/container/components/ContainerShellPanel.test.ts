@@ -124,9 +124,15 @@ const i18n = createI18n({
             disabledHint: 'Enable ops.container.shell.enabled in System Config before using Shell.',
             forbidden: 'No Shell Access',
             forbiddenHint: 'Required Permission: ops.container.shell',
+            commands: {
+              sh: 'SH',
+              bash: 'Bash',
+              ash: 'Ash',
+            },
             empty: 'Shell Session Idle',
             emptyHint: 'Open the Shell tab to create an interactive session with the selected shell command.',
             connecting: 'Connecting',
+            connectingHint: 'Preparing an interactive terminal session.',
             connected: 'Connected',
             disconnected: 'Disconnected',
             connectionFailed: 'Connection Failed',
@@ -137,6 +143,9 @@ const i18n = createI18n({
             notRunningHint: 'The current container is not running, so an interactive shell session cannot be opened.',
             ticketExpired: 'The shell session ticket expired. Reconnect to continue.',
             connectionClosed: 'The shell connection has closed.',
+            originDenied: 'The current request origin cannot open a container shell connection.',
+            transportError:
+              'The terminal transport connection failed. Verify the frontend WebSocket proxy and server origin allowlist.',
           },
         },
       },
@@ -333,6 +342,18 @@ describe('ContainerShellPanel', () => {
     expect(wrapper.text()).toContain('Shell Is Disabled');
     expect(wrapper.text()).toContain('Enable ops.container.shell.enabled in System Config before using Shell.');
     expect(wrapper.find('[data-testid="web-terminal-stub"]').exists()).toBe(false);
+  });
+
+  it('maps terminal transport errors to the localized websocket guidance', async () => {
+    shellSessionMock.mockRejectedValue(new Error('Terminal transport error'));
+
+    const wrapper = mountPanel({ active: true });
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.text()).toContain(
+      'The terminal transport connection failed. Verify the frontend WebSocket proxy and server origin allowlist.',
+    );
   });
 
   it('reconnects by requesting a fresh shell session', async () => {

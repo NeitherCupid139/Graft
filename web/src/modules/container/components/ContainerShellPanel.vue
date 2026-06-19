@@ -51,6 +51,8 @@
         :model-value="terminalActive"
         :connector="connector"
         :auto-connect="false"
+        :connecting-description="t('container.detail.shell.connectingHint')"
+        :connecting-title="t('container.detail.shell.connecting')"
         :disconnected-description="displayDisconnectedDescription"
         :disconnected-title="t('container.detail.shell.disconnected')"
         :empty-description="t('container.detail.shell.emptyHint')"
@@ -90,6 +92,7 @@ type ServerAvailabilityState = 'unknown' | 'ready' | 'disabled' | 'forbidden' | 
 const SHELL_DISABLED_MESSAGE_KEY = 'ops.container.error.shellDisabled';
 const SHELL_FORBIDDEN_MESSAGE_KEY = 'ops.container.error.shellForbidden';
 const SHELL_NOT_RUNNING_MESSAGE_KEY = 'ops.container.error.shellContainerNotRunning';
+const SHELL_ORIGIN_DENIED_MESSAGE_KEY = 'ops.container.error.shellOriginDenied';
 const SHELL_UNSUPPORTED_CONTROL_MESSAGE_KEY = 'ops.container.error.shellUnsupportedControlMessage';
 
 const props = defineProps<{
@@ -270,6 +273,8 @@ function localizeShellMessage(message: string) {
   if (message.includes('disabled')) return t('container.detail.shell.disabledHint');
   if (message.includes('not running')) return t('container.detail.shell.notRunningHint');
   if (message.includes('forbidden')) return t('container.detail.shell.forbiddenHint');
+  if (message.includes('origin')) return t('container.detail.shell.originDenied');
+  if (message.includes('transport error')) return t('container.detail.shell.transportError');
   if (message.includes('unsupported terminal control')) {
     return t(SHELL_UNSUPPORTED_CONTROL_MESSAGE_KEY);
   }
@@ -282,6 +287,10 @@ function applyServerAvailability(error: ApiRequestError) {
     return;
   }
   if (error.messageKey === SHELL_FORBIDDEN_MESSAGE_KEY) {
+    serverAvailability.value = 'forbidden';
+    return;
+  }
+  if (error.messageKey === SHELL_ORIGIN_DENIED_MESSAGE_KEY) {
     serverAvailability.value = 'forbidden';
     return;
   }
@@ -304,10 +313,13 @@ defineExpose({
 </script>
 <style scoped lang="less">
 .container-shell-panel {
+  --container-shell-terminal-height: clamp(640px, calc(100vh - var(--graft-page-bottom-safe-area) - 320px), 860px);
+
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
   gap: var(--graft-density-gap-12);
+  height: 100%;
   min-height: 0;
   min-width: 0;
 }
@@ -359,7 +371,8 @@ defineExpose({
 .container-shell-panel__terminal {
   display: flex;
   flex: 1 1 auto;
-  min-height: clamp(560px, calc(100vh - var(--graft-page-bottom-safe-area) - 360px), 720px);
+  height: var(--container-shell-terminal-height);
+  min-height: var(--container-shell-terminal-height);
   min-width: 0;
 }
 

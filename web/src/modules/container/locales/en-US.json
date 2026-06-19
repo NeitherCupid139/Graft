@@ -308,6 +308,7 @@
         "empty": "Shell Session Idle",
         "emptyHint": "Open the Shell tab to create an interactive session with the selected shell command.",
         "connecting": "Connecting",
+        "connectingHint": "Preparing an interactive terminal session.",
         "connected": "Connected",
         "disconnected": "Disconnected",
         "connectionFailed": "Connection Failed",
@@ -317,7 +318,9 @@
         "notRunning": "Container Is Not Running",
         "notRunningHint": "The current container is not running, so an interactive shell session cannot be opened.",
         "ticketExpired": "The shell session ticket expired. Reconnect to continue.",
-        "connectionClosed": "The shell connection has closed."
+        "connectionClosed": "The shell connection has closed.",
+        "originDenied": "The current request origin cannot open a container shell connection.",
+        "transportError": "The terminal transport connection failed. Verify the frontend WebSocket proxy and server origin allowlist."
       },
       "resources": {
         "cpu": "CPU",

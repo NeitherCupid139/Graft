@@ -3583,10 +3583,14 @@ function portLabel(port: ContainerDetail['ports'][number]) {
 }
 
 .container-detail-tabs-card {
+  min-height: 0;
   min-width: 0;
 }
 
 .container-detail-tabs-card :deep(.t-card__body) {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   padding: 0;
 }
 
@@ -3618,7 +3622,18 @@ function portLabel(port: ContainerDetail['ports'][number]) {
 }
 
 .container-detail-tabs-card :deep(.t-tabs__content) {
+  min-height: 0;
   padding-top: var(--graft-density-gap-12);
+}
+
+.container-detail-tabs-card :deep(.t-tabs) {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.container-detail-tabs-card :deep(.t-tabs__panel) {
+  min-height: 0;
 }
 
 /*
@@ -3628,6 +3643,7 @@ function portLabel(port: ContainerDetail['ports'][number]) {
 .container-detail-tab-body {
   --container-detail-tab-body-min-height: clamp(280px, calc(100vh - var(--graft-page-bottom-safe-area) - 420px), 520px);
 
+  height: var(--container-detail-tab-body-min-height);
   min-height: var(--container-detail-tab-body-min-height);
 }
 
@@ -3653,7 +3669,8 @@ function portLabel(port: ContainerDetail['ports'][number]) {
 }
 
 .container-detail-section--shell {
-  min-height: var(--container-detail-tab-body-min-height);
+  height: auto;
+  min-height: 0;
   padding: 0 var(--graft-density-gap-16) var(--graft-density-gap-16);
 }
 

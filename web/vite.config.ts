@@ -216,6 +216,7 @@ export function createViteConfig(mode: string): UserConfig {
             [apiPrefix]: {
               target: apiTarget,
               changeOrigin: true,
+              ws: true,
             } satisfies ProxyOptions,
             ...Object.fromEntries(
               docsProxyPaths.map((proxyPath) => [

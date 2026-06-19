@@ -41,6 +41,8 @@ const props = withDefaults(
   defineProps<{
     autoConnect?: boolean;
     connector: TerminalSessionConnector;
+    connectingDescription?: string;
+    connectingTitle?: string;
     disconnectedDescription?: string;
     disconnectedTitle?: string;
     emptyDescription?: string;
@@ -51,6 +53,8 @@ const props = withDefaults(
   }>(),
   {
     autoConnect: false,
+    connectingDescription: '',
+    connectingTitle: '',
     disconnectedDescription: '',
     disconnectedTitle: '',
     emptyDescription: '',
@@ -97,18 +101,18 @@ const connectionState = computed(() => session.state.value);
 const displayError = computed(() => session.lastError.value || props.errorDescription);
 const showOverlay = computed(() => connectionState.value !== 'connected');
 const overlayTitle = computed(() => {
-  if (connectionState.value === 'connecting') return 'Connecting';
-  if (connectionState.value === 'error') return props.errorTitle || 'Connection failed';
-  if (connectionState.value === 'disconnected') return props.disconnectedTitle || 'Disconnected';
-  return props.emptyTitle || 'Terminal idle';
+  if (connectionState.value === 'connecting') return props.connectingTitle || props.emptyTitle || '';
+  if (connectionState.value === 'error') return props.errorTitle || props.disconnectedTitle || '';
+  if (connectionState.value === 'disconnected') return props.disconnectedTitle || props.emptyTitle || '';
+  return props.emptyTitle || '';
 });
 const overlayDescription = computed(() => {
-  if (connectionState.value === 'connecting') return 'Preparing an interactive terminal session.';
-  if (connectionState.value === 'error') return displayError.value || 'The terminal session could not be established.';
+  if (connectionState.value === 'connecting') return props.connectingDescription || props.emptyDescription || '';
+  if (connectionState.value === 'error') return displayError.value || props.errorDescription || '';
   if (connectionState.value === 'disconnected') {
-    return props.disconnectedDescription || 'Reconnect to start a new interactive session.';
+    return props.disconnectedDescription || props.emptyDescription || '';
   }
-  return props.emptyDescription || 'Open a session to start streaming terminal output.';
+  return props.emptyDescription || '';
 });
 
 watch(
@@ -201,6 +205,7 @@ defineExpose({
 .web-terminal {
   display: flex;
   flex: 1 1 auto;
+  height: 100%;
   min-height: 0;
   min-width: 0;
 }
@@ -214,6 +219,7 @@ defineExpose({
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 4%);
   display: flex;
   flex: 1 1 auto;
+  height: 100%;
   min-height: 0;
   min-width: 0;
   overflow: hidden;
@@ -228,6 +234,7 @@ defineExpose({
 
 .web-terminal__host {
   flex: 1 1 auto;
+  height: 100%;
   min-height: 0;
   min-width: 0;
   outline: none;
@@ -235,6 +242,12 @@ defineExpose({
 }
 
 .web-terminal__host :deep(.xterm) {
+  height: 100%;
+}
+
+.web-terminal__host :deep(.xterm-screen),
+.web-terminal__host :deep(.xterm-helpers),
+.web-terminal__host :deep(.xterm-viewport) {
   height: 100%;
 }
 

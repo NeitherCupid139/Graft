@@ -308,6 +308,7 @@
         "empty": "Shell 会话未启动",
         "emptyHint": "切换到 Shell 标签页后将按当前 Shell 类型创建交互式会话。",
         "connecting": "连接中",
+        "connectingHint": "正在准备交互式终端会话。",
         "connected": "已连接",
         "disconnected": "已断开",
         "connectionFailed": "连接失败",
@@ -317,7 +318,9 @@
         "notRunning": "容器未运行",
         "notRunningHint": "当前容器未处于运行状态，无法建立交互式 Shell 会话。",
         "ticketExpired": "Shell 会话票据已过期，请重新连接。",
-        "connectionClosed": "Shell 连接已关闭。"
+        "connectionClosed": "Shell 连接已关闭。",
+        "originDenied": "当前请求来源不允许建立容器 Shell 连接。",
+        "transportError": "终端传输连接失败，请确认前端 WebSocket 代理和服务端来源白名单配置。"
       },
       "resources": {
         "cpu": "CPU",

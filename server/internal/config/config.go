@@ -246,6 +246,7 @@ type ContainerConfig struct {
 	LogsMaxTail             int
 	RuntimeEnabled          bool
 	DangerousActionsEnabled bool
+	ShellEnabled            bool
 }
 
 // Load 按“真实环境变量优先、.env 兜底”的顺序加载配置并返回校验后的快照。
@@ -340,6 +341,7 @@ func Load() (*Config, error) {
 			LogsMaxTail:             reader.GetInt("ops.container.logs.max_tail"),
 			RuntimeEnabled:          reader.GetBool("ops.container.runtime.enabled"),
 			DangerousActionsEnabled: reader.GetBool("ops.container.actions.dangerous_enabled"),
+			ShellEnabled:            reader.GetBool("ops.container.shell.enabled"),
 		},
 	}
 
@@ -681,6 +683,9 @@ func validateContainerConfig(c *Config) error {
 	}
 	if c.Container.LogsDefaultTail > c.Container.LogsMaxTail {
 		return errors.New("GRAFT_OPS_CONTAINER_LOGS_DEFAULT_TAIL must be less than or equal to GRAFT_OPS_CONTAINER_LOGS_MAX_TAIL")
+	}
+	if c.Container.ShellEnabled && len(c.HTTPX.WebSocketAllowedOrigins) == 0 {
+		return errors.New("GRAFT_HTTPX_WEBSOCKET_ALLOWED_ORIGINS is required when GRAFT_OPS_CONTAINER_SHELL_ENABLED is true")
 	}
 	return nil
 }

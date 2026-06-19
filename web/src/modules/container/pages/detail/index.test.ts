@@ -12,6 +12,10 @@ import type { ContainerMountUsage } from '../../types/container';
 import ContainerDetailPage from './index.vue';
 
 const sourceText = readFileSync(join(process.cwd(), 'src/modules/container/pages/detail/index.vue'), 'utf8');
+const shellPanelSourceText = readFileSync(
+  join(process.cwd(), 'src/modules/container/components/ContainerShellPanel.vue'),
+  'utf8',
+);
 const overviewPanelSourceText = readFileSync(
   join(process.cwd(), 'src/modules/container/pages/detail/components/ContainerOverviewPanel.vue'),
   'utf8',
@@ -1218,6 +1222,16 @@ describe('container detail page', () => {
       query: { tab: 'shell' },
     });
     expect(wrapper.get('[data-testid="container-shell-panel-stub"]').attributes('data-active')).toBe('true');
+  });
+
+  it('keeps the shell tab on a bounded viewport height chain', () => {
+    expect(sourceText).toContain('.container-detail-tabs-card :deep(.t-card__body) {');
+    expect(sourceText).toContain('display: flex;');
+    expect(shellPanelSourceText).toContain(
+      '--container-shell-terminal-height: clamp(640px, calc(100vh - var(--graft-page-bottom-safe-area) - 320px), 860px);',
+    );
+    expect(shellPanelSourceText).toContain('.container-shell-panel__terminal {');
+    expect(shellPanelSourceText).toContain('height: var(--container-shell-terminal-height);');
   });
 
   it('pauses auto refresh while hidden and refreshes once when visible again', async () => {
