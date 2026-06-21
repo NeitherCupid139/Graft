@@ -14,6 +14,8 @@ Overlay note:
 
 - `announcement-center-mvp`
   - Recovery entry: `ai-plan/public/announcement-center-mvp/README.md`
+- `cache-governance-and-system-config-acceleration`
+  - Recovery entry: `ai-plan/public/cache-governance-and-system-config-acceleration/README.md`
 - `server-locale-ownership-migration`
   - Recovery entry: `ai-plan/public/server-locale-ownership-migration/README.md`
 - `rbac-feature-and-nplusone-hardening`
