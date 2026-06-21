@@ -8,11 +8,16 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http/httptest"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 
+	"graft/server/internal/cachex"
+	cachebackend "graft/server/internal/cachex/backend"
 	"graft/server/internal/config"
 	"graft/server/internal/configregistry"
 	"graft/server/internal/container"
@@ -132,6 +137,306 @@ func TestServiceIsBooleanConfigEnabledUsesEffectiveValueAndFallback(t *testing.T
 	}
 }
 
+func TestServiceCachesFullOverrideSnapshotAcrossReads(t *testing.T) {
+	repo := newMemoryRepo()
+	service := newTestServiceWithRepo(t, repo, configregistry.Definition{
+		Key:          "notification.enabled",
+		Module:       "notification",
+		Group:        "notification.general",
+		Title:        "Notification enabled",
+		Type:         configregistry.ValueTypeBoolean,
+		DefaultValue: json.RawMessage(`true`),
+	})
+	if _, err := service.Update(context.Background(), "notification.enabled", json.RawMessage(`false`), nil); err != nil {
+		t.Fatalf("seed override: %v", err)
+	}
+	service.invalidateSnapshotCacheForKey("notification.enabled", snapshotInvalidationActionUpdate)
+	repo.resetReadCounters()
+
+	first, err := service.Get(context.Background(), "notification.enabled")
+	if err != nil {
+		t.Fatalf("first cached get: %v", err)
+	}
+	second, err := service.Get(context.Background(), "notification.enabled")
+	if err != nil {
+		t.Fatalf("second cached get: %v", err)
+	}
+	if string(first.EffectiveValue) != "false" || string(second.EffectiveValue) != "false" {
+		t.Fatalf("expected cached override value false, got %#v and %#v", first, second)
+	}
+	if _, err := service.List(context.Background()); err != nil {
+		t.Fatalf("list cached configs: %v", err)
+	}
+	if repo.listOverridesCalls() != 1 {
+		t.Fatalf("expected one snapshot load for repeated reads, got %d", repo.listOverridesCalls())
+	}
+	if repo.getOverrideCalls() != 0 {
+		t.Fatalf("expected snapshot cache reads to avoid per-key override lookups, got %d", repo.getOverrideCalls())
+	}
+}
+
+func TestServiceInvalidatesLocalSnapshotAfterUpdateAndReset(t *testing.T) {
+	repo := newMemoryRepo()
+	service := newTestServiceWithRepo(t, repo, configregistry.Definition{
+		Key:          "notification.enabled",
+		Module:       "notification",
+		Group:        "notification.general",
+		Title:        "Notification enabled",
+		Type:         configregistry.ValueTypeBoolean,
+		DefaultValue: json.RawMessage(`true`),
+	})
+
+	before, err := service.Get(context.Background(), "notification.enabled")
+	if err != nil {
+		t.Fatalf("get default before update: %v", err)
+	}
+	if string(before.EffectiveValue) != "true" {
+		t.Fatalf("expected default true before update, got %#v", before)
+	}
+	if repo.listOverridesCalls() != 1 {
+		t.Fatalf("expected initial snapshot load, got %d", repo.listOverridesCalls())
+	}
+
+	updated, err := service.Update(context.Background(), "notification.enabled", json.RawMessage(`false`), nil)
+	if err != nil {
+		t.Fatalf("update override: %v", err)
+	}
+	if string(updated.EffectiveValue) != "false" {
+		t.Fatalf("expected refreshed override false after update, got %#v", updated)
+	}
+	if repo.listOverridesCalls() != 2 {
+		t.Fatalf("expected snapshot reload after update invalidation, got %d", repo.listOverridesCalls())
+	}
+
+	reset, err := service.Reset(context.Background(), "notification.enabled")
+	if err != nil {
+		t.Fatalf("reset override: %v", err)
+	}
+	if string(reset.EffectiveValue) != "true" || reset.HasOverride {
+		t.Fatalf("expected refreshed default after reset, got %#v", reset)
+	}
+	if repo.listOverridesCalls() != 3 {
+		t.Fatalf("expected snapshot reload after reset invalidation, got %d", repo.listOverridesCalls())
+	}
+
+	debugState := service.SnapshotCacheDebugState()
+	if debugState.InvalidateCount != 2 {
+		t.Fatalf("expected two local invalidations, got %#v", debugState)
+	}
+	if debugState.LastInvalidationSource != string(snapshotInvalidationSourceLocal) {
+		t.Fatalf("expected local invalidation source, got %#v", debugState)
+	}
+	if debugState.LastInvalidationAction != string(snapshotInvalidationActionReset) {
+		t.Fatalf("expected reset invalidation action, got %#v", debugState)
+	}
+	if debugState.LastInvalidationKey != "notification.enabled" {
+		t.Fatalf("expected invalidation key notification.enabled, got %#v", debugState)
+	}
+}
+
+func TestServiceUpdateAndResetInvalidateSharedSnapshotCache(t *testing.T) {
+	repo := newMemoryRepo()
+	manager := newTestCacheManager(t)
+	service := newTestServiceWithRepoAndManager(t, repo, manager, configregistry.Definition{
+		Key:          "notification.enabled",
+		Module:       "notification",
+		Group:        "notification.general",
+		Title:        "Notification enabled",
+		Type:         configregistry.ValueTypeBoolean,
+		DefaultValue: json.RawMessage(`true`),
+	})
+	peer := newTestServiceWithRepoAndManager(t, repo, manager, configregistry.Definition{
+		Key:          "notification.enabled",
+		Module:       "notification",
+		Group:        "notification.general",
+		Title:        "Notification enabled",
+		Type:         configregistry.ValueTypeBoolean,
+		DefaultValue: json.RawMessage(`true`),
+	})
+	if _, err := peer.Get(context.Background(), "notification.enabled"); err != nil {
+		t.Fatalf("warm shared snapshot: %v", err)
+	}
+	repo.resetReadCounters()
+
+	updated, err := service.Update(context.Background(), "notification.enabled", json.RawMessage(`false`), nil)
+	if err != nil {
+		t.Fatalf("update override: %v", err)
+	}
+	if string(updated.EffectiveValue) != "false" {
+		t.Fatalf("expected updated value false, got %#v", updated)
+	}
+
+	peerItem, err := peer.Get(context.Background(), "notification.enabled")
+	if err != nil {
+		t.Fatalf("peer get after update invalidation: %v", err)
+	}
+	if string(peerItem.EffectiveValue) != "false" {
+		t.Fatalf("expected peer to observe updated value through shared cache invalidation, got %#v", peerItem)
+	}
+	if repo.listOverridesCalls() != 1 {
+		t.Fatalf("expected one reload after shared cache invalidation, got %d", repo.listOverridesCalls())
+	}
+
+	reset, err := service.Reset(context.Background(), "notification.enabled")
+	if err != nil {
+		t.Fatalf("reset override: %v", err)
+	}
+	if string(reset.EffectiveValue) != "true" || reset.HasOverride {
+		t.Fatalf("expected reset to restore default, got %#v", reset)
+	}
+	resetPeerItem, err := peer.Get(context.Background(), "notification.enabled")
+	if err != nil {
+		t.Fatalf("peer get after reset invalidation: %v", err)
+	}
+	if string(resetPeerItem.EffectiveValue) != "true" || resetPeerItem.HasOverride {
+		t.Fatalf("expected peer to observe reset default, got %#v", resetPeerItem)
+	}
+	if repo.listOverridesCalls() != 2 {
+		t.Fatalf("expected second reload after reset invalidation, got %d", repo.listOverridesCalls())
+	}
+}
+
+func TestServiceSingleflightCollapsesConcurrentSnapshotMisses(t *testing.T) {
+	repo := newMemoryRepo()
+	repo.listOverridesBlock = make(chan struct{})
+	t.Cleanup(func() {
+		repo.closeListOverridesBlock()
+	})
+	service := newTestServiceWithRepo(t, repo, configregistry.Definition{
+		Key:          "notification.enabled",
+		Module:       "notification",
+		Group:        "notification.general",
+		Title:        "Notification enabled",
+		Type:         configregistry.ValueTypeBoolean,
+		DefaultValue: json.RawMessage(`true`),
+	})
+
+	const readers = 8
+	results := make(chan error, readers)
+	var wg sync.WaitGroup
+	wg.Add(readers)
+	for range readers {
+		go func() {
+			defer wg.Done()
+			item, err := service.Get(context.Background(), "notification.enabled")
+			if err != nil {
+				results <- err
+				return
+			}
+			if string(item.EffectiveValue) != "true" {
+				results <- errors.New("unexpected effective value")
+				return
+			}
+			results <- nil
+		}()
+	}
+
+	if !repo.waitForListOverridesCalls(1, time.Second) {
+		t.Fatalf("expected concurrent reads to queue behind the same snapshot load, got %d starts", repo.listOverridesCalls())
+	}
+	repo.closeListOverridesBlock()
+	wg.Wait()
+	close(results)
+	for err := range results {
+		if err != nil {
+			t.Fatalf("concurrent read failed: %v", err)
+		}
+	}
+	if repo.listOverridesCalls() != 1 {
+		t.Fatalf("expected singleflight to collapse concurrent snapshot loads to one query, got %d", repo.listOverridesCalls())
+	}
+
+	debugState := service.SnapshotCacheDebugState()
+	if debugState.MissCount != readers {
+		t.Fatalf("expected one miss observation per concurrent reader, got %#v", debugState)
+	}
+	if debugState.LoadCount != 1 {
+		t.Fatalf("expected one snapshot load in debug state, got %#v", debugState)
+	}
+}
+
+func TestServiceReloadsSnapshotAfterCorruptCachePayload(t *testing.T) {
+	repo := newMemoryRepo()
+	manager := newTestCacheManager(t)
+	service := newTestServiceWithRepoAndManager(t, repo, manager, configregistry.Definition{
+		Key:          "notification.enabled",
+		Module:       "notification",
+		Group:        "notification.general",
+		Title:        "Notification enabled",
+		Type:         configregistry.ValueTypeBoolean,
+		DefaultValue: json.RawMessage(`true`),
+	})
+	if _, err := service.Update(context.Background(), "notification.enabled", json.RawMessage(`false`), nil); err != nil {
+		t.Fatalf("seed override: %v", err)
+	}
+	repo.resetReadCounters()
+
+	cache, err := manager.NewCache(systemConfigSnapshotCacheName)
+	if err != nil {
+		t.Fatalf("new cache for corruption setup: %v", err)
+	}
+	if err := cache.Set(context.Background(), systemConfigSnapshotKey(), cachex.NewItem([]byte("{"), 0)); err != nil {
+		t.Fatalf("seed corrupt cache payload: %v", err)
+	}
+
+	item, err := service.Get(context.Background(), "notification.enabled")
+	if err != nil {
+		t.Fatalf("get with corrupt cache payload: %v", err)
+	}
+	if string(item.EffectiveValue) != "false" {
+		t.Fatalf("expected rebuilt snapshot to preserve override value, got %#v", item)
+	}
+	if repo.listOverridesCalls() != 1 {
+		t.Fatalf("expected one reload from store after corrupt payload eviction, got %d", repo.listOverridesCalls())
+	}
+
+	debugState := service.SnapshotCacheDebugState()
+	if debugState.LoadErrorCount == 0 {
+		t.Fatalf("expected decode failure to increment load error count, got %#v", debugState)
+	}
+	if debugState.LoadCount == 0 {
+		t.Fatalf("expected cache rebuild to record a fresh load, got %#v", debugState)
+	}
+}
+
+func TestServiceSnapshotCacheDebugStateTracksHitMissAndLoadCounts(t *testing.T) {
+	repo := newMemoryRepo()
+	service := newTestServiceWithRepo(t, repo, configregistry.Definition{
+		Key:          "notification.enabled",
+		Module:       "notification",
+		Group:        "notification.general",
+		Title:        "Notification enabled",
+		Type:         configregistry.ValueTypeBoolean,
+		DefaultValue: json.RawMessage(`true`),
+	})
+
+	initial := service.SnapshotCacheDebugState()
+	if initial.Cached || initial.HitCount != 0 || initial.MissCount != 0 || initial.LoadCount != 0 {
+		t.Fatalf("expected zeroed debug state before reads, got %#v", initial)
+	}
+
+	if _, err := service.Get(context.Background(), "notification.enabled"); err != nil {
+		t.Fatalf("first get: %v", err)
+	}
+	if _, err := service.Get(context.Background(), "notification.enabled"); err != nil {
+		t.Fatalf("second get: %v", err)
+	}
+
+	debugState := service.SnapshotCacheDebugState()
+	if !debugState.Cached {
+		t.Fatalf("expected snapshot cache to remain warm, got %#v", debugState)
+	}
+	if debugState.CachedOverrideCount != 0 {
+		t.Fatalf("expected zero overrides in warm cache, got %#v", debugState)
+	}
+	if debugState.MissCount != 1 || debugState.HitCount != 1 || debugState.LoadCount != 1 {
+		t.Fatalf("expected one miss, one hit, and one load, got %#v", debugState)
+	}
+	if debugState.LastLoadedOverrideCount != 0 || debugState.LastLoadAt == nil {
+		t.Fatalf("expected last load metadata, got %#v", debugState)
+	}
+}
+
 func TestCurrentUserIDReadsRequestAuthContext(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	userID := uint64(42)
@@ -175,7 +480,7 @@ func TestModuleRegisterRequiresUserService(t *testing.T) {
 
 func TestModuleRegisterBindsUserServiceForUpdatedByUsername(t *testing.T) {
 	repo := newMemoryRepo()
-	service := newTestServiceWithRepoAndUsers(t, repo, nil, configregistry.Definition{
+	service := newTestServiceWithRepoAndUsers(t, repo, newTestCacheManager(t), nil, configregistry.Definition{
 		Key:          "scheduler.timeout",
 		Module:       "scheduler",
 		Group:        "runtime",
@@ -485,7 +790,8 @@ func TestToItemIncludesLocalizationMetadataAndStructuredSchema(t *testing.T) {
 			Schema: json.RawMessage(
 				`{"type":"object","properties":{"retentionDays":{"type":"integer","title":"Log retention days","x-i18n":{"titleKey":"systemConfig.fields.retentionDays.title","unitKey":"systemConfig.units.days"}}}}`,
 			),
-			DefaultValue: json.RawMessage(`{"retentionDays":30}`),
+			DefaultValue:     json.RawMessage(`{"retentionDays":30}`),
+			RuntimeApplyMode: configregistry.RuntimeApplyModeRuntimeHot,
 		},
 		DefaultValue:   json.RawMessage(`{"retentionDays":30}`),
 		EffectiveValue: json.RawMessage(`{"retentionDays":30}`),
@@ -493,6 +799,7 @@ func TestToItemIncludesLocalizationMetadataAndStructuredSchema(t *testing.T) {
 
 	assertMappedLocalizationMetadata(t, item)
 	assertMappedStructuredSchema(t, item)
+	assertMappedRuntimeApplyMode(t, item)
 }
 
 func assertMappedLocalizationMetadata(t *testing.T, item generated.SystemConfigItem) {
@@ -532,6 +839,14 @@ func assertMappedStructuredSchema(t *testing.T, item generated.SystemConfigItem)
 	}
 }
 
+func assertMappedRuntimeApplyMode(t *testing.T, item generated.SystemConfigItem) {
+	t.Helper()
+
+	if item.RuntimeApplyMode != generated.SystemConfigItemRuntimeApplyMode(configregistry.RuntimeApplyModeRuntimeHot) {
+		t.Fatalf("expected runtime apply mode in response, got %#v", item.RuntimeApplyMode)
+	}
+}
+
 func newTestService(t *testing.T, definition configregistry.Definition) *Service {
 	t.Helper()
 	return newTestServiceWithRepo(t, newMemoryRepo(), definition)
@@ -539,7 +854,22 @@ func newTestService(t *testing.T, definition configregistry.Definition) *Service
 
 func newTestServiceWithRepo(t *testing.T, repo *memoryRepo, definition configregistry.Definition) *Service {
 	t.Helper()
-	return newTestServiceWithRepoAndUsers(t, repo, testUserService{
+	return newTestServiceWithRepoAndUsers(t, repo, newTestCacheManager(t), testUserService{
+		users: map[uint64]moduleapi.UserSummary{
+			7:  {ID: 7, Username: "bob", Display: "Bob"},
+			42: {ID: 42, Username: "alice", Display: "Alice"},
+		},
+	}, definition)
+}
+
+func newTestServiceWithRepoAndManager(
+	t *testing.T,
+	repo *memoryRepo,
+	manager *cachex.Manager,
+	definition configregistry.Definition,
+) *Service {
+	t.Helper()
+	return newTestServiceWithRepoAndUsers(t, repo, manager, testUserService{
 		users: map[uint64]moduleapi.UserSummary{
 			7:  {ID: 7, Username: "bob", Display: "Bob"},
 			42: {ID: 42, Username: "alice", Display: "Alice"},
@@ -550,6 +880,7 @@ func newTestServiceWithRepo(t *testing.T, repo *memoryRepo, definition configreg
 func newTestServiceWithRepoAndUsers(
 	t *testing.T,
 	repo *memoryRepo,
+	manager *cachex.Manager,
 	users moduleapi.UserService,
 	definition configregistry.Definition,
 ) *Service {
@@ -559,11 +890,31 @@ func newTestServiceWithRepoAndUsers(
 	if err := registry.Register(definition); err != nil {
 		t.Fatalf("register definition: %v", err)
 	}
-	service, err := NewService(registry, repo, users)
+	cache, err := manager.NewCache(systemConfigSnapshotCacheName)
+	if err != nil {
+		t.Fatalf("new test snapshot cache: %v", err)
+	}
+	service, err := NewService(registry, repo, ServiceOptions{
+		Users:  users,
+		Cache:  cache,
+		Logger: zap.NewNop(),
+	})
 	if err != nil {
 		t.Fatalf("create service: %v", err)
 	}
 	return service
+}
+
+func newTestCacheManager(t *testing.T) *cachex.Manager {
+	t.Helper()
+	manager, err := cachex.NewManager(cachex.ManagerOptions{
+		Backend:   cachebackend.NewMemory(),
+		Namespace: "test-runtime",
+	})
+	if err != nil {
+		t.Fatalf("new test cache manager: %v", err)
+	}
+	return manager
 }
 
 func normalizeTestDefinition(definition configregistry.Definition) configregistry.Definition {
@@ -574,8 +925,15 @@ func normalizeTestDefinition(definition configregistry.Definition) configregistr
 }
 
 type memoryRepo struct {
+	mu sync.Mutex
+
 	values map[string]json.RawMessage
 	audit  map[string]systemconfigstore.Override
+
+	listOverridesStarted atomic.Int32
+	getOverrideStarted   atomic.Int32
+	listOverridesBlock   chan struct{}
+	listOverridesOnce    sync.Once
 }
 
 func newMemoryRepo() *memoryRepo {
@@ -585,7 +943,30 @@ func newMemoryRepo() *memoryRepo {
 	}
 }
 
+func (r *memoryRepo) ListOverrides(_ context.Context) ([]systemconfigstore.Override, error) {
+	r.listOverridesStarted.Add(1)
+	if r.listOverridesBlock != nil {
+		<-r.listOverridesBlock
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	overrides := make([]systemconfigstore.Override, 0, len(r.audit))
+	for key, override := range r.audit {
+		override.Key = key
+		override.Value = cloneRawMessage(r.values[key])
+		overrides = append(overrides, cloneOverride(override))
+	}
+	return overrides, nil
+}
+
 func (r *memoryRepo) GetOverride(_ context.Context, key string) (systemconfigstore.Override, error) {
+	r.getOverrideStarted.Add(1)
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	value, ok := r.values[key]
 	if !ok {
 		return systemconfigstore.Override{}, systemconfigstore.ErrOverrideNotFound
@@ -600,6 +981,10 @@ func (r *memoryRepo) SetOverride(_ context.Context, key string, value json.RawMe
 	if len(value) == 0 {
 		return systemconfigstore.Override{}, errors.New("value is required")
 	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	r.values[key] = cloneRawMessage(value)
 	override := r.audit[key]
 	now := time.Now().UTC()
@@ -616,9 +1001,45 @@ func (r *memoryRepo) SetOverride(_ context.Context, key string, value json.RawMe
 }
 
 func (r *memoryRepo) DeleteOverride(_ context.Context, key string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	delete(r.values, key)
 	delete(r.audit, key)
 	return nil
+}
+
+func (r *memoryRepo) resetReadCounters() {
+	r.listOverridesStarted.Store(0)
+	r.getOverrideStarted.Store(0)
+}
+
+func (r *memoryRepo) closeListOverridesBlock() {
+	if r == nil || r.listOverridesBlock == nil {
+		return
+	}
+	r.listOverridesOnce.Do(func() {
+		close(r.listOverridesBlock)
+	})
+}
+
+func (r *memoryRepo) listOverridesCalls() int {
+	return int(r.listOverridesStarted.Load())
+}
+
+func (r *memoryRepo) getOverrideCalls() int {
+	return int(r.getOverrideStarted.Load())
+}
+
+func (r *memoryRepo) waitForListOverridesCalls(min int, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if r.listOverridesCalls() >= min {
+			return true
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	return r.listOverridesCalls() >= min
 }
 
 type testUserService struct {

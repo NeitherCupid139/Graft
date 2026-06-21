@@ -12,6 +12,7 @@ import (
 	generated "graft/server/internal/contract/openapi/generated"
 )
 
+// toListResponse 将提供的 ValueSnapshots 转换成一个包含映射项和总数的 SystemConfigListResponse。
 func toListResponse(items []ValueSnapshot) generated.SystemConfigListResponse {
 	mapped := make([]generated.SystemConfigItem, 0, len(items))
 	for _, item := range items {
@@ -23,6 +24,7 @@ func toListResponse(items []ValueSnapshot) generated.SystemConfigListResponse {
 	}
 }
 
+// toItem 将 ValueSnapshot 转换为 generated.SystemConfigItem 用于 API 响应，敏感值会被掩盖。
 func toItem(snapshot ValueSnapshot) generated.SystemConfigItem {
 	definition := snapshot.Definition
 	return generated.SystemConfigItem{
@@ -54,6 +56,7 @@ func toItem(snapshot ValueSnapshot) generated.SystemConfigItem {
 		Sensitive:           definition.Sensitive,
 		Masked:              snapshot.Masked,
 		RestartRequired:     definition.RestartRequired,
+		RuntimeApplyMode:    generated.SystemConfigItemRuntimeApplyMode(definition.RuntimeApplyMode),
 		Permission:          optionalString(definition.Permission),
 		Order:               optionalInt(definition.Order),
 		MaskedPlaceholder:   maskedPointer(definition),

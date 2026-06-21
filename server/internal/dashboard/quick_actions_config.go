@@ -42,7 +42,7 @@ const (
 	quickActionsConfigSchema = `{"type":"object","properties":{"enabled":{"type":"boolean","default":true,"x-i18n":{"titleKey":"systemConfig.fields.dashboardQuickActions.enabled.title","descriptionKey":"systemConfig.fields.dashboardQuickActions.enabled.description"}},"maxItems":{"type":"integer","minimum":1,"maximum":24,"default":4,"x-i18n":{"titleKey":"systemConfig.fields.dashboardQuickActions.maxItems.title","descriptionKey":"systemConfig.fields.dashboardQuickActions.maxItems.description"}},"strategy":{"type":"string","enum":["most_used","recent","hybrid"],"default":"hybrid","x-i18n":{"titleKey":"systemConfig.fields.dashboardQuickActions.strategy.title","descriptionKey":"systemConfig.fields.dashboardQuickActions.strategy.description","enumLabels":{"most_used":{"labelKey":"systemConfig.options.dashboardQuickActionStrategy.mostUsed","descriptionKey":"systemConfig.options.dashboardQuickActionStrategyDescriptions.mostUsed"},"recent":{"labelKey":"systemConfig.options.dashboardQuickActionStrategy.recent","descriptionKey":"systemConfig.options.dashboardQuickActionStrategyDescriptions.recent"},"hybrid":{"labelKey":"systemConfig.options.dashboardQuickActionStrategy.hybrid","descriptionKey":"systemConfig.options.dashboardQuickActionStrategyDescriptions.hybrid"}}}}},"required":["enabled","maxItems","strategy"],"additionalProperties":false,"x-i18n":{"titleKey":"systemConfig.items.dashboardQuickActions.title","descriptionKey":"systemConfig.items.dashboardQuickActions.description"}}`
 )
 
-// RegisterQuickActionsConfigDefinitions exposes dashboard quick-action defaults as config-center authority.
+// RegisterQuickActionsConfigDefinitions registers the dashboard quick-actions configuration definition with the provided registry. It returns an error if the registry is nil or if registration fails.
 func RegisterQuickActionsConfigDefinitions(registry *configregistry.Registry) error {
 	if registry == nil {
 		return errors.New("config registry is required")
@@ -68,6 +68,7 @@ func RegisterQuickActionsConfigDefinitions(registry *configregistry.Registry) er
 			Type:                configregistry.ValueTypeObject,
 			Schema:              json.RawMessage(quickActionsConfigSchema),
 			DefaultValue:        json.RawMessage(`{"enabled":true,"maxItems":4,"strategy":"hybrid"}`),
+			RuntimeApplyMode:    configregistry.RuntimeApplyModeUnknown,
 			Order:               quickActionsConfigDefinitionBase,
 		},
 	}

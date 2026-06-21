@@ -307,6 +307,7 @@ func appLogRetentionFailureResult(_ error, cutoff time.Time, config appLogRetent
 	return cronx.JobRunResult{Summary: appLogRetentionFailureSummary, Stage: "failed", AffectedResource: "app_log", Details: details, Warnings: []string{appLogRetentionFailureSummary}}
 }
 
+// DecodeAppLogRetentionJobConfig decodes a JSON string into an application log retention job configuration, enforcing bounds and applying defaults.
 func decodeAppLogRetentionJobConfig(configJSON string) appLogRetentionJobConfig {
 	config := appLogRetentionJobConfig{RetentionDays: appLogRetentionDefaultDays, BatchSize: appLogRetentionDefaultBatchSize}
 	_ = json.Unmarshal([]byte(configJSON), &config)
@@ -322,7 +323,7 @@ func decodeAppLogRetentionJobConfig(configJSON string) appLogRetentionJobConfig 
 	return config
 }
 
-// RegisterAppLogRetentionConfigDefinition exposes the built-in cleanup defaults as registry authority.
+// RegisterAppLogRetentionConfigDefinition registers the configuration definition for application log retention cleanup in the provided registry.
 func RegisterAppLogRetentionConfigDefinition(registry *configregistry.Registry) error {
 	if registry == nil {
 		return errors.New("config registry is required")
@@ -342,6 +343,7 @@ func RegisterAppLogRetentionConfigDefinition(registry *configregistry.Registry) 
 		Type:                configregistry.ValueTypeObject,
 		Schema:              json.RawMessage(appLogRetentionCleanupConfigSchema),
 		DefaultValue:        json.RawMessage(appLogRetentionCleanupDefaultConfig),
+		RuntimeApplyMode:    configregistry.RuntimeApplyModeRuntimeHot,
 		Order:               appLogRetentionConfigDefinitionOrder,
 	})
 }

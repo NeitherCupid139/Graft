@@ -10,12 +10,15 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 
+	"graft/server/internal/cachex"
+	cachebackend "graft/server/internal/cachex/backend"
 	"graft/server/internal/config"
 	"graft/server/internal/configregistry"
 	"graft/server/internal/container"
@@ -27,6 +30,7 @@ import (
 	"graft/server/internal/eventbus"
 	"graft/server/internal/httpx"
 	"graft/server/internal/i18n"
+	"graft/server/internal/kvx"
 	"graft/server/internal/logger"
 	"graft/server/internal/menu"
 	"graft/server/internal/module"
@@ -35,11 +39,14 @@ import (
 	"graft/server/internal/moduleruntime"
 	moduleruntimelocales "graft/server/internal/moduleruntime/locales"
 	"graft/server/internal/permission"
+	"graft/server/internal/realtimeauth"
 	"graft/server/internal/redisx"
+	"graft/server/internal/statex"
 )
 
 const moduleShutdownTimeout = 5 * time.Second
 const appRuntimeLogComponent = "internal.app.runtime"
+const coreServiceRegistrationCapacity = 12
 const (
 	coreModuleRuntimeHealthWidgetOrder = 10
 	moduleRuntimeHealthTitleKey        = "dashboard.widget.moduleRuntimeHealth.title"
@@ -78,24 +85,25 @@ var runtimeEmbeddedLocaleResources = func() []i18n.EmbeddedLocaleResource {
 // Runtime 本身不承载业务能力；它只负责 core 资源装配、模块生命周期编排
 // 和进程级关闭顺序，避免模块把运行时控制逻辑反向塞回 core。
 type Runtime struct {
-	config             *config.Config
-	logger             *zap.Logger
-	i18n               *i18n.Service
+	config                    *config.Config
+	logger                    *zap.Logger
+	i18n                      *i18n.Service
 	localeResourcesRegistered bool
-	database           *database.Resources
-	redis              *redis.Client
-	server             *httpx.Server
-	openapiDocs        *openAPIDocsAssets
-	eventBus           eventbus.Bus
-	services           *container.Container
-	menuRegistry       *menu.Registry
-	permissionRegistry *permission.Registry
-	cronRegistry       *cronx.Registry
-	configRegistry     *configregistry.Registry
-	dashboardRegistry  *dashboard.Registry
-	moduleManager      *module.Manager
-	runtimeMetadata    module.RuntimeMetadata
-	appLogRepository   logger.AppLogRepository
+	database                  *database.Resources
+	redis                     *redis.Client
+	cacheManager              *cachex.Manager
+	server                    *httpx.Server
+	openapiDocs               *openAPIDocsAssets
+	eventBus                  eventbus.Bus
+	services                  *container.Container
+	menuRegistry              *menu.Registry
+	permissionRegistry        *permission.Registry
+	cronRegistry              *cronx.Registry
+	configRegistry            *configregistry.Registry
+	dashboardRegistry         *dashboard.Registry
+	moduleManager             *module.Manager
+	runtimeMetadata           module.RuntimeMetadata
+	appLogRepository          logger.AppLogRepository
 }
 
 // NewRuntime 使用给定模块构造显式的 MVP 运行时外壳。
@@ -199,7 +207,7 @@ func newRuntimeCore(cfg *config.Config) (*Runtime, error) {
 	return newRuntimeCoreWithDeps(cfg, defaultRuntimeCoreDeps)
 }
 
-// newRuntimeCoreWithDeps constructs a Runtime instance by opening core resources, initializing services, and pre-registering locale resources.
+// newRuntimeCoreWithDeps initializes all core runtime resources and returns a fully configured Runtime instance with locale resources pre-registered.
 func newRuntimeCoreWithDeps(cfg *config.Config, deps runtimeCoreDeps) (*Runtime, error) {
 	deps = normalizeRuntimeCoreDeps(deps)
 	applyGinMode(cfg)
@@ -246,12 +254,21 @@ func newRuntimeCoreWithDeps(cfg *config.Config, deps runtimeCoreDeps) (*Runtime,
 		return nil, err
 	}
 
+	cacheManager, err := newRuntimeCacheManager(cfg, redisClient)
+	if err != nil {
+		_ = redisClient.Close()
+		_ = database.Close(databaseResources)
+		_ = logger.Close(runtimeLogger)
+		return nil, fmt.Errorf("create cache manager: %w", err)
+	}
+
 	runtime := &Runtime{
-		config:   cfg,
-		logger:   runtimeLogger,
-		i18n:     localizer,
-		database: databaseResources,
-		redis:    redisClient,
+		config:       cfg,
+		logger:       runtimeLogger,
+		i18n:         localizer,
+		database:     databaseResources,
+		redis:        redisClient,
+		cacheManager: cacheManager,
 		server: httpx.NewServerWithOptions(runtimeLogger, httpx.ServerOptions{
 			AccessLog: httpx.AccessLogOptions{
 				ConsolePolicy: config.ResolveAccessLogConsolePolicy(cfg.App.Env, cfg.HTTPX.AccessLogConsole),
@@ -517,7 +534,6 @@ func (r *Runtime) newModuleContext(runCtx context.Context) *module.Context {
 		Logger:             r.logger,
 		I18n:               r.i18n,
 		EventBus:           r.eventBus,
-		Redis:              r.redis,
 		Router:             r.server.Engine().Group("/api"),
 		Services:           r.services,
 		RuntimeMetadata:    r.runtimeMetadata,
@@ -921,10 +937,32 @@ func (h coreHealthGeneratedHandler) GetHealthz() {
 }
 
 func (r *Runtime) registerCoreServices() error {
-	registrations := []struct {
-		key      any
-		provider func() (any, error)
-	}{
+	registrations := r.coreServiceRegistrations()
+
+	for _, registration := range registrations {
+		if err := r.registerSingleton(registration.key, registration.provider); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+type serviceRegistration struct {
+	key      any
+	provider func() (any, error)
+}
+
+func (r *Runtime) coreServiceRegistrations() []serviceRegistration {
+	registrations := make([]serviceRegistration, 0, coreServiceRegistrationCapacity)
+	registrations = append(registrations, r.foundationServiceRegistrations()...)
+	registrations = append(registrations, r.runtimeDataServiceRegistrations()...)
+	registrations = append(registrations, r.redisBackedServiceRegistrations()...)
+	return registrations
+}
+
+func (r *Runtime) foundationServiceRegistrations() []serviceRegistration {
+	return []serviceRegistration{
 		{
 			key: (*configregistry.Registry)(nil),
 			provider: func() (any, error) {
@@ -970,6 +1008,11 @@ func (r *Runtime) registerCoreServices() error {
 				return r.eventBus, nil
 			},
 		},
+	}
+}
+
+func (r *Runtime) runtimeDataServiceRegistrations() []serviceRegistration {
+	return []serviceRegistration{
 		{
 			key: (*sql.DB)(nil),
 			provider: func() (any, error) {
@@ -980,20 +1023,86 @@ func (r *Runtime) registerCoreServices() error {
 			},
 		},
 		{
-			key: (*redis.Client)(nil),
+			key: (*cachex.Manager)(nil),
 			provider: func() (any, error) {
-				return r.redis, nil
+				if r.cacheManager == nil {
+					return nil, errors.New("cache manager is unavailable")
+				}
+				return r.cacheManager, nil
 			},
 		},
 	}
+}
 
-	for _, registration := range registrations {
-		if err := r.registerSingleton(registration.key, registration.provider); err != nil {
-			return err
+func (r *Runtime) redisBackedServiceRegistrations() []serviceRegistration {
+	return []serviceRegistration{
+		{
+			key: (*realtimeauth.Service)(nil),
+			provider: func() (any, error) {
+				if r.redis == nil {
+					return nil, errors.New("redis client is unavailable")
+				}
+
+				namespace := "graft"
+				if r.config != nil {
+					appName := strings.TrimSpace(r.config.App.Name)
+					if appName != "" {
+						namespace = appName
+					}
+				}
+
+				store, err := kvx.NewRedis(r.redis, kvx.RedisOptions{
+					Prefix: namespace + ":kv:realtimeauth",
+				})
+				if err != nil {
+					return nil, fmt.Errorf("create realtime ticket kv store: %w", err)
+				}
+
+				service, err := realtimeauth.NewService(store)
+				if err != nil {
+					return nil, fmt.Errorf("create realtime ticket service: %w", err)
+				}
+
+				return service, nil
+			},
+		},
+		{
+			key: (*redisx.HealthReporter)(nil),
+			provider: func() (any, error) {
+				return redisx.NewHealthReporter(r.redis), nil
+			},
+		},
+		{
+			key: (*statex.TimeSeriesStore)(nil),
+			provider: func() (any, error) {
+				return statex.NewRedisTimeSeriesStore(r.redis)
+			},
+		},
+	}
+}
+
+// newRuntimeCacheManager creates a cache manager backed by Redis, with namespace derived from the application name in the configuration or defaulting to "graft".
+func newRuntimeCacheManager(cfg *config.Config, client *redis.Client) (*cachex.Manager, error) {
+	namespace := "graft"
+	if cfg != nil {
+		appName := strings.TrimSpace(cfg.App.Name)
+		if appName != "" {
+			namespace = appName
 		}
 	}
 
-	return nil
+	redisBackend, err := cachebackend.NewRedis(client, cachebackend.RedisOptions{
+		Prefix: namespace + ":cache",
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return cachex.NewManager(cachex.ManagerOptions{
+		Backend:   redisBackend,
+		Metrics:   cachex.NopMetrics(),
+		Namespace: namespace,
+	})
 }
 
 func (r *Runtime) registerAccessLogRetentionJob() error {

@@ -13,14 +13,12 @@ import (
 	"net/http"
 	"os"
 	"runtime"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/redis/go-redis/v9"
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/disk"
 	"github.com/shirou/gopsutil/v4/load"
@@ -39,6 +37,9 @@ import (
 	"graft/server/internal/module"
 	"graft/server/internal/moduleapi"
 	"graft/server/internal/permission"
+	"graft/server/internal/redisx"
+	"graft/server/internal/statex"
+	statexkeys "graft/server/internal/statex/keys"
 	monitorcontract "graft/server/modules/monitor/contract"
 )
 
@@ -78,9 +79,9 @@ const (
 	runtimeHeapWarningBytes        = 512 * 1024 * 1024
 	runtimeHeapCriticalBytes       = 1024 * 1024 * 1024
 	serverDependencyCount          = 2
-	redisDefaultPoolSizePerCPU     = 10
 )
 
+// defaultDiskUsagePath returns the default disk usage path for the current operating system.
 func defaultDiskUsagePath() string {
 	return config.DefaultDiskUsagePath(runtime.GOOS)
 }
@@ -89,10 +90,11 @@ func defaultDiskUsagePath() string {
 type Module struct {
 	startedAtUnixNs atomic.Int64
 	db              *sql.DB
-	redis           *redis.Client
 	logger          *zap.Logger
 	authService     moduleapi.AuthService
 	routeAuthorizer moduleapi.Authorizer
+	trendStore      statex.TimeSeriesStore
+	redisHealth     redisx.HealthReporter
 
 	samplerMu     sync.Mutex
 	samplerCancel context.CancelFunc
@@ -152,7 +154,6 @@ func (p *Module) Register(ctx *module.Context) error {
 func (p *Module) Boot(ctx *module.Context) error {
 	p.startedAtUnixNs.CompareAndSwap(0, time.Now().UTC().UnixNano())
 	if ctx != nil {
-		p.redis = ctx.Redis
 		p.logger = ctx.Logger
 	}
 
@@ -194,8 +195,19 @@ func (p *Module) bindDependencies(ctx *module.Context) error {
 		return err
 	}
 	p.db = db
-	p.redis = ctx.Redis
 	p.logger = ctx.Logger
+
+	trendStore, err := resolveOptionalTrendStore(ctx)
+	if err != nil {
+		return err
+	}
+	p.trendStore = trendStore
+
+	redisHealthReporter, err := resolveOptionalRedisHealthReporter(ctx)
+	if err != nil {
+		return err
+	}
+	p.redisHealth = redisHealthReporter
 
 	authResolved, err := ctx.Services.Resolve((*moduleapi.AuthService)(nil))
 	if err != nil {
@@ -222,6 +234,8 @@ func (p *Module) bindDependencies(ctx *module.Context) error {
 	return nil
 }
 
+// resolveDatabaseDependency 从模块依赖容器解析可选的 SQL 数据库服务。
+// 若上下文不可用或服务未注册，返回 nil；若解析失败或已解析的类型不正确，返回错误。
 func resolveDatabaseDependency(ctx *module.Context) (*sql.DB, error) {
 	if ctx == nil || ctx.Services == nil {
 		return nil, nil
@@ -243,6 +257,43 @@ func resolveDatabaseDependency(ctx *module.Context) (*sql.DB, error) {
 	return db, nil
 }
 
+// resolveOptionalTrendStore resolves an optional time-series store service from the dependency container.
+// It returns nil if the context is invalid or the service is not registered and
+// returns an error for other resolution failures.
+func resolveOptionalTrendStore(ctx *module.Context) (statex.TimeSeriesStore, error) {
+	if ctx == nil || ctx.Services == nil {
+		return nil, nil
+	}
+
+	store, err := module.ResolveService[statex.TimeSeriesStore](ctx.Services, (*statex.TimeSeriesStore)(nil))
+	if errors.Is(err, container.ErrServiceNotRegistered) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("resolve monitor trend store: %w", err)
+	}
+
+	return store, nil
+}
+
+// resolveOptionalRedisHealthReporter resolves an optional Redis health reporter service. It returns nil if the context is nil, has no services, or the service is not registered. It returns an error only if service resolution fails for reasons other than the service not being registered.
+func resolveOptionalRedisHealthReporter(ctx *module.Context) (redisx.HealthReporter, error) {
+	if ctx == nil || ctx.Services == nil {
+		return nil, nil
+	}
+
+	reporter, err := module.ResolveService[redisx.HealthReporter](ctx.Services, (*redisx.HealthReporter)(nil))
+	if errors.Is(err, container.ErrServiceNotRegistered) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("resolve redis health reporter: %w", err)
+	}
+
+	return reporter, nil
+}
+
+// registerMonitorPermissions 注册服务器状态读权限。若注册表为 nil，则直接返回。
 func registerMonitorPermissions(registry *permission.Registry, moduleName string) {
 	if registry == nil {
 		return
@@ -403,6 +454,7 @@ func bindGeneratedMonitorParams(ginCtx *gin.Context) monitoropenapi.GetMonitorSe
 	return params
 }
 
+// buildServerStatusResponse 构建包含当前运行时指标的服务器状态响应。
 func buildServerStatusResponse(
 	ctx context.Context,
 	moduleCtx *module.Context,
@@ -416,8 +468,10 @@ func buildServerStatusResponse(
 	return buildServerStatusResponseWithRuntimeSnapshot(ctx, moduleCtx, instance, trendRange, runtimeSnapshot)
 }
 
-// buildServerStatusResponseWithRuntimeSnapshot keeps the production response assembly
-// logic reusable for tests that need deterministic runtime inputs instead of host-dependent metrics.
+// buildServerStatusResponseWithRuntimeSnapshot keeps the production response assembly.
+// buildServerStatusResponseWithRuntimeSnapshot constructs a server status response
+// using the provided runtime snapshot and returns dependency health, module status,
+// trends, and anomalies.
 func buildServerStatusResponseWithRuntimeSnapshot(
 	ctx context.Context,
 	moduleCtx *module.Context,
@@ -437,7 +491,7 @@ func buildServerStatusResponseWithRuntimeSnapshot(
 	if err != nil {
 		return generated.ServerStatusResponse{}, err
 	}
-	redisStatus, err := redisHealth(ctx, moduleCtx)
+	redisStatus, err := redisHealth(ctx, moduleCtx, instance)
 	if err != nil {
 		return generated.ServerStatusResponse{}, err
 	}
@@ -816,6 +870,7 @@ func unavailableEvidenceLink(windowStart time.Time, windowEnd time.Time, reason 
 	}
 }
 
+// stringPointer 返回 nil（若修剪后的 value 为空），否则返回指向 value 的指针。
 func stringPointer(value string) *string {
 	if strings.TrimSpace(value) == "" {
 		return nil
@@ -823,6 +878,13 @@ func stringPointer(value string) *string {
 	return &value
 }
 
+// databaseHealth evaluates the database connection status.
+// Returns dependency status unknown if the database is unavailable, degraded if the connection check fails,
+// or healthy with latency and pool statistics if the database responds successfully. An error is returned
+// databaseHealth 检查数据库连接的健康状态。
+// 若实例或数据库句柄为空，返回未知状态。
+// 通过 Ping 测试连接可达性：失败返回降级状态，成功返回健康状态及延迟信息。
+// 仅当延迟转换失败时返回错误。
 func databaseHealth(ctx context.Context, instance *Module) (generated.ServerStatusDependency, error) {
 	if instance == nil || instance.db == nil {
 		return generated.ServerStatusDependency{
@@ -857,8 +919,14 @@ func databaseHealth(ctx context.Context, instance *Module) (generated.ServerStat
 	}, nil
 }
 
-func redisHealth(ctx context.Context, moduleCtx *module.Context) (generated.ServerStatusDependency, error) {
-	if moduleCtx == nil || moduleCtx.Redis == nil {
+// redisHealth determines the health status and connectivity of a Redis dependency.
+// The returned status is disabled if Redis is not configured, degraded if the health
+// check fails or Redis is unreachable, and healthy if Redis responds successfully.
+// Connection pool statistics and latency are included when available. An error is
+// Returns an error only if latency metric conversion fails.
+func redisHealth(ctx context.Context, moduleCtx *module.Context, instance *Module) (generated.ServerStatusDependency, error) {
+	reporter := resolveRedisHealthReporter(moduleCtx, instance)
+	if reporter == nil {
 		return generated.ServerStatusDependency{
 			Status: statusDisabled,
 			Detail: "Redis client is not configured",
@@ -866,20 +934,31 @@ func redisHealth(ctx context.Context, moduleCtx *module.Context) (generated.Serv
 		}, nil
 	}
 
-	pingCtx, cancel := context.WithTimeout(ctx, healthCheckTimeout)
-	defer cancel()
-
-	startedAt := time.Now()
-	if err := moduleCtx.Redis.Ping(pingCtx).Err(); err != nil {
+	report, err := reporter.Report(ctx)
+	if err != nil {
 		logTrendWarning(nil, moduleCtx, "redis ping failed", err)
 		return generated.ServerStatusDependency{
 			Status: statusDegraded,
 			Detail: "Redis ping failed",
-			Pool:   redisPoolStats(moduleCtx.Redis),
+			Pool:   redisPoolStats(report.Pool),
+		}, nil
+	}
+	if !report.Configured {
+		return generated.ServerStatusDependency{
+			Status: statusDisabled,
+			Detail: "Redis client is not configured",
+			Pool:   nil,
+		}, nil
+	}
+	if !report.Reachable {
+		return generated.ServerStatusDependency{
+			Status: statusDegraded,
+			Detail: "Redis ping failed",
+			Pool:   redisPoolStats(report.Pool),
 		}, nil
 	}
 
-	latencyMs, err := toGeneratedFloat32(roundLatencyMilliseconds(time.Since(startedAt)), "redis latency ms")
+	latencyMs, err := toGeneratedFloat32(roundLatencyMilliseconds(report.Latency), "redis latency ms")
 	if err != nil {
 		return generated.ServerStatusDependency{}, fmt.Errorf("convert redis latency: %w", err)
 	}
@@ -887,10 +966,11 @@ func redisHealth(ctx context.Context, moduleCtx *module.Context) (generated.Serv
 		Status:    statusHealthy,
 		Detail:    "Redis ping succeeded",
 		LatencyMs: &latencyMs,
-		Pool:      redisPoolStats(moduleCtx.Redis),
+		Pool:      redisPoolStats(report.Pool),
 	}, nil
 }
 
+// databasePoolStats 从数据库连接句柄中提取连接池统计信息。
 func databasePoolStats(db *sql.DB) *generated.ServerStatusConnectionPool {
 	if db == nil {
 		return nil
@@ -917,30 +997,40 @@ func databasePoolStats(db *sql.DB) *generated.ServerStatusConnectionPool {
 	}
 }
 
-func redisPoolStats(client *redis.Client) *generated.ServerStatusConnectionPool {
-	if client == nil {
+// ResolveRedisHealthReporter 获取 Redis 健康报告器。若实例已缓存则返回缓存值，否则从模块上下文解析；解析失败时返回 nil。
+func resolveRedisHealthReporter(moduleCtx *module.Context, instance *Module) redisx.HealthReporter {
+	if instance != nil && instance.redisHealth != nil {
+		return instance.redisHealth
+	}
+
+	reporter, err := resolveOptionalRedisHealthReporter(moduleCtx)
+	if err != nil {
+		logTrendWarning(instance, moduleCtx, "resolve redis health reporter failed", err)
 		return nil
 	}
 
-	options := client.Options()
-	stats := client.PoolStats()
-	capacity := options.PoolSize
-	if capacity <= 0 {
-		capacity = redisDefaultPoolSizePerCPU * runtime.GOMAXPROCS(0)
+	return reporter
+}
+
+// redisPoolStats 将 Redis 连接池统计映射为服务器状态响应结构，容量和打开连接数均为 0 或以下时返回 nil。
+func redisPoolStats(pool redisx.PoolStats) *generated.ServerStatusConnectionPool {
+	if pool.Capacity <= 0 && pool.OpenConnections <= 0 {
+		return nil
 	}
-	maxActiveConnections := optionalPositiveInt64(options.MaxActiveConns)
+
+	maxActiveConnections := optionalPositiveInt64(pool.MaxActiveConnections)
 
 	return &generated.ServerStatusConnectionPool{
-		Capacity:             int64(capacity),
+		Capacity:             int64(pool.Capacity),
 		MaxActiveConnections: maxActiveConnections,
-		OpenConnections:      int64(stats.TotalConns),
-		InUseConnections:     int64(stats.TotalConns - stats.IdleConns),
-		IdleConnections:      int64(stats.IdleConns),
-		UsagePercent:         poolUsagePercent(int(stats.TotalConns-stats.IdleConns), capacity),
-		WaitCount:            int64(stats.WaitCount),
-		WaitDurationMs:       float32(roundLatencyMilliseconds(time.Duration(stats.WaitDurationNs))),
-		TimeoutCount:         int64(stats.Timeouts),
-		StaleCount:           int64(stats.StaleConns),
+		OpenConnections:      int64(pool.OpenConnections),
+		InUseConnections:     int64(pool.InUseConnections),
+		IdleConnections:      int64(pool.IdleConnections),
+		UsagePercent:         float32(roundUsagePercent(pool.UsagePercent)),
+		WaitCount:            pool.WaitCount,
+		WaitDurationMs:       float32(roundLatencyMilliseconds(pool.WaitDuration)),
+		TimeoutCount:         pool.TimeoutCount,
+		StaleCount:           pool.StaleCount,
 	}
 }
 
@@ -1040,6 +1130,7 @@ func deriveRuntimeModuleObservation(
 	}
 }
 
+// buildServerStatusSummary aggregates the health status of dependencies and modules into a summary containing total and categorized counts.
 func buildServerStatusSummary(
 	database generated.ServerStatusDependency,
 	redis generated.ServerStatusDependency,
@@ -1072,6 +1163,8 @@ func buildServerStatusSummary(
 	return summary
 }
 
+// buildServerStatusTrend 构造服务器状态趋势对象，包含时间范围、保留时间和采样间隔。
+// 若配置了趋势存储，则加载指定时间范围内的历史趋势数据点；若加载失败，返回不含数据点的趋势对象。
 func buildServerStatusTrend(
 	ctx context.Context,
 	moduleCtx *module.Context,
@@ -1087,14 +1180,14 @@ func buildServerStatusTrend(
 		Points:                nil,
 	}
 
-	redisClient := resolveRedisClient(moduleCtx, instance)
-	if redisClient == nil {
+	trendStore := resolveTrendStore(moduleCtx, instance)
+	if trendStore == nil {
 		return trend
 	}
 
-	points, err := loadTrendPoints(ctx, redisClient, trendStorageKey(resolveAppName(moduleCtx), resolveHostName()), observedAt, retention)
+	points, err := loadTrendPoints(ctx, trendStore, trendStorageKey(resolveAppName(moduleCtx), resolveHostName()), observedAt, retention)
 	if err != nil {
-		logTrendWarning(instance, moduleCtx, "load redis trend points failed", err)
+		logTrendWarning(instance, moduleCtx, "load state trend points failed", err)
 		return trend
 	}
 
@@ -1102,18 +1195,23 @@ func buildServerStatusTrend(
 	return trend
 }
 
-func resolveRedisClient(moduleCtx *module.Context, instance *Module) *redis.Client {
-	if instance != nil && instance.redis != nil {
-		return instance.redis
+// resolveTrendStore 返回时间序列存储。若存储不可用或解析失败，返回 nil。
+func resolveTrendStore(moduleCtx *module.Context, instance *Module) statex.TimeSeriesStore {
+	if instance != nil && instance.trendStore != nil {
+		return instance.trendStore
 	}
-	if moduleCtx != nil {
-		return moduleCtx.Redis
+
+	store, err := resolveOptionalTrendStore(moduleCtx)
+	if err != nil {
+		logTrendWarning(instance, moduleCtx, "resolve monitor trend store failed", err)
+		return nil
 	}
-	return nil
+
+	return store
 }
 
 func (p *Module) startTrendSampler(ctx *module.Context) {
-	if p == nil || ctx == nil || ctx.Redis == nil || ctx.LifecycleContext == nil {
+	if p == nil || ctx == nil || p.trendStore == nil || ctx.LifecycleContext == nil {
 		return
 	}
 
@@ -1132,7 +1230,7 @@ func (p *Module) startTrendSampler(ctx *module.Context) {
 	storageKey := trendStorageKey(resolveAppName(ctx), resolveHostName())
 	go func() {
 		defer close(done)
-		p.runTrendSampler(runCtx, ctx.Redis, storageKey)
+		p.runTrendSampler(runCtx, p.trendStore, storageKey)
 	}()
 }
 
@@ -1169,10 +1267,10 @@ func (p *Module) stopTrendSampler(ctx *module.Context) error {
 	}
 }
 
-func (p *Module) runTrendSampler(ctx context.Context, redisClient *redis.Client, storageKey string) {
+func (p *Module) runTrendSampler(ctx context.Context, trendStore statex.TimeSeriesStore, storageKey string) {
 	var previousCPUTimes *cpu.TimesStat
 
-	p.recordTrendSample(ctx, redisClient, storageKey, &previousCPUTimes)
+	p.recordTrendSample(ctx, trendStore, storageKey, &previousCPUTimes)
 
 	ticker := time.NewTicker(trendSampleInterval)
 	defer ticker.Stop()
@@ -1182,18 +1280,18 @@ func (p *Module) runTrendSampler(ctx context.Context, redisClient *redis.Client,
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			p.recordTrendSample(ctx, redisClient, storageKey, &previousCPUTimes)
+			p.recordTrendSample(ctx, trendStore, storageKey, &previousCPUTimes)
 		}
 	}
 }
 
 func (p *Module) recordTrendSample(
 	ctx context.Context,
-	redisClient *redis.Client,
+	trendStore statex.TimeSeriesStore,
 	storageKey string,
 	previousCPUTimes **cpu.TimesStat,
 ) {
-	if redisClient == nil {
+	if trendStore == nil {
 		return
 	}
 
@@ -1221,11 +1319,12 @@ func (p *Module) recordTrendSample(
 		RuntimeSysBytes:           runtimeSnapshot.RuntimeSysBytes,
 	}
 
-	if err := storeTrendPoint(ctx, redisClient, storageKey, observedAt, point); err != nil {
+	if err := storeTrendPoint(ctx, trendStore, storageKey, observedAt, point); err != nil {
 		logTrendWarning(p, nil, "store monitor trend sample failed", err)
 	}
 }
 
+// collectCPUPercent 计算当前 CPU 使用百分比，基于与前一次采样的对比。若无法获取 CPU 数据或前一次采样数据为 nil，返回 0。
 func collectCPUPercent(ctx context.Context, previousCPUTimes **cpu.TimesStat, instance *Module, storageKey string) float64 {
 	if ctx == nil || previousCPUTimes == nil {
 		return 0
@@ -1253,9 +1352,10 @@ func collectCPUPercent(ctx context.Context, previousCPUTimes **cpu.TimesStat, in
 	return roundCPUPercent(percent)
 }
 
+// storeTrendPoint stores a server status trend point to the time-series store with retention policy applied to trim old entries and set expiration.
 func storeTrendPoint(
 	ctx context.Context,
-	redisClient *redis.Client,
+	trendStore statex.TimeSeriesStore,
 	storageKey string,
 	observedAt time.Time,
 	point generated.ServerStatusTrendPoint,
@@ -1265,50 +1365,39 @@ func storeTrendPoint(
 		return fmt.Errorf("marshal trend point: %w", err)
 	}
 
-	observedAtMillis := observedAt.UnixMilli()
-	cutoffMillis := observedAt.Add(-maxTrendRetentionWindow).UnixMilli()
-	pipe := redisClient.TxPipeline()
-	pipe.ZAdd(ctx, storageKey, redis.Z{
-		Score:  float64(observedAtMillis),
-		Member: string(payload),
+	return trendStore.Append(ctx, storageKey, statex.TimeSeriesSample{
+		ObservedAt: observedAt,
+		Payload:    payload,
+	}, statex.RetentionPolicy{
+		TrimBefore:   observedAt.Add(-maxTrendRetentionWindow),
+		ExpiresAfter: trendStorageTTL,
 	})
-	pipe.ZRemRangeByScore(ctx, storageKey, "-inf", strconv.FormatInt(cutoffMillis, 10))
-	pipe.Expire(ctx, storageKey, trendStorageTTL)
-
-	if _, err := pipe.Exec(ctx); err != nil {
-		return fmt.Errorf("exec redis trend pipeline: %w", err)
-	}
-
-	return nil
 }
 
+// loadTrendPoints retrieves trend points from storage within a specified time range.
 func loadTrendPoints(
 	ctx context.Context,
-	redisClient *redis.Client,
+	trendStore statex.TimeSeriesStore,
 	storageKey string,
 	observedAt time.Time,
 	retention time.Duration,
 ) ([]generated.ServerStatusTrendPoint, error) {
-	if redisClient == nil {
+	if trendStore == nil {
 		return nil, nil
 	}
 
-	minScore := strconv.FormatInt(observedAt.Add(-retention).UnixMilli(), 10)
-	maxScore := strconv.FormatInt(observedAt.UnixMilli(), 10)
-	members, err := redisClient.ZRangeArgs(ctx, redis.ZRangeArgs{
-		Key:     storageKey,
-		Start:   minScore,
-		Stop:    maxScore,
-		ByScore: true,
-	}).Result()
+	samples, err := trendStore.Range(ctx, storageKey, statex.TimeSeriesQuery{
+		StartAt: observedAt.Add(-retention),
+		EndAt:   observedAt,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("range redis trend points: %w", err)
+		return nil, fmt.Errorf("range state trend points: %w", err)
 	}
 
-	points := make([]generated.ServerStatusTrendPoint, 0, len(members))
-	for _, member := range members {
+	points := make([]generated.ServerStatusTrendPoint, 0, len(samples))
+	for _, sample := range samples {
 		var point generated.ServerStatusTrendPoint
-		if err := json.Unmarshal([]byte(member), &point); err != nil {
+		if err := json.Unmarshal(sample.Payload, &point); err != nil {
 			continue
 		}
 		points = append(points, point)
@@ -1317,30 +1406,17 @@ func loadTrendPoints(
 	return points, nil
 }
 
+// trendStorageKey 使用给定的应用名和主机名构造服务器状态趋势点的存储键。
 func trendStorageKey(appName string, hostName string) string {
-	resolvedAppName := sanitizeTrendKeySegment(appName)
-	if resolvedAppName == "" {
-		resolvedAppName = "app"
-	}
-
-	resolvedHostName := sanitizeTrendKeySegment(hostName)
-	if resolvedHostName == "" {
-		resolvedHostName = "host"
-	}
-
-	return fmt.Sprintf("%s:%s:%s", trendStorageKeyPrefix, resolvedAppName, resolvedHostName)
+	return fmt.Sprintf(
+		"%s:%s:%s",
+		trendStorageKeyPrefix,
+		statexkeys.Segment(appName, "app"),
+		statexkeys.Segment(hostName, "host"),
+	)
 }
 
-func sanitizeTrendKeySegment(value string) string {
-	trimmed := strings.TrimSpace(strings.ToLower(value))
-	if trimmed == "" {
-		return ""
-	}
-
-	replacer := strings.NewReplacer(" ", "-", "/", "-", "\\", "-", ":", "-", ".", "-")
-	return replacer.Replace(trimmed)
-}
-
+// resolveHostName returns the system hostname trimmed of whitespace, or an empty string on error.
 func resolveHostName() string {
 	hostName, err := os.Hostname()
 	if err != nil {

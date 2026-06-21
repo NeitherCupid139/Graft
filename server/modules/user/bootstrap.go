@@ -26,7 +26,7 @@ type bootstrapReader struct {
 	auth         userstore.AuthRepository
 	rbac         moduleapi.RBACAccessService
 	menuRegistry *menu.Registry
-	services     servicecontainer.Resolver
+	systemConfig moduleapi.SystemConfigResolver
 	localizer    *i18n.Service
 	localeConfig config.I18nConfig
 }
@@ -59,6 +59,7 @@ type bootstrapLocaleSnapshot struct {
 	SupportedLocales []string `json:"supported_locales"`
 }
 
+// newBootstrapReader wires the provided dependencies into a bootstrapReader, resolving systemConfig from the service container.
 func newBootstrapReader(
 	localeConfig config.I18nConfig,
 	localizer *i18n.Service,
@@ -71,7 +72,7 @@ func newBootstrapReader(
 		auth:         auth,
 		rbac:         rbac,
 		menuRegistry: menuRegistry,
-		services:     services,
+		systemConfig: resolveBootstrapSystemConfig(services),
 		localizer:    localizer,
 		localeConfig: localeConfig,
 	}
@@ -155,9 +156,10 @@ func (r bootstrapReader) listRoleNames(ctx context.Context, userID uint64) ([]st
 }
 
 func (r bootstrapReader) filterBootstrapMenus(ctx context.Context, granted map[string]struct{}) []bootstrapMenuResponse {
-	return filterBootstrapMenus(ctx, r.menuRegistry, granted, resolveBootstrapSystemConfig(r.services))
+	return filterBootstrapMenus(ctx, r.menuRegistry, granted, r.systemConfig)
 }
 
+// filterBootstrapMenus 根据授予的权限和系统配置的可见性门控对菜单项进行过滤、去重和排序，同时移除没有可见子菜单的父菜单。如果 registry 为 nil，返回空切片。
 func filterBootstrapMenus(
 	ctx context.Context,
 	registry *menu.Registry,

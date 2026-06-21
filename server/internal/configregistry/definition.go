@@ -37,6 +37,18 @@ const (
 	ValueTypeArray ValueType = "array"
 )
 
+// RuntimeApplyMode identifies how a changed config value is expected to apply at runtime.
+type RuntimeApplyMode string
+
+const (
+	// RuntimeApplyModeUnknown means the current authority owners have not classified apply semantics yet.
+	RuntimeApplyModeUnknown RuntimeApplyMode = "unknown"
+	// RuntimeApplyModeRuntimeHot means the next runtime read should observe the new effective value without restart.
+	RuntimeApplyModeRuntimeHot RuntimeApplyMode = "runtime_hot"
+	// RuntimeApplyModeRestartRequired means the persisted value changes immediately, but runtime behavior changes only after restart.
+	RuntimeApplyModeRestartRequired RuntimeApplyMode = "restart_required"
+)
+
 // Definition declares one module-owned system configuration key.
 //
 // Definitions are registered by modules during Register. They are canonical
@@ -63,6 +75,7 @@ type Definition struct {
 	Sensitive           bool
 	Required            bool
 	RestartRequired     bool
+	RuntimeApplyMode    RuntimeApplyMode
 	Permission          string
 	Order               int
 }
@@ -81,6 +94,11 @@ func MaskedPlaceholder() string {
 	return maskedPlaceholder
 }
 
+// validateDefinition validates a configuration definition and returns
+// validateDefinition 验证配置定义。
+//
+// 检查定义的键、必需元数据、值类型、运行时应用模式、Schema 和默认值是否有效。
+// 若任何验证失败则返回错误，否则返回 nil。
 func validateDefinition(definition Definition) error {
 	key := strings.TrimSpace(definition.Key)
 	if key == "" {
@@ -95,6 +113,9 @@ func validateDefinition(definition Definition) error {
 	if !slices.Contains(validValueTypes(), definition.Type) {
 		return fmt.Errorf("config definition %s type %q is invalid", key, definition.Type)
 	}
+	if !slices.Contains(validRuntimeApplyModes(), definition.RuntimeApplyMode) {
+		return fmt.Errorf("config definition %s runtime apply mode %q is invalid", key, definition.RuntimeApplyMode)
+	}
 	if err := validateJSONObject(definition.Schema, "schema", key); err != nil {
 		return err
 	}
@@ -104,6 +125,8 @@ func validateDefinition(definition Definition) error {
 	return nil
 }
 
+// validateRequiredDefinitionMetadata 验证定义体的必需元数据字段。
+// 它检查 Module、Domain 和 Group 非空，且 Title 或 TitleKey 至少有一个提供。
 func validateRequiredDefinitionMetadata(definition Definition, key string) error {
 	if strings.TrimSpace(definition.Module) == "" {
 		return fmt.Errorf("config definition %s module is required", key)
@@ -120,6 +143,7 @@ func validateRequiredDefinitionMetadata(definition Definition, key string) error
 	return nil
 }
 
+// validValueTypes returns all valid ValueType values.
 func validValueTypes() []ValueType {
 	return []ValueType{
 		ValueTypeString,
@@ -131,6 +155,17 @@ func validValueTypes() []ValueType {
 	}
 }
 
+// validRuntimeApplyModes 返回所有有效的 RuntimeApplyMode 取值。
+func validRuntimeApplyModes() []RuntimeApplyMode {
+	return []RuntimeApplyMode{
+		RuntimeApplyModeUnknown,
+		RuntimeApplyModeRuntimeHot,
+		RuntimeApplyModeRestartRequired,
+	}
+}
+
+// validateJSONObject validates that raw is either empty or a valid JSON object.
+// validateJSONObject validates that raw is empty or valid JSON representing a JSON object.
 func validateJSONObject(raw json.RawMessage, label string, key string) error {
 	if len(raw) == 0 {
 		return nil

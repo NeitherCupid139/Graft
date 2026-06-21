@@ -150,8 +150,9 @@ func configDefinitions() []configregistry.Definition {
 	}
 }
 
+// containerRuntimeDefinition 为容器运行时适配器构建配置定义，标记为需要服务重启才能生效。
 func containerRuntimeDefinition() configregistry.Definition {
-	return baseContainerDefinition(containerDefinitionSpec{
+	definition := baseContainerDefinition(containerDefinitionSpec{
 		key:                 containercontract.ContainerRuntimeConfig.String(),
 		group:               containerConfigRuntimeGroup,
 		fallbackTitle:       "",
@@ -160,8 +161,12 @@ func containerRuntimeDefinition() configregistry.Definition {
 		defaultValue:        mustRawJSON(defaultContainerRuntime),
 		schema:              containerRuntimeSchema(),
 	})
+	definition.RestartRequired = true
+	definition.RuntimeApplyMode = configregistry.RuntimeApplyModeRestartRequired
+	return definition
 }
 
+// containerEndpointDefinition 构造Docker端点的配置定义，标记该设置需要重启系统才能生效。
 func containerEndpointDefinition() configregistry.Definition {
 	definition := baseContainerDefinition(containerDefinitionSpec{
 		key:                 containercontract.ContainerDockerEndpointConfig.String(),
@@ -173,12 +178,13 @@ func containerEndpointDefinition() configregistry.Definition {
 		schema:              containerStringSchema(containercontract.ContainerDockerEndpointConfig.String(), 1, maxDockerEndpointLength),
 	})
 	definition.RestartRequired = true
+	definition.RuntimeApplyMode = configregistry.RuntimeApplyModeRestartRequired
 	return definition
 }
 
-// containerEnvironmentPolicyDefinition builds a configuration definition for the environment policy setting.
+// containerEnvironmentPolicyDefinition builds a configuration definition for the container environment policy.
 func containerEnvironmentPolicyDefinition() configregistry.Definition {
-	return baseContainerDefinition(containerDefinitionSpec{
+	definition := baseContainerDefinition(containerDefinitionSpec{
 		key:                 containercontract.ContainerEnvironmentPolicyConfig.String(),
 		group:               containerConfigGeneralGroup,
 		fallbackTitle:       "",
@@ -187,14 +193,16 @@ func containerEnvironmentPolicyDefinition() configregistry.Definition {
 		defaultValue:        mustRawJSON(defaultContainerEnvironmentPolicy.String()),
 		schema:              containerEnvironmentPolicySchema(),
 	})
+	definition.RuntimeApplyMode = configregistry.RuntimeApplyModeRuntimeHot
+	return definition
 }
 
-// containerOrchestratorActionLevelDefinition 根据指定的键和默认值构建编排器行动等级的配置定义。
+// containerOrchestratorActionLevelDefinition 为编排器行动等级配置项构建配置定义。
 func containerOrchestratorActionLevelDefinition(
 	key string,
 	defaultValue containercontract.OrchestratorActionLevel,
 ) configregistry.Definition {
-	return baseContainerDefinition(containerDefinitionSpec{
+	definition := baseContainerDefinition(containerDefinitionSpec{
 		key:                 key,
 		group:               containerConfigActionsGroup,
 		fallbackTitle:       "",
@@ -203,6 +211,8 @@ func containerOrchestratorActionLevelDefinition(
 		defaultValue:        mustRawJSON(defaultValue.String()),
 		schema:              containerOrchestratorActionLevelSchema(key, defaultValue),
 	})
+	definition.RuntimeApplyMode = configregistry.RuntimeApplyModeUnknown
+	return definition
 }
 
 type containerDefinitionSpec struct {
@@ -222,19 +232,40 @@ type containerIntegerDefinitionSpec struct {
 	maximum       int
 }
 
+// containerBooleanDefinition 构建容器布尔配置定义，根据配置 key 确定其运行时应用策略。对于运行时启用、危险操作启用、Shell 启用或环境掩码复制启用配置，运行时应用策略设为热更新模式；其他布尔配置的运行时应用策略设为未知模式。
 func containerBooleanDefinition(spec containerDefinitionSpec) configregistry.Definition {
 	spec.valueType = configregistry.ValueTypeBoolean
 	spec.schema = containerBooleanSchema(spec.key)
-	return baseContainerDefinition(spec)
+	definition := baseContainerDefinition(spec)
+	switch spec.key {
+	case containercontract.ContainerRuntimeEnabledConfig.String(),
+		containercontract.ContainerDangerousActionsEnabledConfig.String(),
+		containercontract.ContainerShellEnabledConfig.String(),
+		containercontract.ContainerEnvironmentMaskedCopyEnabledConfig.String():
+		definition.RuntimeApplyMode = configregistry.RuntimeApplyModeRuntimeHot
+	default:
+		definition.RuntimeApplyMode = configregistry.RuntimeApplyModeUnknown
+	}
+	return definition
 }
 
+// containerIntegerDefinition 为整数类型的容器配置项创建配置定义。日志尾部配置采用运行时热加载模式，其他配置采用未知模式。
 func containerIntegerDefinition(spec containerIntegerDefinitionSpec) configregistry.Definition {
 	definitionSpec := spec.containerDefinitionSpec
 	definitionSpec.valueType = configregistry.ValueTypeInteger
 	definitionSpec.schema = containerIntegerSchema(definitionSpec.key, spec.defaultNumber, spec.minimum, spec.maximum)
-	return baseContainerDefinition(definitionSpec)
+	definition := baseContainerDefinition(definitionSpec)
+	switch definitionSpec.key {
+	case containercontract.ContainerLogsDefaultTailConfig.String(),
+		containercontract.ContainerLogsMaxTailConfig.String():
+		definition.RuntimeApplyMode = configregistry.RuntimeApplyModeRuntimeHot
+	default:
+		definition.RuntimeApplyMode = configregistry.RuntimeApplyModeUnknown
+	}
+	return definition
 }
 
+// baseContainerDefinition 使用规格构建容器配置定义。
 func baseContainerDefinition(spec containerDefinitionSpec) configregistry.Definition {
 	metadata := containerConfigGroupMetadata(spec.group)
 	return configregistry.Definition{

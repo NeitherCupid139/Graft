@@ -234,6 +234,7 @@ func cleanupFailureResult(operation string, err error, cutoff time.Time, config 
 	}
 }
 
+// decodeRetentionJobConfig decodes the given JSON string into a retention job configuration, using default values for any missing or invalid fields.
 func decodeRetentionJobConfig(configJSON string) retentionJobConfig {
 	config := retentionJobConfig{RetentionDays: auditLogRetentionDefaultDays, BatchSize: auditLogRetentionDefaultBatchSize}
 	_ = json.Unmarshal([]byte(configJSON), &config)
@@ -246,6 +247,9 @@ func decodeRetentionJobConfig(configJSON string) retentionJobConfig {
 	return config
 }
 
+// RegisterAuditLogRetentionConfigDefinition registers the audit log retention configuration definition with the provided registry.
+// registerAuditLogRetentionConfigDefinition 注册审计日志保留清理的配置定义。
+// 如果注册表为 nil 或注册失败，则返回错误。
 func registerAuditLogRetentionConfigDefinition(registry *configregistry.Registry) error {
 	if registry == nil {
 		return errors.New("config registry is required")
@@ -265,6 +269,7 @@ func registerAuditLogRetentionConfigDefinition(registry *configregistry.Registry
 		Type:                configregistry.ValueTypeObject,
 		Schema:              json.RawMessage(auditLogRetentionCleanupConfigSchema),
 		DefaultValue:        json.RawMessage(auditLogRetentionCleanupDefaultConfig),
+		RuntimeApplyMode:    configregistry.RuntimeApplyModeRuntimeHot,
 		Order:               auditLogRetentionConfigDefinitionOrder,
 	})
 }

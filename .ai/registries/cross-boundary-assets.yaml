@@ -1,5 +1,5 @@
 schema_version: 1
-updated_at: "2026-06-14"
+updated_at: "2026-06-21"
 assets:
   - name: "openapi-contracts"
     type: "cross-boundary-contract"
@@ -165,6 +165,48 @@ assets:
     related_assets:
       - "graft-shared-asset-reuse-skill"
       - "frontend-i18n-governance"
+    validation_commands:
+      - "python3 scripts/validate_ai_governance.py"
+      - "python3 scripts/validate_shared_asset_registries.py"
+
+  - name: "cache-governance-design"
+    type: "cross-boundary-contract"
+    path: "ai-plan/design/缓存治理与系统配置读取加速规范.md"
+    owner: "docs/automation + server runtime governance"
+    purpose: "Canonical cache-governance and system-config acceleration design for deciding cache layers, TTL, invalidation, and hotspot handling across server runtime paths and minimal web visibility semantics."
+    use_when:
+      - "Adding or changing runtime read paths that may become hotspots, especially system-config-backed reads."
+      - "Designing cache layering, invalidation, TTL, or multi-node consistency for server runtime data."
+    do_not_use_when:
+      - "Treating Redis as the authority for system config or bypassing the system-config service."
+      - "Using this design as permission to cache highly volatile real-time status for too long."
+    examples:
+      - "server/modules/system-config/service.go"
+      - "server/internal/moduleapi/notification.go"
+      - "server/internal/scheduler/runtime.go"
+      - "server/modules/container/service.go"
+    related_assets:
+      - "moduleapi-notification-contract"
+      - "graft-shared-asset-reuse-skill"
+      - "shared-asset-registry-validator"
+    validation_commands:
+      - "python3 scripts/validate_ai_governance.py"
+      - "python3 scripts/validate_shared_asset_registries.py"
+
+  - name: "graft-cache-governance-skill"
+    type: "governance-skill"
+    path: ".agents/skills/graft-cache-governance/SKILL.md"
+    owner: "docs/automation + server runtime governance"
+    purpose: "Reusable workflow for forcing cache classification, authority checks, hotspot discovery, and invalidation strategy before implementing DB-backed runtime read paths."
+    use_when:
+      - "A task adds or changes system-config consumption, scheduler default-config reads, notification gating, bootstrap feature gating, RBAC aggregation, or other hotspot runtime reads."
+    do_not_use_when:
+      - "The task is a pure low-frequency path with no hotspot risk or cache relevance."
+    examples:
+      - "ai-plan/design/缓存治理与系统配置读取加速规范.md"
+    related_assets:
+      - "cache-governance-design"
+      - "graft-shared-asset-reuse-skill"
     validation_commands:
       - "python3 scripts/validate_ai_governance.py"
       - "python3 scripts/validate_shared_asset_registries.py"

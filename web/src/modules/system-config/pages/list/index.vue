@@ -90,11 +90,14 @@
                     <p>{{ card.description }}</p>
                   </div>
                   <t-space size="small" break-line>
-                    <t-tag :theme="card.status.theme" variant="light">
-                      {{ card.status.label }}
+                    <t-tag :theme="card.effectiveSource.theme" variant="light">
+                      {{ card.effectiveSource.label }}
                     </t-tag>
                     <t-tag v-if="card.sensitive" theme="danger" variant="light">
                       {{ t('systemConfig.list.tags.sensitive') }}
+                    </t-tag>
+                    <t-tag v-if="card.runtimeHot" theme="success" variant="light">
+                      {{ t('systemConfig.list.tags.runtimeHot') }}
                     </t-tag>
                     <t-tag v-if="card.restartRequired" theme="primary" variant="light">
                       {{ t('systemConfig.list.tags.restartRequired') }}
@@ -424,12 +427,13 @@ type ConfigCardVM = {
   key: string;
   title: string;
   description: string;
-  status: {
+  effectiveSource: {
     label: string;
     description: string;
     theme: 'default' | 'primary';
   };
   sensitive: boolean;
+  runtimeHot: boolean;
   restartRequired: boolean;
   auditLabel: string;
   valueSections: ConfigValueSection[];
@@ -445,7 +449,7 @@ type EditorContainer = 'dialog' | 'drawer';
 
 const CORE_VALUE_ROW_LIMIT = 3;
 
-const { locale, t, te } = useI18n();
+const { getLocaleMessage, locale, t, te } = useI18n();
 const permissionCodes = SYSTEM_CONFIG_PERMISSION_CODE;
 const items = ref<SystemConfigItem[]>([]);
 const loading = ref(false);
@@ -533,9 +537,7 @@ const domainTree = computed<TreeProps['data']>(() =>
 const activeTreeValue = computed(() => (activeGroupKey.value ? [activeGroupKey.value] : []));
 const activeGroup = computed(() => groupedConfigs.value.find((group) => group.key === activeGroupKey.value) ?? null);
 const activeConfigCards = computed(() => activeGroup.value?.items.map(buildConfigCard) ?? []);
-const activeGroupOverrideCount = computed(
-  () => activeGroup.value?.items.filter((item) => item.has_override).length ?? 0,
-);
+const activeGroupOverrideCount = computed(() => activeGroup.value?.items.filter(hasConfigOverride).length ?? 0);
 const editingSchema = computed(() =>
   editingItem.value ? editorSchemaForItem(editingItem.value) : parseConfigSchema(),
 );
@@ -756,11 +758,11 @@ function technicalGroupKey(item: SystemConfigItem) {
   return item.group || t('systemConfig.list.defaultGroup');
 }
 
-function configStatus(item: SystemConfigItem) {
-  if (isModifiedConfig(item)) {
+function configEffectiveSource(item: SystemConfigItem) {
+  if (hasConfigOverride(item)) {
     return {
-      label: t('systemConfig.list.status.modified'),
-      description: t('systemConfig.list.status.modifiedDescription'),
+      label: t('systemConfig.list.status.override'),
+      description: t('systemConfig.list.status.overrideDescription'),
       theme: 'primary' as const,
     };
   }
@@ -772,12 +774,16 @@ function configStatus(item: SystemConfigItem) {
   };
 }
 
-function isModifiedConfig(item: SystemConfigItem) {
-  return item.status === 'modified';
+function hasConfigOverride(item: SystemConfigItem) {
+  return item.has_override || item.status === 'modified';
+}
+
+function isRuntimeHotConfig(item: SystemConfigItem) {
+  return item.runtime_apply_mode === 'runtime_hot';
 }
 
 function configLastModifiedLabel(item: SystemConfigItem) {
-  if (!isModifiedConfig(item)) {
+  if (!hasConfigOverride(item)) {
     return t('systemConfig.list.lastModified.none');
   }
 
@@ -807,8 +813,9 @@ function buildConfigCard(item: SystemConfigItem): ConfigCardVM {
     key: item.key,
     title: configTitle(item),
     description: configDescription(item),
-    status: configStatus(item),
+    effectiveSource: configEffectiveSource(item),
     sensitive: item.sensitive,
+    runtimeHot: isRuntimeHotConfig(item),
     restartRequired: item.restart_required,
     auditLabel: configLastModifiedLabel(item),
     valueSections: [
@@ -820,7 +827,7 @@ function buildConfigCard(item: SystemConfigItem): ConfigCardVM {
       defaultJson: jsonPreviewFromRaw(item.default_value),
       schemaSummary: schemaSummary(item, schema, fields),
     },
-    canReset: item.has_override,
+    canReset: hasConfigOverride(item),
   };
 }
 
@@ -982,14 +989,46 @@ function schemaValidationMessage(issue?: {
 }
 
 function resolveI18nText(key?: string, fallback?: string, rawFallback = '') {
-  if (key && te(key)) {
-    const resolved = t(key);
-    if (resolved) {
+  const localized = resolveLocaleMessage(key);
+  if (localized) {
+    return localized;
+  }
+
+  return fallback || rawFallback;
+}
+
+function resolveLocaleMessage(key?: string) {
+  const trimmed = key?.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  const messages = localeMessages();
+  const exact = messages[trimmed];
+  if (typeof exact === 'string' && exact.trim()) {
+    return exact;
+  }
+
+  if (te(trimmed)) {
+    const resolved = t(trimmed);
+    if (resolved && resolved !== trimmed) {
       return resolved;
     }
   }
 
-  return fallback || rawFallback;
+  const nested = trimmed.split('.').reduce<unknown>((current, segment) => {
+    if (!current || typeof current !== 'object') {
+      return undefined;
+    }
+
+    return (current as Record<string, unknown>)[segment];
+  }, messages);
+
+  return typeof nested === 'string' && nested.trim() ? nested : '';
+}
+
+function localeMessages() {
+  return getLocaleMessage(locale.value) as Record<string, unknown>;
 }
 
 function readableError(error: unknown, fallback: string) {

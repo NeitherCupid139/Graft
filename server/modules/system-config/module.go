@@ -60,16 +60,23 @@ func (m *Module) Register(ctx *module.Context) error {
 	return registerSystemConfigRoutes(ctx, moduleID, m.service)
 }
 
+// requiredUserService 从提供的依赖注入解析器中解析并返回用户服务。
 func requiredUserService(resolver container.Resolver) (moduleapi.UserService, error) {
 	return module.ResolveService[moduleapi.UserService](resolver, (*moduleapi.UserService)(nil))
 }
 
-// Boot currently has no runtime work; definitions are registered by owner modules.
-func (m *Module) Boot(_ *module.Context) error {
+// Boot does not start extra runtime mechanics because cachex handles shared snapshot storage.
+func (m *Module) Boot(ctx *module.Context) error {
+	if m == nil || m.service == nil {
+		return errors.New("system config module service is unavailable")
+	}
+	if ctx == nil {
+		return errors.New("system config module context is unavailable")
+	}
 	return nil
 }
 
-// Shutdown currently has no resources to release.
+// Shutdown has no module-local background resources to release.
 func (m *Module) Shutdown(_ *module.Context) error {
 	return nil
 }

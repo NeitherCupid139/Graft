@@ -127,15 +127,16 @@ const translations = vi.hoisted(
     'systemConfig.list.schema.aboveMaximum': '配置值不能大于 {maximum}',
     'systemConfig.list.status.default': '使用默认值',
     'systemConfig.list.status.defaultDescription': '使用默认配置',
-    'systemConfig.list.status.modified': '已修改',
-    'systemConfig.list.status.modifiedDescription': '存在用户覆盖',
+    'systemConfig.list.status.override': '使用覆盖值',
+    'systemConfig.list.status.overrideDescription': '存在用户覆盖',
     'systemConfig.list.status.title': '配置状态',
     'systemConfig.list.lastModified.none': '无覆盖值',
     'systemConfig.list.lastModified.title': '最后修改',
     'systemConfig.list.lastModified.unknownUser': '未知用户',
     'systemConfig.list.lastModified.userId': '用户 {id}',
     'systemConfig.list.lastModified.value': '{user} / {time}',
-    'systemConfig.list.tags.override': '已修改',
+    'systemConfig.list.tags.override': '使用覆盖值',
+    'systemConfig.list.tags.runtimeHot': '运行时生效',
     'systemConfig.list.tags.restartRequired': '需重启',
     'systemConfig.list.tags.sensitive': '敏感',
     'systemConfig.list.technicalId': '技术标识',
@@ -207,6 +208,8 @@ vi.mock('tdesign-icons-vue-next', () => ({
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
+    getLocaleMessage: () => translations,
+    locale: ref('zh-CN'),
     t: (key: string, params?: Record<string, unknown>) =>
       (translations[key] ?? key).replace(/\{(\w+)\}/g, (_, name) => String(params?.[name] ?? `{${name}}`)),
     te: (key: string) => Object.prototype.hasOwnProperty.call(translations, key),
@@ -277,6 +280,56 @@ describe('system config list page', () => {
     expect(wrapper.text()).toContain('配置预览 JSON');
   });
 
+  it('renders flat exact locale keys for notification and container group copy before backend fallback', async () => {
+    apiMocks.getSystemConfigs.mockResolvedValue({
+      items: [
+        notificationConfigItem({
+          key: 'notification.enabled',
+          titleKey: 'systemConfig.notification.notification.enabled.title',
+          title: 'Notification Enabled',
+          descriptionKey: 'systemConfig.notification.notification.enabled.description',
+          description: 'Whether in-app notifications are enabled.',
+          type: 'boolean',
+          configSchema: {},
+          defaultValue: 'true',
+          effectiveValue: 'true',
+          order: 5100,
+        }),
+        containerConfigItem({
+          key: 'ops.container.runtime.enabled',
+          titleKey: 'systemConfig.container.ops.container.runtime.enabled.title',
+          title: 'Container Runtime Access Enabled',
+          descriptionKey: 'systemConfig.container.ops.container.runtime.enabled.description',
+          description: 'Whether container management may access the configured runtime.',
+          type: 'boolean',
+          configSchema: {},
+          defaultValue: 'false',
+          effectiveValue: 'false',
+          order: 6200,
+        }),
+      ],
+      total: 2,
+    });
+
+    const wrapper = mountPage();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('通用');
+    expect(wrapper.text()).toContain('控制通知中心的基础行为。');
+    expect(wrapper.text()).toContain('启用通知');
+    expect(wrapper.text()).not.toContain('Notification general');
+    expect(wrapper.text()).not.toContain('Control the Notification Center baseline behavior.');
+
+    await wrapper.findComponent({ name: 'TTree' }).vm.$emit('active', ['ops:container:ops.container.general']);
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('容器管理');
+    expect(wrapper.text()).toContain('控制容器管理能力的基础开关。');
+    expect(wrapper.text()).toContain('启用容器运行时访问');
+    expect(wrapper.text()).not.toContain('Container Management');
+    expect(wrapper.text()).not.toContain('Control the container management baseline.');
+  });
+
   it('renders modified config as a user override with username and timestamp', async () => {
     apiMocks.getSystemConfigs.mockResolvedValue({
       items: [
@@ -284,6 +337,7 @@ describe('system config list page', () => {
           ...systemConfigItem(),
           status: 'modified',
           has_override: true,
+          runtime_apply_mode: 'runtime_hot',
           updated_at: '2026-05-24T10:00:00Z',
           updated_by_user_id: 7,
           updated_by_username: 'alice',
@@ -295,11 +349,57 @@ describe('system config list page', () => {
     const wrapper = mountPage();
     await flushPromises();
 
-    expect(wrapper.text()).toContain('已修改');
+    expect(wrapper.text()).toContain('使用覆盖值');
+    expect(wrapper.text()).toContain('运行时生效');
     expect(wrapper.text()).toContain('默认值');
     expect(wrapper.text()).toContain('当前值');
-    expect(wrapper.text()).toContain(`alice / ${formatCompactDateTime('2026-05-24T10:00:00Z')}`);
+    expect(wrapper.text()).toContain(`alice / ${formatCompactDateTime('2026-05-24T10:00:00Z', 'zh-CN')}`);
     expect(wrapper.findAll('button').some((button) => button.text() === '重置')).toBe(true);
+  });
+
+  it('uses only override authority for effective source and keeps restart semantics separate', async () => {
+    apiMocks.getSystemConfigs.mockResolvedValue({
+      items: [
+        {
+          ...systemConfigItem(),
+          has_override: false,
+          status: 'default',
+          runtime_apply_mode: 'restart_required',
+          restart_required: true,
+        },
+      ],
+      total: 1,
+    });
+
+    const wrapper = mountPage();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('使用默认值');
+    expect(wrapper.text()).toContain('需重启');
+    expect(wrapper.text()).not.toContain('运行时生效');
+    expect(wrapper.text()).not.toContain('使用覆盖值');
+  });
+
+  it('shows runtime-hot only from canonical runtime_apply_mode', async () => {
+    apiMocks.getSystemConfigs.mockResolvedValue({
+      items: [
+        {
+          ...systemConfigItem(),
+          has_override: false,
+          status: 'default',
+          runtime_apply_mode: 'runtime_hot',
+          restart_required: false,
+        },
+      ],
+      total: 1,
+    });
+
+    const wrapper = mountPage();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('运行时生效');
+    expect(wrapper.text()).toContain('使用默认值');
+    expect(wrapper.text()).not.toContain('需重启');
   });
 
   it('shows the copy failure toast when copying the config key rejects', async () => {
@@ -787,7 +887,7 @@ describe('system config list page', () => {
     const wrapper = mountPage();
     await flushPromises();
 
-    expect(wrapper.text()).toContain(`用户 7 / ${formatCompactDateTime('2026-05-24T10:00:00Z')}`);
+    expect(wrapper.text()).toContain(`用户 7 / ${formatCompactDateTime('2026-05-24T10:00:00Z', 'zh-CN')}`);
   });
 
   it('falls back to unknown user when modified config only has updated time', async () => {
@@ -808,7 +908,7 @@ describe('system config list page', () => {
     const wrapper = mountPage();
     await flushPromises();
 
-    expect(wrapper.text()).toContain(`未知用户 / ${formatCompactDateTime('2026-05-24T10:00:00Z')}`);
+    expect(wrapper.text()).toContain(`未知用户 / ${formatCompactDateTime('2026-05-24T10:00:00Z', 'zh-CN')}`);
   });
 
   it('uses dialog for small flat object schemas', async () => {
@@ -1200,6 +1300,8 @@ function systemConfigItem() {
     sensitive: false,
     masked: false,
     restart_required: false,
+    runtime_apply_mode: 'unknown',
+    status: 'default',
     order: 210,
   };
 }
@@ -1317,6 +1419,7 @@ function dashboardQuickActionItem(input: {
     sensitive: false,
     masked: false,
     restart_required: false,
+    runtime_apply_mode: 'unknown',
     status: 'default',
     order: input.order,
   };
@@ -1359,6 +1462,7 @@ function notificationConfigItem(input: {
     sensitive: false,
     masked: false,
     restart_required: false,
+    runtime_apply_mode: 'unknown',
     status: 'default',
     order: input.order,
   };
@@ -1402,6 +1506,7 @@ function containerConfigItem(input: {
     sensitive: false,
     masked: false,
     restart_required: false,
+    runtime_apply_mode: 'unknown',
     status: input.hasOverride ? 'modified' : 'default',
     order: input.order,
   };

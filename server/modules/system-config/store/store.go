@@ -26,6 +26,7 @@ type Override struct {
 
 // Repository persists user overrides only.
 type Repository interface {
+	ListOverrides(ctx context.Context) ([]Override, error)
 	GetOverride(ctx context.Context, key string) (Override, error)
 	SetOverride(ctx context.Context, key string, value json.RawMessage, userID *uint64) (Override, error)
 	DeleteOverride(ctx context.Context, key string) error

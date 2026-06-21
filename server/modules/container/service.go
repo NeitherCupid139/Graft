@@ -76,18 +76,24 @@ type containerServiceOptions struct {
 	realtimeTickets         realtimeauth.Service
 }
 
-// newContainerService constructs a container service with configuration from the module context.
+// newContainerService 根据模块上下文和系统配置构建容器服务。当实时工单服务无法解析时返回错误。
 func newContainerService(ctx *module.Context, moduleName string) (*service, error) {
 	options := containerOptionsFromConfig(ctx)
+	systemConfig := resolveSystemConfigResolver(ctx)
+	options = resolveStartupRuntimeOptions(systemConfigReadContext(ctx), systemConfig, options)
 	runtime := Runtime(disabledRuntime{})
 	allowedOrigins := []string{}
 	if ctx != nil && ctx.Config != nil {
 		allowedOrigins = append(allowedOrigins, ctx.Config.HTTPX.WebSocketAllowedOrigins...)
 	}
+	realtimeTickets, err := resolveRealtimeTicketService(ctx)
+	if err != nil {
+		return nil, err
+	}
 	return newService(containerServiceOptions{
 		runtime:                 runtime,
 		runtimeOptions:          options,
-		systemConfig:            resolveSystemConfigResolver(ctx),
+		systemConfig:            systemConfig,
 		auditBus:                ctx.EventBus,
 		logger:                  ctx.Logger,
 		moduleName:              moduleName,
@@ -99,22 +105,15 @@ func newContainerService(ctx *module.Context, moduleName string) (*service, erro
 		environmentPolicy:       options.environmentPolicy,
 		orchestratorPolicies:    options.orchestratorPolicies,
 		websocketAllowedOrigins: allowedOrigins,
+		realtimeTickets:         realtimeTickets,
 	})
 }
 
-// newService 创建容器服务，规范化配置参数并为缺失的组件应用默认实现。
+// newService 初始化容器服务实例，完成配置验证和默认值应用。实时票证服务必须提供，否则返回错误。
 func newService(options containerServiceOptions) (*service, error) {
-	if options.defaultTail <= 0 {
-		options.defaultTail = defaultContainerLogsDefaultTail
-	}
-	if options.maxTail <= 0 || options.maxTail > defaultContainerLogsMaxTail {
-		options.maxTail = defaultContainerLogsMaxTail
-	}
-	if options.defaultTail > options.maxTail {
-		options.defaultTail = options.maxTail
-	}
+	options.defaultTail, options.maxTail = normalizeContainerLogTailBounds(options.defaultTail, options.maxTail)
 	if options.realtimeTickets == nil {
-		options.realtimeTickets = realtimeauth.NewMemoryService()
+		return nil, errors.New("realtime ticket service is required")
 	}
 	runtimeOptions := options.runtimeOptions
 	if strings.TrimSpace(runtimeOptions.runtime) == "" {
@@ -154,6 +153,15 @@ func newService(options containerServiceOptions) (*service, error) {
 		websocketAllowedOrigins: append([]string(nil), options.websocketAllowedOrigins...),
 		realtimeTickets:         options.realtimeTickets,
 	}, nil
+}
+
+// resolveRealtimeTicketService resolves the realtime authentication service from the module context. It returns an error if ctx or ctx.Services is nil.
+func resolveRealtimeTicketService(ctx *module.Context) (realtimeauth.Service, error) {
+	if ctx == nil || ctx.Services == nil {
+		return nil, errors.New("realtime ticket service resolver is unavailable")
+	}
+
+	return module.ResolveService[realtimeauth.Service](ctx.Services, (*realtimeauth.Service)(nil))
 }
 
 func (s *service) Close() error {
@@ -299,7 +307,7 @@ func (s *service) Logs(ctx context.Context, ref Ref, query LogQuery) (Logs, erro
 	if err := s.requireRuntimeAccess(ctx); err != nil {
 		return Logs{}, err
 	}
-	normalized, err := s.normalizeLogQuery(query)
+	normalized, err := s.normalizeLogQuery(ctx, query)
 	if err != nil {
 		return Logs{}, err
 	}
@@ -616,17 +624,15 @@ func (s *service) applyEnvironmentPolicy(ctx context.Context, detail Detail) Det
 	return detail
 }
 
+// withEnvironmentPlainAccess 将上下文标记为允许访问明文环境变量。
 func withEnvironmentPlainAccess(ctx context.Context) context.Context {
 	return context.WithValue(ctx, environmentPlainAccessContextKey{}, true)
 }
 
+// environmentPlainAccessAllowed 检查请求上下文是否允许查看明文环境变量。
 func environmentPlainAccessAllowed(ctx context.Context) bool {
 	allowed, _ := ctx.Value(environmentPlainAccessContextKey{}).(bool)
 	return allowed
-}
-
-type stringSystemConfigResolver interface {
-	ResolveDefaultConfig(ctx context.Context, key string) (string, error)
 }
 
 func (s *service) environmentDisplayPolicy(ctx context.Context) containercontract.EnvironmentPolicy {
@@ -637,11 +643,7 @@ func (s *service) environmentDisplayPolicy(ctx context.Context) containercontrac
 	if s == nil || s.systemConfig == nil {
 		return fallback
 	}
-	resolver, ok := s.systemConfig.(stringSystemConfigResolver)
-	if !ok {
-		return fallback
-	}
-	raw, err := resolver.ResolveDefaultConfig(
+	raw, err := s.systemConfig.ResolveDefaultConfig(
 		ctx,
 		containercontract.ContainerEnvironmentPolicyConfig.String(),
 	)
@@ -825,11 +827,12 @@ var sensitiveEnvironmentKeyMarkers = []string{
 	"SESSION",
 }
 
-func (s *service) normalizeLogQuery(query LogQuery) (LogQuery, error) {
+func (s *service) normalizeLogQuery(ctx context.Context, query LogQuery) (LogQuery, error) {
+	defaultTail, maxTail := s.effectiveLogTailBounds(ctx)
 	if query.Tail == 0 {
-		query.Tail = s.defaultTail
+		query.Tail = defaultTail
 	}
-	if query.Tail < 0 || query.Tail > s.maxTail || query.Tail > defaultContainerLogsMaxTail {
+	if query.Tail < 0 || query.Tail > maxTail || query.Tail > defaultContainerLogsMaxTail {
 		return LogQuery{}, errLogsTooLarge
 	}
 	if !query.Stdout && !query.Stderr {
@@ -1251,6 +1254,7 @@ func applyContainerBoolDefault(ctx *module.Context, key string, target *bool) {
 	}
 }
 
+// applyContainerStringDefault 从容器配置注册表为目标指针应用字符串默认值。
 func applyContainerStringDefault(ctx *module.Context, key string, target *string) {
 	if target == nil {
 		return
@@ -1265,6 +1269,7 @@ func applyContainerStringDefault(ctx *module.Context, key string, target *string
 	}
 }
 
+// applyContainerIntDefault 从配置注册表应用正整数默认值至目标。
 func applyContainerIntDefault(ctx *module.Context, key string, target *int) {
 	if target == nil {
 		return
@@ -1279,6 +1284,28 @@ func applyContainerIntDefault(ctx *module.Context, key string, target *int) {
 	}
 }
 
+// systemConfigReadContext selects an appropriate context for system configuration operations.
+// systemConfigReadContext returns the module's lifecycle context if available,
+// otherwise a background context.
+func systemConfigReadContext(ctx *module.Context) context.Context {
+	if ctx != nil && ctx.LifecycleContext != nil {
+		return ctx.LifecycleContext
+	}
+	return context.Background()
+}
+
+// resolveStartupRuntimeOptions updates the provided container runtime options by resolving runtime and endpoint configuration from system config, using the provided values as fallbacks.
+func resolveStartupRuntimeOptions(
+	ctx context.Context,
+	resolver moduleapi.SystemConfigResolver,
+	options containerRuntimeOptions,
+) containerRuntimeOptions {
+	options.runtime = resolveStringConfigValue(ctx, resolver, containercontract.ContainerRuntimeConfig.String(), options.runtime)
+	options.endpoint = resolveStringConfigValue(ctx, resolver, containercontract.ContainerDockerEndpointConfig.String(), options.endpoint)
+	return options
+}
+
+// containerDefaultValue 从模块上下文的配置注册表中检索指定配置项的默认值，返回对应的 JSON 消息及该值是否存在的标志。
 func containerDefaultValue(ctx *module.Context, key string) (json.RawMessage, bool) {
 	if ctx == nil || ctx.ConfigRegistry == nil {
 		return nil, false
@@ -1290,6 +1317,7 @@ func containerDefaultValue(ctx *module.Context, key string) (json.RawMessage, bo
 	return definition.DefaultValue, true
 }
 
+// resolveSystemConfigResolver resolves the system config resolver from the module context's services, returning nil if unavailable or unresolved.
 func resolveSystemConfigResolver(ctx *module.Context) moduleapi.SystemConfigResolver {
 	if ctx == nil || ctx.Services == nil {
 		return nil
@@ -1303,6 +1331,74 @@ func resolveSystemConfigResolver(ctx *module.Context) moduleapi.SystemConfigReso
 		return nil
 	}
 	return resolver
+}
+
+// resolveStringConfigValue resolves a string configuration value by key, trimmed of whitespace. If resolution fails or the resolved value is blank, the trimmed fallback is returned.
+func resolveStringConfigValue(
+	ctx context.Context,
+	resolver moduleapi.SystemConfigResolver,
+	key string,
+	fallback string,
+) string {
+	if resolver == nil {
+		return strings.TrimSpace(fallback)
+	}
+	raw, err := resolver.ResolveDefaultConfig(ctx, key)
+	if err != nil {
+		return strings.TrimSpace(fallback)
+	}
+	var value string
+	if err := json.Unmarshal([]byte(raw), &value); err != nil {
+		return strings.TrimSpace(fallback)
+	}
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return strings.TrimSpace(fallback)
+	}
+	return value
+}
+
+func (s *service) resolveIntegerConfig(ctx context.Context, key string, fallback int) int {
+	if s == nil || s.systemConfig == nil {
+		return fallback
+	}
+	raw, err := s.systemConfig.ResolveDefaultConfig(ctx, key)
+	if err != nil {
+		return fallback
+	}
+	var value int
+	if err := json.Unmarshal([]byte(raw), &value); err != nil || value <= 0 {
+		return fallback
+	}
+	return value
+}
+
+// NormalizeContainerLogTailBounds normalizes log tail bounds, applying package defaults
+// for non-positive values and capping maxTail to a maximum limit.
+// normalizeContainerLogTailBounds ensures default and maximum log tail bounds are positive, capped to system limits, and properly ordered.
+func normalizeContainerLogTailBounds(defaultTail int, maxTail int) (int, int) {
+	if defaultTail <= 0 {
+		defaultTail = defaultContainerLogsDefaultTail
+	}
+	if maxTail <= 0 || maxTail > defaultContainerLogsMaxTail {
+		maxTail = defaultContainerLogsMaxTail
+	}
+	if defaultTail > maxTail {
+		defaultTail = maxTail
+	}
+	return defaultTail, maxTail
+}
+
+func (s *service) effectiveLogTailBounds(ctx context.Context) (int, int) {
+	defaultTail := defaultContainerLogsDefaultTail
+	maxTail := defaultContainerLogsMaxTail
+	if s != nil {
+		defaultTail = s.defaultTail
+		maxTail = s.maxTail
+	}
+	defaultTail = s.resolveIntegerConfig(ctx, containercontract.ContainerLogsDefaultTailConfig.String(), defaultTail)
+	maxTail = s.resolveIntegerConfig(ctx, containercontract.ContainerLogsMaxTailConfig.String(), maxTail)
+	return normalizeContainerLogTailBounds(defaultTail, maxTail)
 }
 
 func (s *service) runtimeAccessEnabled(ctx context.Context) bool {
@@ -1421,11 +1517,10 @@ func (s *service) resolveOrchestratorActionLevel(
 	key string,
 	fallback containercontract.OrchestratorActionLevel,
 ) containercontract.OrchestratorActionLevel {
-	resolver, ok := s.systemConfig.(stringSystemConfigResolver)
-	if !ok {
+	if s == nil || s.systemConfig == nil {
 		return fallback
 	}
-	raw, err := resolver.ResolveDefaultConfig(ctx, key)
+	raw, err := s.systemConfig.ResolveDefaultConfig(ctx, key)
 	if err != nil {
 		return fallback
 	}

@@ -1,0 +1,123 @@
+# Cache Governance And System Config Acceleration
+
+本 README 只承载 topic recovery、阶段历史和 archive-ready 边界，不是仓库规范正文。
+
+稳定缓存治理规则、shared mechanism policy、允许/禁止事项和 closeout evidence 以
+`ai-plan/design/缓存治理与系统配置读取加速规范.md` 为准。
+
+## 当前状态摘要
+
+- 当前主题目标是为 `Graft` 建立统一缓存治理规范，并优先收敛系统配置运行时读取加速方案。
+- 当前状态：Phase 0 治理资产已落盘，Phase 1 本地 snapshot 与热点消费方收口已完成，Phase 2 cache mechanical layer 收口已完成，Phase 3 热点扩展已完成并提交，Phase 4 可观测性与治理门禁已完成并提交；`system-config` authority 主链已进入 archive-ready。
+- 显示 authority 收口：上游 canonical contract 现已以 `runtime_apply_mode` 承载运行时生效语义；页面继续沿用既有 `effective-source` authority，且仅表达 `default` / `override`。
+- 边界说明：上述完成态仅表示本主题负责的 `system-config` 与已登记热点缓存治理已收口，不表示仓库全部缓存热点都已完成治理。仓库级缓存治理仍需按 authority-first 热点清单逐项推进。
+- 未完成范围：仓库级其它热点仍不因本主题 closeout 自动完成；系统配置页若继续追加高级提示或调试展示，也属于独立 UX / operability follow-up，而不是新的 display-authority 缺口。
+- 任务分类为 `cross-boundary`，但本主题以 `backend-first` 为主；前端仅涉及系统配置页面的生效语义与高级信息展示建议。
+- Canonical design：`ai-plan/design/缓存治理与系统配置读取加速规范.md`。
+- AI 执行 skill：`.agents/skills/graft-cache-governance/SKILL.md`。
+
+## Recovery Receipt
+
+- governance source：root `AGENTS.md`
+- task class：`cross-boundary`
+- recovery source：`parent topic`
+- authority summary：`ai-plan/design/缓存治理与系统配置读取加速规范.md` + `server/modules/system-config/service.go` + `server/internal/configregistry` + `server/internal/moduleapi/notification.go`
+
+## Owned Scope
+
+允许修改：
+
+- `ai-plan/design/缓存治理与系统配置读取加速规范.md`
+- `ai-plan/public/cache-governance-and-system-config-acceleration/**`
+- `ai-plan/public/README.md`
+- `.agents/skills/graft-cache-governance/**`
+- `.ai/registries/cross-boundary-assets.yaml`
+- `server/modules/system-config/**`
+- `server/internal/moduleapi/**`
+- `server/internal/scheduler/**`
+- `server/modules/notification/**`
+- `server/modules/container/**`
+- `server/modules/user/bootstrap.go`
+- 以及本主题直接牵引的缓存治理测试与文档
+
+禁止误触：
+
+- 不得让模块绕过统一 `SystemConfigResolver` / typed resolver 直接查 system-config override 表。
+- 不得把 Redis 作为系统配置 authority。
+- 不得把所有缓存都塞进 Redis。
+- 不得为了降低查询次数缓存日志分页结果或长时间缓存容器实时状态。
+- 不得把 `restart-required` 配置伪装为运行时热生效。
+- 不得为了缓存改造绕过配置修改审计。
+- 不得让 `web` 长期缓存为有效权限、菜单或系统配置值的 authority。
+
+## Phase Plan
+
+- Phase 0：现状盘点、规范沉淀、topic/skill 持久化。已完成。
+- Phase 1：单进程本地 snapshot + singleflight + 显式失效。已完成。
+- Phase 2：`cachex` mechanical layer 收口与 runtime wiring。已完成。
+- Phase 3：扩展到 RBAC/menu/dashboard/container runtime 等热点缓存。已完成。
+- Phase 4：补充指标、调试面板、缓存治理文档和测试门禁。已完成。
+
+## Current Recovery Point
+
+- 已完成真实代码扫描与治理落盘。
+- 已完成 `phase-1-system-config-local-snapshot`：
+  - `server/modules/system-config/service.go` 已引入 process-local full override snapshot cache。
+  - snapshot miss 已通过 `singleflight` 合并并发加载。
+  - `Update/Reset` 成功路径已增加显式本地失效并回填最新 snapshot。
+  - 聚焦测试已覆盖缓存复用、显式失效与并发 miss 合并。
+  - 已提交：`076dc954` `fix(system-config): cache override snapshots locally`。
+- 已完成 `phase-1-hot-consumer-adoption`：
+  - 当前 owned scope 内的 container / notification / scheduler / bootstrap 热点消费点已稳定通过统一 resolver 边界读取系统配置。
+  - 本批次未要求新增 owned-scope diff；loop closeout 已将该批次标记为完成。
+- 已完成 `phase-2-cachex-mechanical-layer`：
+  - `server/internal/cachex/**` 已提供机械化 cache manager、named cache、singleflight 合并与 backend adapter 边界。
+  - `server/internal/app/runtime.go` 已注入 runtime-owned `cachex.Manager`，并通过 core wiring 向模块暴露共享 cache mechanical layer。
+  - `server/modules/system-config/service.go` 已切换到 `cachex.Cache` 承载 snapshot 读取、装载与显式失效；authority 仍停留在 `configregistry + system-config service/store` 主链。
+  - `server/modules/system-config/**` 不再直接导入 `go-redis`，也不再自持 ad-hoc Redis invalidation mechanics。
+- 已完成 `phase-3-hotspot-expansion`：
+  - `server/internal/moduleapi.SystemConfigResolver` 已扩展为统一暴露布尔与 effective config 读取能力，热点消费方不再需要局部类型断言绕过共享 resolver 边界。
+  - `server/modules/container/service.go` 已将环境展示策略与编排来源动作级别解析统一切到共享 `SystemConfigResolver.ResolveDefaultConfig(...)` 路径，继续复用 system-config 本地 snapshot authority。
+  - `server/modules/user/bootstrap.go` 已在 reader 装配阶段缓存已解析的 `SystemConfigResolver` capability，避免每次 bootstrap 菜单过滤都在热路径重新解析服务容器。
+  - 本批次未扩展到新的 dashboard authority 或 web 长期缓存；`dashboard.quick_actions` 仍保持 config-definition authority，后续如需 runtime 消费扩展必须在独立 authority 范围内推进。
+  - 已提交：`93886719` `fix(system-config): unify hotspot resolver reads`。
+- 当前确认的系统配置 authority 与热点事实：
+  - `server/modules/system-config/service.go` 当前 authority 仍在统一 service/resolver 边界，读取链路保持 `cachex` 承载的 snapshot cache + `singleflight`。
+  - `server/internal/moduleapi/notification.go` 中 `SystemConfigResolver` 现已统一提供 `IsBooleanConfigEnabled(...)` 与 `ResolveDefaultConfig(...)`。
+  - `server/modules/notification/publisher.go`、`server/modules/container/service.go`、`server/internal/scheduler/runtime.go`、`server/modules/user/bootstrap.go` 都继续通过共享 resolver 边界消费有效配置。
+  - `server/modules/container/mount_usage.go` 已有本地 TTL cache，可作为 process-local cache 参考，但不是 system-config authority。
+  - `server/modules/monitor/module.go` 已有 Redis 趋势缓存，可作为 distributed cache 参考，但不应用来取代 system-config authority。
+- 已完成 `phase-4-observability-and-guardrails`：
+  - `server/modules/system-config/service.go` 已补充 snapshot cache hit / miss / load / invalidation / shared-load 调试计数与最近状态快照。
+  - 结构化 debug log 已覆盖 snapshot load 与本地失效事件。
+  - `server/modules/system-config/service_test.go` 已补充 phase-4 调试态覆盖，验证命中/未命中、单次装载、本地失效与 shared cache 失效后的 reload 行为。
+  - 设计文档与 topic recovery 资产已同步更新，可作为后续 admin-only 调试面或 debug endpoint 的 authority 基线。
+- 当前推荐实现终态：
+  - Phase 1 已完成 authority 层 process-local full snapshot cache + singleflight + explicit invalidation。
+  - Phase 2 已完成 `cachex` mechanical layer 收口，authority 与统一 resolver 边界保持不变。
+  - Phase 3 已完成热点读路径扩展，未改变 system-config authority。
+  - Phase 4 已完成可观测性与治理门禁收口，当前主题满足 archive-ready。
+- 当前未完成但已记录的后续项：
+  - 若继续增强系统配置页，仅限更丰富的高级提示或调试展示；运行时生效语义仍以 canonical `runtime_apply_mode` 为准，`effective-source` 继续只表达 `default` / `override`。
+  - 本 topic 未覆盖的新热点或仓库级其它缓存 authority 继续按独立 topic / slice 推进。
+
+## Validation Targets
+
+```bash
+git diff --check
+python3 /root/.codex/skills/.system/skill-creator/scripts/quick_validate.py .agents/skills/graft-cache-governance
+python3 scripts/validate_ai_governance.py
+python3 scripts/validate_shared_asset_registries.py
+```
+
+若本轮进入运行时实现：
+
+```bash
+cd server && go run ./cmd/graft validate backend
+```
+
+若本轮触达系统配置页展示语义：
+
+```bash
+cd web && bun run check
+```

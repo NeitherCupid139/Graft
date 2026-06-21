@@ -20,6 +20,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 
+	"graft/server/internal/cachex"
 	"graft/server/internal/config"
 	"graft/server/internal/container"
 	"graft/server/internal/cronx"
@@ -34,6 +35,8 @@ import (
 	"graft/server/internal/moduleregistry"
 	"graft/server/internal/moduleruntime"
 	"graft/server/internal/permission"
+	"graft/server/internal/redisx"
+	"graft/server/internal/statex"
 	testent "graft/server/internal/testent"
 	systemconfiglocales "graft/server/modules/system-config/locales"
 )
@@ -407,7 +410,7 @@ func mustDescribeRuntimeTestModule(spec module.Spec, instance module.Module) mod
 }
 
 // TestRegisterCoreServicesExposesRuntimeSingletons 验证 core 装配会把配置、
-// event bus、共享 SQL 连接池与 Redis 客户端注册到运行时容器中。
+// event bus、共享 SQL 连接池与 cache manager 注册到运行时容器中。
 func TestRegisterCoreServicesExposesRuntimeSingletons(t *testing.T) {
 	redisClient := redis.NewClient(&redis.Options{Addr: "127.0.0.1:6379"})
 	t.Cleanup(func() {
@@ -440,12 +443,17 @@ func TestRegisterCoreServicesExposesRuntimeSingletons(t *testing.T) {
 		},
 	}
 	localizer := i18n.MustNew(cfg.I18n)
+	cacheManager, err := newRuntimeCacheManager(cfg, redisClient)
+	if err != nil {
+		t.Fatalf("new runtime cache manager: %v", err)
+	}
 	runtime := &Runtime{
 		config:           cfg,
 		logger:           runtimeLogger,
 		i18n:             localizer,
 		database:         &database.Resources{SQL: sqlDB},
 		redis:            redisClient,
+		cacheManager:     cacheManager,
 		eventBus:         runtimeEventBus,
 		services:         container.New(),
 		appLogRepository: &runtimeAppLogRecorderRepo{},
@@ -460,9 +468,12 @@ func TestRegisterCoreServicesExposesRuntimeSingletons(t *testing.T) {
 	assertResolvedService(t, runtime.services, (*i18n.Service)(nil), localizer, "i18n service")
 	assertResolvedService(t, runtime.services, (*eventbus.Bus)(nil), runtimeEventBus, "event bus")
 	assertResolvedService(t, runtime.services, (*sql.DB)(nil), sqlDB, "sql db")
-	assertResolvedService(t, runtime.services, (*redis.Client)(nil), redisClient, "redis client")
+	assertResolvedService(t, runtime.services, (*cachex.Manager)(nil), cacheManager, "cache manager")
 	assertAppLoggerRegistered(t, runtime.services)
 	assertResolvedService(t, runtime.services, (*logger.AppLogRepository)(nil), runtime.appLogRepository, "app log repository")
+	assertServiceRegistered(t, runtime.services, (*redisx.HealthReporter)(nil), "redis health reporter")
+	assertServiceRegistered(t, runtime.services, (*statex.TimeSeriesStore)(nil), "statex time-series store")
+	assertServiceKeyNotRegistered(t, runtime.services, (*redis.Client)(nil), "redis client")
 	assertServiceKeyNotRegistered(t, runtime.services, (*testent.Client)(nil), "*ent.Client")
 }
 
@@ -816,6 +827,18 @@ func assertAppLoggerRegistered(t *testing.T, resolver container.Resolver) {
 	}
 	if appLogger == nil {
 		t.Fatal("expected non-nil app logger")
+	}
+}
+
+func assertServiceRegistered(t *testing.T, resolver container.Resolver, key any, name string) {
+	t.Helper()
+
+	resolved, err := resolver.Resolve(key)
+	if err != nil {
+		t.Fatalf("resolve %s: %v", name, err)
+	}
+	if resolved == nil {
+		t.Fatalf("expected %s to resolve to a non-nil service", name)
 	}
 }
 

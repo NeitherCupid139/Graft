@@ -12,10 +12,12 @@ import (
 
 	"graft/server/internal/config"
 	"graft/server/internal/configregistry"
+	containerdi "graft/server/internal/container"
 	"graft/server/internal/i18n"
 	"graft/server/internal/menu"
 	"graft/server/internal/module"
 	"graft/server/internal/permission"
+	"graft/server/internal/realtimeauth"
 	containercontract "graft/server/modules/container/contract"
 	containerlocales "graft/server/modules/container/locales"
 	systemconfiglocales "graft/server/modules/system-config/locales"
@@ -107,11 +109,18 @@ func newTestContext() *module.Context {
 	if err := localizer.RegisterEmbeddedLocaleResources(systemConfigResources); err != nil {
 		panic(fmt.Sprintf("register system-config locale resources: %v", err))
 	}
+	services := containerdi.New()
+	if err := services.RegisterSingleton((*realtimeauth.Service)(nil), func(containerdi.Resolver) (any, error) {
+		return realtimeauth.NewMemoryService(), nil
+	}); err != nil {
+		panic(fmt.Sprintf("register realtime ticket service: %v", err))
+	}
 	return &module.Context{
 		I18n:               localizer,
 		MenuRegistry:       menu.NewRegistry(),
 		PermissionRegistry: permission.NewRegistry(),
 		ConfigRegistry:     configregistry.NewRegistry(),
+		Services:           services,
 	}
 }
 
@@ -235,10 +244,43 @@ func assertConfigDefinitions(t *testing.T, registry *configregistry.Registry, lo
 	if !endpoint.RestartRequired {
 		t.Fatalf("container runtime endpoint must be restart-required")
 	}
+	if endpoint.RuntimeApplyMode != configregistry.RuntimeApplyModeRestartRequired {
+		t.Fatalf("container runtime endpoint must expose restart-required apply mode, got %#v", endpoint.RuntimeApplyMode)
+	}
+	runtime, _ := registry.Get(containercontract.ContainerRuntimeConfig.String())
+	if !runtime.RestartRequired {
+		t.Fatalf("container runtime type must be restart-required")
+	}
+	if runtime.RuntimeApplyMode != configregistry.RuntimeApplyModeRestartRequired {
+		t.Fatalf("container runtime type must expose restart-required apply mode, got %#v", runtime.RuntimeApplyMode)
+	}
+	assertContainerRuntimeHotConfigModes(t, registry)
 
 	assertRuntimeConfigSchema(t, registry)
 	assertMaxTailConfigSchema(t, registry)
 	assertEnvironmentPolicyConfigSchema(t, registry, localizer)
+}
+
+func assertContainerRuntimeHotConfigModes(t *testing.T, registry *configregistry.Registry) {
+	t.Helper()
+
+	for _, key := range []string{
+		containercontract.ContainerRuntimeEnabledConfig.String(),
+		containercontract.ContainerLogsDefaultTailConfig.String(),
+		containercontract.ContainerLogsMaxTailConfig.String(),
+		containercontract.ContainerDangerousActionsEnabledConfig.String(),
+		containercontract.ContainerShellEnabledConfig.String(),
+		containercontract.ContainerEnvironmentPolicyConfig.String(),
+		containercontract.ContainerEnvironmentMaskedCopyEnabledConfig.String(),
+	} {
+		definition, ok := registry.Get(key)
+		if !ok {
+			t.Fatalf("expected container config definition %s", key)
+		}
+		if definition.RuntimeApplyMode != configregistry.RuntimeApplyModeRuntimeHot {
+			t.Fatalf("expected runtime-hot apply mode for %s, got %#v", key, definition.RuntimeApplyMode)
+		}
+	}
 }
 
 func assertRuntimeConfigSchema(t *testing.T, registry *configregistry.Registry) {
