@@ -2018,6 +2018,7 @@ export interface components {
     ContainerBatchActionItem: components['schemas']['container-batch-action-item'];
     ContainerBatchActionResponse: components['schemas']['container-batch-action-response'];
     ContainerRuntimeInfo: components['schemas']['container-runtime-info'];
+    ContainerOrchestratorInfo: components['schemas']['container-orchestrator-info'];
     ContainerResourceSummary: components['schemas']['container-resource-summary'];
     ContainerListSummary: components['schemas']['container-list-summary'];
     ContainerListResponse: components['schemas']['container-list-response'];
@@ -3892,6 +3893,52 @@ export interface components {
       /** Format: int64 */
       pids_limit?: number;
     };
+    'container-orchestrator-info': {
+      /** @enum {string} */
+      type: 'standalone' | 'compose' | 'swarm' | 'kubernetes' | 'unknown';
+      /** @description Whether the container belongs to an upper-level orchestrator or control plane. */
+      managed: boolean;
+      /** @description Optional fallback source label. Visible UI should still localize by type first. */
+      display_name?: string | null;
+      /**
+       * @description Stable normalized group scope kind for list/detail consumers.
+       * @enum {string|null}
+       */
+      group_scope_kind?: 'compose_project' | 'swarm_stack' | 'kubernetes_namespace' | null;
+      /** @description Canonical group scope value for exact filtering and grouping. */
+      group_value?: string | null;
+      /** @description Human-readable group scope label derived from runtime metadata. */
+      group_display_name?: string | null;
+      /**
+       * @description Stable normalized member scope kind for list/detail consumers.
+       * @enum {string|null}
+       */
+      member_scope_kind?: 'compose_service' | 'swarm_task' | 'kubernetes_pod' | null;
+      /** @description Canonical member scope value for exact filtering and grouping. */
+      member_value?: string | null;
+      /** @description Human-readable member scope label derived from runtime metadata. */
+      member_display_name?: string | null;
+      /** @enum {string} */
+      confidence: 'high' | 'medium' | 'low';
+      project?: string | null;
+      service?: string | null;
+      stack?: string | null;
+      namespace?: string | null;
+      pod?: string | null;
+      container?: string | null;
+      task?: string | null;
+      /** @description Compose project working directory metadata, not the runtime container working_dir field. */
+      working_dir?: string | null;
+      config_files?: string[];
+      /** @description Stable warning codes without embedded visible copy. */
+      warnings: string[];
+      /** @description Stable recommended action code without embedded visible copy. */
+      recommended_action?: string | null;
+      /** @enum {string} */
+      action_level: 'readonly' | 'warn' | 'allow';
+      /** @description Whether the current orchestrator source may participate in batch dangerous actions under the effective policy. */
+      batch_action_allowed: boolean;
+    };
     'container-summary': {
       id: string;
       /** @description Runtime id prefix suitable for list display. */
@@ -3933,6 +3980,7 @@ export interface components {
       compose_project?: string | null;
       /** @description Docker Compose service label when present. */
       compose_service?: string | null;
+      orchestrator?: components['schemas']['container-orchestrator-info'];
       can_start?: boolean;
       can_stop?: boolean;
       can_restart?: boolean;
@@ -4124,6 +4172,7 @@ export interface components {
       oom_killed?: boolean | null;
       mounts: components['schemas']['container-mount'][];
       networks: components['schemas']['container-network'][];
+      orchestrator?: components['schemas']['container-orchestrator-info'];
       runtime_info: components['schemas']['container-runtime-info'];
       /** Format: date-time */
       inspect_updated_at?: string;
@@ -4404,6 +4453,18 @@ export interface components {
       | 'unknown';
     /** @description Optional health filter. Containers whose list row cannot cheaply determine health are excluded when a specific health filter is provided. */
     'container-list-health': 'healthy' | 'unhealthy' | 'starting' | 'none' | 'unavailable';
+    /** @description Optional orchestrator source filter resolved by the backend from runtime metadata. */
+    'container-list-orchestrator': 'standalone' | 'compose' | 'swarm' | 'kubernetes' | 'unknown';
+    /** @description Exact orchestrator source scope kind filter. Must be paired with source_scope and remain compatible with the selected orchestrator type. */
+    'container-list-source-scope-kind':
+      | 'compose_project'
+      | 'compose_service'
+      | 'swarm_stack'
+      | 'swarm_task'
+      | 'kubernetes_namespace'
+      | 'kubernetes_pod';
+    /** @description Exact orchestrator source scope value. Must be paired with source_scope_kind. */
+    'container-list-source-scope': string;
     /** @description Container id or name. Clients must call encodeURIComponent before placing this value in the path. The backend must PathUnescape the path parameter and reject empty values, slashes, and control characters with ops.container.error.invalidContainerRef. */
     'container-id-path': string;
     /** @description Stable mount id returned by the container detail or mount usage APIs. It is generated from the inspected mount destination, source, and type, and must not be replaced by a raw source path. */
@@ -8735,6 +8796,12 @@ export interface operations {
         state?: components['parameters']['container-list-state'];
         /** @description Optional health filter. Containers whose list row cannot cheaply determine health are excluded when a specific health filter is provided. */
         health?: components['parameters']['container-list-health'];
+        /** @description Optional orchestrator source filter resolved by the backend from runtime metadata. */
+        orchestrator?: components['parameters']['container-list-orchestrator'];
+        /** @description Exact orchestrator source scope kind filter. Must be paired with source_scope and remain compatible with the selected orchestrator type. */
+        source_scope_kind?: components['parameters']['container-list-source-scope-kind'];
+        /** @description Exact orchestrator source scope value. Must be paired with source_scope_kind. */
+        source_scope?: components['parameters']['container-list-source-scope'];
       };
       header?: {
         /** @description Explicit locale override header already supported by the runtime. */

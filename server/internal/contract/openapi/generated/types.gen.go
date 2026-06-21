@@ -936,6 +936,117 @@ func (e ContainerMountUsageStatus) Valid() bool {
 	}
 }
 
+// Defines values for ContainerOrchestratorInfoActionLevel.
+const (
+	ContainerOrchestratorInfoActionLevelAllow    ContainerOrchestratorInfoActionLevel = "allow"
+	ContainerOrchestratorInfoActionLevelReadonly ContainerOrchestratorInfoActionLevel = "readonly"
+	ContainerOrchestratorInfoActionLevelWarn     ContainerOrchestratorInfoActionLevel = "warn"
+)
+
+// Valid indicates whether the value is a known member of the ContainerOrchestratorInfoActionLevel enum.
+func (e ContainerOrchestratorInfoActionLevel) Valid() bool {
+	switch e {
+	case ContainerOrchestratorInfoActionLevelAllow:
+		return true
+	case ContainerOrchestratorInfoActionLevelReadonly:
+		return true
+	case ContainerOrchestratorInfoActionLevelWarn:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ContainerOrchestratorInfoConfidence.
+const (
+	ContainerOrchestratorInfoConfidenceHigh   ContainerOrchestratorInfoConfidence = "high"
+	ContainerOrchestratorInfoConfidenceLow    ContainerOrchestratorInfoConfidence = "low"
+	ContainerOrchestratorInfoConfidenceMedium ContainerOrchestratorInfoConfidence = "medium"
+)
+
+// Valid indicates whether the value is a known member of the ContainerOrchestratorInfoConfidence enum.
+func (e ContainerOrchestratorInfoConfidence) Valid() bool {
+	switch e {
+	case ContainerOrchestratorInfoConfidenceHigh:
+		return true
+	case ContainerOrchestratorInfoConfidenceLow:
+		return true
+	case ContainerOrchestratorInfoConfidenceMedium:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ContainerOrchestratorInfoGroupScopeKind.
+const (
+	ContainerOrchestratorInfoGroupScopeKindComposeProject      ContainerOrchestratorInfoGroupScopeKind = "compose_project"
+	ContainerOrchestratorInfoGroupScopeKindKubernetesNamespace ContainerOrchestratorInfoGroupScopeKind = "kubernetes_namespace"
+	ContainerOrchestratorInfoGroupScopeKindSwarmStack          ContainerOrchestratorInfoGroupScopeKind = "swarm_stack"
+)
+
+// Valid indicates whether the value is a known member of the ContainerOrchestratorInfoGroupScopeKind enum.
+func (e ContainerOrchestratorInfoGroupScopeKind) Valid() bool {
+	switch e {
+	case ContainerOrchestratorInfoGroupScopeKindComposeProject:
+		return true
+	case ContainerOrchestratorInfoGroupScopeKindKubernetesNamespace:
+		return true
+	case ContainerOrchestratorInfoGroupScopeKindSwarmStack:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ContainerOrchestratorInfoMemberScopeKind.
+const (
+	ContainerOrchestratorInfoMemberScopeKindComposeService ContainerOrchestratorInfoMemberScopeKind = "compose_service"
+	ContainerOrchestratorInfoMemberScopeKindKubernetesPod  ContainerOrchestratorInfoMemberScopeKind = "kubernetes_pod"
+	ContainerOrchestratorInfoMemberScopeKindSwarmTask      ContainerOrchestratorInfoMemberScopeKind = "swarm_task"
+)
+
+// Valid indicates whether the value is a known member of the ContainerOrchestratorInfoMemberScopeKind enum.
+func (e ContainerOrchestratorInfoMemberScopeKind) Valid() bool {
+	switch e {
+	case ContainerOrchestratorInfoMemberScopeKindComposeService:
+		return true
+	case ContainerOrchestratorInfoMemberScopeKindKubernetesPod:
+		return true
+	case ContainerOrchestratorInfoMemberScopeKindSwarmTask:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ContainerOrchestratorInfoType.
+const (
+	ContainerOrchestratorInfoTypeCompose    ContainerOrchestratorInfoType = "compose"
+	ContainerOrchestratorInfoTypeKubernetes ContainerOrchestratorInfoType = "kubernetes"
+	ContainerOrchestratorInfoTypeStandalone ContainerOrchestratorInfoType = "standalone"
+	ContainerOrchestratorInfoTypeSwarm      ContainerOrchestratorInfoType = "swarm"
+	ContainerOrchestratorInfoTypeUnknown    ContainerOrchestratorInfoType = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the ContainerOrchestratorInfoType enum.
+func (e ContainerOrchestratorInfoType) Valid() bool {
+	switch e {
+	case ContainerOrchestratorInfoTypeCompose:
+		return true
+	case ContainerOrchestratorInfoTypeKubernetes:
+		return true
+	case ContainerOrchestratorInfoTypeStandalone:
+		return true
+	case ContainerOrchestratorInfoTypeSwarm:
+		return true
+	case ContainerOrchestratorInfoTypeUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ContainerPortType.
 const (
 	ContainerPortTypeValueSCTP ContainerPortType = "sctp"
@@ -2109,6 +2220,63 @@ func (e ContainerListHealth) Valid() bool {
 	}
 }
 
+// Defines values for ContainerListOrchestrator.
+const (
+	ContainerListOrchestratorContainerListOrchestratorCompose    ContainerListOrchestrator = "compose"
+	ContainerListOrchestratorContainerListOrchestratorKubernetes ContainerListOrchestrator = "kubernetes"
+	ContainerListOrchestratorContainerListOrchestratorStandalone ContainerListOrchestrator = "standalone"
+	ContainerListOrchestratorContainerListOrchestratorSwarm      ContainerListOrchestrator = "swarm"
+	ContainerListOrchestratorContainerListOrchestratorUnknown    ContainerListOrchestrator = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the ContainerListOrchestrator enum.
+func (e ContainerListOrchestrator) Valid() bool {
+	switch e {
+	case ContainerListOrchestratorContainerListOrchestratorCompose:
+		return true
+	case ContainerListOrchestratorContainerListOrchestratorKubernetes:
+		return true
+	case ContainerListOrchestratorContainerListOrchestratorStandalone:
+		return true
+	case ContainerListOrchestratorContainerListOrchestratorSwarm:
+		return true
+	case ContainerListOrchestratorContainerListOrchestratorUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ContainerListSourceScopeKind.
+const (
+	ContainerListSourceScopeKindContainerListSourceScopeKindComposeProject      ContainerListSourceScopeKind = "compose_project"
+	ContainerListSourceScopeKindContainerListSourceScopeKindComposeService      ContainerListSourceScopeKind = "compose_service"
+	ContainerListSourceScopeKindContainerListSourceScopeKindKubernetesNamespace ContainerListSourceScopeKind = "kubernetes_namespace"
+	ContainerListSourceScopeKindContainerListSourceScopeKindKubernetesPod       ContainerListSourceScopeKind = "kubernetes_pod"
+	ContainerListSourceScopeKindContainerListSourceScopeKindSwarmStack          ContainerListSourceScopeKind = "swarm_stack"
+	ContainerListSourceScopeKindContainerListSourceScopeKindSwarmTask           ContainerListSourceScopeKind = "swarm_task"
+)
+
+// Valid indicates whether the value is a known member of the ContainerListSourceScopeKind enum.
+func (e ContainerListSourceScopeKind) Valid() bool {
+	switch e {
+	case ContainerListSourceScopeKindContainerListSourceScopeKindComposeProject:
+		return true
+	case ContainerListSourceScopeKindContainerListSourceScopeKindComposeService:
+		return true
+	case ContainerListSourceScopeKindContainerListSourceScopeKindKubernetesNamespace:
+		return true
+	case ContainerListSourceScopeKindContainerListSourceScopeKindKubernetesPod:
+		return true
+	case ContainerListSourceScopeKindContainerListSourceScopeKindSwarmStack:
+		return true
+	case ContainerListSourceScopeKindContainerListSourceScopeKindSwarmTask:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ContainerListState.
 const (
 	ContainerListStateContainerListStateCreated    ContainerListState = "created"
@@ -2535,6 +2703,63 @@ func (e GetContainersParamsHealth) Valid() bool {
 	case GetContainersParamsHealthContainerListHealthUnavailable:
 		return true
 	case GetContainersParamsHealthContainerListHealthUnhealthy:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetContainersParamsOrchestrator.
+const (
+	GetContainersParamsOrchestratorContainerListOrchestratorCompose    GetContainersParamsOrchestrator = "compose"
+	GetContainersParamsOrchestratorContainerListOrchestratorKubernetes GetContainersParamsOrchestrator = "kubernetes"
+	GetContainersParamsOrchestratorContainerListOrchestratorStandalone GetContainersParamsOrchestrator = "standalone"
+	GetContainersParamsOrchestratorContainerListOrchestratorSwarm      GetContainersParamsOrchestrator = "swarm"
+	GetContainersParamsOrchestratorContainerListOrchestratorUnknown    GetContainersParamsOrchestrator = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the GetContainersParamsOrchestrator enum.
+func (e GetContainersParamsOrchestrator) Valid() bool {
+	switch e {
+	case GetContainersParamsOrchestratorContainerListOrchestratorCompose:
+		return true
+	case GetContainersParamsOrchestratorContainerListOrchestratorKubernetes:
+		return true
+	case GetContainersParamsOrchestratorContainerListOrchestratorStandalone:
+		return true
+	case GetContainersParamsOrchestratorContainerListOrchestratorSwarm:
+		return true
+	case GetContainersParamsOrchestratorContainerListOrchestratorUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetContainersParamsSourceScopeKind.
+const (
+	GetContainersParamsSourceScopeKindContainerListSourceScopeKindComposeProject      GetContainersParamsSourceScopeKind = "compose_project"
+	GetContainersParamsSourceScopeKindContainerListSourceScopeKindComposeService      GetContainersParamsSourceScopeKind = "compose_service"
+	GetContainersParamsSourceScopeKindContainerListSourceScopeKindKubernetesNamespace GetContainersParamsSourceScopeKind = "kubernetes_namespace"
+	GetContainersParamsSourceScopeKindContainerListSourceScopeKindKubernetesPod       GetContainersParamsSourceScopeKind = "kubernetes_pod"
+	GetContainersParamsSourceScopeKindContainerListSourceScopeKindSwarmStack          GetContainersParamsSourceScopeKind = "swarm_stack"
+	GetContainersParamsSourceScopeKindContainerListSourceScopeKindSwarmTask           GetContainersParamsSourceScopeKind = "swarm_task"
+)
+
+// Valid indicates whether the value is a known member of the GetContainersParamsSourceScopeKind enum.
+func (e GetContainersParamsSourceScopeKind) Valid() bool {
+	switch e {
+	case GetContainersParamsSourceScopeKindContainerListSourceScopeKindComposeProject:
+		return true
+	case GetContainersParamsSourceScopeKindContainerListSourceScopeKindComposeService:
+		return true
+	case GetContainersParamsSourceScopeKindContainerListSourceScopeKindKubernetesNamespace:
+		return true
+	case GetContainersParamsSourceScopeKindContainerListSourceScopeKindKubernetesPod:
+		return true
+	case GetContainersParamsSourceScopeKindContainerListSourceScopeKindSwarmStack:
+		return true
+	case GetContainersParamsSourceScopeKindContainerListSourceScopeKindSwarmTask:
 		return true
 	default:
 		return false
@@ -3179,8 +3404,9 @@ type ContainerDetail struct {
 	Networks       []ContainerNetwork `json:"networks"`
 
 	// OomKilled Whether Docker inspect reports the container was killed by the OOM killer.
-	OomKilled *bool           `json:"oom_killed,omitempty"`
-	Ports     []ContainerPort `json:"ports"`
+	OomKilled    *bool                      `json:"oom_killed,omitempty"`
+	Orchestrator *ContainerOrchestratorInfo `json:"orchestrator,omitempty"`
+	Ports        []ContainerPort            `json:"ports"`
 
 	// PrimaryIp Primary IP address when the runtime list summary exposes one without raw inspect.
 	PrimaryIp *string                   `json:"primary_ip,omitempty"`
@@ -3396,6 +3622,72 @@ type ContainerNetwork struct {
 	NetworkId *string `json:"network_id,omitempty"`
 }
 
+// ContainerOrchestratorInfo defines model for container-orchestrator-info.
+type ContainerOrchestratorInfo struct {
+	ActionLevel ContainerOrchestratorInfoActionLevel `json:"action_level"`
+
+	// BatchActionAllowed Whether the current orchestrator source may participate in batch dangerous actions under the effective policy.
+	BatchActionAllowed bool                                `json:"batch_action_allowed"`
+	Confidence         ContainerOrchestratorInfoConfidence `json:"confidence"`
+	ConfigFiles        *[]string                           `json:"config_files,omitempty"`
+	Container          *string                             `json:"container,omitempty"`
+
+	// DisplayName Optional fallback source label. Visible UI should still localize by type first.
+	DisplayName *string `json:"display_name,omitempty"`
+
+	// GroupDisplayName Human-readable group scope label derived from runtime metadata.
+	GroupDisplayName *string `json:"group_display_name,omitempty"`
+
+	// GroupScopeKind Stable normalized group scope kind for list/detail consumers.
+	GroupScopeKind *ContainerOrchestratorInfoGroupScopeKind `json:"group_scope_kind,omitempty"`
+
+	// GroupValue Canonical group scope value for exact filtering and grouping.
+	GroupValue *string `json:"group_value,omitempty"`
+
+	// Managed Whether the container belongs to an upper-level orchestrator or control plane.
+	Managed bool `json:"managed"`
+
+	// MemberDisplayName Human-readable member scope label derived from runtime metadata.
+	MemberDisplayName *string `json:"member_display_name,omitempty"`
+
+	// MemberScopeKind Stable normalized member scope kind for list/detail consumers.
+	MemberScopeKind *ContainerOrchestratorInfoMemberScopeKind `json:"member_scope_kind,omitempty"`
+
+	// MemberValue Canonical member scope value for exact filtering and grouping.
+	MemberValue *string `json:"member_value,omitempty"`
+	Namespace   *string `json:"namespace,omitempty"`
+	Pod         *string `json:"pod,omitempty"`
+	Project     *string `json:"project,omitempty"`
+
+	// RecommendedAction Stable recommended action code without embedded visible copy.
+	RecommendedAction *string                       `json:"recommended_action,omitempty"`
+	Service           *string                       `json:"service,omitempty"`
+	Stack             *string                       `json:"stack,omitempty"`
+	Task              *string                       `json:"task,omitempty"`
+	Type              ContainerOrchestratorInfoType `json:"type"`
+
+	// Warnings Stable warning codes without embedded visible copy.
+	Warnings []string `json:"warnings"`
+
+	// WorkingDir Compose project working directory metadata, not the runtime container working_dir field.
+	WorkingDir *string `json:"working_dir,omitempty"`
+}
+
+// ContainerOrchestratorInfoActionLevel defines model for ContainerOrchestratorInfo.ActionLevel.
+type ContainerOrchestratorInfoActionLevel string
+
+// ContainerOrchestratorInfoConfidence defines model for ContainerOrchestratorInfo.Confidence.
+type ContainerOrchestratorInfoConfidence string
+
+// ContainerOrchestratorInfoGroupScopeKind Stable normalized group scope kind for list/detail consumers.
+type ContainerOrchestratorInfoGroupScopeKind string
+
+// ContainerOrchestratorInfoMemberScopeKind Stable normalized member scope kind for list/detail consumers.
+type ContainerOrchestratorInfoMemberScopeKind string
+
+// ContainerOrchestratorInfoType defines model for ContainerOrchestratorInfo.Type.
+type ContainerOrchestratorInfoType string
+
 // ContainerPort defines model for container-port.
 type ContainerPort struct {
 	Ip          *string           `json:"ip,omitempty"`
@@ -3563,8 +3855,9 @@ type ContainerSummary struct {
 	NetworkSummary *string  `json:"network_summary,omitempty"`
 
 	// Networks Low-cost network attachment summary from the runtime list path.
-	Networks *[]ContainerNetwork `json:"networks,omitempty"`
-	Ports    []ContainerPort     `json:"ports"`
+	Networks     *[]ContainerNetwork        `json:"networks,omitempty"`
+	Orchestrator *ContainerOrchestratorInfo `json:"orchestrator,omitempty"`
+	Ports        []ContainerPort            `json:"ports"`
 
 	// PrimaryIp Primary IP address when the runtime list summary exposes one without raw inspect.
 	PrimaryIp *string                   `json:"primary_ip,omitempty"`
@@ -5796,6 +6089,15 @@ type ContainerListLimit = int
 // ContainerListOffset defines model for container-list-offset.
 type ContainerListOffset = int
 
+// ContainerListOrchestrator defines model for container-list-orchestrator.
+type ContainerListOrchestrator string
+
+// ContainerListSourceScope defines model for container-list-source-scope.
+type ContainerListSourceScope = string
+
+// ContainerListSourceScopeKind defines model for container-list-source-scope-kind.
+type ContainerListSourceScopeKind string
+
 // ContainerListState defines model for container-list-state.
 type ContainerListState string
 
@@ -6464,6 +6766,15 @@ type GetContainersParams struct {
 	// Health Optional health filter. Containers whose list row cannot cheaply determine health are excluded when a specific health filter is provided.
 	Health *GetContainersParamsHealth `form:"health,omitempty" json:"health,omitempty"`
 
+	// Orchestrator Optional orchestrator source filter resolved by the backend from runtime metadata.
+	Orchestrator *GetContainersParamsOrchestrator `form:"orchestrator,omitempty" json:"orchestrator,omitempty"`
+
+	// SourceScopeKind Exact orchestrator source scope kind filter. Must be paired with source_scope and remain compatible with the selected orchestrator type.
+	SourceScopeKind *GetContainersParamsSourceScopeKind `form:"source_scope_kind,omitempty" json:"source_scope_kind,omitempty"`
+
+	// SourceScope Exact orchestrator source scope value. Must be paired with source_scope_kind.
+	SourceScope *ContainerListSourceScope `form:"source_scope,omitempty" json:"source_scope,omitempty"`
+
 	// XGraftLocale Explicit locale override header already supported by the runtime.
 	XGraftLocale *LocaleHeader `json:"X-Graft-Locale,omitempty"`
 
@@ -6477,6 +6788,12 @@ type GetContainersParamsState string
 
 // GetContainersParamsHealth defines parameters for GetContainers.
 type GetContainersParamsHealth string
+
+// GetContainersParamsOrchestrator defines parameters for GetContainers.
+type GetContainersParamsOrchestrator string
+
+// GetContainersParamsSourceScopeKind defines parameters for GetContainers.
+type GetContainersParamsSourceScopeKind string
 
 // PostContainerBatchActionsParams defines parameters for PostContainerBatchActions.
 type PostContainerBatchActionsParams struct {

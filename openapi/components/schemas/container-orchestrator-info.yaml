@@ -1,0 +1,115 @@
+type: object
+required:
+  - type
+  - managed
+  - confidence
+  - warnings
+  - action_level
+  - batch_action_allowed
+properties:
+  type:
+    type: string
+    enum: [standalone, compose, swarm, kubernetes, unknown]
+    x-enum-varnames:
+      - ContainerOrchestratorInfoTypeStandalone
+      - ContainerOrchestratorInfoTypeCompose
+      - ContainerOrchestratorInfoTypeSwarm
+      - ContainerOrchestratorInfoTypeKubernetes
+      - ContainerOrchestratorInfoTypeUnknown
+  managed:
+    type: boolean
+    description: Whether the container belongs to an upper-level orchestrator or control plane.
+  display_name:
+    type: string
+    nullable: true
+    description: Optional fallback source label. Visible UI should still localize by type first.
+  group_scope_kind:
+    type: string
+    nullable: true
+    enum: [compose_project, swarm_stack, kubernetes_namespace]
+    x-enum-varnames:
+      - ContainerOrchestratorInfoGroupScopeKindComposeProject
+      - ContainerOrchestratorInfoGroupScopeKindSwarmStack
+      - ContainerOrchestratorInfoGroupScopeKindKubernetesNamespace
+    description: Stable normalized group scope kind for list/detail consumers.
+  group_value:
+    type: string
+    nullable: true
+    description: Canonical group scope value for exact filtering and grouping.
+  group_display_name:
+    type: string
+    nullable: true
+    description: Human-readable group scope label derived from runtime metadata.
+  member_scope_kind:
+    type: string
+    nullable: true
+    enum: [compose_service, swarm_task, kubernetes_pod]
+    x-enum-varnames:
+      - ContainerOrchestratorInfoMemberScopeKindComposeService
+      - ContainerOrchestratorInfoMemberScopeKindSwarmTask
+      - ContainerOrchestratorInfoMemberScopeKindKubernetesPod
+    description: Stable normalized member scope kind for list/detail consumers.
+  member_value:
+    type: string
+    nullable: true
+    description: Canonical member scope value for exact filtering and grouping.
+  member_display_name:
+    type: string
+    nullable: true
+    description: Human-readable member scope label derived from runtime metadata.
+  confidence:
+    type: string
+    enum: [high, medium, low]
+    x-enum-varnames:
+      - ContainerOrchestratorInfoConfidenceHigh
+      - ContainerOrchestratorInfoConfidenceMedium
+      - ContainerOrchestratorInfoConfidenceLow
+  project:
+    type: string
+    nullable: true
+  service:
+    type: string
+    nullable: true
+  stack:
+    type: string
+    nullable: true
+  namespace:
+    type: string
+    nullable: true
+  pod:
+    type: string
+    nullable: true
+  container:
+    type: string
+    nullable: true
+  task:
+    type: string
+    nullable: true
+  working_dir:
+    type: string
+    nullable: true
+    description: Compose project working directory metadata, not the runtime container working_dir field.
+  config_files:
+    type: array
+    items:
+      type: string
+  warnings:
+    type: array
+    description: Stable warning codes without embedded visible copy.
+    items:
+      type: string
+  recommended_action:
+    type: string
+    nullable: true
+    description: Stable recommended action code without embedded visible copy.
+  action_level:
+    type: string
+    enum: [readonly, warn, allow]
+    x-enum-varnames:
+      - ContainerOrchestratorInfoActionLevelReadonly
+      - ContainerOrchestratorInfoActionLevelWarn
+      - ContainerOrchestratorInfoActionLevelAllow
+  batch_action_allowed:
+    type: boolean
+    description: Whether the current orchestrator source may participate in batch dangerous actions under the effective policy.
+additionalProperties: false

@@ -27,6 +27,14 @@ export type ContainerHealth = NonNullable<ContainerSummary['health']>;
 export type ContainerAction = ContainerActionResponse['action'];
 export type ContainerMountUsageStatus = ContainerMountUsage['status'];
 
+export type ContainerOrchestratorInfo = components['schemas']['ContainerOrchestratorInfo'];
+export type ContainerOrchestratorType = ContainerOrchestratorInfo['type'];
+export type ContainerActionLevel = 'readonly' | 'warn' | 'allow';
+export type ContainerOrchestratorWarningCode = string;
+export type ContainerOrchestratorRecommendedAction = string;
+export type ContainerSummaryRecord = ContainerSummary;
+export type ContainerDetailRecord = ContainerDetail;
+
 type ContainerListPath = (typeof CONTAINER_API_PATH)['LIST'];
 type GetContainersOperation = paths[ContainerListPath]['get'];
 
@@ -40,12 +48,31 @@ type ContainerMountUsageRefreshPath = (typeof CONTAINER_API_PATH)['MOUNT_USAGE_R
 type PostContainerMountUsageRefreshOperation = paths[ContainerMountUsageRefreshPath]['post'];
 
 export type ContainerListQuery = NonNullable<GetContainersOperation['parameters']['query']>;
+export type ContainerListQueryWithOrchestrator = ContainerListQuery & {
+  orchestrator?: ContainerOrchestratorType;
+};
+export type ContainerListSourceScopeKind = NonNullable<ContainerListQuery['source_scope_kind']>;
+export type ContainerListSourceScopeQuery = Pick<
+  ContainerListQuery,
+  Extract<'source_scope_kind' | 'source_scope', keyof ContainerListQuery>
+>;
 export type ContainerLogQuery = NonNullable<GetContainerLogsOperation['parameters']['query']>;
 export type ContainerMountUsagePathParams = GetContainerMountUsageOperation['parameters']['path'];
 export type ContainerMountUsageRefreshPathParams = PostContainerMountUsageRefreshOperation['parameters']['path'];
 
+export type ContainerSourceGroupKind = Extract<
+  ContainerListSourceScopeKind,
+  'compose_project' | 'swarm_stack' | 'kubernetes_namespace'
+>;
+export type ContainerSourceMemberKind = Extract<
+  ContainerListSourceScopeKind,
+  'compose_service' | 'swarm_task' | 'kubernetes_pod'
+>;
 export type ContainerFilters = {
   keyword: string;
+  orchestrator: ContainerOrchestratorType | 'all';
+  sourceScopeKind: ContainerListSourceScopeKind | 'all';
+  sourceScope: string;
   status: ContainerState | 'all';
   health: ContainerHealth | 'all';
 };

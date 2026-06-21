@@ -41,6 +41,22 @@ const (
 	containerHealthNone        = "none"
 	containerHealthUnavailable = "unavailable"
 
+	containerOrchestratorStandalone = "standalone"
+	containerOrchestratorCompose    = "compose"
+	containerOrchestratorSwarm      = "swarm"
+	containerOrchestratorKubernetes = "kubernetes"
+	containerOrchestratorUnknown    = "unknown"
+
+	orchestratorConfidenceHigh   = "high"
+	orchestratorConfidenceMedium = "medium"
+	orchestratorConfidenceLow    = "low"
+
+	orchestratorWarningManagedActionRisk = "managed_action_risk"
+	orchestratorWarningBatchBlocked      = "batch_action_blocked"
+	orchestratorWarningReadonly          = "readonly"
+
+	recommendedActionOpenController = "open_controller"
+
 	containerStatsNotCollectedReason          = "stats_not_collected"
 	containerStatsIncompleteReason            = "stats_incomplete"
 	containerStatsTimeoutReason               = "stats_timeout"
@@ -56,9 +72,34 @@ const (
 
 	composeProjectLabel = "com.docker.compose.project"
 	composeServiceLabel = "com.docker.compose.service"
+
+	composeProjectScopeKind      = "compose_project"
+	composeServiceScopeKind      = "compose_service"
+	swarmStackScopeKind          = "swarm_stack"
+	swarmTaskScopeKind           = "swarm_task"
+	kubernetesNamespaceScopeKind = "kubernetes_namespace"
+	kubernetesPodScopeKind       = "kubernetes_pod"
 )
 
 var mountIDPattern = regexp.MustCompile(`^m_[A-Za-z0-9_-]{1,62}$`)
+
+var validContainerStates = []string{"created", "running", "paused", "restarting", "removing", "exited", "dead", "unknown"}
+var validContainerOrchestrators = []string{
+	containerOrchestratorStandalone,
+	containerOrchestratorCompose,
+	containerOrchestratorSwarm,
+	containerOrchestratorKubernetes,
+	containerOrchestratorUnknown,
+}
+
+var validContainerSourceScopeKinds = []string{
+	composeProjectScopeKind,
+	composeServiceScopeKind,
+	swarmStackScopeKind,
+	swarmTaskScopeKind,
+	kubernetesNamespaceScopeKind,
+	kubernetesPodScopeKind,
+}
 
 var (
 	errRuntimeDisabled             = errors.New("container runtime disabled")
@@ -111,11 +152,14 @@ type Ref struct {
 
 // ListQuery describes bounded list pagination and low-cost runtime filters.
 type ListQuery struct {
-	Limit   int
-	Offset  int
-	Keyword string
-	State   string
-	Health  string
+	Limit           int
+	Offset          int
+	Keyword         string
+	State           string
+	Health          string
+	Orchestrator    string
+	SourceScopeKind string
+	SourceScope     string
 }
 
 // ListResult is the service-owned list response model.
@@ -222,6 +266,7 @@ type Summary struct {
 	Health         string
 	ComposeProject string
 	ComposeService string
+	Orchestrator   OrchestratorInfo
 	CanStart       bool
 	CanStop        bool
 	CanRestart     bool
@@ -318,6 +363,33 @@ type Network struct {
 	MacAddress string
 }
 
+// OrchestratorInfo describes the resolved container source and policy semantics.
+type OrchestratorInfo struct {
+	Type               string
+	Managed            bool
+	DisplayName        string
+	Confidence         string
+	GroupScopeKind     string
+	GroupDisplayName   string
+	GroupValue         string
+	MemberScopeKind    string
+	MemberDisplayName  string
+	MemberValue        string
+	Project            string
+	Service            string
+	Stack              string
+	Namespace          string
+	Pod                string
+	Container          string
+	Task               string
+	WorkingDir         string
+	ConfigFiles        []string
+	Warnings           []string
+	RecommendedAction  string
+	ActionLevel        string
+	BatchActionAllowed bool
+}
+
 // Logs contains bounded log lines and the effective log options.
 type Logs struct {
 	ID         string
@@ -405,32 +477,96 @@ func parseRef(raw string) (Ref, error) {
 }
 
 func normalizeListQuery(query ListQuery) (ListQuery, error) {
-	if query.Limit == 0 {
-		query.Limit = defaultContainerListLimit
+	if err := normalizeListPagination(&query); err != nil {
+		return ListQuery{}, err
 	}
-	if query.Limit < 1 || query.Limit > maxContainerListLimit {
-		return ListQuery{}, errInvalidListQuery
+	if err := normalizeListKeyword(&query); err != nil {
+		return ListQuery{}, err
 	}
-	if query.Offset < 0 {
-		return ListQuery{}, errInvalidListQuery
+	if err := normalizeListEnums(&query); err != nil {
+		return ListQuery{}, err
 	}
-	query.Keyword = strings.TrimSpace(query.Keyword)
-	if len(query.Keyword) > containerListKeywordMaxLength {
-		return ListQuery{}, errInvalidListQuery
-	}
-	query.State = strings.TrimSpace(strings.ToLower(query.State))
-	if query.State != "" && !isValidContainerState(query.State) {
-		return ListQuery{}, errInvalidListQuery
-	}
-	query.Health = strings.TrimSpace(strings.ToLower(query.Health))
-	if query.Health != "" && !isValidContainerHealth(query.Health) {
-		return ListQuery{}, errInvalidListQuery
+	if err := normalizeListSourceScope(&query); err != nil {
+		return ListQuery{}, err
 	}
 	return query, nil
 }
 
+func normalizeListPagination(query *ListQuery) error {
+	if query == nil {
+		return errInvalidListQuery
+	}
+	if query.Limit == 0 {
+		query.Limit = defaultContainerListLimit
+	}
+	if query.Limit < 1 || query.Limit > maxContainerListLimit {
+		return errInvalidListQuery
+	}
+	if query.Offset < 0 {
+		return errInvalidListQuery
+	}
+	return nil
+}
+
+func normalizeListKeyword(query *ListQuery) error {
+	if query == nil {
+		return errInvalidListQuery
+	}
+	query.Keyword = strings.TrimSpace(query.Keyword)
+	if len(query.Keyword) > containerListKeywordMaxLength {
+		return errInvalidListQuery
+	}
+	return nil
+}
+
+func normalizeListEnums(query *ListQuery) error {
+	if query == nil {
+		return errInvalidListQuery
+	}
+	var err error
+	query.State, err = normalizeOptionalListEnum(query.State, isValidContainerState)
+	if err != nil {
+		return err
+	}
+	query.Health, err = normalizeOptionalListEnum(query.Health, isValidContainerHealth)
+	if err != nil {
+		return err
+	}
+	query.Orchestrator, err = normalizeOptionalListEnum(query.Orchestrator, isValidContainerOrchestrator)
+	if err != nil {
+		return err
+	}
+	query.SourceScopeKind, err = normalizeOptionalListEnum(query.SourceScopeKind, isValidContainerSourceScopeKind)
+	return err
+}
+
+func normalizeListSourceScope(query *ListQuery) error {
+	if query == nil {
+		return errInvalidListQuery
+	}
+	query.SourceScope = strings.TrimSpace(query.SourceScope)
+	if (query.SourceScopeKind == "") != (query.SourceScope == "") {
+		return errInvalidListQuery
+	}
+	if query.SourceScope == "" {
+		return nil
+	}
+	if !sourceScopeKindCompatibleWithOrchestrator(query.Orchestrator, query.SourceScopeKind) {
+		return errInvalidListQuery
+	}
+	return nil
+}
+
+func normalizeOptionalListEnum(value string, valid func(string) bool) (string, error) {
+	value = strings.TrimSpace(strings.ToLower(value))
+	if value != "" && !valid(value) {
+		return "", errInvalidListQuery
+	}
+	return value, nil
+}
+
 func isValidContainerState(state string) bool {
-	return slices.Contains([]string{"created", "running", "paused", "restarting", "removing", "exited", "dead", "unknown"}, state)
+	return slices.Contains(validContainerStates, state)
 }
 
 // isValidContainerHealth reports whether a health state is valid.
@@ -442,6 +578,14 @@ func isValidContainerHealth(health string) bool {
 		containerHealthNone,
 		containerHealthUnavailable,
 	}, health)
+}
+
+func isValidContainerOrchestrator(value string) bool {
+	return slices.Contains(validContainerOrchestrators, value)
+}
+
+func isValidContainerSourceScopeKind(value string) bool {
+	return slices.Contains(validContainerSourceScopeKinds, value)
 }
 
 // isValidMountID reports whether value is a valid mount ID.

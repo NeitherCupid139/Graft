@@ -4,9 +4,11 @@
 package container
 
 import (
+	"slices"
 	"testing"
 
 	containergen "graft/server/internal/contract/openapi/generated"
+	containercontract "graft/server/modules/container/contract"
 )
 
 func TestToDetailMapsHealthcheckAndRuntimeStability(t *testing.T) {
@@ -14,6 +16,7 @@ func TestToDetailMapsHealthcheckAndRuntimeStability(t *testing.T) {
 
 	mapped := toDetail(detailWithHealthcheckAndRuntimeStability())
 	assertMappedHealthcheck(t, mapped.Healthcheck)
+	assertMappedOrchestrator(t, mapped.Orchestrator)
 	assertIntPtr(t, mapped.LastExitCode, 137, "mapped last exit code")
 	if mapped.OomKilled == nil || !*mapped.OomKilled {
 		t.Fatalf("expected mapped oom killed true, got %#v", mapped.OomKilled)
@@ -37,6 +40,24 @@ func detailWithHealthcheckAndRuntimeStability() Detail {
 			Health:        containerHealthUnhealthy,
 			RestartCount:  intPtrAllowZero(3),
 			RestartPolicy: "unless-stopped",
+			Orchestrator: OrchestratorInfo{
+				Type:               containerOrchestratorCompose,
+				Managed:            true,
+				GroupScopeKind:     composeProjectScopeKind,
+				GroupDisplayName:   "graft",
+				GroupValue:         "graft",
+				MemberScopeKind:    composeServiceScopeKind,
+				MemberDisplayName:  "web",
+				MemberValue:        "web",
+				Project:            "graft",
+				Service:            "web",
+				DisplayName:        "graft",
+				Confidence:         orchestratorConfidenceHigh,
+				ActionLevel:        containercontract.ContainerOrchestratorActionLevelWarn.String(),
+				BatchActionAllowed: false,
+				Warnings:           []string{orchestratorWarningManagedActionRisk, orchestratorWarningBatchBlocked},
+				RecommendedAction:  recommendedActionOpenController,
+			},
 		},
 		EnvironmentPolicy: "masked",
 		Environment: []EnvironmentVariable{
@@ -89,6 +110,72 @@ func detailWithHealthcheckAndRuntimeStability() Detail {
 		OOMKilled:        boolPtr(true),
 		RuntimeInfo:      RuntimeInfo{Runtime: runtimeNameDocker, Status: "enabled", Endpoint: "local"},
 		InspectUpdatedAt: "2026-06-17T01:32:00Z",
+	}
+}
+
+func assertMappedOrchestrator(t *testing.T, info *containergen.ContainerOrchestratorInfo) {
+	t.Helper()
+
+	if info == nil {
+		t.Fatalf("expected mapped orchestrator info")
+	}
+	assertMappedOrchestratorIdentity(t, info)
+	assertMappedOrchestratorLegacyFields(t, info)
+	assertMappedOrchestratorScopeFields(t, info)
+	assertMappedOrchestratorPolicy(t, info)
+}
+
+func assertMappedOrchestratorIdentity(t *testing.T, info *containergen.ContainerOrchestratorInfo) {
+	t.Helper()
+	if string(info.Type) != containerOrchestratorCompose || !info.Managed {
+		t.Fatalf("unexpected orchestrator identity %#v", info)
+	}
+}
+
+func assertMappedOrchestratorLegacyFields(t *testing.T, info *containergen.ContainerOrchestratorInfo) {
+	t.Helper()
+	if info.Project == nil || *info.Project != "graft" || info.Service == nil || *info.Service != "web" {
+		t.Fatalf("unexpected orchestrator project/service %#v", info)
+	}
+}
+
+func assertMappedOrchestratorScopeFields(t *testing.T, info *containergen.ContainerOrchestratorInfo) {
+	t.Helper()
+	if info.GroupScopeKind == nil || *info.GroupScopeKind != composeProjectScopeKind || info.GroupValue == nil || *info.GroupValue != "graft" {
+		t.Fatalf("unexpected orchestrator group scope %#v", info)
+	}
+	if info.MemberScopeKind == nil || *info.MemberScopeKind != composeServiceScopeKind || info.MemberValue == nil || *info.MemberValue != "web" {
+		t.Fatalf("unexpected orchestrator member scope %#v", info)
+	}
+}
+
+func assertMappedOrchestratorPolicy(t *testing.T, info *containergen.ContainerOrchestratorInfo) {
+	t.Helper()
+	if string(info.ActionLevel) != containercontract.ContainerOrchestratorActionLevelWarn.String() || info.BatchActionAllowed {
+		t.Fatalf("unexpected orchestrator policy %#v", info)
+	}
+	if !slices.Contains(info.Warnings, orchestratorWarningManagedActionRisk) ||
+		!slices.Contains(info.Warnings, orchestratorWarningBatchBlocked) {
+		t.Fatalf("expected managed/batch-blocked warnings, got %#v", info.Warnings)
+	}
+}
+
+func TestToOrchestratorInfoNormalizesInvalidScopeKinds(t *testing.T) {
+	t.Parallel()
+
+	mapped := toOrchestratorInfo(OrchestratorInfo{
+		Type:            containerOrchestratorCompose,
+		Managed:         true,
+		GroupScopeKind:  " bad-group ",
+		GroupValue:      "graft",
+		MemberScopeKind: "bad-member",
+		MemberValue:     "web",
+	})
+	if mapped == nil {
+		t.Fatalf("expected mapped orchestrator info")
+	}
+	if mapped.GroupScopeKind != nil || mapped.MemberScopeKind != nil {
+		t.Fatalf("expected invalid scope kinds to be dropped, got %#v", mapped)
 	}
 }
 

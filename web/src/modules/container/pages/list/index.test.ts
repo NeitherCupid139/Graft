@@ -116,6 +116,7 @@ const translations = vi.hoisted(
     'container.list.batch.restartHint': '重启选中的 {count} 个容器。',
     'container.list.batch.selected': '已选择 {count} 个容器',
     'container.list.batch.skipInapplicable': '部分容器因当前状态或权限不适用，将被跳过。',
+    'container.list.batch.skipSourceRestricted': '其中 {count} 个容器因来源策略不允许参与批量高危操作而被跳过。',
     'container.list.batch.start': '批量启动',
     'container.list.batch.startHint': '启动选中的 {count} 个容器。',
     'container.list.batch.stop': '批量停止',
@@ -137,6 +138,7 @@ const translations = vi.hoisted(
     'container.list.columns.ports': '端口',
     'container.list.columns.restartPolicy': '重启策略',
     'container.list.columns.selection': '选择',
+    'container.list.columns.source': '来源',
     'container.list.columns.startedAt': '启动时间',
     'container.list.columns.status': '状态',
     'container.list.copyError': '日志复制失败。',
@@ -187,8 +189,14 @@ const translations = vi.hoisted(
     'container.list.fields.state': '状态码',
     'container.list.fields.status': '状态',
     'container.list.filters.allStatuses': '全部状态',
+    'container.list.filters.allOrchestrators': '全部来源',
     'container.list.filters.allHealth': '全部健康状态',
     'container.list.filters.health': '健康状态',
+    'container.list.filters.orchestrator': '来源',
+    'container.list.filters.sourceScopeKind': '来源范围',
+    'container.list.filters.allSourceScopeKinds': '全部范围',
+    'container.list.filters.sourceScopePlaceholder': '输入{kind}名称精确筛选',
+    'container.list.filters.sourceScopePlaceholderDisabled': '先选择来源范围',
     'container.list.filters.query': '查询',
     'container.list.filters.reset': '重置',
     'container.list.filters.searchPlaceholder': '搜索名称、镜像、ID 或端口',
@@ -239,6 +247,19 @@ const translations = vi.hoisted(
     'container.list.states.restarting': '重启中',
     'container.list.states.running': '运行中',
     'container.list.states.unknown': '未知',
+    'container.list.orchestrators.compose': 'Compose',
+    'container.list.orchestrators.kubernetes': 'Kubernetes',
+    'container.list.orchestrators.standalone': '独立容器',
+    'container.list.orchestrators.swarm': 'Swarm',
+    'container.list.orchestrators.unknown': '未知来源',
+    'container.list.sourceKinds.compose_project': '项目',
+    'container.list.sourceKinds.compose_service': '服务',
+    'container.list.sourceKinds.swarm_stack': 'Stack',
+    'container.list.sourceKinds.swarm_task': '任务',
+    'container.list.sourceKinds.kubernetes_namespace': '命名空间',
+    'container.list.sourceKinds.kubernetes_pod': 'Pod',
+    'container.list.sourceUnknownSummary': '未提供来源摘要',
+    'container.list.actions.sourceRisk': '该容器来自 {source}，执行高危操作前请确认上层编排状态。',
     'container.list.health.healthy': '健康',
     'container.list.health.unhealthy': '异常',
     'container.list.health.starting': '启动中',
@@ -286,13 +307,17 @@ vi.mock('tdesign-icons-vue-next', () => ({
   SearchIcon: defineComponent({ name: 'SearchIcon', setup: () => () => h('span') }),
 }));
 
-vi.mock('vue-i18n', () => ({
-  useI18n: () => ({
-    locale: 'zh-CN',
-    t: (key: string, params?: Record<string, unknown>) =>
-      (translations[key] ?? key).replace(/\{(\w+)\}/g, (_, name) => String(params?.[name] ?? `{${name}}`)),
-  }),
-}));
+vi.mock('vue-i18n', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('vue-i18n')>();
+  return {
+    ...actual,
+    useI18n: () => ({
+      locale: 'zh-CN',
+      t: (key: string, params?: Record<string, unknown>) =>
+        (translations[key] ?? key).replace(/\{(\w+)\}/g, (_, name) => String(params?.[name] ?? `{${name}}`)),
+    }),
+  };
+});
 
 vi.mock('vue-router', () => ({
   useRouter: () => routerMocks,
@@ -403,6 +428,22 @@ describe('container list page', () => {
       },
       primary_ip: '172.18.0.2',
       network_summary: 'bridge',
+      orchestrator: {
+        type: 'compose',
+        managed: true,
+        confidence: 'high',
+        project: 'graft',
+        service: 'web',
+        group_scope_kind: 'compose_project',
+        group_value: 'graft',
+        group_display_name: 'graft',
+        member_scope_kind: 'compose_service',
+        member_value: 'web',
+        member_display_name: 'web',
+        warnings: [],
+        action_level: 'allow',
+        batch_action_allowed: true,
+      },
       can_start: false,
       can_stop: true,
       can_restart: true,
@@ -481,6 +522,10 @@ describe('container list page', () => {
     expect(wrapper.text()).toContain('操作已启用');
     expect(wrapper.text()).toContain('graft-web');
     expect(wrapper.text()).toContain('graft/web:latest');
+    expect(wrapper.text()).toContain('项目');
+    expect(wrapper.text()).toContain('graft');
+    expect(wrapper.text()).toContain('服务');
+    expect(wrapper.text()).toContain('web');
     expect(wrapper.text()).toContain('21.8%');
     expect(wrapper.text()).toContain('256.0 MiB');
     expect(wrapper.text()).toContain('未采集');
@@ -503,31 +548,9 @@ describe('container list page', () => {
     expect(wrapper.text()).not.toContain('graft-extra-21');
   });
 
-  it('navigates safe read actions to the container detail route tabs', async () => {
+  it('navigates safe read actions to the non-overview detail tabs', async () => {
     const wrapper = mountPage();
     await flushPromises();
-
-    await wrapper.get('[data-testid="container-action-detail"]').trigger('click');
-    await flushPromises();
-
-    expect(tabsRouterStoreMock.appendTabRouterList).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        fullPath: '/ops/containers/container-1?tab=overview',
-        path: '/ops/containers/container-1',
-        query: { tab: 'overview' },
-        tabKey: '/ops/containers/container-1',
-        title: {
-          [LOCALE.ZH_CN]: '容器详情 - graft-web',
-          [LOCALE.EN_US]: 'Container Detail - graft-web',
-        },
-      }),
-    );
-    expect(tabsRouterStoreMock.setActiveTabKey).toHaveBeenLastCalledWith('/ops/containers/container-1');
-    expect(routerMocks.push).toHaveBeenCalledWith({
-      name: 'ContainerDetailIndex',
-      params: { id: 'container-1' },
-      query: { tab: 'overview' },
-    });
 
     await wrapper.get('[data-testid="container-action-logs"]').trigger('click');
     await flushPromises();
@@ -607,6 +630,7 @@ describe('container list page', () => {
       'state',
       'name',
       'image',
+      'source',
       'cpu',
       'memory',
       'ports',
@@ -625,6 +649,7 @@ describe('container list page', () => {
       'state',
       'name',
       'image',
+      'source',
       'cpu',
       'memory',
       'ports',
@@ -655,6 +680,7 @@ describe('container list page', () => {
       keyword: undefined,
       limit: 20,
       offset: 20,
+      orchestrator: undefined,
       state: undefined,
     });
     expect(wrapper.text()).toContain('第 21-25 条 / 共 25 条');
@@ -665,6 +691,141 @@ describe('container list page', () => {
     await wrapper.get('[data-testid="table-density"]').trigger('click');
     await flushPromises();
     expect(wrapper.get('[data-testid="container-table"]').attributes('data-size')).toBe('small');
+  });
+
+  it('applies source quick filters for group and member entry points', async () => {
+    const wrapper = mountPage();
+    await flushPromises();
+
+    const groupFilters = wrapper.findAll('[data-testid="container-source-group-filter"]');
+    expect(groupFilters.length).toBeGreaterThan(0);
+    await groupFilters[0].trigger('click');
+    await flushPromises();
+
+    expect(apiMocks.getContainers).toHaveBeenLastCalledWith({
+      health: undefined,
+      keyword: undefined,
+      limit: 20,
+      offset: 0,
+      orchestrator: 'compose',
+      source_scope: 'graft',
+      source_scope_kind: 'compose_project',
+      state: undefined,
+    });
+
+    const memberFilters = wrapper.findAll('[data-testid="container-source-member-filter"]');
+    expect(memberFilters.length).toBeGreaterThan(0);
+    await memberFilters[0].trigger('click');
+    await flushPromises();
+
+    expect(apiMocks.getContainers).toHaveBeenLastCalledWith({
+      health: undefined,
+      keyword: undefined,
+      limit: 20,
+      offset: 0,
+      orchestrator: 'compose',
+      source_scope: 'web',
+      source_scope_kind: 'compose_service',
+      state: undefined,
+    });
+  });
+
+  it('supports explicit toolbar source scope filtering for compose projects', async () => {
+    const wrapper = mountPage();
+    await flushPromises();
+
+    await wrapper.get('[data-testid="container-filter-orchestrator"]').setValue('compose');
+    expect((wrapper.get('[data-testid="container-filter-source-scope-kind"]').element as HTMLSelectElement).value).toBe(
+      'compose_project',
+    );
+    await wrapper.get('[data-testid="container-filter-source-scope"]').setValue('graft');
+    await wrapper.get('[data-testid="container-filter-apply"]').trigger('click');
+    await flushPromises();
+
+    expect(apiMocks.getContainers).toHaveBeenLastCalledWith({
+      health: undefined,
+      keyword: undefined,
+      limit: 20,
+      offset: 0,
+      orchestrator: 'compose',
+      source_scope: 'graft',
+      source_scope_kind: 'compose_project',
+      state: undefined,
+    });
+  });
+
+  it('keeps the submitted source scope query stable until filters are applied again', async () => {
+    const wrapper = mountPage();
+    await flushPromises();
+
+    await wrapper.get('[data-testid="container-filter-orchestrator"]').setValue('compose');
+    await wrapper.get('[data-testid="container-filter-source-scope"]').setValue('graft');
+    await wrapper.get('[data-testid="container-filter-apply"]').trigger('click');
+    await flushPromises();
+
+    expect(apiMocks.getContainers).toHaveBeenLastCalledWith({
+      health: undefined,
+      keyword: undefined,
+      limit: 20,
+      offset: 0,
+      orchestrator: 'compose',
+      source_scope: 'graft',
+      source_scope_kind: 'compose_project',
+      state: undefined,
+    });
+
+    await wrapper.get('[data-testid="container-filter-source-scope"]').setValue('draft-change');
+    await wrapper.get('[data-testid="table-refresh"]').trigger('click');
+    await flushPromises();
+
+    expect(apiMocks.getContainers).toHaveBeenLastCalledWith({
+      health: undefined,
+      keyword: undefined,
+      limit: 20,
+      offset: 0,
+      orchestrator: 'compose',
+      source_scope: 'graft',
+      source_scope_kind: 'compose_project',
+      state: undefined,
+    });
+
+    await wrapper.get('[data-testid="container-filter-apply"]').trigger('click');
+    await flushPromises();
+
+    expect(apiMocks.getContainers).toHaveBeenLastCalledWith({
+      health: undefined,
+      keyword: undefined,
+      limit: 20,
+      offset: 0,
+      orchestrator: 'compose',
+      source_scope: 'draft-change',
+      source_scope_kind: 'compose_project',
+      state: undefined,
+    });
+  });
+
+  it('clears incompatible toolbar source scope kinds when orchestrator changes', async () => {
+    const wrapper = mountPage();
+    await flushPromises();
+
+    await wrapper.get('[data-testid="container-filter-source-scope-kind"]').setValue('compose_project');
+    await wrapper.get('[data-testid="container-filter-source-scope"]').setValue('graft');
+    await wrapper.get('[data-testid="container-filter-orchestrator"]').setValue('swarm');
+    expect((wrapper.get('[data-testid="container-filter-source-scope-kind"]').element as HTMLSelectElement).value).toBe(
+      'swarm_stack',
+    );
+    await wrapper.get('[data-testid="container-filter-apply"]').trigger('click');
+    await flushPromises();
+
+    expect((wrapper.get('[data-testid="container-filter-source-scope"]').element as HTMLInputElement).value).toBe('');
+    expect(apiMocks.getContainers).toHaveBeenLastCalledWith({
+      health: undefined,
+      keyword: undefined,
+      limit: 20,
+      offset: 0,
+      orchestrator: 'swarm',
+      state: undefined,
+    });
   });
 
   it('builds dangerous actions from row availability and submits confirmed runtime actions', async () => {
@@ -681,11 +842,11 @@ describe('container list page', () => {
 
     expect(dialogMocks.confirm).toHaveBeenCalledWith(
       expect.objectContaining({
-        body: '确认停止容器 graft-web？',
         header: '确认停止容器',
         theme: 'danger',
       }),
     );
+    expect(renderDialogBodyText(dialogMocks.confirm.mock.calls.at(-1)?.[0].body)).toContain('确认停止容器 graft-web？');
     await dialogMocks.confirm.mock.calls.at(-1)?.[0].onConfirm();
     await flushPromises();
 
@@ -1019,6 +1180,25 @@ function createContainerRows(count: number, startOrdinal = 1) {
             },
       compose_project: ordinal === 1 ? 'graft' : undefined,
       compose_service: ordinal === 1 ? 'web' : undefined,
+      orchestrator:
+        ordinal === 1
+          ? {
+              type: 'compose' as const,
+              managed: true,
+              confidence: 'high' as const,
+              project: 'graft',
+              service: 'web',
+              group_scope_kind: 'compose_project' as const,
+              group_value: 'graft',
+              group_display_name: 'graft',
+              member_scope_kind: 'compose_service' as const,
+              member_value: 'web',
+              member_display_name: 'web',
+              warnings: [],
+              action_level: 'allow' as const,
+              batch_action_allowed: true,
+            }
+          : undefined,
       can_start: ordinal !== 1,
       can_stop: ordinal === 1,
       can_restart: true,
@@ -1241,12 +1421,14 @@ function mountPage() {
               h('div', slots.default?.()),
         }),
         't-input': defineComponent({
-          props: ['modelValue'],
+          props: ['modelValue', 'disabled'],
           emits: ['update:modelValue', 'enter'],
           setup:
-            (props, { emit }) =>
+            (props, { attrs, emit }) =>
             () =>
               h('input', {
+                ...attrs,
+                disabled: Boolean(props.disabled),
                 value: props.modelValue,
                 onInput: (event: Event) => emit('update:modelValue', (event.target as HTMLInputElement).value),
                 onKeydown: (event: KeyboardEvent) => {
@@ -1312,14 +1494,16 @@ function mountPage() {
           setup: (props) => () => h('span', { 'data-testid': 'resource-progress' }, String(props.percentage ?? 0)),
         }),
         't-select': defineComponent({
-          props: ['modelValue'],
+          props: ['modelValue', 'disabled'],
           emits: ['update:modelValue'],
           setup:
-            (props, { emit, slots }) =>
+            (props, { attrs, emit, slots }) =>
             () =>
               h(
                 'select',
                 {
+                  ...attrs,
+                  disabled: Boolean(props.disabled),
                   value: props.modelValue,
                   onInput: (event: Event) => emit('update:modelValue', (event.target as HTMLSelectElement).value),
                 },
@@ -1363,6 +1547,7 @@ function mountPage() {
                           slots.state?.({ row }),
                           slots.name?.({ row }),
                           slots.image?.({ row }),
+                          slots.source?.({ row }),
                           slots.cpu?.({ row }),
                           slots.memory?.({ row }),
                           slots.ports?.({ row }),

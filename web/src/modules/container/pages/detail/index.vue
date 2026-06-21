@@ -111,6 +111,32 @@
             </div>
           </t-card>
           <t-card
+            class="container-detail-summary-card container-detail-summary-card--source"
+            size="small"
+            :bordered="false"
+            :title="t('container.detail.summary.source')"
+          >
+            <div class="container-detail-summary-list">
+              <div class="container-detail-kv container-detail-kv--inline">
+                <span>{{ t('container.detail.source.type') }}</span>
+                <t-tag :theme="orchestratorTheme(safeDetail)" variant="light-outline">
+                  {{ orchestratorLabel(readOrchestratorType(safeDetail)) }}
+                </t-tag>
+              </div>
+              <div class="container-detail-kv">
+                <span>{{ t('container.detail.source.summary') }}</span>
+                <strong>{{ orchestratorSummary(safeDetail) }}</strong>
+              </div>
+              <div class="container-detail-kv">
+                <span>{{ t('container.detail.source.actionPolicy') }}</span>
+                <strong>{{ actionLevelLabel(safeDetail) }}</strong>
+              </div>
+              <div v-if="orchestratorRiskHint(safeDetail)" class="container-detail-kv container-detail-kv--full">
+                <t-alert theme="warning" :message="orchestratorRiskHint(safeDetail)" />
+              </div>
+            </div>
+          </t-card>
+          <t-card
             class="container-detail-summary-card container-detail-summary-card--resources"
             size="small"
             :bordered="false"
@@ -397,7 +423,7 @@
 
             <t-tab-panel value="shell" :label="t('container.detail.tabs.shell')" :destroy-on-hide="false">
               <section
-                class="container-detail-section container-detail-section--shell container-detail-tab-body container-detail-tab-body--short"
+                class="container-detail-section container-detail-section--shell container-detail-tab-body container-detail-tab-body--terminal"
               >
                 <container-shell-panel
                   :active="activeTab === 'shell'"
@@ -576,7 +602,7 @@
 
             <t-tab-panel value="config" :label="t('container.detail.tabs.config')" :destroy-on-hide="false">
               <section
-                class="container-detail-section container-detail-section--config container-detail-tab-body container-detail-tab-body--compact"
+                class="container-detail-section container-detail-section--config container-detail-tab-body container-detail-tab-body--long"
               >
                 <div class="container-config-section">
                   <h3>{{ t('container.detail.config.runtimeTitle') }}</h3>
@@ -741,7 +767,7 @@
 
             <t-tab-panel value="network" :label="t('container.detail.tabs.network')" :destroy-on-hide="false">
               <section
-                class="container-detail-section container-detail-section--network container-detail-tab-body container-detail-tab-body--short"
+                class="container-detail-section container-detail-section--network container-detail-tab-body container-detail-tab-body--long"
               >
                 <section class="container-network-panel">
                   <header class="container-network-panel__header">
@@ -949,7 +975,7 @@
 
             <t-tab-panel value="storage" :label="t('container.detail.tabs.storage')" :destroy-on-hide="false">
               <section
-                class="container-detail-section container-detail-section--storage container-detail-tab-body container-detail-tab-body--short"
+                class="container-detail-section container-detail-section--storage container-detail-tab-body container-detail-tab-body--long"
               >
                 <div v-if="mountCards.length" class="container-mount-card-grid">
                   <article
@@ -1143,12 +1169,15 @@ import {
 import ContainerRawJsonPanel from '../../components/ContainerRawJsonPanel.vue';
 import ContainerShellPanel from '../../components/ContainerShellPanel.vue';
 import type {
+  ContainerActionLevel,
   ContainerDetail,
+  ContainerDetailRecord,
   ContainerHealth,
   ContainerHealthcheck,
   ContainerLogResponse,
   ContainerMount,
   ContainerMountUsage,
+  ContainerOrchestratorType,
   ContainerState,
 } from '../../types/container';
 import ContainerOverviewPanel from './components/ContainerOverviewPanel.vue';
@@ -1234,7 +1263,7 @@ type MountCard = {
   usageTheme: MountTagTheme;
   usageTone: MountCardUsageTone;
 };
-type SafeContainerDetail = ContainerDetail & {
+type SafeContainerDetail = ContainerDetailRecord & {
   command: string[];
   entrypoint: string[];
   environment: NonNullable<ContainerDetail['environment']>;
@@ -1332,7 +1361,7 @@ const router = useRouter();
 const tabsRouterStore = useTabsRouterStore();
 const logger = createLogger('container.detail');
 
-const detail = ref<ContainerDetail | null>(null);
+const detail = ref<ContainerDetailRecord | null>(null);
 const detailRefreshing = ref(false);
 const error = ref('');
 const logs = ref<ContainerLogResponse | null>(null);
@@ -2671,6 +2700,66 @@ function stateLabel(state: ContainerState) {
   return t(`container.list.states.${state}`);
 }
 
+function readOrchestratorType(detailRecord?: SafeContainerDetail | null): ContainerOrchestratorType {
+  return detailRecord?.orchestrator?.type || 'standalone';
+}
+
+function orchestratorLabel(type: ContainerOrchestratorType) {
+  return t(`container.list.orchestrators.${type}`);
+}
+
+function orchestratorTheme(detailRecord?: SafeContainerDetail | null) {
+  const type = readOrchestratorType(detailRecord);
+  if (type === 'standalone') return 'success';
+  if (type === 'compose') return 'warning';
+  if (type === 'unknown') return 'danger';
+  return 'default';
+}
+
+function orchestratorSummary(detailRecord?: SafeContainerDetail | null) {
+  const orchestrator = detailRecord?.orchestrator;
+  if (!orchestrator) {
+    return orchestratorLabel(readOrchestratorType(detailRecord));
+  }
+
+  return (
+    orchestrator.service ||
+    orchestrator.project ||
+    orchestrator.stack ||
+    orchestrator.namespace ||
+    orchestrator.pod ||
+    orchestrator.display_name ||
+    t('container.detail.source.summaryUnknown')
+  );
+}
+
+function readActionLevel(detailRecord?: SafeContainerDetail | null): ContainerActionLevel {
+  if (detailRecord?.orchestrator?.action_level) {
+    return detailRecord.orchestrator.action_level;
+  }
+
+  return detailRecord?.can_start || detailRecord?.can_stop || detailRecord?.can_restart || detailRecord?.can_remove
+    ? 'allow'
+    : 'readonly';
+}
+
+function actionLevelLabel(detailRecord?: SafeContainerDetail | null) {
+  return t(`container.detail.source.actionLevels.${readActionLevel(detailRecord)}`);
+}
+
+function orchestratorRiskHint(detailRecord?: SafeContainerDetail | null) {
+  const level = readActionLevel(detailRecord);
+  if (level === 'warn') {
+    return t('container.detail.source.riskWarn', { source: orchestratorLabel(readOrchestratorType(detailRecord)) });
+  }
+  if (level === 'readonly') {
+    return t('container.detail.source.riskReadonly', {
+      source: orchestratorLabel(readOrchestratorType(detailRecord)),
+    });
+  }
+  return '';
+}
+
 function resolveHealthDiagnosis(nextDetail: ContainerDetail) {
   if (nextDetail.state === 'exited' || nextDetail.state === 'dead') {
     return {
@@ -3641,18 +3730,19 @@ function portLabel(port: ContainerDetail['ports'][number]) {
  * their internal scrolling so the page does not fight a second nested scrollbar.
  */
 .container-detail-tab-body {
-  --container-detail-tab-body-min-height: clamp(280px, calc(100vh - var(--graft-page-bottom-safe-area) - 420px), 520px);
+  --container-detail-tab-body-min-height: clamp(360px, calc(100vh - var(--graft-page-bottom-safe-area) - 360px), 640px);
 
   height: var(--container-detail-tab-body-min-height);
   min-height: var(--container-detail-tab-body-min-height);
 }
 
-.container-detail-tab-body--short {
-  --container-detail-tab-body-min-height: clamp(320px, calc(100vh - var(--graft-page-bottom-safe-area) - 420px), 520px);
+.container-detail-tab-body--long {
+  --container-detail-tab-body-min-height: clamp(420px, calc(100vh - var(--graft-page-bottom-safe-area) - 330px), 720px);
 }
 
-.container-detail-tab-body--compact {
-  --container-detail-tab-body-min-height: clamp(280px, calc(100vh - var(--graft-page-bottom-safe-area) - 460px), 440px);
+.container-detail-tab-body--terminal {
+  --container-detail-tab-body-min-height: clamp(320px, calc(100vh - var(--graft-page-bottom-safe-area) - 420px), 520px);
+  --container-shell-terminal-height: var(--container-detail-tab-body-min-height);
 }
 
 .container-detail-section {

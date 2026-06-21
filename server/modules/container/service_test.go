@@ -6,6 +6,7 @@ package container
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -621,6 +622,69 @@ func TestServiceBatchActionAllowsPartialSuccess(t *testing.T) {
 	}
 }
 
+func TestServiceBatchActionBlocksWarnManagedContainers(t *testing.T) {
+	t.Parallel()
+
+	runtime := &managedActionRuntime{
+		detail: Detail{
+			Summary: Summary{
+				ID:        "web",
+				Name:      "graft-web",
+				Image:     "graft/web:latest",
+				Runtime:   runtimeNameDocker,
+				State:     "running",
+				Status:    "Up",
+				CreatedAt: "2026-06-14T00:00:00Z",
+				Orchestrator: OrchestratorInfo{
+					Type:            containerOrchestratorCompose,
+					Managed:         true,
+					GroupScopeKind:  composeProjectScopeKind,
+					GroupValue:      "graft",
+					MemberScopeKind: composeServiceScopeKind,
+					MemberValue:     "web",
+				},
+			},
+		},
+	}
+	service, err := newService(containerServiceOptions{
+		runtime: runtime,
+		systemConfig: serviceTestPolicyConfig{
+			serviceTestSystemConfig: serviceTestSystemConfig{values: map[string]bool{
+				containercontract.ContainerRuntimeEnabledConfig.String():          true,
+				containercontract.ContainerDangerousActionsEnabledConfig.String(): true,
+			}},
+			values: map[string]string{
+				containercontract.ContainerComposeActionLevelConfig.String(): string(mustRawJSON("warn")),
+			},
+		},
+		enabled:                 true,
+		dangerousActionsEnabled: true,
+		defaultTail:             defaultContainerLogsDefaultTail,
+		maxTail:                 defaultContainerLogsMaxTail,
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	result, err := service.BatchAction(context.Background(), BatchActionCommand{
+		Action: containerActionRemove,
+		IDs:    []string{"web"},
+		Force:  true,
+	})
+	if err != nil {
+		t.Fatalf("batch action should aggregate policy failures, got %v", err)
+	}
+	if result.SuccessCount != 0 || result.FailedCount != 1 || len(result.Items) != 1 {
+		t.Fatalf("unexpected batch result %#v", result)
+	}
+	if result.Items[0].Success {
+		t.Fatalf("expected warn-managed batch action to be blocked, got %#v", result.Items[0])
+	}
+	if result.Items[0].ErrorCode != containercontract.ContainerDangerousActionsDisabled.String() {
+		t.Fatalf("expected dangerous-action-disabled message key, got %#v", result.Items[0])
+	}
+}
+
 func TestServiceListFiltersHealth(t *testing.T) {
 	t.Parallel()
 
@@ -631,6 +695,95 @@ func TestServiceListFiltersHealth(t *testing.T) {
 	}
 	if healthResult.Total != 1 || healthResult.Items[0].Name != "cache" {
 		t.Fatalf("unexpected health-filtered result %#v", healthResult)
+	}
+}
+
+func TestServiceRunActionBlocksUnknownManagedPolicyWhenDetailFails(t *testing.T) {
+	t.Parallel()
+
+	runtime := &managedActionRuntime{
+		detailErr: errors.New("inspect unavailable"),
+		removeResult: ActionResult{
+			ID:           "web",
+			Action:       containerActionRemove,
+			Runtime:      runtimeNameDocker,
+			Result:       actionResultCompleted,
+			StatusBefore: "running",
+			StatusAfter:  actionStatusRemoved,
+		},
+	}
+	service, err := newService(containerServiceOptions{
+		runtime:                 runtime,
+		enabled:                 true,
+		dangerousActionsEnabled: true,
+		orchestratorPolicies: orchestratorActionPolicies{
+			Unknown: defaultContainerUnknownActionLevel,
+		},
+		defaultTail:             defaultContainerLogsDefaultTail,
+		maxTail:                 defaultContainerLogsMaxTail,
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	_, err = service.Remove(context.Background(), Ref{Value: "web"}, RemoveOptions{Force: true})
+	if !errors.Is(err, errDangerousActionsDisabled) {
+		t.Fatalf("expected unknown-policy guard to block action when detail fails, got %v", err)
+	}
+	if runtime.removeCalls.Load() != 0 {
+		t.Fatalf("expected runtime action to stay blocked, got %d remove calls", runtime.removeCalls.Load())
+	}
+}
+
+func TestServiceListFiltersOrchestratorAndAppliesPolicy(t *testing.T) {
+	t.Parallel()
+
+	service, err := newService(containerServiceOptions{
+		runtime: listRuntime{},
+		systemConfig: serviceTestPolicyConfig{
+			serviceTestSystemConfig: serviceTestSystemConfig{values: map[string]bool{
+				containercontract.ContainerRuntimeEnabledConfig.String():          true,
+				containercontract.ContainerDangerousActionsEnabledConfig.String(): true,
+			}},
+			values: map[string]string{
+				containercontract.ContainerComposeActionLevelConfig.String(): string(mustRawJSON("warn")),
+			},
+		},
+		enabled:                 true,
+		dangerousActionsEnabled: true,
+		defaultTail:             defaultContainerLogsDefaultTail,
+		maxTail:                 defaultContainerLogsMaxTail,
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	result, err := service.List(context.Background(), ListQuery{Orchestrator: containerOrchestratorCompose})
+	if err != nil {
+		t.Fatalf("list by orchestrator: %v", err)
+	}
+	if result.Total != 1 || len(result.Items) != 1 {
+		t.Fatalf("expected one compose item, got %#v", result)
+	}
+	item := result.Items[0]
+	if item.Name != "graft-web" {
+		t.Fatalf("unexpected compose item %#v", item)
+	}
+	if item.Orchestrator.Type != containerOrchestratorCompose {
+		t.Fatalf("expected compose orchestrator, got %#v", item.Orchestrator)
+	}
+	if item.Orchestrator.ActionLevel != containercontract.ContainerOrchestratorActionLevelWarn.String() {
+		t.Fatalf("expected warn action level, got %#v", item.Orchestrator)
+	}
+	if item.Orchestrator.BatchActionAllowed {
+		t.Fatalf("expected warn policy to block batch actions, got %#v", item.Orchestrator)
+	}
+	if !item.CanStop || !item.CanRestart || !item.CanRemove || item.CanStart {
+		t.Fatalf("expected warn policy to keep eligible single-item dangerous actions available, got %#v", item)
+	}
+	if !slices.Contains(item.Orchestrator.Warnings, orchestratorWarningManagedActionRisk) ||
+		!slices.Contains(item.Orchestrator.Warnings, orchestratorWarningBatchBlocked) {
+		t.Fatalf("expected managed and batch-blocked warnings, got %#v", item.Orchestrator.Warnings)
 	}
 }
 
@@ -1128,13 +1281,17 @@ var _ moduleapi.SystemConfigResolver = serviceTestSystemConfig{}
 type serviceTestPolicyConfig struct {
 	serviceTestSystemConfig
 	policy string
+	values map[string]string
 }
 
 func (r serviceTestPolicyConfig) ResolveDefaultConfig(_ context.Context, key string) (string, error) {
-	if key != containercontract.ContainerEnvironmentPolicyConfig.String() || strings.TrimSpace(r.policy) == "" {
-		return "", errors.New("config unavailable")
+	if value, ok := r.values[key]; ok && strings.TrimSpace(value) != "" {
+		return value, nil
 	}
-	return string(mustRawJSON(r.policy)), nil
+	if key == containercontract.ContainerEnvironmentPolicyConfig.String() && strings.TrimSpace(r.policy) != "" {
+		return string(mustRawJSON(r.policy)), nil
+	}
+	return "", errors.New("config unavailable")
 }
 
 type countingRuntime struct {
@@ -1224,49 +1381,117 @@ func (listRuntime) Info(context.Context) (RuntimeInfo, error) {
 func (listRuntime) List(context.Context, ListQuery) ([]Summary, error) {
 	return []Summary{
 		{
-			ID:         "111111111111abcdef",
-			ShortID:    "111111111111",
-			Name:       "graft-web",
-			Names:      []string{"graft-web"},
-			Image:      "graft/web:latest",
-			Runtime:    runtimeNameDocker,
-			CreatedAt:  "2026-06-14T00:00:00Z",
-			State:      "running",
-			Status:     "Up",
-			Health:     containerHealthHealthy,
-			Ports:      []Port{{PrivatePort: 80, PublicPort: intPtr(8080), Type: "tcp"}},
-			Labels:     map[string]string{composeProjectLabel: "graft", composeServiceLabel: "web"},
+			ID:        "111111111111abcdef",
+			ShortID:   "111111111111",
+			Name:      "graft-web",
+			Names:     []string{"graft-web"},
+			Image:     "graft/web:latest",
+			Runtime:   runtimeNameDocker,
+			CreatedAt: "2026-06-14T00:00:00Z",
+			State:     "running",
+			Status:    "Up",
+			Health:    containerHealthHealthy,
+			Ports:     []Port{{PrivatePort: 80, PublicPort: intPtr(8080), Type: "tcp"}},
+			Labels:    map[string]string{composeProjectLabel: "graft", composeServiceLabel: "web"},
+			Orchestrator: OrchestratorInfo{
+				Type:            containerOrchestratorCompose,
+				Managed:         true,
+				GroupScopeKind:  composeProjectScopeKind,
+				GroupValue:      "graft",
+				MemberScopeKind: composeServiceScopeKind,
+				MemberValue:     "web",
+				Project:         "graft",
+				Service:         "web",
+				Confidence:      orchestratorConfidenceHigh,
+			},
 			CanStop:    true,
 			CanRestart: true,
 		},
 		{
-			ID:         "222222222222abcdef",
-			ShortID:    "222222222222",
-			Name:       "graft-worker",
-			Names:      []string{"graft-worker"},
-			Image:      "graft/worker:latest",
-			Runtime:    runtimeNameDocker,
-			CreatedAt:  "2026-06-14T00:00:00Z",
-			State:      "exited",
-			Status:     "Exited",
-			Health:     containerHealthNone,
+			ID:        "222222222222abcdef",
+			ShortID:   "222222222222",
+			Name:      "graft-worker",
+			Names:     []string{"graft-worker"},
+			Image:     "graft/worker:latest",
+			Runtime:   runtimeNameDocker,
+			CreatedAt: "2026-06-14T00:00:00Z",
+			State:     "exited",
+			Status:    "Exited",
+			Health:    containerHealthNone,
+			Orchestrator: OrchestratorInfo{
+				Type:            containerOrchestratorStandalone,
+				Managed:         false,
+				Confidence:      orchestratorConfidenceHigh,
+				GroupScopeKind:  "",
+				MemberScopeKind: "",
+			},
 			CanStart:   true,
 			CanRestart: true,
 		},
 		{
-			ID:         "333333333333abcdef",
-			ShortID:    "333333333333",
-			Name:       "cache",
-			Names:      []string{"cache"},
-			Image:      "redis:latest",
-			Runtime:    runtimeNameDocker,
-			CreatedAt:  "2026-06-14T00:00:00Z",
-			State:      "running",
-			Status:     "Up",
+			ID:        "333333333333abcdef",
+			ShortID:   "333333333333",
+			Name:      "cache",
+			Names:     []string{"cache"},
+			Image:     "redis:latest",
+			Runtime:   runtimeNameDocker,
+			CreatedAt: "2026-06-14T00:00:00Z",
+			State:     "running",
+			Status:    "Up",
+			Orchestrator: OrchestratorInfo{
+				Type:            containerOrchestratorUnknown,
+				Managed:         true,
+				Confidence:      orchestratorConfidenceLow,
+				GroupScopeKind:  "",
+				MemberScopeKind: "",
+			},
 			CanStop:    true,
 			CanRestart: true,
 		},
 	}, nil
+}
+
+func TestServiceListFiltersExactSourceScope(t *testing.T) {
+	t.Parallel()
+
+	service := newListTestService(t, true)
+
+	result, err := service.List(context.Background(), ListQuery{
+		Orchestrator:    containerOrchestratorCompose,
+		SourceScopeKind: composeProjectScopeKind,
+		SourceScope:     "graft",
+	})
+	if err != nil {
+		t.Fatalf("list by compose project: %v", err)
+	}
+	if result.Total != 1 || len(result.Items) != 1 || result.Items[0].Name != "graft-web" {
+		t.Fatalf("unexpected compose project filtered result %#v", result)
+	}
+
+	result, err = service.List(context.Background(), ListQuery{
+		SourceScopeKind: composeServiceScopeKind,
+		SourceScope:     "web",
+	})
+	if err != nil {
+		t.Fatalf("list by compose service: %v", err)
+	}
+	if result.Total != 1 || result.Items[0].Name != "graft-web" {
+		t.Fatalf("unexpected compose service filtered result %#v", result)
+	}
+}
+
+func TestServiceListRejectsIncompatibleSourceScopeKind(t *testing.T) {
+	t.Parallel()
+
+	service := newListTestService(t, true)
+	_, err := service.List(context.Background(), ListQuery{
+		Orchestrator:    containerOrchestratorCompose,
+		SourceScopeKind: kubernetesNamespaceScopeKind,
+		SourceScope:     "default",
+	})
+	if !errors.Is(err, errInvalidListQuery) {
+		t.Fatalf("expected invalid list query, got %v", err)
+	}
 }
 
 func (listRuntime) Detail(context.Context, Ref) (Detail, error)  { return Detail{}, nil }
@@ -1378,6 +1603,66 @@ func (r selectiveRemoveRuntime) Remove(_ context.Context, ref Ref, _ RemoveOptio
 	return result, nil
 }
 func (r selectiveRemoveRuntime) Close() error { return nil }
+
+type managedActionRuntime struct {
+	detail       Detail
+	detailErr    error
+	removeResult ActionResult
+	removeCalls  atomic.Int64
+}
+
+func (r *managedActionRuntime) Info(context.Context) (RuntimeInfo, error) {
+	return fakeRuntime{}.Info(context.Background())
+}
+
+func (r *managedActionRuntime) List(context.Context, ListQuery) ([]Summary, error) {
+	return fakeRuntime{}.List(context.Background(), ListQuery{})
+}
+
+func (r *managedActionRuntime) Detail(context.Context, Ref) (Detail, error) {
+	if r.detailErr != nil {
+		return Detail{}, r.detailErr
+	}
+	return r.detail, nil
+}
+
+func (r *managedActionRuntime) Mounts(context.Context, Ref) ([]Mount, error) {
+	return fakeRuntime{}.Mounts(context.Background(), Ref{Value: "web"})
+}
+
+func (r *managedActionRuntime) MountUsage(context.Context, Ref, string) (MountUsage, error) {
+	return fakeRuntime{}.MountUsage(context.Background(), Ref{Value: "web"}, "")
+}
+
+func (r *managedActionRuntime) Logs(context.Context, Ref, LogQuery) (Logs, error) {
+	return Logs{}, nil
+}
+
+func (r *managedActionRuntime) Shell(context.Context, Ref, string) (terminal.Session, error) {
+	return newStubTerminalSession(), nil
+}
+
+func (r *managedActionRuntime) Start(context.Context, Ref) (ActionResult, error) {
+	return ActionResult{}, nil
+}
+
+func (r *managedActionRuntime) Stop(context.Context, Ref) (ActionResult, error) {
+	return ActionResult{}, nil
+}
+
+func (r *managedActionRuntime) Restart(context.Context, Ref) (ActionResult, error) {
+	return ActionResult{}, nil
+}
+
+func (r *managedActionRuntime) Remove(context.Context, Ref, RemoveOptions) (ActionResult, error) {
+	r.removeCalls.Add(1)
+	if r.removeResult.Action == "" {
+		return fakeAction(containerActionRemove), nil
+	}
+	return r.removeResult, nil
+}
+
+func (r *managedActionRuntime) Close() error { return nil }
 
 type fakeRuntime struct{}
 
