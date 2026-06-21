@@ -150,7 +150,7 @@ func TestServiceCachesFullOverrideSnapshotAcrossReads(t *testing.T) {
 	if _, err := service.Update(context.Background(), "notification.enabled", json.RawMessage(`false`), nil); err != nil {
 		t.Fatalf("seed override: %v", err)
 	}
-	service.invalidateSnapshotCache()
+	service.invalidateSnapshotCacheForKey("notification.enabled", snapshotInvalidationActionUpdate)
 	repo.resetReadCounters()
 
 	first, err := service.Get(context.Background(), "notification.enabled")
@@ -218,6 +218,20 @@ func TestServiceInvalidatesLocalSnapshotAfterUpdateAndReset(t *testing.T) {
 	if repo.listOverridesCalls() != 3 {
 		t.Fatalf("expected snapshot reload after reset invalidation, got %d", repo.listOverridesCalls())
 	}
+
+	debugState := service.SnapshotCacheDebugState()
+	if debugState.InvalidateCount != 2 {
+		t.Fatalf("expected two local invalidations, got %#v", debugState)
+	}
+	if debugState.LastInvalidationSource != string(snapshotInvalidationSourceLocal) {
+		t.Fatalf("expected local invalidation source, got %#v", debugState)
+	}
+	if debugState.LastInvalidationAction != string(snapshotInvalidationActionReset) {
+		t.Fatalf("expected reset invalidation action, got %#v", debugState)
+	}
+	if debugState.LastInvalidationKey != "notification.enabled" {
+		t.Fatalf("expected invalidation key notification.enabled, got %#v", debugState)
+	}
 }
 
 func TestServiceUpdateAndResetKeepWorkingWhenInvalidationPublishFails(t *testing.T) {
@@ -251,6 +265,11 @@ func TestServiceUpdateAndResetKeepWorkingWhenInvalidationPublishFails(t *testing
 	if broker.publishCalls.Load() != 2 {
 		t.Fatalf("expected best-effort invalidation publish attempts for update/reset, got %d", broker.publishCalls.Load())
 	}
+
+	debugState := service.SnapshotCacheDebugState()
+	if debugState.PublishAttemptCount != 2 || debugState.PublishFailureCount != 2 {
+		t.Fatalf("expected publish attempts and failures to be recorded, got %#v", debugState)
+	}
 }
 
 func TestServiceRemoteInvalidationClearsLocalSnapshotCache(t *testing.T) {
@@ -278,6 +297,17 @@ func TestServiceRemoteInvalidationClearsLocalSnapshotCache(t *testing.T) {
 	}
 	if repo.listOverridesCalls() != 1 {
 		t.Fatalf("expected remote invalidation to force one snapshot reload, got %d", repo.listOverridesCalls())
+	}
+
+	debugState := service.SnapshotCacheDebugState()
+	if debugState.RemoteInvalidateCount != 1 {
+		t.Fatalf("expected one remote invalidation, got %#v", debugState)
+	}
+	if debugState.LastInvalidationSource != string(snapshotInvalidationSourceRemote) {
+		t.Fatalf("expected remote invalidation source, got %#v", debugState)
+	}
+	if debugState.LastInvalidationAction != string(snapshotInvalidationActionUpdate) {
+		t.Fatalf("expected update invalidation action, got %#v", debugState)
 	}
 }
 
@@ -398,6 +428,52 @@ func TestServiceSingleflightCollapsesConcurrentSnapshotMisses(t *testing.T) {
 	}
 	if repo.listOverridesCalls() != 1 {
 		t.Fatalf("expected singleflight to collapse concurrent snapshot loads to one query, got %d", repo.listOverridesCalls())
+	}
+
+	debugState := service.SnapshotCacheDebugState()
+	if debugState.MissCount != readers {
+		t.Fatalf("expected one miss observation per concurrent reader, got %#v", debugState)
+	}
+	if debugState.LoadCount != 1 {
+		t.Fatalf("expected one snapshot load in debug state, got %#v", debugState)
+	}
+}
+
+func TestServiceSnapshotCacheDebugStateTracksHitMissAndLoadCounts(t *testing.T) {
+	repo := newMemoryRepo()
+	service := newTestServiceWithRepo(t, repo, configregistry.Definition{
+		Key:          "notification.enabled",
+		Module:       "notification",
+		Group:        "notification.general",
+		Title:        "Notification enabled",
+		Type:         configregistry.ValueTypeBoolean,
+		DefaultValue: json.RawMessage(`true`),
+	})
+
+	initial := service.SnapshotCacheDebugState()
+	if initial.Cached || initial.HitCount != 0 || initial.MissCount != 0 || initial.LoadCount != 0 {
+		t.Fatalf("expected zeroed debug state before reads, got %#v", initial)
+	}
+
+	if _, err := service.Get(context.Background(), "notification.enabled"); err != nil {
+		t.Fatalf("first get: %v", err)
+	}
+	if _, err := service.Get(context.Background(), "notification.enabled"); err != nil {
+		t.Fatalf("second get: %v", err)
+	}
+
+	debugState := service.SnapshotCacheDebugState()
+	if !debugState.Cached {
+		t.Fatalf("expected snapshot cache to remain warm, got %#v", debugState)
+	}
+	if debugState.CachedOverrideCount != 0 {
+		t.Fatalf("expected zero overrides in warm cache, got %#v", debugState)
+	}
+	if debugState.MissCount != 1 || debugState.HitCount != 1 || debugState.LoadCount != 1 {
+		t.Fatalf("expected one miss, one hit, and one load, got %#v", debugState)
+	}
+	if debugState.LastLoadedOverrideCount != 0 || debugState.LastLoadAt == nil {
+		t.Fatalf("expected last load metadata, got %#v", debugState)
 	}
 }
 

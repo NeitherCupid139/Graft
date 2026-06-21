@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -49,6 +50,14 @@ type snapshotInvalidationSignal struct {
 	UpdatedAt time.Time                  `json:"updated_at"`
 }
 
+type snapshotInvalidationSource string
+
+const (
+	snapshotInvalidationSourceLocal  snapshotInvalidationSource = "local"
+	snapshotInvalidationSourceRemote snapshotInvalidationSource = "remote"
+	snapshotInvalidationSourceManual snapshotInvalidationSource = "manual"
+)
+
 // ValueSnapshot is the service read model for one effective config value.
 type ValueSnapshot struct {
 	Definition     configregistry.Definition
@@ -84,6 +93,7 @@ type Service struct {
 	snapshotMu    sync.RWMutex
 	snapshotCache *overrideSnapshotCache
 	snapshotGroup singleflight.Group
+	snapshotStats snapshotCacheStats
 
 	invalidationMu     sync.Mutex
 	invalidationBroker invalidationBroker
@@ -112,6 +122,51 @@ func NewService(registry *configregistry.Registry, store systemconfigstore.Repos
 
 type overrideSnapshotCache struct {
 	overrides map[string]systemconfigstore.Override
+}
+
+// SnapshotCacheDebugState exposes local snapshot-cache observability without leaking storage access.
+type SnapshotCacheDebugState struct {
+	Cached                  bool
+	CachedOverrideCount     int
+	HitCount                uint64
+	MissCount               uint64
+	LoadCount               uint64
+	LoadErrorCount          uint64
+	LastLoadedOverrideCount int64
+	InvalidateCount         uint64
+	RemoteInvalidateCount   uint64
+	PublishAttemptCount     uint64
+	PublishFailureCount     uint64
+	LastLoadAt              *time.Time
+	LastInvalidateAt        *time.Time
+	LastInvalidationKey     string
+	LastInvalidationAction  string
+	LastInvalidationSource  string
+	LastInvalidationAt      *time.Time
+}
+
+type snapshotInvalidationObservation struct {
+	Key       string
+	Action    snapshotInvalidationAction
+	Source    snapshotInvalidationSource
+	UpdatedAt time.Time
+}
+
+type snapshotCacheStats struct {
+	hitCount                atomic.Uint64
+	missCount               atomic.Uint64
+	loadCount               atomic.Uint64
+	loadErrorCount          atomic.Uint64
+	lastLoadedOverrideCount atomic.Int64
+	invalidateCount         atomic.Uint64
+	remoteInvalidateCount   atomic.Uint64
+	publishAttemptCount     atomic.Uint64
+	publishFailureCount     atomic.Uint64
+
+	metaMu           sync.RWMutex
+	lastLoadAt       *time.Time
+	lastInvalidateAt *time.Time
+	lastInvalidation snapshotInvalidationObservation
 }
 
 type invalidationBroker interface {
@@ -210,7 +265,7 @@ func (s *Service) Update(ctx context.Context, key string, value json.RawMessage,
 	if _, err := s.store.SetOverride(ctx, definition.Key, value, userID); err != nil {
 		return ValueSnapshot{}, err
 	}
-	s.invalidateSnapshotCache()
+	s.invalidateSnapshotCacheForKey(definition.Key, snapshotInvalidationActionUpdate)
 	item, err := s.Get(ctx, definition.Key)
 	s.publishSnapshotInvalidation(ctx, definition.Key, snapshotInvalidationActionUpdate)
 	return item, err
@@ -225,10 +280,24 @@ func (s *Service) Reset(ctx context.Context, key string) (ValueSnapshot, error) 
 	if err := s.store.DeleteOverride(ctx, definition.Key); err != nil {
 		return ValueSnapshot{}, err
 	}
-	s.invalidateSnapshotCache()
+	s.invalidateSnapshotCacheForKey(definition.Key, snapshotInvalidationActionReset)
 	item, err := s.Get(ctx, definition.Key)
 	s.publishSnapshotInvalidation(ctx, definition.Key, snapshotInvalidationActionReset)
 	return item, err
+}
+
+// SnapshotCacheDebugState returns read-only observability for the unified local snapshot path.
+func (s *Service) SnapshotCacheDebugState() SnapshotCacheDebugState {
+	if s == nil {
+		return SnapshotCacheDebugState{}
+	}
+	cache := s.cachedSnapshot()
+	state := s.snapshotStats.snapshot()
+	state.Cached = cache != nil
+	if cache != nil {
+		state.CachedOverrideCount = len(cache.overrides)
+	}
+	return state
 }
 
 func (s *Service) startInvalidationSync(ctx context.Context, broker invalidationBroker, logger *zap.Logger) {
@@ -338,8 +407,10 @@ func (s *Service) snapshotFromCache(
 
 func (s *Service) loadOverrideSnapshot(ctx context.Context) (*overrideSnapshotCache, error) {
 	if cache := s.cachedSnapshot(); cache != nil {
+		s.snapshotStats.recordHit()
 		return cache, nil
 	}
+	s.snapshotStats.recordMiss()
 
 	resultCh := s.snapshotGroup.DoChan("override-snapshot", func() (any, error) {
 		if cache := s.cachedSnapshot(); cache != nil {
@@ -353,6 +424,8 @@ func (s *Service) loadOverrideSnapshot(ctx context.Context) (*overrideSnapshotCa
 		s.snapshotMu.Lock()
 		s.snapshotCache = cache
 		s.snapshotMu.Unlock()
+		s.snapshotStats.recordLoad(len(overrides))
+		s.logSnapshotDebug("system-config snapshot cache loaded", zap.Int("overrideCount", len(overrides)))
 		return cache, nil
 	})
 
@@ -361,6 +434,8 @@ func (s *Service) loadOverrideSnapshot(ctx context.Context) (*overrideSnapshotCa
 		return nil, ctx.Err()
 	case result := <-resultCh:
 		if result.Err != nil {
+			s.snapshotStats.recordLoadError()
+			s.logInvalidationWarning("load system-config snapshot cache", result.Err)
 			return nil, result.Err
 		}
 		cache, ok := result.Val.(*overrideSnapshotCache)
@@ -380,13 +455,24 @@ func (s *Service) cachedSnapshot() *overrideSnapshotCache {
 	return s.snapshotCache
 }
 
-func (s *Service) invalidateSnapshotCache() {
+func (s *Service) invalidateSnapshotCacheForKey(key string, action snapshotInvalidationAction) {
+	s.invalidateSnapshotCacheWithObservation(snapshotInvalidationObservation{
+		Key:       key,
+		Action:    action,
+		Source:    snapshotInvalidationSourceLocal,
+		UpdatedAt: time.Now().UTC(),
+	})
+}
+
+func (s *Service) invalidateSnapshotCacheWithObservation(observation snapshotInvalidationObservation) {
 	if s == nil {
 		return
 	}
 	s.snapshotMu.Lock()
 	s.snapshotCache = nil
 	s.snapshotMu.Unlock()
+	s.snapshotStats.recordInvalidation(observation)
+	s.logSnapshotInvalidation(observation)
 }
 
 func buildOverrideSnapshotCache(overrides []systemconfigstore.Override) *overrideSnapshotCache {
@@ -466,6 +552,14 @@ func cloneUint64Pointer(value *uint64) *uint64 {
 	return &cloned
 }
 
+func cloneTimePointer(value *time.Time) *time.Time {
+	if value == nil {
+		return nil
+	}
+	cloned := value.UTC()
+	return &cloned
+}
+
 func cloneOverride(value systemconfigstore.Override) systemconfigstore.Override {
 	return systemconfigstore.Override{
 		Key:       value.Key,
@@ -510,6 +604,7 @@ func (s *Service) publishSnapshotInvalidation(ctx context.Context, key string, a
 	if broker == nil {
 		return
 	}
+	s.snapshotStats.recordPublishAttempt()
 
 	signal := snapshotInvalidationSignal{
 		Source:    s.instanceID,
@@ -530,8 +625,15 @@ func (s *Service) publishSnapshotInvalidation(ctx context.Context, key string, a
 	defer cancel()
 
 	if err := broker.Publish(publishCtx, systemConfigSnapshotInvalidationChannel, string(payload)); err != nil {
+		s.snapshotStats.recordPublishFailure()
 		s.logInvalidationWarning("publish system-config invalidation", err)
+		return
 	}
+	s.logSnapshotDebug(
+		"published system-config invalidation",
+		zap.String("key", key),
+		zap.String("action", string(action)),
+	)
 }
 
 func (s *Service) currentInvalidationBroker() invalidationBroker {
@@ -571,7 +673,12 @@ func (s *Service) handleInvalidationMessage(message *redis.Message) {
 	if signal.Source == s.instanceID {
 		return
 	}
-	s.invalidateSnapshotCache()
+	s.invalidateSnapshotCacheWithObservation(snapshotInvalidationObservation{
+		Key:       signal.Key,
+		Action:    signal.Action,
+		Source:    snapshotInvalidationSourceRemote,
+		UpdatedAt: signal.UpdatedAt,
+	})
 }
 
 func (s *Service) logInvalidationWarning(msg string, err error) {
@@ -579,4 +686,102 @@ func (s *Service) logInvalidationWarning(msg string, err error) {
 		return
 	}
 	s.logger.Warn(msg, zap.Error(err))
+}
+
+func (s *Service) logSnapshotInvalidation(observation snapshotInvalidationObservation) {
+	if s == nil || s.logger == nil {
+		return
+	}
+	fields := []zap.Field{zap.String("source", string(observation.Source))}
+	if observation.Key != "" {
+		fields = append(fields, zap.String("key", observation.Key))
+	}
+	if observation.Action != "" {
+		fields = append(fields, zap.String("action", string(observation.Action)))
+	}
+	if !observation.UpdatedAt.IsZero() {
+		fields = append(fields, zap.Time("updatedAt", observation.UpdatedAt))
+	}
+	s.logger.Debug("system-config snapshot cache invalidated", fields...)
+}
+
+func (s *Service) logSnapshotDebug(msg string, fields ...zap.Field) {
+	if s == nil || s.logger == nil {
+		return
+	}
+	s.logger.Debug(msg, fields...)
+}
+
+func (s *snapshotCacheStats) recordHit() {
+	s.hitCount.Add(1)
+}
+
+func (s *snapshotCacheStats) recordMiss() {
+	s.missCount.Add(1)
+}
+
+func (s *snapshotCacheStats) recordLoad(overrideCount int) {
+	s.loadCount.Add(1)
+	if overrideCount < 0 {
+		overrideCount = 0
+	}
+	s.lastLoadedOverrideCount.Store(int64(overrideCount))
+	now := time.Now().UTC()
+	s.metaMu.Lock()
+	s.lastLoadAt = &now
+	s.metaMu.Unlock()
+}
+
+func (s *snapshotCacheStats) recordLoadError() {
+	s.loadErrorCount.Add(1)
+}
+
+func (s *snapshotCacheStats) recordInvalidation(observation snapshotInvalidationObservation) {
+	s.invalidateCount.Add(1)
+	if observation.Source == snapshotInvalidationSourceRemote {
+		s.remoteInvalidateCount.Add(1)
+	}
+	if observation.UpdatedAt.IsZero() {
+		observation.UpdatedAt = time.Now().UTC()
+	}
+	now := time.Now().UTC()
+	s.metaMu.Lock()
+	s.lastInvalidateAt = &now
+	s.lastInvalidation = observation
+	s.metaMu.Unlock()
+}
+
+func (s *snapshotCacheStats) recordPublishAttempt() {
+	s.publishAttemptCount.Add(1)
+}
+
+func (s *snapshotCacheStats) recordPublishFailure() {
+	s.publishFailureCount.Add(1)
+}
+
+func (s *snapshotCacheStats) snapshot() SnapshotCacheDebugState {
+	s.metaMu.RLock()
+	defer s.metaMu.RUnlock()
+
+	state := SnapshotCacheDebugState{
+		HitCount:                s.hitCount.Load(),
+		MissCount:               s.missCount.Load(),
+		LoadCount:               s.loadCount.Load(),
+		LoadErrorCount:          s.loadErrorCount.Load(),
+		LastLoadedOverrideCount: s.lastLoadedOverrideCount.Load(),
+		InvalidateCount:         s.invalidateCount.Load(),
+		RemoteInvalidateCount:   s.remoteInvalidateCount.Load(),
+		PublishAttemptCount:     s.publishAttemptCount.Load(),
+		PublishFailureCount:     s.publishFailureCount.Load(),
+		LastInvalidationKey:     s.lastInvalidation.Key,
+		LastInvalidationAction:  string(s.lastInvalidation.Action),
+		LastInvalidationSource:  string(s.lastInvalidation.Source),
+		LastLoadAt:              cloneTimePointer(s.lastLoadAt),
+		LastInvalidateAt:        cloneTimePointer(s.lastInvalidateAt),
+	}
+	if !s.lastInvalidation.UpdatedAt.IsZero() {
+		updatedAt := s.lastInvalidation.UpdatedAt.UTC()
+		state.LastInvalidationAt = &updatedAt
+	}
+	return state
 }

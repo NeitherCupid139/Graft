@@ -3,7 +3,7 @@
 ## 当前状态摘要
 
 - 当前主题目标是为 `Graft` 建立统一缓存治理规范，并优先收敛系统配置运行时读取加速方案。
-- 当前状态：Phase 0 治理资产已落盘，Phase 1 本地 snapshot 与热点消费方收口已完成，Phase 2 多节点失效传播已完成并提交，Phase 3 热点扩展已完成并提交；下一批进入可观测性与治理门禁收口。
+- 当前状态：Phase 0 治理资产已落盘，Phase 1 本地 snapshot 与热点消费方收口已完成，Phase 2 多节点失效传播已完成并提交，Phase 3 热点扩展已完成并提交，Phase 4 可观测性与治理门禁已完成并提交；主题已进入 archive-ready。
 - 任务分类为 `cross-boundary`，但本主题以 `backend-first` 为主；前端仅涉及系统配置页面的生效语义与高级信息展示建议。
 - Canonical design：`ai-plan/design/缓存治理与系统配置读取加速规范.md`。
 - AI 执行 skill：`.agents/skills/graft-cache-governance/SKILL.md`。
@@ -48,7 +48,7 @@
 - Phase 1：单进程本地 snapshot + singleflight + 显式失效。已完成。
 - Phase 2：Redis pub/sub 或版本号轮询，多节点一致性预留。`phase-2-multi-node-invalidation` 已完成。
 - Phase 3：扩展到 RBAC/menu/dashboard/container runtime 等热点缓存。已完成。
-- Phase 4：补充指标、调试面板、缓存治理文档和测试门禁。
+- Phase 4：补充指标、调试面板、缓存治理文档和测试门禁。已完成。
 
 ## Current Recovery Point
 
@@ -80,11 +80,16 @@
   - `server/modules/notification/publisher.go`、`server/modules/container/service.go`、`server/internal/scheduler/runtime.go`、`server/modules/user/bootstrap.go` 都继续通过共享 resolver 边界消费有效配置。
   - `server/modules/container/mount_usage.go` 已有本地 TTL cache，可作为 process-local cache 参考，但不是 system-config authority。
   - `server/modules/monitor/module.go` 已有 Redis 趋势缓存，可作为 distributed cache 参考，但不应用来取代 system-config authority。
-- 当前推荐实现起点：
+- 已完成 `phase-4-observability-and-guardrails`：
+  - `server/modules/system-config/service.go` 已补充 snapshot cache hit / miss / load / invalidation / publish failure 调试计数与最近状态快照。
+  - 结构化 debug log 已覆盖 snapshot load、local invalidation、remote invalidation 与 publish 事件。
+  - `server/modules/system-config/service_test.go` 已补充 phase-4 调试态覆盖，验证命中/未命中、单次装载、本地失效、远端失效与 publish failure 统计。
+  - 设计文档与 topic recovery 资产已同步更新，可作为后续 admin-only 调试面或 debug endpoint 的 authority 基线。
+- 当前推荐实现终态：
   - Phase 1 已完成 authority 层 process-local full snapshot cache + singleflight + explicit invalidation。
   - Phase 2 已完成 Redis invalidation signal 的多节点传播预留，authority 与统一 resolver 边界保持不变。
   - Phase 3 已完成热点读路径扩展，未改变 system-config authority。
-  - 下一步进入 `phase-4-observability-and-guardrails`，补齐可观测性、调试证据、topic recovery 更新与最小必要治理门禁。
+  - Phase 4 已完成可观测性与治理门禁收口，当前主题满足 archive-ready。
 
 ## Validation Targets
 

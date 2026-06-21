@@ -39,7 +39,7 @@ Cache Governance And System Config Acceleration
 - 已完成 Phase 3：
   - `phase-3-hotspot-expansion` 已提交 `93886719` `fix(system-config): unify hotspot resolver reads`
 - 当前待推进批次：
-  - `phase-4-observability-and-guardrails`
+  - 无；主题进入 archive-ready closeout
 
 ## Task Checklist
 
@@ -57,7 +57,7 @@ Cache Governance And System Config Acceleration
 - [x] Phase 2：Redis pub/sub 或版本轮询方案落地
 - [x] Phase 2：多节点失效一致性验证
 - [x] Phase 3：RBAC/menu/dashboard/container runtime 热点扩展
-- [ ] Phase 4：指标、调试面板、治理门禁和文档收口
+- [x] Phase 4：指标、调试面板、治理门禁和文档收口
 
 ## Batch Boundaries
 
@@ -80,4 +80,4 @@ Cache Governance And System Config Acceleration
 - `phase-4-observability-and-guardrails`
   - 范围：metrics/debug/docs/tests/scripts
   - 目标：可观测性与治理门禁闭环
-  - 状态：下一批次
+  - 状态：已完成；收口 snapshot debug state、结构化日志、聚焦测试与 recovery/design 更新

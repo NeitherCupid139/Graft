@@ -90,6 +90,25 @@
 - `server/modules/container/service_test.go`、`server/modules/user/menu_contract_test.go`、`server/modules/notification/module_test.go` 已补充/对齐 unified resolver 覆盖。
 - 已提交：`93886719` `fix(system-config): unify hotspot resolver reads`
 
+## 2026-06-21 Phase 4 observability and guardrails completed
+
+- `server/modules/system-config/service.go` 现已补充 unified snapshot path 的 backend-local 调试态：
+  - hit / miss / load / load error 计数
+  - invalidate / remote invalidate 计数
+  - publish attempt / publish failure 计数
+  - 最近一次装载时间、最近一次失效来源、最近一次 override 数量
+- 当前实现保持 authority-first：
+  - system-config authority 仍在 `configregistry` + `server/modules/system-config/service.go`
+  - 未新增 Redis authority
+  - 未新增普通 consumer 可见的第二套读取链路
+  - 未强制扩大到新的 OpenAPI debug endpoint
+- `server/modules/system-config/service_test.go` 已补充：
+  - snapshot debug state 的 hit / miss / load 统计覆盖
+  - 本地 Update/Reset invalidation 来源与 action 覆盖
+  - 远端 Redis invalidation 来源覆盖
+  - publish failure 统计覆盖
+- 主题 recovery 与设计 authority 已同步更新，供后续 archive 或 admin-only 调试入口复用。
+
 ## Loop Batch State
 
 ```json
@@ -100,14 +119,13 @@
     "phase-1-system-config-local-snapshot",
     "phase-1-hot-consumer-adoption",
     "phase-2-multi-node-invalidation",
-    "phase-3-hotspot-expansion"
-  ],
-  "pending_batches": [
+    "phase-3-hotspot-expansion",
     "phase-4-observability-and-guardrails"
   ],
-  "current_batch": "phase-3-hotspot-expansion",
-  "next_batch": "phase-4-observability-and-guardrails",
-  "closeout_status": "phase-3-hotspot-expansion-completed",
+  "pending_batches": [],
+  "current_batch": "phase-4-observability-and-guardrails",
+  "next_batch": null,
+  "closeout_status": "archive-ready",
   "commit": [
     {
       "sha": "076dc954",
