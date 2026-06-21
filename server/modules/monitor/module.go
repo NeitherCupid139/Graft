@@ -234,7 +234,8 @@ func (p *Module) bindDependencies(ctx *module.Context) error {
 	return nil
 }
 
-resolveDatabaseDependency 从模块依赖容器解析可选的 SQL 数据库服务。若上下文不可用或服务未注册，返回 nil；若解析失败或已解析的类型不正确，返回错误。
+// resolveDatabaseDependency 从模块依赖容器解析可选的 SQL 数据库服务。
+// 若上下文不可用或服务未注册，返回 nil；若解析失败或已解析的类型不正确，返回错误。
 func resolveDatabaseDependency(ctx *module.Context) (*sql.DB, error) {
 	if ctx == nil || ctx.Services == nil {
 		return nil, nil
@@ -256,7 +257,9 @@ func resolveDatabaseDependency(ctx *module.Context) (*sql.DB, error) {
 	return db, nil
 }
 
-// ResolveOptionalTrendStore resolves an optional time-series store service from the dependency container. It returns nil values if the context is invalid or the service is not registered. An error is returned if resolution fails for other reasons.
+// resolveOptionalTrendStore resolves an optional time-series store service from the dependency container.
+// It returns nil if the context is invalid or the service is not registered and
+// returns an error for other resolution failures.
 func resolveOptionalTrendStore(ctx *module.Context) (statex.TimeSeriesStore, error) {
 	if ctx == nil || ctx.Services == nil {
 		return nil, nil
@@ -465,10 +468,10 @@ func buildServerStatusResponse(
 	return buildServerStatusResponseWithRuntimeSnapshot(ctx, moduleCtx, instance, trendRange, runtimeSnapshot)
 }
 
-// buildServerStatusResponseWithRuntimeSnapshot keeps the production response assembly
-// Constructs a server status response using the provided runtime snapshot.
-// It returns the response containing dependency health, module status, trends,
-// buildServerStatusResponseWithRuntimeSnapshot 组装完整的服务器状态响应，汇聚依赖健康、模块观察、趋势数据及异常信息。若依赖健康探测失败则返回错误。
+// buildServerStatusResponseWithRuntimeSnapshot keeps the production response assembly.
+// buildServerStatusResponseWithRuntimeSnapshot constructs a server status response
+// using the provided runtime snapshot and returns dependency health, module status,
+// trends, and anomalies.
 func buildServerStatusResponseWithRuntimeSnapshot(
 	ctx context.Context,
 	moduleCtx *module.Context,
@@ -1413,7 +1416,7 @@ func trendStorageKey(appName string, hostName string) string {
 	)
 }
 
-// ResolveHostName returns the system hostname trimmed of whitespace, or an empty string on error.
+// resolveHostName returns the system hostname trimmed of whitespace, or an empty string on error.
 func resolveHostName() string {
 	hostName, err := os.Hostname()
 	if err != nil {

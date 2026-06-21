@@ -142,8 +142,7 @@ func poolStatsFromClient(client *redis.Client) PoolStats {
 }
 
 // usagePercent calculates the usage percentage of a connection pool.
-// It returns 0 if inUse or capacity is not positive, otherwise the usage
-usagePercent calculates the connection pool usage as a percentage between 0 and 100, returning 0 if inUse or capacity is non-positive.
+// It returns 0 if inUse or capacity is not positive.
 func usagePercent(inUse int, capacity int) float64 {
 	if inUse <= 0 || capacity <= 0 {
 		return 0

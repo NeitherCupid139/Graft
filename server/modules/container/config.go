@@ -197,7 +197,7 @@ func containerEnvironmentPolicyDefinition() configregistry.Definition {
 	return definition
 }
 
-containerOrchestratorActionLevelDefinition 为编排器行动等级配置项构建配置定义。
+// containerOrchestratorActionLevelDefinition 为编排器行动等级配置项构建配置定义。
 func containerOrchestratorActionLevelDefinition(
 	key string,
 	defaultValue containercontract.OrchestratorActionLevel,

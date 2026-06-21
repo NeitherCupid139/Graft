@@ -210,3 +210,41 @@ func TestRedisTimeSeriesStoreReadsLegacyMembers(t *testing.T) {
 		t.Fatal("expected legacy sample observedAt to be reconstructed from score")
 	}
 }
+
+func TestRedisTimeSeriesStoreReadsLegacyMembersContainingPipe(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	server := miniredis.RunT(t)
+	client := redis.NewClient(&redis.Options{Addr: server.Addr()})
+	t.Cleanup(func() {
+		_ = client.Close()
+	})
+
+	legacyPayload := `{"point":"legacy|pipe"}`
+	if err := client.ZAdd(ctx, "graft:monitor:trend:legacy-pipe-host", redis.Z{
+		Score:  float64(time.Date(2026, 6, 21, 12, 0, 0, 0, time.UTC).UnixMilli()),
+		Member: legacyPayload,
+	}).Err(); err != nil {
+		t.Fatalf("seed legacy pipe member: %v", err)
+	}
+
+	store, err := NewRedisTimeSeriesStore(client)
+	if err != nil {
+		t.Fatalf("new redis time-series store: %v", err)
+	}
+
+	samples, err := store.Range(ctx, "graft:monitor:trend:legacy-pipe-host", TimeSeriesQuery{
+		StartAt: time.Date(2026, 6, 21, 11, 0, 0, 0, time.UTC),
+		EndAt:   time.Date(2026, 6, 21, 13, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("range legacy pipe members: %v", err)
+	}
+	if len(samples) != 1 {
+		t.Fatalf("expected 1 legacy pipe sample, got %d", len(samples))
+	}
+	if string(samples[0].Payload) != legacyPayload {
+		t.Fatalf("expected legacy pipe payload, got %q", string(samples[0].Payload))
+	}
+}

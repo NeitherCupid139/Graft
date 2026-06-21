@@ -133,8 +133,11 @@ func decodeMember(member any) ([]byte, error) {
 		return nil, err
 	}
 
-	_, encodedPayload, ok := strings.Cut(raw, "|")
+	timestamp, encodedPayload, ok := strings.Cut(raw, "|")
 	if !ok {
+		return []byte(raw), nil
+	}
+	if _, err := strconv.ParseInt(timestamp, 10, 64); err != nil {
 		return []byte(raw), nil
 	}
 
