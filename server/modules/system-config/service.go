@@ -9,7 +9,10 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
+
+	"golang.org/x/sync/singleflight"
 
 	"graft/server/internal/configregistry"
 	"graft/server/internal/moduleapi"
@@ -54,6 +57,10 @@ type Service struct {
 	registry *configregistry.Registry
 	store    systemconfigstore.Repository
 	users    moduleapi.UserService
+
+	snapshotMu    sync.RWMutex
+	snapshotCache *overrideSnapshotCache
+	snapshotGroup singleflight.Group
 }
 
 // NewService creates the system configuration service boundary.
@@ -67,6 +74,10 @@ func NewService(registry *configregistry.Registry, store systemconfigstore.Repos
 	return &Service{registry: registry, store: store, users: users}, nil
 }
 
+type overrideSnapshotCache struct {
+	overrides map[string]systemconfigstore.Override
+}
+
 func (s *Service) setUserService(users moduleapi.UserService) {
 	if s == nil || users == nil {
 		return
@@ -76,10 +87,14 @@ func (s *Service) setUserService(users moduleapi.UserService) {
 
 // List returns all registered definitions merged with user overrides.
 func (s *Service) List(ctx context.Context) ([]ValueSnapshot, error) {
+	cache, err := s.loadOverrideSnapshot(ctx)
+	if err != nil {
+		return nil, err
+	}
 	definitions := s.registry.Items()
 	items := make([]ValueSnapshot, 0, len(definitions))
 	for _, definition := range definitions {
-		item, err := s.snapshot(ctx, definition)
+		item, err := s.snapshotFromCache(ctx, definition, cache)
 		if err != nil {
 			return nil, err
 		}
@@ -94,7 +109,11 @@ func (s *Service) Get(ctx context.Context, key string) (ValueSnapshot, error) {
 	if !ok {
 		return ValueSnapshot{}, errDefinitionNotFound
 	}
-	return s.snapshot(ctx, definition)
+	cache, err := s.loadOverrideSnapshot(ctx)
+	if err != nil {
+		return ValueSnapshot{}, err
+	}
+	return s.snapshotFromCache(ctx, definition, cache)
 }
 
 // ResolveDefaultConfig exposes effective object values for scheduler job definitions.
@@ -137,7 +156,8 @@ func (s *Service) Update(ctx context.Context, key string, value json.RawMessage,
 	if _, err := s.store.SetOverride(ctx, definition.Key, value, userID); err != nil {
 		return ValueSnapshot{}, err
 	}
-	return s.snapshot(ctx, definition)
+	s.invalidateSnapshotCache()
+	return s.Get(ctx, definition.Key)
 }
 
 // Reset deletes the user override for one registered definition key.
@@ -149,18 +169,16 @@ func (s *Service) Reset(ctx context.Context, key string) (ValueSnapshot, error) 
 	if err := s.store.DeleteOverride(ctx, definition.Key); err != nil {
 		return ValueSnapshot{}, err
 	}
-	return s.snapshot(ctx, definition)
+	s.invalidateSnapshotCache()
+	return s.Get(ctx, definition.Key)
 }
 
-func (s *Service) snapshot(ctx context.Context, definition configregistry.Definition) (ValueSnapshot, error) {
-	override, err := s.store.GetOverride(ctx, definition.Key)
-	hasOverride := true
-	if errors.Is(err, systemconfigstore.ErrOverrideNotFound) {
-		hasOverride = false
-	} else if err != nil {
-		return ValueSnapshot{}, err
-	}
-
+func (s *Service) snapshotFromCache(
+	ctx context.Context,
+	definition configregistry.Definition,
+	cache *overrideSnapshotCache,
+) (ValueSnapshot, error) {
+	override, hasOverride := cache.overrides[definition.Key]
 	effective := definition.DefaultValue
 	var overrideValue json.RawMessage
 	if hasOverride {
@@ -193,6 +211,69 @@ func (s *Service) snapshot(ctx context.Context, definition configregistry.Defini
 		item.OverrideValue = nil
 	}
 	return item, nil
+}
+
+func (s *Service) loadOverrideSnapshot(ctx context.Context) (*overrideSnapshotCache, error) {
+	if cache := s.cachedSnapshot(); cache != nil {
+		return cache, nil
+	}
+
+	resultCh := s.snapshotGroup.DoChan("override-snapshot", func() (any, error) {
+		if cache := s.cachedSnapshot(); cache != nil {
+			return cache, nil
+		}
+		overrides, err := s.store.ListOverrides(context.WithoutCancel(ctx))
+		if err != nil {
+			return nil, err
+		}
+		cache := buildOverrideSnapshotCache(overrides)
+		s.snapshotMu.Lock()
+		s.snapshotCache = cache
+		s.snapshotMu.Unlock()
+		return cache, nil
+	})
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case result := <-resultCh:
+		if result.Err != nil {
+			return nil, result.Err
+		}
+		cache, ok := result.Val.(*overrideSnapshotCache)
+		if !ok || cache == nil {
+			return nil, errors.New("system config snapshot cache returned unexpected value")
+		}
+		return cache, nil
+	}
+}
+
+func (s *Service) cachedSnapshot() *overrideSnapshotCache {
+	if s == nil {
+		return nil
+	}
+	s.snapshotMu.RLock()
+	defer s.snapshotMu.RUnlock()
+	return s.snapshotCache
+}
+
+func (s *Service) invalidateSnapshotCache() {
+	if s == nil {
+		return
+	}
+	s.snapshotMu.Lock()
+	s.snapshotCache = nil
+	s.snapshotMu.Unlock()
+}
+
+func buildOverrideSnapshotCache(overrides []systemconfigstore.Override) *overrideSnapshotCache {
+	cache := &overrideSnapshotCache{
+		overrides: make(map[string]systemconfigstore.Override, len(overrides)),
+	}
+	for _, override := range overrides {
+		cache.overrides[override.Key] = cloneOverride(override)
+	}
+	return cache
 }
 
 func (s *Service) usernameForOverride(ctx context.Context, userID *uint64) string {
@@ -260,4 +341,15 @@ func cloneUint64Pointer(value *uint64) *uint64 {
 	}
 	cloned := *value
 	return &cloned
+}
+
+func cloneOverride(value systemconfigstore.Override) systemconfigstore.Override {
+	return systemconfigstore.Override{
+		Key:       value.Key,
+		Value:     cloneRawMessage(value.Value),
+		CreatedAt: value.CreatedAt,
+		CreatedBy: cloneUint64Pointer(value.CreatedBy),
+		UpdatedAt: value.UpdatedAt,
+		UpdatedBy: cloneUint64Pointer(value.UpdatedBy),
+	}
 }

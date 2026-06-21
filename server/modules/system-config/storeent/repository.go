@@ -29,6 +29,40 @@ func NewRepository(db *sql.DB) (systemconfigstore.Repository, error) {
 	return &repository{db: db}, nil
 }
 
+func (r *repository) ListOverrides(ctx context.Context) ([]systemconfigstore.Override, error) {
+	if r == nil || r.db == nil {
+		return nil, errors.New("system config repository is unavailable")
+	}
+
+	rows, err := r.db.QueryContext(
+		ctx,
+		`SELECT key, override_value, created_at, created_by, updated_at, updated_by
+		 FROM system_config_values`,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list system config overrides: %w", err)
+	}
+	defer func() {
+		closeErr := rows.Close()
+		if err == nil && closeErr != nil {
+			err = fmt.Errorf("list system config overrides: close rows: %w", closeErr)
+		}
+	}()
+
+	overrides := make([]systemconfigstore.Override, 0)
+	for rows.Next() {
+		override, scanErr := scanOverride(rows)
+		if scanErr != nil {
+			return nil, fmt.Errorf("list system config overrides: %w", scanErr)
+		}
+		overrides = append(overrides, override)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list system config overrides: %w", err)
+	}
+	return overrides, nil
+}
+
 func (r *repository) GetOverride(ctx context.Context, key string) (systemconfigstore.Override, error) {
 	if r == nil || r.db == nil {
 		return systemconfigstore.Override{}, errors.New("system config repository is unavailable")
