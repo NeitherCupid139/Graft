@@ -76,7 +76,7 @@ type containerServiceOptions struct {
 	realtimeTickets         realtimeauth.Service
 }
 
-// newContainerService constructs a container service with configuration from the module context.
+// newContainerService 根据模块上下文和系统配置构建容器服务。当实时工单服务无法解析时返回错误。
 func newContainerService(ctx *module.Context, moduleName string) (*service, error) {
 	options := containerOptionsFromConfig(ctx)
 	systemConfig := resolveSystemConfigResolver(ctx)
@@ -109,7 +109,7 @@ func newContainerService(ctx *module.Context, moduleName string) (*service, erro
 	})
 }
 
-// newService 创建容器服务，规范化配置参数并为缺失的组件应用默认实现。
+// newService 初始化容器服务实例，规范化日志配置并应用默认值。若实时票证服务为 nil，返回错误。
 func newService(options containerServiceOptions) (*service, error) {
 	options.defaultTail, options.maxTail = normalizeContainerLogTailBounds(options.defaultTail, options.maxTail)
 	if options.realtimeTickets == nil {
@@ -155,6 +155,7 @@ func newService(options containerServiceOptions) (*service, error) {
 	}, nil
 }
 
+// resolveRealtimeTicketService resolves the realtime authentication service from the module context. It returns an error if ctx or ctx.Services is nil.
 func resolveRealtimeTicketService(ctx *module.Context) (realtimeauth.Service, error) {
 	if ctx == nil || ctx.Services == nil {
 		return nil, errors.New("realtime ticket service resolver is unavailable")
@@ -627,6 +628,7 @@ func withEnvironmentPlainAccess(ctx context.Context) context.Context {
 	return context.WithValue(ctx, environmentPlainAccessContextKey{}, true)
 }
 
+// environmentPlainAccessAllowed 检查请求上下文是否允许查看明文环境变量。
 func environmentPlainAccessAllowed(ctx context.Context) bool {
 	allowed, _ := ctx.Value(environmentPlainAccessContextKey{}).(bool)
 	return allowed
@@ -1265,6 +1267,7 @@ func applyContainerStringDefault(ctx *module.Context, key string, target *string
 	}
 }
 
+// applyContainerIntDefault applies a positive integer default from the configuration registry to the target.
 func applyContainerIntDefault(ctx *module.Context, key string, target *int) {
 	if target == nil {
 		return
@@ -1279,6 +1282,8 @@ func applyContainerIntDefault(ctx *module.Context, key string, target *int) {
 	}
 }
 
+// systemConfigReadContext selects an appropriate context for system configuration operations.
+// It returns the module's lifecycle context if available, otherwise a background context.
 func systemConfigReadContext(ctx *module.Context) context.Context {
 	if ctx != nil && ctx.LifecycleContext != nil {
 		return ctx.LifecycleContext
@@ -1286,6 +1291,7 @@ func systemConfigReadContext(ctx *module.Context) context.Context {
 	return context.Background()
 }
 
+// resolveStartupRuntimeOptions updates the provided container runtime options by resolving runtime and endpoint configuration from system config, using the provided values as fallbacks.
 func resolveStartupRuntimeOptions(
 	ctx context.Context,
 	resolver moduleapi.SystemConfigResolver,
@@ -1296,6 +1302,7 @@ func resolveStartupRuntimeOptions(
 	return options
 }
 
+// containerDefaultValue 从模块上下文的配置注册表中检索指定配置项的默认值，返回对应的 JSON 消息及该值是否存在的标志。
 func containerDefaultValue(ctx *module.Context, key string) (json.RawMessage, bool) {
 	if ctx == nil || ctx.ConfigRegistry == nil {
 		return nil, false
@@ -1307,6 +1314,7 @@ func containerDefaultValue(ctx *module.Context, key string) (json.RawMessage, bo
 	return definition.DefaultValue, true
 }
 
+// resolveSystemConfigResolver resolves the system config resolver from the module context's services, returning nil if unavailable or unresolved.
 func resolveSystemConfigResolver(ctx *module.Context) moduleapi.SystemConfigResolver {
 	if ctx == nil || ctx.Services == nil {
 		return nil
@@ -1322,6 +1330,7 @@ func resolveSystemConfigResolver(ctx *module.Context) moduleapi.SystemConfigReso
 	return resolver
 }
 
+// resolveStringConfigValue resolves a string configuration value by key, trimmed of whitespace. If resolution fails or the resolved value is blank, the trimmed fallback is returned.
 func resolveStringConfigValue(
 	ctx context.Context,
 	resolver moduleapi.SystemConfigResolver,
@@ -1361,6 +1370,9 @@ func (s *service) resolveIntegerConfig(ctx context.Context, key string, fallback
 	return value
 }
 
+// NormalizeContainerLogTailBounds normalizes log tail bounds, applying package defaults
+// for non-positive values and capping maxTail to a maximum limit.
+// It returns the normalized defaultTail and maxTail.
 func normalizeContainerLogTailBounds(defaultTail int, maxTail int) (int, int) {
 	if defaultTail <= 0 {
 		defaultTail = defaultContainerLogsDefaultTail

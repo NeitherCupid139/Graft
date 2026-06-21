@@ -10,7 +10,7 @@ type Group struct {
 	group singleflight.Group
 }
 
-// NewGroup creates one miss-collapse group.
+// NewGroup creates a new Group that deduplicates concurrent cache-miss operations for the same key.
 func NewGroup() *Group {
 	return &Group{}
 }

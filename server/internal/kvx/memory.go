@@ -27,7 +27,7 @@ type Memory struct {
 	store map[string]memoryEntry
 }
 
-// NewMemory creates one in-process KV store.
+// NewMemory initializes a new in-process key-value store with the given clock, or the system clock if none is specified in options.
 func NewMemory(options MemoryOptions) *Memory {
 	clock := options.Clock
 	if clock == nil {

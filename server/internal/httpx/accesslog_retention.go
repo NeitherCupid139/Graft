@@ -293,7 +293,7 @@ func decodeAccessLogRetentionJobConfig(configJSON string) accessLogRetentionJobC
 	return config
 }
 
-// RegisterAccessLogRetentionConfigDefinition exposes the built-in cleanup defaults as registry authority.
+// RegisterAccessLogRetentionConfigDefinition registers the access log retention cleanup configuration definition in the provided registry. It returns an error if the registry is nil or if registration fails.
 func RegisterAccessLogRetentionConfigDefinition(registry *configregistry.Registry) error {
 	if registry == nil {
 		return errors.New("config registry is required")

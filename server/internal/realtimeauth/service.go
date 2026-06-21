@@ -165,7 +165,7 @@ type ticketSnapshot struct {
 	record ticketRecord
 }
 
-// NewService creates one KV-backed realtime ticket service.
+NewService 使用给定的 KV 存储创建一个实时票据服务，应用默认配置选项。
 func NewService(store kvx.Store) (Service, error) {
 	return NewServiceWithOptions(Options{Store: store})
 }
@@ -205,7 +205,7 @@ func NewMemoryService() Service {
 	return NewMemoryServiceWithClock(nil)
 }
 
-// NewMemoryServiceWithClock creates a realtime ticket service backed by an in-process KV store.
+// NewMemoryServiceWithClock creates a realtime ticket service backed by an in-process KV store, using the provided clock for time operations. If clock is nil, the system clock is used. It panics if service initialization fails.
 func NewMemoryServiceWithClock(clock Clock) Service {
 	service, err := NewServiceWithOptions(Options{
 		Store: kvx.NewMemory(kvx.MemoryOptions{Clock: clock}),
@@ -413,10 +413,12 @@ func (s *kvService) ticketKey(ticketID string) string {
 	return s.keyBuilder(strings.TrimSpace(ticketID))
 }
 
+// decodeTicketRecord decodes JSON bytes into a ticketRecord.
 func decodeTicketRecord(value []byte) (ticketRecord, error) {
 	return kvx.DecodeJSON[ticketRecord](value)
 }
 
+// ConsumedTicketFromRecord constructs a ConsumedTicket from the fields of a ticket record.
 func consumedTicketFromRecord(record ticketRecord) ConsumedTicket {
 	return ConsumedTicket{
 		TicketID:     record.TicketID,
@@ -464,7 +466,7 @@ func splitTicket(raw string) (string, string, error) {
 	return strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]), nil
 }
 
-// validateStoredTicket validates a stored ticket against the current time, secret, scope, and resource binding.
+validateStoredTicket checks that a ticket record has not expired, has not been consumed, has the correct secret, matches the given scope, and matches the given resource type and ID. It returns ErrExpiredTicket if the ticket has expired, ErrUsedTicket if the ticket has been consumed, ErrInvalidTicket if the secret does not match, ErrScopeMismatch if the scope does not match, ErrResourceMismatch if the resource ID or type do not match, and nil if all checks pass.
 func validateStoredTicket(
 	record ticketRecord,
 	now time.Time,

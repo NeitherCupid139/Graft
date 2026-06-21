@@ -1081,6 +1081,7 @@ func (r *Runtime) redisBackedServiceRegistrations() []serviceRegistration {
 	}
 }
 
+// newRuntimeCacheManager creates a cache manager backed by Redis, with namespace derived from the application name in the configuration or defaulting to "graft".
 func newRuntimeCacheManager(cfg *config.Config, client *redis.Client) (*cachex.Manager, error) {
 	namespace := "graft"
 	if cfg != nil {

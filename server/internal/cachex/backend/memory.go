@@ -16,7 +16,7 @@ type Memory struct {
 	now   func() time.Time
 }
 
-// NewMemory creates one in-process cache backend.
+// NewMemory returns a new in-process cache backend.
 func NewMemory() *Memory {
 	return &Memory{
 		items: make(map[string]Entry),
@@ -66,6 +66,7 @@ func (m *Memory) Delete(_ context.Context, key string) error {
 	return nil
 }
 
+// cloneEntry returns a deep copy of entry to prevent external modification of cached contents.
 func cloneEntry(entry Entry) Entry {
 	cloned := Entry{
 		ExpiresAt: entry.ExpiresAt,

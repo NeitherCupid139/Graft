@@ -45,6 +45,7 @@ type systemClock struct{}
 
 func (systemClock) Now() time.Time { return time.Now().UTC() }
 
+// validateKey 检查提供的 key 是否为空。若为空，返回 ErrKeyRequired；否则返回 nil。
 func validateKey(key string) error {
 	if key == "" {
 		return ErrKeyRequired
@@ -52,6 +53,7 @@ func validateKey(key string) error {
 	return nil
 }
 
+// validateTTL validates that ttl is not negative, returning an error if it is.
 func validateTTL(ttl time.Duration) error {
 	if ttl < 0 {
 		return ErrNegativeTTL
@@ -59,6 +61,7 @@ func validateTTL(ttl time.Duration) error {
 	return nil
 }
 
+// CloneBytes returns a copy of the provided byte slice, or nil if the slice is empty.
 func cloneBytes(value []byte) []byte {
 	if len(value) == 0 {
 		return nil

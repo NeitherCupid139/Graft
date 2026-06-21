@@ -322,7 +322,7 @@ func decodeAppLogRetentionJobConfig(configJSON string) appLogRetentionJobConfig 
 	return config
 }
 
-// RegisterAppLogRetentionConfigDefinition exposes the built-in cleanup defaults as registry authority.
+// RegisterAppLogRetentionConfigDefinition registers the configuration definition for application log retention cleanup in the provided registry.
 func RegisterAppLogRetentionConfigDefinition(registry *configregistry.Registry) error {
 	if registry == nil {
 		return errors.New("config registry is required")

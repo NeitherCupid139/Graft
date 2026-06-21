@@ -17,7 +17,7 @@ type Item struct {
 	ExpiresAt time.Time
 }
 
-// NewItem creates one cache item with a copied payload.
+// NewItem creates an Item with the provided payload and TTL, copying the payload to prevent external modification.
 func NewItem(value []byte, ttl time.Duration) Item {
 	return Item{
 		Value: cloneBytes(value),
@@ -46,6 +46,7 @@ func (i Item) Validate() error {
 	return nil
 }
 
+// itemFromEntry converts a backend entry to an Item with defensive copying of the payload.
 func itemFromEntry(entry backend.Entry) Item {
 	return Item{
 		Value:     cloneBytes(entry.Value),
@@ -60,6 +61,7 @@ func entryFromItem(item Item) backend.Entry {
 	}
 }
 
+// cloneBytes returns a defensive copy of the byte slice, or nil if it is empty.
 func cloneBytes(value []byte) []byte {
 	if len(value) == 0 {
 		return nil

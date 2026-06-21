@@ -13,7 +13,7 @@ import (
 	"graft/server/modules/system-config/storeent"
 )
 
-// NewModuleSpec exposes the system-config module's stable compile-time metadata and builder.
+// NewModuleSpec returns the specification for the system-config module, including its required dependencies, migration path, and a builder that initializes the module's services.
 func NewModuleSpec() module.Spec {
 	return module.Spec{
 		ID:            moduleID,

@@ -48,6 +48,7 @@ func WithSingleflight(group *Group) Option {
 	}
 }
 
+// defaultCacheOptions returns a zero-valued CacheOptions.
 func defaultCacheOptions() CacheOptions {
 	return CacheOptions{}
 }

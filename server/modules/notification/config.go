@@ -84,6 +84,7 @@ func registerNotificationConfigDefinitions(registry *configregistry.Registry) er
 	return nil
 }
 
+// notificationConfigDefinitions returns all notification configuration definitions covering general settings, notification sources, delivery controls, and display customizations.
 func notificationConfigDefinitions() []configregistry.Definition {
 	return []configregistry.Definition{
 		booleanNotificationDefinition(notificationEnabledKey, notificationConfigGeneralGroup, "Notification enabled", "Whether in-app notifications are enabled.", true),
@@ -102,18 +103,21 @@ func notificationConfigDefinitions() []configregistry.Definition {
 	}
 }
 
+// booleanNotificationDefinition 创建布尔类型的通知配置定义，该定义支持运行时热应用。
 func booleanNotificationDefinition(key string, group string, title string, description string, defaultValue bool) configregistry.Definition {
 	definition := baseNotificationDefinition(key, group, title, description, configregistry.ValueTypeBoolean, mustRawJSON(defaultValue))
 	definition.RuntimeApplyMode = configregistry.RuntimeApplyModeRuntimeHot
 	return definition
 }
 
+// numberNotificationDefinition creates a configuration definition for an integer-valued notification setting.
 func numberNotificationDefinition(key string, group string, title string, description string, defaultValue int) configregistry.Definition {
 	definition := baseNotificationDefinition(key, group, title, description, configregistry.ValueTypeInteger, mustRawJSON(defaultValue))
 	definition.RuntimeApplyMode = configregistry.RuntimeApplyModeUnknown
 	return definition
 }
 
+// notificationDisplayDefinition 创建通知展示配置定义。
 func notificationDisplayDefinition() configregistry.Definition {
 	definition := baseNotificationDefinition(
 		notificationDisplayKey,

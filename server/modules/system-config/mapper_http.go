@@ -23,6 +23,7 @@ func toListResponse(items []ValueSnapshot) generated.SystemConfigListResponse {
 	}
 }
 
+// toItem 将 ValueSnapshot 转换为 generated.SystemConfigItem 用于 API 响应，敏感值会被掩盖。
 func toItem(snapshot ValueSnapshot) generated.SystemConfigItem {
 	definition := snapshot.Definition
 	return generated.SystemConfigItem{

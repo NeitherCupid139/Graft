@@ -8,7 +8,7 @@ import "strings"
 
 var segmentReplacer = strings.NewReplacer(" ", "-", "/", "-", "\\", "-", ":", "-", ".", "-")
 
-// Segment converts one raw key segment into a stable lowercase token.
+// Segment normalizes a raw key segment for state-store storage. If the input is empty or becomes empty after normalization, the fallback value is returned instead.
 func Segment(value string, fallback string) string {
 	trimmed := strings.TrimSpace(strings.ToLower(value))
 	if trimmed == "" {

@@ -90,7 +90,7 @@ type ServiceOptions struct {
 	Logger *zap.Logger
 }
 
-// NewService creates the system configuration service boundary.
+// NewService creates a system configuration service. Registry, store, and cache must be non-nil; returns an error if any required dependency is missing.
 func NewService(registry *configregistry.Registry, store systemconfigstore.Repository, options ServiceOptions) (*Service, error) {
 	if registry == nil {
 		return nil, errors.New("config registry is unavailable")
@@ -382,6 +382,7 @@ func (s *Service) invalidateSnapshotCacheWithObservation(observation snapshotInv
 	s.logSnapshotInvalidation(observation)
 }
 
+// buildOverrideSnapshotCache constructs a snapshot cache indexed by definition key from the provided overrides.
 func buildOverrideSnapshotCache(overrides []systemconfigstore.Override) *overrideSnapshotCache {
 	cache := &overrideSnapshotCache{
 		overrides: make(map[string]systemconfigstore.Override, len(overrides)),
@@ -451,6 +452,7 @@ func cloneRawMessage(raw json.RawMessage) json.RawMessage {
 	return cloned
 }
 
+// cloneUint64Pointer returns a pointer to a copy of the given uint64, or nil if the given pointer is nil.
 func cloneUint64Pointer(value *uint64) *uint64 {
 	if value == nil {
 		return nil
@@ -459,6 +461,7 @@ func cloneUint64Pointer(value *uint64) *uint64 {
 	return &cloned
 }
 
+// cloneTimePointer returns a pointer to the given time converted to UTC, or nil if the input is nil.
 func cloneTimePointer(value *time.Time) *time.Time {
 	if value == nil {
 		return nil
@@ -467,6 +470,7 @@ func cloneTimePointer(value *time.Time) *time.Time {
 	return &cloned
 }
 
+// cloneOverride 创建 Override 的一个深副本，以防止对共享数据的意外修改。
 func cloneOverride(value systemconfigstore.Override) systemconfigstore.Override {
 	return systemconfigstore.Override{
 		Key:       value.Key,
@@ -478,6 +482,7 @@ func cloneOverride(value systemconfigstore.Override) systemconfigstore.Override 
 	}
 }
 
+// MarshalOverrideSnapshotCache 将覆盖快照缓存序列化为 JSON 字节。
 func marshalOverrideSnapshotCache(cache *overrideSnapshotCache) ([]byte, error) {
 	if cache == nil {
 		return nil, errors.New("system config snapshot cache is unavailable")
@@ -485,6 +490,8 @@ func marshalOverrideSnapshotCache(cache *overrideSnapshotCache) ([]byte, error) 
 	return json.Marshal(cache.overrides)
 }
 
+// unmarshalOverrideSnapshotCache 从 JSON 载体重建覆盖快照缓存结构。
+// 如果载体为空或包含无效 JSON，则返回错误。
 func unmarshalOverrideSnapshotCache(payload []byte) (*overrideSnapshotCache, error) {
 	if len(payload) == 0 {
 		return nil, errors.New("system config snapshot cache returned empty payload")
@@ -502,6 +509,7 @@ func unmarshalOverrideSnapshotCache(payload []byte) (*overrideSnapshotCache, err
 	return cache, nil
 }
 
+// SystemConfigSnapshotKey returns the cache key for the system config snapshot.
 func systemConfigSnapshotKey() keys.Key {
 	return keys.MustNew("system-config", "snapshot", "effective-overrides")
 }

@@ -94,6 +94,8 @@ func MaskedPlaceholder() string {
 	return maskedPlaceholder
 }
 
+// validateDefinition validates a configuration definition and returns
+// an error if any validation fails.
 func validateDefinition(definition Definition) error {
 	key := strings.TrimSpace(definition.Key)
 	if key == "" {
@@ -136,6 +138,7 @@ func validateRequiredDefinitionMetadata(definition Definition, key string) error
 	return nil
 }
 
+// validValueTypes returns all valid ValueType values.
 func validValueTypes() []ValueType {
 	return []ValueType{
 		ValueTypeString,
@@ -147,6 +150,7 @@ func validValueTypes() []ValueType {
 	}
 }
 
+// validRuntimeApplyModes 返回所有有效的 RuntimeApplyMode 取值。
 func validRuntimeApplyModes() []RuntimeApplyMode {
 	return []RuntimeApplyMode{
 		RuntimeApplyModeUnknown,
@@ -155,6 +159,8 @@ func validRuntimeApplyModes() []RuntimeApplyMode {
 	}
 }
 
+// validateJSONObject validates that raw is either empty or a valid JSON object.
+// If raw is not empty, it must be valid JSON that decodes to a map[string]any.
 func validateJSONObject(raw json.RawMessage, label string, key string) error {
 	if len(raw) == 0 {
 		return nil

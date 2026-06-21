@@ -377,6 +377,12 @@ def validate_skills() -> list[Finding]:
 
 
 def validate_agents_skill_list() -> list[Finding]:
+    """
+    验证 AGENTS.md 文件包含所需的技能列表并符合治理规范。
+    
+    Returns:
+    	list[Finding]: 包含验证失败项（缺失技能名称或禁止内容）的 Finding 列表；若文件不存在或验证通过，返回空列表。
+    """
     if not AGENTS.is_file():
         return []
     text = read_text(AGENTS)
@@ -398,6 +404,15 @@ def validate_agents_skill_list() -> list[Finding]:
 
 
 def validate_backend_guardrail_governance() -> list[Finding]:
+    """
+    验证后端守护栏治理文档的存在性和完整性。
+    
+    检查必需的后端治理文档（查询、API、安全、测试、代码Review规范）是否存在，
+    各文档是否包含所需的治理术语，以及AGENTS.md和server/AGENTS.md是否对这些规范进行了引用。
+    
+    Returns:
+    	list[Finding]: 各文件缺失或不符合要求的Finding列表。
+    """
     findings: list[Finding] = []
     required_docs = (
         BACKEND_QUERY_DOC,
@@ -516,6 +531,12 @@ def validate_backend_guardrail_governance() -> list[Finding]:
 
 
 def validate_shared_asset_governance() -> list[Finding]:
+    """
+    验证共享资产治理文档、注册表和验证器脚本。
+    
+    Returns:
+        list[Finding]: 包含所有检测到的问题（包括缺失文件、缺失条款或验证失败）的 Finding 对象列表
+    """
     findings: list[Finding] = []
     required = (
         SHARED_ASSET_DOC,
@@ -590,6 +611,15 @@ def validate_no_private_config_tracked(tracked: set[str]) -> list[Finding]:
 
 
 def run_validation() -> list[Finding]:
+    """
+    执行完整的 AI 治理验证。
+    
+    汇集对仓库 AI 治理合规性的所有检查结果，包括必需文件、文档内容、
+    技能配置和工件卫生等方面的验证。
+    
+    Returns:
+        list[Finding]: 所有验证中发现的问题列表。
+    """
     findings: list[Finding] = []
     findings.extend(validate_required_files())
     tracked = tracked_files()

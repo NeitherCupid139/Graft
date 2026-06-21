@@ -81,6 +81,7 @@ const (
 	serverDependencyCount          = 2
 )
 
+// defaultDiskUsagePath returns the default disk usage path for the current operating system.
 func defaultDiskUsagePath() string {
 	return config.DefaultDiskUsagePath(runtime.GOOS)
 }
@@ -233,6 +234,7 @@ func (p *Module) bindDependencies(ctx *module.Context) error {
 	return nil
 }
 
+// resolveDatabaseDependency 从依赖注入容器解析可选的 SQL 数据库服务。若服务未注册或上下文不可用，返回 nil。若服务类型错误或解析失败，返回错误。
 func resolveDatabaseDependency(ctx *module.Context) (*sql.DB, error) {
 	if ctx == nil || ctx.Services == nil {
 		return nil, nil
@@ -254,6 +256,7 @@ func resolveDatabaseDependency(ctx *module.Context) (*sql.DB, error) {
 	return db, nil
 }
 
+// ResolveOptionalTrendStore resolves an optional time-series store service from the dependency container. It returns nil if the context is invalid or the service is not registered.
 func resolveOptionalTrendStore(ctx *module.Context) (statex.TimeSeriesStore, error) {
 	if ctx == nil || ctx.Services == nil {
 		return nil, nil
@@ -270,6 +273,7 @@ func resolveOptionalTrendStore(ctx *module.Context) (statex.TimeSeriesStore, err
 	return store, nil
 }
 
+// It returns nil if the context is nil, has no services, or the service is not registered. It returns an error only if service resolution fails for reasons other than the service not being registered.
 func resolveOptionalRedisHealthReporter(ctx *module.Context) (redisx.HealthReporter, error) {
 	if ctx == nil || ctx.Services == nil {
 		return nil, nil
@@ -286,6 +290,7 @@ func resolveOptionalRedisHealthReporter(ctx *module.Context) (redisx.HealthRepor
 	return reporter, nil
 }
 
+// registerMonitorPermissions registers the server status read permission with the provided registry. The registry may be nil.
 func registerMonitorPermissions(registry *permission.Registry, moduleName string) {
 	if registry == nil {
 		return
@@ -460,7 +465,9 @@ func buildServerStatusResponse(
 }
 
 // buildServerStatusResponseWithRuntimeSnapshot keeps the production response assembly
-// logic reusable for tests that need deterministic runtime inputs instead of host-dependent metrics.
+// Constructs a server status response using the provided runtime snapshot.
+// It returns the response containing dependency health, module status, trends,
+// and anomalies.
 func buildServerStatusResponseWithRuntimeSnapshot(
 	ctx context.Context,
 	moduleCtx *module.Context,
@@ -866,6 +873,10 @@ func stringPointer(value string) *string {
 	return &value
 }
 
+// databaseHealth evaluates the database connection status.
+// Returns dependency status unknown if the database is unavailable, degraded if the connection check fails,
+// or healthy with latency and pool statistics if the database responds successfully. An error is returned
+// only if latency conversion fails.
 func databaseHealth(ctx context.Context, instance *Module) (generated.ServerStatusDependency, error) {
 	if instance == nil || instance.db == nil {
 		return generated.ServerStatusDependency{
@@ -900,6 +911,11 @@ func databaseHealth(ctx context.Context, instance *Module) (generated.ServerStat
 	}, nil
 }
 
+// redisHealth determines the health status and connectivity of a Redis dependency.
+// The returned status is disabled if Redis is not configured, degraded if the health
+// check fails or Redis is unreachable, and healthy if Redis responds successfully.
+// Connection pool statistics and latency are included when available. An error is
+// returned only if latency conversion fails.
 func redisHealth(ctx context.Context, moduleCtx *module.Context, instance *Module) (generated.ServerStatusDependency, error) {
 	reporter := resolveRedisHealthReporter(moduleCtx, instance)
 	if reporter == nil {
@@ -946,6 +962,7 @@ func redisHealth(ctx context.Context, moduleCtx *module.Context, instance *Modul
 	}, nil
 }
 
+// databasePoolStats 从数据库连接句柄中提取连接池统计信息。
 func databasePoolStats(db *sql.DB) *generated.ServerStatusConnectionPool {
 	if db == nil {
 		return nil
@@ -972,6 +989,7 @@ func databasePoolStats(db *sql.DB) *generated.ServerStatusConnectionPool {
 	}
 }
 
+// resolveRedisHealthReporter 获取 Redis 健康报告器，若无缓存则从模块上下文解析；解析失败时返回 nil。
 func resolveRedisHealthReporter(moduleCtx *module.Context, instance *Module) redisx.HealthReporter {
 	if instance != nil && instance.redisHealth != nil {
 		return instance.redisHealth
@@ -986,6 +1004,7 @@ func resolveRedisHealthReporter(moduleCtx *module.Context, instance *Module) red
 	return reporter
 }
 
+// redisPoolStats 将 Redis 连接池统计转换为服务器状态响应结构，连接池容量和打开连接数均不大于 0 时返回 nil。
 func redisPoolStats(pool redisx.PoolStats) *generated.ServerStatusConnectionPool {
 	if pool.Capacity <= 0 && pool.OpenConnections <= 0 {
 		return nil
@@ -1135,6 +1154,7 @@ func buildServerStatusSummary(
 	return summary
 }
 
+// buildServerStatusTrend 构造服务器状态趋势对象，如果配置了趋势存储则加载历史趋势数据点。
 func buildServerStatusTrend(
 	ctx context.Context,
 	moduleCtx *module.Context,
@@ -1165,6 +1185,7 @@ func buildServerStatusTrend(
 	return trend
 }
 
+// resolveTrendStore returns the TimeSeriesStore, using the cached instance value if available, otherwise attempting to resolve from the module context. Returns nil if resolution fails.
 func resolveTrendStore(moduleCtx *module.Context, instance *Module) statex.TimeSeriesStore {
 	if instance != nil && instance.trendStore != nil {
 		return instance.trendStore
@@ -1320,6 +1341,7 @@ func collectCPUPercent(ctx context.Context, previousCPUTimes **cpu.TimesStat, in
 	return roundCPUPercent(percent)
 }
 
+// storeTrendPoint stores a server status trend point to the time-series store with retention policy applied to trim old entries and set expiration.
 func storeTrendPoint(
 	ctx context.Context,
 	trendStore statex.TimeSeriesStore,
@@ -1341,6 +1363,7 @@ func storeTrendPoint(
 	})
 }
 
+// loadTrendPoints retrieves trend points from storage within a specified time range.
 func loadTrendPoints(
 	ctx context.Context,
 	trendStore statex.TimeSeriesStore,
@@ -1372,6 +1395,7 @@ func loadTrendPoints(
 	return points, nil
 }
 
+// trendStorageKey 使用给定的应用名和主机名构造服务器状态趋势点的存储键。
 func trendStorageKey(appName string, hostName string) string {
 	return fmt.Sprintf(
 		"%s:%s:%s",
@@ -1381,6 +1405,7 @@ func trendStorageKey(appName string, hostName string) string {
 	)
 }
 
+// ResolveHostName returns the system hostname trimmed of whitespace, or an empty string on error.
 func resolveHostName() string {
 	hostName, err := os.Hostname()
 	if err != nil {

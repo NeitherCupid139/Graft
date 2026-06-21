@@ -42,7 +42,7 @@ type redisTimeSeriesStore struct {
 	client redis.Cmdable
 }
 
-// NewRedisTimeSeriesStore adapts a Redis client to the mechanical time-series contract.
+// NewRedisTimeSeriesStore creates a TimeSeriesStore backed by a Redis client. It returns an error if the client is nil.
 func NewRedisTimeSeriesStore(client redis.Cmdable) (TimeSeriesStore, error) {
 	if client == nil {
 		return nil, errors.New("statex redis client is required")
@@ -123,6 +123,7 @@ func (q TimeSeriesQuery) Validate() error {
 	return nil
 }
 
+// validateKey 验证 key 在去除空白后不为空。
 func validateKey(key string) error {
 	if strings.TrimSpace(key) == "" {
 		return errors.New("statex key is required")

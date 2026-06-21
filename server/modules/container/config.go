@@ -150,6 +150,7 @@ func configDefinitions() []configregistry.Definition {
 	}
 }
 
+// containerRuntimeDefinition 为容器运行时适配器构建配置定义，标记为需要服务重启才能生效。
 func containerRuntimeDefinition() configregistry.Definition {
 	definition := baseContainerDefinition(containerDefinitionSpec{
 		key:                 containercontract.ContainerRuntimeConfig.String(),
@@ -165,6 +166,7 @@ func containerRuntimeDefinition() configregistry.Definition {
 	return definition
 }
 
+// containerEndpointDefinition 构造Docker端点的配置定义，标记该设置需要重启系统才能生效。
 func containerEndpointDefinition() configregistry.Definition {
 	definition := baseContainerDefinition(containerDefinitionSpec{
 		key:                 containercontract.ContainerDockerEndpointConfig.String(),
@@ -180,7 +182,7 @@ func containerEndpointDefinition() configregistry.Definition {
 	return definition
 }
 
-// containerEnvironmentPolicyDefinition builds a configuration definition for the environment policy setting.
+// ContainerEnvironmentPolicyDefinition returns a configuration definition for the container environment policy setting, configured for hot runtime updates.
 func containerEnvironmentPolicyDefinition() configregistry.Definition {
 	definition := baseContainerDefinition(containerDefinitionSpec{
 		key:                 containercontract.ContainerEnvironmentPolicyConfig.String(),
@@ -230,6 +232,7 @@ type containerIntegerDefinitionSpec struct {
 	maximum       int
 }
 
+// containerBooleanDefinition 构建容器布尔配置定义，根据配置 key 确定其运行时应用策略。对于运行时启用、危险操作启用、Shell 启用或环境掩码复制启用配置，运行时应用策略设为热更新模式；其他布尔配置的运行时应用策略设为未知模式。
 func containerBooleanDefinition(spec containerDefinitionSpec) configregistry.Definition {
 	spec.valueType = configregistry.ValueTypeBoolean
 	spec.schema = containerBooleanSchema(spec.key)
@@ -246,6 +249,7 @@ func containerBooleanDefinition(spec containerDefinitionSpec) configregistry.Def
 	return definition
 }
 
+// containerIntegerDefinition builds a configuration definition for an integer-type container setting, setting its runtime applicability to runtime-hot for log tail configurations and unknown for others.
 func containerIntegerDefinition(spec containerIntegerDefinitionSpec) configregistry.Definition {
 	definitionSpec := spec.containerDefinitionSpec
 	definitionSpec.valueType = configregistry.ValueTypeInteger
@@ -261,6 +265,7 @@ func containerIntegerDefinition(spec containerIntegerDefinitionSpec) configregis
 	return definition
 }
 
+// baseContainerDefinition 使用规格构建容器配置定义。
 func baseContainerDefinition(spec containerDefinitionSpec) configregistry.Definition {
 	metadata := containerConfigGroupMetadata(spec.group)
 	return configregistry.Definition{

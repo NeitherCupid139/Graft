@@ -54,7 +54,9 @@ type Redis struct {
 	now    func() time.Time
 }
 
-// NewRedis creates one Redis-backed KV store.
+// NewRedis initializes a Redis-backed KV store with the provided client and options.
+// It returns an error if client is nil.
+// If options.Now is nil, it defaults to time.Now().UTC().
 func NewRedis(client redis.Cmdable, options RedisOptions) (*Redis, error) {
 	if client == nil {
 		return nil, errors.New("kv redis client is required")
@@ -169,6 +171,7 @@ func (r *Redis) prefixed(key string) string {
 	return r.prefix + ":" + key
 }
 
+// ttlMilliseconds converts a duration to milliseconds. It returns 0 for durations of 0 or less, 1 for positive durations less than a millisecond, and otherwise returns the duration in milliseconds.
 func ttlMilliseconds(ttl time.Duration) int64 {
 	if ttl <= 0 {
 		return 0

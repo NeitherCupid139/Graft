@@ -26,7 +26,7 @@ type Redis struct {
 	now    func() time.Time
 }
 
-// NewRedis creates one Redis backend adapter.
+// NewRedis 创建一个 Redis 后端适配器。若提供的客户端为 nil 则返回错误；时钟函数默认为 time.Now；前缀会被去除首尾空白。
 func NewRedis(client redis.Cmdable, options RedisOptions) (*Redis, error) {
 	if client == nil {
 		return nil, fmt.Errorf("redis backend client is required")

@@ -246,6 +246,8 @@ func decodeRetentionJobConfig(configJSON string) retentionJobConfig {
 	return config
 }
 
+// RegisterAuditLogRetentionConfigDefinition registers the audit log retention configuration definition with the provided registry.
+// It returns an error if the registry is nil or if registration fails.
 func registerAuditLogRetentionConfigDefinition(registry *configregistry.Registry) error {
 	if registry == nil {
 		return errors.New("config registry is required")

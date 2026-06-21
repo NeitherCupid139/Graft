@@ -53,7 +53,7 @@ type reporter struct {
 // Open 创建并验证服务端运行时所需的 Redis 客户端。
 //
 // 该函数会在给定上下文之上追加 3 秒探活超时；若 Ping 失败，会在返回前主动关闭客户端，
-// 避免把半初始化的连接句柄泄漏给上层。
+// Open 初始化 Redis 客户端并验证与 Redis 服务器的连通性。
 func Open(ctx context.Context, cfg config.RedisConfig) (*redis.Client, error) {
 	client := redis.NewClient(&redis.Options{
 		Addr:            cfg.Addr,
@@ -79,7 +79,7 @@ func Open(ctx context.Context, cfg config.RedisConfig) (*redis.Client, error) {
 	return client, nil
 }
 
-// NewHealthReporter wraps the core Redis client in a narrow health-reporting surface.
+// NewHealthReporter creates a health reporter for the given Redis client.
 func NewHealthReporter(client *redis.Client) HealthReporter {
 	return reporter{client: client}
 }
@@ -110,6 +110,9 @@ func (r reporter) Report(ctx context.Context) (HealthReport, error) {
 	}, nil
 }
 
+// poolStatsFromClient builds PoolStats from a Redis client's pool configuration and current metrics.
+// If the client is nil, it returns a zero-value PoolStats.
+// Pool capacity is taken from the client configuration; if unconfigured, it defaults to defaultPoolSizePerCPU multiplied by runtime.GOMAXPROCS(0).
 func poolStatsFromClient(client *redis.Client) PoolStats {
 	if client == nil {
 		return PoolStats{}
@@ -137,6 +140,9 @@ func poolStatsFromClient(client *redis.Client) PoolStats {
 	}
 }
 
+// usagePercent calculates the usage percentage of a connection pool.
+// It returns 0 if inUse or capacity is not positive, otherwise the usage
+// percentage as a value between 0 and 100.
 func usagePercent(inUse int, capacity int) float64 {
 	if inUse <= 0 || capacity <= 0 {
 		return 0

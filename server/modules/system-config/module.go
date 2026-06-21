@@ -60,6 +60,7 @@ func (m *Module) Register(ctx *module.Context) error {
 	return registerSystemConfigRoutes(ctx, moduleID, m.service)
 }
 
+// requiredUserService 从提供的依赖注入解析器中解析并返回用户服务。
 func requiredUserService(resolver container.Resolver) (moduleapi.UserService, error) {
 	return module.ResolveService[moduleapi.UserService](resolver, (*moduleapi.UserService)(nil))
 }
