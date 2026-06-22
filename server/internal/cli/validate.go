@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -40,6 +41,8 @@ const (
 	defaultRemoteName            = "origin"
 	defaultRemoteHeadRef         = "refs/remotes/origin/HEAD"
 	defaultOpenAPIRootSpec       = "openapi/openapi.yaml"
+	defaultOpenAPIBundlePath     = "openapi/dist/openapi.bundle.json"
+	defaultRuntimeOpenAPIBundle  = "server/internal/app/openapi.bundle.json"
 	shaLength40                  = 40
 	shaLength64                  = 64
 )
@@ -313,6 +316,10 @@ func runValidateOpenAPIFreshness() error {
 		return fmt.Errorf("resolve repository root for generated freshness validation: %w", err)
 	}
 
+	if err := validateEmbeddedOpenAPIBundleFreshness(repoRoot); err != nil {
+		return err
+	}
+
 	scriptPath := filepath.Join(repoRoot, "scripts", "openapi_generated_freshness_check.py")
 	cmd := &cobra.Command{}
 	if err := backendCommandRunner(cmd, "python3", scriptPath, "--target", "backend-monitor", "--mode", "check"); err != nil {
@@ -339,6 +346,35 @@ func runValidateOpenAPIFreshness() error {
 	}
 
 	return nil
+}
+
+func validateEmbeddedOpenAPIBundleFreshness(repoRoot string) error {
+	canonicalPath := filepath.Join(repoRoot, filepath.FromSlash(defaultOpenAPIBundlePath))
+	runtimePath := filepath.Join(repoRoot, filepath.FromSlash(defaultRuntimeOpenAPIBundle))
+
+	canonicalBundle, err := backendReadFile(canonicalPath)
+	if err != nil {
+		return fmt.Errorf("read canonical bundled openapi spec %q: %w", canonicalPath, err)
+	}
+	runtimeBundle, err := backendReadFile(runtimePath)
+	if err != nil {
+		return fmt.Errorf("read runtime embedded bundled openapi spec %q: %w", runtimePath, err)
+	}
+	if bytes.Equal(canonicalBundle, runtimeBundle) {
+		return nil
+	}
+
+	canonicalDigest := sha256.Sum256(canonicalBundle)
+	runtimeDigest := sha256.Sum256(runtimeBundle)
+	return fmt.Errorf(
+		"runtime embedded bundled openapi spec is stale: %s (sha256=%s) does not match %s (sha256=%s); sync %s from %s",
+		defaultRuntimeOpenAPIBundle,
+		hex.EncodeToString(runtimeDigest[:]),
+		defaultOpenAPIBundlePath,
+		hex.EncodeToString(canonicalDigest[:]),
+		defaultRuntimeOpenAPIBundle,
+		defaultOpenAPIBundlePath,
+	)
 }
 
 // runBackendBuildTest 执行 `go test -> go build ./cmd/graft` 的后端编译验证链。

@@ -492,6 +492,23 @@ type atlasRevisionStore struct {
 	initErr  error
 }
 
+var _ atlasmigrate.RevisionReadWriter = (*atlasRevisionStore)(nil)
+
+const atlasRevisionStoreCreateTableSQL = `CREATE TABLE IF NOT EXISTS atlas_schema_revisions (
+				version VARCHAR(255) PRIMARY KEY,
+				description TEXT NOT NULL DEFAULT '',
+				type BIGINT NOT NULL DEFAULT 0,
+				applied BIGINT NOT NULL DEFAULT 0,
+				total BIGINT NOT NULL DEFAULT 0,
+				executed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+				execution_time BIGINT NOT NULL DEFAULT 0,
+				error TEXT NOT NULL DEFAULT '',
+				error_stmt TEXT NOT NULL DEFAULT '',
+				hash TEXT NOT NULL DEFAULT '',
+				partial_hashes JSONB NULL,
+				operator_version TEXT NOT NULL DEFAULT ''
+			)`
+
 func newAtlasRevisionStore(db *sql.DB) *atlasRevisionStore {
 	return &atlasRevisionStore{db: db}
 }
@@ -558,6 +575,9 @@ func (s *atlasRevisionStore) ReadRevision(ctx context.Context, version string) (
 }
 
 func (s *atlasRevisionStore) WriteRevision(ctx context.Context, revision *atlasmigrate.Revision) error {
+	if revision == nil {
+		return fmt.Errorf("write revision: revision is required")
+	}
 	if err := s.ensureTable(ctx); err != nil {
 		return err
 	}
@@ -626,23 +646,7 @@ func (s *atlasRevisionStore) DeleteRevision(ctx context.Context, version string)
 
 func (s *atlasRevisionStore) ensureTable(ctx context.Context) error {
 	s.initOnce.Do(func() {
-		_, s.initErr = s.db.ExecContext(
-			ctx,
-			`CREATE TABLE IF NOT EXISTS atlas_schema_revisions (
-				version VARCHAR(255) PRIMARY KEY,
-				description TEXT NOT NULL DEFAULT '',
-				type BIGINT NOT NULL DEFAULT 0,
-				applied BIGINT NOT NULL DEFAULT 0,
-				total BIGINT NOT NULL DEFAULT 0,
-				executed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-				execution_time BIGINT NOT NULL DEFAULT 0,
-				error TEXT NOT NULL DEFAULT '',
-				error_stmt TEXT NOT NULL DEFAULT '',
-				hash TEXT NOT NULL DEFAULT '',
-				partial_hashes JSONB NULL,
-				operator_version TEXT NOT NULL DEFAULT ''
-			)`,
-		)
+		_, s.initErr = s.db.ExecContext(ctx, atlasRevisionStoreCreateTableSQL)
 	})
 	if s.initErr != nil {
 		return fmt.Errorf("ensure atlas_schema_revisions table: %w", s.initErr)

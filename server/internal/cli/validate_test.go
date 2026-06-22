@@ -234,6 +234,75 @@ func TestRunValidateOpenAPIInvokesFreshnessCheck(t *testing.T) {
 	}
 }
 
+func TestValidateEmbeddedOpenAPIBundleFreshness(t *testing.T) {
+	originalReadFile := backendReadFile
+	defer func() {
+		backendReadFile = originalReadFile
+	}()
+
+	repoDir := t.TempDir()
+	canonicalPath := filepath.Join(repoDir, filepath.FromSlash(defaultOpenAPIBundlePath))
+	runtimePath := filepath.Join(repoDir, filepath.FromSlash(defaultRuntimeOpenAPIBundle))
+	if err := os.MkdirAll(filepath.Dir(canonicalPath), 0o750); err != nil {
+		t.Fatalf("mkdir canonical dir: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(runtimePath), 0o750); err != nil {
+		t.Fatalf("mkdir runtime dir: %v", err)
+	}
+
+	canonical := []byte(`{"openapi":"3.0.3","info":{"title":"canonical"}}`)
+	if err := os.WriteFile(canonicalPath, canonical, 0o600); err != nil {
+		t.Fatalf("write canonical bundle: %v", err)
+	}
+	if err := os.WriteFile(runtimePath, canonical, 0o600); err != nil {
+		t.Fatalf("write runtime bundle: %v", err)
+	}
+
+	backendReadFile = os.ReadFile
+	if err := validateEmbeddedOpenAPIBundleFreshness(repoDir); err != nil {
+		t.Fatalf("expected matching bundles to pass, got %v", err)
+	}
+}
+
+func TestValidateEmbeddedOpenAPIBundleFreshnessRejectsDrift(t *testing.T) {
+	originalReadFile := backendReadFile
+	defer func() {
+		backendReadFile = originalReadFile
+	}()
+
+	repoDir := t.TempDir()
+	canonicalPath := filepath.Join(repoDir, filepath.FromSlash(defaultOpenAPIBundlePath))
+	runtimePath := filepath.Join(repoDir, filepath.FromSlash(defaultRuntimeOpenAPIBundle))
+	if err := os.MkdirAll(filepath.Dir(canonicalPath), 0o750); err != nil {
+		t.Fatalf("mkdir canonical dir: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(runtimePath), 0o750); err != nil {
+		t.Fatalf("mkdir runtime dir: %v", err)
+	}
+
+	if err := os.WriteFile(canonicalPath, []byte(`{"canonical":true}`), 0o600); err != nil {
+		t.Fatalf("write canonical bundle: %v", err)
+	}
+	if err := os.WriteFile(runtimePath, []byte(`{"canonical":false}`), 0o600); err != nil {
+		t.Fatalf("write runtime bundle: %v", err)
+	}
+
+	backendReadFile = os.ReadFile
+	err := validateEmbeddedOpenAPIBundleFreshness(repoDir)
+	if err == nil {
+		t.Fatal("expected drift error")
+	}
+	if !strings.Contains(err.Error(), defaultRuntimeOpenAPIBundle) {
+		t.Fatalf("expected runtime bundle path in error, got %v", err)
+	}
+	if !strings.Contains(err.Error(), defaultOpenAPIBundlePath) {
+		t.Fatalf("expected canonical bundle path in error, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "sha256=") {
+		t.Fatalf("expected checksum evidence in error, got %v", err)
+	}
+}
+
 func TestRunValidateMigrationVersionsUsesAllMode(t *testing.T) {
 	originalGetwd := backendGetwd
 	originalReadFile := backendReadFile

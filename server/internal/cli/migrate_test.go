@@ -2,6 +2,8 @@ package cli
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
 	"errors"
 	"io"
 	"os"
@@ -10,8 +12,10 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	atlasmigrate "ariga.io/atlas/sql/migrate"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/spf13/cobra"
 
 	"graft/server/internal/moduleregistry"
@@ -158,6 +162,86 @@ func (f fakeAtlasExecutor) ExecuteN(ctx context.Context, n int) error {
 	return nil
 }
 
+func openTestAtlasRevisionStore(t *testing.T) (*atlasRevisionStore, *sql.DB) {
+	t.Helper()
+
+	dbPath := filepath.Join(t.TempDir(), "atlas-revisions.db")
+	db, err := sql.Open("sqlite3", dbPath)
+	if err != nil {
+		t.Fatalf("open sqlite db: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = db.Close()
+	})
+
+	store := newAtlasRevisionStore(db)
+	if _, err := db.Exec(`
+		CREATE TABLE atlas_schema_revisions (
+			version TEXT PRIMARY KEY,
+			description TEXT NOT NULL DEFAULT '',
+			type INTEGER NOT NULL DEFAULT 0,
+			applied INTEGER NOT NULL DEFAULT 0,
+			total INTEGER NOT NULL DEFAULT 0,
+			executed_at TIMESTAMP NOT NULL,
+			execution_time INTEGER NOT NULL DEFAULT 0,
+			error TEXT NOT NULL DEFAULT '',
+			error_stmt TEXT NOT NULL DEFAULT '',
+			hash TEXT NOT NULL DEFAULT '',
+			partial_hashes BLOB NULL,
+			operator_version TEXT NOT NULL DEFAULT ''
+		)
+	`); err != nil {
+		t.Fatalf("create revision table: %v", err)
+	}
+	store.initOnce.Do(func() {})
+
+	return store, db
+}
+
+func requireEqualStoredRevision(t *testing.T, expected, actual *atlasmigrate.Revision) {
+	t.Helper()
+	if actual == nil {
+		t.Fatal("expected revision, got nil")
+	}
+
+	if expected.Version != actual.Version {
+		t.Fatalf("expected version %q, got %q", expected.Version, actual.Version)
+	}
+	if expected.Description != actual.Description {
+		t.Fatalf("expected description %q, got %q", expected.Description, actual.Description)
+	}
+	if expected.Type != actual.Type {
+		t.Fatalf("expected type %v, got %v", expected.Type, actual.Type)
+	}
+	if expected.Applied != actual.Applied {
+		t.Fatalf("expected applied %d, got %d", expected.Applied, actual.Applied)
+	}
+	if expected.Total != actual.Total {
+		t.Fatalf("expected total %d, got %d", expected.Total, actual.Total)
+	}
+	if !expected.ExecutedAt.Equal(actual.ExecutedAt) {
+		t.Fatalf("expected executed_at %s, got %s", expected.ExecutedAt, actual.ExecutedAt)
+	}
+	if expected.ExecutionTime != actual.ExecutionTime {
+		t.Fatalf("expected execution_time %s, got %s", expected.ExecutionTime, actual.ExecutionTime)
+	}
+	if expected.Error != actual.Error {
+		t.Fatalf("expected error %q, got %q", expected.Error, actual.Error)
+	}
+	if expected.ErrorStmt != actual.ErrorStmt {
+		t.Fatalf("expected error_stmt %q, got %q", expected.ErrorStmt, actual.ErrorStmt)
+	}
+	if expected.Hash != actual.Hash {
+		t.Fatalf("expected hash %q, got %q", expected.Hash, actual.Hash)
+	}
+	if !reflect.DeepEqual(expected.PartialHashes, actual.PartialHashes) {
+		t.Fatalf("expected partial_hashes %v, got %v", expected.PartialHashes, actual.PartialHashes)
+	}
+	if expected.OperatorVersion != actual.OperatorVersion {
+		t.Fatalf("expected operator_version %q, got %q", expected.OperatorVersion, actual.OperatorVersion)
+	}
+}
+
 // TestResolveMigrationDirFindsServerRelativePathFromRepoRoot 验证仓库根目录下
 // 的模块迁移目录会被解析为 `server` 相对路径。
 func TestResolveMigrationDirFindsServerRelativePathFromRepoRoot(t *testing.T) {
@@ -174,6 +258,326 @@ func TestResolveMigrationDirFindsServerRelativePathFromRepoRoot(t *testing.T) {
 
 	if resolved != migrationDir {
 		t.Fatalf("expected %s, got %s", migrationDir, resolved)
+	}
+}
+
+func TestAtlasRevisionStoreRoundTripAndUpdate(t *testing.T) {
+	store, _ := openTestAtlasRevisionStore(t)
+	ctx := context.Background()
+
+	initial := &atlasmigrate.Revision{
+		Version:         "202606220001",
+		Description:     "create users",
+		Type:            atlasmigrate.RevisionTypeExecute | atlasmigrate.RevisionTypeResolved,
+		Applied:         2,
+		Total:           3,
+		ExecutedAt:      time.Unix(1719043200, 123456789).UTC(),
+		ExecutionTime:   1875 * time.Millisecond,
+		Error:           "statement failed",
+		ErrorStmt:       "ALTER TABLE users ADD COLUMN email text",
+		Hash:            "hash-v1",
+		PartialHashes:   []string{"stmt-1", "stmt-2"},
+		OperatorVersion: "graft",
+	}
+	if err := store.WriteRevision(ctx, initial); err != nil {
+		t.Fatalf("write initial revision: %v", err)
+	}
+
+	stored, err := store.ReadRevision(ctx, initial.Version)
+	if err != nil {
+		t.Fatalf("read initial revision: %v", err)
+	}
+	requireEqualStoredRevision(t, initial, stored)
+
+	updated := &atlasmigrate.Revision{
+		Version:         initial.Version,
+		Description:     "create users finalized",
+		Type:            atlasmigrate.RevisionTypeExecute,
+		Applied:         3,
+		Total:           3,
+		ExecutedAt:      initial.ExecutedAt.Add(2 * time.Minute),
+		ExecutionTime:   2500 * time.Millisecond,
+		Error:           "",
+		ErrorStmt:       "",
+		Hash:            "hash-v2",
+		PartialHashes:   nil,
+		OperatorVersion: "graft-operator",
+	}
+	if err := store.WriteRevision(ctx, updated); err != nil {
+		t.Fatalf("update revision: %v", err)
+	}
+
+	reloaded, err := store.ReadRevision(ctx, updated.Version)
+	if err != nil {
+		t.Fatalf("read updated revision: %v", err)
+	}
+	requireEqualStoredRevision(t, updated, reloaded)
+
+	revisions, err := store.ReadRevisions(ctx)
+	if err != nil {
+		t.Fatalf("read revisions: %v", err)
+	}
+	if len(revisions) != 1 {
+		t.Fatalf("expected 1 revision, got %d", len(revisions))
+	}
+	requireEqualStoredRevision(t, updated, revisions[0])
+}
+
+func TestAtlasRevisionStoreReadRevisionMissing(t *testing.T) {
+	store, _ := openTestAtlasRevisionStore(t)
+
+	_, err := store.ReadRevision(context.Background(), "missing")
+	if !errors.Is(err, atlasmigrate.ErrRevisionNotExist) {
+		t.Fatalf("expected ErrRevisionNotExist, got %v", err)
+	}
+}
+
+func TestAtlasRevisionStoreDeleteRevision(t *testing.T) {
+	store, _ := openTestAtlasRevisionStore(t)
+	ctx := context.Background()
+
+	revision := &atlasmigrate.Revision{
+		Version:       "202606220002",
+		Description:   "delete me",
+		Type:          atlasmigrate.RevisionTypeBaseline,
+		ExecutedAt:    time.Unix(1719046800, 0).UTC(),
+		ExecutionTime: 10 * time.Millisecond,
+	}
+	if err := store.WriteRevision(ctx, revision); err != nil {
+		t.Fatalf("write revision: %v", err)
+	}
+
+	if err := store.DeleteRevision(ctx, revision.Version); err != nil {
+		t.Fatalf("delete revision: %v", err)
+	}
+
+	_, err := store.ReadRevision(ctx, revision.Version)
+	if !errors.Is(err, atlasmigrate.ErrRevisionNotExist) {
+		t.Fatalf("expected ErrRevisionNotExist after delete, got %v", err)
+	}
+}
+
+func TestAtlasRevisionStoreWriteRevisionRejectsNil(t *testing.T) {
+	store, _ := openTestAtlasRevisionStore(t)
+
+	err := store.WriteRevision(context.Background(), nil)
+	if err == nil {
+		t.Fatal("expected nil revision error")
+	}
+	if !strings.Contains(err.Error(), "revision is required") {
+		t.Fatalf("expected nil revision guidance, got %v", err)
+	}
+}
+
+func TestAtlasRevisionStoreReadRevisionsOrdersByVersion(t *testing.T) {
+	store, _ := openTestAtlasRevisionStore(t)
+	ctx := context.Background()
+
+	versions := []string{"202606220010", "202606220002", "202606220005"}
+	for _, version := range versions {
+		if err := store.WriteRevision(ctx, &atlasmigrate.Revision{
+			Version:       version,
+			Description:   version,
+			Type:          atlasmigrate.RevisionTypeExecute,
+			ExecutedAt:    time.Unix(1719043200, 0).UTC(),
+			ExecutionTime: time.Duration(len(version)) * time.Millisecond,
+		}); err != nil {
+			t.Fatalf("write revision %s: %v", version, err)
+		}
+	}
+
+	revisions, err := store.ReadRevisions(ctx)
+	if err != nil {
+		t.Fatalf("read revisions: %v", err)
+	}
+
+	got := make([]string, 0, len(revisions))
+	for _, revision := range revisions {
+		got = append(got, revision.Version)
+	}
+
+	expected := []string{"202606220002", "202606220005", "202606220010"}
+	if !reflect.DeepEqual(expected, got) {
+		t.Fatalf("expected ordered versions %v, got %v", expected, got)
+	}
+}
+
+func TestAtlasRevisionStoreEnsureTableCreatesExpectedColumns(t *testing.T) {
+	expectedFragments := []string{
+		"version VARCHAR(255) PRIMARY KEY",
+		"description TEXT NOT NULL DEFAULT ''",
+		"type BIGINT NOT NULL DEFAULT 0",
+		"applied BIGINT NOT NULL DEFAULT 0",
+		"total BIGINT NOT NULL DEFAULT 0",
+		"executed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()",
+		"execution_time BIGINT NOT NULL DEFAULT 0",
+		"error TEXT NOT NULL DEFAULT ''",
+		"error_stmt TEXT NOT NULL DEFAULT ''",
+		"hash TEXT NOT NULL DEFAULT ''",
+		"partial_hashes JSONB NULL",
+		"operator_version TEXT NOT NULL DEFAULT ''",
+	}
+	for _, fragment := range expectedFragments {
+		if !strings.Contains(atlasRevisionStoreCreateTableSQL, fragment) {
+			t.Fatalf("expected ensureTable SQL to contain %q", fragment)
+		}
+	}
+}
+
+func TestAtlasRevisionStoreWriteRevisionStoresNilPartialHashesAsNull(t *testing.T) {
+	store, db := openTestAtlasRevisionStore(t)
+	ctx := context.Background()
+
+	revision := &atlasmigrate.Revision{
+		Version:       "202606220003",
+		Description:   "nil partial hashes",
+		Type:          atlasmigrate.RevisionTypeExecute,
+		ExecutedAt:    time.Unix(1719046800, 0).UTC(),
+		ExecutionTime: 25 * time.Millisecond,
+	}
+	if err := store.WriteRevision(ctx, revision); err != nil {
+		t.Fatalf("write revision: %v", err)
+	}
+
+	var raw sql.NullString
+	if err := db.QueryRowContext(ctx, `SELECT partial_hashes FROM atlas_schema_revisions WHERE version = ?`, revision.Version).Scan(&raw); err != nil {
+		t.Fatalf("read partial_hashes: %v", err)
+	}
+	if raw.Valid {
+		t.Fatalf("expected NULL partial_hashes, got %q", raw.String)
+	}
+}
+
+func TestAtlasRevisionStoreWriteRevisionStoresPartialHashesAsJSONArray(t *testing.T) {
+	store, db := openTestAtlasRevisionStore(t)
+	ctx := context.Background()
+
+	revision := &atlasmigrate.Revision{
+		Version:       "202606220004",
+		Description:   "partial hashes",
+		Type:          atlasmigrate.RevisionTypeExecute,
+		ExecutedAt:    time.Unix(1719046801, 0).UTC(),
+		ExecutionTime: 25 * time.Millisecond,
+		PartialHashes: []string{"stmt-a", "stmt-b"},
+	}
+	if err := store.WriteRevision(ctx, revision); err != nil {
+		t.Fatalf("write revision: %v", err)
+	}
+
+	var raw string
+	if err := db.QueryRowContext(ctx, `SELECT partial_hashes FROM atlas_schema_revisions WHERE version = ?`, revision.Version).Scan(&raw); err != nil {
+		t.Fatalf("read partial_hashes: %v", err)
+	}
+
+	var decoded []string
+	if err := json.Unmarshal([]byte(raw), &decoded); err != nil {
+		t.Fatalf("decode stored partial_hashes: %v", err)
+	}
+	if !reflect.DeepEqual(revision.PartialHashes, decoded) {
+		t.Fatalf("expected partial_hashes %v, got %v", revision.PartialHashes, decoded)
+	}
+}
+
+func TestScanAtlasRevisionRejectsInvalidPartialHashes(t *testing.T) {
+	_, err := scanAtlasRevision(func(dest ...any) error {
+		*dest[0].(*string) = "202606220005"
+		*dest[1].(*string) = "broken partial hashes"
+		*dest[2].(*int64) = 0
+		*dest[3].(*int) = 0
+		*dest[4].(*int) = 0
+		*dest[5].(*time.Time) = time.Unix(1719046802, 0).UTC()
+		*dest[6].(*int64) = int64((5 * time.Millisecond).Nanoseconds())
+		*dest[7].(*string) = ""
+		*dest[8].(*string) = ""
+		*dest[9].(*string) = ""
+		*dest[10].(*[]byte) = []byte(`{"not":"an-array"}`)
+		*dest[11].(*string) = "graft"
+		return nil
+	})
+	if err == nil {
+		t.Fatal("expected invalid partial hashes error")
+	}
+	if !strings.Contains(err.Error(), "decode partial hashes for revision 202606220005") {
+		t.Fatalf("expected partial hash decode guidance, got %v", err)
+	}
+}
+
+func TestScanAtlasRevisionRejectsNegativeExecutionTime(t *testing.T) {
+	revision, err := scanAtlasRevision(func(dest ...any) error {
+		*dest[0].(*string) = "202606220006"
+		*dest[1].(*string) = "negative execution time"
+		*dest[2].(*int64) = 0
+		*dest[3].(*int) = 0
+		*dest[4].(*int) = 0
+		*dest[5].(*time.Time) = time.Unix(1719046803, 0).UTC()
+		*dest[6].(*int64) = -1
+		*dest[7].(*string) = "failed"
+		*dest[8].(*string) = "SELECT 1"
+		*dest[9].(*string) = "hash"
+		*dest[10].(*[]byte) = nil
+		*dest[11].(*string) = "graft"
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("expected negative duration to round-trip as stored data, got %v", err)
+	}
+	if revision.ExecutionTime != -1 {
+		t.Fatalf("expected execution time -1ns, got %s", revision.ExecutionTime)
+	}
+	if revision.Error != "failed" || revision.ErrorStmt != "SELECT 1" {
+		t.Fatalf("expected error fields to round-trip, got %q / %q", revision.Error, revision.ErrorStmt)
+	}
+}
+
+func TestRevisionTypeEncodingRoundTrip(t *testing.T) {
+	tests := []struct {
+		name  string
+		value atlasmigrate.RevisionType
+	}{
+		{
+			name:  "baseline",
+			value: atlasmigrate.RevisionTypeBaseline,
+		},
+		{
+			name:  "execute",
+			value: atlasmigrate.RevisionTypeExecute,
+		},
+		{
+			name:  "resolved",
+			value: atlasmigrate.RevisionTypeResolved,
+		},
+		{
+			name:  "combined",
+			value: atlasmigrate.RevisionTypeExecute | atlasmigrate.RevisionTypeResolved,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			encoded, err := revisionTypeToInt64(tt.value)
+			if err != nil {
+				t.Fatalf("encode revision type: %v", err)
+			}
+
+			decoded, err := revisionTypeFromInt64(encoded)
+			if err != nil {
+				t.Fatalf("decode revision type: %v", err)
+			}
+
+			if decoded != tt.value {
+				t.Fatalf("expected type %v, got %v", tt.value, decoded)
+			}
+		})
+	}
+}
+
+func TestRevisionTypeFromInt64RejectsNegative(t *testing.T) {
+	_, err := revisionTypeFromInt64(-1)
+	if err == nil {
+		t.Fatal("expected negative revision type error")
+	}
+	if !strings.Contains(err.Error(), "cannot be negative") {
+		t.Fatalf("expected negative revision type guidance, got %v", err)
 	}
 }
 
