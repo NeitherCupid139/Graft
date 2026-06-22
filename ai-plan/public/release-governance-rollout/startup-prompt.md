@@ -48,11 +48,11 @@ Locked Phase 1 decisions:
    not present them as existing support.
 
 Next batch scope:
-- `phase-3-release-operator-docs-baseline`
+- `final-archive-readiness-check`
 - allowed scopes:
   - `ai-plan/public/release-governance-rollout/**`
-  - `README.md`
-  - new release/install/upgrade/rollback docs directories when the batch needs them
+  - `ai-plan/public/README.md` only if archive migration or active-topic index cleanup is accepted by the final check
+  - `ai-plan/public/archive/release-governance-rollout/**` only if the final check concludes `archive-ready`
 
 Locked Phase 2 decisions:
 1. Official `v0.1.0` release identity is the repository Git tag `vMAJOR.MINOR.PATCH`.
@@ -71,14 +71,31 @@ Locked Phase 2 decisions:
 7. Official `server` artifact, `web` artifact, and release notes must come from the same release tag.
 8. Migration version identifiers remain internal ordering values, not product versions or compatibility labels.
 
-Phase 3 goals:
-1. Lock the minimal operator document set for install, config reference, upgrade, rollback, and release notes.
-2. Give each document a canonical location and cite the authority fixed by Phase 1 and Phase 2.
-3. Keep the docs honest about explicit migration steps, backup/config snapshot prerequisites, and same-tag artifact
-   coordination.
+Locked Phase 3 decisions:
+1. The operator doc baseline now lives under `ai-plan/public/release-governance-rollout/operator-docs/`.
+2. Canonical operator docs are:
+   - `README.md`
+   - `install.md`
+   - `config-reference.md`
+   - `upgrade.md`
+   - `rollback.md`
+   - `release-notes-template.md`
+3. The doc set now directly covers:
+   - upgrade safety boundary
+   - migration governance details
+   - configuration lifecycle
+   - BuildInfo visibility
+   - versioning and compatibility
+   - support boundary clarification
+   - operator documentation mapping
+4. The doc set remains documentation-first and does not create new runtime or workflow promises.
 
-Phase 3 non-goals:
+Final archive-readiness goals:
+1. Verify Phase 1, Phase 2, and Phase 3 authority is stable and internally consistent.
+2. Decide whether `release-governance-rollout` is now `archive-ready`.
+3. Only if `archive-ready`, prepare the bounded archive/index update path; do not assume it automatically.
+
+Final archive-readiness non-goals:
+- no new Phase 4 implementation batch
 - no workflow implementation changes
-- no docs-site or hosted documentation platform work
-- no stronger operator-facing introspection promise
-- no expansion into Docker, Kubernetes, or hosted deployment support
+- no server or web runtime edits

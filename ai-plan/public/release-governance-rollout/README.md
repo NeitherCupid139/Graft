@@ -221,6 +221,73 @@
 - Phase 3 docs must cite release tag compatibility and explicit migration step requirements instead of inventing a
   separate compatibility matrix
 
+## Phase 3 Accepted Authority
+
+### Operator Docs Canonical Set
+
+- canonical location：
+  - `ai-plan/public/release-governance-rollout/operator-docs/README.md`
+  - `ai-plan/public/release-governance-rollout/operator-docs/install.md`
+  - `ai-plan/public/release-governance-rollout/operator-docs/config-reference.md`
+  - `ai-plan/public/release-governance-rollout/operator-docs/upgrade.md`
+  - `ai-plan/public/release-governance-rollout/operator-docs/rollback.md`
+  - `ai-plan/public/release-governance-rollout/operator-docs/release-notes-template.md`
+- operator-facing docs remain topic-owned in Phase 3. They are a documentation baseline, not a docs-site or product UI.
+- each doc must cite the Phase 1 safety baseline and Phase 2 release identity baseline instead of creating a new
+  compatibility authority.
+
+### Coverage Check Result
+
+- `Upgrade Safety Boundary`
+  - Phase 1 already fixed the minimal upgrade baseline.
+  - Phase 3 adds the operator-consumable supported path, unsupported path, operator responsibility boundary, and
+    upgrade compatibility principle in `operator-docs/upgrade.md`.
+- `Migration Governance Details`
+  - Phase 1 already fixed forward-only governance.
+  - Phase 3 adds the operator classification for `additive` / `compatible` / `destructive` migration change shapes and
+    the `patch` / `minor` / `major` release boundary in `operator-docs/upgrade.md`.
+- `Configuration Lifecycle`
+  - Phase 1 already fixed stable config change classes.
+  - Phase 3 adds default value principles, deprecation record expectations, removal constraints, and rename
+    compatibility guidance in `operator-docs/config-reference.md`.
+- `Build Identity Visibility`
+  - Phase 2 already fixed the minimum BuildInfo field set.
+  - Phase 3 adds the visibility contract for `CLI` / `API` / `logs` in `operator-docs/README.md` and the release
+    notes template.
+- `Versioning And Compatibility`
+  - Phase 2 already fixed the release tag and same-tag artifact coordination.
+  - Phase 3 adds the operator-facing `SemVer` rule, breaking-change boundary, and `patch` / `minor` / `major`
+    expectations in `operator-docs/README.md` and `operator-docs/upgrade.md`.
+- `Support Boundary Clarification`
+  - Phase 2 already fixed the high-level support boundary.
+  - Phase 3 makes the supported / unsupported / experimental boundary directly consumable in `operator-docs/README.md`
+    and `operator-docs/install.md`.
+- `Operator Documentation Mapping`
+  - Phase 3 fixes one canonical landing point for `Installation` / `Upgrade` / `Configuration` / `Versioning` /
+    `Support Boundary` through `operator-docs/README.md`.
+
+### Operator-Facing Authority Contract
+
+- official supported install shape for `v0.1.0` remains self-managed deployment of one `server` artifact and one `web`
+  artifact from the same release tag, with explicit operator-run migration steps when schema changes are present
+- unsupported operator assumptions for `v0.1.0` remain:
+  - mixed-tag `server` / `web` deployment
+  - implicit startup migration
+  - automatic rollback
+  - `Docker` / `Compose` / `Kubernetes` / hosted deployment support commitments
+- `experimental` only applies when a release note or operator doc explicitly labels a capability as experimental; absent
+  that label, operators must not infer a soft promise from internal implementation artifacts
+- current Build Identity visibility is documentation-first:
+  - `CLI`
+    - future `graft version` must expose `version`、`git_commit`、`build_time_utc` and may additionally print
+      `git_tree_state`
+  - `API`
+    - `v0.1.0` does not yet promise a dedicated operator-facing version endpoint
+  - `logs`
+    - `v0.1.0` does not yet promise startup-log BuildInfo emission as a canonical support surface
+- until `CLI` / `API` / `logs` identity surfaces are implemented, release tag, published artifact names, and release
+  notes remain the canonical operator-facing identity surface
+
 ## Batch Details
 
 ### Phase 1: Release Safety Governance

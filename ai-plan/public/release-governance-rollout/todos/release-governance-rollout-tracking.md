@@ -25,8 +25,8 @@ Release Governance Rollout
 
 - 已完成上游审计 topic archive handoff。
 - 当前 active topic 只承接 `v0.1.0 P0` 治理落地顺序，不直接实现 release workflow。
-- 当前批次 `phase-2-release-identity-and-policy` 已完成。
-- 下一批固定为 `phase-3-release-operator-docs-baseline`。
+- 当前批次 `phase-3-release-operator-docs-baseline` 已完成。
+- 下一批固定为 `final-archive-readiness-check`。
 - 剩余串行计划：
   - Phase 3：operator docs baseline
   - Final：archive-readiness check
@@ -38,16 +38,16 @@ Release Governance Rollout
 - [x] 固定 loop mode、预算和 stop conditions
 - [x] Phase 1：Release Safety Governance
 - [x] Phase 2：Release Identity And Policy
-- [ ] Phase 3：Release Operator Docs Baseline
+- [x] Phase 3：Release Operator Docs Baseline
 - [ ] Final archive-readiness check
 
 ## Current Loop State
 
 - `loop_mode`: `topic-completion-loop`
 - `current_batch`: `none`
-- `next_batch`: `phase-3-release-operator-docs-baseline`
+- `next_batch`: `final-archive-readiness-check`
 - `remaining_after_current`:
-  - `final-archive-readiness-check`
+  - `archive decision only`
 
 ## Phase 1 Decisions
 
@@ -96,3 +96,27 @@ Release Governance Rollout
 - 已固定 version coordination：
   - 官方 `server` / `web` artifact 与 release notes 必须来自同一 release tag
   - migration version 是内部排序号，不是 product version，也不能用来替代 release compatibility
+
+## Phase 3 Decisions
+
+- 已固定 operator 文档集合 canonical location：
+  - `ai-plan/public/release-governance-rollout/operator-docs/README.md`
+  - `install.md`
+  - `config-reference.md`
+  - `upgrade.md`
+  - `rollback.md`
+  - `release-notes-template.md`
+- 已完成 coverage check，并只补齐原本未直接可消费的 operator 落点：
+  - `Upgrade Safety Boundary`
+  - `Migration Governance Details`
+  - `Configuration Lifecycle`
+  - `Build Identity Visibility`
+  - `Versioning And Compatibility`
+  - `Support Boundary Clarification`
+  - `Operator Documentation Mapping`
+- 已固定最小 operator 文档口径：
+  - install guide 只支持同一 release tag 下的自管 `server` / `web` artifact 安装
+  - config reference 固定 stable config lifecycle、default value principle 和 deprecation record baseline
+  - upgrade guide 固定 supported/unsupported path、operator responsibility boundary 和 migration class
+  - rollback guide 固定 documentation-first、operator-controlled baseline
+  - release notes template 固定 release identity、migration/config impact、upgrade/rollback/support boundary 字段
