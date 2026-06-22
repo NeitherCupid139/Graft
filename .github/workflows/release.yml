@@ -21,6 +21,11 @@ jobs:
     name: Semantic Release Preview
     runs-on: ubuntu-latest
     if: ${{ github.ref == 'refs/heads/main' }}
+    outputs:
+      published: ${{ steps.semantic_release.outputs.new_release_published }}
+      last_tag: ${{ steps.semantic_release.outputs.last_release_git_tag }}
+      next_version: ${{ steps.semantic_release.outputs.new_release_version }}
+      next_tag: ${{ steps.semantic_release.outputs.new_release_git_tag }}
 
     permissions:
       contents: read
@@ -32,6 +37,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+          ref: ${{ github.sha }}
 
       - name: Validate release PAT
         uses: ./.github/actions/validate-pat
@@ -41,27 +47,84 @@ jobs:
           repository: ${{ github.repository }}
           missing-token-message: PAT_TOKEN is required because semantic-release dry-run performs a remote push permission probe.
 
-      - name: Setup Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
-        with:
-          node-version: 24
-
       - name: Preview next release
+        id: semantic_release
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+        uses: cycjimmy/semantic-release-action@b12c8f6015dc215fe37bc154d4ad456dd3833c90
+        with:
+          dry_run: true
+          ci: false
+          extra_plugins: |
+            conventional-changelog-conventionalcommits@9.1.0
+
+      - name: Show preview result
+        env:
+          PUBLISHED: ${{ steps.semantic_release.outputs.new_release_published }}
+          LAST_TAG: ${{ steps.semantic_release.outputs.last_release_git_tag }}
+          NEXT_VERSION: ${{ steps.semantic_release.outputs.new_release_version }}
+          NEXT_TAG: ${{ steps.semantic_release.outputs.new_release_git_tag }}
         run: |
-          npx --yes \
-            -p semantic-release \
-            -p @semantic-release/commit-analyzer \
-            -p @semantic-release/release-notes-generator \
-            -p conventional-changelog-conventionalcommits \
-            semantic-release --dry-run --no-ci
+          echo "published=${PUBLISHED}"
+          echo "last_tag=${LAST_TAG}"
+          echo "next_version=${NEXT_VERSION}"
+          echo "next_tag=${NEXT_TAG}"
+
+      - name: Generate preview release notes
+        if: ${{ steps.semantic_release.outputs.new_release_published == 'true' }}
+        id: cliff_preview
+        continue-on-error: true
+        uses: orhun/git-cliff-action@f50e11560dce63f7c33227798f90b924471a88b5
+        with:
+          config: .github/cliff.toml
+          args: >-
+            -vv --unreleased --strip header
+            --tag "${{ steps.semantic_release.outputs.new_release_git_tag }}"
+        env:
+          OUTPUT: PREVIEW_RELEASE_NOTES.md
+          GITHUB_REPO: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Write preview summary
+        env:
+          RELEASE_PUBLISHED: ${{ steps.semantic_release.outputs.new_release_published }}
+          LAST_TAG: ${{ steps.semantic_release.outputs.last_release_git_tag }}
+          NEXT_VERSION: ${{ steps.semantic_release.outputs.new_release_version }}
+          NEXT_TAG: ${{ steps.semantic_release.outputs.new_release_git_tag }}
+          CLIFF_RELEASE_NOTES: ${{ steps.cliff_preview.outputs.content }}
+        run: |
+          set -euo pipefail
+          normalize() {
+            local value="${1:-}"
+            if [[ -n "${value}" ]]; then
+              printf '%s' "${value}"
+            else
+              printf 'none'
+            fi
+          }
+          {
+            echo "## Release Preview"
+            echo
+            echo "- Commit: \`${{ github.sha }}\`"
+            echo "- Release needed: \`$(normalize "${RELEASE_PUBLISHED}")\`"
+            echo "- Last tag: \`$(normalize "${LAST_TAG}")\`"
+            echo "- Next version: \`$(normalize "${NEXT_VERSION}")\`"
+            echo "- Next tag: \`$(normalize "${NEXT_TAG}")\`"
+            echo "- Preview auth: uses \`PAT_TOKEN\` because semantic-release dry-run still performs a remote push permission probe."
+            echo "- Snapshot semantics: this preview is pinned to dispatch SHA \`${{ github.sha }}\`; commits added to \`main\` after the run starts are not included."
+            if [[ "${RELEASE_PUBLISHED}" == "true" && -n "${CLIFF_RELEASE_NOTES}" ]]; then
+              echo
+              echo "### Candidate Release Notes"
+              echo
+              printf '%s\n' "${CLIFF_RELEASE_NOTES}"
+            fi
+          } >> "${GITHUB_STEP_SUMMARY}"
 
   publish-version-tag:
     name: Publish Version Tag
     runs-on: ubuntu-latest
     needs: semantic-release-preview
-    if: ${{ github.ref == 'refs/heads/main' && inputs.dry_run == false }}
+    if: ${{ github.ref == 'refs/heads/main' && needs.semantic-release-preview.result == 'success' && needs.semantic-release-preview.outputs.published == 'true' && inputs.dry_run == false }}
     environment: release-approval
 
     permissions:
@@ -74,6 +137,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+          ref: ${{ github.sha }}
 
       - name: Validate release PAT
         uses: ./.github/actions/validate-pat
@@ -83,18 +147,63 @@ jobs:
           repository: ${{ github.repository }}
           missing-token-message: PAT_TOKEN is required to publish the semantic-release version tag.
 
-      - name: Setup Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
-        with:
-          node-version: 24
-
       - name: Publish semantic-release tag
+        id: semantic_release
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+        uses: cycjimmy/semantic-release-action@b12c8f6015dc215fe37bc154d4ad456dd3833c90
+        with:
+          dry_run: false
+          extra_plugins: |
+            conventional-changelog-conventionalcommits@9.1.0
+
+      - name: Show release result
+        env:
+          PUBLISHED: ${{ steps.semantic_release.outputs.new_release_published }}
+          PREVIEW_LAST_TAG: ${{ needs.semantic-release-preview.outputs.last_tag }}
+          PREVIEW_NEXT_VERSION: ${{ needs.semantic-release-preview.outputs.next_version }}
+          PREVIEW_NEXT_TAG: ${{ needs.semantic-release-preview.outputs.next_tag }}
+          LAST_TAG: ${{ steps.semantic_release.outputs.last_release_git_tag }}
+          NEXT_VERSION: ${{ steps.semantic_release.outputs.new_release_version }}
+          NEXT_TAG: ${{ steps.semantic_release.outputs.new_release_git_tag }}
         run: |
-          npx --yes \
-            -p semantic-release \
-            -p @semantic-release/commit-analyzer \
-            -p @semantic-release/release-notes-generator \
-            -p conventional-changelog-conventionalcommits \
-            semantic-release
+          echo "published=${PUBLISHED}"
+          echo "preview_last_tag=${PREVIEW_LAST_TAG}"
+          echo "preview_next_version=${PREVIEW_NEXT_VERSION}"
+          echo "preview_next_tag=${PREVIEW_NEXT_TAG}"
+          echo "last_tag=${LAST_TAG}"
+          echo "next_version=${NEXT_VERSION}"
+          echo "next_tag=${NEXT_TAG}"
+
+      - name: Write release summary
+        env:
+          RELEASE_PUBLISHED: ${{ steps.semantic_release.outputs.new_release_published }}
+          LAST_TAG: ${{ steps.semantic_release.outputs.last_release_git_tag }}
+          NEXT_VERSION: ${{ steps.semantic_release.outputs.new_release_version }}
+          NEXT_TAG: ${{ steps.semantic_release.outputs.new_release_git_tag }}
+          PREVIEW_LAST_TAG: ${{ needs.semantic-release-preview.outputs.last_tag }}
+          PREVIEW_NEXT_VERSION: ${{ needs.semantic-release-preview.outputs.next_version }}
+          PREVIEW_NEXT_TAG: ${{ needs.semantic-release-preview.outputs.next_tag }}
+        run: |
+          set -euo pipefail
+          normalize() {
+            local value="${1:-}"
+            if [[ -n "${value}" ]]; then
+              printf '%s' "${value}"
+            else
+              printf 'none'
+            fi
+          }
+          {
+            echo "## Release Publish"
+            echo
+            echo "- Commit: \`${{ github.sha }}\`"
+            echo "- Preview last tag: \`$(normalize "${PREVIEW_LAST_TAG}")\`"
+            echo "- Preview next version: \`$(normalize "${PREVIEW_NEXT_VERSION}")\`"
+            echo "- Preview next tag: \`$(normalize "${PREVIEW_NEXT_TAG}")\`"
+            echo "- Published: \`$(normalize "${RELEASE_PUBLISHED}")\`"
+            echo "- Last tag: \`$(normalize "${LAST_TAG}")\`"
+            echo "- Next version: \`$(normalize "${NEXT_VERSION}")\`"
+            echo "- Next tag: \`$(normalize "${NEXT_TAG}")\`"
+            echo "- Snapshot semantics: this publish run still uses dispatch SHA \`${{ github.sha }}\`; commits added to \`main\` after the preview started are excluded."
+          } >> "${GITHUB_STEP_SUMMARY}"
