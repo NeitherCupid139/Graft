@@ -5,8 +5,8 @@
 ## Scope
 
 - canonical release identity
-- future `BuildInfo` minimum fields
-- future `graft version` minimum boundary
+- `BuildInfo` minimum fields
+- `graft version` minimum boundary
 - build identity visibility contract across `CLI` / `API` / `logs`
 
 ## Canonical Release Identity
@@ -18,7 +18,7 @@
 
 ## Minimum BuildInfo Fields
 
-Future release-grade `BuildInfo` must include:
+Release-grade `BuildInfo` must include:
 
 - `version`
 - `git_commit`
@@ -29,8 +29,8 @@ Optional future metadata may be added later, but must not replace or weaken the 
 
 ## `graft version` Minimum Boundary
 
-- current repository state does not yet expose a `graft version` subcommand
-- when implemented, `graft version` must be a pure metadata readout
+- current repository state exposes a `graft version` subcommand
+- `graft version` is a pure metadata readout
 - it must not require PostgreSQL, Redis, HTTP startup, or migration execution
 - release builds must expose at least the four minimum BuildInfo fields
 - non-release or local builds may identify themselves as `dev`, but must not be presented as official tagged releases
@@ -39,7 +39,7 @@ Optional future metadata may be added later, but must not replace or weaken the 
 
 ### CLI
 
-- future `graft version` is the canonical operator-facing metadata surface once implemented
+- `graft version` is the canonical operator-facing metadata surface
 - release-grade CLI output must present the minimum BuildInfo baseline without requiring external services
 
 ### API
@@ -52,10 +52,17 @@ Optional future metadata may be added later, but must not replace or weaken the 
 - `v0.1.0` does not yet promise startup-log BuildInfo emission as an authoritative support surface
 - logs may later mirror build identity, but that future behavior must not replace the CLI boundary
 
-## Current Pre-Implementation Fallback
+## Current Local-Build Fallback
 
-Until BuildInfo injection and `graft version` are implemented, the authoritative operator-facing release identity remains:
+When BuildInfo ldflags are not injected, the authoritative operator-facing fallback remains:
 
 - release tag
 - published artifact names
 - release notes
+
+For local binaries and `go run` development flows, `graft version` must report the explicit fallback baseline:
+
+- `version=dev`
+- `git_commit=unknown`
+- `build_time_utc=unknown`
+- `git_tree_state=unknown`
