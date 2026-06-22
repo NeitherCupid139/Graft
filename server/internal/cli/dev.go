@@ -17,6 +17,7 @@ import (
 	"syscall"
 	"time"
 
+	atlasmigrate "ariga.io/atlas/sql/migrate"
 	"github.com/spf13/cobra"
 )
 
@@ -329,9 +330,8 @@ func isAtlasDirtyDevBootstrapError(err error) bool {
 		return false
 	}
 
-	message := err.Error()
-	return strings.Contains(message, "connected database is not clean") &&
-		strings.Contains(message, "atlas_schema_revisions")
+	var notCleanErr *atlasmigrate.NotCleanError
+	return errors.As(err, &notCleanErr) && strings.Contains(notCleanErr.Reason, "atlas_schema_revisions")
 }
 
 func (s *devSupervisor) restartServe(cmd *cobra.Command) error {

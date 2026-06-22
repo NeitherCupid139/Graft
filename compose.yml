@@ -27,7 +27,7 @@ services:
   bootstrap:
     image: ${GRAFT_SERVER_IMAGE}:${GRAFT_IMAGE_TAG}
     restart: "no"
-    command: ["migrate", "up", "--allow-dirty"]
+    command: ["migrate", "up"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -35,7 +35,7 @@ services:
         condition: service_healthy
     environment:
       GRAFT_APP_ENV: production
-      GRAFT_DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+      GRAFT_DATABASE_URL: "host=postgres port=5432 dbname=${POSTGRES_DB} user=${POSTGRES_USER} password=${POSTGRES_PASSWORD} sslmode=disable"
       GRAFT_REDIS_ADDR: redis:6379
       GRAFT_AUTH_JWT_SECRET: ${GRAFT_AUTH_JWT_SECRET}
 
@@ -48,7 +48,7 @@ services:
     environment:
       GRAFT_APP_ENV: production
       GRAFT_HTTP_ADDR: :8080
-      GRAFT_DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+      GRAFT_DATABASE_URL: "host=postgres port=5432 dbname=${POSTGRES_DB} user=${POSTGRES_USER} password=${POSTGRES_PASSWORD} sslmode=disable"
       GRAFT_REDIS_ADDR: redis:6379
       GRAFT_AUTH_JWT_SECRET: ${GRAFT_AUTH_JWT_SECRET}
       GRAFT_DOCS_ENABLED: "true"

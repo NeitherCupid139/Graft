@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"testing"
 
+	atlasmigrate "ariga.io/atlas/sql/migrate"
 	"github.com/spf13/cobra"
 )
 
@@ -187,7 +188,10 @@ func TestDevSupervisorRetriesAllowDirtyForFirstBootstrap(t *testing.T) {
 	attempts := make([]string, 0, 2)
 	devMigrateRunner = func(_ *cobra.Command, _ string) error {
 		attempts = append(attempts, "default")
-		return errors.New(`apply atlas migrations: sql/migrate: connected database is not clean: found schema "atlas_schema_revisions". baseline version or allow-dirty is required`)
+		return fmt.Errorf(
+			"apply atlas migrations: %w. baseline version or allow-dirty is required",
+			&atlasmigrate.NotCleanError{Reason: `found schema "atlas_schema_revisions"`},
+		)
 	}
 	devMigrateRunnerAllowDirty = func(_ *cobra.Command, _ string) error {
 		attempts = append(attempts, "allow-dirty")
@@ -204,6 +208,34 @@ func TestDevSupervisorRetriesAllowDirtyForFirstBootstrap(t *testing.T) {
 	}
 	if attempts[0] != "default" || attempts[1] != "allow-dirty" {
 		t.Fatalf("unexpected migration attempt order %#v", attempts)
+	}
+}
+
+func TestDevSupervisorDoesNotRetryAllowDirtyForNonAtlasRevisionDirtyError(t *testing.T) {
+	originalMigrateRunner := devMigrateRunner
+	originalMigrateRunnerAllowDirty := devMigrateRunnerAllowDirty
+	defer func() {
+		devMigrateRunner = originalMigrateRunner
+		devMigrateRunnerAllowDirty = originalMigrateRunnerAllowDirty
+	}()
+
+	expectedErr := fmt.Errorf(
+		"apply atlas migrations: %w. baseline version or allow-dirty is required",
+		&atlasmigrate.NotCleanError{Reason: `found schema "public"`},
+	)
+
+	devMigrateRunner = func(_ *cobra.Command, _ string) error {
+		return expectedErr
+	}
+	devMigrateRunnerAllowDirty = func(_ *cobra.Command, _ string) error {
+		t.Fatal("allow-dirty retry should not run for non-revision dirty schema")
+		return nil
+	}
+
+	supervisor := &devSupervisor{migrationDir: defaultMigrationDir}
+	err := supervisor.runDevelopmentMigrations(&cobra.Command{})
+	if !errors.Is(err, expectedErr) {
+		t.Fatalf("expected original error, got %v", err)
 	}
 }
 

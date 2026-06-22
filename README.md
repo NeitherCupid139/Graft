@@ -258,6 +258,7 @@ format:check -> typecheck -> openapi:frontend-governance:check -> lint:i18n -> l
 ```
 
 Focused commands are fine during development, but completion, handoff, and merge readiness should use `bun run check`
+unless the task explicitly reports why a narrower validation was used.
 
 ## Container Deployment
 
@@ -294,7 +295,6 @@ Important deployment notes:
 - Compose only orchestrates that step into the startup flow; it does not move migration logic into runtime startup.
 - The `bootstrap` service is the future extension point for other one-time initialization tasks such as seed data,
   license initialization, storage validation, or plugin preflight checks.
-unless the task explicitly reports why a narrower validation was used.
 
 To reproduce the local contract-governance changed scan:
 
