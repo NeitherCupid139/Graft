@@ -88,7 +88,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.release.outputs.tag }}
-          ASSET_TAG: ${{ steps.release.outputs.asset_tag }}
         shell: bash
         run: |
           set -euo pipefail
@@ -109,6 +108,10 @@ jobs:
         uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610
 
       - name: Generate SBOMs
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          ASSET_TAG: ${{ steps.release.outputs.asset_tag }}
+          SYFT_CMD: ${{ steps.syft.outputs.cmd }}
         shell: bash
         run: |
           set -euo pipefail
@@ -117,18 +120,18 @@ jobs:
           mkdir -p dist/security/release-package
 
           cp -R server-release/. dist/security/release-package/
-          cp "release-assets/graft-license-${{ steps.release.outputs.tag }}.txt" \
+          cp "release-assets/graft-license-${RELEASE_TAG}.txt" \
             "dist/security/release-package/LICENSE.txt"
           mv web-release/dist "dist/security/release-package/web-dist"
 
-          "${{ steps.syft.outputs.cmd }}" dir:dist/security/release-package \
-            -o spdx-json=dist/security/graft-sbom-spdx-${{ steps.release.outputs.asset_tag }}.json
+          "${SYFT_CMD}" dir:dist/security/release-package \
+            -o "spdx-json=dist/security/graft-sbom-spdx-${ASSET_TAG}.json"
 
-          "${{ steps.syft.outputs.cmd }}" dir:dist/security/release-package \
-            -o cyclonedx-json=dist/security/graft-sbom-cyclonedx-${{ steps.release.outputs.asset_tag }}.json
+          "${SYFT_CMD}" dir:dist/security/release-package \
+            -o "cyclonedx-json=dist/security/graft-sbom-cyclonedx-${ASSET_TAG}.json"
 
-          "${{ steps.syft.outputs.cmd }}" dir:dist/security/release-package \
-            -o syft-json=dist/security/graft-sbom-syft-${{ steps.release.outputs.asset_tag }}.json
+          "${SYFT_CMD}" dir:dist/security/release-package \
+            -o "syft-json=dist/security/graft-sbom-syft-${ASSET_TAG}.json"
 
       - name: Generate license compliance report
         shell: python

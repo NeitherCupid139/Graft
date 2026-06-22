@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
-      - ./.data/postgres:/var/lib/postgresql/data
+      - ${COMPOSE_FILE_DIR:-.}/.data/postgres:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
@@ -56,13 +56,13 @@ services:
       GRAFT_REDIS_ADDR: redis:6379
       GRAFT_AUTH_JWT_SECRET: ${GRAFT_AUTH_JWT_SECRET}
     expose:
-      - "8080"
+      - "${GRAFT_SERVER_EXPOSE_PORT:-8080}"
 
   web:
     image: ${GRAFT_WEB_IMAGE}:${GRAFT_IMAGE_TAG}
     restart: unless-stopped
-    env_file:
-      - .env
+    environment:
+      GRAFT_SERVER_UPSTREAM: ${GRAFT_SERVER_UPSTREAM:-http://server:8080}
     depends_on:
       server:
         condition: service_healthy

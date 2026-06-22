@@ -273,7 +273,8 @@ Minimal startup:
 
 1. Copy `compose.env.example` to `.env`.
 2. Set the image coordinates and runtime secrets in `.env`.
-3. Pull and start the stack:
+3. Run `docker compose` from the repository root so relative paths resolve against the checked-out deployment files.
+4. Pull and start the stack:
 
 ```bash
 docker compose pull
@@ -296,12 +297,17 @@ Important deployment notes:
 - The `--allow-dirty` retry path is limited to the local `graft dev` bootstrap flow for disposable development databases.
 - The `bootstrap` service is the future extension point for other one-time initialization tasks such as seed data,
   license initialization, storage validation, or plugin preflight checks.
-- The default `compose.yml` uses a relative host bind mount at `./.data/postgres` so deployment data stays beside the
-  compose file instead of in an anonymous Docker-managed location.
+- The default `compose.yml` anchors the PostgreSQL bind mount at `${COMPOSE_FILE_DIR:-.}/.data/postgres` so deployment
+  data stays beside the compose file instead of in an anonymous Docker-managed location.
+- `.env` must exist at the repository root next to `compose.yml` before `docker compose up`; compose will fail fast if
+  the file is missing.
 - Optional runtime overrides belong in `.env`. Leave the commented defaults untouched unless you need to override the
   image defaults or the server's built-in runtime defaults.
+- If you override `GRAFT_HTTP_ADDR`, also keep `GRAFT_SERVER_EXPOSE_PORT` and `GRAFT_SERVER_UPSTREAM` aligned with the
+  same internal server port so the `web` container can still reach the `server` container.
 - `web` runtime proxying is controlled by `GRAFT_SERVER_UPSTREAM`; `VITE_*` variables remain development-only and do
   not belong in the root compose deployment template.
+- The `web` container does not read the root `.env` file directly; only the server-side services receive those secrets.
 - Production docs are disabled by default. Set `GRAFT_DOCS_ENABLED=true` only when you intentionally want `/docs` and
   OpenAPI endpoints exposed.
 
