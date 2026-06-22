@@ -284,7 +284,7 @@ Compose startup semantics:
 
 - `postgres` and `redis` start first.
 - `bootstrap` runs as a one-shot init service.
-- The current `bootstrap` implementation executes `graft migrate up --allow-dirty` for a freshly provisioned or disposable deployment database.
+- The current `bootstrap` implementation executes `graft migrate up` and expects a clean deployment database state.
 - `server` starts only after `bootstrap` exits successfully.
 - `web` starts only after `server` becomes healthy.
 
@@ -293,6 +293,7 @@ Important deployment notes:
 - `server` itself does not auto-migrate the database.
 - Database change authority remains the explicit CLI command `graft migrate up`.
 - Compose only orchestrates that step into the startup flow; it does not move migration logic into runtime startup.
+- The `--allow-dirty` retry path is limited to the local `graft dev` bootstrap flow for disposable development databases.
 - The `bootstrap` service is the future extension point for other one-time initialization tasks such as seed data,
   license initialization, storage validation, or plugin preflight checks.
 
