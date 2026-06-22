@@ -13,6 +13,8 @@ import (
 
 	atlasmigrate "ariga.io/atlas/sql/migrate"
 	"github.com/spf13/cobra"
+
+	"graft/server/internal/config"
 )
 
 func TestRunDevNotifyWritesSupervisorMarker(t *testing.T) {
@@ -117,6 +119,7 @@ func TestRunDevSupervisorWithAirStartFailureStopsServe(t *testing.T) {
 	originalMigrationResolver := devMigrationDirResolver
 	originalMigrateRunner := devMigrateRunner
 	originalMigrateRunnerAllowDirty := devMigrateRunnerAllowDirty
+	originalLoadConfig := devLoadConfig
 	originalCommandContext := devCommandContext
 	originalCommandEnv := devCommandEnv
 	originalAirLookPath := devAirLookPath
@@ -127,6 +130,7 @@ func TestRunDevSupervisorWithAirStartFailureStopsServe(t *testing.T) {
 		devMigrationDirResolver = originalMigrationResolver
 		devMigrateRunner = originalMigrateRunner
 		devMigrateRunnerAllowDirty = originalMigrateRunnerAllowDirty
+		devLoadConfig = originalLoadConfig
 		devCommandContext = originalCommandContext
 		devCommandEnv = originalCommandEnv
 		devAirLookPath = originalAirLookPath
@@ -147,6 +151,9 @@ func TestRunDevSupervisorWithAirStartFailureStopsServe(t *testing.T) {
 	}
 	devMigrateRunnerAllowDirty = func(_ *cobra.Command, _ string) error {
 		return nil
+	}
+	devLoadConfig = func() (*config.Config, error) {
+		return &config.Config{Runtime: config.RuntimeConfig{DevAllowDirtyMigrationBootstrap: true}}, nil
 	}
 	devCommandContext = func(ctx context.Context, _ string, _ ...string) *exec.Cmd {
 		return exec.CommandContext(ctx, "sleep", "30")
@@ -180,6 +187,45 @@ func TestRunDevSupervisorWithAirStartFailureStopsServe(t *testing.T) {
 func TestDevSupervisorRetriesAllowDirtyForFirstBootstrap(t *testing.T) {
 	originalMigrateRunner := devMigrateRunner
 	originalMigrateRunnerAllowDirty := devMigrateRunnerAllowDirty
+	originalLoadConfig := devLoadConfig
+	defer func() {
+		devMigrateRunner = originalMigrateRunner
+		devMigrateRunnerAllowDirty = originalMigrateRunnerAllowDirty
+		devLoadConfig = originalLoadConfig
+	}()
+
+	attempts := make([]string, 0, 2)
+	devMigrateRunner = func(_ *cobra.Command, _ string) error {
+		attempts = append(attempts, "default")
+		return fmt.Errorf(
+			"apply atlas migrations: %w. baseline version or allow-dirty is required",
+			&atlasmigrate.NotCleanError{Reason: `found schema "atlas_schema_revisions"`},
+		)
+	}
+	devMigrateRunnerAllowDirty = func(_ *cobra.Command, _ string) error {
+		attempts = append(attempts, "allow-dirty")
+		return nil
+	}
+	devLoadConfig = func() (*config.Config, error) {
+		return &config.Config{Runtime: config.RuntimeConfig{DevAllowDirtyMigrationBootstrap: true}}, nil
+	}
+
+	supervisor := &devSupervisor{migrationDir: defaultMigrationDir}
+	if err := supervisor.runDevelopmentMigrations(&cobra.Command{}); err != nil {
+		t.Fatalf("run development migrations: %v", err)
+	}
+
+	if len(attempts) != 2 {
+		t.Fatalf("expected 2 migration attempts, got %#v", attempts)
+	}
+	if attempts[0] != "default" || attempts[1] != "allow-dirty" {
+		t.Fatalf("unexpected migration attempt order %#v", attempts)
+	}
+}
+
+func TestDevSupervisorRetriesAllowDirtyForFirstBootstrapWithUserSchemaDirtyState(t *testing.T) {
+	originalMigrateRunner := devMigrateRunner
+	originalMigrateRunnerAllowDirty := devMigrateRunnerAllowDirty
 	defer func() {
 		devMigrateRunner = originalMigrateRunner
 		devMigrateRunnerAllowDirty = originalMigrateRunnerAllowDirty
@@ -190,7 +236,7 @@ func TestDevSupervisorRetriesAllowDirtyForFirstBootstrap(t *testing.T) {
 		attempts = append(attempts, "default")
 		return fmt.Errorf(
 			"apply atlas migrations: %w. baseline version or allow-dirty is required",
-			&atlasmigrate.NotCleanError{Reason: `found schema "atlas_schema_revisions"`},
+			&atlasmigrate.NotCleanError{Reason: `found schema "public"`},
 		)
 	}
 	devMigrateRunnerAllowDirty = func(_ *cobra.Command, _ string) error {
@@ -211,12 +257,14 @@ func TestDevSupervisorRetriesAllowDirtyForFirstBootstrap(t *testing.T) {
 	}
 }
 
-func TestDevSupervisorDoesNotRetryAllowDirtyForNonAtlasRevisionDirtyError(t *testing.T) {
+func TestDevSupervisorDoesNotRetryAllowDirtyWhenBootstrapOverrideDisabled(t *testing.T) {
 	originalMigrateRunner := devMigrateRunner
 	originalMigrateRunnerAllowDirty := devMigrateRunnerAllowDirty
+	originalLoadConfig := devLoadConfig
 	defer func() {
 		devMigrateRunner = originalMigrateRunner
 		devMigrateRunnerAllowDirty = originalMigrateRunnerAllowDirty
+		devLoadConfig = originalLoadConfig
 	}()
 
 	expectedErr := fmt.Errorf(
@@ -228,8 +276,41 @@ func TestDevSupervisorDoesNotRetryAllowDirtyForNonAtlasRevisionDirtyError(t *tes
 		return expectedErr
 	}
 	devMigrateRunnerAllowDirty = func(_ *cobra.Command, _ string) error {
-		t.Fatal("allow-dirty retry should not run for non-revision dirty schema")
+		t.Fatal("allow-dirty retry should not run when bootstrap override is disabled")
 		return nil
+	}
+	devLoadConfig = func() (*config.Config, error) {
+		return &config.Config{Runtime: config.RuntimeConfig{DevAllowDirtyMigrationBootstrap: false}}, nil
+	}
+
+	supervisor := &devSupervisor{migrationDir: defaultMigrationDir}
+	err := supervisor.runDevelopmentMigrations(&cobra.Command{})
+	if !errors.Is(err, expectedErr) {
+		t.Fatalf("expected original error, got %v", err)
+	}
+}
+
+func TestDevSupervisorDoesNotRetryAllowDirtyForNonNotCleanError(t *testing.T) {
+	originalMigrateRunner := devMigrateRunner
+	originalMigrateRunnerAllowDirty := devMigrateRunnerAllowDirty
+	originalLoadConfig := devLoadConfig
+	defer func() {
+		devMigrateRunner = originalMigrateRunner
+		devMigrateRunnerAllowDirty = originalMigrateRunnerAllowDirty
+		devLoadConfig = originalLoadConfig
+	}()
+
+	expectedErr := errors.New("some other migration failure")
+
+	devMigrateRunner = func(_ *cobra.Command, _ string) error {
+		return expectedErr
+	}
+	devMigrateRunnerAllowDirty = func(_ *cobra.Command, _ string) error {
+		t.Fatal("allow-dirty retry should not run for non-NotCleanError failures")
+		return nil
+	}
+	devLoadConfig = func() (*config.Config, error) {
+		return &config.Config{Runtime: config.RuntimeConfig{DevAllowDirtyMigrationBootstrap: true}}, nil
 	}
 
 	supervisor := &devSupervisor{migrationDir: defaultMigrationDir}

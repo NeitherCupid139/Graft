@@ -19,6 +19,8 @@ import (
 
 	atlasmigrate "ariga.io/atlas/sql/migrate"
 	"github.com/spf13/cobra"
+
+	"graft/server/internal/config"
 )
 
 const (
@@ -73,6 +75,7 @@ var devMigrateRunner = func(cmd *cobra.Command, migrationDir string) error {
 var devMigrateRunnerAllowDirty = func(cmd *cobra.Command, migrationDir string) error {
 	return runMigrateUp(cmd, migrateUpOptions{migrationDir: migrationDir, allowDirty: true})
 }
+var devLoadConfig = config.Load
 
 var devAirModuleRootResolver = resolveBackendModuleRoot
 var devAirLookPath = exec.LookPath
@@ -312,16 +315,25 @@ func (s *devSupervisor) runDevelopmentMigrations(cmd *cobra.Command) error {
 		return nil
 	}
 
-	// When a local dev database already has Atlas revision history but was not created
-	// through the current clean-baseline flow, allow one controlled first-run retry so
-	// `graft dev` / `graft dev air` can take over the disposable local database without
-	// weakening the default protection on explicit `graft migrate up`.
-	if s.serveCmd == nil && isAtlasDirtyDevBootstrapError(err) {
+	// When a disposable local dev database is not Atlas-clean on the very first
+	// bootstrap, allow one controlled retry with --allow-dirty so `graft dev` /
+	// `graft dev air` can take over the local database without weakening the
+	// default protection on explicit `graft migrate up`.
+	if s.serveCmd == nil && isAtlasDirtyDevBootstrapError(err) && s.allowDirtyBootstrapEnabled() {
 		s.log(cmd, "existing dev database requires one allow-dirty migration bootstrap; retrying once")
 		return devMigrateRunnerAllowDirty(cmd, s.migrationDir)
 	}
 
 	return err
+}
+
+func (s *devSupervisor) allowDirtyBootstrapEnabled() bool {
+	cfg, err := devLoadConfig()
+	if err != nil || cfg == nil {
+		return false
+	}
+
+	return cfg.Runtime.DevAllowDirtyMigrationBootstrap
 }
 
 // isAtlasDirtyDevBootstrapError reports whether err indicates an Atlas dirty database bootstrap scenario encountered during development.
@@ -331,7 +343,7 @@ func isAtlasDirtyDevBootstrapError(err error) bool {
 	}
 
 	var notCleanErr *atlasmigrate.NotCleanError
-	return errors.As(err, &notCleanErr) && strings.Contains(notCleanErr.Reason, "atlas_schema_revisions")
+	return errors.As(err, &notCleanErr)
 }
 
 func (s *devSupervisor) restartServe(cmd *cobra.Command) error {

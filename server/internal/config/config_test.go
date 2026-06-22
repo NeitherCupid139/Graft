@@ -320,6 +320,7 @@ func TestLoadUsesDefaultsWhenNoEnvironmentAvailable(t *testing.T) {
 	assertEqual(t, "default log format", cfg.Log.Format, LogFormatAuto)
 	assertEqual(t, "default log color", cfg.Log.Color, LogColorAuto)
 	assertEqual(t, "default gin mode", cfg.Runtime.GinMode, GinModeAuto)
+	assertEqual(t, "default dev allow-dirty bootstrap", cfg.Runtime.DevAllowDirtyMigrationBootstrap, true)
 	assertEqual(t, "default access log console", cfg.HTTPX.AccessLogConsole, AccessLogConsoleAuto)
 	assertEqual(t, "default access log slow threshold", cfg.HTTPX.AccessLogSlowThresholdMS, int64(1000))
 	assertEqual(t, "default locale", cfg.I18n.DefaultLocale, defaultLocale)
@@ -361,6 +362,9 @@ func TestLoadDisablesDocsByDefaultInProduction(t *testing.T) {
 	if cfg.Docs.Enabled {
 		t.Fatal("expected docs to stay disabled by default in production")
 	}
+	if cfg.Runtime.DevAllowDirtyMigrationBootstrap {
+		t.Fatal("expected production to disable dev allow-dirty bootstrap by default")
+	}
 }
 
 func TestLoadAllowsExplicitDocsOverride(t *testing.T) {
@@ -379,6 +383,25 @@ func TestLoadAllowsExplicitDocsOverride(t *testing.T) {
 
 	if !cfg.Docs.Enabled {
 		t.Fatal("expected explicit docs override to enable docs in production")
+	}
+}
+
+func TestLoadAllowsExplicitDevAllowDirtyBootstrapOverride(t *testing.T) {
+	restoreEnv := clearGraftEnv(t)
+	t.Cleanup(restoreEnv)
+	chdir(t, t.TempDir())
+
+	t.Setenv("GRAFT_APP_ENV", "production")
+	t.Setenv("GRAFT_RUNTIME_DEV_ALLOW_DIRTY_MIGRATION_BOOTSTRAP", "true")
+	t.Setenv("GRAFT_AUTH_JWT_SECRET", "runtime-secret")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	if !cfg.Runtime.DevAllowDirtyMigrationBootstrap {
+		t.Fatal("expected explicit override to enable dev allow-dirty bootstrap")
 	}
 }
 
@@ -972,7 +995,8 @@ func validConfigForValidateTests() *Config {
 			AppLogRetention: 3 * 24 * time.Hour,
 		},
 		Runtime: RuntimeConfig{
-			GinMode: GinModeAuto,
+			GinMode:                          GinModeAuto,
+			DevAllowDirtyMigrationBootstrap: false,
 		},
 		Database: DatabaseConfig{
 			Driver:          "postgres",

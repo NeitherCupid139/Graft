@@ -209,7 +209,8 @@ type LogConfig struct {
 
 // RuntimeConfig 描述 core runtime 启动前必须冻结的进程级框架行为。
 type RuntimeConfig struct {
-	GinMode GinMode
+	GinMode                          GinMode
+	DevAllowDirtyMigrationBootstrap bool
 }
 
 // I18nConfig 描述平台级语言解析与消息回退配置。
@@ -315,7 +316,8 @@ func Load() (*Config, error) {
 			AppLogRetention: reader.GetDuration("log.app_log_retention"),
 		},
 		Runtime: RuntimeConfig{
-			GinMode: GinMode(reader.GetString("gin.mode")),
+			GinMode:                          GinMode(reader.GetString("gin.mode")),
+			DevAllowDirtyMigrationBootstrap: reader.GetBool("runtime.dev_allow_dirty_migration_bootstrap"),
 		},
 		I18n: I18nConfig{
 			DefaultLocale:    reader.GetString("i18n.default_locale"),
@@ -508,6 +510,10 @@ func validateRuntimeConfig(c *Config) error {
 	default:
 		return fmt.Errorf("unsupported GRAFT_GIN_MODE value %q", c.Runtime.GinMode)
 	}
+}
+
+func defaultDevAllowDirtyMigrationBootstrapForEnv(appEnv string) bool {
+	return strings.EqualFold(strings.TrimSpace(appEnv), defaultAppEnv)
 }
 
 func validateModulesConfig(c *Config) error {
@@ -833,6 +839,7 @@ func setDefaults(reader *viper.Viper) {
 	reader.SetDefault("log.app_log_persist", defaultAppLogPersistence)
 	reader.SetDefault("log.app_log_retention", defaultAppLogRetentionForEnv(reader.GetString("app.env")))
 	reader.SetDefault("gin.mode", string(GinModeAuto))
+	reader.SetDefault("runtime.dev_allow_dirty_migration_bootstrap", defaultDevAllowDirtyMigrationBootstrapForEnv(reader.GetString("app.env")))
 	reader.SetDefault("i18n.default_locale", defaultLocale)
 	reader.SetDefault("i18n.fallback_locale", defaultLocale)
 	reader.SetDefault("i18n.supported_locales", defaultSupported)
