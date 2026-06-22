@@ -117,7 +117,9 @@ jobs:
             fi
             if [[ "${RELEASE_PUBLISHED}" == "true" ]]; then
               echo
-              echo "如需继续正式发布，请在当前运行中审批 \`release\` 环境。"
+              echo "- 审批前置: GitHub 仓库必须已存在受保护的 \`release\` Environment，并配置至少一名 required reviewer。"
+              echo "- 触发影响: 当前手动运行不再是纯预览；只要检测到可发布版本，就会为 \`release\` Environment 创建一次新的审批请求。"
+              echo "- 如需继续正式发布，请在确认以上前置条件后，在当前运行中审批 \`release\` 环境。"
             fi
           } >> "${GITHUB_STEP_SUMMARY}"
 
