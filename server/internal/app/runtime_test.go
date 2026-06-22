@@ -1178,8 +1178,8 @@ func TestRegisterCoreRoutesServesOpenAPIDocsWhenEnabled(t *testing.T) {
 	runtime.registerCoreRoutes(engine)
 
 	assertOpenAPIJSONResponse(t, engine)
+	assertOpenAPIYAMLResponse(t, engine)
 	assertDocsHTMLResponse(t, engine)
-	assertOpenAPIYAMLDisabled(t, engine)
 }
 
 func TestLoadOpenAPIDocsAssetsUsesGeneratedCanonicalBundle(t *testing.T) {
@@ -1218,7 +1218,7 @@ func TestRegisterCoreRoutesSkipsOpenAPIDocsWhenDisabled(t *testing.T) {
 	engine := gin.New()
 	runtime.registerCoreRoutes(engine)
 
-	for _, path := range []string{openapiJSONPath, openapiDocsPath} {
+	for _, path := range []string{openapiJSONPath, openapiYAMLPath, openapiDocsPath} {
 		recorder := httptest.NewRecorder()
 		request := httptest.NewRequest(http.MethodGet, path, nil)
 		engine.ServeHTTP(recorder, request)
@@ -1228,7 +1228,6 @@ func TestRegisterCoreRoutesSkipsOpenAPIDocsWhenDisabled(t *testing.T) {
 		}
 	}
 
-	assertOpenAPIYAMLDisabled(t, engine)
 }
 
 func TestNewRuntimeCoreRegistersAccessLogRetentionJobWithoutRunningCleanup(t *testing.T) {
@@ -1333,17 +1332,16 @@ func assertOpenAPIJSONResponse(t *testing.T, engine *gin.Engine) {
 	}
 }
 
-func assertOpenAPIYAMLDisabled(t *testing.T, engine *gin.Engine) {
+func assertOpenAPIYAMLResponse(t *testing.T, engine *gin.Engine) {
 	t.Helper()
 
-	const legacyOpenAPIYAMLPath = "/openapi.yaml"
-
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, legacyOpenAPIYAMLPath, nil)
+	request := httptest.NewRequest(http.MethodGet, openapiYAMLPath, nil)
 	engine.ServeHTTP(recorder, request)
 
-	if recorder.Code != http.StatusNotFound {
-		t.Fatalf("%s: expected status %d, got %d", legacyOpenAPIYAMLPath, http.StatusNotFound, recorder.Code)
+	assertResponseStatusAndType(t, recorder, openapiYAMLPath, http.StatusOK, "application/yaml; charset=utf-8")
+	if !strings.Contains(recorder.Body.String(), "openapi: 3.1.0") {
+		t.Fatalf("%s: expected body to contain root spec marker", openapiYAMLPath)
 	}
 }
 

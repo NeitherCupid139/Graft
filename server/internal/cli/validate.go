@@ -30,7 +30,6 @@ const (
 	defaultSmokeProbeDelay = 200 * time.Millisecond
 	defaultBackendStage    = "full"
 	defaultOpenAPIStage    = "openapi"
-	defaultReleaseStage    = "release"
 
 	defaultBackendLintConfig     = ".golangci.yml"
 	defaultBackendTestLintConfig = ".golangci.test.yml"
@@ -370,8 +369,8 @@ func runValidateOpenAPIFreshness() error {
 
 // RunValidateRelease validates that the repository is ready for release.
 func runValidateRelease(_ *cobra.Command) error {
-	info := buildReleaseInfoSnapshot()
-	if !info.IsOfficialRelease() {
+	info := buildinfo.Normalize(buildReleaseInfoSnapshot())
+	if !info.IsOfficialRelease() || info.GitCommit == "unknown" || info.BuildTimeUTC == "unknown" {
 		return fmt.Errorf(
 			"`graft validate release` requires release-grade BuildInfo; current version=%q git_commit=%q build_time_utc=%q git_tree_state=%q",
 			info.Version,
@@ -380,7 +379,7 @@ func runValidateRelease(_ *cobra.Command) error {
 			info.GitTreeState,
 		)
 	}
-	if info.IsDirty() {
+	if info.GitTreeState != "clean" {
 		return fmt.Errorf("`graft validate release` requires a clean release build; current git_tree_state=%q", info.GitTreeState)
 	}
 

@@ -107,13 +107,15 @@ jobs:
         run: bun run build
 
       - name: Package release artifacts
+        env:
+          RELEASE_REF_NAME: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           mkdir -p release-assets
-          tar -C dist/server -czf "release-assets/graft-server-linux-amd64-${{ github.ref_name }}.tar.gz" graft-server-linux-amd64
-          tar -C web -czf "release-assets/graft-web-dist-${{ github.ref_name }}.tar.gz" dist
-          cp LICENSE "release-assets/graft-license-${{ github.ref_name }}.txt"
-          sha256sum release-assets/* > "release-assets/graft-sha256sums-${{ github.ref_name }}.txt"
+          tar -C dist/server -czf "release-assets/graft-server-linux-amd64-${RELEASE_REF_NAME}.tar.gz" graft-server-linux-amd64
+          tar -C web -czf "release-assets/graft-web-dist-${RELEASE_REF_NAME}.tar.gz" dist
+          cp LICENSE "release-assets/graft-license-${RELEASE_REF_NAME}.txt"
+          sha256sum release-assets/* > "release-assets/graft-sha256sums-${RELEASE_REF_NAME}.txt"
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a

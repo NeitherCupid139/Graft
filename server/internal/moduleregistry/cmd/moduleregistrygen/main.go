@@ -163,26 +163,14 @@ func readMigrationDir(serverRoot string, relativePath string) (generatedMigratio
 
 	files := make([]generatedMigrationFile, 0, len(entries))
 	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		name := entry.Name()
-		if filepath.Ext(name) != ".sql" && name != hashFileName {
-			continue
-		}
-
-		contentPath := filepath.Join(absDir, name)
-		// Only reads files discovered from a repository-owned migration directory listing.
-		// #nosec G304 -- contentPath is derived from a repository-owned migration directory listing under absDir.
-		content, err := os.ReadFile(contentPath)
+		file, ok, err := loadGeneratedMigrationFile(absDir, relativePath, entry)
 		if err != nil {
 			return generatedMigrationDir{}, false, err
 		}
-
-		files = append(files, generatedMigrationFile{
-			name:    name,
-			content: content,
-		})
+		if !ok {
+			continue
+		}
+		files = append(files, file)
 	}
 
 	sort.Slice(files, func(left int, right int) bool {
@@ -192,6 +180,48 @@ func readMigrationDir(serverRoot string, relativePath string) (generatedMigratio
 	return generatedMigrationDir{
 		path:  filepath.ToSlash(relativePath),
 		files: files,
+	}, true, nil
+}
+
+func validateRegularMigrationFile(contentPath string, relativePath string, name string) error {
+	fileInfo, err := os.Lstat(contentPath)
+	if err != nil {
+		return err
+	}
+	if fileInfo.Mode().IsRegular() {
+		return nil
+	}
+	return fmt.Errorf(
+		"migration file %s is not a regular file",
+		filepath.ToSlash(filepath.Join(relativePath, name)),
+	)
+}
+
+func loadGeneratedMigrationFile(absDir string, relativePath string, entry os.DirEntry) (generatedMigrationFile, bool, error) {
+	if entry.IsDir() {
+		return generatedMigrationFile{}, false, nil
+	}
+
+	name := entry.Name()
+	if filepath.Ext(name) != ".sql" && name != hashFileName {
+		return generatedMigrationFile{}, false, nil
+	}
+
+	contentPath := filepath.Join(absDir, name)
+	if err := validateRegularMigrationFile(contentPath, relativePath, name); err != nil {
+		return generatedMigrationFile{}, false, err
+	}
+
+	// Only reads files discovered from a repository-owned migration directory listing.
+	// #nosec G304 -- contentPath is derived from a repository-owned migration directory listing under absDir.
+	content, err := os.ReadFile(contentPath)
+	if err != nil {
+		return generatedMigrationFile{}, false, err
+	}
+
+	return generatedMigrationFile{
+		name:    name,
+		content: content,
 	}, true, nil
 }
 

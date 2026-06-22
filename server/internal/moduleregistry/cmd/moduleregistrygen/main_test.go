@@ -142,3 +142,29 @@ func TestReadMigrationDirLoadsSQLAndAtlasHash(t *testing.T) {
 		t.Fatalf("expected atlas.sum second, got %#v", dir.files)
 	}
 }
+
+func TestReadMigrationDirRejectsNonRegularFiles(t *testing.T) {
+	serverRoot := t.TempDir()
+	absDir := filepath.Join(serverRoot, internalDirName, "httpx", migrationsDirName)
+	if err := os.MkdirAll(absDir, testDirPerm); err != nil {
+		t.Fatalf("mkdir migration dir: %v", err)
+	}
+
+	targetPath := filepath.Join(serverRoot, "target.sql")
+	if err := os.WriteFile(targetPath, []byte("CREATE TABLE httpx_logs (id bigint);\n"), testFilePerm); err != nil {
+		t.Fatalf("write target sql file: %v", err)
+	}
+
+	linkPath := filepath.Join(absDir, "202605300001_httpx_baseline.sql")
+	if err := os.Symlink(targetPath, linkPath); err != nil {
+		t.Skipf("symlink unsupported in test environment: %v", err)
+	}
+
+	_, _, err := readMigrationDir(serverRoot, httpxMigrationsPath)
+	if err == nil {
+		t.Fatal("expected non-regular migration file error")
+	}
+	if !strings.Contains(err.Error(), "not a regular file") {
+		t.Fatalf("expected non-regular file error, got %v", err)
+	}
+}

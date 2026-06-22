@@ -177,3 +177,21 @@ func TestNewRuntimeMetadataPreservesOrderedDescriptorSnapshot(t *testing.T) {
 		t.Fatalf("expected runtime metadata to expose build info snapshot, got %+v", got)
 	}
 }
+
+func TestRuntimeMetadataBuildInfoNormalizesZeroValueSnapshot(t *testing.T) {
+	var metadata RuntimeMetadata
+
+	got := metadata.BuildInfo()
+	if got.Version != "dev" {
+		t.Fatalf("expected normalized version %q, got %q", "dev", got.Version)
+	}
+	if got.GitCommit != "unknown" {
+		t.Fatalf("expected normalized git commit %q, got %q", "unknown", got.GitCommit)
+	}
+	if got.BuildTimeUTC != "unknown" {
+		t.Fatalf("expected normalized build time %q, got %q", "unknown", got.BuildTimeUTC)
+	}
+	if got.GitTreeState != "unknown" {
+		t.Fatalf("expected normalized tree state %q, got %q", "unknown", got.GitTreeState)
+	}
+}

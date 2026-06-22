@@ -27,7 +27,18 @@ func main() {
 	repositoryRoot := filepath.Clean(filepath.Join(serverRoot, ".."))
 	sourcePath := filepath.Join(repositoryRoot, filepath.FromSlash(sourceRepoPath))
 
-	// sourcePath is deterministically derived from the repository layout above.
+	sourceInfo, err := os.Lstat(sourcePath)
+	if err != nil {
+		failf("stat canonical bundled openapi spec: %v", err)
+	}
+	if sourceInfo.Mode()&os.ModeSymlink != 0 {
+		failf("reject symlink canonical bundled openapi spec: %s", sourcePath)
+	}
+	if !sourceInfo.Mode().IsRegular() {
+		failf("reject non-regular canonical bundled openapi spec: %s (%s)", sourcePath, sourceInfo.Mode().String())
+	}
+
+	// sourcePath is deterministically derived from the repository layout above and prevalidated as a regular file.
 	spec, err := os.ReadFile(sourcePath) // #nosec G304
 	if err != nil {
 		failf("read canonical bundled openapi spec: %v", err)

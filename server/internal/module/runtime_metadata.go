@@ -51,5 +51,5 @@ func (m RuntimeMetadata) OrderedModuleDescriptors() []DescriptorSnapshot {
 
 // BuildInfo 返回运行时可见的 canonical 构建身份快照。
 func (m RuntimeMetadata) BuildInfo() buildinfo.Info {
-	return m.buildInfo
+	return buildinfo.Normalize(m.buildInfo)
 }

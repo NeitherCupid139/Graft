@@ -77,10 +77,21 @@ func TestEmbeddedMigrationDirByPathReturnsClonedFiles(t *testing.T) {
 		t.Fatal("expected embedded migration files")
 	}
 
+	contentIndex := -1
+	for index, file := range dir.Files {
+		if len(file.Contents) > 0 {
+			contentIndex = index
+			break
+		}
+	}
+	if contentIndex < 0 {
+		t.Fatal("expected at least one embedded migration file with contents")
+	}
+
 	originalName := dir.Files[0].Name
-	originalByte := dir.Files[0].Contents[0]
+	originalByte := dir.Files[contentIndex].Contents[0]
 	dir.Files[0].Name = "mutated.sql"
-	dir.Files[0].Contents[0] = 'X'
+	dir.Files[contentIndex].Contents[0] = 'X'
 
 	again, ok := EmbeddedMigrationDirByPath("modules/user/migrations")
 	if !ok {
@@ -89,7 +100,10 @@ func TestEmbeddedMigrationDirByPathReturnsClonedFiles(t *testing.T) {
 	if again.Files[0].Name != originalName {
 		t.Fatalf("expected cloned name %q, got %q", originalName, again.Files[0].Name)
 	}
-	if again.Files[0].Contents[0] != originalByte {
+	if len(again.Files) <= contentIndex || len(again.Files[contentIndex].Contents) == 0 {
+		t.Fatal("expected cloned contents to remain available")
+	}
+	if again.Files[contentIndex].Contents[0] != originalByte {
 		t.Fatal("expected cloned contents to remain immutable")
 	}
 }

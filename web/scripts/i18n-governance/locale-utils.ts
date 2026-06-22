@@ -3,7 +3,7 @@ import { join, relative } from 'node:path';
 
 import { parse as parseYaml } from 'yaml';
 
-import { EXCLUDED_DIRS, REPOSITORY_DIR, ROOT_DIR } from './config';
+import { EXCLUDED_DIRS } from './config';
 import { isLikelyI18nKey, parseStringLiteral, positionForIndex, preserveLineStructure } from './text-utils';
 import type { RuleViolation, ScanContext, SourceFile } from './types';
 
@@ -128,7 +128,7 @@ export function flattenLocaleStrings(
 export function collectLocaleCatalogs(context: ScanContext): LocaleCatalog[] {
   const catalogs: LocaleCatalog[] = [];
 
-  for (const filePath of collectFiles(context.srcDir, isFrontendLocaleFile, ROOT_DIR)) {
+  for (const filePath of collectFiles(context.srcDir, isFrontendLocaleFile, context.rootDir)) {
     const file = relative(context.rootDir, filePath).replaceAll('\\', '/');
     const locale = localeFromFile(file);
     if (!locale) continue;
@@ -144,7 +144,7 @@ export function collectLocaleCatalogs(context: ScanContext): LocaleCatalog[] {
     });
   }
 
-  for (const filePath of collectFiles(join(REPOSITORY_DIR, 'server'), isLocaleFile, REPOSITORY_DIR)) {
+  for (const filePath of collectFiles(join(context.repositoryDir, 'server'), isLocaleFile, context.repositoryDir)) {
     const file = relative(context.repositoryDir, filePath).replaceAll('\\', '/');
     const locale = localeFromFile(file);
     if (!locale) continue;

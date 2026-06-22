@@ -255,9 +255,6 @@ func TestValidateEmbeddedOpenAPIBundleFreshness(t *testing.T) {
 	}
 
 	backendReadFile = os.ReadFile
-	buildReleaseInfoSnapshot = func() buildinfo.Info {
-		return buildinfo.Info{}
-	}
 	if err := validateEmbeddedOpenAPIBundleFreshness(repoDir); err == nil {
 		t.Fatal("expected fixture canonical bundle to differ from checked-in generated asset")
 	}
@@ -350,6 +347,50 @@ func TestRunValidateReleaseRequiresReleaseBuildInfo(t *testing.T) {
 	err := runValidateRelease(&cobra.Command{})
 	if err == nil {
 		t.Fatal("expected release build info error")
+	}
+	if !strings.Contains(err.Error(), "requires release-grade BuildInfo") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRunValidateReleaseRejectsIncompleteReleaseBuildInfo(t *testing.T) {
+	originalGetwd := backendGetwd
+	originalReadFile := backendReadFile
+	originalSnapshot := buildReleaseInfoSnapshot
+	defer func() {
+		backendGetwd = originalGetwd
+		backendReadFile = originalReadFile
+		buildReleaseInfoSnapshot = originalSnapshot
+	}()
+
+	repoDir := t.TempDir()
+	serverDir := filepath.Join(repoDir, "server")
+	if err := os.MkdirAll(serverDir, 0o750); err != nil {
+		t.Fatalf("mkdir server dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(serverDir, "go.mod"), []byte("module graft/server\n"), 0o600); err != nil {
+		t.Fatalf("write go.mod: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(repoDir, "AGENTS.md"), []byte("test\n"), 0o600); err != nil {
+		t.Fatalf("write AGENTS: %v", err)
+	}
+
+	backendGetwd = func() (string, error) {
+		return serverDir, nil
+	}
+	backendReadFile = os.ReadFile
+	buildReleaseInfoSnapshot = func() buildinfo.Info {
+		return buildinfo.Info{
+			Version:      "0.1.0",
+			GitCommit:    "",
+			BuildTimeUTC: "2026-06-22T00:00:00Z",
+			GitTreeState: "clean",
+		}
+	}
+
+	err := runValidateRelease(&cobra.Command{})
+	if err == nil {
+		t.Fatal("expected incomplete release build info error")
 	}
 	if !strings.Contains(err.Error(), "requires release-grade BuildInfo") {
 		t.Fatalf("unexpected error: %v", err)

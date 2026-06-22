@@ -282,7 +282,6 @@ func buildDefaultAtlasMigrationDir() (atlasmigrate.Dir, error) {
 // parseMigrationDirInput parses a migration directory input string into a categorized migration directory specification.
 // It recognizes three input kinds: external paths prefixed with "file:", the default migration directory, and repository-owned selectors starting with "modules/" or "internal/".
 // It returns an error if the input is empty, uses server-prefixed paths without explicit prefixes, or lacks required prefixes for external paths.
-func (d migrationDirInput) parseMigrationDirInput(migrationDir string) (migrationDirInput, error)
 func parseMigrationDirInput(migrationDir string) (migrationDirInput, error) {
 	trimmed := strings.TrimSpace(migrationDir)
 	if trimmed == "" {
