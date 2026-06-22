@@ -17,7 +17,10 @@ import (
 	"syscall"
 	"time"
 
+	atlasmigrate "ariga.io/atlas/sql/migrate"
 	"github.com/spf13/cobra"
+
+	"graft/server/internal/config"
 )
 
 const (
@@ -69,6 +72,10 @@ type devPIDPaths struct {
 var devMigrateRunner = func(cmd *cobra.Command, migrationDir string) error {
 	return runMigrateUp(cmd, migrateUpOptions{migrationDir: migrationDir})
 }
+var devMigrateRunnerAllowDirty = func(cmd *cobra.Command, migrationDir string) error {
+	return runMigrateUp(cmd, migrateUpOptions{migrationDir: migrationDir, allowDirty: true})
+}
+var devLoadConfig = config.Load
 
 var devAirModuleRootResolver = resolveBackendModuleRoot
 var devAirLookPath = exec.LookPath
@@ -289,7 +296,7 @@ func (s *devSupervisor) reconcile(cmd *cobra.Command, forceMigrate bool) error {
 		return s.restartServe(cmd)
 	}
 
-	if err := devMigrateRunner(cmd, s.migrationDir); err != nil {
+	if err := s.runDevelopmentMigrations(cmd); err != nil {
 		if s.serveCmd != nil {
 			s.log(cmd, "migration failed, keeping existing server: %v", err)
 			return nil
@@ -300,6 +307,43 @@ func (s *devSupervisor) reconcile(cmd *cobra.Command, forceMigrate bool) error {
 	s.appliedSnapshot = snapshot
 	s.log(cmd, "migration success")
 	return s.restartServe(cmd)
+}
+
+func (s *devSupervisor) runDevelopmentMigrations(cmd *cobra.Command) error {
+	err := devMigrateRunner(cmd, s.migrationDir)
+	if err == nil {
+		return nil
+	}
+
+	// When a disposable local dev database is not Atlas-clean on the very first
+	// bootstrap, allow one controlled retry with --allow-dirty so `graft dev` /
+	// `graft dev air` can take over the local database without weakening the
+	// default protection on explicit `graft migrate up`.
+	if s.serveCmd == nil && isAtlasDirtyDevBootstrapError(err) && s.allowDirtyBootstrapEnabled() {
+		s.log(cmd, "existing dev database requires one allow-dirty migration bootstrap; retrying once")
+		return devMigrateRunnerAllowDirty(cmd, s.migrationDir)
+	}
+
+	return err
+}
+
+func (s *devSupervisor) allowDirtyBootstrapEnabled() bool {
+	cfg, err := devLoadConfig()
+	if err != nil || cfg == nil {
+		return false
+	}
+
+	return cfg.Runtime.DevAllowDirtyMigrationBootstrap
+}
+
+// isAtlasDirtyDevBootstrapError reports whether err indicates an Atlas dirty database bootstrap scenario encountered during development.
+func isAtlasDirtyDevBootstrapError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	var notCleanErr *atlasmigrate.NotCleanError
+	return errors.As(err, &notCleanErr)
 }
 
 func (s *devSupervisor) restartServe(cmd *cobra.Command) error {
