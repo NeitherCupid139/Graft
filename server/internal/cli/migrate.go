@@ -43,6 +43,7 @@ var migrateOpenExecutor = openAtlasExecutor
 type migrateUpOptions struct {
 	migrationDir string
 	workingDir   string
+	allowDirty   bool
 }
 
 type atlasExecutorHandle struct {
@@ -88,13 +89,17 @@ func newMigrateCommand() *cobra.Command {
 	}
 	command.PersistentFlags().StringVar(&migrationDir, "dir", defaultMigrationDir, "migration directory or owner-aligned default chain")
 
-	command.AddCommand(&cobra.Command{
+	upOptions := migrateUpOptions{}
+	upCommand := &cobra.Command{
 		Use:   "up",
 		Short: "Apply pending Atlas versioned migrations",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runMigrateUp(cmd, migrateUpOptions{migrationDir: migrationDir})
+			upOptions.migrationDir = migrationDir
+			return runMigrateUp(cmd, upOptions)
 		},
-	})
+	}
+	upCommand.Flags().BoolVar(&upOptions.allowDirty, "allow-dirty", false, "allow the first migration run against a disposable database that is not Atlas-clean")
+	command.AddCommand(upCommand)
 	command.AddCommand(&cobra.Command{
 		Use:   "validate",
 		Short: "Validate migration assets without connecting to the database",
@@ -120,7 +125,10 @@ func runMigrateUp(cmd *cobra.Command, opts migrateUpOptions) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	dir, err := resolveAtlasMigrationDir(migrateResolveOptions(opts))
+	dir, err := resolveAtlasMigrationDir(migrateResolveOptions{
+		migrationDir: opts.migrationDir,
+		workingDir:   opts.workingDir,
+	})
 	if err != nil {
 		return fmt.Errorf("resolve migration dir: %w", err)
 	}
@@ -130,7 +138,7 @@ func runMigrateUp(cmd *cobra.Command, opts migrateUpOptions) error {
 		commandContext = context.Background()
 	}
 
-	handle, err := migrateOpenExecutor(cfg.Database.URL, dir, newAtlasCommandLogger(cmd))
+	handle, err := migrateOpenExecutor(cfg.Database.URL, dir, newAtlasCommandLogger(cmd), opts.allowDirty)
 	if err != nil {
 		return err
 	}
@@ -179,7 +187,7 @@ func resolveAtlasMigrationDir(opts migrateResolveOptions) (atlasmigrate.Dir, err
 	return buildAtlasMigrationDir(workingDir, opts.migrationDir)
 }
 
-func openAtlasExecutor(databaseURL string, dir atlasmigrate.Dir, logger atlasmigrate.Logger) (*atlasExecutorHandle, error) {
+func openAtlasExecutor(databaseURL string, dir atlasmigrate.Dir, logger atlasmigrate.Logger, allowDirty bool) (*atlasExecutorHandle, error) {
 	sqlDB, err := sql.Open("pgx", databaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("open postgres database pool: %w", err)
@@ -195,6 +203,7 @@ func openAtlasExecutor(databaseURL string, dir atlasmigrate.Dir, logger atlasmig
 		driver,
 		dir,
 		newAtlasRevisionStore(sqlDB),
+		atlasmigrate.WithAllowDirty(allowDirty),
 		atlasmigrate.WithLogger(logger),
 		atlasmigrate.WithOperatorVersion("graft"),
 	)

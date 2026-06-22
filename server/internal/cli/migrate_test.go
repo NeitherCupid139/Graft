@@ -26,7 +26,7 @@ type migrateTestHooks struct {
 	registryMigrationDirs      func() ([]string, error)
 	embeddedMigrationDirByPath func(string) (moduleregistry.EmbeddedMigrationDir, bool)
 	readDir                    func(string) ([]os.DirEntry, error)
-	openExecutor               func(string, atlasmigrate.Dir, atlasmigrate.Logger) (*atlasExecutorHandle, error)
+	openExecutor               func(string, atlasmigrate.Dir, atlasmigrate.Logger, bool) (*atlasExecutorHandle, error)
 }
 
 func captureMigrateTestHooks() migrateTestHooks {
@@ -1009,7 +1009,7 @@ func TestRunMigrateUpFallsBackToBackgroundContext(t *testing.T) {
 	}
 
 	capturedCtx := context.Context(nil)
-	migrateOpenExecutor = func(_ string, _ atlasmigrate.Dir, _ atlasmigrate.Logger) (*atlasExecutorHandle, error) {
+	migrateOpenExecutor = func(_ string, _ atlasmigrate.Dir, _ atlasmigrate.Logger, _ bool) (*atlasExecutorHandle, error) {
 		return &atlasExecutorHandle{
 			executor: fakeAtlasExecutor{
 				executeN: func(ctx context.Context, _ int) error {
@@ -1049,9 +1049,12 @@ func TestRunMigrateUpExecutesDefaultChain(t *testing.T) {
 	}
 
 	executed := false
-	migrateOpenExecutor = func(databaseURL string, dir atlasmigrate.Dir, _ atlasmigrate.Logger) (*atlasExecutorHandle, error) {
+	migrateOpenExecutor = func(databaseURL string, dir atlasmigrate.Dir, _ atlasmigrate.Logger, allowDirty bool) (*atlasExecutorHandle, error) {
 		if databaseURL == "" {
 			t.Fatal("expected database URL")
+		}
+		if allowDirty {
+			t.Fatal("default migrate up should not allow dirty")
 		}
 		files, err := dir.Files()
 		if err != nil {
@@ -1091,7 +1094,7 @@ func TestRunMigrateUpTreatsNoPendingAsSuccess(t *testing.T) {
 			"202605190001_user.sql": "CREATE TABLE users (id bigint);\n",
 		}), true
 	}
-	migrateOpenExecutor = func(_ string, _ atlasmigrate.Dir, _ atlasmigrate.Logger) (*atlasExecutorHandle, error) {
+	migrateOpenExecutor = func(_ string, _ atlasmigrate.Dir, _ atlasmigrate.Logger, _ bool) (*atlasExecutorHandle, error) {
 		return &atlasExecutorHandle{
 			executor: fakeAtlasExecutor{
 				executeN: func(context.Context, int) error {
@@ -1116,7 +1119,7 @@ func TestRunMigrateUpPropagatesExecutorOpenError(t *testing.T) {
 			"202605190001_user.sql": "CREATE TABLE users (id bigint);\n",
 		}), true
 	}
-	migrateOpenExecutor = func(_ string, _ atlasmigrate.Dir, _ atlasmigrate.Logger) (*atlasExecutorHandle, error) {
+	migrateOpenExecutor = func(_ string, _ atlasmigrate.Dir, _ atlasmigrate.Logger, _ bool) (*atlasExecutorHandle, error) {
 		return nil, errors.New("open atlas executor failed")
 	}
 
@@ -1144,7 +1147,7 @@ func TestRunMigrateValidateUsesEmbeddedDefaultChain(t *testing.T) {
 			"202605190001_user.sql": "CREATE TABLE users (id bigint);\n",
 		}), true
 	}
-	migrateOpenExecutor = func(string, atlasmigrate.Dir, atlasmigrate.Logger) (*atlasExecutorHandle, error) {
+	migrateOpenExecutor = func(string, atlasmigrate.Dir, atlasmigrate.Logger, bool) (*atlasExecutorHandle, error) {
 		t.Fatal("migrate validate must not open an executor")
 		return nil, nil
 	}
@@ -1207,5 +1210,39 @@ func TestNewMigrateCommandRegistersValidateSubcommand(t *testing.T) {
 	}
 	if validateCommand.Name() != "validate" {
 		t.Fatalf("expected validate command name, got %q", validateCommand.Name())
+	}
+}
+
+func TestRunMigrateUpPassesAllowDirtyToExecutor(t *testing.T) {
+	hooks := captureMigrateTestHooks()
+	defer hooks.restore()
+
+	setMigrateCommandTestEnv(t)
+	migrateEmbeddedMigrationDirByPath = func(path string) (moduleregistry.EmbeddedMigrationDir, bool) {
+		return embeddedMigrationDir(t, path, map[string]string{
+			"202605190001_user.sql": "CREATE TABLE users (id bigint);\n",
+		}), true
+	}
+
+	receivedAllowDirty := false
+	migrateOpenExecutor = func(_ string, _ atlasmigrate.Dir, _ atlasmigrate.Logger, allowDirty bool) (*atlasExecutorHandle, error) {
+		receivedAllowDirty = allowDirty
+		return &atlasExecutorHandle{
+			executor: fakeAtlasExecutor{
+				executeN: func(context.Context, int) error { return nil },
+			},
+		}, nil
+	}
+
+	if err := runMigrateUp(newSilentMigrateCommand(), migrateUpOptions{
+		migrationDir: "modules/user/migrations",
+		workingDir:   t.TempDir(),
+		allowDirty:   true,
+	}); err != nil {
+		t.Fatalf("run migrate up with allow-dirty: %v", err)
+	}
+
+	if !receivedAllowDirty {
+		t.Fatal("expected runMigrateUp to pass allow-dirty to the executor")
 	}
 }

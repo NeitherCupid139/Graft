@@ -8,6 +8,9 @@ startup-time schema repair 或环境编排支持。
 - live schema evolution is governed as forward-only migration application
 - `graft migrate up` and `graft dev` are the explicit migration entrypoints
 - `graft serve` remains pure runtime startup and must not become an implicit migration path
+- `graft migrate up --allow-dirty` is reserved for disposable or freshly provisioned databases whose only pre-existing
+  state is environment bootstrap schema such as PostgreSQL's default `public`; it is not the default path for
+  long-lived operator databases
 - any upgrade that may apply live migrations must verify database backup and restore capability first
 - any governed live migration path must preserve the pre-change config snapshot needed for manual recovery
 - rollback support remains documentation-first and operator-controlled

@@ -8,6 +8,9 @@
 - one official `server` artifact and one official `web` artifact from the same release tag
 - explicit operator-run migration through `graft migrate up` or `graft dev`
 - documentation-first release safety, identity, versioning, config, and upgrade governance
+- a GitHub-hosted temporary pre-release smoke gate that runs the release-grade `server` artifact against disposable
+  PostgreSQL and Redis, applies explicit migration through `graft migrate up --allow-dirty`, and then probes
+  `/healthz` before the GitHub Release step continues
 - release-binary authority where the `server` artifact itself carries canonical `BuildInfo`, the default embedded
   migration chain, and the runtime embedded OpenAPI asset
 - release-package authority where `LICENSE`, `SBOM`, license compliance report, checksum bundle, and `web` dist may be
@@ -24,6 +27,8 @@
 - authoritative startup-log BuildInfo surface
 - a claim that publish workflow YAML is the single source of truth for release support semantics
 - a claim that `graft validate release` already proves every external release attachment exists
+- a claim that the GitHub-hosted smoke gate is equivalent to operator deployment validation in any long-lived or
+  external environment
 
 ## Experimental Definition
 
