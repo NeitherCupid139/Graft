@@ -36,7 +36,7 @@ https://github.com/{{ remote.github.owner }}/{{ remote.github.repo }}
 {% if version -%}
 ## {{ version }} ({{ timestamp | date(format="%Y-%m-%d") }})
 {% else -%}
-## Unreleased
+## 未发布
 {% endif %}
 
 {% set highlights = [] %}
@@ -47,7 +47,7 @@ https://github.com/{{ remote.github.owner }}/{{ remote.github.repo }}
 {% endfor -%}
 
 {% if highlights | length > 0 -%}
-## Highlights
+## 重点条目
 {% for commit in highlights -%}
 {{ self::print_commit(commit=commit) }}
 {% endfor %}
@@ -83,16 +83,19 @@ sort_commits = "oldest"
 commit_parsers = [
   { message = ".*\\[skip changelog\\].*", skip = true },
   { body = ".*\\[skip changelog\\].*", skip = true },
-  { message = "^feat", group = "<!-- 0 -->Features" },
-  { message = "^fix", group = "<!-- 1 -->Bug Fixes" },
-  { message = "^perf", group = "<!-- 2 -->Performance" },
-  { message = "^refactor", group = "<!-- 2 -->Refactoring" },
-  { message = "^docs", group = "<!-- 3 -->Documentation and Other Changes" },
-  { message = "^test", group = "<!-- 3 -->Documentation and Other Changes" },
-  { message = "^chore", group = "<!-- 3 -->Documentation and Other Changes" },
-  { message = "^build", group = "<!-- 3 -->Documentation and Other Changes" },
-  { message = "^ci", group = "<!-- 3 -->Documentation and Other Changes" },
-  { message = "^style", group = "<!-- 3 -->Documentation and Other Changes" }
+  { message = "^feat", group = "<!-- 0 -->✨ 新功能" },
+  { message = "^fix", group = "<!-- 1 -->🐛 Bug 修复" },
+  { message = "^perf", group = "<!-- 2 -->⚡ 性能优化" },
+  { message = "^refactor", group = "<!-- 3 -->♻️ 重构优化" },
+  { message = "^revert", group = "<!-- 4 -->⏪ 回滚" },
+  { message = "^docs", group = "<!-- 5 -->📝 文档" },
+  { message = "^style", group = "<!-- 6 -->💄 样式调整" },
+  { message = "^test", group = "<!-- 7 -->✅ 测试" },
+  { message = "^build", group = "<!-- 8 -->📦 构建与依赖" },
+  { message = "^ci", group = "<!-- 9 -->👷 CI/CD" },
+  { message = "^chore", group = "<!-- 10 -->🔧 维护杂项" },
+  { message = "^release", group = "<!-- 11 -->🚀 发布" },
+  { message = "^merge", group = "<!-- 12 -->🔀 合并" }
 ]
 
 [git.github]

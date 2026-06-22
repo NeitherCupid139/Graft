@@ -59,15 +59,21 @@ jobs:
             conventional-changelog-conventionalcommits@9.1.0
 
       - name: Show preview result
+        env:
+          PUBLISHED: ${{ steps.semantic_release.outputs.new_release_published }}
+          LAST_TAG: ${{ steps.semantic_release.outputs.last_release_git_tag }}
+          NEXT_VERSION: ${{ steps.semantic_release.outputs.new_release_version }}
+          NEXT_TAG: ${{ steps.semantic_release.outputs.new_release_git_tag }}
         run: |
-          echo "published=${{ steps.semantic_release.outputs.new_release_published }}"
-          echo "last_tag=${{ steps.semantic_release.outputs.last_release_git_tag }}"
-          echo "next_version=${{ steps.semantic_release.outputs.new_release_version }}"
-          echo "next_tag=${{ steps.semantic_release.outputs.new_release_git_tag }}"
+          echo "published=${PUBLISHED}"
+          echo "last_tag=${LAST_TAG}"
+          echo "next_version=${NEXT_VERSION}"
+          echo "next_tag=${NEXT_TAG}"
 
       - name: Generate preview release notes
         if: ${{ steps.semantic_release.outputs.new_release_published == 'true' }}
         id: cliff_preview
+        continue-on-error: true
         uses: orhun/git-cliff-action@f50e11560dce63f7c33227798f90b924471a88b5
         with:
           config: .github/cliff.toml
@@ -152,14 +158,22 @@ jobs:
             conventional-changelog-conventionalcommits@9.1.0
 
       - name: Show release result
+        env:
+          PUBLISHED: ${{ steps.semantic_release.outputs.new_release_published }}
+          PREVIEW_LAST_TAG: ${{ needs.semantic-release-preview.outputs.last_tag }}
+          PREVIEW_NEXT_VERSION: ${{ needs.semantic-release-preview.outputs.next_version }}
+          PREVIEW_NEXT_TAG: ${{ needs.semantic-release-preview.outputs.next_tag }}
+          LAST_TAG: ${{ steps.semantic_release.outputs.last_release_git_tag }}
+          NEXT_VERSION: ${{ steps.semantic_release.outputs.new_release_version }}
+          NEXT_TAG: ${{ steps.semantic_release.outputs.new_release_git_tag }}
         run: |
-          echo "published=${{ steps.semantic_release.outputs.new_release_published }}"
-          echo "preview_last_tag=${{ needs.semantic-release-preview.outputs.last_tag }}"
-          echo "preview_next_version=${{ needs.semantic-release-preview.outputs.next_version }}"
-          echo "preview_next_tag=${{ needs.semantic-release-preview.outputs.next_tag }}"
-          echo "last_tag=${{ steps.semantic_release.outputs.last_release_git_tag }}"
-          echo "next_version=${{ steps.semantic_release.outputs.new_release_version }}"
-          echo "next_tag=${{ steps.semantic_release.outputs.new_release_git_tag }}"
+          echo "published=${PUBLISHED}"
+          echo "preview_last_tag=${PREVIEW_LAST_TAG}"
+          echo "preview_next_version=${PREVIEW_NEXT_VERSION}"
+          echo "preview_next_tag=${PREVIEW_NEXT_TAG}"
+          echo "last_tag=${LAST_TAG}"
+          echo "next_version=${NEXT_VERSION}"
+          echo "next_tag=${NEXT_TAG}"
 
       - name: Write release summary
         env:
