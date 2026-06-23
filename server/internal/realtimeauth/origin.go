@@ -32,10 +32,7 @@ func normalizeOrigin(raw string) (string, bool) {
 		return "", false
 	}
 	parsedOrigin, err := url.Parse(origin)
-	if err != nil || parsedOrigin.Scheme == "" || parsedOrigin.Host == "" {
-		return "", false
-	}
-	if parsedOrigin.Path != "" || parsedOrigin.RawQuery != "" || parsedOrigin.Fragment != "" {
+	if err != nil || !isSupportedOrigin(parsedOrigin) {
 		return "", false
 	}
 
@@ -45,15 +42,26 @@ func normalizeOrigin(raw string) (string, bool) {
 		return "", false
 	}
 
-	port := parsedOrigin.Port()
-	switch {
-	case port != "":
-		return scheme + "://" + net.JoinHostPort(host, port), true
-	case scheme == "http":
-		return scheme + "://" + host + ":80", true
-	case scheme == "https":
-		return scheme + "://" + host + ":443", true
+	return scheme + "://" + normalizedOriginHost(host, scheme, parsedOrigin.Port()), true
+}
+
+func isSupportedOrigin(parsedOrigin *url.URL) bool {
+	if parsedOrigin.Scheme == "" || parsedOrigin.Host == "" {
+		return false
+	}
+	return parsedOrigin.Path == "" && parsedOrigin.RawQuery == "" && parsedOrigin.Fragment == ""
+}
+
+func normalizedOriginHost(host, scheme, port string) string {
+	if port != "" {
+		return net.JoinHostPort(host, port)
+	}
+	switch scheme {
+	case "http":
+		return host + ":80"
+	case "https":
+		return host + ":443"
 	default:
-		return scheme + "://" + host, true
+		return host
 	}
 }
