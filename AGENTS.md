@@ -318,6 +318,9 @@ Prefer the repository skills below when their trigger matches the task:
     `graft-multi-agent-batch` or `graft-multi-agent-loop` under the normal subagent rules
   - only stale findings, noise, false positives, or no-longer-applicable findings may be left unfixed, and those cases
     must be listed explicitly in the task closeout with the concrete reason
+- `graft-security-remediation`
+  - use when triaging, fixing, validating, and closing GitHub `security/code-scanning` or `security/dependabot`
+    alerts for this repository, including bounded branch hygiene, commit/push/PR flow, and post-push security recheck
 - `graft-plugin-scaffold`
   - use when adding a new `server` module under `server/modules/*` or shaping that module before implementation
 - `graft-table-design`
