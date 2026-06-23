@@ -25,6 +25,7 @@ type resourceStatsCache struct {
 
 type resourceStatsCacheEntry struct {
 	summary    ResourceSummary
+	updatedAt  time.Time
 	freshUntil time.Time
 	staleUntil time.Time
 }
@@ -143,18 +144,49 @@ func (c *resourceStatsCache) serveStaleWhileRefresh(
 }
 
 func (c *resourceStatsCache) completeLoad(ctx context.Context, key string, load *resourceStatsLoad, loader resourceStatsLoader) ResourceSummary {
-	summary := loader(ctx)
+	loaded := loader(ctx)
+	summary, cacheable := normalizeResourceStatsSummary(loaded)
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	recordedAt := c.now()
 	load.summary = summary
-	c.items[key] = resourceStatsCacheEntry{
-		summary:    summary,
-		freshUntil: recordedAt.Add(c.ttl),
-		staleUntil: recordedAt.Add(c.ttl + c.staleWindow),
+	if cacheable {
+		recordedAt := c.now()
+		c.items[key] = resourceStatsCacheEntry{
+			summary:    summary,
+			updatedAt:  recordedAt,
+			freshUntil: recordedAt.Add(c.ttl),
+			staleUntil: recordedAt.Add(c.ttl + c.staleWindow),
+		}
 	}
 	delete(c.inflight, key)
 	close(load.done)
 	return summary
+}
+
+func normalizeResourceStatsSummary(summary ResourceSummary) (ResourceSummary, bool) {
+	if isCompleteResourceStatsSnapshot(summary) {
+		return summary, true
+	}
+	return unavailableResourceSummary(resourceStatsUnavailableReason(summary)), false
+}
+
+func isCompleteResourceStatsSnapshot(summary ResourceSummary) bool {
+	return summary.Available &&
+		summary.StatsAvailable &&
+		summary.CPUPercent != nil &&
+		summary.MemoryPercent != nil
+}
+
+func resourceStatsUnavailableReason(summary ResourceSummary) string {
+	if reason := strings.TrimSpace(summary.UnavailableReason); reason != "" {
+		return reason
+	}
+	if summary.StatsAvailable {
+		return containerStatsIncompleteReason
+	}
+	if reason := strings.TrimSpace(summary.StatsErrorKey); reason != "" {
+		return reason
+	}
+	return containerStatsIncompleteReason
 }
