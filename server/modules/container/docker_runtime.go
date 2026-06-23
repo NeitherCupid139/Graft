@@ -502,14 +502,7 @@ func dockerCPUPercent(stats container.StatsResponse) (float64, bool) {
 	}
 	cpuDelta := float64(stats.CPUStats.CPUUsage.TotalUsage - stats.PreCPUStats.CPUUsage.TotalUsage)
 	systemDelta := float64(stats.CPUStats.SystemUsage - stats.PreCPUStats.SystemUsage)
-	onlineCPUs := float64(stats.CPUStats.OnlineCPUs)
-	if onlineCPUs == 0 {
-		onlineCPUs = float64(len(stats.CPUStats.CPUUsage.PercpuUsage))
-	}
-	if onlineCPUs == 0 {
-		return 0, false
-	}
-	return (cpuDelta / systemDelta) * onlineCPUs * dockerStatsPercentScale, true
+	return (cpuDelta / systemDelta) * dockerStatsPercentScale, true
 }
 
 func unavailableResourceSummary(reason string) ResourceSummary {

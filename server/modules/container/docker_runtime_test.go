@@ -344,7 +344,7 @@ func TestDockerRuntimeDetailCollectsResourceStats(t *testing.T) {
 	if !detail.Resource.Available || !detail.Resource.StatsAvailable {
 		t.Fatalf("expected available detail resource stats, got %#v", detail.Resource)
 	}
-	assertFloatPtr(t, detail.Resource.CPUPercent, 40, "detail CPU percent")
+	assertFloatPtr(t, detail.Resource.CPUPercent, 20, "detail CPU percent")
 	assertInt64Ptr(t, detail.Resource.MemoryUsageBytes, 256, "detail memory usage bytes")
 	assertInt64Ptr(t, detail.Resource.MemoryLimitBytes, 1024, "detail memory limit bytes")
 	assertFloatPtr(t, detail.Resource.MemoryPercent, 25, "detail memory percent")
@@ -670,10 +670,36 @@ func TestDockerResourceSummarySkipsUnknownOnlineCPUs(t *testing.T) {
 	if !resource.Available || !resource.StatsAvailable {
 		t.Fatalf("expected per-CPU stats to keep resource available, got %#v", resource)
 	}
-	assertFloatPtr(t, resource.CPUPercent, 40, "computed CPU percent")
+	assertFloatPtr(t, resource.CPUPercent, 20, "computed CPU percent")
 	if resource.OnlineCPUs != nil {
 		t.Fatalf("expected unknown online CPUs to stay absent, got %#v", resource.OnlineCPUs)
 	}
+}
+
+func TestDockerResourceSummaryNormalizesCPUPercentAgainstHostCapacity(t *testing.T) {
+	t.Parallel()
+
+	resource := dockerResourceSummary(container.StatsResponse{
+		CPUStats: container.CPUStats{
+			CPUUsage: container.CPUUsage{
+				TotalUsage:  1_400,
+				PercpuUsage: []uint64{350, 350, 350, 350},
+			},
+			SystemUsage: 10_000,
+			OnlineCPUs:  4,
+		},
+		PreCPUStats: container.CPUStats{
+			CPUUsage:    container.CPUUsage{TotalUsage: 1_000},
+			SystemUsage: 9_000,
+		},
+		MemoryStats: container.MemoryStats{Usage: 1, Limit: 2},
+	})
+
+	if !resource.Available || !resource.StatsAvailable {
+		t.Fatalf("expected normalized cpu stats to remain available, got %#v", resource)
+	}
+	assertFloatPtr(t, resource.CPUPercent, 40, "normalized CPU percent")
+	assertInt64Ptr(t, resource.OnlineCPUs, 4, "online CPUs")
 }
 
 func TestDockerResourceSummarySkipsOverflowedNetworkTotals(t *testing.T) {
@@ -1053,7 +1079,7 @@ func richDockerNetworkStatsFixture() map[string]container.NetworkStats {
 func assertRichDockerResourceStats(t *testing.T, resource ResourceSummary) {
 	t.Helper()
 
-	assertFloatPtr(t, resource.CPUPercent, 40, "computed CPU percent")
+	assertFloatPtr(t, resource.CPUPercent, 20, "computed CPU percent")
 	assertInt64Ptr(t, resource.OnlineCPUs, 2, "online CPUs")
 	assertInt64Ptr(t, resource.SystemCPUUsage, 1000, "system CPU usage")
 	assertInt64Ptr(t, resource.TotalCPUUsage, 200, "total CPU usage")
