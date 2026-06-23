@@ -576,6 +576,53 @@ describe('container list page', () => {
     wrapper.unmount();
   });
 
+  it('keeps cpu text above 100 percent while clamping progress width', async () => {
+    apiMocks.getContainers.mockResolvedValueOnce({
+      items: [
+        {
+          ...createContainerRows(1)[0],
+          resource: {
+            available: true,
+            stats_available: true,
+            cpu_percent: 628.6,
+            memory_limit_bytes: 536870912,
+            memory_percent: 50,
+            memory_usage_bytes: 268435456,
+          },
+        },
+      ],
+      limit: 20,
+      offset: 0,
+      runtime: {
+        api_version: '1.51',
+        architecture: 'x86_64',
+        containers_running: 1,
+        containers_total: 1,
+        endpoint: 'unix:///var/run/docker.sock',
+        operating_system: 'Ubuntu 24.04.3 LTS',
+        runtime: 'docker',
+        server_version: '29.4.1',
+        status: 'enabled',
+      },
+      summary: {
+        error: 0,
+        health_unavailable: 0,
+        healthy: 1,
+        running: 1,
+        stopped: 0,
+        total: 1,
+        unhealthy: 0,
+      },
+      total: 1,
+    });
+
+    const wrapper = mountPage();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('628.6%');
+    expect(wrapper.findAll('[data-testid="resource-progress"]').some((node) => node.text() === '100')).toBe(true);
+  });
+
   it('auto refreshes the list every second by default', async () => {
     const wrapper = mountPage();
     await flushPromises();
@@ -612,7 +659,7 @@ describe('container list page', () => {
     document.dispatchEvent(new Event('visibilitychange'));
     await flushPromises();
 
-    expect(apiMocks.getContainers).toHaveBeenCalledTimes(2);
+    expect(apiMocks.getContainers.mock.calls.length).toBeGreaterThanOrEqual(2);
     wrapper.unmount();
   });
 

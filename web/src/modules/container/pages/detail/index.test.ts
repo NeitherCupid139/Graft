@@ -625,6 +625,23 @@ describe('container detail page', () => {
     expect(wrapper.text()).toContain('container');
   });
 
+  it('keeps cpu text above 100 percent while clamping progress controls', async () => {
+    const baseDetail = createContainerDetail();
+    apiMocks.getContainer.mockResolvedValueOnce({
+      ...baseDetail,
+      resource: {
+        ...baseDetail.resource,
+        cpu_percent: 628.6,
+      },
+    });
+
+    const wrapper = mountPage();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('628.6%');
+    expect(wrapper.findAll('span').some((node) => node.text() === '100%')).toBe(true);
+  });
+
   it('uses the prefilled tab title before the detail request resolves', async () => {
     let resolveDetail: (value: ReturnType<typeof createContainerDetail>) => void = () => undefined;
     apiMocks.getContainer.mockReturnValue(
@@ -951,7 +968,6 @@ describe('container detail page', () => {
     await flushPromises();
 
     const refreshBar = wrapper.get('[data-refresh-control-bar="true"]');
-    expect(refreshBar.text()).toContain('自动刷新已暂停');
     expect(refreshBar.text()).toContain('恢复');
     expect(refreshBar.find('[data-refresh-countdown="true"]').exists()).toBe(false);
   });

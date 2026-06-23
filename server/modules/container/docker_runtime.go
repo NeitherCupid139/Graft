@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"net/url"
 	"os"
@@ -22,7 +23,9 @@ import (
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/network"
 	mobyclient "github.com/moby/moby/client"
+	"go.uber.org/zap"
 
+	"graft/server/internal/logger/logsafe"
 	"graft/server/modules/container/terminal"
 )
 
@@ -42,6 +45,7 @@ var errInvalidLogQuery = errors.New("invalid log query parameter")
 type DockerRuntime struct {
 	client            dockerClient
 	endpoint          string
+	logger            *zap.Logger
 	mountUsageScanner mountUsageScanner
 }
 
@@ -66,13 +70,13 @@ type systemInfo interface {
 }
 
 // NewDockerRuntime creates the first local container runtime adapter.
-func NewDockerRuntime(endpoint string) (*DockerRuntime, error) {
+func NewDockerRuntime(endpoint string, logger *zap.Logger) (*DockerRuntime, error) {
 	endpoint = firstNonEmpty(endpoint, defaultContainerDockerEndpoint)
 	cli, err := mobyclient.New(mobyclient.WithHost(endpoint))
 	if err != nil {
 		return nil, mapDockerError(err)
 	}
-	return &DockerRuntime{client: dockerClientAdapter{Client: cli}, endpoint: endpoint}, nil
+	return &DockerRuntime{client: dockerClientAdapter{Client: cli}, endpoint: endpoint, logger: logger}, nil
 }
 
 // Info returns sanitized Docker runtime metadata for API responses.
@@ -364,7 +368,7 @@ func (r *DockerRuntime) containerResourceSummary(ctx context.Context, id string)
 	if err := json.NewDecoder(reader.Body).Decode(&stats); err != nil {
 		return unavailableResourceSummary(resourceStatsErrorReason(err))
 	}
-	return dockerResourceSummary(stats)
+	return r.dockerResourceSummary(ref, stats)
 }
 
 func (r *DockerRuntime) collectListResourceSummaries(ctx context.Context, summaries []Summary) {
@@ -390,13 +394,16 @@ func (r *DockerRuntime) collectListResourceSummaries(ctx context.Context, summar
 	wg.Wait()
 }
 
-func dockerResourceSummary(stats container.StatsResponse) ResourceSummary {
+func (r *DockerRuntime) dockerResourceSummary(containerID string, stats container.StatsResponse) ResourceSummary {
 	resource := ResourceSummary{
 		Available:      true,
 		StatsAvailable: true,
 	}
 	if cpuPercent, ok := dockerCPUPercent(stats); ok {
 		resource.CPUPercent = &cpuPercent
+		r.logDockerCPUCalculation(containerID, stats, cpuPercent, true)
+	} else {
+		r.logDockerCPUCalculation(containerID, stats, 0, false)
 	}
 	resource.OnlineCPUs = dockerOnlineCPUs(stats)
 	resource.SystemCPUUsage = uint64ToInt64Ptr(stats.CPUStats.SystemUsage)
@@ -432,10 +439,11 @@ func dockerResourceSummary(stats container.StatsResponse) ResourceSummary {
 }
 
 func dockerOnlineCPUs(stats container.StatsResponse) *int64 {
-	if stats.CPUStats.OnlineCPUs == 0 {
+	onlineCPUs := dockerStatsOnlineCPUs(stats)
+	if onlineCPUs == 0 {
 		return nil
 	}
-	return uint32ToInt64Ptr(stats.CPUStats.OnlineCPUs)
+	return uint32ToInt64Ptr(onlineCPUs)
 }
 
 func dockerMemoryStat(stats container.StatsResponse, key string) *int64 {
@@ -505,7 +513,70 @@ func dockerCPUPercent(stats container.StatsResponse) (float64, bool) {
 	}
 	cpuDelta := float64(stats.CPUStats.CPUUsage.TotalUsage - stats.PreCPUStats.CPUUsage.TotalUsage)
 	systemDelta := float64(stats.CPUStats.SystemUsage - stats.PreCPUStats.SystemUsage)
-	return (cpuDelta / systemDelta) * dockerStatsPercentScale, true
+	onlineCPUs := dockerStatsOnlineCPUs(stats)
+	if onlineCPUs == 0 {
+		return 0, false
+	}
+	return (cpuDelta / systemDelta) * float64(onlineCPUs) * dockerStatsPercentScale, true
+}
+
+func dockerStatsOnlineCPUs(stats container.StatsResponse) uint32 {
+	if stats.CPUStats.OnlineCPUs > 0 {
+		return stats.CPUStats.OnlineCPUs
+	}
+	if len(stats.CPUStats.CPUUsage.PercpuUsage) == 0 {
+		return 0
+	}
+	perCPUUsageCount := uint64(len(stats.CPUStats.CPUUsage.PercpuUsage))
+	if perCPUUsageCount > math.MaxUint32 {
+		return 0
+	}
+	return uint32(perCPUUsageCount)
+}
+
+type dockerCPUCalculation struct {
+	containerID   string
+	totalUsage    uint64
+	preTotalUsage uint64
+	systemUsage   uint64
+	preSystemUsage uint64
+	onlineCPUs    uint32
+	cpuDelta      uint64
+	systemDelta   uint64
+	cpuPercent    float64
+}
+
+func (r *DockerRuntime) logDockerCPUCalculation(containerID string, stats container.StatsResponse, cpuPercent float64, ok bool) {
+	if r == nil || r.logger == nil || !r.logger.Core().Enabled(zap.DebugLevel) {
+		return
+	}
+	calculation := dockerCPUCalculation{
+		containerID:    strings.TrimSpace(containerID),
+		totalUsage:     stats.CPUStats.CPUUsage.TotalUsage,
+		preTotalUsage:  stats.PreCPUStats.CPUUsage.TotalUsage,
+		systemUsage:    stats.CPUStats.SystemUsage,
+		preSystemUsage: stats.PreCPUStats.SystemUsage,
+		onlineCPUs:     dockerStatsOnlineCPUs(stats),
+		cpuPercent:     cpuPercent,
+	}
+	if stats.CPUStats.CPUUsage.TotalUsage > stats.PreCPUStats.CPUUsage.TotalUsage {
+		calculation.cpuDelta = stats.CPUStats.CPUUsage.TotalUsage - stats.PreCPUStats.CPUUsage.TotalUsage
+	}
+	if stats.CPUStats.SystemUsage > stats.PreCPUStats.SystemUsage {
+		calculation.systemDelta = stats.CPUStats.SystemUsage - stats.PreCPUStats.SystemUsage
+	}
+	logsafe.Debug(r.logger, "container cpu stats calculation",
+		zap.String("container", calculation.containerID),
+		zap.Uint64("totalUsage", calculation.totalUsage),
+		zap.Uint64("preTotalUsage", calculation.preTotalUsage),
+		zap.Uint64("systemUsage", calculation.systemUsage),
+		zap.Uint64("preSystemUsage", calculation.preSystemUsage),
+		zap.Uint32("onlineCPUs", calculation.onlineCPUs),
+		zap.Uint64("cpuDelta", calculation.cpuDelta),
+		zap.Uint64("systemDelta", calculation.systemDelta),
+		zap.Float64("cpuPercent", calculation.cpuPercent),
+		zap.Bool("calculated", ok),
+	)
 }
 
 func unavailableResourceSummary(reason string) ResourceSummary {
@@ -1348,7 +1419,7 @@ func (d dockerClientAdapter) ContainerLogs(ctx context.Context, containerID stri
 func (d dockerClientAdapter) ContainerStatsOneShot(ctx context.Context, containerID string) (mobyclient.ContainerStatsResult, error) {
 	return d.ContainerStats(ctx, containerID, mobyclient.ContainerStatsOptions{
 		Stream:                false,
-		IncludePreviousSample: false,
+		IncludePreviousSample: true,
 	})
 }
 

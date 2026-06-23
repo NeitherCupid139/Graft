@@ -3863,7 +3863,7 @@ export interface components {
       stats_error_message?: string | null;
       /**
        * Format: double
-       * @description CPU usage normalized against total host CPU capacity, expressed as a 0-100 style percentage.
+       * @description Docker-compatible instantaneous CPU usage percentage derived from consecutive stats samples. The value may exceed 100 on multi-core hosts.
        */
       cpu_percent?: number;
       /** Format: int64 */

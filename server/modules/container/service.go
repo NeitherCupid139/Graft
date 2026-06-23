@@ -122,6 +122,7 @@ func newService(options containerServiceOptions) (*service, error) {
 	runtimeOptions.dangerousActionsEnabled = options.dangerousActionsEnabled
 	runtimeOptions.defaultTail = options.defaultTail
 	runtimeOptions.maxTail = options.maxTail
+	runtimeOptions.logger = options.logger
 	environmentPolicy := normalizeEnvironmentPolicy(options.environmentPolicy.String())
 	runtimeFactory := options.runtimeFactory
 	if runtimeFactory == nil {
@@ -1075,6 +1076,8 @@ func (s *service) publishActionAudit(ctx context.Context, result ActionResult, o
 	if s == nil || s.auditBus == nil {
 		return
 	}
+	auditCtx, cancel := detachedAuditContext(ctx)
+	defer cancel()
 	action := "ops.container." + strings.TrimSpace(result.Action)
 	messageKey := ""
 	message := ""
@@ -1095,13 +1098,13 @@ func (s *service) publishActionAudit(ctx context.Context, result ActionResult, o
 		"status_before":  result.StatusBefore,
 		"status_after":   result.StatusAfter,
 	}
-	if requestAudit, ok := httpx.RequestAuditContextFromContext(ctx); ok {
+	if requestAudit, ok := httpx.RequestAuditContextFromContext(auditCtx); ok {
 		metadata["requestId"] = requestAudit.RequestID
 		metadata["traceId"] = requestAudit.TraceID
 	}
 	event := moduleapi.AuditEvent{
 		Kind:          moduleapi.AuditEventKindDomain,
-		Operator:      currentAuditOperator(ctx),
+		Operator:      currentAuditOperator(auditCtx),
 		Action:        action,
 		ResourceType:  containerResourceType,
 		ResourceID:    firstNonEmpty(result.ID, result.Name),
@@ -1114,7 +1117,7 @@ func (s *service) publishActionAudit(ctx context.Context, result ActionResult, o
 		RequestMethod: "",
 		RequestPath:   "",
 	}
-	if publishErr := s.auditBus.Publish(ctx, eventbus.Event{
+	if publishErr := s.auditBus.Publish(auditCtx, eventbus.Event{
 		Name:    string(moduleapi.AuditRecordEventName),
 		Source:  s.moduleName,
 		Payload: event,
@@ -1159,6 +1162,7 @@ type containerRuntimeOptions struct {
 	maxTail                 int
 	environmentPolicy       containercontract.EnvironmentPolicy
 	orchestratorPolicies    orchestratorActionPolicies
+	logger                  *zap.Logger
 }
 
 // ContainerOptionsFromConfig 从模块上下文中提取容器运行时配置选项，应用默认值、配置注册表中的设置，最后使用显式模块配置覆盖。
@@ -1561,7 +1565,7 @@ func newContainerRuntime(options containerRuntimeOptions) (Runtime, error) {
 	if strings.TrimSpace(options.runtime) != defaultContainerRuntime && strings.TrimSpace(options.runtime) != runtimeNameDocker {
 		return nil, errUnsupportedContainerRuntime
 	}
-	return NewDockerRuntime(options.endpoint)
+	return NewDockerRuntime(options.endpoint, options.logger)
 }
 
 func (s *service) runtimeForRequest() (Runtime, error) {
@@ -1580,6 +1584,7 @@ func (s *service) runtimeForRequest() (Runtime, error) {
 	options.dangerousActionsEnabled = s.dangerousActionsEnabled
 	options.defaultTail = s.defaultTail
 	options.maxTail = s.maxTail
+	options.logger = s.logger
 	runtime, err := s.runtimeFactory(options)
 	if err != nil {
 		return nil, err

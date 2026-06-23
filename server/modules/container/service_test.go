@@ -1165,6 +1165,149 @@ func TestPublishShellSessionFailedDetachesCanceledRequestContext(t *testing.T) {
 	}
 }
 
+func TestStartAuditDetachesCanceledRequestContext(t *testing.T) {
+	t.Parallel()
+
+	bus := &contextStateAuditBus{}
+	service, err := newTestService(containerServiceOptions{
+		runtime:                 fakeRuntime{},
+		auditBus:                bus,
+		moduleName:              moduleID,
+		enabled:                 true,
+		dangerousActionsEnabled: true,
+		defaultTail:             defaultContainerLogsDefaultTail,
+		maxTail:                 defaultContainerLogsMaxTail,
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	baseCtx, cancel := context.WithCancel(context.Background())
+	ctx := httpx.WithRequestAuditContext(baseCtx, httpx.RequestAuditContext{
+		RequestID: "req-start",
+		TraceID:   "trace-start",
+		Route:     "/api/ops/containers/:id/start",
+		Method:    "POST",
+	})
+	ctx = moduleapi.WithRequestAuthContext(ctx, moduleapi.RequestAuthContext{
+		User: &moduleapi.CurrentUser{ID: 7, Username: "admin"},
+	})
+	cancel()
+
+	result, err := service.Start(ctx, Ref{Value: "web"})
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	if result.Action != containerActionStart {
+		t.Fatalf("unexpected action result %#v", result)
+	}
+	if len(bus.events) != 1 {
+		t.Fatalf("expected one audit event, got %#v", bus.events)
+	}
+	if bus.canceled[0] {
+		t.Fatalf("expected detached audit publish context")
+	}
+	payload, ok := bus.events[0].Payload.(moduleapi.AuditEvent)
+	if !ok {
+		t.Fatalf("unexpected payload %T", bus.events[0].Payload)
+	}
+	if payload.Action != "ops.container.start" || !payload.Success {
+		t.Fatalf("unexpected audit payload %#v", payload)
+	}
+	if payload.Metadata["requestId"] != "req-start" || payload.Metadata["traceId"] != "trace-start" {
+		t.Fatalf("expected request metadata, got %#v", payload.Metadata)
+	}
+}
+
+func TestBatchActionPolicyFailurePublishesAudit(t *testing.T) {
+	t.Parallel()
+
+	bus := eventbus.New(zap.NewNop())
+	events := make([]moduleapi.AuditEvent, 0, 1)
+	if err := bus.Subscribe(string(moduleapi.AuditRecordEventName), func(_ context.Context, event eventbus.Event) error {
+		payload, ok := event.Payload.(moduleapi.AuditEvent)
+		if !ok {
+			t.Fatalf("unexpected payload %T", event.Payload)
+		}
+		events = append(events, payload)
+		return nil
+	}); err != nil {
+		t.Fatalf("subscribe audit: %v", err)
+	}
+
+	runtime := &managedActionRuntime{
+		detail: Detail{
+			Summary: Summary{
+				ID:        "web",
+				Name:      "graft-web",
+				Image:     "graft/web:latest",
+				Runtime:   runtimeNameDocker,
+				State:     "running",
+				Status:    "Up",
+				CreatedAt: "2026-06-14T00:00:00Z",
+				Orchestrator: OrchestratorInfo{
+					Type:            containerOrchestratorCompose,
+					Managed:         true,
+					GroupScopeKind:  composeProjectScopeKind,
+					GroupValue:      "graft",
+					MemberScopeKind: composeServiceScopeKind,
+					MemberValue:     "web",
+				},
+			},
+		},
+	}
+	service, err := newTestService(containerServiceOptions{
+		runtime: runtime,
+		systemConfig: serviceTestPolicyConfig{
+			serviceTestSystemConfig: serviceTestSystemConfig{values: map[string]bool{
+				containercontract.ContainerRuntimeEnabledConfig.String():          true,
+				containercontract.ContainerDangerousActionsEnabledConfig.String(): true,
+			}},
+			values: map[string]string{
+				containercontract.ContainerComposeActionLevelConfig.String(): string(mustRawJSON("warn")),
+			},
+		},
+		auditBus:                bus,
+		moduleName:              moduleID,
+		enabled:                 true,
+		dangerousActionsEnabled: true,
+		defaultTail:             defaultContainerLogsDefaultTail,
+		maxTail:                 defaultContainerLogsMaxTail,
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	ctx := httpx.WithRequestAuditContext(context.Background(), httpx.RequestAuditContext{
+		RequestID: "req-batch-policy",
+		TraceID:   "trace-batch-policy",
+	})
+	result, err := service.BatchAction(ctx, BatchActionCommand{
+		Action: containerActionRemove,
+		IDs:    []string{"web"},
+		Force:  true,
+	})
+	if err != nil {
+		t.Fatalf("batch action should aggregate policy failures, got %v", err)
+	}
+	if result.SuccessCount != 0 || result.FailedCount != 1 {
+		t.Fatalf("unexpected batch result %#v", result)
+	}
+	if len(events) != 1 {
+		t.Fatalf("expected one audit event, got %#v", events)
+	}
+	event := events[0]
+	if event.Action != "ops.container.remove" || event.Success {
+		t.Fatalf("unexpected audit event %#v", event)
+	}
+	if event.MessageKey != containercontract.ContainerDangerousActionsDisabled.String() {
+		t.Fatalf("unexpected message key %q", event.MessageKey)
+	}
+	if event.Metadata["force"] != true || event.Metadata["requestId"] != "req-batch-policy" {
+		t.Fatalf("expected force/request metadata, got %#v", event.Metadata)
+	}
+}
+
 func TestContainerOptionsFromConfigUsesRegisteredDefaults(t *testing.T) {
 	t.Parallel()
 
