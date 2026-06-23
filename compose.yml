@@ -32,7 +32,7 @@ services:
         - CMD-SHELL
         - |
           if [ -n "$${GRAFT_REDIS_PASSWORD:-}" ]; then
-            redis-cli -a "$${GRAFT_REDIS_PASSWORD}" ping
+            REDISCLI_AUTH="$${GRAFT_REDIS_PASSWORD}" redis-cli ping
           else
             redis-cli ping
           fi

@@ -238,6 +238,16 @@ func TestValidateOriginNormalizesDefaultPorts(t *testing.T) {
 			requestOrigin: "https://console.example.com:443",
 			allowedOrigin: "https://console.example.com",
 		},
+		{
+			name:          "http ipv6 default port",
+			requestOrigin: "http://[::1]",
+			allowedOrigin: "http://[::1]:80",
+		},
+		{
+			name:          "https ipv6 default port",
+			requestOrigin: "https://[2001:db8::1]",
+			allowedOrigin: "https://[2001:db8::1]:443",
+		},
 	}
 
 	for _, tc := range cases {

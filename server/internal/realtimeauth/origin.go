@@ -53,15 +53,22 @@ func isSupportedOrigin(parsedOrigin *url.URL) bool {
 }
 
 func normalizedOriginHost(host, scheme, port string) string {
-	if port != "" {
-		return net.JoinHostPort(host, port)
+	if port == "" {
+		port = defaultOriginPort(scheme)
 	}
+	if port == "" {
+		return host
+	}
+	return net.JoinHostPort(host, port)
+}
+
+func defaultOriginPort(scheme string) string {
 	switch scheme {
 	case "http":
-		return host + ":80"
+		return "80"
 	case "https":
-		return host + ":443"
+		return "443"
 	default:
-		return host
+		return ""
 	}
 }

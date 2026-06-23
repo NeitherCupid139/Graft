@@ -195,6 +195,11 @@ const normalizeQuery = (query?: TRouterInfo['query']): LocationQueryRaw | undefi
 };
 
 const getTabKey = (route: TRouterInfo) => route.tabKey || route.path;
+const resolveCurrentTabIndex = (tabKey: string) =>
+  tabsRouterStore.tabRouters.findIndex((tabRoute) => getTabKey(tabRoute) === tabKey);
+const finishTabRefreshByKey = (tabKey: string) => {
+  tabsRouterStore.finishTabRefresh(resolveCurrentTabIndex(tabKey));
+};
 
 const resolveRouteLocation = (targetRoute: TRouterInfo): RouteLocationRaw => {
   return (
@@ -233,19 +238,23 @@ const handlePageSurfaceEnter = (surface: PageSurfaceType) => {
 };
 
 const handleRefresh = (route: TRouterInfo, routeIdx: number) => {
-  const refreshHandler = resolveTabRefreshHandler(getTabKey(route));
+  const tabKey = getTabKey(route);
+  const refreshHandler = resolveTabRefreshHandler(tabKey);
   if (refreshHandler) {
     tabsRouterStore.startTabRefresh(routeIdx);
-    Promise.resolve(refreshHandler()).finally(() => {
-      tabsRouterStore.finishTabRefresh(routeIdx);
-    });
+    void Promise.resolve()
+      .then(() => refreshHandler())
+      .catch(() => undefined)
+      .finally(() => {
+        finishTabRefreshByKey(tabKey);
+      });
     activeTabKeyForMenu.value = null;
     return;
   }
 
   tabsRouterStore.startTabRefresh(routeIdx);
   nextTick(() => {
-    tabsRouterStore.finishTabRefresh(routeIdx);
+    finishTabRefreshByKey(tabKey);
     void router.replace(resolveRouteLocation(route));
   });
   activeTabKeyForMenu.value = null;
