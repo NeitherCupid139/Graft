@@ -565,6 +565,7 @@ describe('LayoutContent', () => {
 
     await openTabMenuByLabel(wrapper, 'ServerRuntime');
     await clickRefreshItemForTab(wrapper, 'ServerRuntime');
+    await flushPromises();
 
     expect(storeState.tabsRouterStore.startTabRefresh).toHaveBeenCalledWith(1);
     expect(storeState.tabsRouterStore.finishTabRefresh).toHaveBeenCalledWith(1);

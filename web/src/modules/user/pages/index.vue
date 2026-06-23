@@ -604,9 +604,17 @@ const loadingRoleDialogData = computed(() => roleCatalogLoading.value || loading
 const roleMutationPayload = computed(() => ({
   role_ids: roleMutationMode.value === 'replace' ? [...selectedRoleIds.value].sort((left, right) => left - right) : [],
 }));
-const effectiveRoleMutationIds = computed(() =>
-  roleMutationMode.value === 'replace' ? roleMutationPayload.value.role_ids : [...roleMutationIds.value],
-);
+const effectiveRoleMutationIds = computed(() => {
+  if (roleMutationMode.value === 'replace') {
+    return roleMutationPayload.value.role_ids;
+  }
+
+  if (roleDialogMode.value === 'batch') {
+    return [...selectedRoleIds.value].sort((left, right) => left - right);
+  }
+
+  return [...roleMutationIds.value];
+});
 const hasUserRoleSelectionChanges = computed(() => {
   if (!roleSelectionReady.value) {
     return false;
