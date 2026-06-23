@@ -978,7 +978,7 @@ function scheduleAutoRefresh() {
 
 function stopAutoRefresh() {
   if (autoRefreshTimer !== null) {
-    window.clearInterval(autoRefreshTimer);
+    clearInterval(autoRefreshTimer);
     autoRefreshTimer = null;
   }
   nextAutoRefreshAt = null;
