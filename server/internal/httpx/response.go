@@ -125,13 +125,17 @@ func EnsureRequestID(ctx *gin.Context) string {
 	}
 
 	if current, ok := ctx.Get(requestIDContextKey); ok {
-		if requestID, ok := current.(string); ok && sanitizeAccessLogStableText(requestID) != "" {
+		if requestID, ok := current.(string); ok {
 			requestID = sanitizeAccessLogStableText(requestID)
+			if requestID == "" {
+				goto resolveRequestID
+			}
 			ctx.Writer.Header().Set(RequestIDHeader, requestID)
 			return requestID
 		}
 	}
 
+resolveRequestID:
 	requestID := sanitizeAccessLogStableText(ctx.GetHeader(RequestIDHeader))
 	if requestID == "" {
 		requestID = sanitizeAccessLogStableText(ctx.GetHeader(traceIDFallbackHeader))
@@ -153,12 +157,16 @@ func EnsureTraceID(ctx *gin.Context) string {
 	}
 
 	if current, ok := ctx.Get(traceIDContextKey); ok {
-		if traceID, ok := current.(string); ok && sanitizeAccessLogStableText(traceID) != "" {
+		if traceID, ok := current.(string); ok {
 			traceID = sanitizeAccessLogStableText(traceID)
+			if traceID == "" {
+				goto resolveTraceID
+			}
 			return traceID
 		}
 	}
 
+resolveTraceID:
 	traceID := sanitizeAccessLogStableText(ctx.GetHeader(traceIDFallbackHeader))
 	if traceID == "" {
 		traceID = EnsureRequestID(ctx)

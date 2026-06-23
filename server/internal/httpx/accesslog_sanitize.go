@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	"unicode"
+
+	"graft/server/internal/logger/logsafe"
 )
 
 const accessLogRedactedValue = "[REDACTED]"
@@ -47,23 +48,5 @@ func sanitizeAccessLogFreeText(value string) string {
 }
 
 func sanitizeAccessLogStableText(value string) string {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return ""
-	}
-
-	var builder strings.Builder
-	builder.Grow(len(value))
-	for _, r := range value {
-		if r == '\n' || r == '\r' || r == '\t' {
-			builder.WriteByte(' ')
-			continue
-		}
-		if unicode.IsControl(r) {
-			continue
-		}
-		builder.WriteRune(r)
-	}
-
-	return strings.Join(strings.Fields(builder.String()), " ")
+	return logsafe.SanitizeText(value)
 }
