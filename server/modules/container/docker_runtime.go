@@ -47,6 +47,7 @@ type DockerRuntime struct {
 	endpoint          string
 	logger            *zap.Logger
 	mountUsageScanner mountUsageScanner
+	resourceStats     *resourceStatsCache
 }
 
 type dockerClient interface {
@@ -76,7 +77,12 @@ func NewDockerRuntime(endpoint string, logger *zap.Logger) (*DockerRuntime, erro
 	if err != nil {
 		return nil, mapDockerError(err)
 	}
-	return &DockerRuntime{client: dockerClientAdapter{Client: cli}, endpoint: endpoint, logger: logger}, nil
+	return &DockerRuntime{
+		client:        dockerClientAdapter{Client: cli},
+		endpoint:      endpoint,
+		logger:        logger,
+		resourceStats: newResourceStatsCache(containerResourceStatsCacheTTL, containerResourceStatsCacheStaleWindow),
+	}, nil
 }
 
 // Info returns sanitized Docker runtime metadata for API responses.
@@ -113,7 +119,7 @@ func (r *DockerRuntime) Detail(ctx context.Context, ref Ref) (Detail, error) {
 		return Detail{}, err
 	}
 	detail := dockerDetail(inspect, info)
-	detail.Resource = r.containerResourceSummary(ctx, firstNonEmpty(detail.ID, ref.Value))
+	detail.Resource = r.cachedContainerResourceSummary(ctx, firstNonEmpty(detail.ID, ref.Value))
 	return detail, nil
 }
 
@@ -238,6 +244,7 @@ func (r *DockerRuntime) Start(ctx context.Context, ref Ref) (ActionResult, error
 	if err := r.client.ContainerStart(ctx, ref.Value, mobyclient.ContainerStartOptions{}); err != nil {
 		return actionResultFromDetail(before, ref, containerActionStart, ""), mapDockerError(err)
 	}
+	r.invalidateResourceSummary(ref.Value, before.ID)
 	after, _ := r.Detail(ctx, ref)
 	return actionResultFromDetail(after, ref, containerActionStart, before.State), nil
 }
@@ -271,6 +278,7 @@ func (r *DockerRuntime) runTimedStateAction(
 	if err := run(ctx, ref.Value, &timeout); err != nil {
 		return actionResultFromDetail(before, ref, action, ""), mapDockerError(err)
 	}
+	r.invalidateResourceSummary(ref.Value, before.ID)
 	after, _ := r.Detail(ctx, ref)
 	return actionResultFromDetail(after, ref, action, before.State), nil
 }
@@ -287,6 +295,7 @@ func (r *DockerRuntime) Remove(ctx context.Context, ref Ref, options RemoveOptio
 	if err := r.client.ContainerRemove(ctx, ref.Value, mobyclient.ContainerRemoveOptions{Force: options.Force}); err != nil {
 		return actionResultFromDetail(before, ref, containerActionRemove, before.State), mapDockerError(err)
 	}
+	r.invalidateResourceSummary(ref.Value, before.ID)
 	result := actionResultFromDetail(before, ref, containerActionRemove, before.State)
 	result.StatusAfter = actionStatusRemoved
 	result.Result = actionResultCompleted
@@ -371,6 +380,38 @@ func (r *DockerRuntime) containerResourceSummary(ctx context.Context, id string)
 	return r.dockerResourceSummary(ref, stats)
 }
 
+func (r *DockerRuntime) cachedContainerResourceSummary(ctx context.Context, id string) ResourceSummary {
+	ref := strings.TrimSpace(id)
+	if ref == "" {
+		return unavailableResourceSummary(containerStatsIncompleteReason)
+	}
+	cache := r.ensureResourceStatsCache()
+	if r == nil || cache == nil {
+		return r.containerResourceSummary(ctx, ref)
+	}
+	return cache.get(ctx, ref, func(loadCtx context.Context) ResourceSummary {
+		return r.containerResourceSummary(loadCtx, ref)
+	})
+}
+
+func (r *DockerRuntime) invalidateResourceSummary(ids ...string) {
+	cache := r.ensureResourceStatsCache()
+	if r == nil || cache == nil {
+		return
+	}
+	cache.invalidate(ids...)
+}
+
+func (r *DockerRuntime) ensureResourceStatsCache() *resourceStatsCache {
+	if r == nil {
+		return nil
+	}
+	if r.resourceStats == nil {
+		r.resourceStats = newResourceStatsCache(containerResourceStatsCacheTTL, containerResourceStatsCacheStaleWindow)
+	}
+	return r.resourceStats
+}
+
 func (r *DockerRuntime) collectListResourceSummaries(ctx context.Context, summaries []Summary) {
 	if len(summaries) == 0 {
 		return
@@ -383,7 +424,7 @@ func (r *DockerRuntime) collectListResourceSummaries(ctx context.Context, summar
 		go func() {
 			defer wg.Done()
 			for index := range jobs {
-				summaries[index].Resource = r.containerResourceSummary(ctx, summaries[index].ID)
+				summaries[index].Resource = r.cachedContainerResourceSummary(ctx, summaries[index].ID)
 			}
 		}()
 	}

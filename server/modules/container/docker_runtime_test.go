@@ -13,6 +13,7 @@ import (
 	"net/netip"
 	"reflect"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -351,6 +352,156 @@ func TestDockerRuntimeDetailCollectsResourceStats(t *testing.T) {
 	}
 	if calls := client.statsCalls.Load(); calls != 1 {
 		t.Fatalf("expected detail to collect stats once, got %d", calls)
+	}
+}
+
+func TestDockerRuntimeDetailReusesCachedResourceStats(t *testing.T) {
+	t.Parallel()
+
+	client := &countingDockerClient{
+		inspect: container.InspectResponse{
+			ID:      "1234567890abcdef",
+			Name:    "/graft-web",
+			State:   &container.State{Status: container.StateRunning},
+			Created: "2026-06-14T00:00:00Z",
+			Config:  &container.Config{Image: "graft/web:latest"},
+		},
+		stats: richDockerStatsFixture(),
+	}
+	runtime := &DockerRuntime{client: client, endpoint: "unix:///var/run/docker.sock"}
+
+	first, err := runtime.Detail(context.Background(), Ref{Value: "graft-web"})
+	if err != nil {
+		t.Fatalf("first detail: %v", err)
+	}
+	second, err := runtime.Detail(context.Background(), Ref{Value: "graft-web"})
+	if err != nil {
+		t.Fatalf("second detail: %v", err)
+	}
+	if !first.Resource.Available || !second.Resource.Available {
+		t.Fatalf("expected cached resource stats to remain available, got %#v %#v", first.Resource, second.Resource)
+	}
+	if calls := client.statsCalls.Load(); calls != 1 {
+		t.Fatalf("expected repeated detail reads to reuse cached stats, got %d stats calls", calls)
+	}
+}
+
+func TestDockerRuntimeResourceStatsCacheCollapsesConcurrentMiss(t *testing.T) {
+	t.Parallel()
+
+	client := &countingDockerClient{
+		stats: container.StatsResponse{
+			MemoryStats: container.MemoryStats{Usage: 128, Limit: 256},
+		},
+		statsDelay: 40 * time.Millisecond,
+	}
+	runtime := &DockerRuntime{client: client, endpoint: "unix:///var/run/docker.sock"}
+
+	var wg sync.WaitGroup
+	results := make([]ResourceSummary, 6)
+	for index := range results {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			results[i] = runtime.cachedContainerResourceSummary(context.Background(), "container-1")
+		}(index)
+	}
+	wg.Wait()
+
+	for _, summary := range results {
+		if !summary.Available {
+			t.Fatalf("expected available summary from collapsed cache load, got %#v", summary)
+		}
+		assertInt64Ptr(t, summary.MemoryUsageBytes, 128, "memory usage bytes")
+	}
+	if calls := client.statsCalls.Load(); calls != 1 {
+		t.Fatalf("expected concurrent miss collapse to issue one stats call, got %d", calls)
+	}
+}
+
+func TestDockerRuntimeListReusesCachedResourceStatsAcrossPolls(t *testing.T) {
+	t.Parallel()
+
+	client := &countingDockerClient{
+		list: []container.Summary{
+			{
+				ID:      "1234567890abcdef",
+				Names:   []string{"/graft-web"},
+				Image:   "graft/web:latest",
+				State:   container.StateRunning,
+				Status:  "Up 10 minutes",
+				Created: 1781409600,
+			},
+		},
+		stats: richDockerStatsFixture(),
+	}
+	runtime := &DockerRuntime{client: client, endpoint: "unix:///var/run/docker.sock"}
+
+	first, err := runtime.List(context.Background(), ListQuery{})
+	if err != nil {
+		t.Fatalf("first list: %v", err)
+	}
+	second, err := runtime.List(context.Background(), ListQuery{})
+	if err != nil {
+		t.Fatalf("second list: %v", err)
+	}
+	if len(first) != 1 || len(second) != 1 {
+		t.Fatalf("expected one item per list call, got %#v %#v", first, second)
+	}
+	if calls := client.statsCalls.Load(); calls != 1 {
+		t.Fatalf("expected repeated list polls to reuse cached stats, got %d stats calls", calls)
+	}
+}
+
+func TestDockerRuntimeActionInvalidatesCachedResourceStats(t *testing.T) {
+	t.Parallel()
+
+	client := &countingDockerClient{
+		inspect: container.InspectResponse{
+			ID:      "1234567890abcdef",
+			Name:    "/graft-web",
+			State:   &container.State{Status: container.StateRunning},
+			Created: "2026-06-14T00:00:00Z",
+			Config:  &container.Config{Image: "graft/web:latest"},
+		},
+		stats: richDockerStatsFixture(),
+	}
+	runtime := &DockerRuntime{client: client, endpoint: "unix:///var/run/docker.sock"}
+
+	if _, err := runtime.Detail(context.Background(), Ref{Value: "graft-web"}); err != nil {
+		t.Fatalf("seed detail: %v", err)
+	}
+	if calls := client.statsCalls.Load(); calls != 1 {
+		t.Fatalf("expected seeded cache to collect one stats sample, got %d", calls)
+	}
+
+	client.stats = container.StatsResponse{
+		CPUStats: container.CPUStats{
+			CPUUsage:    container.CPUUsage{TotalUsage: 400, PercpuUsage: []uint64{200, 200}},
+			SystemUsage: 2000,
+			OnlineCPUs:  2,
+		},
+		PreCPUStats: container.CPUStats{
+			CPUUsage:    container.CPUUsage{TotalUsage: 100},
+			SystemUsage: 1000,
+		},
+		MemoryStats: container.MemoryStats{Usage: 512, Limit: 1024},
+	}
+
+	if _, err := runtime.Restart(context.Background(), Ref{Value: "graft-web"}); err != nil {
+		t.Fatalf("restart: %v", err)
+	}
+	if calls := client.statsCalls.Load(); calls != 2 {
+		t.Fatalf("expected restart to reuse cached pre-action stats and recollect post-action stats, got %d", calls)
+	}
+
+	detail, err := runtime.Detail(context.Background(), Ref{Value: "graft-web"})
+	if err != nil {
+		t.Fatalf("detail after restart: %v", err)
+	}
+	assertInt64Ptr(t, detail.Resource.MemoryUsageBytes, 512, "memory usage after restart")
+	if calls := client.statsCalls.Load(); calls != 2 {
+		t.Fatalf("expected post-restart detail to use refreshed cache, got %d", calls)
 	}
 }
 
