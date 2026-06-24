@@ -32,8 +32,8 @@ Container Resource Stats Manager Foundation
   - detail 页 realtime snapshot 已不再直接 patch 页面局部 `resource`，而是写入 module-owned stats store
   - list 页不再直接以 HTTP row.resource 作为长期 authority
   - dashboard 已通过 container-owned contract facade 接入共享资源状态
-- 当前推荐下一批：
-  - `phase-5-history-store-optional`
+- 当前下一步：
+  - outer loop 执行 archive-readiness check；若通过则以 terminal closeout 收口本 topic
 
 ## Task Checklist
 
@@ -44,7 +44,7 @@ Container Resource Stats Manager Foundation
 - [x] Phase 2：frontend ContainerStatsManager foundation
 - [x] Phase 3：subscription manager unification
 - [x] Phase 4：dashboard shared resource consumption
-- [ ] Phase 5：optional history store
+- [x] Phase 5：optional history store
 
 ## Batch Boundaries
 
@@ -115,3 +115,12 @@ Container Resource Stats Manager Foundation
   - container module 继续拥有 canonical stats authority，dashboard 仅消费 facade
 - 本批未进入：
   - history / trend metrics
+
+## Phase 5 Closeout
+
+- 已完成 optional history store：
+  - `web/src/modules/container/shared/stats-manager.ts` 增加 module-owned history ring buffer
+  - detail resources 区新增 history 消费区块，latest 与 history 分离读取
+- 已保持 authority 边界：
+  - 未新增 server/OpenAPI authority
+  - 未将 history 提升为 dashboard/platform shared authority

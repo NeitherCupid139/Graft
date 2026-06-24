@@ -371,6 +371,8 @@ const translations = vi.hoisted(
     'container.detail.resources.dashboard': '资源仪表盘',
     'container.detail.resources.detail': '资源明细',
     'container.detail.resources.detailedMetrics': '详细指标',
+    'container.detail.resources.history': '资源历史',
+    'container.detail.resources.historyEmpty': '暂无历史快照',
     'container.detail.resources.memory': '内存',
     'container.detail.resources.memoryActiveFile': '活跃文件',
     'container.detail.resources.memoryCache': '缓存',
@@ -1310,7 +1312,8 @@ describe('container detail page', () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain('7.5%');
-    expect(wrapper.text()).not.toContain('21.8%');
+    expect(wrapper.html()).toContain('当前快照');
+    expect(wrapper.html()).toContain('资源历史');
   });
 
   it('uses fresh detail resource after pausing realtime and manually refreshing', async () => {
@@ -1345,7 +1348,8 @@ describe('container detail page', () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain('7.5%');
-    expect(wrapper.text()).not.toContain('88.8%');
+    expect(wrapper.html()).toContain('当前快照');
+    expect(wrapper.html()).toContain('资源历史');
   });
 
   it('ignores stale socket messages after switching to another container detail', async () => {
@@ -2225,14 +2229,18 @@ describe('container detail page', () => {
     expect(resourcesSource).toContain('container-detail-resource-grid');
     expect(resourcesSource).toContain('container-resource-dashboard-section');
     expect(resourcesSource).toContain('container-resource-dashboard-grid');
+    expect(resourcesSource).toContain('container-resource-history-section');
+    expect(resourcesSource).toContain('container-resource-history-grid');
     expect(resourcesSource).toContain('container-resource-detail-section');
     expect(resourcesSource).toContain('container-resource-detail-grid');
     expect(resourcesSource).toContain('container-resource-cpu-metric-grid');
     expect(resourcesSource).toContain('container-resource-detail-card--memory');
     expect(resourcesSource).toContain('cpuDetailMetrics');
+    expect(resourcesSource).toContain('resourceHistoryPoints');
     expect(resourcesSource).toContain('resourceDetailGroups');
     expect(resourcesSource).toContain('container-resource-detail-row');
     expect(resourcesSource).toContain('container.detail.resources.dashboard');
+    expect(resourcesSource).toContain('container.detail.resources.history');
     expect(resourcesSource).toContain('container.detail.resources.detailedMetrics');
     expect(resourcesSource).toContain('container-resource-cpu-metric--warning');
     expect(resourcesSource).not.toContain('<t-descriptions');

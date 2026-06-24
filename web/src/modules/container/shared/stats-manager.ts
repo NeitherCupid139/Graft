@@ -18,6 +18,7 @@ export type ContainerStatsSnapshot = {
 };
 
 type ContainerStatsEntry = {
+  history: ContainerStatsSnapshot[];
   snapshot: ContainerStatsSnapshot | null;
 };
 
@@ -38,6 +39,7 @@ type ContainerStatsManagerState = {
 
 const SUBSCRIPTION_IDLE_GRACE_MS = 10_000;
 const DEFAULT_CONTAINER_LIST_COLLECTION_KEY = 'container:list';
+const CONTAINER_STATS_HISTORY_LIMIT = 12;
 
 const state = reactive<ContainerStatsManagerState>({
   detailMetadataById: new Map<string, ContainerDetailMetadataRecord>(),
@@ -85,7 +87,8 @@ function isNewerStatsSnapshot(
 }
 
 function upsertStatsSnapshot(containerId: string, resource: ContainerResourceSummary, source: StatsSnapshotSource) {
-  const current = state.statsById.get(containerId)?.snapshot ?? null;
+  const currentEntry = state.statsById.get(containerId);
+  const current = currentEntry?.snapshot ?? null;
   if (!isNewerStatsSnapshot(current, resource, source)) {
     return current;
   }
@@ -96,7 +99,10 @@ function upsertStatsSnapshot(containerId: string, resource: ContainerResourceSum
     },
     source,
   };
-  state.statsById.set(containerId, { snapshot: nextSnapshot });
+  state.statsById.set(containerId, {
+    history: [...(currentEntry?.history ?? []), nextSnapshot].slice(-CONTAINER_STATS_HISTORY_LIMIT),
+    snapshot: nextSnapshot,
+  });
   return nextSnapshot;
 }
 
@@ -203,6 +209,21 @@ function splitDetailRecord(record: ContainerDetailRecord) {
   };
 }
 
+function attachLatestResource<TMetadata extends ContainerMetadataRecord | ContainerDetailMetadataRecord>(
+  containerId: string,
+  metadata: TMetadata | undefined,
+) {
+  if (!metadata) {
+    return null;
+  }
+
+  const snapshot = state.statsById.get(containerId)?.snapshot ?? null;
+  return {
+    ...metadata,
+    resource: snapshot?.resource,
+  };
+}
+
 export function resetContainerStatsManager() {
   state.subscriptionsById.forEach((entry) => {
     closeSubscriptionEntry(entry);
@@ -302,15 +323,7 @@ export function selectContainerStatsRealtimeState(containerId: string): Realtime
 
 function selectContainerSummaryView(containerId: string): ContainerSummaryRecord | null {
   const metadata = state.listMetadataByCollection.get(DEFAULT_CONTAINER_LIST_COLLECTION_KEY)?.get(containerId);
-  if (!metadata) {
-    return null;
-  }
-
-  const snapshot = state.statsById.get(containerId)?.snapshot ?? null;
-  return {
-    ...metadata,
-    resource: snapshot?.resource,
-  };
+  return attachLatestResource(containerId, metadata);
 }
 
 export function selectContainerListViews(): ContainerSummaryRecord[] {
@@ -334,28 +347,21 @@ export function selectContainerSummaryCollectionViews(collectionKey: string): Co
 
   return order.reduce<ContainerSummaryRecord[]>((items, containerId) => {
     const metadata = metadataById.get(containerId);
-    if (!metadata) {
+    const next = attachLatestResource(containerId, metadata);
+    if (!next) {
       return items;
     }
 
-    const snapshot = state.statsById.get(containerId)?.snapshot ?? null;
-    items.push({
-      ...metadata,
-      resource: snapshot?.resource,
-    });
+    items.push(next);
     return items;
   }, []);
 }
 
 export function selectContainerDetailView(containerId: string): ContainerDetailRecord | null {
   const metadata = state.detailMetadataById.get(containerId);
-  if (!metadata) {
-    return null;
-  }
+  return attachLatestResource(containerId, metadata);
+}
 
-  const snapshot = state.statsById.get(containerId)?.snapshot ?? null;
-  return {
-    ...metadata,
-    resource: snapshot?.resource,
-  };
+export function selectContainerStatsHistory(containerId: string): ContainerStatsSnapshot[] {
+  return [...(state.statsById.get(containerId)?.history ?? [])];
 }

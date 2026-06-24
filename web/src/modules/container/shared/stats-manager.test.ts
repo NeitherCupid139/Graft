@@ -11,6 +11,7 @@ import {
   seedContainerList,
   selectContainerDetailView,
   selectContainerListViews,
+  selectContainerStatsHistory,
   selectContainerStatsRealtimeState,
   selectContainerSummaryCollectionViews,
 } from './stats-manager';
@@ -168,6 +169,27 @@ describe('container stats manager', () => {
 
     expect(detail?.resource?.cpu_percent).toBe(88.8);
     expect(detail?.resource?.collected_at).toBe('2026-06-14T01:11:00Z');
+  });
+
+  it('keeps a bounded history ring buffer separate from latest stats state', () => {
+    seedContainerDetail(createDetail());
+    applyContainerRealtimeStats('container-1', {
+      ...createDetail().resource!,
+      cpu_percent: 30.5,
+      collected_at: '2026-06-14T01:10:00Z',
+    });
+    applyContainerRealtimeStats('container-1', {
+      ...createDetail().resource!,
+      cpu_percent: 42.1,
+      collected_at: '2026-06-14T01:11:00Z',
+    });
+
+    const history = selectContainerStatsHistory('container-1');
+    const detail = selectContainerDetailView('container-1');
+
+    expect(history).toHaveLength(3);
+    expect(history.at(-1)?.resource.cpu_percent).toBe(42.1);
+    expect(detail?.resource?.cpu_percent).toBe(42.1);
   });
 
   it('shares one realtime subscription controller across multiple acquires of the same container id', () => {

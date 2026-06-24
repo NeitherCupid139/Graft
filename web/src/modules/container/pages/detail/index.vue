@@ -334,6 +334,24 @@
                   </div>
                 </section>
 
+                <section class="container-resource-history-section">
+                  <div class="container-resource-history-section__title">
+                    {{ t('container.detail.resources.history') }}
+                  </div>
+                  <div v-if="resourceHistoryPoints.length" class="container-resource-history-grid">
+                    <article
+                      v-for="point in resourceHistoryPoints"
+                      :key="point.key"
+                      class="container-resource-history-card"
+                    >
+                      <span>{{ point.collectedAt }}</span>
+                      <strong>{{ point.cpuPercent }}</strong>
+                      <em>{{ point.memoryPercent }}</em>
+                    </article>
+                  </div>
+                  <t-empty v-else size="small" :description="t('container.detail.resources.historyEmpty')" />
+                </section>
+
                 <section class="container-resource-detail-section">
                   <div class="container-resource-detail-section__title">
                     {{ t('container.detail.resources.detailedMetrics') }}
@@ -1186,6 +1204,7 @@ import {
   releaseContainerStatsSubscription,
   seedContainerDetail,
   selectContainerDetailView,
+  selectContainerStatsHistory,
   selectContainerStatsRealtimeState,
 } from '../../shared/stats-manager';
 import type {
@@ -1296,6 +1315,12 @@ type ResourceStatusTheme = 'success' | 'warning' | 'default';
 type HealthStatusTheme = 'success' | 'warning' | 'danger' | 'default';
 type ResourceMetricFormat = 'bytes' | 'number' | 'percent' | 'text';
 type ContainerResourceSummary = NonNullable<ContainerDetail['resource']>;
+type ContainerStatsHistoryPoint = {
+  collectedAt: string;
+  cpuPercent: string;
+  key: string;
+  memoryPercent: string;
+};
 type ResourceMetricKey = Extract<
   keyof ContainerResourceSummary,
   | 'cpu_percent'
@@ -1695,6 +1720,22 @@ const realtimeStatusHint = computed(() =>
 const realtimeToggleLabel = computed(() =>
   realtimeEnabled.value ? t('container.detail.realtime.pause') : t('container.detail.realtime.resume'),
 );
+const resourceHistoryPoints = computed<ContainerStatsHistoryPoint[]>(() => {
+  const containerId = safeDetail.value?.id;
+  if (!containerId) {
+    return [];
+  }
+
+  return selectContainerStatsHistory(containerId)
+    .filter((item) => item.resource.collected_at)
+    .slice(-6)
+    .map((item, index) => ({
+      collectedAt: item.resource.collected_at || '-',
+      cpuPercent: formatPercent(item.resource.cpu_percent),
+      key: `${item.resource.collected_at || 'snapshot'}-${index}`,
+      memoryPercent: formatPercent(item.resource.memory_percent),
+    }));
+});
 const cpuDetailMetrics = computed(() =>
   buildCpuDetailMetrics(
     safeDetail.value?.resource,
@@ -4527,6 +4568,7 @@ function portLabel(port: ContainerDetail['ports'][number]) {
 }
 
 .container-resource-dashboard-section,
+.container-resource-history-section,
 .container-resource-detail-section {
   background: var(--td-bg-color-container);
   border: 1px solid color-mix(in srgb, var(--td-component-stroke) 72%, transparent);
@@ -4544,7 +4586,13 @@ function portLabel(port: ContainerDetail['ports'][number]) {
   padding: var(--graft-density-gap-14) var(--graft-density-gap-16) var(--graft-density-gap-16);
 }
 
+.container-resource-history-section {
+  gap: var(--graft-density-gap-12);
+  padding: var(--graft-density-gap-14) var(--graft-density-gap-16);
+}
+
 .container-resource-dashboard-section__title,
+.container-resource-history-section__title,
 .container-resource-detail-section__title {
   color: var(--td-text-color-primary);
   font: var(--td-font-title-small);
@@ -4566,7 +4614,15 @@ function portLabel(port: ContainerDetail['ports'][number]) {
   min-width: 0;
 }
 
+.container-resource-history-grid {
+  display: grid;
+  gap: var(--graft-density-gap-12);
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  min-width: 0;
+}
+
 .container-resource-dashboard-panel,
+.container-resource-history-card,
 .container-resource-detail-card {
   background: color-mix(in srgb, var(--td-bg-color-container) 96%, var(--td-bg-color-page));
   border: 1px solid color-mix(in srgb, var(--td-component-stroke) 56%, transparent);
@@ -4579,6 +4635,12 @@ function portLabel(port: ContainerDetail['ports'][number]) {
   flex-direction: column;
   gap: var(--graft-density-gap-12);
   padding: var(--graft-density-gap-14);
+}
+
+.container-resource-history-card {
+  display: grid;
+  gap: var(--graft-density-gap-6);
+  padding: var(--graft-density-gap-12);
 }
 
 .container-resource-dashboard-panel__heading {
@@ -4607,6 +4669,19 @@ function portLabel(port: ContainerDetail['ports'][number]) {
 
 .container-resource-dashboard-panel__usage {
   color: var(--td-text-color-primary);
+}
+
+.container-resource-history-card span,
+.container-resource-history-card em {
+  color: var(--td-text-color-secondary);
+  font: var(--td-font-body-small);
+  font-style: normal;
+}
+
+.container-resource-history-card strong {
+  color: var(--td-text-color-primary);
+  font: var(--td-font-title-small);
+  font-weight: 600;
 }
 
 .container-resource-dashboard-panel :deep(.t-progress) {

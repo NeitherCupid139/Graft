@@ -7,7 +7,7 @@
 ## 当前状态摘要
 
 - 当前主题目标是为 `Graft` 容器管理建立统一资源状态层，收敛 `metadata / stats / subscription` 的 authority，并为 `List / Detail / Dashboard` 共享消费准备基础设施。
-- 当前状态：Phase 0、Phase 1、Phase 2、Phase 3 已完成；当前下一批进入 Phase 4 Dashboard 共享消费。
+- 当前状态：Phase 0 至 Phase 5 已完成；当前主题等待 outer loop 的 archive-readiness check。
 - 任务分类为 `cross-boundary`，涉及 container backend authority、OpenAPI 契约和 container frontend module state architecture。
 - Canonical design：`ai-plan/design/容器资源状态与订阅治理设计.md`。
 - 推荐执行技能：`$graft-multi-agent-loop`，loop mode 默认 `topic-completion-loop`。
@@ -67,11 +67,10 @@
   - dashboard 通过 container module contract facade 读取容器资源概览
   - dashboard 复用同一份 canonical stats authority 与 subscription lifecycle
   - container stats manager 增加 collection-key 隔离，避免 dashboard metadata projection 覆盖 list projection
-- 已确认：
-  - Arcane 的列表页存在集中式 stats manager，但 Detail 与 Dashboard 不共享统一资源状态层。
-  - Graft 后端已具备 `statsCollector -> resourceStatsCache -> container.stats:{id}` 主链。
-  - Graft 前端已具备统一 stats store foundation，但尚未统一订阅 acquire/release/ref-count 生命周期。
-- 当前下一批推荐进入 Phase 5 optional history store，而不是回退到新的页面局部资源 authority。
+- 已完成 Phase 5 optional history store：
+  - container module 内新增短时 history ring buffer
+  - detail resources 区可读取独立 history state，latest/history 显式分离
+  - 未引入新的 server/OpenAPI authority 或 dashboard authority
 
 ## Validation Targets
 

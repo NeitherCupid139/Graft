@@ -46,6 +46,10 @@
   - 新增 `web/src/modules/container/contract/dashboard-stats.ts` 作为最小跨模块稳定消费面，dashboard 不再需要 ad-hoc 导入 container 私有实现。
   - dashboard 首页新增容器资源概览卡片，seed 来自 container list HTTP latest-known projection，realtime 仍由 canonical `container.stats:{id}` 驱动。
   - dashboard 释放订阅与清理 projection 时不影响 list/detail 仍持有的 container module authority。
+- Phase 5 optional history store：
+  - `ContainerStatsManager` 增加短时 ring buffer，latest snapshot 与 history snapshot 分离存储。
+  - detail resources 区开始消费 module-owned history state，为后续趋势图保留 authority-safe 基座。
+  - 本批未引入新的 server/OpenAPI/history API，也未把 history 升级成 dashboard/platform authority。
 
 ## Loop Batch State
 
@@ -57,13 +61,12 @@
     "phase-1-resource-ownership-separation",
     "phase-2-frontend-stats-manager-foundation",
     "phase-3-subscription-manager-unification",
-    "phase-4-dashboard-shared-resource-consumption"
-  ],
-  "pending_batches": [
+    "phase-4-dashboard-shared-resource-consumption",
     "phase-5-history-store-optional"
   ],
-  "current_batch": "phase-4-dashboard-shared-resource-consumption",
-  "next_batch": "phase-5-history-store-optional",
+  "pending_batches": [],
+  "current_batch": "phase-5-history-store-optional",
+  "next_batch": null,
   "closeout_status": "active"
 }
 ```
