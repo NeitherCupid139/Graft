@@ -1,6 +1,6 @@
 import { flushPromises, mount } from '@vue/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { defineComponent, h } from 'vue';
+import { defineComponent, h, ref } from 'vue';
 
 import { LOCALE } from '@/contracts/i18n/locales';
 
@@ -224,7 +224,7 @@ const translations = vi.hoisted(
     'container.list.pagination.empty': '暂无记录',
     'container.list.pagination.summary': '第 {start}-{end} 条 / 共 {total} 条',
     'container.list.refresh': '刷新',
-    'container.list.autoRefreshInterval1Second': '每 1 秒',
+    'container.list.autoRefreshInterval5Seconds': '每 5 秒',
     'container.list.resourceUnavailable': '不可用',
     'container.list.unhealthyCount': '不健康 {count}',
     'container.list.readOnlyMode': '只读模式',
@@ -235,7 +235,8 @@ const translations = vi.hoisted(
     'container.list.runtimeLabel': '运行时',
     'container.list.runtimeUnavailable': '运行时不可用',
     'container.list.runningCount': '运行中 {count}',
-    'container.list.stats.notCollected': '未采集',
+    'container.list.stats.unavailable': 'N/A',
+    'container.list.stats.unavailableReasonFallback': '资源统计暂不可用',
     'container.list.stats.cpuTooltip': 'CPU 使用率：{percent}',
     'container.list.stats.memoryTooltip': '内存：{usage} / {limit}，{percent}',
     'container.list.states.created': '已创建',
@@ -318,10 +319,13 @@ vi.mock('tdesign-icons-vue-next', () => ({
 
 vi.mock('vue-i18n', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-i18n')>();
+  const locale = ref('zh-CN');
   return {
     ...actual,
     useI18n: () => ({
-      locale: 'zh-CN',
+      locale,
+      tm: (key: string) => translations[key] ?? key,
+      te: (key: string) => key in translations,
       t: (key: string, params?: Record<string, unknown>) =>
         (translations[key] ?? key).replace(/\{(\w+)\}/g, (_, name) => String(params?.[name] ?? `{${name}}`)),
     }),
@@ -358,7 +362,6 @@ vi.mock('@/utils/route/title', () => ({
 describe('container list page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.useFakeTimers();
     tabsRouterStoreMock.activeTabKey = '/ops/containers';
     tabsRouterStoreMock.tabRouters = [
       {
@@ -526,7 +529,6 @@ describe('container list page', () => {
   });
 
   afterEach(() => {
-    vi.runOnlyPendingTimers();
     vi.useRealTimers();
   });
 
@@ -554,7 +556,7 @@ describe('container list page', () => {
     expect(wrapper.text()).toContain('web');
     expect(wrapper.text()).toContain('21.8%');
     expect(wrapper.text()).toContain('256.0 MiB');
-    expect(wrapper.text()).toContain('未采集');
+    expect(wrapper.text()).toContain('N/A');
     expect(wrapper.text()).not.toContain('stats_not_collected');
     expect(wrapper.text()).toContain('8080->80/tcp');
     expect(wrapper.text()).toContain('+1');
@@ -572,51 +574,212 @@ describe('container list page', () => {
     expect(wrapper.find('[data-testid="container-action-remove"]').exists()).toBe(true);
     expect(wrapper.text()).toContain('第 1-20 条 / 共 25 条');
     expect(wrapper.text()).not.toContain('graft-extra-21');
-    expect(wrapper.get('[data-refresh-control-bar="true"]').attributes('data-status')).toBe('running');
     wrapper.unmount();
   });
 
-  it('auto refreshes the list every second by default', async () => {
+  it('keeps cpu text above 100 percent while clamping progress width', async () => {
+    apiMocks.getContainers.mockResolvedValueOnce({
+      items: [
+        {
+          ...createContainerRows(1)[0],
+          resource: {
+            available: true,
+            stats_available: true,
+            cpu_percent: 628.6,
+            memory_limit_bytes: 536870912,
+            memory_percent: 50,
+            memory_usage_bytes: 268435456,
+          },
+        },
+      ],
+      limit: 20,
+      offset: 0,
+      runtime: {
+        api_version: '1.51',
+        architecture: 'x86_64',
+        containers_running: 1,
+        containers_total: 1,
+        endpoint: 'unix:///var/run/docker.sock',
+        operating_system: 'Ubuntu 24.04.3 LTS',
+        runtime: 'docker',
+        server_version: '29.4.1',
+        status: 'enabled',
+      },
+      summary: {
+        error: 0,
+        health_unavailable: 0,
+        healthy: 1,
+        running: 1,
+        stopped: 0,
+        total: 1,
+        unhealthy: 0,
+      },
+      total: 1,
+    });
+
+    const wrapper = mountPage();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('628.6%');
+    expect(wrapper.findAll('[data-testid="resource-progress"]').some((node) => node.text() === '100')).toBe(true);
+  });
+
+  it('renders per-metric availability independently with N/A fallback', async () => {
+    apiMocks.getContainers.mockResolvedValueOnce({
+      items: [
+        {
+          ...createContainerRows(1)[0],
+          resource: {
+            available: true,
+            stats_available: true,
+            cpu_percent: undefined,
+            memory_limit_bytes: 536870912,
+            memory_percent: 25,
+            memory_usage_bytes: 134217728,
+          },
+        },
+      ],
+      limit: 20,
+      offset: 0,
+      runtime: {
+        api_version: '1.51',
+        architecture: 'x86_64',
+        containers_running: 1,
+        containers_total: 1,
+        endpoint: 'unix:///var/run/docker.sock',
+        operating_system: 'Ubuntu 24.04.3 LTS',
+        runtime: 'docker',
+        server_version: '29.4.1',
+        status: 'enabled',
+      },
+      summary: {
+        error: 0,
+        health_unavailable: 0,
+        healthy: 1,
+        running: 1,
+        stopped: 0,
+        total: 1,
+        unhealthy: 0,
+      },
+      total: 1,
+    });
+
+    const wrapper = mountPage();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('N/A');
+    expect(wrapper.text()).toContain('128.0 MiB');
+    expect(wrapper.text()).toContain('N/A / 25.0%');
+  });
+
+  it('replaces resource metrics with the latest list payload on refresh', async () => {
+    apiMocks.getContainers
+      .mockResolvedValueOnce({
+        items: [
+          {
+            ...createContainerRows(1)[0],
+            resource: {
+              available: true,
+              stats_available: true,
+              cpu_percent: 21.8,
+              memory_limit_bytes: 536870912,
+              memory_percent: 50,
+              memory_usage_bytes: 268435456,
+            },
+          },
+        ],
+        limit: 20,
+        offset: 0,
+        runtime: {
+          api_version: '1.51',
+          architecture: 'x86_64',
+          containers_running: 1,
+          containers_total: 1,
+          endpoint: 'unix:///var/run/docker.sock',
+          operating_system: 'Ubuntu 24.04.3 LTS',
+          runtime: 'docker',
+          server_version: '29.4.1',
+          status: 'enabled',
+        },
+        summary: {
+          error: 0,
+          health_unavailable: 0,
+          healthy: 1,
+          running: 1,
+          stopped: 0,
+          total: 1,
+          unhealthy: 0,
+        },
+        total: 1,
+      })
+      .mockResolvedValueOnce({
+        items: [
+          {
+            ...createContainerRows(1)[0],
+            resource: {
+              available: true,
+              stats_available: true,
+              cpu_percent: undefined,
+              memory_limit_bytes: 536870912,
+              memory_percent: 25,
+              memory_usage_bytes: 134217728,
+            },
+          },
+        ],
+        limit: 20,
+        offset: 0,
+        runtime: {
+          api_version: '1.51',
+          architecture: 'x86_64',
+          containers_running: 1,
+          containers_total: 1,
+          endpoint: 'unix:///var/run/docker.sock',
+          operating_system: 'Ubuntu 24.04.3 LTS',
+          runtime: 'docker',
+          server_version: '29.4.1',
+          status: 'enabled',
+        },
+        summary: {
+          error: 0,
+          health_unavailable: 0,
+          healthy: 1,
+          running: 1,
+          stopped: 0,
+          total: 1,
+          unhealthy: 0,
+        },
+        total: 1,
+      });
+
+    const wrapper = mountPage();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('21.8%');
+    expect(wrapper.text()).toContain('256.0 MiB');
+    expect(wrapper.text()).toContain('21.8% / 50.0%');
+
+    await wrapper.get('[data-testid="table-refresh"]').trigger('click');
+    await flushPromises();
+
+    expect(apiMocks.getContainers).toHaveBeenCalledTimes(2);
+    expect(wrapper.text()).not.toContain('21.8%');
+    expect(wrapper.text()).not.toContain('21.8% / 50.0%');
+    expect(wrapper.text()).toContain('N/A');
+    expect(wrapper.text()).toContain('128.0 MiB');
+    expect(wrapper.text()).toContain('N/A / 25.0%');
+  });
+
+  it('does not render a list-page realtime toolbar', async () => {
     const wrapper = mountPage();
     await flushPromises();
 
     expect(apiMocks.getContainers).toHaveBeenCalledTimes(1);
-
-    await vi.advanceTimersByTimeAsync(1000);
-    await flushPromises();
-
-    expect(apiMocks.getContainers).toHaveBeenCalledTimes(2);
-    expect(wrapper.get('[data-refresh-countdown="true"]').text()).toBe('1');
+    expect(wrapper.find('[data-testid="container-list-realtime-bar"]').exists()).toBe(false);
     wrapper.unmount();
   });
 
-  it('pauses auto refresh while hidden and refreshes once when visible again', async () => {
-    const wrapper = mountPage();
-    await flushPromises();
-
-    Object.defineProperty(document, 'visibilityState', {
-      configurable: true,
-      get: () => 'hidden',
-    });
-    document.dispatchEvent(new Event('visibilitychange'));
-    await flushPromises();
-
-    await vi.advanceTimersByTimeAsync(2000);
-    await flushPromises();
-    expect(apiMocks.getContainers).toHaveBeenCalledTimes(1);
-
-    Object.defineProperty(document, 'visibilityState', {
-      configurable: true,
-      get: () => 'visible',
-    });
-    document.dispatchEvent(new Event('visibilitychange'));
-    await flushPromises();
-
-    expect(apiMocks.getContainers).toHaveBeenCalledTimes(2);
-    wrapper.unmount();
-  });
-
-  it('does not stack concurrent auto refresh requests', async () => {
+  it('does not stack concurrent manual refresh requests', async () => {
+    vi.useFakeTimers();
     const pending = deferred<{
       items: ReturnType<typeof createContainerRows>;
       limit: number;
@@ -647,8 +810,8 @@ describe('container list page', () => {
     await flushPromises();
     expect(apiMocks.getContainers).toHaveBeenCalledTimes(1);
 
-    await vi.advanceTimersByTimeAsync(3000);
-    await flushPromises();
+    await wrapper.get('[data-testid="table-refresh"]').trigger('click');
+    await wrapper.get('[data-testid="table-refresh"]').trigger('click');
     expect(apiMocks.getContainers).toHaveBeenCalledTimes(1);
 
     pending.resolve({
@@ -697,9 +860,8 @@ describe('container list page', () => {
     });
     await flushPromises();
 
-    await vi.advanceTimersByTimeAsync(1000);
-    await flushPromises();
-    expect(apiMocks.getContainers).toHaveBeenCalledTimes(2);
+    expect(apiMocks.getContainers).toHaveBeenCalledTimes(1);
+    await vi.runAllTimersAsync();
     wrapper.unmount();
   });
 
@@ -1256,6 +1418,50 @@ describe('container list page', () => {
     expect(wrapper.text()).not.toContain('容器模块');
     expect(wrapper.text()).not.toContain('module is disabled');
   });
+
+  it('localizes resource stats error keys instead of rendering raw keys', async () => {
+    apiMocks.getContainers.mockResolvedValue({
+      items: [
+        {
+          ...createContainerRows(1)[0],
+          resource: {
+            available: false,
+            stats_available: false,
+            stats_error_key: 'ops.container.error.runtimeUnavailable',
+          },
+        },
+      ],
+      limit: 20,
+      offset: 0,
+      runtime: {
+        runtime: 'first-adapter',
+        status: 'enabled',
+        endpoint: 'unix:///var/run/docker.sock',
+        containers_running: 1,
+        containers_total: 1,
+      },
+      summary: {
+        total: 1,
+        running: 1,
+        stopped: 0,
+        error: 0,
+        healthy: 0,
+        unhealthy: 0,
+        health_unavailable: 1,
+      },
+      total: 1,
+    });
+
+    const wrapper = mountPage();
+    await flushPromises();
+
+    const tooltipContents = wrapper
+      .findAll('[data-tooltip-content]')
+      .map((tooltip) => tooltip.attributes('data-tooltip-content'));
+
+    expect(tooltipContents).toContain('容器运行时连接不可用');
+    expect(wrapper.text()).not.toContain('ops.container.error.runtimeUnavailable');
+  });
 });
 
 function apiError(messageKey: string, message: string) {
@@ -1327,11 +1533,12 @@ function createContainerRows(count: number, startOrdinal = 1) {
               memory_usage_bytes: 268435456,
             }
           : {
-              available: false,
-              stats_available: false,
-              stats_error_key: 'stats_not_collected',
-              stats_error_message: '未采集',
-              unavailable_reason: '未采集',
+              available: true,
+              stats_available: true,
+              cpu_percent: undefined,
+              memory_limit_bytes: 536870912,
+              memory_percent: 50,
+              memory_usage_bytes: 134217728,
             },
       compose_project: ordinal === 1 ? 'graft' : undefined,
       compose_service: ordinal === 1 ? 'web' : undefined,
@@ -1452,20 +1659,6 @@ function mountPage() {
                 props.densityLabel
                   ? h('button', { 'data-testid': 'table-density', onClick: () => emit('density') }, props.densityLabel)
                   : null,
-              ]),
-        }),
-        'refresh-control-bar': defineComponent({
-          props: ['status', 'countdownSeconds', 'interval'],
-          emits: ['pause', 'refresh', 'resume'],
-          setup:
-            (props, { emit }) =>
-            () =>
-              h('div', { 'data-refresh-control-bar': 'true', 'data-status': props.status }, [
-                h('span', { 'data-refresh-countdown': 'true' }, String(props.countdownSeconds ?? '')),
-                h('span', { 'data-refresh-interval': 'true' }, String(props.interval ?? '')),
-                h('button', { 'data-testid': 'refresh-bar-refresh', onClick: () => emit('refresh') }, '刷新'),
-                h('button', { 'data-testid': 'refresh-bar-pause', onClick: () => emit('pause') }, '暂停'),
-                h('button', { 'data-testid': 'refresh-bar-resume', onClick: () => emit('resume') }, '恢复'),
               ]),
         }),
         't-dropdown': defineComponent({
@@ -1742,10 +1935,11 @@ function mountPage() {
               h('span', slots.default?.()),
         }),
         't-tooltip': defineComponent({
+          props: ['content'],
           setup:
-            (_, { slots }) =>
+            (props, { slots }) =>
             () =>
-              h('span', slots.default?.()),
+              h('span', { 'data-tooltip-content': String(props.content ?? '') }, slots.default?.()),
         }),
       },
     },

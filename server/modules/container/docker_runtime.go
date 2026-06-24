@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"net/url"
 	"os"
@@ -22,7 +23,9 @@ import (
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/network"
 	mobyclient "github.com/moby/moby/client"
+	"go.uber.org/zap"
 
+	"graft/server/internal/logger/logsafe"
 	"graft/server/modules/container/terminal"
 )
 
@@ -42,7 +45,9 @@ var errInvalidLogQuery = errors.New("invalid log query parameter")
 type DockerRuntime struct {
 	client            dockerClient
 	endpoint          string
+	logger            *zap.Logger
 	mountUsageScanner mountUsageScanner
+	resourceStats     *resourceStatsCache
 }
 
 type dockerClient interface {
@@ -65,14 +70,20 @@ type systemInfo interface {
 	dockerSystemInfo()
 }
 
-// NewDockerRuntime creates the first local container runtime adapter.
-func NewDockerRuntime(endpoint string) (*DockerRuntime, error) {
+// NewDockerRuntime 创建 Docker 容器运行时适配器。
+// 它会使用给定的端点初始化连接，并按配置创建资源统计缓存。
+func NewDockerRuntime(endpoint string, logger *zap.Logger, cacheTTL time.Duration, staleWindow time.Duration) (*DockerRuntime, error) {
 	endpoint = firstNonEmpty(endpoint, defaultContainerDockerEndpoint)
 	cli, err := mobyclient.New(mobyclient.WithHost(endpoint))
 	if err != nil {
 		return nil, mapDockerError(err)
 	}
-	return &DockerRuntime{client: dockerClientAdapter{Client: cli}, endpoint: endpoint}, nil
+	return &DockerRuntime{
+		client:        dockerClientAdapter{Client: cli},
+		endpoint:      endpoint,
+		logger:        logger,
+		resourceStats: newResourceStatsCache(cacheTTL, staleWindow),
+	}, nil
 }
 
 // Info returns sanitized Docker runtime metadata for API responses.
@@ -109,7 +120,7 @@ func (r *DockerRuntime) Detail(ctx context.Context, ref Ref) (Detail, error) {
 		return Detail{}, err
 	}
 	detail := dockerDetail(inspect, info)
-	detail.Resource = r.containerResourceSummary(ctx, firstNonEmpty(detail.ID, ref.Value))
+	detail.Resource = r.currentResourceSummary(firstNonEmpty(detail.ID, ref.Value))
 	return detail, nil
 }
 
@@ -234,6 +245,7 @@ func (r *DockerRuntime) Start(ctx context.Context, ref Ref) (ActionResult, error
 	if err := r.client.ContainerStart(ctx, ref.Value, mobyclient.ContainerStartOptions{}); err != nil {
 		return actionResultFromDetail(before, ref, containerActionStart, ""), mapDockerError(err)
 	}
+	r.invalidateResourceSummary(ref.Value, before.ID)
 	after, _ := r.Detail(ctx, ref)
 	return actionResultFromDetail(after, ref, containerActionStart, before.State), nil
 }
@@ -267,6 +279,7 @@ func (r *DockerRuntime) runTimedStateAction(
 	if err := run(ctx, ref.Value, &timeout); err != nil {
 		return actionResultFromDetail(before, ref, action, ""), mapDockerError(err)
 	}
+	r.invalidateResourceSummary(ref.Value, before.ID)
 	after, _ := r.Detail(ctx, ref)
 	return actionResultFromDetail(after, ref, action, before.State), nil
 }
@@ -283,6 +296,7 @@ func (r *DockerRuntime) Remove(ctx context.Context, ref Ref, options RemoveOptio
 	if err := r.client.ContainerRemove(ctx, ref.Value, mobyclient.ContainerRemoveOptions{Force: options.Force}); err != nil {
 		return actionResultFromDetail(before, ref, containerActionRemove, before.State), mapDockerError(err)
 	}
+	r.invalidateResourceSummary(ref.Value, before.ID)
 	result := actionResultFromDetail(before, ref, containerActionRemove, before.State)
 	result.StatusAfter = actionStatusRemoved
 	result.Result = actionResultCompleted
@@ -364,39 +378,126 @@ func (r *DockerRuntime) containerResourceSummary(ctx context.Context, id string)
 	if err := json.NewDecoder(reader.Body).Decode(&stats); err != nil {
 		return unavailableResourceSummary(resourceStatsErrorReason(err))
 	}
-	return dockerResourceSummary(stats)
+	return r.dockerResourceSummary(ref, stats)
+}
+
+func (r *DockerRuntime) currentResourceSummary(id string) ResourceSummary {
+	ref := strings.TrimSpace(id)
+	if ref == "" {
+		return unavailableResourceSummary(containerStatsIncompleteReason)
+	}
+	cache := r.ensureResourceStatsCache()
+	if r == nil || cache == nil {
+		return unavailableResourceSummary(containerStatsNotCollectedReason)
+	}
+	return cache.current(ref)
+}
+
+func (r *DockerRuntime) invalidateResourceSummary(ids ...string) {
+	cache := r.ensureResourceStatsCache()
+	if r == nil || cache == nil {
+		return
+	}
+	cache.invalidate(ids...)
+}
+
+func (r *DockerRuntime) ensureResourceStatsCache() *resourceStatsCache {
+	if r == nil {
+		return nil
+	}
+	if r.resourceStats == nil {
+		r.resourceStats = newResourceStatsCache(containerResourceStatsCacheTTL, containerResourceStatsCacheStaleWindow)
+	}
+	return r.resourceStats
+}
+
+func (r *DockerRuntime) updateResourceStatsCachePolicy(ttl time.Duration, staleWindow time.Duration) {
+	if r == nil {
+		return
+	}
+	r.resourceStats = newResourceStatsCache(ttl, staleWindow)
 }
 
 func (r *DockerRuntime) collectListResourceSummaries(ctx context.Context, summaries []Summary) {
+	_ = ctx
 	if len(summaries) == 0 {
 		return
 	}
-	workerCount := min(len(summaries), dockerStatsListWorkers)
-	jobs := make(chan int)
+	for index := range summaries {
+		summaries[index].Resource = r.currentResourceSummary(summaries[index].ID)
+	}
+}
+
+// CollectStatsSnapshots collects one bounded batch of Docker stats snapshots for publish.
+func (r *DockerRuntime) CollectStatsSnapshots(ctx context.Context) ([]StatsSnapshot, error) {
+	items, err := r.client.ContainerList(ctx, mobyclient.ContainerListOptions{All: true})
+	if err != nil {
+		return nil, mapDockerError(err)
+	}
+	snapshots := make([]StatsSnapshot, len(items))
+	collectedAt := time.Now().UTC()
+	if len(items) == 0 {
+		return snapshots, nil
+	}
+
+	workers := min(len(items), dockerStatsListWorkers)
+	if workers < 1 {
+		workers = 1
+	}
+
+	indexes := make(chan int, len(items))
+	for index := range items {
+		indexes <- index
+	}
+	close(indexes)
+
 	var wg sync.WaitGroup
-	wg.Add(workerCount)
-	for range workerCount {
+	wg.Add(workers)
+	for range workers {
 		go func() {
 			defer wg.Done()
-			for index := range jobs {
-				summaries[index].Resource = r.containerResourceSummary(ctx, summaries[index].ID)
+			for index := range indexes {
+				summary := dockerSummary(items[index])
+				resource := r.collectCachedResourceSummary(ctx, summary.ID)
+				snapshots[index] = StatsSnapshot{
+					ContainerID: summary.ID,
+					Name:        summary.Name,
+					ShortID:     summary.ShortID,
+					Runtime:     summary.Runtime,
+					Resource:    resource,
+					CollectedAt: collectedAt,
+				}
 			}
 		}()
 	}
-	for index := range summaries {
-		jobs <- index
-	}
-	close(jobs)
 	wg.Wait()
+	return snapshots, nil
 }
 
-func dockerResourceSummary(stats container.StatsResponse) ResourceSummary {
+func (r *DockerRuntime) collectCachedResourceSummary(ctx context.Context, id string) ResourceSummary {
+	ref := strings.TrimSpace(id)
+	if ref == "" {
+		return unavailableResourceSummary(containerStatsIncompleteReason)
+	}
+	cache := r.ensureResourceStatsCache()
+	if cache == nil {
+		return unavailableResourceSummary(containerStatsNotCollectedReason)
+	}
+	return cache.get(ctx, ref, func(loadCtx context.Context) ResourceSummary {
+		return r.containerResourceSummary(loadCtx, ref)
+	})
+}
+
+func (r *DockerRuntime) dockerResourceSummary(containerID string, stats container.StatsResponse) ResourceSummary {
 	resource := ResourceSummary{
 		Available:      true,
 		StatsAvailable: true,
 	}
 	if cpuPercent, ok := dockerCPUPercent(stats); ok {
 		resource.CPUPercent = &cpuPercent
+		r.logDockerCPUCalculation(containerID, stats, cpuPercent, true)
+	} else {
+		r.logDockerCPUCalculation(containerID, stats, 0, false)
 	}
 	resource.OnlineCPUs = dockerOnlineCPUs(stats)
 	resource.SystemCPUUsage = uint64ToInt64Ptr(stats.CPUStats.SystemUsage)
@@ -431,13 +532,18 @@ func dockerResourceSummary(stats container.StatsResponse) ResourceSummary {
 	return resource
 }
 
+// dockerOnlineCPUs 返回容器的在线 CPU 数量。
+//
+// @returns 在线 CPU 数量的指针；当无法确定时返回 nil。
 func dockerOnlineCPUs(stats container.StatsResponse) *int64 {
-	if stats.CPUStats.OnlineCPUs == 0 {
+	onlineCPUs := dockerStatsOnlineCPUs(stats)
+	if onlineCPUs == 0 {
 		return nil
 	}
-	return uint32ToInt64Ptr(stats.CPUStats.OnlineCPUs)
+	return uint32ToInt64Ptr(onlineCPUs)
 }
 
+// 如果对应统计项不存在或无法转换为 int64，则返回 nil。
 func dockerMemoryStat(stats container.StatsResponse, key string) *int64 {
 	if len(stats.MemoryStats.Stats) == 0 {
 		return nil
@@ -498,6 +604,7 @@ func addUint64(total uint64, value uint64, overflow bool) (uint64, bool) {
 	return total + value, false
 }
 
+// 仅在当前采样相较于上一采样存在有效增量且可确定在线 CPU 数时返回结果。
 func dockerCPUPercent(stats container.StatsResponse) (float64, bool) {
 	if stats.CPUStats.CPUUsage.TotalUsage <= stats.PreCPUStats.CPUUsage.TotalUsage ||
 		stats.CPUStats.SystemUsage <= stats.PreCPUStats.SystemUsage {
@@ -505,9 +612,77 @@ func dockerCPUPercent(stats container.StatsResponse) (float64, bool) {
 	}
 	cpuDelta := float64(stats.CPUStats.CPUUsage.TotalUsage - stats.PreCPUStats.CPUUsage.TotalUsage)
 	systemDelta := float64(stats.CPUStats.SystemUsage - stats.PreCPUStats.SystemUsage)
-	return (cpuDelta / systemDelta) * dockerStatsPercentScale, true
+	onlineCPUs := dockerStatsOnlineCPUs(stats)
+	if onlineCPUs == 0 {
+		return 0, false
+	}
+	return (cpuDelta / systemDelta) * float64(onlineCPUs) * dockerStatsPercentScale, true
 }
 
+// dockerStatsOnlineCPUs 返回统计信息中的在线 CPU 数。
+// 当在线 CPU 数不可用时，它会使用每个 CPU 的使用率条目数量作为估算值；
+// 如果也无法获得该数量，或数量超出 uint32 范围，则返回 0。
+func dockerStatsOnlineCPUs(stats container.StatsResponse) uint32 {
+	if stats.CPUStats.OnlineCPUs > 0 {
+		return stats.CPUStats.OnlineCPUs
+	}
+	if len(stats.CPUStats.CPUUsage.PercpuUsage) == 0 {
+		return 0
+	}
+	perCPUUsageCount := uint64(len(stats.CPUStats.CPUUsage.PercpuUsage))
+	if perCPUUsageCount > math.MaxUint32 {
+		return 0
+	}
+	return uint32(perCPUUsageCount)
+}
+
+type dockerCPUCalculation struct {
+	containerID    string
+	totalUsage     uint64
+	preTotalUsage  uint64
+	systemUsage    uint64
+	preSystemUsage uint64
+	onlineCPUs     uint32
+	cpuDelta       uint64
+	systemDelta    uint64
+	cpuPercent     float64
+}
+
+func (r *DockerRuntime) logDockerCPUCalculation(containerID string, stats container.StatsResponse, cpuPercent float64, ok bool) {
+	if r == nil || r.logger == nil || !r.logger.Core().Enabled(zap.DebugLevel) {
+		return
+	}
+	calculation := dockerCPUCalculation{
+		containerID:    strings.TrimSpace(containerID),
+		totalUsage:     stats.CPUStats.CPUUsage.TotalUsage,
+		preTotalUsage:  stats.PreCPUStats.CPUUsage.TotalUsage,
+		systemUsage:    stats.CPUStats.SystemUsage,
+		preSystemUsage: stats.PreCPUStats.SystemUsage,
+		onlineCPUs:     dockerStatsOnlineCPUs(stats),
+		cpuPercent:     cpuPercent,
+	}
+	if stats.CPUStats.CPUUsage.TotalUsage > stats.PreCPUStats.CPUUsage.TotalUsage {
+		calculation.cpuDelta = stats.CPUStats.CPUUsage.TotalUsage - stats.PreCPUStats.CPUUsage.TotalUsage
+	}
+	if stats.CPUStats.SystemUsage > stats.PreCPUStats.SystemUsage {
+		calculation.systemDelta = stats.CPUStats.SystemUsage - stats.PreCPUStats.SystemUsage
+	}
+	logsafe.Debug(r.logger, "container cpu stats calculation",
+		zap.String("container", calculation.containerID),
+		zap.Uint64("totalUsage", calculation.totalUsage),
+		zap.Uint64("preTotalUsage", calculation.preTotalUsage),
+		zap.Uint64("systemUsage", calculation.systemUsage),
+		zap.Uint64("preSystemUsage", calculation.preSystemUsage),
+		zap.Uint32("onlineCPUs", calculation.onlineCPUs),
+		zap.Uint64("cpuDelta", calculation.cpuDelta),
+		zap.Uint64("systemDelta", calculation.systemDelta),
+		zap.Float64("cpuPercent", calculation.cpuPercent),
+		zap.Bool("calculated", ok),
+	)
+}
+
+// unavailableResourceSummary 生成一个不可用的资源摘要。
+// 摘要会使用给定原因，或在原因为空时回退到默认的资源统计不可用原因。
 func unavailableResourceSummary(reason string) ResourceSummary {
 	reason = firstNonEmpty(strings.TrimSpace(reason), containerStatsUnavailableReason)
 	return ResourceSummary{
@@ -1348,7 +1523,7 @@ func (d dockerClientAdapter) ContainerLogs(ctx context.Context, containerID stri
 func (d dockerClientAdapter) ContainerStatsOneShot(ctx context.Context, containerID string) (mobyclient.ContainerStatsResult, error) {
 	return d.ContainerStats(ctx, containerID, mobyclient.ContainerStatsOptions{
 		Stream:                false,
-		IncludePreviousSample: false,
+		IncludePreviousSample: true,
 	})
 }
 

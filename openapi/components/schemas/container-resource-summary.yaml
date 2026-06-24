@@ -24,7 +24,7 @@ properties:
     type: number
     format: double
     minimum: 0
-    description: CPU usage normalized against total host CPU capacity, expressed as a 0-100 style percentage.
+    description: Docker-compatible instantaneous CPU usage percentage derived from consecutive stats samples. The value may exceed 100 on multi-core hosts.
   online_cpus:
     type: integer
     format: int64

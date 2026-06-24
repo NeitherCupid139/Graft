@@ -93,10 +93,10 @@ function createTDesignVueNextResolver(): ComponentResolverObject {
 }
 
 /**
- * 为 Vue 项目生成 Vite 配置对象。
+ * 生成 Vue 项目的 Vite 配置。
  *
- * @param mode - 构建模式，控制 TDesign 自动导入、Mock 服务器和其他功能的启用
- * @returns 完整的 Vite 用户配置
+ * @param mode - 当前构建模式，用于控制自动导入、Mock 和代理相关配置
+ * @returns Vite 用户配置对象
  */
 export function createViteConfig(mode: string): UserConfig {
   const env = loadEnv(mode, CWD, '');
@@ -107,6 +107,7 @@ export function createViteConfig(mode: string): UserConfig {
   const mockEnabled = mode === 'mock' || env.VITE_ENABLE_MOCK === 'true';
   const tdesignAutoImportEnabled = mode !== 'test';
   const docsProxyPaths = ['/docs', '/openapi.json', '/openapi.yaml'] as const;
+  const websocketProxyPaths = ['/ws'] as const;
 
   const lessOptions = {
     javascriptEnabled: true,
@@ -221,6 +222,16 @@ export function createViteConfig(mode: string): UserConfig {
               changeOrigin: true,
               ws: true,
             } satisfies ProxyOptions,
+            ...Object.fromEntries(
+              websocketProxyPaths.map((proxyPath) => [
+                proxyPath,
+                {
+                  target: apiTarget,
+                  changeOrigin: true,
+                  ws: true,
+                } satisfies ProxyOptions,
+              ]),
+            ),
             ...Object.fromEntries(
               docsProxyPaths.map((proxyPath) => [
                 proxyPath,

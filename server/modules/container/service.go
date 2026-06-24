@@ -18,6 +18,7 @@ import (
 	"graft/server/internal/httpx"
 	"graft/server/internal/module"
 	"graft/server/internal/moduleapi"
+	"graft/server/internal/realtime"
 	"graft/server/internal/realtimeauth"
 	containercontract "graft/server/modules/container/contract"
 	"graft/server/modules/container/terminal"
@@ -51,29 +52,39 @@ type service struct {
 	orchestratorPolicies    orchestratorActionPolicies
 	websocketAllowedOrigins []string
 	realtimeTickets         realtimeauth.Service
+	realtimeHub             realtime.Hub
+	topicIssuers            realtime.TopicIssuerRegistry
+	authorizer              moduleapi.Authorizer
+	statsCollector          *statsCollector
 }
 
 type containerServiceOptions struct {
-	runtime                 Runtime
-	runtimeOptions          containerRuntimeOptions
-	runtimeFactory          func(containerRuntimeOptions) (Runtime, error)
-	systemConfig            moduleapi.SystemConfigResolver
-	auditBus                eventbus.Bus
-	logger                  *zap.Logger
-	moduleName              string
-	mountUsageCache         *mountUsageCache
-	enabled                 bool
-	dangerousActionsEnabled bool
-	shellEnabled            bool
-	defaultTail             int
-	maxTail                 int
-	environmentPolicy       containercontract.EnvironmentPolicy
-	orchestratorPolicies    orchestratorActionPolicies
-	websocketAllowedOrigins []string
-	realtimeTickets         realtimeauth.Service
+	runtime                              Runtime
+	runtimeOptions                       containerRuntimeOptions
+	runtimeFactory                       func(containerRuntimeOptions) (Runtime, error)
+	systemConfig                         moduleapi.SystemConfigResolver
+	auditBus                             eventbus.Bus
+	logger                               *zap.Logger
+	moduleName                           string
+	mountUsageCache                      *mountUsageCache
+	enabled                              bool
+	dangerousActionsEnabled              bool
+	shellEnabled                         bool
+	defaultTail                          int
+	maxTail                              int
+	resourceStatsCacheTTLSeconds         int
+	resourceStatsCacheStaleWindowSeconds int
+	environmentPolicy                    containercontract.EnvironmentPolicy
+	orchestratorPolicies                 orchestratorActionPolicies
+	websocketAllowedOrigins              []string
+	realtimeTickets                      realtimeauth.Service
+	realtimeHub                          realtime.Hub
+	topicIssuers                         realtime.TopicIssuerRegistry
+	authorizer                           moduleapi.Authorizer
 }
 
-// newContainerService 根据模块上下文和系统配置构建容器服务。当实时工单服务无法解析时返回错误。
+// newContainerService 根据模块上下文初始化容器服务，并解析运行时、实时订阅和鉴权依赖。
+// 解析任一必需依赖失败时返回错误。
 func newContainerService(ctx *module.Context, moduleName string) (*service, error) {
 	options := containerOptionsFromConfig(ctx)
 	systemConfig := resolveSystemConfigResolver(ctx)
@@ -84,6 +95,18 @@ func newContainerService(ctx *module.Context, moduleName string) (*service, erro
 		allowedOrigins = append(allowedOrigins, ctx.Config.HTTPX.WebSocketAllowedOrigins...)
 	}
 	realtimeTickets, err := resolveRealtimeTicketService(ctx)
+	if err != nil {
+		return nil, err
+	}
+	realtimeHub, err := resolveRealtimeHub(ctx)
+	if err != nil {
+		return nil, err
+	}
+	topicIssuers, err := resolveRealtimeTopicIssuerRegistry(ctx)
+	if err != nil {
+		return nil, err
+	}
+	authorizer, err := resolveAuthorizer(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -103,10 +126,14 @@ func newContainerService(ctx *module.Context, moduleName string) (*service, erro
 		orchestratorPolicies:    options.orchestratorPolicies,
 		websocketAllowedOrigins: allowedOrigins,
 		realtimeTickets:         realtimeTickets,
+		realtimeHub:             realtimeHub,
+		topicIssuers:            topicIssuers,
+		authorizer:              authorizer,
 	})
 }
 
-// newService 初始化容器服务实例，完成配置验证和默认值应用。实时票证服务必须提供，否则返回错误。
+// newService 初始化容器服务实例，并应用默认值与归一化配置。
+// realtimeTickets 不能为空，否则返回错误。
 func newService(options containerServiceOptions) (*service, error) {
 	options.defaultTail, options.maxTail = normalizeContainerLogTailBounds(options.defaultTail, options.maxTail)
 	if options.realtimeTickets == nil {
@@ -122,6 +149,9 @@ func newService(options containerServiceOptions) (*service, error) {
 	runtimeOptions.dangerousActionsEnabled = options.dangerousActionsEnabled
 	runtimeOptions.defaultTail = options.defaultTail
 	runtimeOptions.maxTail = options.maxTail
+	runtimeOptions.resourceStatsCacheTTLSeconds = options.resourceStatsCacheTTLSeconds
+	runtimeOptions.resourceStatsCacheStaleWindowSeconds = options.resourceStatsCacheStaleWindowSeconds
+	runtimeOptions.logger = options.logger
 	environmentPolicy := normalizeEnvironmentPolicy(options.environmentPolicy.String())
 	runtimeFactory := options.runtimeFactory
 	if runtimeFactory == nil {
@@ -149,10 +179,17 @@ func newService(options containerServiceOptions) (*service, error) {
 		orchestratorPolicies:    options.orchestratorPolicies.normalized(),
 		websocketAllowedOrigins: append([]string(nil), options.websocketAllowedOrigins...),
 		realtimeTickets:         options.realtimeTickets,
+		realtimeHub:             options.realtimeHub,
+		topicIssuers:            options.topicIssuers,
+		authorizer:              options.authorizer,
 	}, nil
 }
 
-// resolveRealtimeTicketService resolves the realtime authentication service from the module context. It returns an error if ctx or ctx.Services is nil.
+// resolveRealtimeTicketService 从模块上下文中解析实时认证服务。
+//
+// 当 ctx 或 ctx.Services 为空时返回错误。
+//
+// @returns 解析得到的 realtimeauth.Service，或在上下文不可用时返回错误。
 func resolveRealtimeTicketService(ctx *module.Context) (realtimeauth.Service, error) {
 	if ctx == nil || ctx.Services == nil {
 		return nil, errors.New("realtime ticket service resolver is unavailable")
@@ -161,16 +198,52 @@ func resolveRealtimeTicketService(ctx *module.Context) (realtimeauth.Service, er
 	return module.ResolveService[realtimeauth.Service](ctx.Services, (*realtimeauth.Service)(nil))
 }
 
+// resolveRealtimeHub 从模块上下文中解析实时消息总线。
+// 优先返回 ctx.Realtime；当 ctx.Services 可用时，再从服务容器中解析 realtime.Hub。
+//
+// @returns 解析到的实时消息总线；当上下文或服务解析器不可用时返回错误。
+func resolveRealtimeHub(ctx *module.Context) (realtime.Hub, error) {
+	if ctx != nil && ctx.Realtime != nil {
+		return ctx.Realtime, nil
+	}
+	if ctx == nil || ctx.Services == nil {
+		return nil, errors.New("realtime hub resolver is unavailable")
+	}
+
+	return module.ResolveService[realtime.Hub](ctx.Services, (*realtime.Hub)(nil))
+}
+
+// 当 ctx 或其 Services 为空时返回错误。
+func resolveRealtimeTopicIssuerRegistry(ctx *module.Context) (realtime.TopicIssuerRegistry, error) {
+	if ctx == nil || ctx.Services == nil {
+		return nil, errors.New("realtime topic issuer registry resolver is unavailable")
+	}
+
+	return module.ResolveService[realtime.TopicIssuerRegistry](ctx.Services, (*realtime.TopicIssuerRegistry)(nil))
+}
+
 func (s *service) Close() error {
 	if s == nil {
 		return nil
 	}
+	var closeErr error
+	if s.statsCollector != nil {
+		if err := s.statsCollector.Stop(context.Background()); err != nil {
+			closeErr = errors.Join(closeErr, err)
+		}
+		s.statsCollector = nil
+	}
 	s.runtimeMu.Lock()
 	defer s.runtimeMu.Unlock()
-	if s.runtime == nil {
-		return nil
+	runtime := s.runtime
+	if runtime == nil {
+		return closeErr
 	}
-	return s.runtime.Close()
+	s.runtime = nil
+	if err := runtime.Close(); err != nil {
+		closeErr = errors.Join(closeErr, err)
+	}
+	return closeErr
 }
 
 func (s *service) List(ctx context.Context, query ListQuery) (ListResult, error) {
@@ -1075,6 +1148,8 @@ func (s *service) publishActionAudit(ctx context.Context, result ActionResult, o
 	if s == nil || s.auditBus == nil {
 		return
 	}
+	auditCtx, cancel := detachedAuditContext(ctx)
+	defer cancel()
 	action := "ops.container." + strings.TrimSpace(result.Action)
 	messageKey := ""
 	message := ""
@@ -1095,13 +1170,13 @@ func (s *service) publishActionAudit(ctx context.Context, result ActionResult, o
 		"status_before":  result.StatusBefore,
 		"status_after":   result.StatusAfter,
 	}
-	if requestAudit, ok := httpx.RequestAuditContextFromContext(ctx); ok {
+	if requestAudit, ok := httpx.RequestAuditContextFromContext(auditCtx); ok {
 		metadata["requestId"] = requestAudit.RequestID
 		metadata["traceId"] = requestAudit.TraceID
 	}
 	event := moduleapi.AuditEvent{
 		Kind:          moduleapi.AuditEventKindDomain,
-		Operator:      currentAuditOperator(ctx),
+		Operator:      currentAuditOperator(auditCtx),
 		Action:        action,
 		ResourceType:  containerResourceType,
 		ResourceID:    firstNonEmpty(result.ID, result.Name),
@@ -1114,7 +1189,7 @@ func (s *service) publishActionAudit(ctx context.Context, result ActionResult, o
 		RequestMethod: "",
 		RequestPath:   "",
 	}
-	if publishErr := s.auditBus.Publish(ctx, eventbus.Event{
+	if publishErr := s.auditBus.Publish(auditCtx, eventbus.Event{
 		Name:    string(moduleapi.AuditRecordEventName),
 		Source:  s.moduleName,
 		Payload: event,
@@ -1143,6 +1218,8 @@ func auditResult(err error) string {
 	return "success"
 }
 
+// auditStatusCode 将错误转换为审计状态码。
+// @returns 错误为 nil 时返回 http.StatusOK；否则返回与该错误对应的状态码。
 func auditStatusCode(err error) int {
 	if err == nil {
 		return http.StatusOK
@@ -1151,26 +1228,31 @@ func auditStatusCode(err error) int {
 }
 
 type containerRuntimeOptions struct {
-	enabled                 bool
-	runtime                 string
-	endpoint                string
-	dangerousActionsEnabled bool
-	defaultTail             int
-	maxTail                 int
-	environmentPolicy       containercontract.EnvironmentPolicy
-	orchestratorPolicies    orchestratorActionPolicies
+	enabled                              bool
+	runtime                              string
+	endpoint                             string
+	dangerousActionsEnabled              bool
+	defaultTail                          int
+	maxTail                              int
+	resourceStatsCacheTTLSeconds         int
+	resourceStatsCacheStaleWindowSeconds int
+	environmentPolicy                    containercontract.EnvironmentPolicy
+	orchestratorPolicies                 orchestratorActionPolicies
+	logger                               *zap.Logger
 }
 
-// ContainerOptionsFromConfig 从模块上下文中提取容器运行时配置选项，应用默认值、配置注册表中的设置，最后使用显式模块配置覆盖。
+// containerOptionsFromConfig 从模块上下文提取容器运行时配置选项，并按默认值、配置注册表和显式模块配置依次应用覆盖。
 func containerOptionsFromConfig(ctx *module.Context) containerRuntimeOptions {
 	options := containerRuntimeOptions{
-		enabled:                 defaultContainerEnabled,
-		runtime:                 defaultContainerRuntime,
-		endpoint:                defaultContainerDockerEndpoint,
-		dangerousActionsEnabled: defaultContainerDangerousActionsEnabled,
-		defaultTail:             defaultContainerLogsDefaultTail,
-		maxTail:                 defaultContainerLogsMaxTail,
-		environmentPolicy:       defaultContainerEnvironmentPolicy,
+		enabled:                              defaultContainerEnabled,
+		runtime:                              defaultContainerRuntime,
+		endpoint:                             defaultContainerDockerEndpoint,
+		dangerousActionsEnabled:              defaultContainerDangerousActionsEnabled,
+		defaultTail:                          defaultContainerLogsDefaultTail,
+		maxTail:                              defaultContainerLogsMaxTail,
+		resourceStatsCacheTTLSeconds:         defaultContainerResourceStatsCacheTTL,
+		resourceStatsCacheStaleWindowSeconds: defaultContainerResourceStatsStaleWindow,
+		environmentPolicy:                    defaultContainerEnvironmentPolicy,
 		orchestratorPolicies: orchestratorActionPolicies{
 			Compose:    defaultContainerComposeActionLevel,
 			Swarm:      defaultContainerSwarmActionLevel,
@@ -1186,6 +1268,12 @@ func containerOptionsFromConfig(ctx *module.Context) containerRuntimeOptions {
 	applyContainerStringDefault(ctx, containercontract.ContainerDockerEndpointConfig.String(), &options.endpoint)
 	applyContainerIntDefault(ctx, containercontract.ContainerLogsDefaultTailConfig.String(), &options.defaultTail)
 	applyContainerIntDefault(ctx, containercontract.ContainerLogsMaxTailConfig.String(), &options.maxTail)
+	applyContainerIntDefault(ctx, containercontract.ContainerResourceStatsCacheTTLConfig.String(), &options.resourceStatsCacheTTLSeconds)
+	applyContainerIntDefault(
+		ctx,
+		containercontract.ContainerResourceStatsCacheStaleWindowConfig.String(),
+		&options.resourceStatsCacheStaleWindowSeconds,
+	)
 	applyContainerBoolDefault(ctx, containercontract.ContainerDangerousActionsEnabledConfig.String(), &options.dangerousActionsEnabled)
 	applyContainerEnvironmentPolicyDefault(ctx, containercontract.ContainerEnvironmentPolicyConfig.String(), &options.environmentPolicy)
 	applyContainerOrchestratorActionLevelDefault(ctx, containercontract.ContainerComposeActionLevelConfig.String(), &options.orchestratorPolicies.Compose)
@@ -1398,6 +1486,39 @@ func (s *service) effectiveLogTailBounds(ctx context.Context) (int, int) {
 	return normalizeContainerLogTailBounds(defaultTail, maxTail)
 }
 
+// normalizeContainerResourceStatsCacheBounds 归一化资源统计缓存的 TTL 和过期窗口。
+// 当任一值小于等于 0 时，使用默认配置值。
+//
+// @param ttlSeconds 资源统计缓存的 TTL 秒数。
+// @param staleWindowSeconds 资源统计缓存的过期窗口秒数。
+// @returns 归一化后的 TTL 秒数和过期窗口秒数。
+func normalizeContainerResourceStatsCacheBounds(ttlSeconds int, staleWindowSeconds int) (int, int) {
+	if ttlSeconds <= 0 {
+		ttlSeconds = defaultContainerResourceStatsCacheTTL
+	}
+	if staleWindowSeconds <= 0 {
+		staleWindowSeconds = defaultContainerResourceStatsStaleWindow
+	}
+	return ttlSeconds, staleWindowSeconds
+}
+
+func (s *service) effectiveResourceStatsCacheBounds(ctx context.Context) (time.Duration, time.Duration) {
+	ttlSeconds := defaultContainerResourceStatsCacheTTL
+	staleWindowSeconds := defaultContainerResourceStatsStaleWindow
+	if s != nil {
+		ttlSeconds = s.runtimeOptions.resourceStatsCacheTTLSeconds
+		staleWindowSeconds = s.runtimeOptions.resourceStatsCacheStaleWindowSeconds
+	}
+	ttlSeconds = s.resolveIntegerConfig(ctx, containercontract.ContainerResourceStatsCacheTTLConfig.String(), ttlSeconds)
+	staleWindowSeconds = s.resolveIntegerConfig(
+		ctx,
+		containercontract.ContainerResourceStatsCacheStaleWindowConfig.String(),
+		staleWindowSeconds,
+	)
+	ttlSeconds, staleWindowSeconds = normalizeContainerResourceStatsCacheBounds(ttlSeconds, staleWindowSeconds)
+	return time.Duration(ttlSeconds) * time.Second, time.Duration(staleWindowSeconds) * time.Second
+}
+
 func (s *service) runtimeAccessEnabled(ctx context.Context) bool {
 	if s == nil {
 		return false
@@ -1553,7 +1674,7 @@ func (s *service) maskedEnvironmentCopyEnabled(ctx context.Context) bool {
 	)
 }
 
-// It returns a disabled runtime if the container is disabled, a Docker runtime if enabled, or an error if the runtime type is unsupported.
+// 当容器运行被禁用时返回禁用运行时；当运行时类型为 Docker 或默认值时返回 Docker 运行时；其他类型返回错误。
 func newContainerRuntime(options containerRuntimeOptions) (Runtime, error) {
 	if !options.enabled {
 		return disabledRuntime{}, nil
@@ -1561,7 +1682,12 @@ func newContainerRuntime(options containerRuntimeOptions) (Runtime, error) {
 	if strings.TrimSpace(options.runtime) != defaultContainerRuntime && strings.TrimSpace(options.runtime) != runtimeNameDocker {
 		return nil, errUnsupportedContainerRuntime
 	}
-	return NewDockerRuntime(options.endpoint)
+	return NewDockerRuntime(
+		options.endpoint,
+		options.logger,
+		time.Duration(options.resourceStatsCacheTTLSeconds)*time.Second,
+		time.Duration(options.resourceStatsCacheStaleWindowSeconds)*time.Second,
+	)
 }
 
 func (s *service) runtimeForRequest() (Runtime, error) {
@@ -1580,12 +1706,119 @@ func (s *service) runtimeForRequest() (Runtime, error) {
 	options.dangerousActionsEnabled = s.dangerousActionsEnabled
 	options.defaultTail = s.defaultTail
 	options.maxTail = s.maxTail
+	options.resourceStatsCacheTTLSeconds = s.runtimeOptions.resourceStatsCacheTTLSeconds
+	options.resourceStatsCacheStaleWindowSeconds = s.runtimeOptions.resourceStatsCacheStaleWindowSeconds
+	options.logger = s.logger
 	runtime, err := s.runtimeFactory(options)
 	if err != nil {
 		return nil, err
 	}
+	if dockerRuntime, ok := runtime.(*DockerRuntime); ok {
+		ttl, staleWindow := s.effectiveResourceStatsCacheBounds(context.Background())
+		dockerRuntime.updateResourceStatsCachePolicy(ttl, staleWindow)
+	}
 	s.runtime = runtime
 	return runtime, nil
+}
+
+func (s *service) startStatsCollector(ctx context.Context) error {
+	if s == nil {
+		return nil
+	}
+	if s.realtimeHub == nil {
+		return nil
+	}
+	if s.statsCollector == nil {
+		s.statsCollector = newStatsCollector(
+			s.collectStatsSnapshots,
+			s.realtimeHub,
+			s.logger,
+			s.moduleName,
+		)
+	}
+	return s.statsCollector.Start(ctx)
+}
+
+func (s *service) collectStatsSnapshots(ctx context.Context) ([]StatsSnapshot, error) {
+	if s == nil || !s.runtimeAccessEnabled(ctx) {
+		return nil, nil
+	}
+	runtime, err := s.runtimeForRequest()
+	if err != nil {
+		return nil, err
+	}
+	collectorRuntime, ok := runtime.(StatsCollectorRuntime)
+	if !ok {
+		return nil, nil
+	}
+	return collectorRuntime.CollectStatsSnapshots(ctx)
+}
+
+func (s *service) registerRealtimeTopics() error {
+	if s == nil {
+		return nil
+	}
+	if s.topicIssuers == nil {
+		return errors.New("realtime topic issuer registry is unavailable")
+	}
+	return s.topicIssuers.Register(containercontract.ContainerStatsTopicPrefix, s)
+}
+
+func (s *service) IssueSubscription(
+	ctx context.Context,
+	request realtime.SubscriptionRequest,
+) (realtime.SubscriptionResponse, error) {
+	if s == nil {
+		return realtime.SubscriptionResponse{}, realtime.ErrIssuerRequired
+	}
+
+	topic := realtime.NormalizeTopic(request.Topic)
+	if topic == "" {
+		return realtime.SubscriptionResponse{}, realtime.ErrTopicRequired
+	}
+	if !strings.HasPrefix(topic, containercontract.ContainerStatsTopicPrefix) {
+		return realtime.SubscriptionResponse{}, realtime.ErrTopicNotFound
+	}
+	if request.RequestAuth.User == nil {
+		return realtime.SubscriptionResponse{}, realtime.ErrTopicForbidden
+	}
+	if s.authorizer == nil {
+		return realtime.SubscriptionResponse{}, realtime.ErrTopicForbidden
+	}
+
+	return s.issueContainerRealtimeSubscription(ctx, request, topic)
+}
+
+func (s *service) issueContainerRealtimeSubscription(
+	ctx context.Context,
+	request realtime.SubscriptionRequest,
+	topic string,
+) (realtime.SubscriptionResponse, error) {
+	containerID := strings.TrimSpace(strings.TrimPrefix(topic, containercontract.ContainerStatsTopicPrefix))
+	ref, err := parseRef(containerID)
+	if err != nil {
+		return realtime.SubscriptionResponse{}, realtime.ErrTopicNotFound
+	}
+	if err := s.authorizer.Authorize(ctx, request.RequestAuth, containercontract.ContainerDetailPermission.String()); err != nil {
+		return realtime.SubscriptionResponse{}, realtime.ErrTopicForbidden
+	}
+	if _, err := s.Detail(ctx, ref); err != nil {
+		if errors.Is(err, errContainerNotFound) {
+			return realtime.SubscriptionResponse{}, realtime.ErrTopicNotFound
+		}
+		return realtime.SubscriptionResponse{}, realtime.ErrTopicConflict
+	}
+
+	issued, err := (realtime.TicketIssuer{Tickets: s.realtimeTickets}).IssueTopicTicket(ctx, request)
+	if err != nil {
+		return realtime.SubscriptionResponse{}, realtime.ErrTopicConflict
+	}
+	return realtime.SubscriptionResponse{
+		Topic:        topic,
+		Ticket:       issued.Ticket,
+		WebSocketURL: realtime.BuildTopicWebSocketURL(topic, issued.Ticket),
+		ExpiresAt:    issued.ExpiresAt,
+	}, nil
 }
 
 // ShellSessionRequest describes one requested interactive container shell session.

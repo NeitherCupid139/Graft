@@ -1,0 +1,47 @@
+get:
+  tags: [container]
+  summary: Upgrade to unified realtime WebSocket
+  operationId: getRealtimeWebSocket
+  description: >
+    Upgrades the request to the unified realtime WebSocket gateway only after the server validates and atomically
+    consumes the single-use realtime ticket, confirms the ticket topic binding matches the requested topic, rechecks
+    topic authorization, and validates the request Origin against the configured WebSocket allowlist. This operation is
+    documented for contract governance; the successful handshake upgrades the connection instead of returning a JSON
+    body.
+  parameters:
+    - $ref: ../components/parameters/realtime-ticket-query.yaml
+    - $ref: ../components/parameters/realtime-topic-query.yaml
+  responses:
+    '101':
+      description: WebSocket upgrade accepted after pre-upgrade ticket validation and consumption.
+    '400':
+      description: Missing or malformed realtime ticket or topic.
+      headers:
+        X-Request-Id:
+          $ref: ../components/headers/request-id.yaml
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/error-response.yaml
+    '401':
+      $ref: ../components/responses/unauthorized.yaml
+    '403':
+      description: Ticket scope mismatch, topic permission denied, or Origin denied.
+      headers:
+        X-Request-Id:
+          $ref: ../components/headers/request-id.yaml
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/error-response.yaml
+    '409':
+      description: Ticket already used or expired, or the topic is not currently available.
+      headers:
+        X-Request-Id:
+          $ref: ../components/headers/request-id.yaml
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/error-response.yaml
+    '500':
+      $ref: ../components/responses/internal-server-error.yaml

@@ -25,6 +25,7 @@ WEB_BROWSER_SKILL = REPO_ROOT / ".agents" / "skills" / "graft-web-browser-agent"
 PR_REVIEW_SKILL = REPO_ROOT / ".agents" / "skills" / "graft-pr-review" / "SKILL.md"
 PR_CREATE_SKILL = REPO_ROOT / ".agents" / "skills" / "graft-pr-create" / "SKILL.md"
 AI_AUDIT_SKILL = REPO_ROOT / ".agents" / "skills" / "graft-ai-governance-audit" / "SKILL.md"
+PUSH_SKILL = REPO_ROOT / ".agents" / "skills" / "graft-push" / "SKILL.md"
 TABLE_DESIGN_SKILL = REPO_ROOT / ".agents" / "skills" / "graft-table-design" / "SKILL.md"
 SQL_MIGRATION_SKILL = REPO_ROOT / ".agents" / "skills" / "graft-sql-migration" / "SKILL.md"
 SHARED_ASSET_REUSE_SKILL = REPO_ROOT / ".agents" / "skills" / "graft-shared-asset-reuse" / "SKILL.md"
@@ -378,10 +379,10 @@ def validate_skills() -> list[Finding]:
 
 def validate_agents_skill_list() -> list[Finding]:
     """
-    验证 AGENTS.md 包含所需的技能列表且不含禁止的治理内容。
+    验证 AGENTS.md 中的技能清单与治理约束。
     
     Returns:
-    	list[Finding]: 验证失败项的 Finding 列表；文件不存在或通过验证时返回空列表。
+        list[Finding]: 校验失败项；当文件不存在或全部通过时为空列表。
     """
     if not AGENTS.is_file():
         return []
@@ -403,15 +404,55 @@ def validate_agents_skill_list() -> list[Finding]:
     return findings
 
 
+def validate_push_branch_governance() -> list[Finding]:
+    """
+    检查推送触发的分支命名与推送治理说明是否齐备。
+    
+    遍历 `AGENTS.md` 与推送技能文档中的固定治理术语；缺少任一要求项时返回对应的 `Finding`。
+    """
+    findings: list[Finding] = []
+
+    if AGENTS.is_file():
+        text = read_text(AGENTS)
+        for term in (
+            "For push-triggered branch-name hygiene:",
+            "`$graft-push` must inspect the commits that are about to be pushed",
+            "`@{upstream}..HEAD`",
+            "lowercase kebab-case",
+            "do not rename branches during ordinary `$graft-commit` runs",
+        ):
+            if term not in text:
+                findings.append(Finding(AGENTS, f"missing push branch governance term {term!r}"))
+
+    if not PUSH_SKILL.is_file():
+        findings.append(Finding(PUSH_SKILL, "push skill is missing"))
+        return findings
+
+    text = read_text(PUSH_SKILL)
+    for term in (
+        "git log --oneline @{upstream}..HEAD",
+        "merge-base with the intended base branch, normally `main`",
+        "branch names must follow `<type>/<topic-or-scope>`",
+        "lowercase kebab-case",
+        "generic `wt-*` placeholders",
+        "rename the local branch before pushing",
+        "do not auto-delete the old remote branch after a rename unless the user explicitly asks",
+        "whether a branch-name check ran, what commit range it used, and whether a rename happened",
+    ):
+        if term not in text:
+            findings.append(Finding(PUSH_SKILL, f"missing push branch governance term {term!r}"))
+
+    return findings
+
+
 def validate_backend_guardrail_governance() -> list[Finding]:
     """
-    验证后端守护栏治理文档的存在性和完整性。
+    验证后端治理守护栏文档及其引用是否完整。
     
-    检查必需的后端治理文档（查询、API、安全、测试、代码Review规范）是否存在，
-    各文档是否包含所需的治理术语，以及AGENTS.md和server/AGENTS.md是否对这些规范进行了引用。
+    检查后端查询、服务端 API、安全、测试可维护性和 AI 代码 Review 相关治理文档是否存在，并验证这些文档及 `AGENTS.md`、`server/AGENTS.md`、AI 工具治理文档中是否包含所需的治理术语。
     
     Returns:
-    	list[Finding]: 各文件缺失或不符合要求的Finding列表。
+        list[Finding]: 缺失、未引用或内容不符合要求的发现列表。
     """
     findings: list[Finding] = []
     required_docs = (
@@ -612,10 +653,10 @@ def validate_no_private_config_tracked(tracked: set[str]) -> list[Finding]:
 
 def run_validation() -> list[Finding]:
     """
-    执行所有 AI 治理验证。
+    汇总并执行所有 AI 治理校验。
     
     Returns:
-        list[Finding]: 验证中发现的所有问题列表。
+        list[Finding]: 所有校验发现的问题列表。
     """
     findings: list[Finding] = []
     findings.extend(validate_required_files())
@@ -627,6 +668,7 @@ def run_validation() -> list[Finding]:
     findings.extend(validate_sql_migration_governance())
     findings.extend(validate_shared_asset_governance())
     findings.extend(validate_agents_skill_list())
+    findings.extend(validate_push_branch_governance())
     findings.extend(validate_backend_guardrail_governance())
     findings.extend(validate_environment_inventory())
     findings.extend(validate_no_private_config_tracked(tracked))

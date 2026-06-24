@@ -191,22 +191,40 @@
           </t-card>
         </section>
 
-        <div class="container-detail-refresh-row" data-testid="container-detail-refresh-row">
+        <div class="container-detail-realtime-row" data-testid="container-detail-realtime-row">
           <t-tooltip :content="t('container.detail.refreshTooltip')">
-            <refresh-control-bar
-              :status="refreshControlStatus"
-              :countdown-seconds="remainingAutoRefreshSeconds"
-              :interval="selectedAutoRefreshInterval"
-              :interval-options="autoRefreshOptions"
-              :refreshing="detailRefreshing"
-              :show-countdown="true"
-              appearance="plain"
-              variant="compact"
-              @pause="setAutoRefreshEnabled(false)"
-              @refresh="handleManualRefresh"
-              @resume="setAutoRefreshEnabled(true)"
-              @update:interval="handleAutoRefreshIntervalChange"
-            />
+            <div class="container-detail-realtime-bar" data-testid="container-detail-realtime-bar">
+              <span class="container-detail-realtime-bar__label">{{ t('container.detail.realtime.label') }}</span>
+              <t-tag
+                :theme="realtimeStatusTheme"
+                variant="light-outline"
+                data-testid="container-detail-realtime-status"
+              >
+                {{ realtimeStatusLabel }}
+              </t-tag>
+              <span class="container-detail-realtime-bar__hint">{{ realtimeStatusHint }}</span>
+              <div class="container-detail-realtime-bar__actions">
+                <t-button
+                  size="small"
+                  theme="default"
+                  variant="outline"
+                  data-testid="container-detail-realtime-toggle"
+                  @click="toggleRealtimeSubscription"
+                >
+                  {{ realtimeToggleLabel }}
+                </t-button>
+                <t-button
+                  size="small"
+                  theme="primary"
+                  variant="outline"
+                  :loading="detailRefreshing"
+                  data-refresh-now="true"
+                  @click="handleManualRefresh"
+                >
+                  {{ t('container.detail.refreshNow') }}
+                </t-button>
+              </div>
+            </div>
           </t-tooltip>
         </div>
 
@@ -1140,7 +1158,6 @@ import { useRoute, useRouter } from 'vue-router';
 import { LOCALE, type LocalizedTitle } from '@/contracts/i18n/locales';
 import { ManagementPageHeader } from '@/shared/components/management';
 import { MetricCard } from '@/shared/components/metrics';
-import { RefreshControlBar, type RefreshControlValue } from '@/shared/components/refresh';
 import { resolveLocalizedErrorMessage } from '@/shared/localized-api-error';
 import {
   copyText as copyTextToClipboard,
@@ -1151,6 +1168,7 @@ import {
   LogViewer,
   toProgressPercent,
 } from '@/shared/observability';
+import { openRealtimeTopicSocket, type RealtimeTopicSocketController } from '@/shared/realtime';
 import { useTabsRouterStore } from '@/store';
 import { createLogger } from '@/utils/logger';
 import { localizeRouteTitleKey } from '@/utils/route/title';
@@ -1163,6 +1181,12 @@ import {
 } from '../../api/container';
 import ContainerRawJsonPanel from '../../components/ContainerRawJsonPanel.vue';
 import ContainerShellPanel from '../../components/ContainerShellPanel.vue';
+import {
+  applyRealtimeResourceToDetail,
+  buildContainerStatsTopic,
+  mergeDetailStructurePreservingRealtimeResource,
+  parseContainerStatsPayload,
+} from '../../shared/realtime-stats';
 import type {
   ContainerActionLevel,
   ContainerDetail,
@@ -1328,8 +1352,6 @@ type ResourceDetailGroup = {
   title: string;
 };
 type ResourceMetricDefinition = [ResourceMetricKey, string, ResourceMetricFormat];
-type AutoRefreshInterval = 0 | 5 | 10 | 30;
-
 const DETAIL_TABS: DetailTab[] = [
   'overview',
   'resources',
@@ -1341,7 +1363,6 @@ const DETAIL_TABS: DetailTab[] = [
   'storage',
   'raw',
 ];
-const AUTO_REFRESH_INTERVALS: AutoRefreshInterval[] = [0, 5, 10, 30];
 const DEFAULT_LOG_QUERY = {
   tail: 200,
   since: undefined,
@@ -1367,13 +1388,12 @@ const activeTab = ref<DetailTab>(normalizeTab(route.query.tab));
 const environmentKeyword = ref('');
 const environmentPolicyFilter = ref<EnvironmentPolicyFilter>('all');
 const refreshingMountKeys = ref<Set<string>>(new Set());
-const selectedAutoRefreshInterval = ref<AutoRefreshInterval>(5);
-const autoRefreshEnabled = ref(true);
-const remainingAutoRefreshSeconds = ref<number | null>(null);
-const isPageVisible = ref(typeof document === 'undefined' ? true : document.visibilityState === 'visible');
-let autoRefreshTimer: number | null = null;
-let nextAutoRefreshAt: number | null = null;
+const realtimeEnabled = ref(true);
+const realtimeSocketState = ref<'idle' | 'connecting' | 'open' | 'closed' | 'error'>('idle');
+const hasRealtimeResourceSnapshot = ref(false);
 let detailRefreshSeq = 0;
+let statsSocketGeneration = 0;
+let statsSocket: RealtimeTopicSocketController | null = null;
 
 const containerId = computed(() => String(route.params.id ?? '').trim());
 const shortContainerIdFallback = computed(() => shortIdentifier(containerId.value, undefined, 12));
@@ -1401,28 +1421,6 @@ const fallbackDisplayName = computed(() => {
   return '';
 });
 const fallbackTitle = computed(() => buildDetailTitle(fallbackDisplayName.value));
-const autoRefreshOptions = computed(() =>
-  AUTO_REFRESH_INTERVALS.map((value) => ({
-    label:
-      value === 0
-        ? t('container.detail.autoRefreshOff')
-        : t('container.detail.autoRefreshSeconds', { seconds: String(value) }),
-    value,
-  })),
-);
-const autoRefreshAvailable = computed(() => selectedAutoRefreshInterval.value > 0);
-const autoRefreshPaused = computed(
-  () => autoRefreshAvailable.value && (!autoRefreshEnabled.value || !isPageVisible.value),
-);
-const refreshControlStatus = computed(() => {
-  if (!autoRefreshAvailable.value) {
-    return 'off' as const;
-  }
-  if (autoRefreshPaused.value) {
-    return 'paused' as const;
-  }
-  return 'running' as const;
-});
 const pageTitle = computed(() => {
   if (safeDetail.value) {
     return displayName(safeDetail.value);
@@ -1659,6 +1657,42 @@ const resourceMetrics = computed(() => {
     status,
   };
 });
+const realtimeStatusTheme = computed(() => {
+  if (!realtimeEnabled.value) {
+    return 'default';
+  }
+  if (realtimeSocketState.value === 'error') {
+    return 'danger';
+  }
+  if (realtimeSocketState.value === 'connecting' || realtimeSocketState.value === 'closed') {
+    return 'warning';
+  }
+  if (realtimeSocketState.value === 'open') {
+    return 'success';
+  }
+  return 'default';
+});
+const realtimeStatusLabel = computed(() => {
+  if (!realtimeEnabled.value) {
+    return t('container.detail.realtime.paused');
+  }
+  if (realtimeSocketState.value === 'error') {
+    return t('container.detail.realtime.degraded');
+  }
+  if (realtimeSocketState.value === 'connecting' || realtimeSocketState.value === 'closed') {
+    return t('container.detail.realtime.connecting');
+  }
+  if (realtimeSocketState.value === 'open') {
+    return t('container.detail.realtime.live');
+  }
+  return t('container.detail.realtime.idle');
+});
+const realtimeStatusHint = computed(() =>
+  realtimeEnabled.value ? t('container.detail.realtime.hint') : t('container.detail.realtime.pausedHint'),
+);
+const realtimeToggleLabel = computed(() =>
+  realtimeEnabled.value ? t('container.detail.realtime.pause') : t('container.detail.realtime.resume'),
+);
 const cpuDetailMetrics = computed(() =>
   buildCpuDetailMetrics(
     safeDetail.value?.resource,
@@ -1921,19 +1955,17 @@ onMounted(() => {
   if (activeTab.value === 'logs') {
     void loadLogs();
   }
-  document.addEventListener('visibilitychange', handleVisibilityChange, false);
-  scheduleAutoRefresh();
 });
 
 onUnmounted(() => {
-  stopAutoRefresh();
-  document.removeEventListener('visibilitychange', handleVisibilityChange);
+  stopStatsSocket();
 });
 
 watch(
   () => route.params.id,
   () => {
     resetDetailState();
+    stopStatsSocket();
     void refreshContainerDetail();
     if (activeTab.value === 'logs') {
       void loadLogs();
@@ -1958,78 +1990,6 @@ watch(logLineLimit, () => {
   }
 });
 
-watch(selectedAutoRefreshInterval, () => {
-  autoRefreshEnabled.value = selectedAutoRefreshInterval.value > 0;
-  scheduleAutoRefresh();
-});
-
-function handleVisibilityChange() {
-  isPageVisible.value = document.visibilityState === 'visible';
-  if (!isPageVisible.value) {
-    stopAutoRefresh();
-    return;
-  }
-  if (autoRefreshEnabled.value && selectedAutoRefreshInterval.value > 0) {
-    void refreshContainerDetail();
-    scheduleAutoRefresh();
-  }
-}
-
-function scheduleAutoRefresh() {
-  stopAutoRefresh();
-  if (!autoRefreshEnabled.value || !isPageVisible.value || selectedAutoRefreshInterval.value <= 0) {
-    remainingAutoRefreshSeconds.value = null;
-    return;
-  }
-  nextAutoRefreshAt = Date.now() + selectedAutoRefreshInterval.value * 1000;
-  updateRemainingAutoRefreshSeconds();
-  autoRefreshTimer = window.setInterval(() => {
-    updateRemainingAutoRefreshSeconds();
-    if (remainingAutoRefreshSeconds.value === 0) {
-      stopAutoRefresh();
-      void refreshContainerDetail();
-    }
-  }, 1000);
-}
-
-function stopAutoRefresh() {
-  if (autoRefreshTimer !== null) {
-    window.clearInterval(autoRefreshTimer);
-    autoRefreshTimer = null;
-  }
-  nextAutoRefreshAt = null;
-}
-
-function updateRemainingAutoRefreshSeconds() {
-  if (nextAutoRefreshAt === null) {
-    remainingAutoRefreshSeconds.value = null;
-    return;
-  }
-  remainingAutoRefreshSeconds.value = Math.max(0, Math.ceil((nextAutoRefreshAt - Date.now()) / 1000));
-}
-
-function handleAutoRefreshIntervalChange(value: RefreshControlValue) {
-  selectedAutoRefreshInterval.value = normalizeAutoRefreshInterval(value);
-}
-
-function normalizeAutoRefreshInterval(value: RefreshControlValue): AutoRefreshInterval {
-  const numericValue = typeof value === 'number' ? value : Number(value);
-  return AUTO_REFRESH_INTERVALS.includes(numericValue as AutoRefreshInterval)
-    ? (numericValue as AutoRefreshInterval)
-    : 0;
-}
-
-function setAutoRefreshEnabled(enabled: boolean) {
-  if (enabled && selectedAutoRefreshInterval.value <= 0) {
-    selectedAutoRefreshInterval.value = 5;
-  }
-  autoRefreshEnabled.value = enabled && selectedAutoRefreshInterval.value > 0;
-  scheduleAutoRefresh();
-  if (autoRefreshEnabled.value && isPageVisible.value) {
-    void refreshContainerDetail();
-  }
-}
-
 async function handleManualRefresh() {
   await refreshContainerDetail();
   if (!error.value) {
@@ -2046,10 +2006,6 @@ async function refreshContainerDetail() {
     return;
   }
 
-  if (autoRefreshEnabled.value && isPageVisible.value && selectedAutoRefreshInterval.value > 0) {
-    stopAutoRefresh();
-  }
-
   const requestSeq = ++detailRefreshSeq;
   detailRefreshing.value = true;
   error.value = '';
@@ -2058,10 +2014,17 @@ async function refreshContainerDetail() {
     if (requestSeq !== detailRefreshSeq || currentContainerId !== containerId.value) {
       return;
     }
-    detail.value = nextDetail ? mergeDetailWithLocalMountUsage(nextDetail) : null;
+    detail.value = nextDetail
+      ? hasRealtimeResourceSnapshot.value
+        ? realtimeEnabled.value
+          ? mergeDetailStructurePreservingRealtimeResource(detail.value, mergeDetailWithLocalMountUsage(nextDetail))
+          : mergeDetailWithLocalMountUsage(nextDetail)
+        : mergeDetailWithLocalMountUsage(nextDetail)
+      : null;
     const current = safeDetail.value;
     if (current) {
       updateCurrentTabTitle(buildDetailTitle(displayName(current)));
+      syncStatsSocket(current.id);
     }
     await fetchMountUsage(currentContainerId, requestSeq);
   } catch (loadError) {
@@ -2069,12 +2032,12 @@ async function refreshContainerDetail() {
       return;
     }
     detail.value = null;
+    stopStatsSocket();
     error.value = resolveLocalizedErrorMessage(t, loadError, t('container.list.detail.loadFailed'));
     logger.warn('failed to fetch container detail', loadError);
   } finally {
     if (requestSeq === detailRefreshSeq) {
       detailRefreshing.value = false;
-      scheduleAutoRefresh();
     }
   }
 }
@@ -2207,7 +2170,61 @@ function resetDetailState() {
   logs.value = null;
   logsError.value = '';
   refreshingMountKeys.value = new Set();
+  hasRealtimeResourceSnapshot.value = false;
+  realtimeSocketState.value = 'idle';
+  stopStatsSocket();
   updateCurrentTabTitle(fallbackTitle.value);
+}
+
+function toggleRealtimeSubscription() {
+  realtimeEnabled.value = !realtimeEnabled.value;
+  if (!realtimeEnabled.value) {
+    stopStatsSocket();
+    return;
+  }
+  if (safeDetail.value?.id) {
+    syncStatsSocket(safeDetail.value.id);
+  }
+}
+
+function syncStatsSocket(nextContainerId: string) {
+  if (!realtimeEnabled.value) {
+    stopStatsSocket();
+    return;
+  }
+  stopStatsSocket();
+  const socketGeneration = ++statsSocketGeneration;
+  realtimeSocketState.value = 'connecting';
+  statsSocket = openRealtimeTopicSocket({
+    topic: buildContainerStatsTopic(nextContainerId),
+    parseMessage: parseContainerStatsPayload,
+    onStateChange: (state) => {
+      if (socketGeneration !== statsSocketGeneration || safeDetail.value?.id !== nextContainerId) {
+        return;
+      }
+      realtimeSocketState.value = state;
+    },
+    onMessage: (payload) => {
+      if (socketGeneration !== statsSocketGeneration || safeDetail.value?.id !== nextContainerId) {
+        return;
+      }
+      if (payload.id && payload.id !== nextContainerId) {
+        return;
+      }
+      if (!payload.resource || !detail.value) {
+        return;
+      }
+      hasRealtimeResourceSnapshot.value = true;
+      detail.value = applyRealtimeResourceToDetail(detail.value, payload.resource);
+    },
+  });
+}
+
+function stopStatsSocket() {
+  statsSocketGeneration += 1;
+  statsSocket?.close();
+  statsSocket = null;
+  realtimeSocketState.value = 'idle';
 }
 
 function handleTabChange(value: string | number) {
@@ -3678,7 +3695,7 @@ function portLabel(port: ContainerDetail['ports'][number]) {
   padding: 0;
 }
 
-.container-detail-refresh-row {
+.container-detail-realtime-row {
   align-items: center;
   display: flex;
   justify-content: flex-end;
@@ -3688,21 +3705,36 @@ function portLabel(port: ContainerDetail['ports'][number]) {
   padding-inline: var(--graft-density-gap-12);
 }
 
-.container-detail-refresh-row :deep(.refresh-control-bar) {
-  max-width: 100%;
+.container-detail-realtime-bar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--graft-density-gap-6) var(--graft-density-gap-8);
+  justify-content: flex-end;
   min-width: 0;
 }
 
-.container-detail-refresh-row :deep(.refresh-control-bar--compact) {
-  justify-content: flex-end;
+.container-detail-realtime-bar__label {
+  color: var(--td-text-color-primary);
+  font-size: var(--td-font-size-body-small);
+  font-weight: 600;
+  line-height: 20px;
 }
 
-.container-detail-refresh-row :deep(.refresh-control-bar__summary) {
-  justify-content: flex-end;
+.container-detail-realtime-bar__hint {
+  color: var(--td-text-color-secondary);
+  font-size: var(--td-font-size-body-small);
+  line-height: 20px;
+  max-width: min(560px, 100%);
+  min-width: 0;
+  text-align: right;
 }
 
-.container-detail-refresh-row :deep(.refresh-control-bar__items) {
-  justify-content: flex-end;
+.container-detail-realtime-bar__actions {
+  align-items: center;
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: var(--graft-density-gap-8);
 }
 
 .container-detail-tabs-card :deep(.t-tabs__content) {
@@ -4871,18 +4903,14 @@ function portLabel(port: ContainerDetail['ports'][number]) {
     max-width: 100%;
   }
 
-  .container-detail-refresh-row {
+  .container-detail-realtime-row {
     margin-block: var(--graft-density-gap-8);
   }
 }
 
 @media (width <= 767px) {
-  .container-detail-refresh-row {
+  .container-detail-realtime-row {
     padding-inline: var(--graft-density-gap-12);
-  }
-
-  .container-detail-refresh-row :deep(.refresh-control-bar--compact) {
-    justify-content: flex-end;
   }
 }
 </style>

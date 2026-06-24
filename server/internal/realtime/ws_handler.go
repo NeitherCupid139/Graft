@@ -1,0 +1,181 @@
+package realtime
+
+import (
+	"context"
+	"errors"
+	"net/http"
+	"strings"
+
+	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
+
+	messagecontract "graft/server/internal/contract/message"
+	"graft/server/internal/httpx"
+	"graft/server/internal/i18n"
+	"graft/server/internal/realtimeauth"
+)
+
+const (
+	// WebSocketTopicScope is the bounded permission scope embedded in websocket topic tickets.
+	WebSocketTopicScope = "realtime.topic.subscribe"
+	// WebSocketTopicResourceType is the canonical resource type for unified realtime topics.
+	WebSocketTopicResourceType = "realtime.topic"
+	websocketBufferSize        = 4096
+)
+
+var websocketUpgrader = websocket.Upgrader{
+	ReadBufferSize:  websocketBufferSize,
+	WriteBufferSize: websocketBufferSize,
+	CheckOrigin:     func(*http.Request) bool { return true },
+}
+
+// GatewayRegistration defines unified realtime websocket gateway dependencies.
+type GatewayRegistration struct {
+	Hub                   Hub
+	I18n                  *i18n.Service
+	Tickets               realtimeauth.Service
+	WebSocketAllowOrigins []string
+}
+
+// RegisterWebSocketGateway 注册统一的实时 WebSocket 入口路由。
+// 当路由器、事件中心或票据服务不可用时返回错误；否则挂载 GET /ws，并在连接建立前完成主题、票据和来源校验。
+//
+// @param router Gin 路由器。
+// @param registration 网关依赖与来源白名单配置。
+// @return 注册失败时返回错误。
+func RegisterWebSocketGateway(router gin.IRouter, registration GatewayRegistration) error {
+	if router == nil {
+		return errors.New("realtime router is unavailable")
+	}
+	if registration.Hub == nil {
+		return errors.New("realtime hub is unavailable")
+	}
+	if registration.Tickets == nil {
+		return errors.New("realtime ticket service is unavailable")
+	}
+
+	router.GET("/ws", func(ctx *gin.Context) {
+		request, ok := parseGatewayRequest(ctx, registration)
+		if !ok {
+			return
+		}
+		if !consumeGatewayTicket(ctx, registration, request) {
+			return
+		}
+		conn, err := websocketUpgrader.Upgrade(ctx.Writer, ctx.Request, nil)
+		if err != nil {
+			return
+		}
+		_ = streamTopicEvents(ctx.Request.Context(), conn, registration.Hub, request.topic)
+	})
+
+	return nil
+}
+
+type gatewayRequest struct {
+	topic  string
+	ticket string
+}
+
+// 返回解析后的请求和成功标记；校验失败时会写入本地化错误响应。
+func parseGatewayRequest(ctx *gin.Context, registration GatewayRegistration) (gatewayRequest, bool) {
+	request := gatewayRequest{
+		topic:  NormalizeTopic(ctx.Query("topic")),
+		ticket: strings.TrimSpace(ctx.Query("ticket")),
+	}
+	if request.topic == "" || request.ticket == "" {
+		httpx.WriteLocalizedError(ctx, registration.I18n, http.StatusBadRequest, messagecontract.CommonInvalidArgument.String(), map[string]any{
+			"field": "topic",
+		})
+		return gatewayRequest{}, false
+	}
+	if err := realtimeauth.ValidateOrigin(ctx.GetHeader("Origin"), registration.WebSocketAllowOrigins); err != nil {
+		httpx.WriteLocalizedError(ctx, registration.I18n, http.StatusForbidden, messagecontract.AuthForbidden.String(), map[string]any{
+			"topic": request.topic,
+		})
+		return gatewayRequest{}, false
+	}
+	return request, true
+}
+
+// consumeGatewayTicket 消费用于订阅指定主题的实时访问票据。
+// 成功时返回 true；失败时返回 false，并写入本地化的错误响应。
+func consumeGatewayTicket(ctx *gin.Context, registration GatewayRegistration, request gatewayRequest) bool {
+	_, err := registration.Tickets.Consume(ctx.Request.Context(), realtimeauth.ConsumeRequest{
+		Ticket:       request.ticket,
+		ResourceType: WebSocketTopicResourceType,
+		ResourceID:   request.topic,
+		Scope:        WebSocketTopicScope,
+	})
+	if err == nil {
+		return true
+	}
+	httpx.WriteLocalizedError(ctx, registration.I18n, websocketTicketErrorStatus(err), messagecontract.AuthForbidden.String(), map[string]any{
+		"topic": request.topic,
+	})
+	return false
+}
+
+// websocketTicketErrorStatus 将票据错误映射为对应的 HTTP 状态码。
+// 票据缺失或无效返回 400，已过期或已使用返回 409，其余情况返回 403。
+// @return 对应的 HTTP 状态码。
+func websocketTicketErrorStatus(err error) int {
+	switch {
+	case errors.Is(err, realtimeauth.ErrTicketRequired), errors.Is(err, realtimeauth.ErrInvalidTicket):
+		return http.StatusBadRequest
+	case errors.Is(err, realtimeauth.ErrExpiredTicket), errors.Is(err, realtimeauth.ErrUsedTicket):
+		return http.StatusConflict
+	default:
+		return http.StatusForbidden
+	}
+}
+
+// closeWebSocketConnection 关闭 WebSocket 连接。
+// 如果连接不为空，则调用其 Close 方法并忽略返回错误。
+func closeWebSocketConnection(conn *websocket.Conn) {
+	if conn == nil {
+		return
+	}
+	_ = conn.Close()
+}
+
+// streamTopicEvents 订阅指定 topic 的事件并写入 WebSocket 连接。
+// 连接或 hub 为空时直接返回。函数会在连接关闭、上下文取消或写入失败时结束，并关闭连接。
+func streamTopicEvents(parent context.Context, conn *websocket.Conn, hub Hub, topic string) error {
+	if conn == nil || hub == nil {
+		return nil
+	}
+	defer closeWebSocketConnection(conn)
+
+	eventCh, unsubscribe := hub.Subscribe(topic)
+	defer unsubscribe()
+
+	connectionCtx, cancel := context.WithCancel(parent)
+	defer cancel()
+	go watchWebSocketReads(conn, cancel)
+
+	for {
+		select {
+		case <-connectionCtx.Done():
+			return connectionCtx.Err()
+		case event := <-eventCh:
+			if err := conn.WriteJSON(event); err != nil {
+				return err
+			}
+		}
+	}
+}
+
+// watchWebSocketReads 持续读取 WebSocket 消息，并在读取出错时取消连接上下文。
+func watchWebSocketReads(conn *websocket.Conn, cancel context.CancelFunc) {
+	if conn == nil || cancel == nil {
+		return
+	}
+
+	for {
+		if _, _, err := conn.ReadMessage(); err != nil {
+			cancel()
+			return
+		}
+	}
+}

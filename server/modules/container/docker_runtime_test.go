@@ -80,7 +80,11 @@ func TestDockerRuntimeLogsAvoidsRuntimeInfoCall(t *testing.T) {
 			Name: "/web",
 		},
 	}
-	runtime := &DockerRuntime{client: client, endpoint: "unix:///var/run/docker.sock"}
+	runtime := &DockerRuntime{
+		client:        client,
+		endpoint:      "unix:///var/run/docker.sock",
+		resourceStats: newResourceStatsCache(containerResourceStatsCacheTTL, containerResourceStatsCacheStaleWindow),
+	}
 
 	logs, err := runtime.Logs(context.Background(), Ref{Value: "web"}, LogQuery{
 		Tail:   2,
@@ -194,7 +198,14 @@ func TestDockerRuntimeListUsesCheapSummaryFields(t *testing.T) {
 		},
 		stats: richDockerStatsFixture(),
 	}
-	runtime := &DockerRuntime{client: client, endpoint: "unix:///var/run/docker.sock"}
+	runtime := &DockerRuntime{
+		client:        client,
+		endpoint:      "unix:///var/run/docker.sock",
+		resourceStats: newResourceStatsCache(containerResourceStatsCacheTTL, containerResourceStatsCacheStaleWindow),
+	}
+	if _, err := runtime.CollectStatsSnapshots(context.Background()); err != nil {
+		t.Fatalf("collect stats snapshots: %v", err)
+	}
 
 	items, err := runtime.List(context.Background(), ListQuery{})
 	if err != nil {
@@ -216,7 +227,7 @@ func TestDockerRuntimeListUsesCheapSummaryFields(t *testing.T) {
 		t.Fatalf("expected list to avoid inspect calls, got %d", calls)
 	}
 	if calls := client.statsCalls.Load(); calls != 1 {
-		t.Fatalf("expected list to collect stats once, got %d", calls)
+		t.Fatalf("expected collector to collect stats once, got %d", calls)
 	}
 }
 
@@ -236,7 +247,14 @@ func TestDockerRuntimeListDegradesWhenStatsUnavailable(t *testing.T) {
 		},
 		statsErr: timeoutError{},
 	}
-	runtime := &DockerRuntime{client: client, endpoint: "unix:///var/run/docker.sock"}
+	runtime := &DockerRuntime{
+		client:        client,
+		endpoint:      "unix:///var/run/docker.sock",
+		resourceStats: newResourceStatsCache(containerResourceStatsCacheTTL, containerResourceStatsCacheStaleWindow),
+	}
+	if _, err := runtime.CollectStatsSnapshots(context.Background()); err != nil {
+		t.Fatalf("collect stats snapshots: %v", err)
+	}
 
 	items, err := runtime.List(context.Background(), ListQuery{})
 	if err != nil {
@@ -249,21 +267,21 @@ func TestDockerRuntimeListDegradesWhenStatsUnavailable(t *testing.T) {
 	if resource.Available || resource.StatsAvailable {
 		t.Fatalf("expected unavailable resource stats, got %#v", resource)
 	}
-	if resource.UnavailableReason != containerStatsTimeoutReason || resource.StatsErrorKey != containerStatsTimeoutReason {
-		t.Fatalf("expected sanitized timeout reason, got %#v", resource)
+	if resource.UnavailableReason != containerStatsNotCollectedReason || resource.StatsErrorKey != containerStatsNotCollectedReason {
+		t.Fatalf("expected not-collected cache reason after failed collector refresh, got %#v", resource)
 	}
-	if resource.StatsErrorMessage == "" || resource.StatsErrorMessage == "i/o timeout" {
-		t.Fatalf("expected sanitized stats error message, got %#v", resource)
+	if resource.StatsErrorMessage != resourceStatsErrorMessage(containerStatsNotCollectedReason) {
+		t.Fatalf("expected canonical not-collected error message, got %#v", resource)
 	}
 	if resource.CPUPercent != nil || resource.MemoryUsageBytes != nil || resource.MemoryLimitBytes != nil || resource.MemoryPercent != nil {
 		t.Fatalf("expected no partial stats on failure, got %#v", resource)
 	}
 	if calls := client.statsCalls.Load(); calls != 1 {
-		t.Fatalf("expected list to attempt stats once, got %d", calls)
+		t.Fatalf("expected collector to attempt stats once, got %d", calls)
 	}
 }
 
-func TestDockerRuntimeListCollectsStatsWithBoundedConcurrency(t *testing.T) {
+func TestDockerRuntimeCollectStatsSnapshotsCollectsStatsWithBoundedConcurrency(t *testing.T) {
 	t.Parallel()
 
 	client := &countingDockerClient{
@@ -282,11 +300,15 @@ func TestDockerRuntimeListCollectsStatsWithBoundedConcurrency(t *testing.T) {
 			Created: 1781409600,
 		})
 	}
-	runtime := &DockerRuntime{client: client, endpoint: "unix:///var/run/docker.sock"}
+	runtime := &DockerRuntime{
+		client:        client,
+		endpoint:      "unix:///var/run/docker.sock",
+		resourceStats: newResourceStatsCache(containerResourceStatsCacheTTL, containerResourceStatsCacheStaleWindow),
+	}
 
-	items, err := runtime.List(context.Background(), ListQuery{})
+	items, err := runtime.CollectStatsSnapshots(context.Background())
 	if err != nil {
-		t.Fatalf("list: %v", err)
+		t.Fatalf("collect stats snapshots: %v", err)
 	}
 	if len(items) != len(client.list) {
 		t.Fatalf("expected %d items, got %#v", len(client.list), items)
@@ -300,18 +322,35 @@ func TestDockerRuntimeListCollectsStatsWithBoundedConcurrency(t *testing.T) {
 		t.Fatalf("expected stats concurrency bounded by %d, got max concurrency %d", bound, maxConcurrent)
 	}
 	for index, item := range items {
-		if item.ID != client.list[index].ID {
+		if item.ContainerID != client.list[index].ID {
 			t.Fatalf("expected stable list order, got item %d as %#v", index, item)
 		}
-		assertInt64Ptr(t, item.Resource.MemoryUsageBytes, 64, "memory usage bytes")
-		assertInt64Ptr(t, item.Resource.MemoryLimitBytes, 128, "memory limit bytes")
+		if !item.Resource.Available || !item.Resource.StatsAvailable {
+			t.Fatalf("expected usable memory-only collector stats to stay available, got %#v", item.Resource)
+		}
+		assertInt64Ptr(t, item.Resource.MemoryUsageBytes, 64, "collected memory usage bytes")
+		assertInt64Ptr(t, item.Resource.MemoryLimitBytes, 128, "collected memory limit bytes")
+		assertFloatPtr(t, item.Resource.MemoryPercent, 50, "collected memory percent")
+		if item.Resource.CPUPercent != nil {
+			t.Fatalf("expected collector fixture without cpu delta to omit cpu percent, got %#v", item.Resource.CPUPercent)
+		}
 	}
 }
 
-func TestDockerRuntimeDetailCollectsResourceStats(t *testing.T) {
+func TestDockerRuntimeDetailReadsCollectedResourceStats(t *testing.T) {
 	t.Parallel()
 
 	client := &countingDockerClient{
+		list: []container.Summary{
+			{
+				ID:      "1234567890abcdef",
+				Names:   []string{"/graft-web"},
+				Image:   "graft/web:latest",
+				State:   container.StateRunning,
+				Status:  "Up 10 minutes",
+				Created: 1781409600,
+			},
+		},
 		inspect: container.InspectResponse{
 			ID:      "1234567890abcdef",
 			Name:    "/graft-web",
@@ -332,7 +371,18 @@ func TestDockerRuntimeDetailCollectsResourceStats(t *testing.T) {
 			MemoryStats: container.MemoryStats{Usage: 256, Limit: 1024},
 		},
 	}
-	runtime := &DockerRuntime{client: client, endpoint: "unix:///var/run/docker.sock"}
+	runtime := &DockerRuntime{
+		client:        client,
+		endpoint:      "unix:///var/run/docker.sock",
+		resourceStats: newResourceStatsCache(containerResourceStatsCacheTTL, containerResourceStatsCacheStaleWindow),
+	}
+	snapshots, err := runtime.CollectStatsSnapshots(context.Background())
+	if err != nil {
+		t.Fatalf("collect stats snapshots: %v", err)
+	}
+	if len(snapshots) != 1 {
+		t.Fatalf("expected one collected snapshot, got %#v", snapshots)
+	}
 
 	detail, err := runtime.Detail(context.Background(), Ref{Value: "graft-web"})
 	if err != nil {
@@ -342,7 +392,7 @@ func TestDockerRuntimeDetailCollectsResourceStats(t *testing.T) {
 	if !detail.Resource.Available || !detail.Resource.StatsAvailable {
 		t.Fatalf("expected available detail resource stats, got %#v", detail.Resource)
 	}
-	assertFloatPtr(t, detail.Resource.CPUPercent, 20, "detail CPU percent")
+	assertFloatPtr(t, detail.Resource.CPUPercent, 40, "detail CPU percent")
 	assertInt64Ptr(t, detail.Resource.MemoryUsageBytes, 256, "detail memory usage bytes")
 	assertInt64Ptr(t, detail.Resource.MemoryLimitBytes, 1024, "detail memory limit bytes")
 	assertFloatPtr(t, detail.Resource.MemoryPercent, 25, "detail memory percent")
@@ -351,6 +401,197 @@ func TestDockerRuntimeDetailCollectsResourceStats(t *testing.T) {
 	}
 	if calls := client.statsCalls.Load(); calls != 1 {
 		t.Fatalf("expected detail to collect stats once, got %d", calls)
+	}
+}
+
+func TestDockerRuntimeDetailReusesCollectedResourceStats(t *testing.T) {
+	t.Parallel()
+
+	client := &countingDockerClient{
+		list: []container.Summary{
+			{
+				ID:      "1234567890abcdef",
+				Names:   []string{"/graft-web"},
+				Image:   "graft/web:latest",
+				State:   container.StateRunning,
+				Status:  "Up 10 minutes",
+				Created: 1781409600,
+			},
+		},
+		inspect: container.InspectResponse{
+			ID:      "1234567890abcdef",
+			Name:    "/graft-web",
+			State:   &container.State{Status: container.StateRunning},
+			Created: "2026-06-14T00:00:00Z",
+			Config:  &container.Config{Image: "graft/web:latest"},
+		},
+		stats: richDockerStatsFixture(),
+	}
+	runtime := &DockerRuntime{
+		client:        client,
+		endpoint:      "unix:///var/run/docker.sock",
+		resourceStats: newResourceStatsCache(containerResourceStatsCacheTTL, containerResourceStatsCacheStaleWindow),
+	}
+	if _, err := runtime.CollectStatsSnapshots(context.Background()); err != nil {
+		t.Fatalf("collect stats snapshots: %v", err)
+	}
+
+	first, err := runtime.Detail(context.Background(), Ref{Value: "graft-web"})
+	if err != nil {
+		t.Fatalf("first detail: %v", err)
+	}
+	second, err := runtime.Detail(context.Background(), Ref{Value: "graft-web"})
+	if err != nil {
+		t.Fatalf("second detail: %v", err)
+	}
+	if !first.Resource.Available || !second.Resource.Available {
+		t.Fatalf("expected cached resource stats to remain available, got %#v %#v", first.Resource, second.Resource)
+	}
+	if calls := client.statsCalls.Load(); calls != 1 {
+		t.Fatalf("expected repeated detail reads to reuse cached stats, got %d stats calls", calls)
+	}
+}
+
+func TestDockerRuntimeResourceStatsCurrentReturnsUnavailableBeforeCollection(t *testing.T) {
+	t.Parallel()
+
+	client := &countingDockerClient{
+		stats: container.StatsResponse{
+			MemoryStats: container.MemoryStats{Usage: 128, Limit: 256},
+		},
+		statsDelay: 40 * time.Millisecond,
+	}
+	runtime := &DockerRuntime{
+		client:        client,
+		endpoint:      "unix:///var/run/docker.sock",
+		resourceStats: newResourceStatsCache(containerResourceStatsCacheTTL, containerResourceStatsCacheStaleWindow),
+	}
+	results := make([]ResourceSummary, 6)
+	for index := range results {
+		results[index] = runtime.currentResourceSummary("container-1")
+	}
+
+	for _, summary := range results {
+		if summary.Available || summary.StatsAvailable {
+			t.Fatalf("expected cold-start partial stats to degrade as unavailable, got %#v", summary)
+		}
+		if summary.UnavailableReason == "" || summary.StatsErrorKey == "" || summary.StatsErrorMessage == "" {
+			t.Fatalf("expected unavailable summary context, got %#v", summary)
+		}
+		if summary.CPUPercent != nil || summary.MemoryUsageBytes != nil || summary.MemoryLimitBytes != nil || summary.MemoryPercent != nil {
+			t.Fatalf("expected cold-start miss to avoid field-level partial stats, got %#v", summary)
+		}
+	}
+	if calls := client.statsCalls.Load(); calls != 0 {
+		t.Fatalf("expected current cache read to avoid runtime stats collection, got %d stats calls", calls)
+	}
+}
+
+func TestDockerRuntimeListReusesCollectedResourceStatsAcrossPolls(t *testing.T) {
+	t.Parallel()
+
+	client := &countingDockerClient{
+		list: []container.Summary{
+			{
+				ID:      "1234567890abcdef",
+				Names:   []string{"/graft-web"},
+				Image:   "graft/web:latest",
+				State:   container.StateRunning,
+				Status:  "Up 10 minutes",
+				Created: 1781409600,
+			},
+		},
+		stats: richDockerStatsFixture(),
+	}
+	runtime := &DockerRuntime{
+		client:        client,
+		endpoint:      "unix:///var/run/docker.sock",
+		resourceStats: newResourceStatsCache(containerResourceStatsCacheTTL, containerResourceStatsCacheStaleWindow),
+	}
+	if _, err := runtime.CollectStatsSnapshots(context.Background()); err != nil {
+		t.Fatalf("collect stats snapshots: %v", err)
+	}
+
+	first, err := runtime.List(context.Background(), ListQuery{})
+	if err != nil {
+		t.Fatalf("first list: %v", err)
+	}
+	second, err := runtime.List(context.Background(), ListQuery{})
+	if err != nil {
+		t.Fatalf("second list: %v", err)
+	}
+	if len(first) != 1 || len(second) != 1 {
+		t.Fatalf("expected one item per list call, got %#v %#v", first, second)
+	}
+	if calls := client.statsCalls.Load(); calls != 1 {
+		t.Fatalf("expected repeated list polls to reuse cached stats, got %d stats calls", calls)
+	}
+}
+
+func TestDockerRuntimeActionInvalidatesCollectedResourceStats(t *testing.T) {
+	t.Parallel()
+
+	client := &countingDockerClient{
+		list: []container.Summary{
+			{
+				ID:      "1234567890abcdef",
+				Names:   []string{"/graft-web"},
+				Image:   "graft/web:latest",
+				State:   container.StateRunning,
+				Status:  "Up 10 minutes",
+				Created: 1781409600,
+			},
+		},
+		inspect: container.InspectResponse{
+			ID:      "1234567890abcdef",
+			Name:    "/graft-web",
+			State:   &container.State{Status: container.StateRunning},
+			Created: "2026-06-14T00:00:00Z",
+			Config:  &container.Config{Image: "graft/web:latest"},
+		},
+		stats: richDockerStatsFixture(),
+	}
+	runtime := &DockerRuntime{
+		client:        client,
+		endpoint:      "unix:///var/run/docker.sock",
+		resourceStats: newResourceStatsCache(containerResourceStatsCacheTTL, containerResourceStatsCacheStaleWindow),
+	}
+	if _, err := runtime.CollectStatsSnapshots(context.Background()); err != nil {
+		t.Fatalf("collect stats snapshots: %v", err)
+	}
+	if calls := client.statsCalls.Load(); calls != 1 {
+		t.Fatalf("expected seeded cache to collect one stats sample, got %d", calls)
+	}
+
+	client.stats = container.StatsResponse{
+		CPUStats: container.CPUStats{
+			CPUUsage:    container.CPUUsage{TotalUsage: 400, PercpuUsage: []uint64{200, 200}},
+			SystemUsage: 2000,
+			OnlineCPUs:  2,
+		},
+		PreCPUStats: container.CPUStats{
+			CPUUsage:    container.CPUUsage{TotalUsage: 100},
+			SystemUsage: 1000,
+		},
+		MemoryStats: container.MemoryStats{Usage: 512, Limit: 1024},
+	}
+
+	if _, err := runtime.Restart(context.Background(), Ref{Value: "graft-web"}); err != nil {
+		t.Fatalf("restart: %v", err)
+	}
+	if calls := client.statsCalls.Load(); calls != 1 {
+		t.Fatalf("expected action path not to recollect stats synchronously, got %d", calls)
+	}
+
+	detail, err := runtime.Detail(context.Background(), Ref{Value: "graft-web"})
+	if err != nil {
+		t.Fatalf("detail after restart: %v", err)
+	}
+	if detail.Resource.Available || detail.Resource.StatsAvailable {
+		t.Fatalf("expected invalidated cache to report not collected after action, got %#v", detail.Resource)
+	}
+	if calls := client.statsCalls.Load(); calls != 1 {
+		t.Fatalf("expected post-restart detail not to recollect stats, got %d", calls)
 	}
 }
 
@@ -642,7 +883,8 @@ func TestDockerRuntimeRejectsActionsWhenKnownStateDisallowsThem(t *testing.T) {
 func TestDockerResourceSummaryKeepsZeroMemoryValues(t *testing.T) {
 	t.Parallel()
 
-	resource := dockerResourceSummary(container.StatsResponse{
+	runtime := &DockerRuntime{}
+	resource := runtime.dockerResourceSummary("container-1", container.StatsResponse{
 		MemoryStats: container.MemoryStats{Usage: 0, Limit: 0},
 	})
 	if !resource.Available || !resource.StatsAvailable {
@@ -658,24 +900,24 @@ func TestDockerResourceSummaryKeepsZeroMemoryValues(t *testing.T) {
 func TestDockerResourceSummarySkipsUnknownOnlineCPUs(t *testing.T) {
 	t.Parallel()
 
+	runtime := &DockerRuntime{}
 	stats := richDockerStatsFixture()
 	stats.CPUStats.OnlineCPUs = 0
 
-	resource := dockerResourceSummary(stats)
+	resource := runtime.dockerResourceSummary("container-1", stats)
 
 	if !resource.Available || !resource.StatsAvailable {
 		t.Fatalf("expected per-CPU stats to keep resource available, got %#v", resource)
 	}
-	assertFloatPtr(t, resource.CPUPercent, 20, "computed CPU percent")
-	if resource.OnlineCPUs != nil {
-		t.Fatalf("expected unknown online CPUs to stay absent, got %#v", resource.OnlineCPUs)
-	}
+	assertFloatPtr(t, resource.CPUPercent, 40, "computed CPU percent")
+	assertInt64Ptr(t, resource.OnlineCPUs, 2, "fallback online CPUs")
 }
 
-func TestDockerResourceSummaryNormalizesCPUPercentAgainstHostCapacity(t *testing.T) {
+func TestDockerResourceSummaryMatchesDockerCLICompatibleCPUPercent(t *testing.T) {
 	t.Parallel()
 
-	resource := dockerResourceSummary(container.StatsResponse{
+	runtime := &DockerRuntime{}
+	resource := runtime.dockerResourceSummary("container-1", container.StatsResponse{
 		CPUStats: container.CPUStats{
 			CPUUsage: container.CPUUsage{
 				TotalUsage:  1_400,
@@ -694,14 +936,15 @@ func TestDockerResourceSummaryNormalizesCPUPercentAgainstHostCapacity(t *testing
 	if !resource.Available || !resource.StatsAvailable {
 		t.Fatalf("expected normalized cpu stats to remain available, got %#v", resource)
 	}
-	assertFloatPtr(t, resource.CPUPercent, 40, "normalized CPU percent")
+	assertFloatPtr(t, resource.CPUPercent, 160, "docker CLI compatible CPU percent")
 	assertInt64Ptr(t, resource.OnlineCPUs, 4, "online CPUs")
 }
 
 func TestDockerResourceSummarySkipsOverflowedNetworkTotals(t *testing.T) {
 	t.Parallel()
 
-	resource := dockerResourceSummary(container.StatsResponse{
+	runtime := &DockerRuntime{}
+	resource := runtime.dockerResourceSummary("container-1", container.StatsResponse{
 		MemoryStats: container.MemoryStats{Usage: 1, Limit: 2},
 		Networks: map[string]container.NetworkStats{
 			"one": {RxBytes: ^uint64(0), TxBytes: 10},
@@ -1064,7 +1307,7 @@ func richDockerNetworkStatsFixture() map[string]container.NetworkStats {
 func assertRichDockerResourceStats(t *testing.T, resource ResourceSummary) {
 	t.Helper()
 
-	assertFloatPtr(t, resource.CPUPercent, 20, "computed CPU percent")
+	assertFloatPtr(t, resource.CPUPercent, 40, "computed CPU percent")
 	assertInt64Ptr(t, resource.OnlineCPUs, 2, "online CPUs")
 	assertInt64Ptr(t, resource.SystemCPUUsage, 1000, "system CPU usage")
 	assertInt64Ptr(t, resource.TotalCPUUsage, 200, "total CPU usage")

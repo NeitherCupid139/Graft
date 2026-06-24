@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { defineComponent, h } from 'vue';
+import { defineComponent, h, ref } from 'vue';
 
 import type { ContainerMountUsage } from '../../types/container';
 import ContainerDetailPage from './index.vue';
@@ -29,6 +29,39 @@ const messageMocks = vi.hoisted(() => ({
   error: vi.fn(),
   success: vi.fn(),
   warning: vi.fn(),
+}));
+
+type RealtimeControllerMock = {
+  close: ReturnType<typeof vi.fn>;
+  reconnect: ReturnType<typeof vi.fn>;
+  emitMessage: (payload: unknown) => void;
+  emitStateChange: (state: 'idle' | 'connecting' | 'open' | 'closed' | 'error') => void;
+};
+
+const realtimeMocks = vi.hoisted(() => ({
+  controllers: [] as RealtimeControllerMock[],
+  openRealtimeTopicSocket: vi.fn(
+    (options?: {
+      onMessage?: (payload: unknown) => void;
+      onStateChange?: (state: 'idle' | 'connecting' | 'open' | 'closed' | 'error') => void;
+    }) => {
+      options?.onStateChange?.('open');
+      const controller: RealtimeControllerMock = {
+        close: vi.fn(() => {
+          options?.onStateChange?.('idle');
+        }),
+        emitMessage: (payload) => {
+          options?.onMessage?.(payload);
+        },
+        emitStateChange: (state) => {
+          options?.onStateChange?.(state);
+        },
+        reconnect: vi.fn(),
+      };
+      realtimeMocks.controllers.push(controller);
+      return controller;
+    },
+  ),
 }));
 
 const routerMocks = vi.hoisted(() => ({
@@ -146,6 +179,16 @@ const translations = vi.hoisted(
     'container.detail.refreshIn': '后刷新',
     'container.detail.autoRefreshSeconds': '{seconds} 秒',
     'container.detail.pauseAutoRefresh': '暂停自动刷新',
+    'container.detail.realtime.label': '资源实时订阅',
+    'container.detail.realtime.live': '实时中',
+    'container.detail.realtime.connecting': '连接中',
+    'container.detail.realtime.degraded': '连接异常',
+    'container.detail.realtime.idle': '待建立',
+    'container.detail.realtime.paused': '已暂停',
+    'container.detail.realtime.hint': '资源面板由统一 realtime topic 推送驱动，手动刷新仅同步详情结构与缓存挂载统计。',
+    'container.detail.realtime.pausedHint': '当前已暂停资源实时订阅，页面保留最后一次成功资源值。',
+    'container.detail.realtime.pause': '暂停实时',
+    'container.detail.realtime.resume': '恢复实时',
     'container.detail.refreshSuccess': '容器详情已刷新',
     'container.detail.resumeAutoRefresh': '恢复自动刷新',
     'container.detail.empty': '暂无容器详情。',
@@ -471,10 +514,13 @@ vi.mock('tdesign-vue-next/es/message', () => ({
 
 vi.mock('vue-i18n', async () => {
   const actual = await vi.importActual<typeof import('vue-i18n')>('vue-i18n');
+  const locale = ref('zh-CN');
   return {
     ...actual,
     useI18n: () => ({
-      locale: 'zh-CN',
+      locale,
+      tm: (key: string) => translations[key] ?? key,
+      te: (key: string) => key in translations,
       t: (key: string, params?: Record<string, unknown>) =>
         (translations[key] ?? key).replace(/\{(\w+)\}/g, (_, name) => String(params?.[name] ?? `{${name}}`)),
     }),
@@ -503,9 +549,14 @@ vi.mock('@/shared/observability', async () => {
   };
 });
 
+vi.mock('@/shared/realtime', () => ({
+  openRealtimeTopicSocket: realtimeMocks.openRealtimeTopicSocket,
+}));
+
 describe('container detail page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    realtimeMocks.controllers = [];
     vi.useRealTimers();
     tabStoreState.tabRouterList = [
       {
@@ -623,6 +674,23 @@ describe('container detail page', () => {
     expect(wrapper.text()).toContain('当前策略：敏感值按 脱敏 展示');
     expect(wrapper.text()).toContain('当前系统配置禁止复制包含敏感字段的环境变量。');
     expect(wrapper.text()).toContain('container');
+  });
+
+  it('keeps cpu text above 100 percent while clamping progress controls', async () => {
+    const baseDetail = createContainerDetail();
+    apiMocks.getContainer.mockResolvedValueOnce({
+      ...baseDetail,
+      resource: {
+        ...baseDetail.resource,
+        cpu_percent: 628.6,
+      },
+    });
+
+    const wrapper = mountPage();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('628.6%');
+    expect(wrapper.findAll('span').some((node) => node.text() === '100%')).toBe(true);
   });
 
   it('uses the prefilled tab title before the detail request resolves', async () => {
@@ -901,17 +969,15 @@ describe('container detail page', () => {
     expect(messageMocks.success).toHaveBeenCalledWith('容器详情已刷新');
   });
 
-  it('defaults container detail auto refresh to 5 seconds', async () => {
+  it('renders realtime status controls in the summary-to-tabs row', async () => {
     routeState.route.query.tab = 'storage';
     const wrapper = mountPage();
     await flushPromises();
 
-    expect(wrapper.find('[data-testid="container-detail-refresh-row"]').exists()).toBe(true);
-    expect(wrapper.get('[data-refresh-control-bar="true"]').attributes('data-refresh-variant')).toBe('compact');
-    expect(wrapper.get('[data-refresh-control-bar="true"]').attributes('data-refresh-appearance')).toBe('plain');
-    expect(wrapper.find('[data-refresh-interval-select="true"]').exists()).toBe(true);
-    expect(wrapper.get('[data-refresh-countdown="true"]').text()).toContain('5s 后刷新');
-    expect(wrapper.get('[data-refresh-toggle-auto="true"]').text()).toContain('暂停');
+    expect(wrapper.find('[data-testid="container-detail-realtime-row"]').exists()).toBe(true);
+    expect(wrapper.get('[data-testid="container-detail-realtime-status"]').text()).toBe('实时中');
+    expect(wrapper.get('[data-testid="container-detail-realtime-toggle"]').text()).toContain('暂停实时');
+    expect(wrapper.get('[data-refresh-now="true"]').text()).toContain('立即刷新');
     expect(wrapper.find('[data-testid="detail-back"]').exists()).toBe(false);
     expect(wrapper.text()).not.toContain('返回');
   });
@@ -921,13 +987,13 @@ describe('container detail page', () => {
     await flushPromises();
 
     const headerMeta = wrapper.get('[data-testid="container-detail-header-meta-slot"]');
-    const refreshRow = wrapper.get('[data-testid="container-detail-refresh-row"]');
+    const refreshRow = wrapper.get('[data-testid="container-detail-realtime-row"]');
 
-    expect(headerMeta.find('[data-refresh-control-bar="true"]').exists()).toBe(false);
+    expect(headerMeta.find('[data-testid="container-detail-realtime-bar"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="container-detail-header-actions-slot"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="container-detail-tabs-action-slot"]').exists()).toBe(false);
-    expect(refreshRow.find('[data-refresh-control-bar="true"]').exists()).toBe(true);
-    expect(wrapper.findAll('[data-refresh-control-bar="true"]')).toHaveLength(1);
+    expect(refreshRow.find('[data-testid="container-detail-realtime-bar"]').exists()).toBe(true);
+    expect(wrapper.findAll('[data-testid="container-detail-realtime-bar"]')).toHaveLength(1);
   });
 
   it('renders header meta as identity tags plus a separate updated-at line', async () => {
@@ -940,33 +1006,18 @@ describe('container detail page', () => {
     expect(headerMeta.text()).toContain('健康');
     expect(headerMeta.text()).toContain('docker');
     expect(headerMeta.text()).toContain('详情更新时间');
-    expect(headerMeta.find('[data-refresh-control-bar="true"]').exists()).toBe(false);
+    expect(headerMeta.find('[data-testid="container-detail-realtime-bar"]').exists()).toBe(false);
   });
 
-  it('renders paused auto refresh without countdown and with resume action', async () => {
+  it('renders paused realtime state with resume action', async () => {
     const wrapper = mountPage();
     await flushPromises();
 
-    await wrapper.get('[data-refresh-toggle-auto="true"]').trigger('click');
+    await wrapper.get('[data-testid="container-detail-realtime-toggle"]').trigger('click');
     await flushPromises();
 
-    const refreshBar = wrapper.get('[data-refresh-control-bar="true"]');
-    expect(refreshBar.text()).toContain('自动刷新已暂停');
-    expect(refreshBar.text()).toContain('恢复');
-    expect(refreshBar.find('[data-refresh-countdown="true"]').exists()).toBe(false);
-  });
-
-  it('renders auto refresh off state without countdown and with enable action', async () => {
-    const wrapper = mountPage();
-    await flushPromises();
-
-    await wrapper.get('[data-refresh-interval-select="true"]').setValue('0');
-    await flushPromises();
-
-    const refreshBar = wrapper.get('[data-refresh-control-bar="true"]');
-    expect(refreshBar.text()).toContain('自动刷新关闭');
-    expect(refreshBar.text()).toContain('开启');
-    expect(refreshBar.find('[data-refresh-countdown="true"]').exists()).toBe(false);
+    expect(wrapper.get('[data-testid="container-detail-realtime-status"]').text()).toBe('已暂停');
+    expect(wrapper.get('[data-testid="container-detail-realtime-toggle"]').text()).toContain('恢复实时');
   });
 
   it('sorts mount cards by destination, source, and type instead of API order', async () => {
@@ -1160,37 +1211,19 @@ describe('container detail page', () => {
     expect(findMountCardByDestination(wrapper, '/etc/graft').text()).toContain('4.0 MiB');
   });
 
-  it('auto refreshes with cached usage only and cleans up the timer', async () => {
-    vi.useFakeTimers();
+  it('keeps manual refresh focused on structure detail and cached mount usage', async () => {
     routeState.route.query.tab = 'storage';
     const wrapper = mountPage();
     await flushPromises();
     vi.clearAllMocks();
 
-    await wrapper.get('[data-refresh-interval-select="true"]').setValue('5');
-    await wrapper.vm.$nextTick();
-    expect(wrapper.get('[data-refresh-countdown="true"]').text()).toContain('5s 后刷新');
-
-    await vi.advanceTimersByTimeAsync(5000);
+    await wrapper.get('[data-refresh-now="true"]').trigger('click');
     await flushPromises();
 
     expect(apiMocks.getContainer).toHaveBeenCalledTimes(1);
     expect(apiMocks.getContainerMountUsage).toHaveBeenCalledTimes(1);
     expect(apiMocks.postContainerMountUsageRefresh).not.toHaveBeenCalled();
-    expect(wrapper.get('[data-refresh-countdown="true"]').text()).toContain('5s 后刷新');
-
-    await wrapper.get('[data-testid="tab-logs"]').trigger('click');
-    await wrapper.get('[data-testid="tab-logs"]').trigger('click');
-    await vi.advanceTimersByTimeAsync(5000);
-    await flushPromises();
-
-    expect(apiMocks.getContainer).toHaveBeenCalledTimes(2);
-
-    wrapper.unmount();
-    await vi.advanceTimersByTimeAsync(10000);
-
-    expect(apiMocks.getContainer).toHaveBeenCalledTimes(2);
-    vi.useRealTimers();
+    expect(messageMocks.success).toHaveBeenCalledWith('容器详情已刷新');
   });
 
   it('renders the shell panel through the existing route query tab lifecycle', async () => {
@@ -1235,37 +1268,124 @@ describe('container detail page', () => {
     expect(shellPanelSourceText).not.toContain('--container-shell-terminal-height: clamp(');
   });
 
-  it('pauses auto refresh while hidden and refreshes once when visible again', async () => {
-    vi.useFakeTimers();
-    routeState.route.query.tab = 'storage';
+  it('pauses and resumes realtime subscription from the detail toolbar toggle', async () => {
     const wrapper = mountPage();
     await flushPromises();
-    vi.clearAllMocks();
 
-    await wrapper.get('[data-refresh-interval-select="true"]').setValue('5');
+    expect(realtimeMocks.controllers.length).toBeGreaterThan(0);
+    await wrapper.get('[data-testid="container-detail-realtime-toggle"]').trigger('click');
     await flushPromises();
-    vi.clearAllMocks();
 
-    Object.defineProperty(document, 'visibilityState', {
-      configurable: true,
-      value: 'hidden',
+    expect(wrapper.get('[data-testid="container-detail-realtime-status"]').text()).toBe('已暂停');
+    expect(realtimeMocks.controllers.every((controller) => controller.close.mock.calls.length > 0)).toBe(true);
+
+    realtimeMocks.openRealtimeTopicSocket.mockClear();
+    await wrapper.get('[data-testid="container-detail-realtime-toggle"]').trigger('click');
+    await flushPromises();
+
+    expect(realtimeMocks.openRealtimeTopicSocket).toHaveBeenCalled();
+    expect(wrapper.get('[data-testid="container-detail-realtime-status"]').text()).toBe('实时中');
+  });
+
+  it('does not preserve stale realtime resource on manual refresh before any socket snapshot arrives', async () => {
+    const wrapper = mountPage();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('21.8%');
+    apiMocks.getContainer.mockResolvedValueOnce({
+      ...createContainerDetail(),
+      resource: {
+        ...createContainerDetail().resource,
+        cpu_percent: 7.5,
+      },
     });
-    document.dispatchEvent(new Event('visibilitychange'));
-    await vi.advanceTimersByTimeAsync(5000);
+
+    await wrapper.get('[data-refresh-now="true"]').trigger('click');
     await flushPromises();
 
-    expect(apiMocks.getContainer).not.toHaveBeenCalled();
+    expect(wrapper.text()).toContain('7.5%');
+    expect(wrapper.text()).not.toContain('21.8%');
+  });
 
-    Object.defineProperty(document, 'visibilityState', {
-      configurable: true,
-      value: 'visible',
+  it('uses fresh detail resource after pausing realtime and manually refreshing', async () => {
+    const wrapper = mountPage();
+    await flushPromises();
+
+    expect(realtimeMocks.controllers.length).toBeGreaterThan(0);
+    const controller = realtimeMocks.controllers.at(-1)!;
+    controller.emitMessage({
+      id: createContainerDetail().id,
+      resource: {
+        ...createContainerDetail().resource,
+        cpu_percent: 88.8,
+      },
     });
-    document.dispatchEvent(new Event('visibilitychange'));
+    await flushPromises();
+    expect(wrapper.text()).toContain('88.8%');
+
+    await wrapper.get('[data-testid="container-detail-realtime-toggle"]').trigger('click');
+    await flushPromises();
+    expect(wrapper.get('[data-testid="container-detail-realtime-status"]').text()).toBe('已暂停');
+
+    apiMocks.getContainer.mockResolvedValueOnce({
+      ...createContainerDetail(),
+      resource: {
+        ...createContainerDetail().resource,
+        cpu_percent: 7.5,
+      },
+    });
+
+    await wrapper.get('[data-refresh-now="true"]').trigger('click');
     await flushPromises();
 
-    expect(apiMocks.getContainer).toHaveBeenCalled();
-    wrapper.unmount();
-    vi.useRealTimers();
+    expect(wrapper.text()).toContain('7.5%');
+    expect(wrapper.text()).not.toContain('88.8%');
+  });
+
+  it('ignores stale socket messages after switching to another container detail', async () => {
+    const firstDetail = deferred<ReturnType<typeof createContainerDetail>>();
+    apiMocks.getContainer.mockReturnValueOnce(firstDetail.promise);
+
+    const wrapper = mountPage();
+    await flushPromises();
+
+    firstDetail.resolve(createContainerDetail());
+    await flushPromises();
+    expect(realtimeMocks.controllers.length).toBeGreaterThan(0);
+    const firstController = realtimeMocks.controllers.at(-1)!;
+
+    routeState.route.path = '/ops/containers/container-2';
+    routeState.route.fullPath = '/ops/containers/container-2?tab=config';
+    routeState.route.params.id = 'container-2';
+    apiMocks.getContainer.mockResolvedValueOnce({
+      ...createContainerDetail(),
+      id: 'container-2-full-id',
+      short_id: 'container-2',
+      name: 'graft-worker',
+      names: ['graft-worker'],
+      resource: {
+        ...createContainerDetail().resource,
+        cpu_percent: 33.3,
+      },
+    });
+
+    await flushPromises();
+    expect(wrapper.find('h1').text()).toBe('graft-worker');
+    expect(wrapper.text()).toContain('33.3%');
+
+    firstController.emitStateChange('error');
+    firstController.emitMessage({
+      id: 'container-1',
+      resource: {
+        ...createContainerDetail().resource,
+        cpu_percent: 98.8,
+      },
+    });
+    await flushPromises();
+
+    expect(wrapper.get('[data-testid="container-detail-realtime-status"]').text()).toBe('实时中');
+    expect(wrapper.text()).toContain('33.3%');
+    expect(wrapper.text()).not.toContain('98.8%');
   });
 
   it('renders single network details as cards with one port mapping', async () => {
@@ -2270,6 +2390,9 @@ describe('container detail page', () => {
     expect(styleSource).toContain('.container-resource-cpu-metric-grid,');
     expect(styleSource).toContain('@media (width <= 720px)');
     expect(styleSource).toContain('grid-template-columns: 1fr;');
+    expect(styleSource).toContain('.container-detail-realtime-bar {');
+    expect(styleSource).toContain('.container-detail-realtime-bar__hint {');
+    expect(styleSource).toContain('.container-detail-realtime-bar__actions {');
   });
 
   it('renders memory and CPU as full-width detail cards before the lower metric cards', async () => {

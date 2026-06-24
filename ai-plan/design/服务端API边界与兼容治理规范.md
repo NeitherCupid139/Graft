@@ -167,6 +167,17 @@ CI 适合做：
 - authority 文件变更与派生产物同步检查
 - OpenAPI drift 检查
 
+### 4.4 Realtime API Authority
+
+统一 realtime 订阅也属于 OpenAPI authority 管理范围。
+
+规则：
+
+* 普通订阅类实时能力必须先经过 HTTP 票据签发接口，再进入统一 WebSocket gateway
+* WebSocket gateway 的 canonical authority 是统一 `/ws` 路径，而不是各模块长期各自维护一组订阅型 WS path
+* topic、ticket、权限、resource scope 的语义必须先落 OpenAPI source，再同步到 runtime 和 `web`
+* shell 这类双向交互终端能力可以保留独立专用通道，但普通 topic 订阅不再新增模块私有 WS 路径
+
 ## 5. 兼容与废弃治理
 
 ### 5.1 兼容不是默认答案

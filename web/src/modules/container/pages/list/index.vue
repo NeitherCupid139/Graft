@@ -131,19 +131,6 @@
             @density="toggleTableDensity"
             @refresh="handleManualRefresh"
           />
-          <refresh-control-bar
-            :status="refreshControlStatus"
-            :countdown-seconds="remainingAutoRefreshSeconds"
-            :interval="AUTO_REFRESH_INTERVAL_SECONDS"
-            :interval-options="autoRefreshOptions"
-            :refreshing="refreshing"
-            :show-countdown="true"
-            appearance="plain"
-            variant="compact"
-            @pause="setAutoRefreshEnabled(false)"
-            @refresh="handleManualRefresh"
-            @resume="setAutoRefreshEnabled(true)"
-          />
         </div>
       </template>
       <template #batch>
@@ -486,7 +473,7 @@ import type { DialogInstance, DropdownOption, TdBaseTableProps } from 'tdesign-v
 import { DialogPlugin } from 'tdesign-vue-next/es/dialog';
 import { MessagePlugin } from 'tdesign-vue-next/es/message';
 import { NotifyPlugin } from 'tdesign-vue-next/es/notification';
-import { computed, h, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
+import { computed, h, onMounted, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 
@@ -502,7 +489,6 @@ import {
   useTableHostWidth,
 } from '@/shared/components/management';
 import { AdvancedQueryColumnDrawer } from '@/shared/components/query-list';
-import { RefreshControlBar, type RefreshControlOption } from '@/shared/components/refresh';
 import { useCurrentTabRefresh } from '@/shared/composables/useTabRefresh';
 import { resolveLocalizedErrorMessage } from '@/shared/localized-api-error';
 import { formatLocaleDateTime } from '@/shared/observability';
@@ -521,6 +507,7 @@ import {
 } from '../../api/container';
 import { CONTAINER_BOOTSTRAP_ROUTE } from '../../contract/bootstrap';
 import { CONTAINER_PERMISSION_CODE } from '../../contract/permissions';
+import { CONTAINER_REALTIME_TOPIC } from '../../contract/realtime';
 import type {
   ContainerAction,
   ContainerActionLevel,
@@ -545,7 +532,7 @@ defineOptions({
   name: 'ContainerListIndex',
 });
 
-const { locale, t } = useI18n();
+const { locale, t, te } = useI18n();
 const router = useRouter();
 const tabsRouterStore = useTabsRouterStore();
 const logger = createLogger('container.list');
@@ -602,8 +589,6 @@ const ALL_COLUMN_KEYS = [
 const CONTAINER_PORT_VISIBLE_LIMIT = 2;
 const CONTAINER_DEFAULT_PAGE_SIZE = 20;
 const BYTES_PER_MIB = 1024 * 1024;
-const AUTO_REFRESH_INTERVAL_SECONDS = 1;
-
 type ListErrorState = {
   title: string;
   hint: string;
@@ -648,9 +633,6 @@ const batchActionLoading = ref<DangerousContainerAction | ''>('');
 const activeDangerousDialog = ref<DialogInstance | null>(null);
 const dangerousDialogOpen = ref(false);
 const pendingSourceScopeFilter = ref<SourceQuickFilterValue | null>(null);
-const autoRefreshEnabled = ref(true);
-const remainingAutoRefreshSeconds = ref<number | null>(null);
-const isPageVisible = ref(true);
 const filters = reactive<ContainerFilters>({
   keyword: '',
   orchestrator: 'all',
@@ -826,32 +808,14 @@ const selectedRows = computed(() => {
   const selectedKeySet = new Set(selectedRowKeys.value.map(String));
   return rows.value.filter((row) => selectedKeySet.has(row.id));
 });
-const autoRefreshOptions = computed<RefreshControlOption[]>(() => [
-  {
-    label: t('container.list.autoRefreshInterval1Second'),
-    value: AUTO_REFRESH_INTERVAL_SECONDS,
-  },
-]);
-const refreshControlStatus = computed(() => (autoRefreshEnabled.value ? ('running' as const) : ('paused' as const)));
-
-let autoRefreshTimer: ReturnType<typeof setInterval> | number | null = null;
-let nextAutoRefreshAt: number | null = null;
 let refreshRequestSeq = 0;
 
 onMounted(() => {
   void refreshContainers();
-  document.addEventListener('visibilitychange', handleVisibilityChange, false);
-  scheduleAutoRefresh();
 });
 
 useCurrentTabRefresh(async () => {
   await refreshContainers();
-  scheduleAutoRefresh();
-});
-
-onUnmounted(() => {
-  stopAutoRefresh();
-  document.removeEventListener('visibilitychange', handleVisibilityChange);
 });
 
 watch(
@@ -900,7 +864,6 @@ watch(
 
 async function refreshContainers() {
   const requestSeq = ++refreshRequestSeq;
-  stopAutoRefresh();
   const shouldBlockTable = rows.value.length === 0 && !tableLoading.value;
   if (shouldBlockTable) {
     tableLoading.value = true;
@@ -932,64 +895,15 @@ async function refreshContainers() {
     if (requestSeq === refreshRequestSeq) {
       tableLoading.value = false;
       refreshing.value = false;
-      scheduleAutoRefresh();
     }
   }
 }
 
 async function handleManualRefresh() {
+  if (tableLoading.value || refreshing.value) {
+    return;
+  }
   await refreshContainers();
-}
-
-function handleVisibilityChange() {
-  isPageVisible.value = document.visibilityState === 'visible';
-  if (!isPageVisible.value) {
-    stopAutoRefresh();
-    return;
-  }
-  void refreshContainers();
-}
-
-function setAutoRefreshEnabled(enabled: boolean) {
-  autoRefreshEnabled.value = enabled;
-  if (!enabled) {
-    stopAutoRefresh();
-    remainingAutoRefreshSeconds.value = null;
-    return;
-  }
-  void refreshContainers();
-}
-
-function scheduleAutoRefresh() {
-  stopAutoRefresh();
-  if (!autoRefreshEnabled.value || !isPageVisible.value || tableLoading.value || refreshing.value) {
-    remainingAutoRefreshSeconds.value = null;
-    return;
-  }
-  nextAutoRefreshAt = Date.now() + AUTO_REFRESH_INTERVAL_SECONDS * 1000;
-  updateRemainingAutoRefreshSeconds();
-  autoRefreshTimer = window.setInterval(() => {
-    updateRemainingAutoRefreshSeconds();
-    if (remainingAutoRefreshSeconds.value === 0) {
-      void refreshContainers();
-    }
-  }, 1000);
-}
-
-function stopAutoRefresh() {
-  if (autoRefreshTimer !== null) {
-    clearInterval(autoRefreshTimer);
-    autoRefreshTimer = null;
-  }
-  nextAutoRefreshAt = null;
-}
-
-function updateRemainingAutoRefreshSeconds() {
-  if (nextAutoRefreshAt === null) {
-    remainingAutoRefreshSeconds.value = null;
-    return;
-  }
-  remainingAutoRefreshSeconds.value = Math.max(0, Math.ceil((nextAutoRefreshAt - Date.now()) / 1000));
 }
 
 function pruneSelectedRows() {
@@ -1685,23 +1599,19 @@ function labelSummary(row: ContainerSummaryRecord) {
 }
 
 function resourceSummary(row: ContainerSummaryRecord) {
-  if (!isResourceStatsAvailable(row)) {
-    return resourceUnavailableSummary(row);
-  }
-
-  const resource = row.resource;
-  const cpu = resource?.cpu_percent === undefined ? '-' : `${resource.cpu_percent.toFixed(1)}%`;
-  const memory = resource?.memory_percent === undefined ? '-' : `${resource.memory_percent.toFixed(1)}%`;
+  const cpu = cpuMetric(row).value;
+  const memory = memoryMetric(row).summaryValue;
   return `${cpu} / ${memory}`;
 }
 
-function cpuMetric(row: ContainerSummaryRecord): ResourceMetric {
-  if (!isResourceStatsAvailable(row) || row.resource?.cpu_percent === undefined) {
+function cpuMetric(row: ContainerSummaryRecord): ResourceMetric & { summaryValue: string } {
+  if (row.resource?.cpu_percent === undefined) {
     return {
       available: false,
       percentage: 0,
-      tooltip: resourceUnavailableSummary(row),
-      value: t('container.list.stats.notCollected'),
+      summaryValue: t('container.list.stats.unavailable'),
+      tooltip: resourceUnavailableSummary(row, 'cpu'),
+      value: t('container.list.stats.unavailable'),
     };
   }
 
@@ -1709,34 +1619,38 @@ function cpuMetric(row: ContainerSummaryRecord): ResourceMetric {
   return {
     available: true,
     percentage: clampPercentage(row.resource.cpu_percent),
+    summaryValue: value,
     tooltip: t('container.list.stats.cpuTooltip', { percent: value }),
     value,
   };
 }
 
-function memoryMetric(row: ContainerSummaryRecord): ResourceMetric {
-  if (!isResourceStatsAvailable(row) || row.resource?.memory_percent === undefined) {
+function memoryMetric(row: ContainerSummaryRecord): ResourceMetric & { summaryValue: string } {
+  if (row.resource?.memory_usage_bytes === undefined || row.resource?.memory_percent === undefined) {
     return {
       available: false,
       percentage: 0,
-      tooltip: resourceUnavailableSummary(row),
-      value: t('container.list.stats.notCollected'),
+      summaryValue: t('container.list.stats.unavailable'),
+      tooltip: resourceUnavailableSummary(row, 'memory'),
+      value: t('container.list.stats.unavailable'),
     };
   }
 
   const usage = formatBytes(row.resource.memory_usage_bytes);
   const limit = formatBytes(row.resource.memory_limit_bytes);
   const percent = `${row.resource.memory_percent.toFixed(1)}%`;
+  const value = usage || t('container.list.stats.unavailable');
 
   return {
     available: true,
     percentage: clampPercentage(row.resource.memory_percent),
+    summaryValue: percent,
     tooltip: t('container.list.stats.memoryTooltip', {
-      limit: limit || '-',
+      limit: limit || t('container.list.stats.unavailable'),
       percent,
-      usage: usage || '-',
+      usage: value,
     }),
-    value: usage || '-',
+    value,
   };
 }
 
@@ -1744,17 +1658,31 @@ function clampPercentage(value: number) {
   return Math.min(100, Math.max(0, Number.isFinite(value) ? value : 0));
 }
 
-function isResourceStatsAvailable(row: ContainerSummaryRecord) {
-  if (row.resource?.stats_available !== undefined) {
-    return row.resource.stats_available;
-  }
-
-  return Boolean(row.resource?.available);
+function resourceUnavailableSummary(row: ContainerSummaryRecord, metric: 'cpu' | 'memory') {
+  const reason = localizeResourceUnavailableReason(
+    (metric === 'memory' && row.resource?.memory_usage_bytes === undefined && row.resource?.stats_error_message) ||
+      row.resource?.stats_error_message ||
+      row.resource?.stats_error_key ||
+      row.resource?.unavailable_reason,
+  );
+  return reason || t('container.list.stats.unavailable');
 }
 
-function resourceUnavailableSummary(row: ContainerSummaryRecord) {
-  const reason = row.resource?.stats_error_message || row.resource?.stats_error_key || row.resource?.unavailable_reason;
-  return reason?.trim() || t('container.list.resourceUnavailable');
+function localizeResourceUnavailableReason(reason?: string | null) {
+  const normalizedReason = reason?.trim();
+  if (!normalizedReason) {
+    return '';
+  }
+  if (
+    !normalizedReason.startsWith('ops.container.error.') &&
+    !normalizedReason.startsWith(CONTAINER_REALTIME_TOPIC.STATS_PREFIX)
+  ) {
+    return normalizedReason;
+  }
+  if (te(normalizedReason)) {
+    return t(normalizedReason);
+  }
+  return t('container.list.stats.unavailableReasonFallback');
 }
 
 function formatBytes(value?: number) {
@@ -2040,10 +1968,6 @@ function normalizeVisibleColumnKeys(keys: unknown[]) {
   justify-content: space-between;
 }
 
-.container-toolbar-row :deep(.refresh-control-bar) {
-  margin-left: auto;
-}
-
 .container-table-head,
 .container-image,
 .container-identity,
@@ -2242,11 +2166,6 @@ function normalizeVisibleColumnKeys(keys: unknown[]) {
 @media (width <= 768px) {
   .container-toolbar-row {
     align-items: stretch;
-  }
-
-  .container-toolbar-row :deep(.refresh-control-bar) {
-    margin-left: 0;
-    width: 100%;
   }
 
   .container-actions {

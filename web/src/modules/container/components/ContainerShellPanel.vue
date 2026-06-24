@@ -73,6 +73,7 @@ import type {
 } from '@/shared/components/terminal/terminal-types';
 import WebTerminal from '@/shared/components/terminal/WebTerminal.vue';
 import { localizedApiErrorMessage } from '@/shared/localized-api-error';
+import { toRealtimeWebSocketUrl } from '@/shared/realtime';
 import { getPermissionStore } from '@/store';
 import type { ApiRequestError } from '@/types/axios';
 import { isApiRequestError } from '@/utils/request';
@@ -180,7 +181,7 @@ const connector: TerminalSessionConnector = {
         rows: context.rows,
       });
       return {
-        url: toWebSocketUrl(session.websocket_url),
+        url: toRealtimeWebSocketUrl(session.websocket_url),
       };
     } catch (error) {
       const message = resolveShellErrorMessage(error);
@@ -326,12 +327,6 @@ function applyServerAvailability(error: ApiRequestError) {
     return;
   }
   serverAvailability.value = 'ready';
-}
-
-function toWebSocketUrl(relativePath: string) {
-  const base = new URL(window.location.href);
-  const protocol = base.protocol === 'https:' ? 'wss:' : 'ws:';
-  return new URL(relativePath, `${protocol}//${base.host}`).toString();
 }
 
 defineExpose({

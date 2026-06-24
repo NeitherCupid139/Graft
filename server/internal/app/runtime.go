@@ -13,8 +13,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
-	"gopkg.in/yaml.v3"
 	"go.uber.org/zap"
+	"gopkg.in/yaml.v3"
 
 	"graft/server/internal/buildinfo"
 	"graft/server/internal/cachex"
@@ -39,6 +39,7 @@ import (
 	"graft/server/internal/moduleruntime"
 	moduleruntimelocales "graft/server/internal/moduleruntime/locales"
 	"graft/server/internal/permission"
+	"graft/server/internal/realtime"
 	"graft/server/internal/realtimeauth"
 	"graft/server/internal/redisx"
 	"graft/server/internal/statex"
@@ -96,6 +97,8 @@ type Runtime struct {
 	server                    *httpx.Server
 	openapiDocs               *openAPIDocsAssets
 	eventBus                  eventbus.Bus
+	realtimeHub               realtime.Hub
+	realtimeTopicIssuers      realtime.TopicIssuerRegistry
 	services                  *container.Container
 	menuRegistry              *menu.Registry
 	permissionRegistry        *permission.Registry
@@ -114,7 +117,8 @@ type Runtime struct {
 //
 // 返回：
 //   - *Runtime: 已完成 core 资源装配和模块登记的运行时对象。
-//   - error: 当配置、数据库、Redis 或核心服务注册失败时返回错误，并尽力回收已创建资源。
+// NewRuntime 加载配置并构建运行时实例，完成核心资源、服务、路由和模块注册。
+// 在装配过程中任一步骤失败时返回错误，并在部分失败场景下尽力回收已创建的核心资源。
 func NewRuntime() (*Runtime, error) {
 	cfg, err := config.Load()
 	if err != nil {
@@ -144,7 +148,10 @@ func NewRuntime() (*Runtime, error) {
 		return nil, err
 	}
 
-	runtime.registerCoreRoutes(runtime.server.Engine())
+	if err := runtime.registerCoreRoutes(runtime.server.Engine()); err != nil {
+		_ = runtime.closeCoreResources()
+		return nil, err
+	}
 
 	if err := runtime.registerRuntimeModules(cfg.Modules.Enabled); err != nil {
 		return nil, err
@@ -208,7 +215,8 @@ func newRuntimeCore(cfg *config.Config) (*Runtime, error) {
 	return newRuntimeCoreWithDeps(cfg, defaultRuntimeCoreDeps)
 }
 
-// newRuntimeCoreWithDeps initializes all core runtime resources and returns a fully configured Runtime instance with locale resources pre-registered.
+// newRuntimeCoreWithDeps 初始化核心运行时资源，并返回已完成配置且预注册了本地化资源的 Runtime 实例。
+// 它会按顺序创建日志、数据库、Redis、i18n、仓储、缓存管理器、HTTP 服务器以及各类注册表，并在任一步失败时回收已创建资源。
 func newRuntimeCoreWithDeps(cfg *config.Config, deps runtimeCoreDeps) (*Runtime, error) {
 	deps = normalizeRuntimeCoreDeps(deps)
 	applyGinMode(cfg)
@@ -276,15 +284,17 @@ func newRuntimeCoreWithDeps(cfg *config.Config, deps runtimeCoreDeps) (*Runtime,
 				SlowThreshold: time.Duration(cfg.HTTPX.AccessLogSlowThresholdMS) * time.Millisecond,
 			},
 		}, accessLogRepo),
-		eventBus:           eventbus.New(runtimeLogger),
-		services:           container.New(),
-		menuRegistry:       menu.NewRegistry(),
-		permissionRegistry: permission.NewRegistry(),
-		cronRegistry:       cronx.NewRegistry(),
-		configRegistry:     configregistry.NewRegistry(),
-		dashboardRegistry:  dashboard.NewRegistry(),
-		moduleManager:      module.NewManager(),
-		appLogRepository:   appLogRepo,
+		eventBus:             eventbus.New(runtimeLogger),
+		realtimeHub:          realtime.NewHub(),
+		realtimeTopicIssuers: realtime.NewTopicIssuerRegistry(),
+		services:             container.New(),
+		menuRegistry:         menu.NewRegistry(),
+		permissionRegistry:   permission.NewRegistry(),
+		cronRegistry:         cronx.NewRegistry(),
+		configRegistry:       configregistry.NewRegistry(),
+		dashboardRegistry:    dashboard.NewRegistry(),
+		moduleManager:        module.NewManager(),
+		appLogRepository:     appLogRepo,
 	}
 	if err := runtime.preregisterOwnerLocaleResources(); err != nil {
 		_ = runtime.closeCoreResources()
@@ -535,6 +545,7 @@ func (r *Runtime) newModuleContext(runCtx context.Context) *module.Context {
 		Logger:             r.logger,
 		I18n:               r.i18n,
 		EventBus:           r.eventBus,
+		Realtime:           r.realtimeHub,
 		Router:             r.server.Engine().Group("/api"),
 		Services:           r.services,
 		RuntimeMetadata:    r.runtimeMetadata,
@@ -568,6 +579,9 @@ func (r *Runtime) registerCoreAuthenticatedRoutes() error {
 		return err
 	}
 	if err := r.registerDashboardWithAuth(authService, authorizer); err != nil {
+		return err
+	}
+	if err := r.registerRealtimeSubscriptionRoutes(); err != nil {
 		return err
 	}
 
@@ -878,6 +892,47 @@ func (r *Runtime) resolveLogExplorerAuthorizer() (moduleapi.Authorizer, error) {
 	return authorizer, nil
 }
 
+func (r *Runtime) registerRealtimeSubscriptionRoutes() error {
+	if r == nil || r.server == nil {
+		return errors.New("runtime server is unavailable")
+	}
+
+	authService, err := r.resolveLogExplorerAuthService()
+	if err != nil {
+		return fmt.Errorf("resolve realtime auth service: %w", err)
+	}
+	authorizer, err := r.resolveLogExplorerAuthorizer()
+	if err != nil {
+		return fmt.Errorf("resolve realtime authorizer: %w", err)
+	}
+
+	group := r.server.Engine().Group("/api")
+	group.Use(httpx.RequestIDMiddleware())
+	group.Use(httpx.RequirePermission(r.i18n, authService, authorizer, ""))
+
+	return realtime.RegisterSubscriptionRoutes(group, realtime.HTTPRegistration{
+		I18n:     r.i18n,
+		Registry: r.realtimeTopicIssuers,
+	})
+}
+
+func (r *Runtime) injectedRealtimeTicketService() realtimeauth.Service {
+	if r == nil || r.services == nil {
+		return nil
+	}
+
+	resolved, err := r.services.Resolve((*realtimeauth.Service)(nil))
+	if err != nil {
+		return nil
+	}
+
+	service, ok := resolved.(realtimeauth.Service)
+	if !ok {
+		return nil
+	}
+	return service
+}
+
 func (r *Runtime) loadOptionalDocsAssets() error {
 	if r.config == nil || !r.config.Docs.Enabled {
 		return nil
@@ -892,7 +947,37 @@ func (r *Runtime) loadOptionalDocsAssets() error {
 	return nil
 }
 
-func (r *Runtime) registerCoreRoutes(engine *gin.Engine) {
+func (r *Runtime) registerCoreRoutes(engine *gin.Engine) error {
+	if engine == nil {
+		return nil
+	}
+
+	if err := r.registerRealtimeGatewayRoute(engine); err != nil {
+		return err
+	}
+	r.registerHealthRoute(engine)
+	r.registerOpenAPIRoutes(engine)
+	return nil
+}
+
+func (r *Runtime) registerRealtimeGatewayRoute(engine *gin.Engine) error {
+	ticketService := r.injectedRealtimeTicketService()
+	if ticketService == nil {
+		return nil
+	}
+
+	if err := realtime.RegisterWebSocketGateway(engine, realtime.GatewayRegistration{
+		Hub:                   r.realtimeHub,
+		I18n:                  r.i18n,
+		Tickets:               ticketService,
+		WebSocketAllowOrigins: append([]string(nil), r.config.HTTPX.WebSocketAllowedOrigins...),
+	}); err != nil {
+		return fmt.Errorf("register realtime websocket gateway: %w", err)
+	}
+	return nil
+}
+
+func (r *Runtime) registerHealthRoute(engine *gin.Engine) {
 	engine.GET("/healthz", func(ctx *gin.Context) {
 		coreHealthGeneratedHandler{}.GetHealthz()
 		ctx.JSON(http.StatusOK, gin.H{
@@ -904,38 +989,44 @@ func (r *Runtime) registerCoreRoutes(engine *gin.Engine) {
 			"jobs":           len(r.cronRegistry.Items()),
 		})
 	})
+}
 
+func (r *Runtime) registerOpenAPIRoutes(engine *gin.Engine) {
 	if r.config == nil || !r.config.Docs.Enabled || r.openapiDocs == nil {
 		return
 	}
 
-	engine.GET(openapiJSONPath, func(ctx *gin.Context) {
-		ctx.Data(http.StatusOK, "application/json; charset=utf-8", r.openapiDocs.json)
-	})
-	engine.GET(openapiYAMLPath, func(ctx *gin.Context) {
-		yamlSpec, err := buildLegacyOpenAPIYAML(r.openapiDocs.json)
-		if err != nil {
-			if r.logger != nil {
-				r.appLogger().
-					Error(ctx.Request.Context(), "build legacy openapi yaml", logger.ErrorField(err))
-			}
-			ctx.String(http.StatusInternalServerError, "failed to render openapi yaml")
-			return
+	engine.GET(openapiJSONPath, r.handleOpenAPIJSON)
+	engine.GET(openapiYAMLPath, r.handleOpenAPIYAML)
+	engine.GET(openapiDocsPath, r.handleOpenAPIDocs)
+}
+
+func (r *Runtime) handleOpenAPIJSON(ctx *gin.Context) {
+	ctx.Data(http.StatusOK, "application/json; charset=utf-8", r.openapiDocs.json)
+}
+
+func (r *Runtime) handleOpenAPIYAML(ctx *gin.Context) {
+	yamlSpec, err := buildLegacyOpenAPIYAML(r.openapiDocs.json)
+	if err != nil {
+		if r.logger != nil {
+			r.appLogger().Error(ctx.Request.Context(), "build legacy openapi yaml", logger.ErrorField(err))
 		}
-		ctx.Data(http.StatusOK, "application/yaml; charset=utf-8", yamlSpec)
-	})
-	engine.GET(openapiDocsPath, func(ctx *gin.Context) {
-		html, err := renderScalarDocsHTML(openapiJSONPath)
-		if err != nil {
-			if r.logger != nil {
-				r.appLogger().
-					Error(ctx.Request.Context(), "render docs page", logger.ErrorField(err))
-			}
-			ctx.String(http.StatusInternalServerError, "failed to render docs page")
-			return
+		ctx.String(http.StatusInternalServerError, "failed to render openapi yaml")
+		return
+	}
+	ctx.Data(http.StatusOK, "application/yaml; charset=utf-8", yamlSpec)
+}
+
+func (r *Runtime) handleOpenAPIDocs(ctx *gin.Context) {
+	html, err := renderScalarDocsHTML(openapiJSONPath)
+	if err != nil {
+		if r.logger != nil {
+			r.appLogger().Error(ctx.Request.Context(), "render docs page", logger.ErrorField(err))
 		}
-		ctx.Data(http.StatusOK, "text/html; charset=utf-8", html)
-	})
+		ctx.String(http.StatusInternalServerError, "failed to render docs page")
+		return
+	}
+	ctx.Data(http.StatusOK, "text/html; charset=utf-8", html)
 }
 
 var _ healthopenapi.ServerInterface = coreHealthGeneratedHandler{}
@@ -1033,6 +1124,18 @@ func (r *Runtime) foundationServiceRegistrations() []serviceRegistration {
 			key: (*eventbus.Bus)(nil),
 			provider: func() (any, error) {
 				return r.eventBus, nil
+			},
+		},
+		{
+			key: (*realtime.Hub)(nil),
+			provider: func() (any, error) {
+				return r.realtimeHub, nil
+			},
+		},
+		{
+			key: (*realtime.TopicIssuerRegistry)(nil),
+			provider: func() (any, error) {
+				return r.realtimeTopicIssuers, nil
 			},
 		},
 	}

@@ -38,6 +38,10 @@ const (
 	defaultContainerDockerEndpoint          = "unix:///var/run/docker.sock"
 	defaultContainerLogsDefaultTail         = 200
 	defaultContainerLogsMaxTail             = 2000
+	defaultContainerResourceStatsCacheTTL    = 2
+	defaultContainerResourceStatsStaleWindow = 8
+	maxContainerResourceStatsCacheTTL        = 60
+	maxContainerResourceStatsStaleWindow     = 300
 	defaultContainerDangerousActionsEnabled = false
 	defaultContainerComposeActionLevel      = containercontract.ContainerOrchestratorActionLevelWarn
 	defaultContainerSwarmActionLevel        = containercontract.ContainerOrchestratorActionLevelReadonly
@@ -105,6 +109,30 @@ func configDefinitions() []configregistry.Definition {
 			defaultNumber: defaultContainerLogsMaxTail,
 			minimum:       defaultContainerLogsDefaultTail,
 			maximum:       defaultContainerLogsMaxTail,
+		}),
+		containerIntegerDefinition(containerIntegerDefinitionSpec{
+			containerDefinitionSpec: containerDefinitionSpec{
+				key:                 containercontract.ContainerResourceStatsCacheTTLConfig.String(),
+				group:               containerConfigLogsGroup,
+				fallbackTitle:       "",
+				fallbackDescription: "",
+				defaultValue:        mustRawJSON(defaultContainerResourceStatsCacheTTL),
+			},
+			defaultNumber: defaultContainerResourceStatsCacheTTL,
+			minimum:       1,
+			maximum:       maxContainerResourceStatsCacheTTL,
+		}),
+		containerIntegerDefinition(containerIntegerDefinitionSpec{
+			containerDefinitionSpec: containerDefinitionSpec{
+				key:                 containercontract.ContainerResourceStatsCacheStaleWindowConfig.String(),
+				group:               containerConfigLogsGroup,
+				fallbackTitle:       "",
+				fallbackDescription: "",
+				defaultValue:        mustRawJSON(defaultContainerResourceStatsStaleWindow),
+			},
+			defaultNumber: defaultContainerResourceStatsStaleWindow,
+			minimum:       1,
+			maximum:       maxContainerResourceStatsStaleWindow,
 		}),
 		containerBooleanDefinition(containerDefinitionSpec{
 			key:                 containercontract.ContainerDangerousActionsEnabledConfig.String(),
@@ -246,7 +274,7 @@ func containerBooleanDefinition(spec containerDefinitionSpec) configregistry.Def
 	return definition
 }
 
-// containerIntegerDefinition 为整数类型的容器配置项创建配置定义。日志尾部配置采用运行时热加载模式，其他配置采用未知模式。
+// containerIntegerDefinition 为整数类型的容器配置项创建配置定义，并为日志尾部和资源统计缓存相关配置启用运行时热更新。
 func containerIntegerDefinition(spec containerIntegerDefinitionSpec) configregistry.Definition {
 	definitionSpec := spec.containerDefinitionSpec
 	definitionSpec.valueType = configregistry.ValueTypeInteger
@@ -254,7 +282,9 @@ func containerIntegerDefinition(spec containerIntegerDefinitionSpec) configregis
 	definition := baseContainerDefinition(definitionSpec)
 	switch definitionSpec.key {
 	case containercontract.ContainerLogsDefaultTailConfig.String(),
-		containercontract.ContainerLogsMaxTailConfig.String():
+		containercontract.ContainerLogsMaxTailConfig.String(),
+		containercontract.ContainerResourceStatsCacheTTLConfig.String(),
+		containercontract.ContainerResourceStatsCacheStaleWindowConfig.String():
 		definition.RuntimeApplyMode = configregistry.RuntimeApplyModeRuntimeHot
 	default:
 		definition.RuntimeApplyMode = configregistry.RuntimeApplyModeUnknown
@@ -403,17 +433,34 @@ func containerBooleanSchema(key string) json.RawMessage {
 	))
 }
 
+// containerIntegerSchema 返回指定整数配置的 JSON Schema。
+// Schema 包含类型、最小值、最大值、默认值，以及对应的标题、描述和单位 i18n 键。
 func containerIntegerSchema(key string, defaultValue int, minimum int, maximum int) json.RawMessage {
 	return json.RawMessage(fmt.Sprintf(
-		`{"type":"integer","minimum":%d,"maximum":%d,"default":%d,"x-i18n":{"titleKey":%q,"descriptionKey":%q,"unitKey":"systemConfig.units.rows"}}`,
+		`{"type":"integer","minimum":%d,"maximum":%d,"default":%d,"x-i18n":{"titleKey":%q,"descriptionKey":%q,"unitKey":%q}}`,
 		minimum,
 		maximum,
 		defaultValue,
 		containerConfigTitleKey(key),
 		containerConfigDescriptionKey(key),
+		containerIntegerUnitKey(key),
 	))
 }
 
+// containerIntegerUnitKey 返回容器整数配置对应的单位键。
+// 资源统计缓存 TTL 和陈旧窗口使用秒单位，其它整数配置使用行单位。
+func containerIntegerUnitKey(key string) string {
+	switch key {
+	case containercontract.ContainerResourceStatsCacheTTLConfig.String(),
+		containercontract.ContainerResourceStatsCacheStaleWindowConfig.String():
+		return "systemConfig.units.seconds"
+	default:
+		return "systemConfig.units.rows"
+	}
+}
+
+// containerStringSchema 生成字符串类型配置项的 JSON Schema。
+// @returns 包含类型、长度限制以及标题和描述 i18n 键的 JSON Schema。
 func containerStringSchema(key string, minimumLength int, maximumLength int) json.RawMessage {
 	return json.RawMessage(fmt.Sprintf(
 		`{"type":"string","minLength":%d,"maxLength":%d,"x-i18n":{"titleKey":%q,"descriptionKey":%q}}`,

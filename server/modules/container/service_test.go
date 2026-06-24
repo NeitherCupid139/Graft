@@ -19,6 +19,7 @@ import (
 	"graft/server/internal/httpx"
 	"graft/server/internal/module"
 	"graft/server/internal/moduleapi"
+	"graft/server/internal/realtime"
 	"graft/server/internal/realtimeauth"
 	containercontract "graft/server/modules/container/contract"
 	"graft/server/modules/container/terminal"
@@ -28,7 +29,22 @@ func newTestService(options containerServiceOptions) (*service, error) {
 	if options.realtimeTickets == nil {
 		options.realtimeTickets = realtimeauth.NewMemoryService()
 	}
+	if options.realtimeHub == nil {
+		options.realtimeHub = realtime.NewHub()
+	}
+	if options.topicIssuers == nil {
+		options.topicIssuers = realtime.NewTopicIssuerRegistry()
+	}
+	if options.authorizer == nil {
+		options.authorizer = fakeAuthorizer{}
+	}
 	return newService(options)
+}
+
+type fakeAuthorizer struct{}
+
+func (fakeAuthorizer) Authorize(context.Context, moduleapi.RequestAuthContext, string) error {
+	return nil
 }
 
 func TestParseRefRejectsUnsafeValues(t *testing.T) {
@@ -1165,6 +1181,149 @@ func TestPublishShellSessionFailedDetachesCanceledRequestContext(t *testing.T) {
 	}
 }
 
+func TestStartAuditDetachesCanceledRequestContext(t *testing.T) {
+	t.Parallel()
+
+	bus := &contextStateAuditBus{}
+	service, err := newTestService(containerServiceOptions{
+		runtime:                 fakeRuntime{},
+		auditBus:                bus,
+		moduleName:              moduleID,
+		enabled:                 true,
+		dangerousActionsEnabled: true,
+		defaultTail:             defaultContainerLogsDefaultTail,
+		maxTail:                 defaultContainerLogsMaxTail,
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	baseCtx, cancel := context.WithCancel(context.Background())
+	ctx := httpx.WithRequestAuditContext(baseCtx, httpx.RequestAuditContext{
+		RequestID: "req-start",
+		TraceID:   "trace-start",
+		Route:     "/api/ops/containers/:id/start",
+		Method:    "POST",
+	})
+	ctx = moduleapi.WithRequestAuthContext(ctx, moduleapi.RequestAuthContext{
+		User: &moduleapi.CurrentUser{ID: 7, Username: "admin"},
+	})
+	cancel()
+
+	result, err := service.Start(ctx, Ref{Value: "web"})
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	if result.Action != containerActionStart {
+		t.Fatalf("unexpected action result %#v", result)
+	}
+	if len(bus.events) != 1 {
+		t.Fatalf("expected one audit event, got %#v", bus.events)
+	}
+	if bus.canceled[0] {
+		t.Fatalf("expected detached audit publish context")
+	}
+	payload, ok := bus.events[0].Payload.(moduleapi.AuditEvent)
+	if !ok {
+		t.Fatalf("unexpected payload %T", bus.events[0].Payload)
+	}
+	if payload.Action != "ops.container.start" || !payload.Success {
+		t.Fatalf("unexpected audit payload %#v", payload)
+	}
+	if payload.Metadata["requestId"] != "req-start" || payload.Metadata["traceId"] != "trace-start" {
+		t.Fatalf("expected request metadata, got %#v", payload.Metadata)
+	}
+}
+
+func TestBatchActionPolicyFailurePublishesAudit(t *testing.T) {
+	t.Parallel()
+
+	bus := eventbus.New(zap.NewNop())
+	events := make([]moduleapi.AuditEvent, 0, 1)
+	if err := bus.Subscribe(string(moduleapi.AuditRecordEventName), func(_ context.Context, event eventbus.Event) error {
+		payload, ok := event.Payload.(moduleapi.AuditEvent)
+		if !ok {
+			t.Fatalf("unexpected payload %T", event.Payload)
+		}
+		events = append(events, payload)
+		return nil
+	}); err != nil {
+		t.Fatalf("subscribe audit: %v", err)
+	}
+
+	runtime := &managedActionRuntime{
+		detail: Detail{
+			Summary: Summary{
+				ID:        "web",
+				Name:      "graft-web",
+				Image:     "graft/web:latest",
+				Runtime:   runtimeNameDocker,
+				State:     "running",
+				Status:    "Up",
+				CreatedAt: "2026-06-14T00:00:00Z",
+				Orchestrator: OrchestratorInfo{
+					Type:            containerOrchestratorCompose,
+					Managed:         true,
+					GroupScopeKind:  composeProjectScopeKind,
+					GroupValue:      "graft",
+					MemberScopeKind: composeServiceScopeKind,
+					MemberValue:     "web",
+				},
+			},
+		},
+	}
+	service, err := newTestService(containerServiceOptions{
+		runtime: runtime,
+		systemConfig: serviceTestPolicyConfig{
+			serviceTestSystemConfig: serviceTestSystemConfig{values: map[string]bool{
+				containercontract.ContainerRuntimeEnabledConfig.String():          true,
+				containercontract.ContainerDangerousActionsEnabledConfig.String(): true,
+			}},
+			values: map[string]string{
+				containercontract.ContainerComposeActionLevelConfig.String(): string(mustRawJSON("warn")),
+			},
+		},
+		auditBus:                bus,
+		moduleName:              moduleID,
+		enabled:                 true,
+		dangerousActionsEnabled: true,
+		defaultTail:             defaultContainerLogsDefaultTail,
+		maxTail:                 defaultContainerLogsMaxTail,
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	ctx := httpx.WithRequestAuditContext(context.Background(), httpx.RequestAuditContext{
+		RequestID: "req-batch-policy",
+		TraceID:   "trace-batch-policy",
+	})
+	result, err := service.BatchAction(ctx, BatchActionCommand{
+		Action: containerActionRemove,
+		IDs:    []string{"web"},
+		Force:  true,
+	})
+	if err != nil {
+		t.Fatalf("batch action should aggregate policy failures, got %v", err)
+	}
+	if result.SuccessCount != 0 || result.FailedCount != 1 {
+		t.Fatalf("unexpected batch result %#v", result)
+	}
+	if len(events) != 1 {
+		t.Fatalf("expected one audit event, got %#v", events)
+	}
+	event := events[0]
+	if event.Action != "ops.container.remove" || event.Success {
+		t.Fatalf("unexpected audit event %#v", event)
+	}
+	if event.MessageKey != containercontract.ContainerDangerousActionsDisabled.String() {
+		t.Fatalf("unexpected message key %q", event.MessageKey)
+	}
+	if event.Metadata["force"] != true || event.Metadata["requestId"] != "req-batch-policy" {
+		t.Fatalf("expected force/request metadata, got %#v", event.Metadata)
+	}
+}
+
 func TestContainerOptionsFromConfigUsesRegisteredDefaults(t *testing.T) {
 	t.Parallel()
 
@@ -1235,6 +1394,21 @@ func TestNewContainerServiceUsesEffectiveStartupRuntimeConfig(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("register realtime ticket service: %v", err)
 	}
+	if err := services.RegisterSingleton((*realtime.Hub)(nil), func(containerdi.Resolver) (any, error) {
+		return realtime.NewHub(), nil
+	}); err != nil {
+		t.Fatalf("register realtime hub: %v", err)
+	}
+	if err := services.RegisterSingleton((*realtime.TopicIssuerRegistry)(nil), func(containerdi.Resolver) (any, error) {
+		return realtime.NewTopicIssuerRegistry(), nil
+	}); err != nil {
+		t.Fatalf("register realtime topic issuer registry: %v", err)
+	}
+	if err := services.RegisterSingleton((*moduleapi.Authorizer)(nil), func(containerdi.Resolver) (any, error) {
+		return fakeAuthorizer{}, nil
+	}); err != nil {
+		t.Fatalf("register authorizer: %v", err)
+	}
 	service, err := newContainerService(&module.Context{
 		LifecycleContext: context.Background(),
 		Services:         services,
@@ -1273,6 +1447,10 @@ func newContainerConfigRegistry(t *testing.T) *configregistry.Registry {
 			definition.DefaultValue = mustRawJSON(50)
 		case containercontract.ContainerLogsMaxTailConfig.String():
 			definition.DefaultValue = mustRawJSON(500)
+		case containercontract.ContainerResourceStatsCacheTTLConfig.String():
+			definition.DefaultValue = mustRawJSON(3)
+		case containercontract.ContainerResourceStatsCacheStaleWindowConfig.String():
+			definition.DefaultValue = mustRawJSON(9)
 		case containercontract.ContainerDangerousActionsEnabledConfig.String():
 			definition.DefaultValue = mustRawJSON(true)
 		case containercontract.ContainerEnvironmentPolicyConfig.String():
@@ -1313,6 +1491,60 @@ func TestServiceLogsUseRuntimeHotTailConfig(t *testing.T) {
 	}
 	if _, err := service.Logs(context.Background(), Ref{Value: "web"}, LogQuery{Tail: 251}); !errors.Is(err, errLogsTooLarge) {
 		t.Fatalf("expected runtime-hot max tail guard, got %v", err)
+	}
+}
+
+func TestServiceEffectiveResourceStatsCacheBoundsUseRuntimeHotConfig(t *testing.T) {
+	t.Parallel()
+
+	service, err := newTestService(containerServiceOptions{
+		runtime: fakeRuntime{},
+		systemConfig: serviceTestPolicyConfig{
+			values: map[string]string{
+				containercontract.ContainerResourceStatsCacheTTLConfig.String():         string(mustRawJSON(6)),
+				containercontract.ContainerResourceStatsCacheStaleWindowConfig.String(): string(mustRawJSON(15)),
+			},
+		},
+		enabled: true,
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	service.runtimeOptions.resourceStatsCacheTTLSeconds = defaultContainerResourceStatsCacheTTL
+	service.runtimeOptions.resourceStatsCacheStaleWindowSeconds = defaultContainerResourceStatsStaleWindow
+
+	ttl, staleWindow := service.effectiveResourceStatsCacheBounds(context.Background())
+	if ttl != 6*time.Second {
+		t.Fatalf("expected runtime-hot ttl, got %s", ttl)
+	}
+	if staleWindow != 15*time.Second {
+		t.Fatalf("expected runtime-hot stale window, got %s", staleWindow)
+	}
+}
+
+func TestServiceCloseStopsCollectorAndClosesRuntimeOnce(t *testing.T) {
+	t.Parallel()
+
+	runtime := &countingRuntime{}
+	service, err := newTestService(containerServiceOptions{
+		runtime:     runtime,
+		enabled:     true,
+		defaultTail: defaultContainerLogsDefaultTail,
+		maxTail:     defaultContainerLogsMaxTail,
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	service.statsCollector = &statsCollector{}
+
+	if err := service.Close(); err != nil {
+		t.Fatalf("close service: %v", err)
+	}
+	if err := service.Close(); err != nil {
+		t.Fatalf("close service second time: %v", err)
+	}
+	if runtime.closeCalls.Load() != 1 {
+		t.Fatalf("expected repeated service close to be idempotent, got %d", runtime.closeCalls.Load())
 	}
 }
 
@@ -1402,6 +1634,7 @@ func (r serviceTestPolicyConfig) ResolveDefaultConfig(_ context.Context, key str
 
 type countingRuntime struct {
 	calls           atomic.Int64
+	closeCalls      atomic.Int64
 	mountUsageCalls atomic.Int64
 	detail          Detail
 	mounts          []Mount
@@ -1472,7 +1705,10 @@ func (r *countingRuntime) Remove(context.Context, Ref, RemoveOptions) (ActionRes
 	return ActionResult{}, nil
 }
 
-func (r *countingRuntime) Close() error { return nil }
+func (r *countingRuntime) Close() error {
+	r.closeCalls.Add(1)
+	return nil
+}
 
 type failingRuntime struct {
 	err error

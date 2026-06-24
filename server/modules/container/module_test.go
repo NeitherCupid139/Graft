@@ -1,10 +1,12 @@
 package container
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"graft/server/internal/config"
@@ -13,10 +15,13 @@ import (
 	"graft/server/internal/i18n"
 	"graft/server/internal/menu"
 	"graft/server/internal/module"
+	"graft/server/internal/moduleapi"
 	"graft/server/internal/permission"
+	"graft/server/internal/realtime"
 	"graft/server/internal/realtimeauth"
 	containercontract "graft/server/modules/container/contract"
 	containerlocales "graft/server/modules/container/locales"
+	"graft/server/modules/container/terminal"
 	systemconfiglocales "graft/server/modules/system-config/locales"
 )
 
@@ -58,6 +63,25 @@ func TestDescriptorDeclaresContainerModule(t *testing.T) {
 	}
 }
 
+func TestModuleShutdownUsesServiceClosePath(t *testing.T) {
+	t.Parallel()
+
+	runtime := &moduleCloseRuntime{}
+	service := &service{
+		runtime:        runtime,
+		statsCollector: &statsCollector{},
+	}
+	containerModule := &Module{service: service}
+
+	if err := containerModule.Shutdown(&module.Context{LifecycleContext: context.Background()}); err != nil {
+		t.Fatalf("shutdown module: %v", err)
+	}
+
+	if runtime.closeCalls.Load() != 1 {
+		t.Fatalf("expected shutdown to close runtime exactly once, got %d", runtime.closeCalls.Load())
+	}
+}
+
 func TestRouteAndConfigContractsStayCanonical(t *testing.T) {
 	if containercontract.ContainerAPIGroup != "/ops/containers" {
 		t.Fatalf("unexpected API group %q", containercontract.ContainerAPIGroup)
@@ -70,6 +94,12 @@ func TestRouteAndConfigContractsStayCanonical(t *testing.T) {
 	}
 	if containercontract.ContainerRuntimeEnabledConfig.String() != "ops.container.runtime.enabled" {
 		t.Fatalf("unexpected runtime access config key")
+	}
+	if containercontract.ContainerResourceStatsCacheTTLConfig.String() != "ops.container.resource_stats.cache_ttl_seconds" {
+		t.Fatalf("unexpected resource stats cache ttl config key")
+	}
+	if containercontract.ContainerResourceStatsCacheStaleWindowConfig.String() != "ops.container.resource_stats.stale_window_seconds" {
+		t.Fatalf("unexpected resource stats stale window config key")
 	}
 	if containercontract.ContainerDangerousActionsEnabledConfig.String() != "ops.container.actions.dangerous_enabled" {
 		t.Fatalf("unexpected dangerous actions config key")
@@ -112,6 +142,21 @@ func newTestContext() *module.Context {
 	}); err != nil {
 		panic(fmt.Sprintf("register realtime ticket service: %v", err))
 	}
+	if err := services.RegisterSingleton((*realtime.Hub)(nil), func(containerdi.Resolver) (any, error) {
+		return realtime.NewHub(), nil
+	}); err != nil {
+		panic(fmt.Sprintf("register realtime hub: %v", err))
+	}
+	if err := services.RegisterSingleton((*realtime.TopicIssuerRegistry)(nil), func(containerdi.Resolver) (any, error) {
+		return realtime.NewTopicIssuerRegistry(), nil
+	}); err != nil {
+		panic(fmt.Sprintf("register realtime topic issuer registry: %v", err))
+	}
+	if err := services.RegisterSingleton((*moduleapi.Authorizer)(nil), func(containerdi.Resolver) (any, error) {
+		return moduleAuthorizerStub{}, nil
+	}); err != nil {
+		panic(fmt.Sprintf("register authorizer: %v", err))
+	}
 	return &module.Context{
 		I18n:               localizer,
 		MenuRegistry:       menu.NewRegistry(),
@@ -119,6 +164,44 @@ func newTestContext() *module.Context {
 		ConfigRegistry:     configregistry.NewRegistry(),
 		Services:           services,
 	}
+}
+
+type moduleAuthorizerStub struct{}
+
+func (moduleAuthorizerStub) Authorize(context.Context, moduleapi.RequestAuthContext, string) error {
+	return nil
+}
+
+type moduleCloseRuntime struct {
+	closeCalls atomic.Int64
+}
+
+func (*moduleCloseRuntime) Info(context.Context) (RuntimeInfo, error)          { return RuntimeInfo{}, nil }
+func (*moduleCloseRuntime) List(context.Context, ListQuery) ([]Summary, error) { return nil, nil }
+func (*moduleCloseRuntime) Detail(context.Context, Ref) (Detail, error)        { return Detail{}, nil }
+func (*moduleCloseRuntime) Mounts(context.Context, Ref) ([]Mount, error)       { return nil, nil }
+func (*moduleCloseRuntime) MountUsage(context.Context, Ref, string) (MountUsage, error) {
+	return MountUsage{}, nil
+}
+func (*moduleCloseRuntime) Logs(context.Context, Ref, LogQuery) (Logs, error) { return Logs{}, nil }
+func (*moduleCloseRuntime) Shell(context.Context, Ref, string) (terminal.Session, error) {
+	return nil, nil
+}
+func (*moduleCloseRuntime) Start(context.Context, Ref) (ActionResult, error) {
+	return ActionResult{}, nil
+}
+func (*moduleCloseRuntime) Stop(context.Context, Ref) (ActionResult, error) {
+	return ActionResult{}, nil
+}
+func (*moduleCloseRuntime) Restart(context.Context, Ref) (ActionResult, error) {
+	return ActionResult{}, nil
+}
+func (*moduleCloseRuntime) Remove(context.Context, Ref, RemoveOptions) (ActionResult, error) {
+	return ActionResult{}, nil
+}
+func (r *moduleCloseRuntime) Close() error {
+	r.closeCalls.Add(1)
+	return nil
 }
 
 func assertPermissions(t *testing.T, registry *permission.Registry) {
@@ -265,6 +348,8 @@ func assertContainerRuntimeHotConfigModes(t *testing.T, registry *configregistry
 		containercontract.ContainerRuntimeEnabledConfig.String(),
 		containercontract.ContainerLogsDefaultTailConfig.String(),
 		containercontract.ContainerLogsMaxTailConfig.String(),
+		containercontract.ContainerResourceStatsCacheTTLConfig.String(),
+		containercontract.ContainerResourceStatsCacheStaleWindowConfig.String(),
 		containercontract.ContainerDangerousActionsEnabledConfig.String(),
 		containercontract.ContainerShellEnabledConfig.String(),
 		containercontract.ContainerEnvironmentPolicyConfig.String(),
@@ -311,6 +396,19 @@ func assertMaxTailConfigSchema(t *testing.T, registry *configregistry.Registry) 
 	if maxTailSchema.Type != "integer" || maxTailSchema.Maximum == nil || *maxTailSchema.Maximum != defaultContainerLogsMaxTail {
 		t.Fatalf("expected max tail integer schema, got %#v", maxTailSchema)
 	}
+
+	resourceTTL, _ := registry.Get(containercontract.ContainerResourceStatsCacheTTLConfig.String())
+	var resourceTTLSchema struct {
+		Type    string   `json:"type"`
+		Minimum *float64 `json:"minimum"`
+		Maximum *float64 `json:"maximum"`
+	}
+	if err := json.Unmarshal(resourceTTL.Schema, &resourceTTLSchema); err != nil {
+		t.Fatalf("decode resource ttl schema: %v", err)
+	}
+	if resourceTTLSchema.Type != "integer" || resourceTTLSchema.Minimum == nil || *resourceTTLSchema.Minimum != 1 {
+		t.Fatalf("expected resource ttl integer schema, got %#v", resourceTTLSchema)
+	}
 }
 
 func assertEnvironmentPolicyConfigSchema(t *testing.T, registry *configregistry.Registry, localizer *i18n.Service) {
@@ -355,6 +453,8 @@ func expectedConfigKeys() []string {
 		containercontract.ContainerDockerEndpointConfig.String(),
 		containercontract.ContainerLogsDefaultTailConfig.String(),
 		containercontract.ContainerLogsMaxTailConfig.String(),
+		containercontract.ContainerResourceStatsCacheTTLConfig.String(),
+		containercontract.ContainerResourceStatsCacheStaleWindowConfig.String(),
 		containercontract.ContainerDangerousActionsEnabledConfig.String(),
 		containercontract.ContainerShellEnabledConfig.String(),
 		containercontract.ContainerEnvironmentPolicyConfig.String(),

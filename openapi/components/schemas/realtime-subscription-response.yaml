@@ -1,0 +1,20 @@
+type: object
+required:
+  - topic
+  - ticket
+  - websocket_url
+  - expires_at
+properties:
+  topic:
+    type: string
+    description: Canonical realtime topic bound to the issued ticket.
+  ticket:
+    type: string
+    description: Opaque single-use realtime ticket.
+  websocket_url:
+    type: string
+    description: Relative WebSocket URL containing the issued ticket and topic for immediate upgrade.
+  expires_at:
+    type: string
+    format: date-time
+    description: Absolute UTC expiration time for the one-time realtime ticket.

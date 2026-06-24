@@ -20,6 +20,7 @@ import (
 	"graft/server/internal/i18n"
 	"graft/server/internal/menu"
 	"graft/server/internal/permission"
+	"graft/server/internal/realtime"
 )
 
 // Module 定义所有后端模块都必须实现的稳定生命周期契约。
@@ -190,6 +191,7 @@ type Context struct {
 	// 模块应只依赖显式 Subscribe / Publish 语义，不应假设存在消息持久化、
 	// 重试队列或异步工作流编排等当前阶段并未提供的行为。
 	EventBus           eventbus.Bus
+	Realtime          realtime.Hub
 	Router             gin.IRouter
 	Services           *container.Container
 	RuntimeMetadata    RuntimeMetadata

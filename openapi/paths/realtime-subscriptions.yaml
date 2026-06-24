@@ -1,0 +1,69 @@
+post:
+  tags: [container]
+  summary: Issue realtime subscription ticket
+  operationId: postRealtimeSubscription
+  description: >
+    Issues a short-lived single-use realtime subscription ticket for one canonical topic after normal HTTP
+    authentication, topic-level permission checks, and topic/resource scope validation succeed. The returned ticket must
+    be consumed by the unified WebSocket gateway before it expires.
+  parameters:
+    - $ref: ../components/parameters/locale-header.yaml
+    - $ref: ../components/parameters/request-id-header.yaml
+  security:
+    - bearerAuth: []
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/realtime-subscription-request.yaml
+  responses:
+    '200':
+      description: Realtime subscription ticket issued.
+      headers:
+        X-Request-Id:
+          $ref: ../components/headers/request-id.yaml
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/enveloped-realtime-subscription-response.yaml
+    '400':
+      description: Invalid topic or malformed request payload.
+      headers:
+        X-Request-Id:
+          $ref: ../components/headers/request-id.yaml
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/error-response.yaml
+    '401':
+      $ref: ../components/responses/unauthorized.yaml
+    '403':
+      description: Topic permission denied or topic/resource scope is not allowed for the current caller.
+      headers:
+        X-Request-Id:
+          $ref: ../components/headers/request-id.yaml
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/error-response.yaml
+    '404':
+      description: Topic resource target was not found.
+      headers:
+        X-Request-Id:
+          $ref: ../components/headers/request-id.yaml
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/error-response.yaml
+    '409':
+      description: Topic is currently unavailable for subscription.
+      headers:
+        X-Request-Id:
+          $ref: ../components/headers/request-id.yaml
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/error-response.yaml
+    '500':
+      $ref: ../components/responses/internal-server-error.yaml

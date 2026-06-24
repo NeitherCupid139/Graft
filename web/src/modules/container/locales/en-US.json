@@ -23,7 +23,7 @@
       "title": "Containers",
       "description": "Review Local Container Runtime State, Details, and Truncated Logs.",
       "refresh": "Refresh",
-      "autoRefreshInterval1Second": "Every 1 Sec",
+      "autoRefreshInterval5Seconds": "Every 5 Sec",
       "retry": "Retry",
       "loadFailed": "Container List Could Not Be Loaded.",
       "runtimeLabel": "Runtime",
@@ -44,7 +44,8 @@
       "tableHint": "Data Comes from the Configured Container Runtime.",
       "resourceUnavailable": "Unavailable",
       "stats": {
-        "notCollected": "Not Collected",
+        "unavailable": "N/A",
+        "unavailableReasonFallback": "Resource Stats Are Currently Unavailable",
         "cpuTooltip": "CPU Usage: {percent}",
         "memoryTooltip": "Memory: {usage} / {limit}, {percent}"
       },
@@ -264,6 +265,18 @@
       "refreshNow": "Refresh Now",
       "refreshSuccess": "Container Detail Refreshed",
       "refreshTooltip": "Refreshes container detail, resources, network, mount list, and the latest mount usage result without rescanning mount space.",
+      "realtime": {
+        "label": "Resource Realtime",
+        "live": "Live",
+        "connecting": "Connecting",
+        "degraded": "Connection Degraded",
+        "idle": "Idle",
+        "paused": "Paused",
+        "hint": "The resource panel is driven by the unified realtime topic. Manual refresh only syncs detail structure and cached mount usage.",
+        "pausedHint": "Realtime resource subscription is paused. The page keeps the last successful resource value.",
+        "pause": "Pause Realtime",
+        "resume": "Resume Realtime"
+      },
       "autoRefresh": "Auto Refresh",
       "autoRefreshOff": "Off",
       "autoRefreshPaused": "Paused",
