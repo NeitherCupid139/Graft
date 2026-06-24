@@ -39,9 +39,7 @@ func TestDockerRuntimeCollectStatsSnapshotsReturnsStaleCacheDuringRefreshFailure
 	if err != nil {
 		t.Fatalf("collect initial stats snapshots: %v", err)
 	}
-	if len(first) != 1 || !first[0].Resource.Available || !first[0].Resource.StatsAvailable {
-		t.Fatalf("expected initial snapshot to seed cache, got %#v", first)
-	}
+	assertSingleFreshSnapshot(t, first, start.UTC(), "initial")
 
 	now = now.Add(3 * time.Second)
 	client.statsErr = timeoutError{}
@@ -53,9 +51,7 @@ func TestDockerRuntimeCollectStatsSnapshotsReturnsStaleCacheDuringRefreshFailure
 	if len(stale) != 1 {
 		t.Fatalf("expected one stale snapshot, got %#v", stale)
 	}
-	if !stale[0].Resource.Available || !stale[0].Resource.StatsAvailable {
-		t.Fatalf("expected stale cache snapshot to stay publishable, got %#v", stale[0].Resource)
-	}
+	assertSingleFreshSnapshot(t, stale, start.UTC(), "stale")
 	assertRichDockerResourceStats(t, stale[0].Resource)
 
 	waitForAtomicInt64(t, &client.statsCalls, 2)
@@ -64,7 +60,25 @@ func TestDockerRuntimeCollectStatsSnapshotsReturnsStaleCacheDuringRefreshFailure
 	if !current.Available || !current.StatsAvailable {
 		t.Fatalf("expected refresh failure to preserve last successful snapshot, got %#v", current)
 	}
+	if current.CollectedAt != start.UTC().Format(time.RFC3339) {
+		t.Fatalf("expected current resource collected_at to preserve last usable snapshot, got %q", current.CollectedAt)
+	}
 	assertRichDockerResourceStats(t, current)
+}
+
+func assertSingleFreshSnapshot(t *testing.T, snapshots []StatsSnapshot, expectedCollectedAt time.Time, label string) {
+	t.Helper()
+
+	if len(snapshots) != 1 || !snapshots[0].Resource.Available || !snapshots[0].Resource.StatsAvailable {
+		t.Fatalf("expected %s snapshot to carry one usable resource summary, got %#v", label, snapshots)
+	}
+	expectedRFC3339 := expectedCollectedAt.Format(time.RFC3339)
+	if snapshots[0].Resource.CollectedAt != expectedRFC3339 {
+		t.Fatalf("expected %s resource collected_at to anchor at %s, got %q", label, expectedRFC3339, snapshots[0].Resource.CollectedAt)
+	}
+	if !snapshots[0].CollectedAt.Equal(expectedCollectedAt) {
+		t.Fatalf("expected %s snapshot collected_at to reflect resource freshness %s, got %s", label, expectedCollectedAt, snapshots[0].CollectedAt)
+	}
 }
 
 func waitForAtomicInt64(t *testing.T, value *atomic.Int64, expected int64) {

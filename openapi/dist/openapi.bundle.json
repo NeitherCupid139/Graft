@@ -8737,21 +8737,6 @@
               }
             }
           },
-          "404": {
-            "description": "Topic resource target was not found.",
-            "headers": {
-              "X-Request-Id": {
-                "$ref": "#/components/headers/request-id"
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/error-response"
-                }
-              }
-            }
-          },
           "409": {
             "description": "Ticket already used or expired, or the topic is not currently available.",
             "headers": {
@@ -16072,6 +16057,7 @@
       },
       "container-resource-summary": {
         "type": "object",
+        "description": "Latest-known backend resource stats projection for one container. On HTTP list/detail responses this object is a seed snapshot for frontend stats state, not the final cross-page authority. Canonical stats authority remains the backend collector, cache, and `container.stats:{id}` topic chain.\n",
         "required": [
           "available",
           "stats_available"
@@ -16098,6 +16084,12 @@
             "type": "string",
             "nullable": true,
             "description": "Sanitized display-safe stats collection message; raw Docker daemon errors are not exposed."
+          },
+          "collected_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "RFC3339 timestamp of the latest-known stats snapshot represented by this summary. Consumers should use it to compare HTTP seed snapshots with realtime updates and preserve newer stats authority.\n"
           },
           "cpu_percent": {
             "type": "number",
@@ -16538,7 +16530,8 @@
             "nullable": true
           },
           "resource": {
-            "$ref": "#/components/schemas/container-resource-summary"
+            "$ref": "#/components/schemas/container-resource-summary",
+            "description": "Latest-known backend resource stats projection attached to this metadata row. On HTTP responses it should be treated as a seed snapshot for container stats state rather than the final frontend authority.\n"
           },
           "restart_count": {
             "type": "integer",

@@ -159,11 +159,13 @@ func toListSummary(summary ListSummary) containergen.ContainerListSummary {
 }
 
 func toResourceSummary(resource ResourceSummary) *containergen.ContainerResourceSummary {
+	collectedAt := optionalTime(resource.CollectedAt)
 	unavailableReason := optionalString(resource.UnavailableReason)
 	statsErrorKey := optionalString(resource.StatsErrorKey)
 	statsErrorMessage := optionalString(resource.StatsErrorMessage)
 	return &containergen.ContainerResourceSummary{
 		Available:                  resource.Available,
+		CollectedAt:                collectedAt,
 		CpuPercent:                 resource.CPUPercent,
 		CpuUsageInKernelmode:       resource.CPUUsageInKernelmode,
 		CpuUsageInUsermode:         resource.CPUUsageInUsermode,

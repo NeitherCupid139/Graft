@@ -220,13 +220,16 @@ type ListSummary struct {
 	HealthUnavailable int
 }
 
-// ResourceSummary is nullable-by-field runtime stats metadata for list rows.
+// ResourceSummary is the container module's latest-known stats projection.
+// HTTP consumers receive it as a seed snapshot; canonical stats authority remains
+// the backend collector/cache/topic chain rather than page-local frontend state.
 type ResourceSummary struct {
 	Available                  bool
 	UnavailableReason          string
 	StatsAvailable             bool
 	StatsErrorKey              string
 	StatsErrorMessage          string
+	CollectedAt                string
 	CPUPercent                 *float64
 	OnlineCPUs                 *int64
 	SystemCPUUsage             *int64

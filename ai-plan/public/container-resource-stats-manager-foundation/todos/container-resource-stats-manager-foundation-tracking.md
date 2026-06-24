@@ -39,7 +39,7 @@ Container Resource Stats Manager Foundation
 - [x] Phase 0：Arcane / Graft 资源数据流审计
 - [x] Phase 0：设计 authority 文档落盘
 - [x] Phase 0：public topic / tracking / trace 建立
-- [ ] Phase 1：resource ownership separation
+- [x] Phase 1：resource ownership separation
 - [ ] Phase 2：frontend ContainerStatsManager foundation
 - [ ] Phase 3：subscription manager unification
 - [ ] Phase 4：dashboard shared resource consumption
@@ -62,3 +62,15 @@ Container Resource Stats Manager Foundation
 - `phase-5-history-store-optional`
   - 范围：`server/modules/container/**`、`web/src/modules/container/**`、OpenAPI 增量
   - 目标：引入可选 history / trend metrics，latest state 与 history 分离
+
+## Phase 1 Closeout
+
+- 已完成 authority repair：
+  - `server/modules/container/runtime.go` 为 `ResourceSummary` 增加 `CollectedAt`
+  - `resourceStatsCache` 在 latest-known snapshot 入缓存时补齐 `collected_at`
+  - `CollectStatsSnapshots` 在复用 stale last-known snapshot 时保留真实 freshness，而不是用新采样尝试时间伪装更新
+  - OpenAPI `ContainerResourceSummary` 与 `ContainerSummary.resource` 注释明确 HTTP `resource` 是 seed snapshot / latest-known projection
+- 本批未进入：
+  - `ContainerStatsManager`
+  - 订阅引用计数
+  - Dashboard 共享消费

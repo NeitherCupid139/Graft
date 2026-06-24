@@ -459,13 +459,19 @@ func (r *DockerRuntime) CollectStatsSnapshots(ctx context.Context) ([]StatsSnaps
 			for index := range indexes {
 				summary := dockerSummary(items[index])
 				resource := r.collectCachedResourceSummary(ctx, summary.ID)
+				snapshotCollectedAt := collectedAt
+				if parsedCollectedAt, ok := parseResourceCollectedAt(resource.CollectedAt); ok {
+					snapshotCollectedAt = parsedCollectedAt
+				} else if strings.TrimSpace(resource.CollectedAt) == "" {
+					resource.CollectedAt = collectedAt.Format(time.RFC3339)
+				}
 				snapshots[index] = StatsSnapshot{
 					ContainerID: summary.ID,
 					Name:        summary.Name,
 					ShortID:     summary.ShortID,
 					Runtime:     summary.Runtime,
 					Resource:    resource,
-					CollectedAt: collectedAt,
+					CollectedAt: snapshotCollectedAt,
 				}
 			}
 		}()
@@ -716,6 +722,14 @@ func resourceStatsErrorMessage(reason string) string {
 	default:
 		return "Container stats are unavailable."
 	}
+}
+
+func parseResourceCollectedAt(value string) (time.Time, bool) {
+	parsed, err := time.Parse(time.RFC3339, strings.TrimSpace(value))
+	if err != nil {
+		return time.Time{}, false
+	}
+	return parsed.UTC(), true
 }
 
 func uint64ToInt64(value uint64) (int64, bool) {

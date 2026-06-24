@@ -3913,6 +3913,7 @@ export interface components {
       /** @description MAC address assigned to the container endpoint on this network. */
       mac_address?: string;
     };
+    /** @description Latest-known backend resource stats projection for one container. On HTTP list/detail responses this object is a seed snapshot for frontend stats state, not the final cross-page authority. Canonical stats authority remains the backend collector, cache, and `container.stats:{id}` topic chain. */
     'container-resource-summary': {
       /** @description Compatibility mirror of stats_available for existing clients. New UI code should use stats_available. */
       available: boolean;
@@ -3924,6 +3925,11 @@ export interface components {
       stats_error_key?: string | null;
       /** @description Sanitized display-safe stats collection message; raw Docker daemon errors are not exposed. */
       stats_error_message?: string | null;
+      /**
+       * Format: date-time
+       * @description RFC3339 timestamp of the latest-known stats snapshot represented by this summary. Consumers should use it to compare HTTP seed snapshots with realtime updates and preserve newer stats authority.
+       */
+      collected_at?: string | null;
       /**
        * Format: double
        * @description Docker-compatible instantaneous CPU usage percentage derived from consecutive stats samples. The value may exceed 100 on multi-core hosts.
@@ -4063,6 +4069,7 @@ export interface components {
       /** @description Low-cost network attachment summary from the runtime list path. */
       networks?: components['schemas']['container-network'][];
       network_summary?: string | null;
+      /** @description Latest-known backend resource stats projection attached to this metadata row. On HTTP responses it should be treated as a seed snapshot for container stats state rather than the final frontend authority. */
       resource?: components['schemas']['container-resource-summary'];
       /** @description Nullable when the runtime list path does not expose restart count without inspect. */
       restart_count?: number | null;
@@ -8987,16 +8994,6 @@ export interface operations {
       401: components['responses']['unauthorized'];
       /** @description Ticket scope mismatch, topic permission denied, or Origin denied. */
       403: {
-        headers: {
-          'X-Request-Id': components['headers']['request-id'];
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['error-response'];
-        };
-      };
-      /** @description Topic resource target was not found. */
-      404: {
         headers: {
           'X-Request-Id': components['headers']['request-id'];
           [name: string]: unknown;

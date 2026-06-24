@@ -24,6 +24,11 @@
   - `ai-plan/design/容器资源状态与订阅治理设计.md`
 - 新增 active topic：
   - `ai-plan/public/container-resource-stats-manager-foundation/README.md`
+- Phase 1 authority repair：
+  - 将 `ContainerResourceSummary.collected_at` 补回 `server/modules/container.ResourceSummary` 与 OpenAPI authority。
+  - 将 HTTP `resource` 明确标注为 seed snapshot / latest-known projection，而不是前端最终 authority。
+  - 保持 `statsCollector -> resourceStatsCache -> container.stats:{id}` 主链不变。
+  - 修复 `CollectStatsSnapshots` 在 stale last-known snapshot 场景下错误使用新尝试时间作为 freshness 的漂移，改为沿用真实 snapshot `collected_at`。
 
 ## Loop Batch State
 
@@ -31,17 +36,17 @@
 {
   "loop_mode": "topic-completion-loop",
   "completed_batches": [
-    "phase-0-audit-and-design-anchor"
+    "phase-0-audit-and-design-anchor",
+    "phase-1-resource-ownership-separation"
   ],
   "pending_batches": [
-    "phase-1-resource-ownership-separation",
     "phase-2-frontend-stats-manager-foundation",
     "phase-3-subscription-manager-unification",
     "phase-4-dashboard-shared-resource-consumption",
     "phase-5-history-store-optional"
   ],
-  "current_batch": "phase-0-audit-and-design-anchor",
-  "next_batch": "phase-1-resource-ownership-separation",
+  "current_batch": "phase-1-resource-ownership-separation",
+  "next_batch": "phase-2-frontend-stats-manager-foundation",
   "closeout_status": "active"
 }
 ```

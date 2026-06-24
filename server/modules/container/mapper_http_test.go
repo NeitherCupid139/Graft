@@ -242,6 +242,7 @@ func TestToResourceSummaryMapsDockerStatsFields(t *testing.T) {
 	resource := ResourceSummary{
 		Available:                  true,
 		StatsAvailable:             true,
+		CollectedAt:                "2026-06-24T02:03:04Z",
 		CPUPercent:                 float64Ptr(12.5),
 		OnlineCPUs:                 int64Ptr(4),
 		SystemCPUUsage:             int64Ptr(1000),
@@ -275,6 +276,9 @@ func TestToResourceSummaryMapsDockerStatsFields(t *testing.T) {
 	mapped := toResourceSummary(resource)
 	if mapped == nil {
 		t.Fatalf("expected mapped resource summary")
+	}
+	if mapped.CollectedAt == nil || mapped.CollectedAt.Format("2006-01-02T15:04:05Z07:00") != "2026-06-24T02:03:04Z" {
+		t.Fatalf("unexpected mapped resource collected_at %#v", mapped.CollectedAt)
 	}
 	assertFloatPtr(t, mapped.CpuPercent, 12.5, "mapped CPU percent")
 	assertInt64Ptr(t, mapped.OnlineCpus, 4, "mapped online CPUs")
