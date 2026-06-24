@@ -32,8 +32,8 @@ Container Resource Stats Manager Foundation
   - detail 页 realtime snapshot 已不再直接 patch 页面局部 `resource`，而是写入 module-owned stats store
   - list 页不再直接以 HTTP row.resource 作为长期 authority
   - dashboard 已通过 container-owned contract facade 接入共享资源状态
-- 当前下一步：
-  - outer loop 执行 archive-readiness check；若通过则以 terminal closeout 收口本 topic
+- 当前状态：
+  - topic 已完成 archive-readiness check，结论为 `archive-ready`
 
 ## Task Checklist
 
@@ -124,3 +124,10 @@ Container Resource Stats Manager Foundation
 - 已保持 authority 边界：
   - 未新增 server/OpenAPI authority
   - 未将 history 提升为 dashboard/platform shared authority
+
+## Terminal Closeout
+
+- archive-ready 判定通过：
+  - 已完成 Phase 1 到 Phase 5 的 authority / frontend / dashboard / history 收口
+  - phase-1 至 phase-5 均已完成对应 scoped commit
+  - 当前无剩余 pending batch，也无新的 in-scope authority gap

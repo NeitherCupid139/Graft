@@ -50,6 +50,10 @@
   - `ContainerStatsManager` 增加短时 ring buffer，latest snapshot 与 history snapshot 分离存储。
   - detail resources 区开始消费 module-owned history state，为后续趋势图保留 authority-safe 基座。
   - 本批未引入新的 server/OpenAPI/history API，也未把 history 升级成 dashboard/platform authority。
+- Outer loop archive-readiness check：
+  - confirmed no remaining pending batch in owned scope
+  - confirmed phase-1 to phase-5 validation and scoped commits were already recorded
+  - marked topic `archive-ready` without widening authority to new backend/shared history surfaces
 
 ## Loop Batch State
 
@@ -65,8 +69,8 @@
     "phase-5-history-store-optional"
   ],
   "pending_batches": [],
-  "current_batch": "phase-5-history-store-optional",
+  "current_batch": "archive-ready",
   "next_batch": null,
-  "closeout_status": "active"
+  "closeout_status": "archive-ready"
 }
 ```

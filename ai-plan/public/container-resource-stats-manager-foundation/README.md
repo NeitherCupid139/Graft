@@ -7,7 +7,7 @@
 ## 当前状态摘要
 
 - 当前主题目标是为 `Graft` 容器管理建立统一资源状态层，收敛 `metadata / stats / subscription` 的 authority，并为 `List / Detail / Dashboard` 共享消费准备基础设施。
-- 当前状态：Phase 0 至 Phase 5 已完成；当前主题等待 outer loop 的 archive-readiness check。
+- 当前状态：`archive-ready`。
 - 任务分类为 `cross-boundary`，涉及 container backend authority、OpenAPI 契约和 container frontend module state architecture。
 - Canonical design：`ai-plan/design/容器资源状态与订阅治理设计.md`。
 - 推荐执行技能：`$graft-multi-agent-loop`，loop mode 默认 `topic-completion-loop`。
@@ -71,6 +71,11 @@
   - container module 内新增短时 history ring buffer
   - detail resources 区可读取独立 history state，latest/history 显式分离
   - 未引入新的 server/OpenAPI authority 或 dashboard authority
+- archive-ready 判定：
+  - 所有计划 Phase 已完成并分别按批次提交
+  - authority 主链保持为 `statsCollector -> resourceStatsCache -> container.stats:{id}`
+  - container module 继续拥有 latest stats 与 optional history 的长期 authority
+  - 无剩余 in-scope batch 需要继续推进
 
 ## Validation Targets
 
