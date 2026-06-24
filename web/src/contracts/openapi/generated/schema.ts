@@ -1591,6 +1591,46 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/realtime/subscriptions': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Issue realtime subscription ticket
+     * @description Issues a short-lived single-use realtime subscription ticket for one canonical topic after normal HTTP authentication, topic-level permission checks, and topic/resource scope validation succeed. The returned ticket must be consumed by the unified WebSocket gateway before it expires.
+     */
+    post: operations['postRealtimeSubscription'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/ws': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Upgrade to unified realtime WebSocket
+     * @description Upgrades the request to the unified realtime WebSocket gateway only after the server validates and atomically consumes the single-use realtime ticket, confirms the ticket topic binding matches the requested topic, rechecks topic authorization, and validates the request Origin against the configured WebSocket allowlist. This operation is documented for contract governance; the successful handshake upgrades the connection instead of returning a JSON body.
+     */
+    get: operations['getRealtimeWebSocket'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/ops/containers': {
     parameters: {
       query?: never;
@@ -1993,6 +2033,9 @@ export interface components {
     AnnouncementListResponse: components['schemas']['announcement-list-response'];
     AnnouncementUnreadCountResponse: components['schemas']['announcement-unread-count-response'];
     AnnouncementReadAllResponse: components['schemas']['announcement-read-all-response'];
+    RealtimeSubscriptionRequest: components['schemas']['realtime-subscription-request'];
+    RealtimeSubscriptionResponse: components['schemas']['realtime-subscription-response'];
+    EnvelopedRealtimeSubscriptionResponse: components['schemas']['enveloped-realtime-subscription-response'];
     CreateAnnouncementRequest: components['schemas']['create-announcement-request'];
     UpdateAnnouncementRequest: components['schemas']['update-announcement-request'];
     PublishAnnouncementRequest: components['schemas']['publish-announcement-request'];
@@ -3829,6 +3872,26 @@ export interface components {
     'enveloped-announcement-unread-count-response': components['schemas']['api-envelope'] & {
       data: components['schemas']['announcement-unread-count-response'];
     };
+    'realtime-subscription-request': {
+      /** @description Canonical realtime topic requested by the caller. The server validates topic ownership, permission, and resource scope before issuing a ticket. */
+      topic: string;
+    };
+    'realtime-subscription-response': {
+      /** @description Canonical realtime topic bound to the issued ticket. */
+      topic: string;
+      /** @description Opaque single-use realtime ticket. */
+      ticket: string;
+      /** @description Relative WebSocket URL containing the issued ticket and topic for immediate upgrade. */
+      websocket_url: string;
+      /**
+       * Format: date-time
+       * @description Absolute UTC expiration time for the one-time realtime ticket.
+       */
+      expires_at: string;
+    };
+    'enveloped-realtime-subscription-response': components['schemas']['api-envelope'] & {
+      data?: components['schemas']['realtime-subscription-response'];
+    };
     'container-port': {
       ip?: string;
       private_port: number;
@@ -4445,6 +4508,8 @@ export interface components {
     'session-list-limit': number;
     /** @description Optional trend window. Invalid values currently fall back to the backend default `10m`. */
     'trend-range-query': '10m' | '30m' | '1h';
+    /** @description Announcement id. */
+    'announcement-id-path': number;
     /** @description Optional maximum number of scheduled tasks to return. The runtime accepts values from 1 to 100. */
     'scheduled-task-list-limit': number;
     /** @description Optional zero-based offset for scheduled tasks. */
@@ -4461,8 +4526,6 @@ export interface components {
     'scheduled-task-run-id': number;
     /** @description Backend-defined Job Definition action key. */
     'scheduled-task-action-key': string;
-    /** @description Announcement id. */
-    'announcement-id-path': number;
     /** @description Optional maximum number of containers to return. The runtime accepts values from 1 to 100. */
     'container-list-limit': number;
     /** @description Optional zero-based offset for containers. */
@@ -4509,6 +4572,10 @@ export interface components {
     'container-logs-stderr': boolean;
     /** @description Opaque single-use shell session ticket issued by the authenticated shell session endpoint. The server must validate and consume this ticket before upgrading the connection to WebSocket. */
     'container-shell-ticket-query': string;
+    /** @description Opaque single-use realtime subscription ticket issued by the authenticated realtime subscription endpoint. The server must validate and consume this ticket before upgrading the connection to WebSocket. */
+    'realtime-ticket-query': string;
+    /** @description Canonical realtime topic to subscribe after the server validates the ticket. Topics are authority-owned strings such as `container.stats:<id>`, `container.logs:<id>`, `container.events:<id>`, `audit.events`, and `system.events`. */
+    'realtime-topic-query': string;
   };
   requestBodies: never;
   headers: {
@@ -8808,6 +8875,146 @@ export interface operations {
         };
       };
       401: components['responses']['unauthorized'];
+      500: components['responses']['internal-server-error'];
+    };
+  };
+  postRealtimeSubscription: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Explicit locale override header already supported by the runtime. */
+        'X-Graft-Locale'?: components['parameters']['locale-header'];
+        /**
+         * @description Optional caller-supplied request id. If omitted, the runtime generates one and echoes it
+         *     through the response header and envelope traceId field.
+         */
+        'X-Request-Id'?: components['parameters']['request-id-header'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['realtime-subscription-request'];
+      };
+    };
+    responses: {
+      /** @description Realtime subscription ticket issued. */
+      200: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['enveloped-realtime-subscription-response'];
+        };
+      };
+      /** @description Invalid topic or malformed request payload. */
+      400: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['error-response'];
+        };
+      };
+      401: components['responses']['unauthorized'];
+      /** @description Topic permission denied or topic/resource scope is not allowed for the current caller. */
+      403: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['error-response'];
+        };
+      };
+      /** @description Topic resource target was not found. */
+      404: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['error-response'];
+        };
+      };
+      /** @description Topic is currently unavailable for subscription. */
+      409: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['error-response'];
+        };
+      };
+      500: components['responses']['internal-server-error'];
+    };
+  };
+  getRealtimeWebSocket: {
+    parameters: {
+      query: {
+        /** @description Opaque single-use realtime subscription ticket issued by the authenticated realtime subscription endpoint. The server must validate and consume this ticket before upgrading the connection to WebSocket. */
+        ticket: components['parameters']['realtime-ticket-query'];
+        /** @description Canonical realtime topic to subscribe after the server validates the ticket. Topics are authority-owned strings such as `container.stats:<id>`, `container.logs:<id>`, `container.events:<id>`, `audit.events`, and `system.events`. */
+        topic: components['parameters']['realtime-topic-query'];
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description WebSocket upgrade accepted after pre-upgrade ticket validation and consumption. */
+      101: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Missing or malformed realtime ticket or topic. */
+      400: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['error-response'];
+        };
+      };
+      401: components['responses']['unauthorized'];
+      /** @description Ticket scope mismatch, topic permission denied, or Origin denied. */
+      403: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['error-response'];
+        };
+      };
+      /** @description Topic resource target was not found. */
+      404: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['error-response'];
+        };
+      };
+      /** @description Ticket already used or expired, or the topic is not currently available. */
+      409: {
+        headers: {
+          'X-Request-Id': components['headers']['request-id'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['error-response'];
+        };
+      };
       500: components['responses']['internal-server-error'];
     };
   };

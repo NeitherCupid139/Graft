@@ -39,6 +39,7 @@ import (
 	"graft/server/internal/moduleruntime"
 	moduleruntimelocales "graft/server/internal/moduleruntime/locales"
 	"graft/server/internal/permission"
+	"graft/server/internal/realtime"
 	"graft/server/internal/realtimeauth"
 	"graft/server/internal/redisx"
 	"graft/server/internal/statex"
@@ -96,6 +97,8 @@ type Runtime struct {
 	server                    *httpx.Server
 	openapiDocs               *openAPIDocsAssets
 	eventBus                  eventbus.Bus
+	realtimeHub               realtime.Hub
+	realtimeTopicIssuers      realtime.TopicIssuerRegistry
 	services                  *container.Container
 	menuRegistry              *menu.Registry
 	permissionRegistry        *permission.Registry
@@ -276,15 +279,17 @@ func newRuntimeCoreWithDeps(cfg *config.Config, deps runtimeCoreDeps) (*Runtime,
 				SlowThreshold: time.Duration(cfg.HTTPX.AccessLogSlowThresholdMS) * time.Millisecond,
 			},
 		}, accessLogRepo),
-		eventBus:           eventbus.New(runtimeLogger),
-		services:           container.New(),
-		menuRegistry:       menu.NewRegistry(),
-		permissionRegistry: permission.NewRegistry(),
-		cronRegistry:       cronx.NewRegistry(),
-		configRegistry:     configregistry.NewRegistry(),
-		dashboardRegistry:  dashboard.NewRegistry(),
-		moduleManager:      module.NewManager(),
-		appLogRepository:   appLogRepo,
+		eventBus:             eventbus.New(runtimeLogger),
+		realtimeHub:          realtime.NewHub(),
+		realtimeTopicIssuers: realtime.NewTopicIssuerRegistry(),
+		services:             container.New(),
+		menuRegistry:         menu.NewRegistry(),
+		permissionRegistry:   permission.NewRegistry(),
+		cronRegistry:         cronx.NewRegistry(),
+		configRegistry:       configregistry.NewRegistry(),
+		dashboardRegistry:    dashboard.NewRegistry(),
+		moduleManager:        module.NewManager(),
+		appLogRepository:     appLogRepo,
 	}
 	if err := runtime.preregisterOwnerLocaleResources(); err != nil {
 		_ = runtime.closeCoreResources()
@@ -535,6 +540,7 @@ func (r *Runtime) newModuleContext(runCtx context.Context) *module.Context {
 		Logger:             r.logger,
 		I18n:               r.i18n,
 		EventBus:           r.eventBus,
+		Realtime:           r.realtimeHub,
 		Router:             r.server.Engine().Group("/api"),
 		Services:           r.services,
 		RuntimeMetadata:    r.runtimeMetadata,
@@ -568,6 +574,9 @@ func (r *Runtime) registerCoreAuthenticatedRoutes() error {
 		return err
 	}
 	if err := r.registerDashboardWithAuth(authService, authorizer); err != nil {
+		return err
+	}
+	if err := r.registerRealtimeSubscriptionRoutes(); err != nil {
 		return err
 	}
 
@@ -878,6 +887,47 @@ func (r *Runtime) resolveLogExplorerAuthorizer() (moduleapi.Authorizer, error) {
 	return authorizer, nil
 }
 
+func (r *Runtime) registerRealtimeSubscriptionRoutes() error {
+	if r == nil || r.server == nil {
+		return errors.New("runtime server is unavailable")
+	}
+
+	authService, err := r.resolveLogExplorerAuthService()
+	if err != nil {
+		return fmt.Errorf("resolve realtime auth service: %w", err)
+	}
+	authorizer, err := r.resolveLogExplorerAuthorizer()
+	if err != nil {
+		return fmt.Errorf("resolve realtime authorizer: %w", err)
+	}
+
+	group := r.server.Engine().Group("/api")
+	group.Use(httpx.RequestIDMiddleware())
+	group.Use(httpx.RequirePermission(r.i18n, authService, authorizer, ""))
+
+	return realtime.RegisterSubscriptionRoutes(group, realtime.HTTPRegistration{
+		I18n:     r.i18n,
+		Registry: r.realtimeTopicIssuers,
+	})
+}
+
+func (r *Runtime) injectedRealtimeTicketService() realtimeauth.Service {
+	if r == nil || r.services == nil {
+		return nil
+	}
+
+	resolved, err := r.services.Resolve((*realtimeauth.Service)(nil))
+	if err != nil {
+		return nil
+	}
+
+	service, ok := resolved.(realtimeauth.Service)
+	if !ok {
+		return nil
+	}
+	return service
+}
+
 func (r *Runtime) loadOptionalDocsAssets() error {
 	if r.config == nil || !r.config.Docs.Enabled {
 		return nil
@@ -893,6 +943,19 @@ func (r *Runtime) loadOptionalDocsAssets() error {
 }
 
 func (r *Runtime) registerCoreRoutes(engine *gin.Engine) {
+	if engine == nil {
+		return
+	}
+
+	if ticketService := r.injectedRealtimeTicketService(); ticketService != nil {
+		_ = realtime.RegisterWebSocketGateway(engine, realtime.GatewayRegistration{
+			Hub:                   r.realtimeHub,
+			I18n:                  r.i18n,
+			Tickets:               ticketService,
+			WebSocketAllowOrigins: append([]string(nil), r.config.HTTPX.WebSocketAllowedOrigins...),
+		})
+	}
+
 	engine.GET("/healthz", func(ctx *gin.Context) {
 		coreHealthGeneratedHandler{}.GetHealthz()
 		ctx.JSON(http.StatusOK, gin.H{
@@ -1033,6 +1096,18 @@ func (r *Runtime) foundationServiceRegistrations() []serviceRegistration {
 			key: (*eventbus.Bus)(nil),
 			provider: func() (any, error) {
 				return r.eventBus, nil
+			},
+		},
+		{
+			key: (*realtime.Hub)(nil),
+			provider: func() (any, error) {
+				return r.realtimeHub, nil
+			},
+		},
+		{
+			key: (*realtime.TopicIssuerRegistry)(nil),
+			provider: func() (any, error) {
+				return r.realtimeTopicIssuers, nil
 			},
 		},
 	}

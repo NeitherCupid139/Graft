@@ -1,6 +1,6 @@
 import { flushPromises, mount } from '@vue/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { defineComponent, h } from 'vue';
+import { defineComponent, h, ref } from 'vue';
 
 import { LOCALE } from '@/contracts/i18n/locales';
 
@@ -31,6 +31,23 @@ const messageMocks = vi.hoisted(() => ({
 
 const notifyMocks = vi.hoisted(() => ({
   warning: vi.fn(),
+}));
+
+const realtimeMocks = vi.hoisted(() => ({
+  controllers: [] as Array<{ close: ReturnType<typeof vi.fn>; reconnect: ReturnType<typeof vi.fn> }>,
+  openRealtimeTopicSocket: vi.fn(
+    (options?: { onStateChange?: (state: 'idle' | 'connecting' | 'open' | 'closed' | 'error') => void }) => {
+      options?.onStateChange?.('open');
+      const controller = {
+        close: vi.fn(() => {
+          options?.onStateChange?.('idle');
+        }),
+        reconnect: vi.fn(),
+      };
+      realtimeMocks.controllers.push(controller);
+      return controller;
+    },
+  ),
 }));
 
 const routerMocks = vi.hoisted(() => ({
@@ -269,6 +286,16 @@ const translations = vi.hoisted(
     'container.list.tableSummary': '共 {count} 个容器',
     'container.list.title': '容器管理',
     'container.list.totalCount': '总数 {count}',
+    'container.list.realtime.label': '资源实时订阅',
+    'container.list.realtime.live': '实时中',
+    'container.list.realtime.connecting': '连接中',
+    'container.list.realtime.degraded': '连接异常',
+    'container.list.realtime.idle': '待建立',
+    'container.list.realtime.paused': '已暂停',
+    'container.list.realtime.hint': '资源用量由统一 realtime topic 推送驱动，列表刷新仅更新结构数据。',
+    'container.list.realtime.pausedHint': '当前已暂停资源实时订阅，页面保留最后一次成功资源值。',
+    'container.list.realtime.pause': '暂停实时',
+    'container.list.realtime.resume': '恢复实时',
     'ops.container.error.runtimeDisabled': '容器运行时访问未启用',
     'ops.container.error.runtimeUnavailable': '容器运行时连接不可用',
     'ops.container.action.start.completed': '容器启动操作已完成',
@@ -318,10 +345,13 @@ vi.mock('tdesign-icons-vue-next', () => ({
 
 vi.mock('vue-i18n', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-i18n')>();
+  const locale = ref('zh-CN');
   return {
     ...actual,
     useI18n: () => ({
-      locale: 'zh-CN',
+      locale,
+      tm: (key: string) => translations[key] ?? key,
+      te: (key: string) => key in translations,
       t: (key: string, params?: Record<string, unknown>) =>
         (translations[key] ?? key).replace(/\{(\w+)\}/g, (_, name) => String(params?.[name] ?? `{${name}}`)),
     }),
@@ -348,6 +378,10 @@ vi.mock('@/shared/observability', async () => {
   };
 });
 
+vi.mock('@/shared/realtime', () => ({
+  openRealtimeTopicSocket: realtimeMocks.openRealtimeTopicSocket,
+}));
+
 vi.mock('@/utils/route/title', () => ({
   localizeRouteTitleKey: (titleKey: string) => ({
     [LOCALE.ZH_CN]: translations[titleKey] ?? titleKey,
@@ -358,7 +392,7 @@ vi.mock('@/utils/route/title', () => ({
 describe('container list page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.useFakeTimers();
+    realtimeMocks.controllers = [];
     tabsRouterStoreMock.activeTabKey = '/ops/containers';
     tabsRouterStoreMock.tabRouters = [
       {
@@ -526,7 +560,6 @@ describe('container list page', () => {
   });
 
   afterEach(() => {
-    vi.runOnlyPendingTimers();
     vi.useRealTimers();
   });
 
@@ -572,7 +605,7 @@ describe('container list page', () => {
     expect(wrapper.find('[data-testid="container-action-remove"]').exists()).toBe(true);
     expect(wrapper.text()).toContain('第 1-20 条 / 共 25 条');
     expect(wrapper.text()).not.toContain('graft-extra-21');
-    expect(wrapper.get('[data-refresh-control-bar="true"]').attributes('data-status')).toBe('running');
+    expect(wrapper.get('[data-testid="container-list-realtime-status"]').text()).toBe('实时中');
     wrapper.unmount();
   });
 
@@ -623,48 +656,37 @@ describe('container list page', () => {
     expect(wrapper.findAll('[data-testid="resource-progress"]').some((node) => node.text() === '100')).toBe(true);
   });
 
-  it('auto refreshes the list every five seconds by default', async () => {
+  it('opens realtime subscriptions for visible rows by default', async () => {
     const wrapper = mountPage();
     await flushPromises();
 
     expect(apiMocks.getContainers).toHaveBeenCalledTimes(1);
-
-    await vi.advanceTimersByTimeAsync(5000);
-    await flushPromises();
-
-    expect(apiMocks.getContainers).toHaveBeenCalledTimes(2);
-    expect(wrapper.get('[data-refresh-countdown="true"]').text()).toBe('5');
-    expect(wrapper.get('[data-refresh-interval="true"]').text()).toBe('5');
+    expect(realtimeMocks.openRealtimeTopicSocket).toHaveBeenCalled();
+    expect(wrapper.get('[data-testid="container-list-realtime-status"]').text()).toBe('实时中');
     wrapper.unmount();
   });
 
-  it('pauses auto refresh while hidden and refreshes once when visible again', async () => {
+  it('pauses and resumes realtime subscriptions from the toolbar toggle', async () => {
     const wrapper = mountPage();
     await flushPromises();
 
-    Object.defineProperty(document, 'visibilityState', {
-      configurable: true,
-      get: () => 'hidden',
-    });
-    document.dispatchEvent(new Event('visibilitychange'));
+    await wrapper.get('[data-testid="container-list-realtime-toggle"]').trigger('click');
     await flushPromises();
 
-    await vi.advanceTimersByTimeAsync(2000);
-    await flushPromises();
-    expect(apiMocks.getContainers).toHaveBeenCalledTimes(1);
+    expect(wrapper.get('[data-testid="container-list-realtime-status"]').text()).toBe('已暂停');
+    expect(realtimeMocks.controllers.every((controller) => controller.close.mock.calls.length > 0)).toBe(true);
 
-    Object.defineProperty(document, 'visibilityState', {
-      configurable: true,
-      get: () => 'visible',
-    });
-    document.dispatchEvent(new Event('visibilitychange'));
+    realtimeMocks.openRealtimeTopicSocket.mockClear();
+    await wrapper.get('[data-testid="container-list-realtime-toggle"]').trigger('click');
     await flushPromises();
 
-    expect(apiMocks.getContainers.mock.calls.length).toBeGreaterThanOrEqual(2);
+    expect(realtimeMocks.openRealtimeTopicSocket).toHaveBeenCalled();
+    expect(wrapper.get('[data-testid="container-list-realtime-status"]').text()).toBe('实时中');
     wrapper.unmount();
   });
 
-  it('does not stack concurrent auto refresh requests', async () => {
+  it('does not stack concurrent manual refresh requests', async () => {
+    vi.useFakeTimers();
     const pending = deferred<{
       items: ReturnType<typeof createContainerRows>;
       limit: number;
@@ -695,8 +717,8 @@ describe('container list page', () => {
     await flushPromises();
     expect(apiMocks.getContainers).toHaveBeenCalledTimes(1);
 
-    await vi.advanceTimersByTimeAsync(3000);
-    await flushPromises();
+    await wrapper.get('[data-testid="table-refresh"]').trigger('click');
+    await wrapper.get('[data-testid="table-refresh"]').trigger('click');
     expect(apiMocks.getContainers).toHaveBeenCalledTimes(1);
 
     pending.resolve({
@@ -745,9 +767,8 @@ describe('container list page', () => {
     });
     await flushPromises();
 
-    await vi.advanceTimersByTimeAsync(5000);
-    await flushPromises();
-    expect(apiMocks.getContainers).toHaveBeenCalledTimes(2);
+    expect(apiMocks.getContainers).toHaveBeenCalledTimes(1);
+    await vi.runAllTimersAsync();
     wrapper.unmount();
   });
 
@@ -1500,20 +1521,6 @@ function mountPage() {
                 props.densityLabel
                   ? h('button', { 'data-testid': 'table-density', onClick: () => emit('density') }, props.densityLabel)
                   : null,
-              ]),
-        }),
-        'refresh-control-bar': defineComponent({
-          props: ['status', 'countdownSeconds', 'interval'],
-          emits: ['pause', 'refresh', 'resume'],
-          setup:
-            (props, { emit }) =>
-            () =>
-              h('div', { 'data-refresh-control-bar': 'true', 'data-status': props.status }, [
-                h('span', { 'data-refresh-countdown': 'true' }, String(props.countdownSeconds ?? '')),
-                h('span', { 'data-refresh-interval': 'true' }, String(props.interval ?? '')),
-                h('button', { 'data-testid': 'refresh-bar-refresh', onClick: () => emit('refresh') }, '刷新'),
-                h('button', { 'data-testid': 'refresh-bar-pause', onClick: () => emit('pause') }, '暂停'),
-                h('button', { 'data-testid': 'refresh-bar-resume', onClick: () => emit('resume') }, '恢复'),
               ]),
         }),
         't-dropdown': defineComponent({

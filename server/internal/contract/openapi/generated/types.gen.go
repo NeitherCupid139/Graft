@@ -4752,6 +4752,26 @@ type EnvelopedPermissionListResponse struct {
 	TraceId string `json:"traceId"`
 }
 
+// EnvelopedRealtimeSubscriptionResponse defines model for enveloped-realtime-subscription-response.
+type EnvelopedRealtimeSubscriptionResponse struct {
+	// Code Existing canonical response code.
+	Code string                       `json:"code"`
+	Data RealtimeSubscriptionResponse `json:"data"`
+
+	// Locale Present on localized error flows and omitted on normal success.
+	Locale *string `json:"locale,omitempty"`
+
+	// Message Existing runtime fallback text. Consumers should not treat this as the canonical localization contract when a key field is present.
+	Message string `json:"message"`
+
+	// MessageKey Stable localization key for key-aware error flows. When present, consumers should treat it as canonical and use message only as fallback text.
+	MessageKey *string `json:"messageKey,omitempty"`
+	Success    bool    `json:"success"`
+
+	// TraceId Mirrors the request id contract used by the current runtime.
+	TraceId string `json:"traceId"`
+}
+
 // EnvelopedRoleDetailResponse defines model for enveloped-role-detail-response.
 type EnvelopedRoleDetailResponse struct {
 	// Code Existing canonical response code.
@@ -5438,6 +5458,27 @@ type PermissionListResponse struct {
 type PublishAnnouncementRequest struct {
 	// PublishAt Optional visibility start time. Omitted or null stores publish_at as null, meaning the announcement becomes visible immediately after publish.
 	PublishAt *time.Time `json:"publish_at,omitempty"`
+}
+
+// RealtimeSubscriptionRequest defines model for realtime-subscription-request.
+type RealtimeSubscriptionRequest struct {
+	// Topic Canonical realtime topic requested by the caller. The server validates topic ownership, permission, and resource scope before issuing a ticket.
+	Topic string `json:"topic"`
+}
+
+// RealtimeSubscriptionResponse defines model for realtime-subscription-response.
+type RealtimeSubscriptionResponse struct {
+	// ExpiresAt Absolute UTC expiration time for the one-time realtime ticket.
+	ExpiresAt time.Time `json:"expires_at"`
+
+	// Ticket Opaque single-use realtime ticket.
+	Ticket string `json:"ticket"`
+
+	// Topic Canonical realtime topic bound to the issued ticket.
+	Topic string `json:"topic"`
+
+	// WebsocketUrl Relative WebSocket URL containing the issued ticket and topic for immediate upgrade.
+	WebsocketUrl string `json:"websocket_url"`
 }
 
 // ReplaceRolePermissionsRequest defines model for replace-role-permissions-request.
@@ -6185,6 +6226,12 @@ type ContainerShellTicketQuery = string
 
 // LocaleHeader defines model for locale-header.
 type LocaleHeader = string
+
+// RealtimeTicketQuery defines model for realtime-ticket-query.
+type RealtimeTicketQuery = string
+
+// RealtimeTopicQuery defines model for realtime-topic-query.
+type RealtimeTopicQuery = string
 
 // RequestIdHeader defines model for request-id-header.
 type RequestIdHeader = string
@@ -7004,6 +7051,16 @@ type GetPermissionParams struct {
 	XRequestId *RequestIdHeader `json:"X-Request-Id,omitempty"`
 }
 
+// PostRealtimeSubscriptionParams defines parameters for PostRealtimeSubscription.
+type PostRealtimeSubscriptionParams struct {
+	// XGraftLocale Explicit locale override header already supported by the runtime.
+	XGraftLocale *LocaleHeader `json:"X-Graft-Locale,omitempty"`
+
+	// XRequestId Optional caller-supplied request id. If omitted, the runtime generates one and echoes it
+	// through the response header and envelope traceId field.
+	XRequestId *RequestIdHeader `json:"X-Request-Id,omitempty"`
+}
+
 // GetRolesParams defines parameters for GetRoles.
 type GetRolesParams struct {
 	Keyword *string               `form:"keyword,omitempty" json:"keyword,omitempty"`
@@ -7466,6 +7523,15 @@ type PostUserUpdateParams struct {
 	XRequestId *RequestIdHeader `json:"X-Request-Id,omitempty"`
 }
 
+// GetRealtimeWebSocketParams defines parameters for GetRealtimeWebSocket.
+type GetRealtimeWebSocketParams struct {
+	// Ticket Opaque single-use realtime subscription ticket issued by the authenticated realtime subscription endpoint. The server must validate and consume this ticket before upgrading the connection to WebSocket.
+	Ticket RealtimeTicketQuery `form:"ticket" json:"ticket"`
+
+	// Topic Canonical realtime topic to subscribe after the server validates the ticket. Topics are authority-owned strings such as `container.stats:<id>`, `container.logs:<id>`, `container.events:<id>`, `audit.events`, and `system.events`.
+	Topic RealtimeTopicQuery `form:"topic" json:"topic"`
+}
+
 // PostAnnouncementsJSONRequestBody defines body for PostAnnouncements for application/json ContentType.
 type PostAnnouncementsJSONRequestBody = CreateAnnouncementRequest
 
@@ -7498,6 +7564,9 @@ type PostContainerRemoveJSONRequestBody = ContainerRemoveRequest
 
 // PostContainerShellSessionJSONRequestBody defines body for PostContainerShellSession for application/json ContentType.
 type PostContainerShellSessionJSONRequestBody = ContainerShellSessionRequest
+
+// PostRealtimeSubscriptionJSONRequestBody defines body for PostRealtimeSubscription for application/json ContentType.
+type PostRealtimeSubscriptionJSONRequestBody = RealtimeSubscriptionRequest
 
 // PostRolesJSONRequestBody defines body for PostRoles for application/json ContentType.
 type PostRolesJSONRequestBody = CreateRoleRequest

@@ -8568,6 +8568,211 @@
         }
       }
     },
+    "/api/realtime/subscriptions": {
+      "post": {
+        "tags": [
+          "container"
+        ],
+        "summary": "Issue realtime subscription ticket",
+        "operationId": "postRealtimeSubscription",
+        "description": "Issues a short-lived single-use realtime subscription ticket for one canonical topic after normal HTTP authentication, topic-level permission checks, and topic/resource scope validation succeed. The returned ticket must be consumed by the unified WebSocket gateway before it expires.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/locale-header"
+          },
+          {
+            "$ref": "#/components/parameters/request-id-header"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/realtime-subscription-request"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Realtime subscription ticket issued.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/enveloped-realtime-subscription-response"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid topic or malformed request payload.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/unauthorized"
+          },
+          "403": {
+            "description": "Topic permission denied or topic/resource scope is not allowed for the current caller.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Topic resource target was not found.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Topic is currently unavailable for subscription.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/internal-server-error"
+          }
+        }
+      }
+    },
+    "/ws": {
+      "get": {
+        "tags": [
+          "container"
+        ],
+        "summary": "Upgrade to unified realtime WebSocket",
+        "operationId": "getRealtimeWebSocket",
+        "description": "Upgrades the request to the unified realtime WebSocket gateway only after the server validates and atomically consumes the single-use realtime ticket, confirms the ticket topic binding matches the requested topic, rechecks topic authorization, and validates the request Origin against the configured WebSocket allowlist. This operation is documented for contract governance; the successful handshake upgrades the connection instead of returning a JSON body.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/realtime-ticket-query"
+          },
+          {
+            "$ref": "#/components/parameters/realtime-topic-query"
+          }
+        ],
+        "responses": {
+          "101": {
+            "description": "WebSocket upgrade accepted after pre-upgrade ticket validation and consumption."
+          },
+          "400": {
+            "description": "Missing or malformed realtime ticket or topic.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/unauthorized"
+          },
+          "403": {
+            "description": "Ticket scope mismatch, topic permission denied, or Origin denied.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Topic resource target was not found.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Ticket already used or expired, or the topic is not currently available.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/request-id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/internal-server-error"
+          }
+        }
+      }
+    },
     "/api/ops/containers": {
       "get": {
         "tags": [
@@ -10178,6 +10383,15 @@
       },
       "AnnouncementReadAllResponse": {
         "$ref": "#/components/schemas/announcement-read-all-response"
+      },
+      "RealtimeSubscriptionRequest": {
+        "$ref": "#/components/schemas/realtime-subscription-request"
+      },
+      "RealtimeSubscriptionResponse": {
+        "$ref": "#/components/schemas/realtime-subscription-response"
+      },
+      "EnvelopedRealtimeSubscriptionResponse": {
+        "$ref": "#/components/schemas/enveloped-realtime-subscription-response"
       },
       "CreateAnnouncementRequest": {
         "$ref": "#/components/schemas/create-announcement-request"
@@ -15732,6 +15946,63 @@
           }
         ]
       },
+      "realtime-subscription-request": {
+        "type": "object",
+        "required": [
+          "topic"
+        ],
+        "properties": {
+          "topic": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512,
+            "description": "Canonical realtime topic requested by the caller. The server validates topic ownership, permission, and resource scope before issuing a ticket.\n"
+          }
+        }
+      },
+      "realtime-subscription-response": {
+        "type": "object",
+        "required": [
+          "topic",
+          "ticket",
+          "websocket_url",
+          "expires_at"
+        ],
+        "properties": {
+          "topic": {
+            "type": "string",
+            "description": "Canonical realtime topic bound to the issued ticket."
+          },
+          "ticket": {
+            "type": "string",
+            "description": "Opaque single-use realtime ticket."
+          },
+          "websocket_url": {
+            "type": "string",
+            "description": "Relative WebSocket URL containing the issued ticket and topic for immediate upgrade."
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Absolute UTC expiration time for the one-time realtime ticket."
+          }
+        }
+      },
+      "enveloped-realtime-subscription-response": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/api-envelope"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/realtime-subscription-response"
+              }
+            }
+          }
+        ]
+      },
       "container-port": {
         "type": "object",
         "required": [
@@ -17695,6 +17966,17 @@
           }
         }
       },
+      "announcement-id-path": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Announcement id.",
+        "schema": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 1
+        }
+      },
       "scheduled-task-list-limit": {
         "name": "limit",
         "in": "query",
@@ -17826,17 +18108,6 @@
             "summary": "Dry-run action",
             "value": "dry-run"
           }
-        }
-      },
-      "announcement-id-path": {
-        "name": "id",
-        "in": "path",
-        "required": true,
-        "description": "Announcement id.",
-        "schema": {
-          "type": "integer",
-          "format": "int64",
-          "minimum": 1
         }
       },
       "container-list-limit": {
@@ -18114,6 +18385,28 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 2048
+        }
+      },
+      "realtime-ticket-query": {
+        "name": "ticket",
+        "in": "query",
+        "required": true,
+        "description": "Opaque single-use realtime subscription ticket issued by the authenticated realtime subscription endpoint. The server must validate and consume this ticket before upgrading the connection to WebSocket.\n",
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        }
+      },
+      "realtime-topic-query": {
+        "name": "topic",
+        "in": "query",
+        "required": true,
+        "description": "Canonical realtime topic to subscribe after the server validates the ticket. Topics are authority-owned strings such as `container.stats:<id>`, `container.logs:<id>`, `container.events:<id>`, `audit.events`, and `system.events`.\n",
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
         }
       }
     },

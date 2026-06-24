@@ -107,6 +107,7 @@ export function createViteConfig(mode: string): UserConfig {
   const mockEnabled = mode === 'mock' || env.VITE_ENABLE_MOCK === 'true';
   const tdesignAutoImportEnabled = mode !== 'test';
   const docsProxyPaths = ['/docs', '/openapi.json', '/openapi.yaml'] as const;
+  const websocketProxyPaths = ['/ws'] as const;
 
   const lessOptions = {
     javascriptEnabled: true,
@@ -221,6 +222,16 @@ export function createViteConfig(mode: string): UserConfig {
               changeOrigin: true,
               ws: true,
             } satisfies ProxyOptions,
+            ...Object.fromEntries(
+              websocketProxyPaths.map((proxyPath) => [
+                proxyPath,
+                {
+                  target: apiTarget,
+                  changeOrigin: true,
+                  ws: true,
+                } satisfies ProxyOptions,
+              ]),
+            ),
             ...Object.fromEntries(
               docsProxyPaths.map((proxyPath) => [
                 proxyPath,

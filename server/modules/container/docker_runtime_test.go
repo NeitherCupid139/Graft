@@ -13,7 +13,6 @@ import (
 	"net/netip"
 	"reflect"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -204,6 +203,9 @@ func TestDockerRuntimeListUsesCheapSummaryFields(t *testing.T) {
 		endpoint:      "unix:///var/run/docker.sock",
 		resourceStats: newResourceStatsCache(containerResourceStatsCacheTTL, containerResourceStatsCacheStaleWindow),
 	}
+	if _, err := runtime.CollectStatsSnapshots(context.Background()); err != nil {
+		t.Fatalf("collect stats snapshots: %v", err)
+	}
 
 	items, err := runtime.List(context.Background(), ListQuery{})
 	if err != nil {
@@ -225,7 +227,7 @@ func TestDockerRuntimeListUsesCheapSummaryFields(t *testing.T) {
 		t.Fatalf("expected list to avoid inspect calls, got %d", calls)
 	}
 	if calls := client.statsCalls.Load(); calls != 1 {
-		t.Fatalf("expected list to collect stats once, got %d", calls)
+		t.Fatalf("expected collector to collect stats once, got %d", calls)
 	}
 }
 
@@ -250,6 +252,9 @@ func TestDockerRuntimeListDegradesWhenStatsUnavailable(t *testing.T) {
 		endpoint:      "unix:///var/run/docker.sock",
 		resourceStats: newResourceStatsCache(containerResourceStatsCacheTTL, containerResourceStatsCacheStaleWindow),
 	}
+	if _, err := runtime.CollectStatsSnapshots(context.Background()); err != nil {
+		t.Fatalf("collect stats snapshots: %v", err)
+	}
 
 	items, err := runtime.List(context.Background(), ListQuery{})
 	if err != nil {
@@ -262,21 +267,21 @@ func TestDockerRuntimeListDegradesWhenStatsUnavailable(t *testing.T) {
 	if resource.Available || resource.StatsAvailable {
 		t.Fatalf("expected unavailable resource stats, got %#v", resource)
 	}
-	if resource.UnavailableReason != containerStatsTimeoutReason || resource.StatsErrorKey != containerStatsTimeoutReason {
-		t.Fatalf("expected sanitized timeout reason, got %#v", resource)
+	if resource.UnavailableReason != containerStatsNotCollectedReason || resource.StatsErrorKey != containerStatsNotCollectedReason {
+		t.Fatalf("expected not-collected cache reason after failed collector refresh, got %#v", resource)
 	}
-	if resource.StatsErrorMessage == "" || resource.StatsErrorMessage == "i/o timeout" {
-		t.Fatalf("expected sanitized stats error message, got %#v", resource)
+	if resource.StatsErrorMessage != resourceStatsErrorMessage(containerStatsNotCollectedReason) {
+		t.Fatalf("expected canonical not-collected error message, got %#v", resource)
 	}
 	if resource.CPUPercent != nil || resource.MemoryUsageBytes != nil || resource.MemoryLimitBytes != nil || resource.MemoryPercent != nil {
 		t.Fatalf("expected no partial stats on failure, got %#v", resource)
 	}
 	if calls := client.statsCalls.Load(); calls != 1 {
-		t.Fatalf("expected list to attempt stats once, got %d", calls)
+		t.Fatalf("expected collector to attempt stats once, got %d", calls)
 	}
 }
 
-func TestDockerRuntimeListCollectsStatsWithBoundedConcurrency(t *testing.T) {
+func TestDockerRuntimeCollectStatsSnapshotsCollectsStatsWithBoundedConcurrency(t *testing.T) {
 	t.Parallel()
 
 	client := &countingDockerClient{
@@ -301,9 +306,9 @@ func TestDockerRuntimeListCollectsStatsWithBoundedConcurrency(t *testing.T) {
 		resourceStats: newResourceStatsCache(containerResourceStatsCacheTTL, containerResourceStatsCacheStaleWindow),
 	}
 
-	items, err := runtime.List(context.Background(), ListQuery{})
+	items, err := runtime.CollectStatsSnapshots(context.Background())
 	if err != nil {
-		t.Fatalf("list: %v", err)
+		t.Fatalf("collect stats snapshots: %v", err)
 	}
 	if len(items) != len(client.list) {
 		t.Fatalf("expected %d items, got %#v", len(client.list), items)
@@ -317,22 +322,32 @@ func TestDockerRuntimeListCollectsStatsWithBoundedConcurrency(t *testing.T) {
 		t.Fatalf("expected stats concurrency bounded by %d, got max concurrency %d", bound, maxConcurrent)
 	}
 	for index, item := range items {
-		if item.ID != client.list[index].ID {
+		if item.ContainerID != client.list[index].ID {
 			t.Fatalf("expected stable list order, got item %d as %#v", index, item)
 		}
 		if item.Resource.Available || item.Resource.StatsAvailable {
-			t.Fatalf("expected cold-start partial list stats to degrade as unavailable, got %#v", item.Resource)
+			t.Fatalf("expected cold-start collector stats to degrade as unavailable, got %#v", item.Resource)
 		}
 		if item.Resource.CPUPercent != nil || item.Resource.MemoryUsageBytes != nil || item.Resource.MemoryLimitBytes != nil || item.Resource.MemoryPercent != nil {
-			t.Fatalf("expected cold-start list miss to avoid field-level partial stats, got %#v", item.Resource)
+			t.Fatalf("expected cold-start collector miss to avoid field-level partial stats, got %#v", item.Resource)
 		}
 	}
 }
 
-func TestDockerRuntimeDetailCollectsResourceStats(t *testing.T) {
+func TestDockerRuntimeDetailReadsCollectedResourceStats(t *testing.T) {
 	t.Parallel()
 
 	client := &countingDockerClient{
+		list: []container.Summary{
+			{
+				ID:      "1234567890abcdef",
+				Names:   []string{"/graft-web"},
+				Image:   "graft/web:latest",
+				State:   container.StateRunning,
+				Status:  "Up 10 minutes",
+				Created: 1781409600,
+			},
+		},
 		inspect: container.InspectResponse{
 			ID:      "1234567890abcdef",
 			Name:    "/graft-web",
@@ -358,6 +373,13 @@ func TestDockerRuntimeDetailCollectsResourceStats(t *testing.T) {
 		endpoint:      "unix:///var/run/docker.sock",
 		resourceStats: newResourceStatsCache(containerResourceStatsCacheTTL, containerResourceStatsCacheStaleWindow),
 	}
+	snapshots, err := runtime.CollectStatsSnapshots(context.Background())
+	if err != nil {
+		t.Fatalf("collect stats snapshots: %v", err)
+	}
+	if len(snapshots) != 1 {
+		t.Fatalf("expected one collected snapshot, got %#v", snapshots)
+	}
 
 	detail, err := runtime.Detail(context.Background(), Ref{Value: "graft-web"})
 	if err != nil {
@@ -379,10 +401,20 @@ func TestDockerRuntimeDetailCollectsResourceStats(t *testing.T) {
 	}
 }
 
-func TestDockerRuntimeDetailReusesCachedResourceStats(t *testing.T) {
+func TestDockerRuntimeDetailReusesCollectedResourceStats(t *testing.T) {
 	t.Parallel()
 
 	client := &countingDockerClient{
+		list: []container.Summary{
+			{
+				ID:      "1234567890abcdef",
+				Names:   []string{"/graft-web"},
+				Image:   "graft/web:latest",
+				State:   container.StateRunning,
+				Status:  "Up 10 minutes",
+				Created: 1781409600,
+			},
+		},
 		inspect: container.InspectResponse{
 			ID:      "1234567890abcdef",
 			Name:    "/graft-web",
@@ -396,6 +428,9 @@ func TestDockerRuntimeDetailReusesCachedResourceStats(t *testing.T) {
 		client:        client,
 		endpoint:      "unix:///var/run/docker.sock",
 		resourceStats: newResourceStatsCache(containerResourceStatsCacheTTL, containerResourceStatsCacheStaleWindow),
+	}
+	if _, err := runtime.CollectStatsSnapshots(context.Background()); err != nil {
+		t.Fatalf("collect stats snapshots: %v", err)
 	}
 
 	first, err := runtime.Detail(context.Background(), Ref{Value: "graft-web"})
@@ -414,7 +449,7 @@ func TestDockerRuntimeDetailReusesCachedResourceStats(t *testing.T) {
 	}
 }
 
-func TestDockerRuntimeResourceStatsCacheCollapsesConcurrentMiss(t *testing.T) {
+func TestDockerRuntimeResourceStatsCurrentReturnsUnavailableBeforeCollection(t *testing.T) {
 	t.Parallel()
 
 	client := &countingDockerClient{
@@ -423,18 +458,15 @@ func TestDockerRuntimeResourceStatsCacheCollapsesConcurrentMiss(t *testing.T) {
 		},
 		statsDelay: 40 * time.Millisecond,
 	}
-	runtime := &DockerRuntime{client: client, endpoint: "unix:///var/run/docker.sock"}
-
-	var wg sync.WaitGroup
+	runtime := &DockerRuntime{
+		client:        client,
+		endpoint:      "unix:///var/run/docker.sock",
+		resourceStats: newResourceStatsCache(containerResourceStatsCacheTTL, containerResourceStatsCacheStaleWindow),
+	}
 	results := make([]ResourceSummary, 6)
 	for index := range results {
-		wg.Add(1)
-		go func(i int) {
-			defer wg.Done()
-			results[i] = runtime.cachedContainerResourceSummary(context.Background(), "container-1")
-		}(index)
+		results[index] = runtime.currentResourceSummary("container-1")
 	}
-	wg.Wait()
 
 	for _, summary := range results {
 		if summary.Available || summary.StatsAvailable {
@@ -447,12 +479,12 @@ func TestDockerRuntimeResourceStatsCacheCollapsesConcurrentMiss(t *testing.T) {
 			t.Fatalf("expected cold-start miss to avoid field-level partial stats, got %#v", summary)
 		}
 	}
-	if calls := client.statsCalls.Load(); calls != 1 {
-		t.Fatalf("expected concurrent miss collapse to issue one stats call, got %d", calls)
+	if calls := client.statsCalls.Load(); calls != 0 {
+		t.Fatalf("expected current cache read to avoid runtime stats collection, got %d stats calls", calls)
 	}
 }
 
-func TestDockerRuntimeListReusesCachedResourceStatsAcrossPolls(t *testing.T) {
+func TestDockerRuntimeListReusesCollectedResourceStatsAcrossPolls(t *testing.T) {
 	t.Parallel()
 
 	client := &countingDockerClient{
@@ -468,7 +500,14 @@ func TestDockerRuntimeListReusesCachedResourceStatsAcrossPolls(t *testing.T) {
 		},
 		stats: richDockerStatsFixture(),
 	}
-	runtime := &DockerRuntime{client: client, endpoint: "unix:///var/run/docker.sock"}
+	runtime := &DockerRuntime{
+		client:        client,
+		endpoint:      "unix:///var/run/docker.sock",
+		resourceStats: newResourceStatsCache(containerResourceStatsCacheTTL, containerResourceStatsCacheStaleWindow),
+	}
+	if _, err := runtime.CollectStatsSnapshots(context.Background()); err != nil {
+		t.Fatalf("collect stats snapshots: %v", err)
+	}
 
 	first, err := runtime.List(context.Background(), ListQuery{})
 	if err != nil {
@@ -486,10 +525,20 @@ func TestDockerRuntimeListReusesCachedResourceStatsAcrossPolls(t *testing.T) {
 	}
 }
 
-func TestDockerRuntimeActionInvalidatesCachedResourceStats(t *testing.T) {
+func TestDockerRuntimeActionInvalidatesCollectedResourceStats(t *testing.T) {
 	t.Parallel()
 
 	client := &countingDockerClient{
+		list: []container.Summary{
+			{
+				ID:      "1234567890abcdef",
+				Names:   []string{"/graft-web"},
+				Image:   "graft/web:latest",
+				State:   container.StateRunning,
+				Status:  "Up 10 minutes",
+				Created: 1781409600,
+			},
+		},
 		inspect: container.InspectResponse{
 			ID:      "1234567890abcdef",
 			Name:    "/graft-web",
@@ -499,10 +548,13 @@ func TestDockerRuntimeActionInvalidatesCachedResourceStats(t *testing.T) {
 		},
 		stats: richDockerStatsFixture(),
 	}
-	runtime := &DockerRuntime{client: client, endpoint: "unix:///var/run/docker.sock"}
-
-	if _, err := runtime.Detail(context.Background(), Ref{Value: "graft-web"}); err != nil {
-		t.Fatalf("seed detail: %v", err)
+	runtime := &DockerRuntime{
+		client:        client,
+		endpoint:      "unix:///var/run/docker.sock",
+		resourceStats: newResourceStatsCache(containerResourceStatsCacheTTL, containerResourceStatsCacheStaleWindow),
+	}
+	if _, err := runtime.CollectStatsSnapshots(context.Background()); err != nil {
+		t.Fatalf("collect stats snapshots: %v", err)
 	}
 	if calls := client.statsCalls.Load(); calls != 1 {
 		t.Fatalf("expected seeded cache to collect one stats sample, got %d", calls)
@@ -524,17 +576,19 @@ func TestDockerRuntimeActionInvalidatesCachedResourceStats(t *testing.T) {
 	if _, err := runtime.Restart(context.Background(), Ref{Value: "graft-web"}); err != nil {
 		t.Fatalf("restart: %v", err)
 	}
-	if calls := client.statsCalls.Load(); calls != 2 {
-		t.Fatalf("expected restart to reuse cached pre-action stats and recollect post-action stats, got %d", calls)
+	if calls := client.statsCalls.Load(); calls != 1 {
+		t.Fatalf("expected action path not to recollect stats synchronously, got %d", calls)
 	}
 
 	detail, err := runtime.Detail(context.Background(), Ref{Value: "graft-web"})
 	if err != nil {
 		t.Fatalf("detail after restart: %v", err)
 	}
-	assertInt64Ptr(t, detail.Resource.MemoryUsageBytes, 512, "memory usage after restart")
-	if calls := client.statsCalls.Load(); calls != 2 {
-		t.Fatalf("expected post-restart detail to use refreshed cache, got %d", calls)
+	if detail.Resource.Available || detail.Resource.StatsAvailable {
+		t.Fatalf("expected invalidated cache to report not collected after action, got %#v", detail.Resource)
+	}
+	if calls := client.statsCalls.Load(); calls != 1 {
+		t.Fatalf("expected post-restart detail not to recollect stats, got %d", calls)
 	}
 }
 

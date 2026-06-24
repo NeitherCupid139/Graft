@@ -23,6 +23,7 @@ import (
 	"graft/server/internal/i18n"
 	"graft/server/internal/module"
 	"graft/server/internal/moduleapi"
+	"graft/server/internal/realtime"
 	"graft/server/internal/realtimeauth"
 	containercontract "graft/server/modules/container/contract"
 	containerlocales "graft/server/modules/container/locales"
@@ -31,6 +32,15 @@ import (
 func newRouteTestService(options containerServiceOptions) (*service, error) {
 	if options.realtimeTickets == nil {
 		options.realtimeTickets = realtimeauth.NewMemoryService()
+	}
+	if options.realtimeHub == nil {
+		options.realtimeHub = realtime.NewHub()
+	}
+	if options.topicIssuers == nil {
+		options.topicIssuers = realtime.NewTopicIssuerRegistry()
+	}
+	if options.authorizer == nil {
+		options.authorizer = fakeAuthorizer{}
 	}
 	return newService(options)
 }

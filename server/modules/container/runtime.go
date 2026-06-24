@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 	"unicode"
 
 	"graft/server/modules/container/terminal"
@@ -140,6 +141,23 @@ type Runtime interface {
 	Restart(ctx context.Context, id Ref) (ActionResult, error)
 	Remove(ctx context.Context, id Ref, options RemoveOptions) (ActionResult, error)
 	Close() error
+}
+
+// StatsCollectorRuntime exposes background stats snapshot collection for runtimes
+// that support collector-driven sampling and publish flows.
+type StatsCollectorRuntime interface {
+	Runtime
+	CollectStatsSnapshots(ctx context.Context) ([]StatsSnapshot, error)
+}
+
+// StatsSnapshot is one collector-produced resource snapshot ready for publish.
+type StatsSnapshot struct {
+	ContainerID string
+	Name        string
+	ShortID     string
+	Runtime     string
+	Resource    ResourceSummary
+	CollectedAt time.Time
 }
 
 // Ref is a validated Docker-compatible container id or name.

@@ -18,6 +18,7 @@ import (
 	"graft/server/internal/httpx"
 	"graft/server/internal/module"
 	"graft/server/internal/moduleapi"
+	"graft/server/internal/realtime"
 	"graft/server/internal/realtimeauth"
 	containercontract "graft/server/modules/container/contract"
 	"graft/server/modules/container/terminal"
@@ -51,6 +52,10 @@ type service struct {
 	orchestratorPolicies    orchestratorActionPolicies
 	websocketAllowedOrigins []string
 	realtimeTickets         realtimeauth.Service
+	realtimeHub             realtime.Hub
+	topicIssuers            realtime.TopicIssuerRegistry
+	authorizer              moduleapi.Authorizer
+	statsCollector          *statsCollector
 }
 
 type containerServiceOptions struct {
@@ -73,6 +78,9 @@ type containerServiceOptions struct {
 	orchestratorPolicies    orchestratorActionPolicies
 	websocketAllowedOrigins []string
 	realtimeTickets         realtimeauth.Service
+	realtimeHub             realtime.Hub
+	topicIssuers            realtime.TopicIssuerRegistry
+	authorizer              moduleapi.Authorizer
 }
 
 // newContainerService 根据模块上下文和系统配置构建容器服务。当实时工单服务无法解析时返回错误。
@@ -86,6 +94,18 @@ func newContainerService(ctx *module.Context, moduleName string) (*service, erro
 		allowedOrigins = append(allowedOrigins, ctx.Config.HTTPX.WebSocketAllowedOrigins...)
 	}
 	realtimeTickets, err := resolveRealtimeTicketService(ctx)
+	if err != nil {
+		return nil, err
+	}
+	realtimeHub, err := resolveRealtimeHub(ctx)
+	if err != nil {
+		return nil, err
+	}
+	topicIssuers, err := resolveRealtimeTopicIssuerRegistry(ctx)
+	if err != nil {
+		return nil, err
+	}
+	authorizer, err := resolveAuthorizer(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -105,6 +125,9 @@ func newContainerService(ctx *module.Context, moduleName string) (*service, erro
 		orchestratorPolicies:    options.orchestratorPolicies,
 		websocketAllowedOrigins: allowedOrigins,
 		realtimeTickets:         realtimeTickets,
+		realtimeHub:             realtimeHub,
+		topicIssuers:            topicIssuers,
+		authorizer:              authorizer,
 	})
 }
 
@@ -154,6 +177,9 @@ func newService(options containerServiceOptions) (*service, error) {
 		orchestratorPolicies:    options.orchestratorPolicies.normalized(),
 		websocketAllowedOrigins: append([]string(nil), options.websocketAllowedOrigins...),
 		realtimeTickets:         options.realtimeTickets,
+		realtimeHub:             options.realtimeHub,
+		topicIssuers:            options.topicIssuers,
+		authorizer:              options.authorizer,
 	}, nil
 }
 
@@ -166,9 +192,33 @@ func resolveRealtimeTicketService(ctx *module.Context) (realtimeauth.Service, er
 	return module.ResolveService[realtimeauth.Service](ctx.Services, (*realtimeauth.Service)(nil))
 }
 
+func resolveRealtimeHub(ctx *module.Context) (realtime.Hub, error) {
+	if ctx != nil && ctx.Realtime != nil {
+		return ctx.Realtime, nil
+	}
+	if ctx == nil || ctx.Services == nil {
+		return nil, errors.New("realtime hub resolver is unavailable")
+	}
+
+	return module.ResolveService[realtime.Hub](ctx.Services, (*realtime.Hub)(nil))
+}
+
+func resolveRealtimeTopicIssuerRegistry(ctx *module.Context) (realtime.TopicIssuerRegistry, error) {
+	if ctx == nil || ctx.Services == nil {
+		return nil, errors.New("realtime topic issuer registry resolver is unavailable")
+	}
+
+	return module.ResolveService[realtime.TopicIssuerRegistry](ctx.Services, (*realtime.TopicIssuerRegistry)(nil))
+}
+
 func (s *service) Close() error {
 	if s == nil {
 		return nil
+	}
+	if s.statsCollector != nil {
+		if err := s.statsCollector.Stop(context.Background()); err != nil {
+			return err
+		}
 	}
 	s.runtimeMu.Lock()
 	defer s.runtimeMu.Unlock()
@@ -1643,6 +1693,113 @@ func (s *service) runtimeForRequest() (Runtime, error) {
 	}
 	s.runtime = runtime
 	return runtime, nil
+}
+
+func (s *service) startStatsCollector(ctx context.Context) error {
+	if s == nil {
+		return nil
+	}
+	if s.realtimeHub == nil {
+		return nil
+	}
+	if s.statsCollector == nil {
+		s.statsCollector = newStatsCollector(
+			s.collectStatsSnapshots,
+			s.realtimeHub,
+			s.logger,
+			s.moduleName,
+		)
+	}
+	return s.statsCollector.Start(ctx)
+}
+
+func (s *service) stopStatsCollector(ctx context.Context) error {
+	if s == nil || s.statsCollector == nil {
+		return nil
+	}
+	return s.statsCollector.Stop(ctx)
+}
+
+func (s *service) collectStatsSnapshots(ctx context.Context) ([]StatsSnapshot, error) {
+	if s == nil || !s.runtimeAccessEnabled(ctx) {
+		return nil, nil
+	}
+	runtime, err := s.runtimeForRequest()
+	if err != nil {
+		return nil, err
+	}
+	collectorRuntime, ok := runtime.(StatsCollectorRuntime)
+	if !ok {
+		return nil, nil
+	}
+	return collectorRuntime.CollectStatsSnapshots(ctx)
+}
+
+func (s *service) registerRealtimeTopics() error {
+	if s == nil {
+		return nil
+	}
+	if s.topicIssuers == nil {
+		return errors.New("realtime topic issuer registry is unavailable")
+	}
+	return s.topicIssuers.Register(containercontract.ContainerStatsTopicPrefix, s)
+}
+
+func (s *service) IssueSubscription(
+	ctx context.Context,
+	request realtime.SubscriptionRequest,
+) (realtime.SubscriptionResponse, error) {
+	if s == nil {
+		return realtime.SubscriptionResponse{}, realtime.ErrIssuerRequired
+	}
+
+	topic := realtime.NormalizeTopic(request.Topic)
+	if topic == "" {
+		return realtime.SubscriptionResponse{}, realtime.ErrTopicRequired
+	}
+	if !strings.HasPrefix(topic, containercontract.ContainerStatsTopicPrefix) {
+		return realtime.SubscriptionResponse{}, realtime.ErrTopicNotFound
+	}
+	if request.RequestAuth.User == nil {
+		return realtime.SubscriptionResponse{}, realtime.ErrTopicForbidden
+	}
+	if s.authorizer == nil {
+		return realtime.SubscriptionResponse{}, realtime.ErrTopicForbidden
+	}
+
+	return s.issueContainerRealtimeSubscription(ctx, request, topic)
+}
+
+func (s *service) issueContainerRealtimeSubscription(
+	ctx context.Context,
+	request realtime.SubscriptionRequest,
+	topic string,
+) (realtime.SubscriptionResponse, error) {
+	containerID := strings.TrimSpace(strings.TrimPrefix(topic, containercontract.ContainerStatsTopicPrefix))
+	ref, err := parseRef(containerID)
+	if err != nil {
+		return realtime.SubscriptionResponse{}, realtime.ErrTopicNotFound
+	}
+	if err := s.authorizer.Authorize(ctx, request.RequestAuth, containercontract.ContainerDetailPermission.String()); err != nil {
+		return realtime.SubscriptionResponse{}, realtime.ErrTopicForbidden
+	}
+	if _, err := s.Detail(ctx, ref); err != nil {
+		if errors.Is(err, errContainerNotFound) {
+			return realtime.SubscriptionResponse{}, realtime.ErrTopicNotFound
+		}
+		return realtime.SubscriptionResponse{}, realtime.ErrTopicConflict
+	}
+
+	issued, err := (realtime.TicketIssuer{Tickets: s.realtimeTickets}).IssueTopicTicket(ctx, request)
+	if err != nil {
+		return realtime.SubscriptionResponse{}, realtime.ErrTopicConflict
+	}
+	return realtime.SubscriptionResponse{
+		Topic:        topic,
+		Ticket:       issued.Ticket,
+		WebSocketURL: realtime.BuildTopicWebSocketURL(topic, issued.Ticket),
+		ExpiresAt:    issued.ExpiresAt,
+	}, nil
 }
 
 // ShellSessionRequest describes one requested interactive container shell session.

@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { defineComponent, h } from 'vue';
+import { defineComponent, h, ref } from 'vue';
 
 import type { ContainerMountUsage } from '../../types/container';
 import ContainerDetailPage from './index.vue';
@@ -29,6 +29,23 @@ const messageMocks = vi.hoisted(() => ({
   error: vi.fn(),
   success: vi.fn(),
   warning: vi.fn(),
+}));
+
+const realtimeMocks = vi.hoisted(() => ({
+  controllers: [] as Array<{ close: ReturnType<typeof vi.fn>; reconnect: ReturnType<typeof vi.fn> }>,
+  openRealtimeTopicSocket: vi.fn(
+    (options?: { onStateChange?: (state: 'idle' | 'connecting' | 'open' | 'closed' | 'error') => void }) => {
+      options?.onStateChange?.('open');
+      const controller = {
+        close: vi.fn(() => {
+          options?.onStateChange?.('idle');
+        }),
+        reconnect: vi.fn(),
+      };
+      realtimeMocks.controllers.push(controller);
+      return controller;
+    },
+  ),
 }));
 
 const routerMocks = vi.hoisted(() => ({
@@ -146,6 +163,16 @@ const translations = vi.hoisted(
     'container.detail.refreshIn': '后刷新',
     'container.detail.autoRefreshSeconds': '{seconds} 秒',
     'container.detail.pauseAutoRefresh': '暂停自动刷新',
+    'container.detail.realtime.label': '资源实时订阅',
+    'container.detail.realtime.live': '实时中',
+    'container.detail.realtime.connecting': '连接中',
+    'container.detail.realtime.degraded': '连接异常',
+    'container.detail.realtime.idle': '待建立',
+    'container.detail.realtime.paused': '已暂停',
+    'container.detail.realtime.hint': '资源面板由统一 realtime topic 推送驱动，手动刷新仅同步详情结构与缓存挂载统计。',
+    'container.detail.realtime.pausedHint': '当前已暂停资源实时订阅，页面保留最后一次成功资源值。',
+    'container.detail.realtime.pause': '暂停实时',
+    'container.detail.realtime.resume': '恢复实时',
     'container.detail.refreshSuccess': '容器详情已刷新',
     'container.detail.resumeAutoRefresh': '恢复自动刷新',
     'container.detail.empty': '暂无容器详情。',
@@ -471,10 +498,13 @@ vi.mock('tdesign-vue-next/es/message', () => ({
 
 vi.mock('vue-i18n', async () => {
   const actual = await vi.importActual<typeof import('vue-i18n')>('vue-i18n');
+  const locale = ref('zh-CN');
   return {
     ...actual,
     useI18n: () => ({
-      locale: 'zh-CN',
+      locale,
+      tm: (key: string) => translations[key] ?? key,
+      te: (key: string) => key in translations,
       t: (key: string, params?: Record<string, unknown>) =>
         (translations[key] ?? key).replace(/\{(\w+)\}/g, (_, name) => String(params?.[name] ?? `{${name}}`)),
     }),
@@ -503,9 +533,14 @@ vi.mock('@/shared/observability', async () => {
   };
 });
 
+vi.mock('@/shared/realtime', () => ({
+  openRealtimeTopicSocket: realtimeMocks.openRealtimeTopicSocket,
+}));
+
 describe('container detail page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    realtimeMocks.controllers = [];
     vi.useRealTimers();
     tabStoreState.tabRouterList = [
       {
@@ -918,17 +953,15 @@ describe('container detail page', () => {
     expect(messageMocks.success).toHaveBeenCalledWith('容器详情已刷新');
   });
 
-  it('defaults container detail auto refresh to 5 seconds', async () => {
+  it('renders realtime status controls in the summary-to-tabs row', async () => {
     routeState.route.query.tab = 'storage';
     const wrapper = mountPage();
     await flushPromises();
 
-    expect(wrapper.find('[data-testid="container-detail-refresh-row"]').exists()).toBe(true);
-    expect(wrapper.get('[data-refresh-control-bar="true"]').attributes('data-refresh-variant')).toBe('compact');
-    expect(wrapper.get('[data-refresh-control-bar="true"]').attributes('data-refresh-appearance')).toBe('plain');
-    expect(wrapper.find('[data-refresh-interval-select="true"]').exists()).toBe(true);
-    expect(wrapper.get('[data-refresh-countdown="true"]').text()).toContain('5s 后刷新');
-    expect(wrapper.get('[data-refresh-toggle-auto="true"]').text()).toContain('暂停');
+    expect(wrapper.find('[data-testid="container-detail-realtime-row"]').exists()).toBe(true);
+    expect(wrapper.get('[data-testid="container-detail-realtime-status"]').text()).toBe('实时中');
+    expect(wrapper.get('[data-testid="container-detail-realtime-toggle"]').text()).toContain('暂停实时');
+    expect(wrapper.get('[data-refresh-now="true"]').text()).toContain('立即刷新');
     expect(wrapper.find('[data-testid="detail-back"]').exists()).toBe(false);
     expect(wrapper.text()).not.toContain('返回');
   });
@@ -938,13 +971,13 @@ describe('container detail page', () => {
     await flushPromises();
 
     const headerMeta = wrapper.get('[data-testid="container-detail-header-meta-slot"]');
-    const refreshRow = wrapper.get('[data-testid="container-detail-refresh-row"]');
+    const refreshRow = wrapper.get('[data-testid="container-detail-realtime-row"]');
 
-    expect(headerMeta.find('[data-refresh-control-bar="true"]').exists()).toBe(false);
+    expect(headerMeta.find('[data-testid="container-detail-realtime-bar"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="container-detail-header-actions-slot"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="container-detail-tabs-action-slot"]').exists()).toBe(false);
-    expect(refreshRow.find('[data-refresh-control-bar="true"]').exists()).toBe(true);
-    expect(wrapper.findAll('[data-refresh-control-bar="true"]')).toHaveLength(1);
+    expect(refreshRow.find('[data-testid="container-detail-realtime-bar"]').exists()).toBe(true);
+    expect(wrapper.findAll('[data-testid="container-detail-realtime-bar"]')).toHaveLength(1);
   });
 
   it('renders header meta as identity tags plus a separate updated-at line', async () => {
@@ -957,32 +990,18 @@ describe('container detail page', () => {
     expect(headerMeta.text()).toContain('健康');
     expect(headerMeta.text()).toContain('docker');
     expect(headerMeta.text()).toContain('详情更新时间');
-    expect(headerMeta.find('[data-refresh-control-bar="true"]').exists()).toBe(false);
+    expect(headerMeta.find('[data-testid="container-detail-realtime-bar"]').exists()).toBe(false);
   });
 
-  it('renders paused auto refresh without countdown and with resume action', async () => {
+  it('renders paused realtime state with resume action', async () => {
     const wrapper = mountPage();
     await flushPromises();
 
-    await wrapper.get('[data-refresh-toggle-auto="true"]').trigger('click');
+    await wrapper.get('[data-testid="container-detail-realtime-toggle"]').trigger('click');
     await flushPromises();
 
-    const refreshBar = wrapper.get('[data-refresh-control-bar="true"]');
-    expect(refreshBar.text()).toContain('恢复');
-    expect(refreshBar.find('[data-refresh-countdown="true"]').exists()).toBe(false);
-  });
-
-  it('renders auto refresh off state without countdown and with enable action', async () => {
-    const wrapper = mountPage();
-    await flushPromises();
-
-    await wrapper.get('[data-refresh-interval-select="true"]').setValue('0');
-    await flushPromises();
-
-    const refreshBar = wrapper.get('[data-refresh-control-bar="true"]');
-    expect(refreshBar.text()).toContain('自动刷新关闭');
-    expect(refreshBar.text()).toContain('开启');
-    expect(refreshBar.find('[data-refresh-countdown="true"]').exists()).toBe(false);
+    expect(wrapper.get('[data-testid="container-detail-realtime-status"]').text()).toBe('已暂停');
+    expect(wrapper.get('[data-testid="container-detail-realtime-toggle"]').text()).toContain('恢复实时');
   });
 
   it('sorts mount cards by destination, source, and type instead of API order', async () => {
@@ -1176,37 +1195,19 @@ describe('container detail page', () => {
     expect(findMountCardByDestination(wrapper, '/etc/graft').text()).toContain('4.0 MiB');
   });
 
-  it('auto refreshes with cached usage only and cleans up the timer', async () => {
-    vi.useFakeTimers();
+  it('keeps manual refresh focused on structure detail and cached mount usage', async () => {
     routeState.route.query.tab = 'storage';
     const wrapper = mountPage();
     await flushPromises();
     vi.clearAllMocks();
 
-    await wrapper.get('[data-refresh-interval-select="true"]').setValue('5');
-    await wrapper.vm.$nextTick();
-    expect(wrapper.get('[data-refresh-countdown="true"]').text()).toContain('5s 后刷新');
-
-    await vi.advanceTimersByTimeAsync(5000);
+    await wrapper.get('[data-refresh-now="true"]').trigger('click');
     await flushPromises();
 
     expect(apiMocks.getContainer).toHaveBeenCalledTimes(1);
     expect(apiMocks.getContainerMountUsage).toHaveBeenCalledTimes(1);
     expect(apiMocks.postContainerMountUsageRefresh).not.toHaveBeenCalled();
-    expect(wrapper.get('[data-refresh-countdown="true"]').text()).toContain('5s 后刷新');
-
-    await wrapper.get('[data-testid="tab-logs"]').trigger('click');
-    await wrapper.get('[data-testid="tab-logs"]').trigger('click');
-    await vi.advanceTimersByTimeAsync(5000);
-    await flushPromises();
-
-    expect(apiMocks.getContainer).toHaveBeenCalledTimes(2);
-
-    wrapper.unmount();
-    await vi.advanceTimersByTimeAsync(10000);
-
-    expect(apiMocks.getContainer).toHaveBeenCalledTimes(2);
-    vi.useRealTimers();
+    expect(messageMocks.success).toHaveBeenCalledWith('容器详情已刷新');
   });
 
   it('renders the shell panel through the existing route query tab lifecycle', async () => {
@@ -1251,37 +1252,22 @@ describe('container detail page', () => {
     expect(shellPanelSourceText).not.toContain('--container-shell-terminal-height: clamp(');
   });
 
-  it('pauses auto refresh while hidden and refreshes once when visible again', async () => {
-    vi.useFakeTimers();
-    routeState.route.query.tab = 'storage';
+  it('pauses and resumes realtime subscription from the detail toolbar toggle', async () => {
     const wrapper = mountPage();
     await flushPromises();
-    vi.clearAllMocks();
 
-    await wrapper.get('[data-refresh-interval-select="true"]').setValue('5');
-    await flushPromises();
-    vi.clearAllMocks();
-
-    Object.defineProperty(document, 'visibilityState', {
-      configurable: true,
-      value: 'hidden',
-    });
-    document.dispatchEvent(new Event('visibilitychange'));
-    await vi.advanceTimersByTimeAsync(5000);
+    await wrapper.get('[data-testid="container-detail-realtime-toggle"]').trigger('click');
     await flushPromises();
 
-    expect(apiMocks.getContainer).not.toHaveBeenCalled();
+    expect(wrapper.get('[data-testid="container-detail-realtime-status"]').text()).toBe('已暂停');
+    expect(realtimeMocks.controllers.every((controller) => controller.close.mock.calls.length > 0)).toBe(true);
 
-    Object.defineProperty(document, 'visibilityState', {
-      configurable: true,
-      value: 'visible',
-    });
-    document.dispatchEvent(new Event('visibilitychange'));
+    realtimeMocks.openRealtimeTopicSocket.mockClear();
+    await wrapper.get('[data-testid="container-detail-realtime-toggle"]').trigger('click');
     await flushPromises();
 
-    expect(apiMocks.getContainer).toHaveBeenCalled();
-    wrapper.unmount();
-    vi.useRealTimers();
+    expect(realtimeMocks.openRealtimeTopicSocket).toHaveBeenCalled();
+    expect(wrapper.get('[data-testid="container-detail-realtime-status"]').text()).toBe('实时中');
   });
 
   it('renders single network details as cards with one port mapping', async () => {

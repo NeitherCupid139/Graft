@@ -19,6 +19,7 @@ import (
 	"graft/server/internal/httpx"
 	"graft/server/internal/module"
 	"graft/server/internal/moduleapi"
+	"graft/server/internal/realtime"
 	"graft/server/internal/realtimeauth"
 	containercontract "graft/server/modules/container/contract"
 	"graft/server/modules/container/terminal"
@@ -28,7 +29,22 @@ func newTestService(options containerServiceOptions) (*service, error) {
 	if options.realtimeTickets == nil {
 		options.realtimeTickets = realtimeauth.NewMemoryService()
 	}
+	if options.realtimeHub == nil {
+		options.realtimeHub = realtime.NewHub()
+	}
+	if options.topicIssuers == nil {
+		options.topicIssuers = realtime.NewTopicIssuerRegistry()
+	}
+	if options.authorizer == nil {
+		options.authorizer = fakeAuthorizer{}
+	}
 	return newService(options)
+}
+
+type fakeAuthorizer struct{}
+
+func (fakeAuthorizer) Authorize(context.Context, moduleapi.RequestAuthContext, string) error {
+	return nil
 }
 
 func TestParseRefRejectsUnsafeValues(t *testing.T) {
@@ -1377,6 +1393,21 @@ func TestNewContainerServiceUsesEffectiveStartupRuntimeConfig(t *testing.T) {
 		return realtimeauth.NewMemoryService(), nil
 	}); err != nil {
 		t.Fatalf("register realtime ticket service: %v", err)
+	}
+	if err := services.RegisterSingleton((*realtime.Hub)(nil), func(containerdi.Resolver) (any, error) {
+		return realtime.NewHub(), nil
+	}); err != nil {
+		t.Fatalf("register realtime hub: %v", err)
+	}
+	if err := services.RegisterSingleton((*realtime.TopicIssuerRegistry)(nil), func(containerdi.Resolver) (any, error) {
+		return realtime.NewTopicIssuerRegistry(), nil
+	}); err != nil {
+		t.Fatalf("register realtime topic issuer registry: %v", err)
+	}
+	if err := services.RegisterSingleton((*moduleapi.Authorizer)(nil), func(containerdi.Resolver) (any, error) {
+		return fakeAuthorizer{}, nil
+	}); err != nil {
+		t.Fatalf("register authorizer: %v", err)
 	}
 	service, err := newContainerService(&module.Context{
 		LifecycleContext: context.Background(),

@@ -1,6 +1,7 @@
 package container
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"slices"
@@ -13,7 +14,9 @@ import (
 	"graft/server/internal/i18n"
 	"graft/server/internal/menu"
 	"graft/server/internal/module"
+	"graft/server/internal/moduleapi"
 	"graft/server/internal/permission"
+	"graft/server/internal/realtime"
 	"graft/server/internal/realtimeauth"
 	containercontract "graft/server/modules/container/contract"
 	containerlocales "graft/server/modules/container/locales"
@@ -118,6 +121,21 @@ func newTestContext() *module.Context {
 	}); err != nil {
 		panic(fmt.Sprintf("register realtime ticket service: %v", err))
 	}
+	if err := services.RegisterSingleton((*realtime.Hub)(nil), func(containerdi.Resolver) (any, error) {
+		return realtime.NewHub(), nil
+	}); err != nil {
+		panic(fmt.Sprintf("register realtime hub: %v", err))
+	}
+	if err := services.RegisterSingleton((*realtime.TopicIssuerRegistry)(nil), func(containerdi.Resolver) (any, error) {
+		return realtime.NewTopicIssuerRegistry(), nil
+	}); err != nil {
+		panic(fmt.Sprintf("register realtime topic issuer registry: %v", err))
+	}
+	if err := services.RegisterSingleton((*moduleapi.Authorizer)(nil), func(containerdi.Resolver) (any, error) {
+		return moduleAuthorizerStub{}, nil
+	}); err != nil {
+		panic(fmt.Sprintf("register authorizer: %v", err))
+	}
 	return &module.Context{
 		I18n:               localizer,
 		MenuRegistry:       menu.NewRegistry(),
@@ -125,6 +143,12 @@ func newTestContext() *module.Context {
 		ConfigRegistry:     configregistry.NewRegistry(),
 		Services:           services,
 	}
+}
+
+type moduleAuthorizerStub struct{}
+
+func (moduleAuthorizerStub) Authorize(context.Context, moduleapi.RequestAuthContext, string) error {
+	return nil
 }
 
 func assertPermissions(t *testing.T, registry *permission.Registry) {

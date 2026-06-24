@@ -1,6 +1,7 @@
 package container
 
 import (
+	"context"
 	"errors"
 
 	"graft/server/internal/module"
@@ -37,19 +38,36 @@ func (m *Module) Register(ctx *module.Context) error {
 	if err != nil {
 		return err
 	}
+	if err := service.registerRealtimeTopics(); err != nil {
+		return err
+	}
 	m.service = service
 	return registerRoutes(ctx, moduleID, service)
 }
 
 // Boot currently has no background runtime work; container reads are request-driven.
-func (m *Module) Boot(_ *module.Context) error {
-	return nil
+func (m *Module) Boot(ctx *module.Context) error {
+	if m == nil || m.service == nil {
+		return nil
+	}
+	lifecycleCtx := context.Background()
+	if ctx != nil && ctx.LifecycleContext != nil {
+		lifecycleCtx = ctx.LifecycleContext
+	}
+	return m.service.startStatsCollector(lifecycleCtx)
 }
 
 // Shutdown releases the runtime client owned by this module.
-func (m *Module) Shutdown(_ *module.Context) error {
+func (m *Module) Shutdown(ctx *module.Context) error {
 	if m == nil || m.service == nil {
 		return nil
+	}
+	lifecycleCtx := context.Background()
+	if ctx != nil && ctx.LifecycleContext != nil {
+		lifecycleCtx = ctx.LifecycleContext
+	}
+	if err := m.service.stopStatsCollector(lifecycleCtx); err != nil {
+		return err
 	}
 	if err := m.service.Close(); err != nil {
 		return err

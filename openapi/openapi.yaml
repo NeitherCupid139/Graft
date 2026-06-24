@@ -184,6 +184,10 @@ paths:
     $ref: ./paths/my-announcements.read-all.yaml
   /api/my/announcements/unread-count:
     $ref: ./paths/my-announcements.unread-count.yaml
+  /api/realtime/subscriptions:
+    $ref: ./paths/realtime-subscriptions.yaml
+  /ws:
+    $ref: ./paths/realtime-ws.yaml
   /api/ops/containers:
     $ref: ./paths/ops-containers.collection.yaml
   /api/ops/containers/batch-actions:
@@ -526,6 +530,12 @@ components:
       $ref: ./components/schemas/announcement-unread-count-response.yaml
     AnnouncementReadAllResponse:
       $ref: ./components/schemas/announcement-read-all-response.yaml
+    RealtimeSubscriptionRequest:
+      $ref: ./components/schemas/realtime-subscription-request.yaml
+    RealtimeSubscriptionResponse:
+      $ref: ./components/schemas/realtime-subscription-response.yaml
+    EnvelopedRealtimeSubscriptionResponse:
+      $ref: ./components/schemas/enveloped-realtime-subscription-response.yaml
     CreateAnnouncementRequest:
       $ref: ./components/schemas/create-announcement-request.yaml
     UpdateAnnouncementRequest:
@@ -605,3 +615,66 @@ components:
       $ref: ./components/security/bearer-auth.yaml
     refreshCookie:
       $ref: ./components/security/refresh-cookie.yaml
+  parameters:
+    locale-header:
+      $ref: ./components/parameters/locale-header.yaml
+    request-id-header:
+      $ref: ./components/parameters/request-id-header.yaml
+    session-list-limit:
+      $ref: ./components/parameters/session-list-limit.yaml
+    trend-range-query:
+      $ref: ./components/parameters/trend-range-query.yaml
+    announcement-id-path:
+      $ref: ./components/parameters/announcement-id-path.yaml
+    scheduled-task-list-limit:
+      $ref: ./components/parameters/scheduled-task-list-limit.yaml
+    scheduled-task-list-offset:
+      $ref: ./components/parameters/scheduled-task-list-offset.yaml
+    scheduled-task-job-key:
+      $ref: ./components/parameters/scheduled-task-job-key.yaml
+    scheduled-task-key:
+      $ref: ./components/parameters/scheduled-task-key.yaml
+    scheduled-task-run-list-limit:
+      $ref: ./components/parameters/scheduled-task-run-list-limit.yaml
+    scheduled-task-run-list-offset:
+      $ref: ./components/parameters/scheduled-task-run-list-offset.yaml
+    scheduled-task-run-id:
+      $ref: ./components/parameters/scheduled-task-run-id.yaml
+    scheduled-task-action-key:
+      $ref: ./components/parameters/scheduled-task-action-key.yaml
+    container-list-limit:
+      $ref: ./components/parameters/container-list-limit.yaml
+    container-list-offset:
+      $ref: ./components/parameters/container-list-offset.yaml
+    container-list-keyword:
+      $ref: ./components/parameters/container-list-keyword.yaml
+    container-list-state:
+      $ref: ./components/parameters/container-list-state.yaml
+    container-list-health:
+      $ref: ./components/parameters/container-list-health.yaml
+    container-list-orchestrator:
+      $ref: ./components/parameters/container-list-orchestrator.yaml
+    container-list-source-scope-kind:
+      $ref: ./components/parameters/container-list-source-scope-kind.yaml
+    container-list-source-scope:
+      $ref: ./components/parameters/container-list-source-scope.yaml
+    container-id-path:
+      $ref: ./components/parameters/container-id-path.yaml
+    container-mount-id-path:
+      $ref: ./components/parameters/container-mount-id-path.yaml
+    container-logs-tail:
+      $ref: ./components/parameters/container-logs-tail.yaml
+    container-logs-since:
+      $ref: ./components/parameters/container-logs-since.yaml
+    container-logs-timestamps:
+      $ref: ./components/parameters/container-logs-timestamps.yaml
+    container-logs-stdout:
+      $ref: ./components/parameters/container-logs-stdout.yaml
+    container-logs-stderr:
+      $ref: ./components/parameters/container-logs-stderr.yaml
+    container-shell-ticket-query:
+      $ref: ./components/parameters/container-shell-ticket-query.yaml
+    realtime-ticket-query:
+      $ref: ./components/parameters/realtime-ticket-query.yaml
+    realtime-topic-query:
+      $ref: ./components/parameters/realtime-topic-query.yaml

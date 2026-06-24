@@ -1,0 +1,11 @@
+type: object
+required:
+  - topic
+properties:
+  topic:
+    type: string
+    minLength: 1
+    maxLength: 512
+    description: >
+      Canonical realtime topic requested by the caller. The server validates topic ownership, permission, and resource
+      scope before issuing a ticket.

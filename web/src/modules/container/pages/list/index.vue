@@ -131,19 +131,22 @@
             @density="toggleTableDensity"
             @refresh="handleManualRefresh"
           />
-          <refresh-control-bar
-            :status="refreshControlStatus"
-            :countdown-seconds="remainingAutoRefreshSeconds"
-            :interval="AUTO_REFRESH_INTERVAL_SECONDS"
-            :interval-options="autoRefreshOptions"
-            :refreshing="refreshing"
-            :show-countdown="true"
-            appearance="plain"
-            variant="compact"
-            @pause="setAutoRefreshEnabled(false)"
-            @refresh="handleManualRefresh"
-            @resume="setAutoRefreshEnabled(true)"
-          />
+          <div class="container-realtime-bar" data-testid="container-list-realtime-bar">
+            <span class="container-realtime-bar__label">{{ t('container.list.realtime.label') }}</span>
+            <t-tag :theme="realtimeStatusTheme" variant="light-outline" data-testid="container-list-realtime-status">
+              {{ realtimeStatusLabel }}
+            </t-tag>
+            <span class="container-realtime-bar__hint">{{ realtimeStatusHint }}</span>
+            <t-button
+              size="small"
+              theme="default"
+              variant="outline"
+              data-testid="container-list-realtime-toggle"
+              @click="toggleRealtimeSubscription"
+            >
+              {{ realtimeToggleLabel }}
+            </t-button>
+          </div>
         </div>
       </template>
       <template #batch>
@@ -502,10 +505,10 @@ import {
   useTableHostWidth,
 } from '@/shared/components/management';
 import { AdvancedQueryColumnDrawer } from '@/shared/components/query-list';
-import { RefreshControlBar, type RefreshControlOption } from '@/shared/components/refresh';
 import { useCurrentTabRefresh } from '@/shared/composables/useTabRefresh';
 import { resolveLocalizedErrorMessage } from '@/shared/localized-api-error';
 import { formatLocaleDateTime } from '@/shared/observability';
+import { openRealtimeTopicSocket, type RealtimeTopicSocketController } from '@/shared/realtime';
 import { useTabsRouterStore } from '@/store';
 import { createLogger } from '@/utils/logger';
 import { localizeRouteTitleKey } from '@/utils/route/title';
@@ -521,6 +524,12 @@ import {
 } from '../../api/container';
 import { CONTAINER_BOOTSTRAP_ROUTE } from '../../contract/bootstrap';
 import { CONTAINER_PERMISSION_CODE } from '../../contract/permissions';
+import {
+  applyRealtimeResourceToSummary,
+  buildContainerStatsTopic,
+  mergeSummaryStructurePreservingRealtimeResource,
+  parseContainerStatsPayload,
+} from '../../shared/realtime-stats';
 import type {
   ContainerAction,
   ContainerActionLevel,
@@ -602,8 +611,6 @@ const ALL_COLUMN_KEYS = [
 const CONTAINER_PORT_VISIBLE_LIMIT = 2;
 const CONTAINER_DEFAULT_PAGE_SIZE = 20;
 const BYTES_PER_MIB = 1024 * 1024;
-const AUTO_REFRESH_INTERVAL_SECONDS = 5;
-
 type ListErrorState = {
   title: string;
   hint: string;
@@ -648,9 +655,6 @@ const batchActionLoading = ref<DangerousContainerAction | ''>('');
 const activeDangerousDialog = ref<DialogInstance | null>(null);
 const dangerousDialogOpen = ref(false);
 const pendingSourceScopeFilter = ref<SourceQuickFilterValue | null>(null);
-const autoRefreshEnabled = ref(true);
-const remainingAutoRefreshSeconds = ref<number | null>(null);
-const isPageVisible = ref(true);
 const filters = reactive<ContainerFilters>({
   keyword: '',
   orchestrator: 'all',
@@ -826,32 +830,59 @@ const selectedRows = computed(() => {
   const selectedKeySet = new Set(selectedRowKeys.value.map(String));
   return rows.value.filter((row) => selectedKeySet.has(row.id));
 });
-const autoRefreshOptions = computed<RefreshControlOption[]>(() => [
-  {
-    label: t('container.list.autoRefreshInterval5Seconds'),
-    value: AUTO_REFRESH_INTERVAL_SECONDS,
-  },
-]);
-const refreshControlStatus = computed(() => (autoRefreshEnabled.value ? ('running' as const) : ('paused' as const)));
-
-let autoRefreshTimer: ReturnType<typeof setInterval> | number | null = null;
-let nextAutoRefreshAt: number | null = null;
 let refreshRequestSeq = 0;
+const statsSockets = new Map<string, RealtimeTopicSocketController>();
+const realtimeEnabled = ref(true);
+const realtimeSocketStates = reactive<Record<string, 'idle' | 'connecting' | 'open' | 'closed' | 'error'>>({});
+const realtimeStatusTheme = computed(() => {
+  if (!realtimeEnabled.value) {
+    return 'default';
+  }
+  const states = Object.values(realtimeSocketStates);
+  if (states.some((state) => state === 'error')) {
+    return 'danger';
+  }
+  if (states.some((state) => state === 'connecting' || state === 'closed')) {
+    return 'warning';
+  }
+  if (states.some((state) => state === 'open')) {
+    return 'success';
+  }
+  return 'default';
+});
+const realtimeStatusLabel = computed(() => {
+  if (!realtimeEnabled.value) {
+    return t('container.list.realtime.paused');
+  }
+  const states = Object.values(realtimeSocketStates);
+  if (states.some((state) => state === 'error')) {
+    return t('container.list.realtime.degraded');
+  }
+  if (states.some((state) => state === 'connecting' || state === 'closed')) {
+    return t('container.list.realtime.connecting');
+  }
+  if (states.some((state) => state === 'open')) {
+    return t('container.list.realtime.live');
+  }
+  return t('container.list.realtime.idle');
+});
+const realtimeStatusHint = computed(() =>
+  realtimeEnabled.value ? t('container.list.realtime.hint') : t('container.list.realtime.pausedHint'),
+);
+const realtimeToggleLabel = computed(() =>
+  realtimeEnabled.value ? t('container.list.realtime.pause') : t('container.list.realtime.resume'),
+);
 
 onMounted(() => {
   void refreshContainers();
-  document.addEventListener('visibilitychange', handleVisibilityChange, false);
-  scheduleAutoRefresh();
 });
 
 useCurrentTabRefresh(async () => {
   await refreshContainers();
-  scheduleAutoRefresh();
 });
 
 onUnmounted(() => {
-  stopAutoRefresh();
-  document.removeEventListener('visibilitychange', handleVisibilityChange);
+  stopStatsSockets();
 });
 
 watch(
@@ -900,7 +931,6 @@ watch(
 
 async function refreshContainers() {
   const requestSeq = ++refreshRequestSeq;
-  stopAutoRefresh();
   const shouldBlockTable = rows.value.length === 0 && !tableLoading.value;
   if (shouldBlockTable) {
     tableLoading.value = true;
@@ -913,7 +943,11 @@ async function refreshContainers() {
     if (requestSeq !== refreshRequestSeq) {
       return;
     }
-    rows.value = payload.items;
+    const currentRowsById = new Map(rows.value.map((row) => [row.id, row] as const));
+    rows.value = payload.items.map((item) =>
+      mergeSummaryStructurePreservingRealtimeResource(currentRowsById.get(item.id), item),
+    );
+    syncStatsSockets(payload.items);
     runtime.value = payload.runtime;
     listSummary.value = payload.summary;
     listTotal.value = payload.total;
@@ -923,6 +957,7 @@ async function refreshContainers() {
       return;
     }
     rows.value = [];
+    stopStatsSockets();
     runtime.value = null;
     listSummary.value = null;
     listTotal.value = 0;
@@ -932,64 +967,79 @@ async function refreshContainers() {
     if (requestSeq === refreshRequestSeq) {
       tableLoading.value = false;
       refreshing.value = false;
-      scheduleAutoRefresh();
     }
   }
 }
 
 async function handleManualRefresh() {
+  if (tableLoading.value || refreshing.value) {
+    return;
+  }
   await refreshContainers();
 }
 
-function handleVisibilityChange() {
-  isPageVisible.value = document.visibilityState === 'visible';
-  if (!isPageVisible.value) {
-    stopAutoRefresh();
+function toggleRealtimeSubscription() {
+  realtimeEnabled.value = !realtimeEnabled.value;
+  if (!realtimeEnabled.value) {
+    stopStatsSockets();
     return;
   }
-  void refreshContainers();
+  syncStatsSockets(rows.value);
 }
 
-function setAutoRefreshEnabled(enabled: boolean) {
-  autoRefreshEnabled.value = enabled;
-  if (!enabled) {
-    stopAutoRefresh();
-    remainingAutoRefreshSeconds.value = null;
+function syncStatsSockets(nextRows: ContainerSummaryRecord[]) {
+  if (!realtimeEnabled.value) {
+    stopStatsSockets();
     return;
   }
-  void refreshContainers();
-}
+  const nextIds = new Set(nextRows.map((row) => row.id));
 
-function scheduleAutoRefresh() {
-  stopAutoRefresh();
-  if (!autoRefreshEnabled.value || !isPageVisible.value || tableLoading.value || refreshing.value) {
-    remainingAutoRefreshSeconds.value = null;
-    return;
-  }
-  nextAutoRefreshAt = Date.now() + AUTO_REFRESH_INTERVAL_SECONDS * 1000;
-  updateRemainingAutoRefreshSeconds();
-  autoRefreshTimer = window.setInterval(() => {
-    updateRemainingAutoRefreshSeconds();
-    if (remainingAutoRefreshSeconds.value === 0) {
-      void refreshContainers();
+  for (const [containerId, controller] of statsSockets.entries()) {
+    if (nextIds.has(containerId)) {
+      continue;
     }
-  }, 1000);
+    controller.close();
+    statsSockets.delete(containerId);
+    delete realtimeSocketStates[containerId];
+  }
+
+  for (const row of nextRows) {
+    if (statsSockets.has(row.id)) {
+      continue;
+    }
+    const containerId = row.id;
+    statsSockets.set(
+      containerId,
+      openRealtimeTopicSocket({
+        topic: buildContainerStatsTopic(containerId),
+        parseMessage: parseContainerStatsPayload,
+        onStateChange: (state) => {
+          realtimeSocketStates[containerId] = state;
+        },
+        onMessage: (payload) => {
+          if (payload.id && payload.id !== containerId) {
+            return;
+          }
+          if (!payload.resource) {
+            return;
+          }
+          rows.value = rows.value.map((item) =>
+            item.id === containerId ? applyRealtimeResourceToSummary(item, payload.resource!) : item,
+          );
+        },
+      }),
+    );
+  }
 }
 
-function stopAutoRefresh() {
-  if (autoRefreshTimer !== null) {
-    clearInterval(autoRefreshTimer);
-    autoRefreshTimer = null;
+function stopStatsSockets() {
+  for (const controller of statsSockets.values()) {
+    controller.close();
   }
-  nextAutoRefreshAt = null;
-}
-
-function updateRemainingAutoRefreshSeconds() {
-  if (nextAutoRefreshAt === null) {
-    remainingAutoRefreshSeconds.value = null;
-    return;
+  statsSockets.clear();
+  for (const key of Object.keys(realtimeSocketStates)) {
+    delete realtimeSocketStates[key];
   }
-  remainingAutoRefreshSeconds.value = Math.max(0, Math.ceil((nextAutoRefreshAt - Date.now()) / 1000));
 }
 
 function pruneSelectedRows() {
@@ -2040,10 +2090,6 @@ function normalizeVisibleColumnKeys(keys: unknown[]) {
   justify-content: space-between;
 }
 
-.container-toolbar-row :deep(.refresh-control-bar) {
-  margin-left: auto;
-}
-
 .container-table-head,
 .container-image,
 .container-identity,
@@ -2242,11 +2288,6 @@ function normalizeVisibleColumnKeys(keys: unknown[]) {
 @media (width <= 768px) {
   .container-toolbar-row {
     align-items: stretch;
-  }
-
-  .container-toolbar-row :deep(.refresh-control-bar) {
-    margin-left: 0;
-    width: 100%;
   }
 
   .container-actions {

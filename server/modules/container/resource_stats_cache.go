@@ -12,8 +12,6 @@ const (
 	containerResourceStatsCacheStaleWindow = 8 * time.Second
 )
 
-type resourceStatsLoader func(context.Context) ResourceSummary
-
 type resourceStatsCache struct {
 	mu          sync.Mutex
 	ttl         time.Duration
@@ -30,6 +28,10 @@ type resourceStatsCacheEntry struct {
 	staleUntil time.Time
 }
 
+//nolint:unused // Kept for the tested stale-while-refresh path guarded in resource_stats_cache_test.go.
+type resourceStatsLoader func(context.Context) ResourceSummary
+
+//nolint:unused // Kept for the tested stale-while-refresh path guarded in resource_stats_cache_test.go.
 type resourceStatsLoad struct {
 	done    chan struct{}
 	summary ResourceSummary
@@ -51,6 +53,10 @@ func newResourceStatsCache(ttl time.Duration, staleWindow time.Duration) *resour
 	}
 }
 
+// get serves fresh snapshots immediately, returns stale snapshots while one background refresh is running,
+// and preserves the last successful full snapshot when a refresh degrades.
+//
+//nolint:unused // Covered by focused cache tests; runtime currently consumes current/set/invalidate directly.
 func (c *resourceStatsCache) get(ctx context.Context, key string, loader resourceStatsLoader) ResourceSummary {
 	key = strings.TrimSpace(key)
 	if c == nil || loader == nil || key == "" {
@@ -76,8 +82,45 @@ func (c *resourceStatsCache) get(ctx context.Context, key string, loader resourc
 	c.inflight[key] = load
 	c.mu.Unlock()
 
-	summary := c.completeLoad(ctx, key, load, loader)
-	return summary
+	return c.completeLoad(ctx, key, load, loader)
+}
+
+func (c *resourceStatsCache) current(key string) ResourceSummary {
+	key = strings.TrimSpace(key)
+	if c == nil || key == "" {
+		return unavailableResourceSummary(containerStatsNotCollectedReason)
+	}
+	now := c.now()
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	entry, ok := c.items[key]
+	if !ok {
+		return unavailableResourceSummary(containerStatsNotCollectedReason)
+	}
+	if now.Before(entry.staleUntil) {
+		return entry.summary
+	}
+	return unavailableResourceSummary(containerStatsNotCollectedReason)
+}
+
+func (c *resourceStatsCache) set(key string, summary ResourceSummary) {
+	key = strings.TrimSpace(key)
+	if c == nil || key == "" {
+		return
+	}
+	normalized, cacheable := normalizeResourceStatsSummary(summary)
+	if !cacheable {
+		return
+	}
+	recordedAt := c.now()
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.items[key] = resourceStatsCacheEntry{
+		summary:    normalized,
+		updatedAt:  recordedAt,
+		freshUntil: recordedAt.Add(c.ttl),
+		staleUntil: recordedAt.Add(c.ttl + c.staleWindow),
+	}
 }
 
 func (c *resourceStatsCache) invalidate(keys ...string) {
@@ -95,6 +138,7 @@ func (c *resourceStatsCache) invalidate(keys ...string) {
 	}
 }
 
+//nolint:unused // Kept for the tested stale-while-refresh path guarded in resource_stats_cache_test.go.
 func resourceStatsFreshHit(entry resourceStatsCacheEntry, ok bool, now time.Time) (ResourceSummary, bool) {
 	if ok && now.Before(entry.freshUntil) {
 		return entry.summary, true
@@ -102,6 +146,7 @@ func resourceStatsFreshHit(entry resourceStatsCacheEntry, ok bool, now time.Time
 	return ResourceSummary{}, false
 }
 
+//nolint:unused // Kept with get() to preserve the tested stale-while-refresh behavior.
 func (c *resourceStatsCache) handleInflight(
 	ctx context.Context,
 	entry resourceStatsCacheEntry,
@@ -123,6 +168,7 @@ func (c *resourceStatsCache) handleInflight(
 	}
 }
 
+//nolint:unused // Kept with get() to preserve the tested stale-while-refresh behavior.
 func (c *resourceStatsCache) serveStaleWhileRefresh(
 	ctx context.Context,
 	key string,
@@ -143,6 +189,7 @@ func (c *resourceStatsCache) serveStaleWhileRefresh(
 	return stale, true
 }
 
+//nolint:unused // Kept with get() to preserve the tested stale-while-refresh behavior.
 func (c *resourceStatsCache) completeLoad(ctx context.Context, key string, load *resourceStatsLoad, loader resourceStatsLoader) ResourceSummary {
 	loaded := loader(ctx)
 	summary, cacheable := normalizeResourceStatsSummary(loaded)

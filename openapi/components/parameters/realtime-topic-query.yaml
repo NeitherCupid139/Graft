@@ -1,0 +1,10 @@
+name: topic
+in: query
+required: true
+description: >
+  Canonical realtime topic to subscribe after the server validates the ticket. Topics are authority-owned strings such
+  as `container.stats:<id>`, `container.logs:<id>`, `container.events:<id>`, `audit.events`, and `system.events`.
+schema:
+  type: string
+  minLength: 1
+  maxLength: 512

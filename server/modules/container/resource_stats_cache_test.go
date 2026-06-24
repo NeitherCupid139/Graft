@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+//nolint:unused // The tested stale-refresh path is intentionally kept for cache-governance coverage.
 func TestResourceStatsCacheReturnsStaleAndRefreshesInBackground(t *testing.T) {
 	t.Parallel()
 
@@ -43,6 +44,7 @@ func TestResourceStatsCacheReturnsStaleAndRefreshesInBackground(t *testing.T) {
 	}
 }
 
+//nolint:unused // The tested stale-refresh path is intentionally kept for cache-governance coverage.
 func TestResourceStatsCacheRefreshFailurePreservesLastSuccessWithinStaleWindow(t *testing.T) {
 	t.Parallel()
 
@@ -80,6 +82,7 @@ func TestResourceStatsCacheRefreshFailurePreservesLastSuccessWithinStaleWindow(t
 	}
 }
 
+//nolint:unused // The tested stale-refresh path is intentionally kept for cache-governance coverage.
 func TestResourceStatsCachePartialRefreshPreservesLastFullSnapshot(t *testing.T) {
 	t.Parallel()
 
@@ -114,6 +117,7 @@ func TestResourceStatsCachePartialRefreshPreservesLastFullSnapshot(t *testing.T)
 	assertFloatPtr(t, afterPartial.MemoryPercent, 12, "preserved memory percent")
 }
 
+//nolint:unused // The tested stale-refresh path is intentionally kept for cache-governance coverage.
 func TestResourceStatsCacheWithoutPriorSnapshotReturnsUnavailableForPartialResult(t *testing.T) {
 	t.Parallel()
 

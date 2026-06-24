@@ -256,3 +256,25 @@ assets:
       - "openapi-contracts"
     validation_commands:
       - "cd web && bun run check"
+
+  - name: "realtime-topic-client"
+    type: "frontend-utility"
+    path: "web/src/shared/realtime"
+    owner: "web/shared"
+    purpose: "Ticket-first unified realtime topic subscription helper for opening canonical `/ws?topic=...&ticket=...` sockets without module-private WebSocket URL logic."
+    use_when:
+      - "Consuming canonical realtime topics from module pages or shared interactive surfaces."
+      - "A page needs unified ticket issue plus WebSocket reconnection behavior without owning transport details."
+    do_not_use_when:
+      - "Building module-private shell or terminal session transports with their own dedicated contracts."
+      - "Using HTTP polling as the authority for realtime resource snapshots."
+    examples:
+      - "web/src/modules/container/pages/list/index.vue"
+      - "web/src/modules/container/pages/detail/index.vue"
+      - "web/src/modules/container/components/ContainerShellPanel.vue"
+    related_assets:
+      - "request-client"
+      - "terminal-components"
+      - "openapi-contracts"
+    validation_commands:
+      - "cd web && bun run check"

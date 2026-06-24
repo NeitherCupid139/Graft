@@ -119,7 +119,7 @@ func (r *DockerRuntime) Detail(ctx context.Context, ref Ref) (Detail, error) {
 		return Detail{}, err
 	}
 	detail := dockerDetail(inspect, info)
-	detail.Resource = r.cachedContainerResourceSummary(ctx, firstNonEmpty(detail.ID, ref.Value))
+	detail.Resource = r.currentResourceSummary(firstNonEmpty(detail.ID, ref.Value))
 	return detail, nil
 }
 
@@ -380,18 +380,16 @@ func (r *DockerRuntime) containerResourceSummary(ctx context.Context, id string)
 	return r.dockerResourceSummary(ref, stats)
 }
 
-func (r *DockerRuntime) cachedContainerResourceSummary(ctx context.Context, id string) ResourceSummary {
+func (r *DockerRuntime) currentResourceSummary(id string) ResourceSummary {
 	ref := strings.TrimSpace(id)
 	if ref == "" {
 		return unavailableResourceSummary(containerStatsIncompleteReason)
 	}
 	cache := r.ensureResourceStatsCache()
 	if r == nil || cache == nil {
-		return r.containerResourceSummary(ctx, ref)
+		return unavailableResourceSummary(containerStatsNotCollectedReason)
 	}
-	return cache.get(ctx, ref, func(loadCtx context.Context) ResourceSummary {
-		return r.containerResourceSummary(loadCtx, ref)
-	})
+	return cache.current(ref)
 }
 
 func (r *DockerRuntime) invalidateResourceSummary(ids ...string) {
@@ -420,26 +418,73 @@ func (r *DockerRuntime) updateResourceStatsCachePolicy(ttl time.Duration, staleW
 }
 
 func (r *DockerRuntime) collectListResourceSummaries(ctx context.Context, summaries []Summary) {
+	_ = ctx
 	if len(summaries) == 0 {
 		return
 	}
-	workerCount := min(len(summaries), dockerStatsListWorkers)
-	jobs := make(chan int)
+	for index := range summaries {
+		summaries[index].Resource = r.currentResourceSummary(summaries[index].ID)
+	}
+}
+
+// CollectStatsSnapshots collects one bounded batch of Docker stats snapshots for publish.
+func (r *DockerRuntime) CollectStatsSnapshots(ctx context.Context) ([]StatsSnapshot, error) {
+	items, err := r.client.ContainerList(ctx, mobyclient.ContainerListOptions{All: true})
+	if err != nil {
+		return nil, mapDockerError(err)
+	}
+	snapshots := make([]StatsSnapshot, len(items))
+	collectedAt := time.Now().UTC()
+	if len(items) == 0 {
+		return snapshots, nil
+	}
+
+	workers := min(len(items), dockerStatsListWorkers)
+	if workers < 1 {
+		workers = 1
+	}
+
+	indexes := make(chan int, len(items))
+	for index := range items {
+		indexes <- index
+	}
+	close(indexes)
+
 	var wg sync.WaitGroup
-	wg.Add(workerCount)
-	for range workerCount {
+	wg.Add(workers)
+	for range workers {
 		go func() {
 			defer wg.Done()
-			for index := range jobs {
-				summaries[index].Resource = r.cachedContainerResourceSummary(ctx, summaries[index].ID)
+			for index := range indexes {
+				summary := dockerSummary(items[index])
+				resource := r.containerResourceSummary(ctx, summary.ID)
+				normalized, _ := normalizeResourceStatsSummary(resource)
+				r.recordResourceSummary(summary.ID, resource)
+				snapshots[index] = StatsSnapshot{
+					ContainerID: summary.ID,
+					Name:        summary.Name,
+					ShortID:     summary.ShortID,
+					Runtime:     summary.Runtime,
+					Resource:    normalized,
+					CollectedAt: collectedAt,
+				}
 			}
 		}()
 	}
-	for index := range summaries {
-		jobs <- index
-	}
-	close(jobs)
 	wg.Wait()
+	return snapshots, nil
+}
+
+func (r *DockerRuntime) recordResourceSummary(id string, summary ResourceSummary) {
+	ref := strings.TrimSpace(id)
+	if ref == "" {
+		return
+	}
+	cache := r.ensureResourceStatsCache()
+	if cache == nil {
+		return
+	}
+	cache.set(ref, summary)
 }
 
 func (r *DockerRuntime) dockerResourceSummary(containerID string, stats container.StatsResponse) ResourceSummary {
@@ -583,15 +628,15 @@ func dockerStatsOnlineCPUs(stats container.StatsResponse) uint32 {
 }
 
 type dockerCPUCalculation struct {
-	containerID   string
-	totalUsage    uint64
-	preTotalUsage uint64
-	systemUsage   uint64
+	containerID    string
+	totalUsage     uint64
+	preTotalUsage  uint64
+	systemUsage    uint64
 	preSystemUsage uint64
-	onlineCPUs    uint32
-	cpuDelta      uint64
-	systemDelta   uint64
-	cpuPercent    float64
+	onlineCPUs     uint32
+	cpuDelta       uint64
+	systemDelta    uint64
+	cpuPercent     float64
 }
 
 func (r *DockerRuntime) logDockerCPUCalculation(containerID string, stats container.StatsResponse, cpuPercent float64, ok bool) {
