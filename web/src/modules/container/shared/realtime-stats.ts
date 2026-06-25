@@ -101,7 +101,7 @@ export function parseContainerStatsPayload(raw: unknown) {
 /**
  * 解析容器实时统计列表载荷。
  *
- * 将有效的事件数据转换为包含条目列表的结果；当载荷格式不符合要求时返回 `null`。
+ * 仅保留包含有效 `id` 和 `resource` 的条目，并返回解析后的条目数组。
  *
  * @param raw - 原始事件载荷
  * @returns 解析后的列表数据；解析失败时返回 `null`
@@ -135,7 +135,7 @@ export function parseContainerListStatsPayload(raw: unknown): { items: Container
  * 解析容器仪表盘汇总实时载荷。
  *
  * @param raw - 原始事件载荷
- * @returns 解析后的仪表盘汇总数据；解析失败时返回 `null`
+ * @returns 符合仪表盘汇总结构的数据；解析失败时返回 `null`
  */
 export function parseContainerDashboardSummaryPayload(raw: unknown): ContainerDashboardSummaryResponse | null {
   const eventData = parseRealtimeEventData(raw);
@@ -152,6 +152,12 @@ export function parseContainerDashboardSummaryPayload(raw: unknown): ContainerDa
   return summaryData as ContainerDashboardSummaryResponse | null;
 }
 
+/**
+ * 判断值是否符合容器仪表盘汇总载荷结构。
+ *
+ * @param value - 待检查的值
+ * @returns `true` if `value` 符合容器仪表盘汇总结构，`false` otherwise.
+ */
 function isDashboardSummaryPayloadShape(value: unknown): value is ContainerDashboardSummaryResponse {
   return isObject(value) && isObject(value.overview) && isObject(value.hotspots) && Array.isArray(value.anomalies);
 }

@@ -26,7 +26,7 @@ func toContainerListResponse(result ListResult) containergen.ContainerListRespon
 }
 
 // toContainerDashboardSummaryResponse 组装容器仪表盘摘要响应。
-// Overview、Hotspots 和 Anomalies 分别映射为对应的响应结构。
+// toContainerDashboardSummaryResponse 组装容器仪表盘摘要响应，并映射收集时间、Overview、Hotspots 和 Anomalies。
 func toContainerDashboardSummaryResponse(result dashboardSummaryResult) containerDashboardSummaryResponse {
 	return containerDashboardSummaryResponse{
 		CollectedAt: result.CollectedAt,
@@ -215,7 +215,7 @@ func toContainerDashboardTopItems(items []containerDashboardTopItem) []container
 	return mapped
 }
 
-// toContainerDashboardAnomalies 将容器仪表盘的异常项转换为响应列表。
+// toContainerDashboardAnomalies 将容器仪表盘的异常项转换为响应列表，并映射状态、异常原因和资源信息。
 func toContainerDashboardAnomalies(items []containerDashboardAnomalyItem) []containerDashboardAnomalyItemResponse {
 	mapped := make([]containerDashboardAnomalyItemResponse, 0, len(items))
 	for _, item := range items {

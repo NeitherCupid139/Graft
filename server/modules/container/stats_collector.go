@@ -62,6 +62,7 @@ type containerDashboardSummaryPublished struct {
 	Data        containerDashboardSummaryResponse `json:"data"`
 }
 
+// newStatsCollector 创建并返回一个 statsCollector。
 // 如果 logger 为空，会使用无操作日志器。
 func newStatsCollector(
 	collect func(context.Context) ([]StatsSnapshot, error),

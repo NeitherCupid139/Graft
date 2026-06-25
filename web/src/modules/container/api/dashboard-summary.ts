@@ -101,16 +101,25 @@ function mapContainerDashboardItemBase(
   };
 }
 
+/**
+ * 读取对象中的可选字符串值。
+ *
+ * @param payload - 源对象
+ * @param key - 要读取的属性名
+ * @returns 属性值为非空白字符串时返回该字符串，否则返回 `null`
+ */
 function readOptionalString(payload: object, key: string) {
   const value = (payload as Record<string, unknown>)[key];
   return typeof value === 'string' && value.trim().length > 0 ? value : null;
 }
 
 /**
- * 提取汇总数据中最新的采集时间戳。
+ * 获取汇总数据中最新的采集时间戳。
+ *
+ * 优先使用汇总层级的 `collected_at`；若不存在，则从热点和异常条目的 `resource.collected_at` 中取最新值。
  *
  * @param payload - 容器仪表盘汇总接口返回值
- * @returns 最新的 `resource.collected_at` 时间戳；无可用时间戳时返回 `null`
+ * @returns 最新的采集时间戳；无可用时间戳时返回 `null`
  */
 function collectSummaryTimestamp(payload: ContainerDashboardSummaryResponse) {
   const summaryCollectedAt = readOptionalString(payload as object, 'collected_at');

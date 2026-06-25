@@ -128,13 +128,13 @@ function getDashboardSummaryCollectedAt(summary?: ContainerDashboardSummary | nu
 }
 
 /**
- * 判断候选快照是否比当前快照更新。
+ * 判断候选快照是否应覆盖当前快照。
  *
- * @param current - 当前快照
- * @param candidate - 待写入的候选值
- * @param source - 候选来源
- * @param readCollectedAt - 读取采集时间的函数
- * @returns `true` 表示候选值应覆盖当前快照
+ * @param current - 当前快照及其来源
+ * @param candidate - 待比较的候选快照
+ * @param source - 候选快照来源
+ * @param readCollectedAt - 读取快照采集时间的函数
+ * @returns `true` 表示候选快照应覆盖当前快照，`false` otherwise.
  */
 function isNewerSnapshot<TSnapshot>(
   current: SnapshotWithSource<TSnapshot> | null,
@@ -235,12 +235,12 @@ function isChangeStateFresh(change: ContainerStatsChangeState) {
 }
 
 /**
- * 判断候选统计快照是否比当前快照更新。
+ * 判断统计快照是否应覆盖当前记录。
  *
  * @param current - 当前已保存的统计快照
  * @param candidate - 待比较的统计资源
  * @param source - 候选快照来源
- * @returns `true` 如果候选快照应覆盖当前快照，`false` 其他情况
+ * @returns `true` 如果候选快照应覆盖当前快照，`false` 否则
  */
 function isNewerStatsSnapshot(
   current: ContainerStatsSnapshot | null,
@@ -256,12 +256,12 @@ function isNewerStatsSnapshot(
 }
 
 /**
- * 判断候选仪表盘汇总快照是否比当前快照更新。
+ * 判断候选仪表盘汇总快照是否应覆盖当前快照。
  *
  * @param current - 当前已保存的汇总快照
  * @param candidate - 待写入的汇总数据
  * @param source - 候选快照来源
- * @returns `true` 表示候选数据应覆盖当前快照
+ * @returns `true` 表示候选数据更新，`false`  otherwise.
  */
 function isNewerDashboardSummarySnapshot(
   current: ContainerDashboardSummarySnapshot | null,
@@ -368,7 +368,7 @@ function clearListMetadata(collectionKey?: string) {
 }
 
 /**
- * 确保容器统计订阅条目存在。
+ * 获取或创建容器的实时订阅条目。
  *
  * @param containerId - 容器标识
  * @returns 对应的订阅条目
@@ -407,7 +407,7 @@ function clearHighlightTimer(entry: ContainerStatsEntry) {
 }
 
 /**
- * 关闭单个容器统计订阅并重置其状态。
+ * 关闭单个容器的实时订阅并将其状态重置为空闲。
  */
 function closeSubscriptionEntry(entry: RealtimeSubscriptionEntry) {
   clearIdleTimer(entry);
@@ -427,9 +427,9 @@ function closeCollectionSubscriptionEntry(entry: RealtimeSubscriptionEntry) {
 }
 
 /**
- * 在共享订阅引用计数归零后按空闲宽限期释放该订阅。
+ * 在共享订阅的引用计数降为 0 后，按空闲宽限期延迟关闭该订阅。
  *
- * @param entry - 要释放的订阅条目
+ * @param entry - 要更新的共享订阅条目
  */
 function releaseSharedSubscription(entry: RealtimeSubscriptionEntry) {
   entry.refCount = Math.max(0, entry.refCount - 1);
@@ -447,10 +447,10 @@ function releaseSharedSubscription(entry: RealtimeSubscriptionEntry) {
 }
 
 /**
- * 为指定容器建立实时统计订阅。
+ * 建立指定容器的实时统计订阅连接。
  *
  * @param containerId - 容器 ID
- * @param entry - 该容器对应的订阅状态
+ * @param entry - 该容器的订阅状态记录
  */
 function connectSubscription(containerId: string, entry: RealtimeSubscriptionEntry) {
   if (entry.controller) {
@@ -486,7 +486,7 @@ function connectSubscription(containerId: string, entry: RealtimeSubscriptionEnt
 /**
  * 连接容器列表汇总的实时订阅。
  *
- * 当订阅控制器已存在时直接返回；否则打开共享的列表主题连接，并在收到列表项更新时同步应用到对应容器的实时统计。
+ * @param entry - 容器列表共享订阅条目
  */
 function connectCollectionSubscription(entry: RealtimeSubscriptionEntry) {
   if (entry.controller) {
@@ -512,9 +512,9 @@ function connectCollectionSubscription(entry: RealtimeSubscriptionEntry) {
 }
 
 /**
- * 连接容器仪表盘汇总的实时订阅。
+ * 连接容器仪表盘汇总的实时主题订阅。
  *
- * @param entry - 汇总主题对应的订阅状态
+ * @param entry - 仪表盘汇总共享订阅条目
  */
 function connectDashboardSummarySubscription(entry: RealtimeSubscriptionEntry) {
   if (entry.controller) {
@@ -542,11 +542,11 @@ function connectDashboardSummarySubscription(entry: RealtimeSubscriptionEntry) {
 }
 
 /**
- * 写入容器仪表盘汇总快照。
+ * 更新容器仪表盘汇总快照。
  *
  * @param summary - 仪表盘汇总数据
  * @param source - 快照来源
- * @returns 当前生效的汇总数据
+ * @returns 当前生效的仪表盘汇总；若输入未更新，则返回现有汇总
  */
 function upsertDashboardSummarySnapshot(summary: ContainerDashboardSummary, source: StatsSnapshotSource) {
   const current = state.dashboardSummary;
@@ -612,7 +612,9 @@ function attachLatestResource<TMetadata extends ContainerMetadataRecord | Contai
 }
 
 /**
- * 重置容器统计管理器的全部状态。
+ * 重置容器统计管理器的全部运行状态。
+ *
+ * 会关闭共享订阅和按容器订阅，清除统计高亮定时器，并清空仪表盘汇总、列表、详情和统计缓存。
  */
 export function resetContainerStatsManager() {
   closeCollectionSubscriptionEntry(state.dashboardSummarySubscription);
@@ -640,8 +642,8 @@ export function resetContainerStatsManager() {
 /**
  * 预置容器仪表盘汇总快照。
  *
- * @param summary - 容器仪表盘汇总
- * @param source - 快照来源，默认使用 HTTP seed
+ * @param summary - 要写入的容器仪表盘汇总
+ * @param source - 快照来源
  */
 export function seedContainerDashboardSummary(
   summary: ContainerDashboardSummary,
@@ -795,14 +797,15 @@ export function releaseContainerStatsSubscription(containerId: string) {
 /**
  * 释放容器汇总集合的实时订阅引用。
  *
- * 将共享列表主题的引用计数减一；当引用计数降为 0 时，立即关闭该订阅。
+ * @remarks
+ * 当引用计数降为 0 时，会在宽限期后关闭共享列表主题订阅。
  */
 export function releaseContainerSummaryCollectionSubscription() {
   releaseSharedSubscription(state.listTopicSubscription);
 }
 
 /**
- * 获取容器仪表盘汇总实时订阅。
+ * 获取容器仪表盘汇总的实时订阅。
  */
 export function acquireContainerDashboardSummarySubscription() {
   const entry = state.dashboardSummarySubscription;

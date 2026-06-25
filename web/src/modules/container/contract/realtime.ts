@@ -17,9 +17,9 @@ export function buildContainerStatsTopicName(containerId: string) {
 }
 
 /**
- * 获取容器仪表盘汇总实时主题名称。
+ * 获取容器仪表盘汇总的实时主题名称。
  *
- * @returns 容器仪表盘汇总的 canonical realtime 主题
+ * @returns 容器仪表盘汇总的 canonical realtime 主题字符串
  */
 export function getContainerDashboardSummaryTopicName() {
   return CONTAINER_REALTIME_TOPIC.DASHBOARD_SUMMARY;
