@@ -1819,6 +1819,9 @@ func (s *service) registerRealtimeTopics() error {
 	return s.topicIssuers.Register(containercontract.ContainerStatsTopicPrefix, s)
 }
 
+// IssueSubscription 为容器实时主题签发一次性订阅票据。
+//
+// 按主题类型分发到对应的容器列表、仪表盘汇总或单容器订阅路径，并在签发前完成最小权限与主题有效性校验。
 func (s *service) IssueSubscription(
 	ctx context.Context,
 	request realtime.SubscriptionRequest,
@@ -1897,7 +1900,13 @@ func (s *service) issueContainerDashboardSummaryRealtimeSubscription(
 	if err := s.authorizer.Authorize(ctx, request.RequestAuth, containercontract.ContainerViewPermission.String()); err != nil {
 		return realtime.SubscriptionResponse{}, realtime.ErrTopicForbidden
 	}
-	if _, err := s.DashboardSummary(ctx, dashboardSummaryQuery{}); err != nil {
+	if err := s.requireRuntimeAccess(ctx); err != nil {
+		if errors.Is(err, errRuntimeDisabled) {
+			return realtime.SubscriptionResponse{}, realtime.ErrTopicForbidden
+		}
+		return realtime.SubscriptionResponse{}, realtime.ErrTopicConflict
+	}
+	if _, err := s.runtimeForRequest(); err != nil {
 		if errors.Is(err, errRuntimeDisabled) {
 			return realtime.SubscriptionResponse{}, realtime.ErrTopicForbidden
 		}
