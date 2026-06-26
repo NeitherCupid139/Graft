@@ -1,0 +1,19 @@
+type: object
+required:
+  - collected_at
+  - overview
+  - hotspots
+  - anomalies
+properties:
+  collected_at:
+    type: string
+    format: date-time
+  overview:
+    $ref: ./container-dashboard-overview.yaml
+  hotspots:
+    $ref: ./container-dashboard-hotspots.yaml
+  anomalies:
+    type: array
+    maxItems: 5
+    items:
+      $ref: ./container-dashboard-anomaly-item.yaml

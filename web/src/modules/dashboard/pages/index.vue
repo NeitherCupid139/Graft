@@ -54,6 +54,12 @@
 
         <dashboard-quick-actions v-if="summary" :links="quickLinks" :config="quickActionConfig" />
 
+        <dashboard-container-resources
+          v-if="canViewContainerOverview"
+          :summary="containerDashboardSummary"
+          :loading="containerResourcesLoading"
+        />
+
         <dashboard-renderer
           :widgets="widgets"
           :refreshing-widget-id="refreshingWidgetId"
@@ -67,11 +73,21 @@
   </section>
 </template>
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onActivated, onDeactivated, onMounted, onUnmounted, ref } from 'vue';
 
 import { API_CODE } from '@/contracts/api/codes';
 import type { SupportedLocale } from '@/contracts/i18n/locales';
 import { currentLocale, t } from '@/locales';
+import { containerModuleFacades } from '@/modules/container';
+import type { ContainerDashboardSummary } from '@/modules/container/contract/dashboard-summary';
+import { CONTAINER_PERMISSION_CODE } from '@/modules/container/contract/permissions';
+import {
+  acquireContainerDashboardSummarySubscription,
+  clearContainerDashboardSummary,
+  releaseContainerDashboardSummarySubscription,
+  seedContainerDashboardSummary,
+  selectContainerDashboardSummaryView,
+} from '@/modules/container/shared/stats-manager';
 import { PageHeader } from '@/shared/components/page';
 import { formatLocaleDateTime, MEDIUM_DATE_TIME_WITH_SECONDS_FORMAT_OPTIONS } from '@/shared/observability';
 import { usePermissionStore } from '@/store/modules/permission';
@@ -80,6 +96,7 @@ import { createLogger } from '@/utils/logger';
 
 import { getDashboardSummary, getDashboardWidget } from '../api/dashboard';
 import { getDashboardSystemConfigs } from '../api/quick-actions-config';
+import DashboardContainerResources from '../components/DashboardContainerResources.vue';
 import DashboardQuickActions from '../components/DashboardQuickActions.vue';
 import DashboardRenderer from '../components/DashboardRenderer.vue';
 import {
@@ -103,6 +120,9 @@ const summary = ref<DashboardSummaryResponse | null>(null);
 const widgets = ref<DashboardWidget[]>([]);
 const lastUpdatedAt = ref('');
 const quickActionConfig = ref<DashboardQuickActionConfig>({ ...DEFAULT_DASHBOARD_QUICK_ACTION_CONFIG });
+const containerResourcesLoading = ref(false);
+const dashboardPageActive = ref(false);
+let dashboardContainerRealtimeSubscribed = false;
 const summarySkeletonRowCol = [
   { width: '52%', height: '14px' },
   { width: '36%', height: '28px' },
@@ -165,9 +185,29 @@ const lastUpdatedLabel = computed(() =>
 const quickLinks = computed(() =>
   buildDashboardQuickActionLinks(permissionStore.routers, currentLocale.value as SupportedLocale),
 );
+const canViewContainerOverview = computed(() => permissionStore.hasPermission(CONTAINER_PERMISSION_CODE.VIEW));
+const containerDashboardSummary = computed<ContainerDashboardSummary>(
+  () => selectContainerDashboardSummaryView() ?? emptyContainerDashboardSummary(),
+);
 
 onMounted(() => {
+  dashboardPageActive.value = true;
   void loadSummary();
+});
+
+onUnmounted(() => {
+  dashboardPageActive.value = false;
+  releaseDashboardContainerRealtimeSubscription();
+});
+
+onActivated(() => {
+  dashboardPageActive.value = true;
+  acquireDashboardContainerRealtimeSubscription();
+});
+
+onDeactivated(() => {
+  dashboardPageActive.value = false;
+  releaseDashboardContainerRealtimeSubscription();
 });
 
 async function loadSummary() {
@@ -175,7 +215,11 @@ async function loadSummary() {
   errorMessage.value = '';
 
   try {
-    const [response] = await Promise.all([getDashboardSummary(), loadQuickActionConfig()]);
+    const [response] = await Promise.all([
+      getDashboardSummary(),
+      loadQuickActionConfig(),
+      loadDashboardContainerResources(),
+    ]);
     summary.value = response;
     widgets.value = response.widgets;
     lastUpdatedAt.value = new Date().toISOString();
@@ -199,6 +243,69 @@ async function loadQuickActionConfig() {
     logger.error('dashboard quick-action config request failed', error);
     quickActionConfig.value = { ...DEFAULT_DASHBOARD_QUICK_ACTION_CONFIG };
   }
+}
+
+async function loadDashboardContainerResources() {
+  if (!canViewContainerOverview.value) {
+    releaseDashboardContainerRealtimeSubscription();
+    clearContainerDashboardSummary();
+    return;
+  }
+
+  containerResourcesLoading.value = true;
+  try {
+    const nextSummary = await containerModuleFacades.getContainerDashboardSummary();
+    seedContainerDashboardSummary(nextSummary);
+    acquireDashboardContainerRealtimeSubscription();
+  } catch (error) {
+    logger.warn('dashboard container resource seed request failed', error);
+    if (shouldResetContainerRealtimeState(error)) {
+      releaseDashboardContainerRealtimeSubscription();
+    }
+    clearContainerDashboardSummary();
+  } finally {
+    containerResourcesLoading.value = false;
+  }
+}
+
+function emptyContainerDashboardSummary(): ContainerDashboardSummary {
+  return {
+    overview: {
+      abnormalContainers: 0,
+      collectedAt: null,
+      cpuTotalPercent: 0,
+      memoryTotalLimitBytes: null,
+      memoryTotalPercent: null,
+      memoryTotalUsageBytes: null,
+      runningContainers: 0,
+    },
+    hotspots: {
+      cpu: [],
+      memory: [],
+    },
+    anomalies: [],
+  };
+}
+
+function acquireDashboardContainerRealtimeSubscription() {
+  if (
+    !dashboardPageActive.value ||
+    !canViewContainerOverview.value ||
+    dashboardContainerRealtimeSubscribed ||
+    !selectContainerDashboardSummaryView()
+  ) {
+    return;
+  }
+  dashboardContainerRealtimeSubscribed = true;
+  acquireContainerDashboardSummarySubscription();
+}
+
+function releaseDashboardContainerRealtimeSubscription() {
+  if (!dashboardContainerRealtimeSubscribed) {
+    return;
+  }
+  dashboardContainerRealtimeSubscribed = false;
+  releaseContainerDashboardSummarySubscription();
 }
 
 async function refreshWidget(widgetId: string) {
@@ -255,6 +362,19 @@ function requestErrorMessageKey(error: unknown) {
 
 function requestErrorCode(error: unknown) {
   return isApiRequestError(error) ? error.code : API_CODE.COMMON_INTERNAL_ERROR;
+}
+
+function shouldResetContainerRealtimeState(error: unknown) {
+  if (!isApiRequestError(error)) {
+    return false;
+  }
+
+  return (
+    error.status === 401 ||
+    error.status === 403 ||
+    error.code === API_CODE.AUTH_FORBIDDEN ||
+    error.code === API_CODE.AUTH_MISSING_PERMISSION
+  );
 }
 </script>
 <style lang="less" scoped>

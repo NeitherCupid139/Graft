@@ -152,12 +152,17 @@ type StatsCollectorRuntime interface {
 
 // StatsSnapshot is one collector-produced resource snapshot ready for publish.
 type StatsSnapshot struct {
-	ContainerID string
-	Name        string
-	ShortID     string
-	Runtime     string
-	Resource    ResourceSummary
-	CollectedAt time.Time
+	ContainerID  string
+	Name         string
+	ShortID      string
+	Image        string
+	Runtime      string
+	State        string
+	Status       string
+	Health       string
+	RestartCount *int
+	Resource     ResourceSummary
+	CollectedAt  time.Time
 }
 
 // Ref is a validated Docker-compatible container id or name.
@@ -186,6 +191,8 @@ type ListResult struct {
 	Offset  int
 	Summary ListSummary
 }
+
+type dashboardSummaryQuery struct{}
 
 // LogQuery describes bounded container log retrieval options.
 type LogQuery struct {
@@ -220,13 +227,16 @@ type ListSummary struct {
 	HealthUnavailable int
 }
 
-// ResourceSummary is nullable-by-field runtime stats metadata for list rows.
+// ResourceSummary is the container module's latest-known stats projection.
+// HTTP consumers receive it as a seed snapshot; canonical stats authority remains
+// the backend collector/cache/topic chain rather than page-local frontend state.
 type ResourceSummary struct {
 	Available                  bool
 	UnavailableReason          string
 	StatsAvailable             bool
 	StatsErrorKey              string
 	StatsErrorMessage          string
+	CollectedAt                string
 	CPUPercent                 *float64
 	OnlineCPUs                 *int64
 	SystemCPUUsage             *int64
