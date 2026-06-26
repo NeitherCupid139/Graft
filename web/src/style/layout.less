@@ -306,25 +306,35 @@
 
     &-logo-wrapper {
       align-items: center;
+      background: transparent;
+      border: 0;
+      color: var(--td-brand-color);
+      cursor: pointer;
       display: flex;
       justify-content: center;
+      margin: 0;
+      padding: var(--td-comp-paddingTB-s) var(--td-comp-paddingLR-s);
+      transition: color 0.2s ease, opacity 0.2s ease;
       width: 100%;
 
       &:hover {
-        cursor: pointer;
+        color: var(--td-brand-color-hover);
+        opacity: 0.92;
+      }
+
+      &:focus-visible {
+        outline: 2px solid var(--td-brand-color-focus);
+        outline-offset: 2px;
       }
     }
 
-    &-logo-t-logo {
-      height: var(--td-comp-size-s);
-      width: 100%;
-    }
+    &-logo {
+      color: inherit;
+      max-width: 100%;
 
-    &-logo-tdesign-logo {
-      color: var(--td-text-color-primary);
-      height: var(--td-comp-size-s);
-      margin-right: var(--td-comp-margin-xxxl);
-      width: 100%;
+      &--compact {
+        justify-content: center;
+      }
     }
 
     &-logo-normal {

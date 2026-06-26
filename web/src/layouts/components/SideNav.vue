@@ -11,13 +11,22 @@
       @expand="onExpanded"
     >
       <template #logo>
-        <span v-if="showLogo" :class="`${prefix}-side-nav-logo-wrapper`" @click="goHome">
-          <component :is="getLogo()" :class="logoCls" />
-        </span>
+        <button
+          v-if="showLogo"
+          type="button"
+          :class="`${prefix}-side-nav-logo-wrapper`"
+          :aria-label="t('layout.header.home')"
+          @click="goHome"
+        >
+          <graft-brand-logo :variant="collapsed ? 'mark' : 'wordmark'" :class="logoCls" />
+        </button>
       </template>
       <menu-content :nav-data="menu" />
       <template #operations>
-        <span :class="versionCls"> {{ !collapsed ? t('common.appName') : '' }} {{ appVersion }} </span>
+        <div :class="versionCls">
+          <span v-if="!collapsed" class="side-nav-meta__name">{{ t('common.appName') }}</span>
+          <span class="side-nav-meta__version">{{ t('layout.sideNav.version', { version: appVersion }) }}</span>
+        </div>
       </template>
     </t-menu>
     <div :class="`${prefix}-side-nav-placeholder${collapsed ? '-hidden' : ''}`"></div>
@@ -31,12 +40,11 @@ import type { MenuValue } from 'tdesign-vue-next';
 import type { PropType } from 'vue';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 
-import AssetLogoFull from '@/assets/assets-logo-full.svg?component';
-import AssetLogo from '@/assets/assets-t-logo.svg?component';
 import { prefix } from '@/config/global';
 import { useShellNavigation } from '@/layouts/useShellNavigation';
 import { t } from '@/locales';
 import { getActive } from '@/router';
+import GraftBrandLogo from '@/shared/components/GraftBrandLogo.vue';
 import { useSettingStore } from '@/store';
 import type { MenuRoute, ModeType } from '@/utils/types';
 
@@ -121,16 +129,18 @@ const sideNavCls = computed(() => {
 });
 const logoCls = computed(() => {
   return [
-    `${prefix}-side-nav-logo-${collapsed.value ? 't' : 'tdesign'}-logo`,
+    `${prefix}-side-nav-logo`,
     {
+      [`${prefix}-side-nav-logo--compact`]: collapsed.value,
       [`${prefix}-side-nav-dark`]: sideMode.value,
     },
   ];
 });
 const versionCls = computed(() => {
   return [
-    `version-container`,
+    'side-nav-meta',
     {
+      'side-nav-meta--compact': collapsed.value,
       [`${prefix}-side-nav-dark`]: sideMode.value,
     },
   ];
@@ -171,9 +181,37 @@ const goHome = () => {
   void shellNavigation.goHome();
 };
 
-const getLogo = () => {
-  if (collapsed.value) return AssetLogo;
-  return AssetLogoFull;
-};
 </script>
-<style lang="less" scoped></style>
+<style lang="less" scoped>
+.side-nav-meta {
+  align-items: flex-start;
+  color: var(--td-text-color-secondary);
+  display: flex;
+  flex-direction: column;
+  font: var(--td-font-body-small);
+  gap: var(--td-comp-margin-xxs);
+  line-height: 1.4;
+  padding: var(--td-comp-paddingTB-xs) 0;
+  width: 100%;
+
+  &--compact {
+    align-items: center;
+    text-align: center;
+  }
+
+  &__name {
+    color: var(--td-text-color-primary);
+    font: var(--td-font-body-medium);
+    opacity: 0.85;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    width: 100%;
+  }
+
+  &__version {
+    font-variant-numeric: tabular-nums;
+    opacity: 0.55;
+  }
+}
+</style>

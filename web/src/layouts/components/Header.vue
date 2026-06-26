@@ -2,9 +2,15 @@
   <div :class="layoutCls">
     <t-head-menu :class="menuCls" :theme="menuTheme" expand-type="popup" :value="active">
       <template #logo>
-        <span v-if="showLogo" class="header-logo-container" @click="goHome">
-          <logo-full class="t-logo" />
-        </span>
+        <button
+          v-if="showLogo"
+          type="button"
+          class="header-logo-container"
+          :aria-label="t('layout.header.home')"
+          @click="goHome"
+        >
+          <graft-brand-logo variant="wordmark" class="header-brand-logo" />
+        </button>
         <div v-else class="header-operate-left">
           <t-button theme="default" shape="square" variant="text" @click="changeCollapsed">
             <t-icon class="collapsed-icon" name="view-list" />
@@ -25,26 +31,8 @@
           <!-- 全局通知 -->
           <notice />
 
-          <div class="header-operation-item">
-            <t-tooltip placement="bottom" :content="t('layout.header.code')">
-              <t-button theme="default" shape="square" variant="text" @click="navToGitHub">
-                <t-icon name="logo-github" />
-              </t-button>
-            </t-tooltip>
-          </div>
-          <div class="header-operation-item">
-            <t-tooltip placement="bottom" :content="t('layout.header.apiDocs')">
-              <t-button theme="default" shape="square" variant="text" @click="navToDocs">
-                <t-icon name="book-open" />
-              </t-button>
-            </t-tooltip>
-          </div>
-          <div class="header-operation-item">
-            <t-tooltip placement="bottom" :content="t('layout.header.help')">
-              <t-button theme="default" shape="square" variant="text" @click="navToHelper">
-                <t-icon name="help-circle" />
-              </t-button>
-            </t-tooltip>
+          <div class="header-operation-item header-operation-item--group">
+            <shell-header-resource-actions />
           </div>
           <div class="header-operation-item">
             <language-switcher />
@@ -86,7 +74,6 @@ import type { PropType } from 'vue';
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 
-import LogoFull from '@/assets/assets-logo-full.svg?component';
 import { prefix } from '@/config/global';
 import { useShellNavigation } from '@/layouts/useShellNavigation';
 import { t } from '@/locales';
@@ -94,7 +81,9 @@ import { AUTH_ROUTE_PATH } from '@/modules/auth/contract/routes';
 import { useAuthSessionStore } from '@/modules/auth/store';
 import { USER_ROUTE_PATH } from '@/modules/user/contract/paths';
 import { getActive } from '@/router';
+import GraftBrandLogo from '@/shared/components/GraftBrandLogo.vue';
 import LanguageSwitcher from '@/shared/components/LanguageSwitcher.vue';
+import ShellHeaderResourceActions from '@/shared/components/ShellHeaderResourceActions.vue';
 import { useSettingStore } from '@/store';
 import type { MenuRoute, ModeType } from '@/utils/types';
 
@@ -179,17 +168,6 @@ const handleLogout = async () => {
   }
 };
 
-const navToGitHub = () => {
-  window.open('https://github.com/GeWuYou/Graft');
-};
-
-const navToDocs = () => {
-  window.open('/docs');
-};
-
-const navToHelper = () => {
-  window.open('https://tdesign.tencent.com/starter/docs/vue-next/get-started');
-};
 </script>
 <style lang="less" scoped>
 .@{starter-prefix}-header {
@@ -251,6 +229,11 @@ const navToHelper = () => {
 .header-operation-item {
   justify-content: center;
   width: var(--td-comp-size-m);
+
+  &--group {
+    gap: var(--graft-density-gap-4);
+    width: auto;
+  }
 }
 
 .header-operation-item :deep(.t-badge),
@@ -302,24 +285,31 @@ const navToHelper = () => {
 }
 
 .header-logo-container {
-  color: var(--td-text-color-primary);
-  display: flex;
-  height: 26px;
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--td-brand-color);
+  cursor: pointer;
+  display: inline-flex;
+  height: var(--td-comp-size-m);
   margin-left: var(--graft-density-gap-24);
-  width: 184px;
-
-  .t-logo {
-    height: 100%;
-    width: 100%;
-
-    &:hover {
-      cursor: pointer;
-    }
-  }
+  max-width: 11.5rem;
+  padding: 0;
+  transition: color 0.2s ease, opacity 0.2s ease;
 
   &:hover {
-    cursor: pointer;
+    color: var(--td-brand-color-hover);
+    opacity: 0.92;
   }
+
+  &:focus-visible {
+    outline: 2px solid var(--td-brand-color-focus);
+    outline-offset: 2px;
+  }
+}
+
+.header-brand-logo {
+  width: 100%;
 }
 
 .header-user-account {

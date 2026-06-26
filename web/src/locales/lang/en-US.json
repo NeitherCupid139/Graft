@@ -24,9 +24,10 @@
   },
   "layout": {
     "header": {
+      "home": "Go to home",
       "code": "Code Repository",
       "apiDocs": "API Docs",
-      "help": "Document",
+      "help": "Project Guide",
       "user": "Profile",
       "signOut": "Sign Out",
       "setting": "Setting"
@@ -37,6 +38,9 @@
       "setRead": "Set Read",
       "empty": "Empty",
       "viewAll": "View All"
+    },
+    "sideNav": {
+      "version": "Version {version}"
     },
     "tagTabs": {
       "closeOther": "Close Other",

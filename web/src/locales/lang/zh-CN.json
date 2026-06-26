@@ -24,9 +24,10 @@
   },
   "layout": {
     "header": {
+      "home": "返回首页",
       "code": "代码仓库",
       "apiDocs": "API 文档",
-      "help": "帮助文档",
+      "help": "项目说明",
       "user": "个人中心",
       "signOut": "退出登录",
       "setting": "系统设置"
@@ -40,6 +41,9 @@
     },
     "search": {
       "placeholder": "输入要搜索内容"
+    },
+    "sideNav": {
+      "version": "版本 {version}"
     },
     "routeLoading": "页面加载中",
     "tagTabs": {
